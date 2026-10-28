@@ -1023,7 +1023,7 @@ function computedSections(
       // AI-511: only the figure grading.ts graded is called graded, and its window is named.
       ...(computed.scores?.aspects.balanceSheet.signals?.some((s) => s.id === "fcfConversionBeforeSbc")
         ? [`The balance-sheet score grades "fcf conversion before sbc" from this section (${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}); ${currentCapital.basis === "annual"
-          ? 'on this basis the graded value is computed over the latest fiscal year, the year "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" reports.'
+          ? `on this basis the graded value is computed over that annual window; "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" covers the same window only when its fiscal year ends on ${currentCapital.asOf ?? "unknown end"}.`
           : '"FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" is the fiscal-year ratio, reported beside it and not graded.'}`]
         : []),
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,

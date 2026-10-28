@@ -1,7 +1,7 @@
 /** AI-509 (OD-4): a provider's "geographic" rows are company geography only when the issuer's own XBRL does not contradict them. */
 import { describe, expect, it } from "vitest";
 
-import { PROVIDER_GEOGRAPHY_REASONS, providerGeographyContradiction } from "@/edgar/segmentFacts";
+import { admittedGeography, PROVIDER_GEOGRAPHY_REASONS, providerGeographyContradiction } from "@/edgar/segmentFacts";
 import { runStageB } from "@/pipeline/compute";
 import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
 import { applySegmentShares } from "@/pipeline/stageC/passes";
@@ -65,6 +65,37 @@ describe("provider geography admission (AI-509)", () => {
     expect(providerGeographyContradiction(["US & Canada", "Rest of World"], [{ axis: GEOGRAPHY, rows: [{ label: "US & Canada" }, { label: "Rest Of World" }] }])).toBeNull();
     // ... and one name the issuer does not use withholds the set (NVDA shape; the member's local name is no help).
     expect(providerGeographyContradiction(["UNITED STATES", "Other Americas"], [{ axis: GEOGRAPHY, rows: [{ label: "United States", member: "country:US" }, { label: "Other", member: "x:OtherCountriesMember" }] }])).toBe("issuer-geography");
+  });
+
+  // Predicate cases of the round-4 review copy (AI-509 review minors). The keys are the names the stored provider answers held;
+  // the axes carry the issuer's labels and members.
+  it("matches stored provider names against the issuer's axes (AMZN, META and NVDA shapes)", () => {
+    const nvdaGeography = { axis: GEOGRAPHY, rows: [{ label: "United States" }, { label: "Taiwan" }, { label: "China (including Hong Kong)" }, { label: "Other" }] };
+    // amzn43: the member's local name matches where the label ("AWS") does not; "International Segment" matches the label.
+    expect(providerGeographyContradiction(["Amazon Web Services Segment", "International Segment", "North America Segment"],
+      [{ axis: BUSINESS, rows: [{ label: "North America" }, { label: "AWS", member: "amzn:AmazonWebServicesSegmentMember" }, { label: "International" }] }])).toBe("business-segments");
+    expect(providerGeographyContradiction(["Amazon Web Services Segment"], [{ axis: BUSINESS, rows: [{ label: "AWS" }] }])).toBeNull();   // control: the label alone does not match
+    expect(providerGeographyContradiction(["International Segment"], [{ axis: BUSINESS, rows: [{ label: "International" }] }])).toBe("business-segments");
+    // meta44: four keys, a business axis and a geography axis side by side; every key is an issuer geographic label.
+    expect(providerGeographyContradiction(["US & Canada", "Asia Pacific", "Europe", "Rest Of World"],
+      [{ axis: BUSINESS, rows: [{ label: "Family of Apps" }, { label: "Reality Labs" }] },
+        { axis: GEOGRAPHY, rows: [{ label: "US & Canada" }, { label: "Asia Pacific" }, { label: "Europe" }, { label: "Rest Of World" }] }])).toBeNull();
+    // nvda47: "TAIWAN, PROVINCE OF CHINA" is not the issuer's "Taiwan" (no gazetteer), and "Other Americas" is not its "Other".
+    expect(providerGeographyContradiction(["UNITED STATES", "TAIWAN, PROVINCE OF CHINA", "CHINA", "Other Americas"],
+      [{ axis: BUSINESS, rows: [{ label: "Compute & Networking" }, { label: "Graphics" }] }, nvdaGeography])).toBe("issuer-geography");
+    expect(providerGeographyContradiction(["UNITED STATES", "CHINA"], [nvdaGeography])).toBeNull();   // control: "China (including Hong Kong)" loses its trailing parenthetical
+    // nvda48: the "(FY2026)" trailing parenthetical is stripped, so only "Other Americas" contradicts.
+    expect(providerGeographyContradiction(["United States (FY2026)", "Taiwan (FY2026)", "China (FY2026)"], [nvdaGeography])).toBeNull();
+    expect(providerGeographyContradiction(["United States (FY2026)", "Taiwan (FY2026)", "China (FY2026)", "Other Americas (FY2026)"], [nvdaGeography])).toBe("issuer-geography");
+    // nvda49: a single "United States" key is the issuer's own label.
+    expect(providerGeographyContradiction(["United States"], [nvdaGeography])).toBeNull();
+  });
+
+  it("returns SEC-parsed rows unchanged even where an axis contradicts them (D-80; AI-509 point 4)", () => {
+    const bundle = withGeography({ "Other Americas": 1e9 }, [axis(GEOGRAPHY, [["United States", "country:US"]])]);
+    const parsed = { ok: true as const, value: { ...(bundle.segmentation.geographic as { ok: true; value: object }).value, source: "edgar" as const } };
+    expect(providerGeographyContradiction(["Other Americas"], [{ axis: GEOGRAPHY, rows: [{ label: "United States" }] }])).toBe("issuer-geography");   // the same keys are withheld as FMP's
+    expect(admittedGeography(parsed as never, bundle.edgar!.quarterlySegments)).toBe(parsed);
   });
 
   it("keeps provider geography that repeats the issuer's own geographic labels, under the caveat (OD-4 point 2; control)", () => {

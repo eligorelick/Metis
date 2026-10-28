@@ -50,7 +50,7 @@ describe("graded FCF conversion (AI-511)", () => {
     const current = computed.capital.current!;
     expect(current.basis).toBe("annual");
     expect(assembleContextPayload(annual, computed, EMPTY_VALIDATION).computed.find((s) => s.title === "Current capital (computed)")!.notes
-      .some((n) => n === `The balance-sheet score grades "fcf conversion before sbc" from this section (annual: ${current.periodStart} to ${current.asOf}); on this basis the graded value is computed over the latest fiscal year, the year "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" reports.`)).toBe(true);
+      .some((n) => n === `The balance-sheet score grades "fcf conversion before sbc" from this section (annual: ${current.periodStart} to ${current.asOf}); on this basis the graded value is computed over that annual window; "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" covers the same window only when its fiscal year ends on ${current.asOf}.`)).toBe(true);
     const bank = completeCurrencyBundle({ bank: true });
     expect(JSON.stringify(assembleContextPayload(bank, runStageB(bank), EMPTY_VALIDATION).computed)).not.toContain("The balance-sheet score grades");
   });

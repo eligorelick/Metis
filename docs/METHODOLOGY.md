@@ -813,13 +813,13 @@ after-SBC ratio against it would charge the same expense twice, because SBC as a
 percentage of free cash flow is already one of the five scored metrics. The
 aspect note states the definition. The graded value is the current-capital
 ratio: the trailing twelve months when complete, current, currency-compatible
-quarterly windows exist, else the latest fiscal year (D-60). The capital
+quarterly windows exist, else the annual window (D-60). The capital
 section's fiscal-year row is labelled "latest fiscal year". On the trailing-
 twelve-month basis it is not the graded value and is not called graded; on the
-annual basis the graded value is computed over the latest fiscal year, and the
-current-capital section says so rather than calling that row not graded. The
-current-capital section names the window that was graded (audit 2026-10-27
-AI-511, D-next). Price to free cash flow uses the **before**
+annual basis the current-capital section names the graded annual window and
+says the fiscal-year row covers the same window only when its fiscal year ends
+on that window's end date, rather than calling that row not graded (audit
+2026-10-27 AI-511, D-next). Price to free cash flow uses the **before**
 figure — the same basis as the own-history distribution it is ranked in — and is
 labelled "P/FCF (before SBC)" wherever it renders, with the basis string saying
 that the capital block's house-default figure is a different number.
@@ -3314,9 +3314,12 @@ cell blank.
 same run does not contradict them. They are withheld when a key names one of the
 issuer's reportable business segments (segment revenue is not entity-wide
 geographic revenue, ASC 280-10-55-21). They are also withheld when the issuer
-tags its own geographic revenue and a provider region name is not one of the
-issuer's geographic labels; the quarterly segment section then carries the
-issuer's geography under its own labels. Otherwise they are shown as FMP's
+tags its own geographic revenue (at least one row on its geographic axis; an
+axis with no rows is no evidence) and a provider region name is not one of the
+issuer's geographic labels (a single such name withholds the whole set); the
+quarterly segment section then carries the issuer's geography under its own
+labels. The withholding applies in the AI context, to the segment-share basis
+(`applySegmentShares`) and to the data-only report alike. Otherwise they are shown as FMP's
 normalised names, not checked against the filing, and the section is titled
 "keys as each source names them", not "as-reported". The reason is a data gap in
 the report (`validation.providerGeography`). SEC-parsed geography (D-80) is
