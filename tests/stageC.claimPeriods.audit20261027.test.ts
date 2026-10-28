@@ -524,3 +524,37 @@ describe("AI-402 fix round 2: a bare spelled fiscal base keeps its fiscal marker
     for (const base of ["FY2026", "FY 2026", "FY2025", "Q2 FY2025"]) expect((await cite([NV_YOY], NV_YOY.id, `${lead}${base}.`)).entry.validationStatus, base).toBe("unchecked");
   });
 });
+
+// AI-404: the sentence of fixtures/edgar/nvda-current-reports/q2fy27-ex99-2.txt starting "Inventory was $31.6 billion".
+const COMMENTARY: TextExcerpt = { source: "edgar:8-K EX-99.2", asOf: "2026-08-26",
+  title: "8-K EX-99.2 — CFO commentary, Q2 FY2027, quarter ended 2026-07-26 (8-K; filed 2026-08-26)",
+  text: "Inventory was $31.6 billion, up from $25.8 billion sequentially, as we prepare for the introduction of Vera Rubin in the third quarter.",
+  truncated: false, originalChars: 134 };
+const TWO: TextExcerpt = { source: "edgar:10-Q item2", asOf: "2026-06-30", title: "Quarterly review",
+  text: "Operating margin was 31% in 2026; gross margin was 43% in 2025.", truncated: false, originalChars: 62 };
+
+describe("AI-404 periods named outside the figure's clause", () => {
+  it.each([
+    [FY_REV, "For the quarter ended 2026-07-26, Data Center demand stayed strong; revenue was USD 215.94 billion."],
+    [Q1_REV, "NVIDIA's quarter ended 2026-07-26 set a record. Revenue was USD 81.62 billion."],
+  ])("AI-404: a one-figure claim's period in another clause or sentence is checked (record path, %#)", async (record, text) => {
+    expect((await cite([Q_REV, Q1_REV, FY_REV], record.id, text)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("AI-404: a one-figure claim's period in another clause is checked (excerpt path)", async () => {
+    expect((await citeExcerpt(COMMENTARY, "In Q1 FY2027 NVIDIA kept building supply; inventory was USD 31.6 billion.")).entry.validationStatus).toBe("unchecked");
+    expect((await citeExcerpt(COMMENTARY, "Inventory for Q2 FY2027 was USD 31.6 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(COMMENTARY, "Inventory for Q1 FY2027 was USD 31.6 billion.")).entry.validationStatus).not.toBe("validated");
+  });
+  it("AI-404 control: the record's own period named in another clause validates", async () => {
+    expect((await cite([Q_REV], Q_REV.id, "Revenue was USD 96.22 billion; that was NVIDIA's quarter ended 2026-07-26.")).entry.validationStatus).toBe("validated");
+  });
+  it("AI-404 control: a wrong period in the figure's own clause stays unverified", async () => {
+    expect((await cite([Q_REV, Q1_REV], Q_REV.id, "Data Center demand stayed strong; revenue for the quarter ended 2026-04-26 was USD 96.22 billion.")).entry)
+      .toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("AI-404: a claim with several figures still reads each clause", async () => {
+    const { entry } = await citeExcerpt(TWO, "Operating margin was 31% in 2026; gross margin was 43% in 2025.");
+    expect(entry.validationStatus).toBe("validated");
+    expect(entry.sourceSpans).toHaveLength(2);
+  });
+});

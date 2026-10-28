@@ -231,6 +231,37 @@ export function windowsNamed(text: string): string[] {
   return periodLabels(text, { loose: true }).filter((period) => period.kind === "window").map((period) => period.key);
 }
 const HARD_BOUNDARY = /;|\n|•|[.!?](?=\s+[A-Z“"(])/g;
+/**
+ * AI-404: the periods and comparison bases `span` of `text` states for `quantity`.
+ * Every quantity inside the span is blanked first (a figure's digits are never a
+ * year); the comparison cue is looked for in the unblanked text, because the
+ * amounts between a bare "from" and its period are part of the cue grammar.
+ * AI-402: a period that follows a comparison cue is the comparison's base, unless
+ * this figure sits between the cue and it (then it is the figure's own period).
+ * Offsets in the result are relative to `span.start`.
+ */
+function framePeriods(text: string, span: { start: number; end: number }, quantity: Quantity, all: readonly Quantity[], loose: boolean,
+  yearEnd = false): { periods: PeriodReference[]; bases: PeriodReference[] } {
+  const ownText = text.slice(span.start, span.end);
+  let blanked = ownText;
+  for (const other of all) {
+    if (other.start >= span.start && other.end <= span.end) {
+      blanked = blanked.slice(0, other.start - span.start) + " ".repeat(other.end - other.start) + blanked.slice(other.end - span.start);
+    }
+  }
+  const stated = periodLabels(blanked, { loose, yearEnd });
+  const isBase = (period: PeriodReference): boolean => {
+    if (period.kind === "window") return false;
+    const cue = comparisonCueEnd(ownText, period.start);
+    return cue !== null && !(cue <= quantity.start - span.start && quantity.end - span.start <= period.start);
+  };
+  return { periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase) };
+}
+/** AI-404 / C-3: a claim that states one figure is read for its periods and bases as a whole; several figures keep per-clause reading. */
+function claimContext(text: string, quantity: Quantity, all: Quantity[]): Context {
+  const own = context(text, quantity, all);
+  return all.length === 1 ? { ...own, ...framePeriods(text, { start: 0, end: text.length }, quantity, all, true) } : own;
+}
 function context(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
   let start = 0;
   let end = text.length;
@@ -259,14 +290,8 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
-  // AI-402: a period that follows a comparison cue is the comparison's base, unless this figure sits between the cue and it (then it is the figure's own period).
-  const stated = periodLabels(ownText, { loose: !source, yearEnd: source });
-  const isBase = (period: PeriodReference): boolean => {
-    if (period.kind === "window") return false;
-    const cue = comparisonCueEnd(ownText, period.start);
-    return cue !== null && !(cue <= quantity.start - start && quantity.end - start <= period.start);
-  };
-  return { start, end, text: ownText, label, periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase),
+  const { periods, bases } = framePeriods(text, { start, end }, quantity, all, !source, source);
+  return { start, end, text: ownText, label, periods, bases,
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -774,7 +799,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const quantity = stated[0];
     const typedText = typedClaimContext(claim.text, record);
     if (typedText === null) return support("unchecked", "text-context-mismatch", "prose vote formula does not establish the cited numerator and denominator");
-    const own = context(typedText, quantity, stated);
+    const own = claimContext(typedText, quantity, stated);
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
@@ -842,7 +867,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const measuredAgainst = own.bases.length > 0 ? comparisonBase(record) : null;
     // A base spelled with "fiscal" ("fiscal 2025", "the second quarter of fiscal 2025") keeps that word: it is not read as a calendar year.
     const baseText = (base: PeriodReference): string =>
-      /\bfiscal(?:\s+year)?\s+$/i.test(own.text.slice(Math.max(0, base.start - 20), base.start)) ? `fiscal ${base.raw}` : base.raw;
+      /\bfiscal(?:\s+year)?\s+$/i.test(typedText.slice(Math.max(0, base.start - 20), base.start)) ? `fiscal ${base.raw}` : base.raw;
     if (own.bases.length > 0 && (measuredAgainst === null || !own.bases.every((base) => baseAgrees(baseText(base), measuredAgainst) === true))) {
       return support("unchecked", "period-mismatch", "the cited numeric record does not establish the comparison base the prose names");
     }
@@ -884,7 +909,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     (claim.label === "JUDGMENT" || excerpt.asOf === claim.asOf));
   const spans: ClaimSourceSpan[] = [];
   for (const quantity of stated) {
-    const own = context(claim.text, quantity, stated);
+    const own = claimContext(claim.text, quantity, stated);
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }

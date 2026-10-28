@@ -2705,6 +2705,9 @@ periods are not read), and a base that does not match leave the claim
 unverified, never validated. Guidance,
 target, estimate, outlook, forecast and consensus phrases are not comparison
 bases and keep the claim's own period.
+A claim that states one figure is read for its periods as a whole, whichever
+clause or sentence names them; a claim with several figures is read clause by
+clause.
 The period-word check compares years only; it does not adjudicate fiscal
 quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
