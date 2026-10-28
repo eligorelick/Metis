@@ -105,4 +105,33 @@ describe("a (latest) computed row carries the fiscal label of its year (residual
       expect(entry.reason, text).toBe("period-word-mismatch");   // the period check names the mismatch, not only a missing validation
     }
   });
+  // B3 final review: the provider's or keyless builder's fiscalYear can be wrong (decisions spec 4.6: FCX's keyless 2024-12-31 row carried "2023"),
+  // so a label is attached to a computed record only when plausible for the row's period end: the end's own calendar year, or the year before
+  // when the end falls in January to March (52/53-week and March year ends).
+  it.each([
+    ["2026", "2026-01-25", true],    // NVDA
+    ["2025", "2026-01-31", true],    // a retailer
+    ["2025", "2025-12-31", true],    // AMZN
+    ["2026", "2026-09-03", true],    // MU
+    ["2025", "2026-03-31", true],    // a March year end
+    ["2023", "2024-12-31", false],   // the FCX case
+    ["2027", "2025-12-31", false],
+    ["2024", "2025-06-30", false],
+  ] as const)("fiscal year %s on the period ending %s is labelled: %s", (fiscalYear, end, labelled) => {
+    const b = completeCurrencyBundle({});
+    for (const f of [b.statements.incomeAnnual, b.statements.balanceAnnual, b.statements.cashflowAnnual]) {
+      const rows = (f as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+      rows.splice(1);   // one year only, so no other row shares the end date
+      const row = rows[0]!;
+      row.date = end;
+      if (f === b.statements.incomeAnnual) row.fiscalYear = fiscalYear;
+    }
+    const roic = rec(build(b), "computed.returns.roic-latest");
+    expect(roic, "the record exists either way").toBeDefined();
+    if (labelled) expect(roic).toMatchObject({ period: end, fiscalPeriod: `FY${fiscalYear}` });
+    else {
+      expect(roic!.fiscalPeriod).toBeUndefined();
+      expect(roic!.period).toBeNull();   // no label, no period: exactly the record when no label exists
+    }
+  });
 });

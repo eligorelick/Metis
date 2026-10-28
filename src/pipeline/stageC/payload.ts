@@ -1446,14 +1446,25 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
   return null;
 }
 
-/** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end; the provably latest row per period (normalizeQuarterRows, D-13). */
+/**
+ * Whether an "FY<year>" label can belong to an annual period ending on `day`: the end's own calendar year, or the year before when the
+ * end falls in January to March (52/53-week and March year ends). The label field is the provider's or keyless builder's, and can be wrong
+ * (decisions spec 4.6: FCX's keyless 2024-12-31 row carried "2023").
+ */
+function plausibleFiscalLabel(label: string, day: string): boolean {
+  const year = Number(label.slice(2));
+  const endYear = Number(day.slice(0, 4));
+  return year === endYear || (year === endYear - 1 && Number(day.slice(5, 7)) <= 3);
+}
+
+/** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end, kept only where plausible for that end; the provably latest row per period (normalizeQuarterRows, D-13). */
 function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
   // Reads incomeAnnual unfiltered where Stage B uses rowsInModelCurrency: a foreign-currency row sharing an end date can make this group differ from Stage B's; the lookup then fails closed (a tie drops the label) or is harmless (the date is never one Stage B states).
   const labels = new Map<string, string>();
   for (const row of normalizeQuarterRows(rowsOf(bundle.statements.incomeAnnual)).rows) {
     const day = isoDay(row.date);
     const label = issuerFiscalLabel(row);
-    if (day !== null && label !== null && /^FY\d{4}$/.test(label)) labels.set(day, label);
+    if (day !== null && label !== null && /^FY\d{4}$/.test(label) && isIsoDate(day) && plausibleFiscalLabel(label, day)) labels.set(day, label);
   }
   return labels;
 }
