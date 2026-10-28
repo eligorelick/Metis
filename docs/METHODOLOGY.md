@@ -4112,7 +4112,7 @@ pretax income less the aggregate, with a disclosure that no interest element is
 filed and that an interest line outside the aggregate would leave the figure
 understating EBIT by that interest. The nesting is read from the period: when the
 filer tags the period's interest as `InterestExpenseNonoperating` in any
-filing (Eli Lilly re-filed FY2022 and FY2023 that way in its FY2024 10-K), the
+filing (Eli Lilly re-filed FY2022 and FY2023 that way in its FY2024 10-K; the tag is accepted from any filing for the period, not only a later one), the
 interest is not added back, whichever interest element serves the row (audit
 2026-10-27 FIN-508). A period with neither the interest nor the
 aggregate is withheld, with the missing operand and the missing aggregate named

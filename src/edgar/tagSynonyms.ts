@@ -221,7 +221,7 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
   partLabel: "interest expense",
   discloseRefiled:
     "interest expense is not added back: the filer also tags this period's interest as " +
-    `${INTEREST_INSIDE_NONOPERATING_TAG} (in a later filing), the us-gaap component of the NonoperatingIncomeExpense ` +
+    `${INTEREST_INSIDE_NONOPERATING_TAG} in another filing, the us-gaap component of the NonoperatingIncomeExpense ` +
     "aggregate subtracted here, so pretax income less that aggregate already excludes it; where the aggregate leaves " +
     "its interest out, the figure understates EBIT by that interest",
 } as const;
