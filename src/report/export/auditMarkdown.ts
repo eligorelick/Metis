@@ -13,6 +13,7 @@
 import { formatExecutionMetadata } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
@@ -458,7 +459,7 @@ function renderOwnHistory(report: Report): string {
 
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
-  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  report = withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)));
   indexVerificationMarks(report);
   const m = report.meta;
   const blocks = [

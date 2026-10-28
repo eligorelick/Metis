@@ -2782,6 +2782,43 @@ its value reads "Cited; contradicted by its source" (it was cited, never
 statuses, and its evidence-class table gives the coverage counts with
 grade-strip reasoning included.
 
+**Stored payload-record corrections (D-next).** A report saved before report
+spec 1.45.0 is displayed, on the page, in the Markdown, print and audit exports
+and in the history view, through `withLegacyPayloadRecordSafety`
+(`src/report/legacyPayloadRecordSafety.ts`). The stored report, its bytes and
+its recorded counts are unchanged (D-67); a report at or after 1.45.0 is passed
+through as the identical object. The view makes six display-time corrections and
+every note it adds is a fixed string. (1) A peer market cap whose symbol has a
+different exchange suffix from the subject's is shown without a currency and
+without the check mark: reports before this spec gave it the subject's currency
+(D-57), and a peer's currency is established only by that peer's own data; a
+same-market peer cap is left as stored. (2) The insider "total purchases" and
+"total sales" figures are shown as transaction counts, unverified: they counted
+open-market transactions, not shares, over one calendar quarter at the fetch
+date. (3) The capex/D&A average labelled "5y average" is shown as "average of
+up to 5 fiscal years (the number averaged was not recorded)". (4) In a data-only
+report's macro rows, the generator's own sentences "Displayed in USD per therm."
+(APU000072610) and "Displayed in USD (FRED serves billions; …)" (PCE, PCEND,
+PCEDG) read "per kilowatt-hour" and "at a seasonally adjusted annual rate"; the
+model's own relevance text is never edited. (5) The provider's annual
+"geographic" rows (not SEC-parsed rows) are kept as served but shown unverified
+with no share, and the reason, when the report's own XBRL segment tables
+contradict them: the rows name the issuer's reportable business segments, or the
+issuer tags its own geographic revenue and a provider region name is not one of
+its labels (the stored-report form of OD-4). (6) A data-only "FCF conversion
+(FCF before SBC / net income — the graded ratio)" row reads without "the graded
+ratio": the row is a fiscal-year series, and the graded figure is the
+balance-sheet driver row. A log entry for a corrected figure moves from
+validated to unchecked (and verified to unverified) with the note "(display
+correction, D-next)", and the displayed coverage counts exclude the corrected
+entries: the stored-report rule above, applied to these entries. One
+"presentation.payloadRecords" missing-data entry discloses the correction. The
+stored report and its recorded counts are unchanged. Known limitation: in a
+report whose 8-K event excerpts were selected before `section-evidence-5/event`,
+a kept amount may belong to a person the cut excerpt did not name (audit
+2026-10-27 AI-101). The stored report does not keep the excerpt, so this cannot
+be found or corrected at display; such figures are shown as stored.
+
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
