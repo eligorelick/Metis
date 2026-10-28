@@ -656,7 +656,7 @@ export interface QuantityDirection {
  * $X" is (AI-401). The "to", "at" and "of" inside a phrase ("close to", "at
  * least", "in excess of") would otherwise read as breakers.
  */
-const HEDGE_WORDS = /(?<![A-Za-z])(?:about|around|approximately|approx\.?|roughly|nearly|almost|some|close\s+to|more\s+than|less\s+than|fewer\s+than|at\s+least|at\s+most|just\s+over|just\s+under|in\s+excess\s+of)(?![A-Za-z])/gi;
+export const HEDGE_WORDS = /(?<![A-Za-z])(?:about|around|approximately|approx\.?|roughly|nearly|almost|some|close\s+to|more\s+than|less\s+than|fewer\s+than|at\s+least|at\s+most|just\s+over|just\s+under|in\s+excess\s+of)(?![A-Za-z])/gi;
 
 /** A noun that names a move ("an increase of $X"); its "of" is the size of the move, not a breaker. */
 const CHANGE_NOUNS = new Set(["increase", "increases", "decrease", "decreases", "decline", "declines",

@@ -1,7 +1,7 @@
 /** Conservative numeric support for prose. A citation alone never proves a fact. */
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
-import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
+import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE_WORDS, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
 import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 
@@ -42,15 +42,20 @@ const WINDOW_LABEL = /\b\d{1,2}M(?=\s+(?:ending|ended)\b)/g;
  */
 const DURATION_MONTHS = /(?<![\d.,])\d+(?:[.,]\d+)*\s+months?\b/gi;
 /**
- * AI-409: a comparator directly before the figure makes it a bound, not a point. "no more than" and
- * "not to exceed" are tested before "more than" and "exceed", which they contain. The text before the
- * figure is cut to a short tail first, so the trailing whitespace test stays linear.
+ * AI-409: a comparator directly before the figure makes it a bound, not a point. One hedge from the
+ * consistency reader's HEDGE_WORDS may sit between the comparator and the figure ("at least about").
+ * The negations come first, because "no less than" would otherwise read as the upper "less than" and
+ * "no more than" as the lower "more than". The text before the figure is cut to a fixed tail, so the
+ * trailing whitespace tests stay linear.
  */
-const UPPER_BOUND = /(?<![A-Za-z])(?:(?:less|fewer)\s+than|no\s+more\s+than|under|below|up\s+to|at\s+most|a\s+maximum\s+of|not\s+to\s+exceed)\s*$/i;
-const LOWER_BOUND = /(?<![A-Za-z])(?:more\s+than|over|above|at\s+least|in\s+excess\s+of|exceed(?:s|ed|ing)?|a\s+minimum\s+of)\s*$/i;
+const BOUND_TAIL_CHARS = 48;
+const boundEnd = (comparators: string) => new RegExp(String.raw`(?<![A-Za-z])(?:${comparators})(?![A-Za-z])(?:\s+(?:${HEDGE_WORDS.source}))?\s*$`, "i");
+const LOWER_NEGATED = boundEnd(String.raw`(?:not|no)\s+(?:less|fewer)\s+than`);
+const UPPER_BOUND = boundEnd(String.raw`(?:less|fewer)\s+than|(?:no|not)\s+more\s+than|under|below|up\s+to|at\s+most|a\s+maximum\s+of|not\s+to\s+exceed|[≤<]`);
+const LOWER_BOUND = boundEnd(String.raw`more\s+than|greater\s+than|over|above|at\s+least|in\s+excess\s+of|exceed(?:s|ed|ing)?|a\s+minimum\s+of|[≥>]`);
 function boundBefore(text: string, start: number): "upper" | "lower" | null {
-  const tail = text.slice(Math.max(0, start - 24), start);
-  return UPPER_BOUND.test(tail) ? "upper" : LOWER_BOUND.test(tail) ? "lower" : null;
+  const tail = text.slice(Math.max(0, start - BOUND_TAIL_CHARS), start);
+  return LOWER_NEGATED.test(tail) ? "lower" : UPPER_BOUND.test(tail) ? "upper" : LOWER_BOUND.test(tail) ? "lower" : null;
 }
 /** D-66: "was negative USD 23.2 billion" states the sign in a word. */
 const SIGN_WORD = /\b(?:negative|minus)\s+$/i;

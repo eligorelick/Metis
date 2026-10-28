@@ -72,3 +72,56 @@ describe("AI-409 a source bound is not the exact figure", () => {
     else expect(status).not.toBe("validated");
   });
 });
+
+// Fix round 1 (review of AI-409): hedges, symbols, "greater than" and negations.
+describe("AI-409 round 1 spellings", () => {
+  it.each([
+    ["at least about $5 billion", "lower"],
+    ["at least approximately $5 billion", "lower"],
+    ["more than about $5 billion", "lower"],
+    ["less than roughly $5 billion", "upper"],
+    ["no more than around $5 billion", "upper"],
+    ["≥ $5 billion", "lower"],
+    ["> $5 billion", "lower"],
+    [">$5 billion", "lower"],
+    ["greater than $5 billion", "lower"],
+    ["≤ $5 billion", "upper"],
+    ["< $5 billion", "upper"],
+    ["not more than $5 billion", "upper"],
+    ["no more than $5 billion", "upper"],
+    ["not less than 5%", "lower"],
+    ["no less than $5 billion", "lower"],
+    ["no fewer than 5 million users", "lower"],
+    // Controls that read the same as before.
+    ["more than $5 billion", "lower"],
+    ["less than $5 billion", "upper"],
+    ["about $5 billion", null],
+    ["about 5 billion", null],
+  ])("reads the bound of %s", (text, bound) => {
+    expect(readProseQuantities(text)[0].bound).toBe(bound);
+  });
+  it("keeps the bound the same figure value", () => {
+    expect(readProseQuantities("≥ $5 billion")[0].value).toBe(5e9);
+  });
+  const SPELLINGS = ["at least about", "at least approximately", "more than about", "≥", ">", "greater than", "≤", "<",
+    "not more than", "no less than", "not less than", "no fewer than"];
+  it.each(SPELLINGS)("an exact claim is not validated against a source stating the bound spelled: %s", (spelling) => {
+    expect(onExcerpt("Revenue was $5 billion.", `Revenue was ${spelling} $5 billion.`, "x:synthetic", "2026-07-26").status).not.toBe("validated");
+  });
+  it.each(["at least about", "≥", "greater than", "not more than", "no less than"])(
+    "control: the same-spelling bound validates against its source: %s", (spelling) => {
+      const text = `Revenue was ${spelling} $5 billion.`;
+      expect(onExcerpt(text, text, "x:synthetic", "2026-07-26").status).toBe("validated");
+    });
+  it("control: exact against exact validates", () => {
+    expect(onExcerpt("Revenue was $5 billion.", "Revenue was $5 billion.", "x:synthetic", "2026-07-26").status).toBe("validated");
+  });
+  it("strict and non-strict symbols of one direction are the same bound (documented)", () => {
+    expect(onExcerpt("Revenue was > $5 billion.", "Revenue was ≥ $5 billion.", "x:synthetic", "2026-07-26").status).toBe("validated");
+  });
+  it("reads a long padded tail in under 250 ms", () => {
+    const t0 = performance.now();
+    readProseQuantities(`at least ${" ".repeat(50_000)}$5 billion ${"x ".repeat(5_000)} more than ${" ".repeat(50_000)}about${" ".repeat(50_000)}$6`);
+    expect(performance.now() - t0).toBeLessThan(250);
+  });
+});
