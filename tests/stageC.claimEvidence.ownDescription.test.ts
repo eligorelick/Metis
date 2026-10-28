@@ -144,13 +144,23 @@ describe("AI-305 fix round 1: no ambiguity resolution in prose", () => {
     const TABLE_TITLE = "10-Q (reporting period ended 2026-07-26)";
     const unchecked = (claim: string, text: string, title = TABLE_TITLE) => expect(onExcerpt(claim, text, title).status).toBe("unchecked");
     it.each([
-      ["Product: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Product: Revenue $ 41,100 $ 30,000 Services: Revenue $ 5,000 $ 4,000 Other matters follow."],
-      ["Data Center: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Data Center: Revenue $ 41,100 $ 30,000 Gaming: Revenue $ 4,300 $ 3,000 Other matters follow."],
+      ["Product: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Product: Revenue $ 41,100 $ 30,000 Services revenue 5,600 5,000 Total revenue $ 46,700 $ 35,000 Other matters follow."],
+      ["Data Center: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Total revenue $ 46,700 $ 35,000 Data Center: Revenue $ 41,100 $ 30,000 Other matters follow."],
       ["a prose total beside a table cell", "Total revenue was $46.7 billion. Jul 26, 2026 Jul 27, 2025 (In millions) Data Center: Revenue $ 41,100 $ 30,000 Other matters follow."],
     ])("%s", (_name, text) => {
       unchecked("Revenue as of 2026-07-26 was USD 41.1 billion.", text);
       unchecked("Revenue as of 2026-07-26 was USD 5.0 billion.", text);
       unchecked("Revenue as of 2026-07-26 was USD 46.7 billion.", text);
+    });
+    it("fix round 3 (N5): a 'respectively' list is a base ambiguity the own description cannot resolve", () => {
+      const text = "Data center revenue and total revenue were $5.0 billion and $9.0 billion, respectively. Data Center: revenue was $5.0 billion.";
+      expect(onExcerpt("Revenue was USD 5.0 billion.", text, Q2).status).not.toBe("validated");
+      expect(onExcerpt("Revenue was USD 9.0 billion.", text, Q2).status).not.toBe("contradicted");
+    });
+    it("fix round 3 (N5b): each claim keeps its base result beside a respectively list", () => {
+      const text = "Revenue was $5.0 billion. Data center and gaming revenue were $5.0 billion and $3.0 billion, respectively.";
+      expect(onExcerpt("Revenue was USD 5.0 billion.", text, Q2).status).toBe("unchecked");
+      expect(onExcerpt("Revenue was USD 3.0 billion.", text, Q2).status).toBe("unchecked");
     });
     it("an invalid date elsewhere in the excerpt keeps the claim period-mismatch (ruling B)", () => {
       const text = "On 03/04/2026, total revenue was $46.7 billion. Data Center: revenue was $41.1 billion.";

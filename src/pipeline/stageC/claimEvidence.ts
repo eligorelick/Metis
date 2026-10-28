@@ -1101,122 +1101,129 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         if (excerptNamesMetric(tokens, sourceTokens, named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []), ownDescriptionTokens(binding.context.ownAfter, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
-    // AI-305: read before the own-description rule, so a claim fails closed on an invalid date exactly as the clause rule alone would.
-    if (clauseCandidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
-      return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", clauseCandidates.slice(0, 3).map((candidate) => candidate.span));
-    }
-    // A clause that names no period is read under the excerpt's own (D-63);
-    // one that names a period must name exactly the stated one, as before.
-    // D-66: a table cell is named by its column's date (with the window its
-    // header states, when it states one) or by the excerpt's fiscal label for
-    // that column; it is never read under the excerpt's period alone.
-    // AI-303-V3: a fiscal year-end claim naming the date of an FY or Q4 excerpt's own reporting date
-    // (its asOf) has its year-end read from the excerpt's title; any other date needs the clause to say so.
-    const withoutTitleYearEnd = (candidate: SourceBinding, date: string | undefined): PeriodReference[] =>
-      candidate.yearEnd && date !== undefined && date === candidate.span.asOf ? own.periods.filter((period) => period.key !== "FYE") : own.periods;
-    const columnMatches = (candidate: SourceBinding, column: NonNullable<SourceBinding["column"]>): boolean => {
-      const keys = new Set(candidate.context.periods.map((period) => period.key));
-      const ownPeriods = withoutTitleYearEnd(candidate, column.date);
-      if (ownPeriods.length === 0 || !ownPeriods.every((period) => keys.has(period.key) || column.aliases.includes(period.key))) return false;
-      // A date alone names the column; when the header repeats the date
-      // under another window, both columns match and the reading stays ambiguous.
-      return ownPeriods.some((period) => column.aliases.includes(period.key) || (period.kind === "date" && keys.has(period.key)));
-    };
-    const clauseMatches = (candidate: SourceBinding): boolean => {
-      const ownPeriods = withoutTitleYearEnd(candidate, candidate.context.periods.find((period) => period.kind === "date")?.key);
-      return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
-        candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
-    };
-    // AI-402: a base the claim names must be a base the source clause names; a table cell names none.
-    const basesMatch = (candidate: SourceBinding): boolean => own.bases.every((base) => candidate.context.bases.some((source) => source.key === base.key));
-    const periodFilter = (list: SourceBinding[]): SourceBinding[] => list.filter((candidate) => candidate.column !== undefined
-      ? own.bases.length === 0 && columnMatches(candidate, candidate.column)
-      : basesMatch(candidate) && (candidate.context.periods.length > 0
-        ? clauseMatches(candidate)
-        : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
-          : candidate.inherited.some((source) => source.key === period.key))));
-    let matchingPeriods = periodFilter(candidates);
-    if (matchingPeriods.length === 0) {
-      // One stated other period is a period mismatch (unverified, F-22); a
-      // flattened table's header of several periods binds no column.
-      if (own.periods.length > 0 && candidates.length === 1 && candidates[0].context.periods.length === 1) {
-        return support("unchecked", "period-mismatch", "the uniquely bound source figure is for another period", [candidates[0].span]);
+    // AI-305: the same judgement runs over the clause-rule candidates alone and over the own-description-filtered ones. The own description
+    // can only leave a claim unchecked: when it would give a different result from the clause rule alone, the claim is unchecked.
+    const judge = (pool: SourceBinding[]): ClaimNumericSupport | { span: ClaimSourceSpan } => {
+      if (pool.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
+        return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", pool.slice(0, 3).map((candidate) => candidate.span));
       }
-      return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
-    }
-    // A total and its per-share restatement are told apart by the unit the prose prints.
-    const unitPair = matchingPeriods[0]?.unitPair;
-    const reducePair = (list: SourceBinding[]): SourceBinding[] => {
-      if (unitPair === undefined || !list.every((candidate) => candidate.unitPair === unitPair)) return list;
-      const sameUnit = list.filter((candidate) => candidate.quantity.unit === quantity.unit);
-      return sameUnit.length > 0 ? sameUnit : list;
+      // A clause that names no period is read under the excerpt's own (D-63);
+      // one that names a period must name exactly the stated one, as before.
+      // D-66: a table cell is named by its column's date (with the window its
+      // header states, when it states one) or by the excerpt's fiscal label for
+      // that column; it is never read under the excerpt's period alone.
+      // AI-303-V3: a fiscal year-end claim naming the date of an FY or Q4 excerpt's own reporting date
+      // (its asOf) has its year-end read from the excerpt's title; any other date needs the clause to say so.
+      const withoutTitleYearEnd = (candidate: SourceBinding, date: string | undefined): PeriodReference[] =>
+        candidate.yearEnd && date !== undefined && date === candidate.span.asOf ? own.periods.filter((period) => period.key !== "FYE") : own.periods;
+      const columnMatches = (candidate: SourceBinding, column: NonNullable<SourceBinding["column"]>): boolean => {
+        const keys = new Set(candidate.context.periods.map((period) => period.key));
+        const ownPeriods = withoutTitleYearEnd(candidate, column.date);
+        if (ownPeriods.length === 0 || !ownPeriods.every((period) => keys.has(period.key) || column.aliases.includes(period.key))) return false;
+        // A date alone names the column; when the header repeats the date
+        // under another window, both columns match and the reading stays ambiguous.
+        return ownPeriods.some((period) => column.aliases.includes(period.key) || (period.kind === "date" && keys.has(period.key)));
+      };
+      const clauseMatches = (candidate: SourceBinding): boolean => {
+        const ownPeriods = withoutTitleYearEnd(candidate, candidate.context.periods.find((period) => period.kind === "date")?.key);
+        return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
+          candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
+      };
+      // AI-402: a base the claim names must be a base the source clause names; a table cell names none.
+      const basesMatch = (candidate: SourceBinding): boolean => own.bases.every((base) => candidate.context.bases.some((source) => source.key === base.key));
+      const periodFilter = (list: SourceBinding[]): SourceBinding[] => list.filter((candidate) => candidate.column !== undefined
+        ? own.bases.length === 0 && columnMatches(candidate, candidate.column)
+        : basesMatch(candidate) && (candidate.context.periods.length > 0
+          ? clauseMatches(candidate)
+          : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
+            : candidate.inherited.some((source) => source.key === period.key))));
+      let matchingPeriods = periodFilter(pool);
+      if (matchingPeriods.length === 0) {
+        // One stated other period is a period mismatch (unverified, F-22); a
+        // flattened table's header of several periods binds no column.
+        if (own.periods.length > 0 && pool.length === 1 && pool[0].context.periods.length === 1) {
+          return support("unchecked", "period-mismatch", "the uniquely bound source figure is for another period", [pool[0].span]);
+        }
+        return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
+      }
+      // A total and its per-share restatement are told apart by the unit the prose prints.
+      const unitPair = matchingPeriods[0]?.unitPair;
+      const reducePair = (list: SourceBinding[]): SourceBinding[] => {
+        if (unitPair === undefined || !list.every((candidate) => candidate.unitPair === unitPair)) return list;
+        const sameUnit = list.filter((candidate) => candidate.quantity.unit === quantity.unit);
+        return sameUnit.length > 0 ? sameUnit : list;
+      };
+      matchingPeriods = reducePair(matchingPeriods);
+      const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
+      const distinctOf = (list: SourceBinding[]): Set<string> => new Set(list.map((candidate) => {
+        const multiplier = tableScaleFor(candidate.quantity, candidate.column);
+        return JSON.stringify([
+          candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
+          candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
+          directionOf(candidate), candidate.quantity.bound, candidate.quantity.strict,
+        ]);
+      }));
+      const distinct = distinctOf(matchingPeriods);
+      // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
+      if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
+        (candidate.column === undefined && (candidate.context.periods.filter((period) => period.kind !== "window").length > 1 ||
+          candidate.context.periods.filter((period) => period.kind === "window").length > 1)))) {
+        return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
+      }
+      const bound = matchingPeriods[0];
+      if (matchingPeriods.some((candidate) => candidate.column?.scale === null)) {
+        return support("unchecked", "text-ambiguous", "the bound table header carries conflicting scale declarations", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
+      }
+      // A header's scale defines the source amount regardless of whether prose
+      // spells its amount with a scale word or with all digits.
+      const tableScale = tableScaleFor(bound.quantity, bound.column);
+      const candidate = tableScale !== 1
+        ? { ...bound, quantity: { ...bound.quantity, value: bound.quantity.value * tableScale, step: bound.quantity.step * tableScale } }
+        : bound;
+      const sourceDirection = directionOf(candidate);
+      if (own.direction?.negated || sourceDirection?.negated || (own.direction === null) !== (sourceDirection === null)) {
+        return support("unchecked", "text-context-mismatch", "the source does not establish the prose directional relation", [candidate.span]);
+      }
+      if (own.direction !== null && sourceDirection !== null) {
+        if (own.direction.polarity !== sourceDirection.polarity) return support("contradicted", "direction-mismatch", "the prose directional relation contradicts its bound source span", [candidate.span]);
+        if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
+      }
+      if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
+      // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure. Only a
+      // cell whose own row lead names a per-share basis takes it: a table declaration ("except per share data") is a scale rule,
+      // never the row's description, and a decimal cell it relabels per-share is not thereby a per-share row.
+      const claimed = candidate.quantity.unit === "currency-per-share" && candidate.column !== undefined &&
+        /\bper[\s-]+share\b|\beps\b/i.test(rowLead(candidate.column.label)) && perShareInWords(quantity, own.label)
+        ? { ...quantity, unit: "currency-per-share" as const } : quantity;
+      if (candidate.quantity.unit !== claimed.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
+      if (claimed.unit === "currency" || claimed.unit === "currency-per-share") {
+        const currency = resolvedCurrency(claimed, options.reportingCurrency);
+        const sourceCurrency = resolvedCurrency(candidate.quantity, options.reportingCurrency);
+        if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
+        if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
+      }
+      // AI-409: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
+      if (!boundSupports(quantity, candidate.quantity)) {
+        return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not imply", [candidate.span]);
+      }
+      if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
+        1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {
+        return support("contradicted", "value-mismatch", "prose quantity contradicts the uniquely bound source figure", [candidate.span]);
+      }
+      if (quantity.step < candidate.quantity.step / 1.001) return support("unchecked", "text-ambiguous", "prose states more precision than the source establishes", [candidate.span]);
+      if (!equalValue(quantity, candidate.quantity.value)) return support("unchecked", "text-ambiguous", "printed rounding intervals overlap without establishing the claimed value", [candidate.span]);
+      return { span: candidate.span };
     };
-    matchingPeriods = reducePair(matchingPeriods);
-    const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
-    const distinctOf = (list: SourceBinding[]): Set<string> => new Set(list.map((candidate) => {
-      const multiplier = tableScaleFor(candidate.quantity, candidate.column);
-      return JSON.stringify([
-        candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
-        candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
-        directionOf(candidate), candidate.quantity.bound, candidate.quantity.strict,
-      ]);
-    }));
-    const distinct = distinctOf(matchingPeriods);
-    // AI-305: the own-description rule never resolves an ambiguity, in prose or in a table. When the clause rule alone left several
-    // distinct values and the own description removed some, the claim stays unchecked.
-    const clauseMatching = reducePair(periodFilter(clauseCandidates));
-    if (clauseMatching.length > matchingPeriods.length && distinctOf(clauseMatching).size > 1) {
-      return support("unchecked", "text-ambiguous", "multiple source values could bind the quantity before its own description is read", clauseMatching.slice(0, 3).map((candidate) => candidate.span));
-    }
-    // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
-    if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
-      (candidate.column === undefined && (candidate.context.periods.filter((period) => period.kind !== "window").length > 1 ||
-        candidate.context.periods.filter((period) => period.kind === "window").length > 1)))) {
-      return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
-    }
-    const bound = matchingPeriods[0];
-    if (matchingPeriods.some((candidate) => candidate.column?.scale === null)) {
-      return support("unchecked", "text-ambiguous", "the bound table header carries conflicting scale declarations", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
-    }
-    // A header's scale defines the source amount regardless of whether prose
-    // spells its amount with a scale word or with all digits.
-    const tableScale = tableScaleFor(bound.quantity, bound.column);
-    const candidate = tableScale !== 1
-      ? { ...bound, quantity: { ...bound.quantity, value: bound.quantity.value * tableScale, step: bound.quantity.step * tableScale } }
-      : bound;
-    const sourceDirection = directionOf(candidate);
-    if (own.direction?.negated || sourceDirection?.negated || (own.direction === null) !== (sourceDirection === null)) {
-      return support("unchecked", "text-context-mismatch", "the source does not establish the prose directional relation", [candidate.span]);
-    }
-    if (own.direction !== null && sourceDirection !== null) {
-      if (own.direction.polarity !== sourceDirection.polarity) return support("contradicted", "direction-mismatch", "the prose directional relation contradicts its bound source span", [candidate.span]);
-      if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
-    }
-    if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
-    // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure. Only a
-    // cell whose own row lead names a per-share basis takes it: a table declaration ("except per share data") is a scale rule,
-    // never the row's description, and a decimal cell it relabels per-share is not thereby a per-share row.
-    const claimed = candidate.quantity.unit === "currency-per-share" && candidate.column !== undefined &&
-      /\bper[\s-]+share\b|\beps\b/i.test(rowLead(candidate.column.label)) && perShareInWords(quantity, own.label)
-      ? { ...quantity, unit: "currency-per-share" as const } : quantity;
-    if (candidate.quantity.unit !== claimed.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
-    if (claimed.unit === "currency" || claimed.unit === "currency-per-share") {
-      const currency = resolvedCurrency(claimed, options.reportingCurrency);
-      const sourceCurrency = resolvedCurrency(candidate.quantity, options.reportingCurrency);
-      if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
-      if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
-    }
-    // AI-409: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
-    if (!boundSupports(quantity, candidate.quantity)) {
-      return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not imply", [candidate.span]);
-    }
-    if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
-      1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {
-      return support("contradicted", "value-mismatch", "prose quantity contradicts the uniquely bound source figure", [candidate.span]);
-    }
-    if (quantity.step < candidate.quantity.step / 1.001) return support("unchecked", "text-ambiguous", "prose states more precision than the source establishes", [candidate.span]);
-    if (!equalValue(quantity, candidate.quantity.value)) return support("unchecked", "text-ambiguous", "printed rounding intervals overlap without establishing the claimed value", [candidate.span]);
-    spans.push(candidate.span);
+    const byClause = judge(clauseCandidates);
+    const byOwn = candidates.length === clauseCandidates.length ? byClause : judge(candidates);
+    const statusOf = (result: ClaimNumericSupport | { span: ClaimSourceSpan }): ClaimNumericSupport["status"] => "span" in result ? "validated" : result.status;
+    let outcome: ClaimNumericSupport | { span: ClaimSourceSpan };
+    if (statusOf(byOwn) === "unchecked") outcome = byOwn;
+    else if (statusOf(byOwn) === statusOf(byClause)) outcome = byClause;
+    else if (statusOf(byClause) === "unchecked") outcome = byClause;
+    else outcome = support("unchecked", "text-ambiguous", "the clause rule and the figure's own description disagree", spans);
+    if (!("span" in outcome)) return outcome;
+    spans.push(outcome.span);
   }
   return support("validated", "supported", "every prose quantity matched its source metric, unit and stated period; qualitative assertions remain unchecked", spans);
 }
