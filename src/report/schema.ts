@@ -701,6 +701,8 @@ export const JudgeOrderDisagreementSchema = z
  * a language model never produce identical prose and demanding it would report
  * a failure on every run.
  */
+// `agreed` is meaningful only when `performed` is true; a reconciliation that
+// was not performed always stores `agreed: false`.
 export const JudgeReconciliationSchema = z
   .object({
     performed: z.boolean(),

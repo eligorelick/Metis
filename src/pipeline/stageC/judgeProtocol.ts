@@ -469,15 +469,22 @@ export function reconcileJudgeOutputs(
   };
 }
 
-/** Reconciliation that did not happen, with the reason a reader can act on. */
-export function reconciliationNotPerformed(reason: string): JudgeReconciliation {
+/**
+ * Reconciliation that did not happen, with the reason a reader can act on.
+ * `failed` (the default) is a mirrored request that ran and gave no comparable
+ * output; `skipped` is a mirror deliberately not run, so the lead-in must not
+ * say the request produced anything.
+ */
+export function reconciliationNotPerformed(reason: string, kind: "failed" | "skipped" = "failed"): JudgeReconciliation {
   return {
     performed: false,
     secondaryOrder: null,
     agreed: false,
     comparedFields: reconciliationFields(),
     disagreements: [],
-    note: `The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: ${reason}`,
+    note: kind === "skipped"
+      ? `No order-sensitivity check was made: ${reason}`
+      : `The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: ${reason}`,
   };
 }
 

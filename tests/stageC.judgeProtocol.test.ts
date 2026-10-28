@@ -693,6 +693,9 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     const reconciliation = run.result.judgeProtocol?.reconciliation;
     expect(reconciliation?.performed).toBe(false);
     expect(run.result.judgeProtocol?.disclosures.some((entry) => /repair-in-place/.test(entry.reason))).toBe(true);
+    // AI-108: a deliberate skip must not claim the mirror "did not produce" anything.
+    expect(reconciliation?.note).not.toContain("did not produce");
+    expect(reconciliation?.note).toMatch(/^No order-sensitivity check was made: retry attempt/);
   });
 
   /**
@@ -760,6 +763,8 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       expect(new Set(orders).size).toBe(1);
       const rec = run.result.judgeProtocol!.reconciliation!;
       expect(rec.performed).toBe(false);
+      expect(rec.note).not.toContain("did not produce");
+      expect(rec.note).toMatch(/^No order-sensitivity check was made: retry attempt: sections kept/);
       expect(run.result.judgeProtocol?.disclosures.some((d) => /kept from a cut-off response \(verdict\)/.test(d.reason))).toBe(true);
       expect(completeJudgeProtocol(run.result.judgeProtocol!, { shared: false, analystFamily: null, judgeFamily: null } as never).note)
         .not.toMatch(/produced the same/);
@@ -772,6 +777,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       if (!run.ok) return;
       expect(new Set(orders).size).toBe(1);
       expect(run.result.judgeProtocol!.reconciliation!.performed).toBe(false);
+      expect(run.result.judgeProtocol!.reconciliation!.note).not.toContain("did not produce");
     });
 
     it("skips the mirror on the API path when a continuation carries kept sections", async () => {
@@ -789,6 +795,19 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       expect(mock.calls.filter((c) => c.field === "llm.judge")).toHaveLength(1);
       expect(run.result.judgeProtocol?.reconciliation?.performed).toBe(false);
     });
+  });
+
+  it("control: a mirror that ran and failed keeps the 'did not produce a comparable output' wording", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.judge", fakeJudgeOutput());
+    mock.on("llm.judge", { kind: "error", error: { kind: "transport", message: "no response", model: "claude-opus-4-8", costUsd: 0 } });
+    const run = await runJudgePass(makeDeps(mock, { judgeOrder: "both" }), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+    if (!run.ok) return;
+    expect(run.result.judgeProtocol?.reconciliation?.performed).toBe(false);
+    expect(run.result.judgeProtocol?.reconciliation?.note)
+      .toMatch(/^The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: /);
   });
 
   it("reports agreement when the mirrored pass produced the same grades", async () => {

@@ -2423,6 +2423,7 @@ export async function runJudgePass(
           : `retry attempt: sections kept from a cut-off response (${Object.keys(continuation!.completed).join(", ")}) ` +
               "were written under the seeded order, so a mirrored request would be anchored on them and is not an " +
               "independent draw; the mirrored judge pass was not run",
+        "skipped",
       ),
     );
   } else if (presentation.secondaryOrder !== null) {
