@@ -4142,6 +4142,50 @@ aggregate is withheld, with the missing operand and the missing aggregate named
 (Eli Lilly's 2026 quarters, with the aggregate and no interest element, moved
 from no EBIT to 8,915 and 8,978 million).
 
+**Derived quarters on one presentation (audit 2026-10-27 FIN-511).** A
+quarter derived by subtraction (the fiscal year less the nine-month year to
+date, a year to date less the previous year to date, or the year less three
+quarters) nets two figures, and they must sit on one presentation. Filing-date
+lineage (D-13) is the minimum: each operand is the newest copy filed no later
+than the minuend's own filing. Lineage by date is not lineage by presentation,
+so the pair is also checked, in the statement builder, by one pure helper
+(`src/edgar/presentationLineage.ts`):
+
+- A year (or year to date) that a later filing re-filed, whose subtrahend did
+  not move with it, is derived from its first-reported copy only when the
+  re-filing moved it by no more than 1% (a precision-only re-rounding) or
+  labels the period a re-presentation with a new or changed non-zero
+  discontinued-operations line for it (ASC 205-20-45-3). A larger move that
+  the re-filing does not label withholds the quarter, naming both filings,
+  because a corrected figure replaces the original (ASC 250-10-45-23) and
+  companyfacts cannot tell a correction from an unlabelled re-presentation
+  (decision C-9). Bank of America's FY2024 revenue, re-filed from 101,887 to
+  105,856 million (+3.90%) with no discontinued-operations line, leaves its
+  fourth quarters of 2024 and 2025 withheld (29,316 and 31,180 million before);
+  neither the mixed pair nor the first-reported quarter (25,347 million) is
+  published.
+- A pair that moved together (a re-presentation first filed in a 10-Q, then in
+  the 10-K, as SEC Financial Reporting Manual 13110.4 sequences it) keeps the
+  later copies, and an amended 10-K keeps its corrected figure.
+- The same test applies to the subtrahend: a year to date (or quarter) that a
+  later filing re-filed by more than 1%, with no discontinued-operations line
+  for it, withholds the quarter naming both filings, while the later copy itself
+  is never netted against the older 10-K (D-13).
+- The quarter is also withheld, naming both filings, when the minuend's filing
+  re-presented earlier periods of the concept by more than 1% against the copy
+  filed just before it and the filing that supplies the subtrahend did not (a
+  10-K may carry a year on a new basis while the 10-Q nine months filed before
+  it stay on the old one, FRM 13110.3). A filing that only repeats a recast an
+  earlier filing already made re-presented nothing.
+- A line item whose first synonym is withheld for presentation does not fall
+  through to a narrower synonym, and a filed operating income withheld that way
+  is not replaced by a derived EBIT built from operands a reclassification may
+  have moved.
+- A withheld revenue quarter suppresses the TTM window, which then falls back to
+  the annual statement.
+
+(Revises D-13, "one filing lineage": it now means one presentation; D-next.)
+
 **Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
 capital although the filing establishes the figure.
 

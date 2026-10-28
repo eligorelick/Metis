@@ -65,6 +65,7 @@ export const RISK_SOURCE_MANIFEST = [
   // need the same coverage floor as the module they were carved from.
   "src/edgar/tagSynonyms.ts",
   "src/edgar/synonymFloor.ts",
+  "src/edgar/presentationLineage.ts",
   "src/edgar/successor.ts",
   "src/providers/reservedSymbols.ts",
   "src/edgar/splits.ts",

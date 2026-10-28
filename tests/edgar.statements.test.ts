@@ -2487,11 +2487,14 @@ describe("buildStatementsFromCompanyFacts — one filing lineage per derived qua
     expect(q4Revenue(lineage({ originalYtd: true, laterYtd: false })).value).toBe(100); // 400 - 300
   });
 
-  it("keeps using that copy when a LATER filing restated the year-to-date figure", () => {
+  it("withholds the quarter when a LATER filing restated the year-to-date figure and labels no re-presentation", () => {
     // The dedup winner for the year-to-date period is the 2026-05-01 copy (280),
     // but it belongs to a filing the 10-K could not have known about: netting it
     // against the 10-K FY figure would publish a quarter neither filing reported.
-    expect(q4Revenue(lineage({ originalYtd: true, laterYtd: true })).value).toBe(100);
+    // C-9 (decisions spec 4.3), subtrahend side: the later copy is still never netted, and a 6.67% re-filing with no label supersedes the copy the 10-K's lineage saw, so the quarter is withheld (OD-5 (a2'); was 400 - 300 = 100)
+    const out = q4Revenue(lineage({ originalYtd: true, laterYtd: true }));
+    expect(out.value).toBeNull();
+    expect(out.notes.some((n) => /Revenues 2025-12-31: FY − YTD not derived — .*netted as 300 \(10-Q 2025-10-30.*re-filed as 280 \(-6\.67%\) in 10-Q 2026-05-01/.test(n))).toBe(true);
   });
 
   it("refuses the derivation, and says why, when every year-to-date copy is younger than the annual fact", () => {

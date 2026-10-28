@@ -52,6 +52,7 @@ const EXPECTED_RISK_SOURCES = [
   // three were audited logic with no coverage floor of their own.
   "src/edgar/tagSynonyms.ts",
   "src/edgar/synonymFloor.ts",
+  "src/edgar/presentationLineage.ts",
   "src/edgar/successor.ts",
   "src/providers/reservedSymbols.ts",
   "src/edgar/splits.ts",

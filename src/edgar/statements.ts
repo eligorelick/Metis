@@ -26,18 +26,31 @@
  *     `original`, and a material line that moved by more than 1% raises a
  *     `restatement` flag (see `Restatement`).
  *
- *  3. ONE FILING LINEAGE PER DERIVATION. A derived quarter (YTD difference,
+ *  3. ONE PRESENTATION PER DERIVATION. A derived quarter (YTD difference,
  *     FY − YTD, FY − Q1 − Q2 − Q3) subtracts the newest copy of each operand
  *     that was filed NO LATER than the minuend's own filing, so a restated
- *     minuend is never netted against a subtrahend restated AFTER it. The
- *     minuend is always the dedup winner (the last-filed copy); a subtrahend
- *     restated in a later filing than that is ignored in favour of the copy
- *     the minuend's own filing saw — a later restatement of the subtrahend
- *     alone cannot be netted against an older minuend without mixing
- *     lineages, so the quarter is then derived from the older pair (see
- *     `lineagePoints`). When no copy of the subtrahend was filed on or before
- *     the minuend's filing at all, the quarter is left null and the notes say
- *     why.
+ *     minuend is never netted against a subtrahend restated AFTER it. That
+ *     filing-date lineage is the minimum (D-13); `oneBasisPair`
+ *     (src/edgar/presentationLineage.ts) decides the rest, since a lineage by
+ *     date is not a lineage by presentation (audit 2026-10-27 FIN-511):
+ *       - a minuend re-filed by a later filing whose subtrahend did not move
+ *         with it uses its FIRST-REPORTED copy only when the re-filing moved
+ *         it by no more than RESTATEMENT_THRESHOLD_PCT (a precision-only
+ *         re-rounding) or labels the period a re-presentation with a new or
+ *         changed discontinued-operations line (ASC 205-20-45-3);
+ *       - a material change the re-filing does not label withholds the
+ *         quarter naming both filings, because a corrected figure replaces the
+ *         original (ASC 250-10-45-23) and companyfacts cannot tell a
+ *         correction from an unlabelled re-presentation (C-9);
+ *       - a pair that moved together, and an amended 10-K's corrected figure,
+ *         keep the later copies;
+ *       - a subtrahend a later filing re-filed by more than the threshold with
+ *         no label withholds the quarter too, and that later copy is still
+ *         never netted against the older minuend;
+ *       - a minuend filing that re-presented the concept beside a subtrahend
+ *         filing that did not withholds the quarter.
+ *     When no copy of the subtrahend was filed on or before the minuend's
+ *     filing at all, the quarter is left null and the notes say why.
  *
  * Tag lists come from src/edgar/tagSynonyms.ts (stamped with the taxonomy
  * year they were reviewed against). The module is pure: no network, no clock,
@@ -48,6 +61,14 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, Stateme
 import type { ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
+import {
+  describeChangePct,
+  firstReportedOrder,
+  oneBasisPair,
+  representationLabelled,
+  type LabelCopy,
+  type PairChoice,
+} from "@/edgar/presentationLineage";
 import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
@@ -195,12 +216,8 @@ export interface Restatement {
   restatedFiling: FilingRef;
 }
 
-/** A signed percentage, or the reason there is none. */
-export function describeChangePct(changePct: number | null, decimals = 2): string {
-  return changePct === null
-    ? "from zero — no percentage is defined against an original of 0"
-    : `${changePct > 0 ? "+" : ""}${changePct.toFixed(decimals)}%`;
-}
+/** A signed percentage, or the reason there is none (defined with the pairing rules that also print it). */
+export { describeChangePct };
 
 /** A material line moving by more than this share of its prior value is a restatement flag. */
 export const RESTATEMENT_THRESHOLD_PCT = 1;
@@ -483,7 +500,17 @@ export type ChainSpec =
       }) => string;
     }
   | { kind: "diff"; plus: string; minus: string; unit: "money"; disclose?: string }
-  | { kind: "chain"; steps: ChainSpec[]; unit: UnitKind };
+  | {
+      kind: "chain";
+      steps: ChainSpec[];
+      unit: UnitKind;
+      /**
+       * A step whose resolution recorded a refusal ends the chain with null instead of falling to the next step
+       * (audit 2026-10-27 FIN-511). Set on the filed-then-derived operating income only: a filed line withheld for
+       * presentation must not be re-derived from operands a reclassification moved.
+       */
+      stopOnRefusal?: true;
+    };
 
 /** One `first` step per stand-in so each tag carries its own disclosure wording. */
 function standInSteps(standIns: readonly TagStandIn[], unit: UnitKind): ChainSpec[] {
@@ -726,6 +753,15 @@ const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[]
   ...tagsFor("epsDiscontinuedOperations").map((tag) => ({ tag, unit: "perShare" as const })),
   ...tagsFor("discontinuedOperationsIncome").map((tag) => ({ tag, unit: "money" as const })),
 ].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
+/**
+ * The discontinued-operations elements a re-filing carries for a period it re-presents (ASC 205-20-45-3,
+ * 45-3A): their presence, new or moved, is the one label companyfacts can show (decision C-9, `representationLabelled`).
+ */
+export const DISCONTINUED_LABEL_TAGS: readonly string[] = [
+  ...tagsFor("netIncomeFromDiscontinuedOperations"),
+  ...tagsFor("discontinuedOperationsIncome"),
+  ...tagsFor("epsDiscontinuedOperations"),
+];
 const CONTINUING_EPS_WORKING_FIELDS: ReadonlySet<string> = new Set([...Object.values(CONTINUING_EPS_FIELDS), ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)]);
 
 /**
@@ -781,6 +817,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   operatingIncome: {
     kind: "chain",
     unit: "money",
+    stopOnRefusal: true,
     steps: [
       { kind: "first", tags: tagsFor("operatingIncome"), unit: "money" },
       {
@@ -1289,7 +1326,9 @@ type FactIndex = Map<string, UnitPoints[]>;
  * core copy filed no later than that, reduced to one per period by the same
  * last-filed rule. Subtracting a YTD fact restated AFTER the annual fact it is
  * netted against would mix two lineages and produce a quarter neither filing
- * ever reported.
+ * ever reported. A year to date restated after the annual fact is still never
+ * netted against it, and since C-9 a material, unlabelled restatement of it
+ * withholds the quarter instead (`oneBasisPair`, audit 2026-10-27 FIN-511).
  */
 function lineagePoints(up: UnitPoints, filedCutoff: string): FactPoint[] {
   return dedupByPeriod(up.all.filter((p) => p.filed <= filedCutoff));
@@ -1311,15 +1350,7 @@ function buildReporters(corePoints: FactPoint[]): Map<string, FactPoint> {
   for (const p of corePoints) {
     const key = periodKey(p);
     const cur = reporters.get(key);
-    if (cur === undefined || p.filed < cur.filed) {
-      reporters.set(key, p);
-      continue;
-    }
-    if (p.filed > cur.filed) continue;
-    const pAmend = p.form.trim().endsWith("/A");
-    const curAmend = cur.form.trim().endsWith("/A");
-    if (curAmend && !pAmend) reporters.set(key, p);
-    else if (pAmend === curAmend && p.accn < cur.accn) reporters.set(key, p);
+    if (cur === undefined || firstReportedOrder(p, cur) < 0) reporters.set(key, p);
   }
   return reporters;
 }
@@ -1723,15 +1754,20 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
   switch (spec.kind) {
     case "chain": {
       for (const step of spec.steps) {
+        const refusalsBefore = notes.refusals.length;
         const r = resolveSpec(step, resolve, notes, label, at);
         if (r !== null) return r;
+        if (spec.stopOnRefusal === true && notes.refusals.length > refusalsBefore) return null;
       }
       return null;
     }
     case "first": {
       const skipped: string[] = [];
       for (const tag of spec.tags) {
+        const refusalsBefore = notes.refusals.length;
         const r = resolve(tag, spec.unit);
+        // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511).
+        if (r === null && notes.refusals.length > refusalsBefore) return null;
         if (r === null) continue;
         if (spec.unlessBelow !== undefined) {
           const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
@@ -2221,6 +2257,29 @@ function quarterResolver(
       );
       return null;
     };
+    // Audit 2026-10-27 FIN-511 (C-9): the pair is chosen by `oneBasisPair`, which keeps a pair on one presentation or
+    // says why it cannot. A withholding is a note and a recorded refusal (the field ends a disclosed withholding).
+    const labelCopies = labelCopiesOf(index);
+    const labelled = (m: FactPoint): boolean => representationLabelled(labelCopies, m, RESTATEMENT_THRESHOLD_PCT);
+    const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> =>
+      oneBasisPair(up.all, winner, subtrahendsFor, RESTATEMENT_THRESHOLD_PCT, labelled);
+    const withheldNote = (choice: Extract<PairChoice<FactPoint>, { kind: "withheld" }>, what: string): null => {
+      notes.add(`${tag} ${ctx.end}: ${what} not derived — ${choice.reason}`);
+      notes.refuse(`${tag} ${ctx.end}: ${choice.reason}`);
+      return null;
+    };
+    const firstReportedNote = (choice: Extract<PairChoice<FactPoint>, { kind: "pair" }>, noun: string, subtrahend: string): void => {
+      if (choice.basis !== "first-reported" || choice.refiledBy === null) return;
+      const by = choice.refiledBy;
+      const movedPct = choice.minuend.val === 0 ? null : ((by.val - choice.minuend.val) / Math.abs(choice.minuend.val)) * 100;
+      const how =
+        choice.refiledAs === "labelled-representation"
+          ? "as a re-presentation it labels with a discontinued-operations line"
+          : `by a precision-only change of ${describeChangePct(movedPct, 4)}`;
+      notes.add(
+        `${tag} ${ctx.end}: derived from the first-reported ${noun} (${choice.minuend.form.trim()} ${choice.minuend.filed}), because ${by.form.trim()} ${by.filed} re-filed it ${how} and the ${subtrahend} it would be netted against was not re-filed with it`,
+      );
+    };
 
     if (ctx.isFiscalYearEnd) {
       const fy =
@@ -2231,36 +2290,38 @@ function quarterResolver(
       // fourth quarter's EPS is rebuilt from its net income and a share count
       // backed out of the day-weighted identity (deriveFourthQuarterPerShare).
       if (kind === "perShare") return null;
-      const sameLineage = lineage(fy);
-      if (ctx.previousEnd !== null) {
-        const ytdPrev = findDurationExact(sameLineage, fy.start, ctx.previousEnd);
-        if (ytdPrev !== null) {
-          return {
-            ...resolvedPoint(tag, up, fy, tidy(fy.val - ytdPrev.val, decimals)),
-            derivation: "fy-minus-ytd",
-            derivedFrom: [describePoint(tag, fy), describePoint(tag, ytdPrev)],
-            evidencePoints: [fy, ytdPrev],
-            periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
-          };
-        }
-        // A year-to-date fact exists but only in a filing made AFTER the annual
-        // one this row's value came from: that is the case the lineage rule is
-        // for, and it is disclosed rather than silently mixed.
-        if (findDurationExact(pts, fy.start, ctx.previousEnd) !== null) return refuse(fy, "FY − YTD");
+      // A year-to-date fact through the previous quarter exists in some filing: the difference is FY − YTD, and
+      // a copy that only a later filing carries is disclosed rather than silently mixed.
+      if (ctx.previousEnd !== null && findDurationExact(pts, fy.start, ctx.previousEnd) !== null) {
+        const choice = choose(fy, (m) => {
+          const y = findDurationExact(lineage(m), m.start!, ctx.previousEnd!);
+          return y === null ? null : [y];
+        });
+        if (choice.kind === "none") return refuse(fy, "FY − YTD");
+        if (choice.kind === "withheld") return withheldNote(choice, "FY − YTD");
+        firstReportedNote(choice, "FY", "year to date");
+        const ytdPrev = choice.subtrahends[0]!;
+        return {
+          ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - ytdPrev.val, decimals)),
+          derivation: "fy-minus-ytd",
+          derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, ytdPrev)],
+          evidencePoints: [choice.minuend, ytdPrev],
+          periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
+        };
       }
-      const quarters = precedingQuarterPoints(sameLineage, ctx, quarterEnds);
-      if (quarters === null) {
-        return precedingQuarterPoints(pts, ctx, quarterEnds) === null
-          ? null
-          : refuse(fy, "FY − (Q1+Q2+Q3)");
+      const choice = choose(fy, (m) => precedingQuarterPoints(lineage(m), ctx, quarterEnds));
+      if (choice.kind === "none") {
+        return precedingQuarterPoints(pts, ctx, quarterEnds) === null ? null : refuse(fy, "FY − (Q1+Q2+Q3)");
       }
-      const sum = quarters.reduce((s, p) => s + p.val, 0);
+      if (choice.kind === "withheld") return withheldNote(choice, "FY − (Q1+Q2+Q3)");
+      firstReportedNote(choice, "FY", "quarters");
+      const sum = choice.subtrahends.reduce((total, p) => total + p.val, 0);
       return {
-        ...resolvedPoint(tag, up, fy, tidy(fy.val - sum, decimals)),
+        ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - sum, decimals)),
         derivation: "fy-minus-quarters",
-        derivedFrom: [describePoint(tag, fy), ...quarters.map((p) => describePoint(tag, p))],
-        evidencePoints: [fy, ...quarters],
-        periodStart: new Date(dateMs(quarters[0]!.end) + DAY_MS).toISOString().slice(0, 10),
+        derivedFrom: [describePoint(tag, choice.minuend), ...choice.subtrahends.map((p) => describePoint(tag, p))],
+        evidencePoints: [choice.minuend, ...choice.subtrahends],
+        periodStart: new Date(dateMs(choice.subtrahends[0]!.end) + DAY_MS).toISOString().slice(0, 10),
       };
     }
 
@@ -2270,18 +2331,33 @@ function quarterResolver(
     // First quarter of the fiscal year: the year-to-date fact IS the quarter.
     if (daysBetween(ctx.fyStart, ctx.end) <= QUARTER_MAX_DAYS) return resolvedPoint(tag, up, ytd, ytd.val);
     if (ctx.previousEnd === null) return null;
-    const prior = findDurationExact(lineage(ytd), ytd.start, ctx.previousEnd);
-    if (prior === null) {
-      return findDurationExact(pts, ytd.start, ctx.previousEnd) === null ? null : refuse(ytd, "YTD difference");
-    }
+    if (findDurationExact(pts, ytd.start, ctx.previousEnd) === null) return null;
+    const choice = choose(ytd, (m) => {
+      const y = findDurationExact(lineage(m), m.start!, ctx.previousEnd!);
+      return y === null ? null : [y];
+    });
+    if (choice.kind === "none") return refuse(ytd, "YTD difference");
+    if (choice.kind === "withheld") return withheldNote(choice, "YTD difference");
+    firstReportedNote(choice, "year to date", "prior year to date");
+    const prior = choice.subtrahends[0]!;
     return {
-      ...resolvedPoint(tag, up, ytd, tidy(ytd.val - prior.val, decimals)),
+      ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - prior.val, decimals)),
       derivation: "ytd-difference",
-      derivedFrom: [describePoint(tag, ytd), describePoint(tag, prior)],
-      evidencePoints: [ytd, prior],
+      derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, prior)],
+      evidencePoints: [choice.minuend, prior],
       periodStart: new Date(dateMs(prior.end) + DAY_MS).toISOString().slice(0, 10),
     };
   };
+}
+
+/** Every core copy of every discontinued-operations element in the index, once per index (decision C-9 labels). */
+const LABEL_COPIES = new WeakMap<FactIndex, LabelCopy[]>();
+function labelCopiesOf(index: FactIndex): LabelCopy[] {
+  const memo = LABEL_COPIES.get(index);
+  if (memo !== undefined) return memo;
+  const out = DISCONTINUED_LABEL_TAGS.flatMap((t) => (index.get(t) ?? []).flatMap((u) => u.all.map((p) => ({ ...p, tag: t, unit: u.unit }))));
+  LABEL_COPIES.set(index, out);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
