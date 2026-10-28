@@ -2703,32 +2703,53 @@ AI-305-V1; D-next, OD-1). The clause rule above still holds (every word of the
 claim is stated in the clause, and a definition-changing modifier the clause
 states is in the claim), and the claim must now also name every content word of
 the figure's own description. Before the figure, that is the text from the
-latest of the clause start, the previous figure's end, the last unclosed
-parenthesis and the last colon or semicolon. After the figure, it is the text up
-to the first comma, semicolon, colon, parenthesis, em or en dash, the next
-figure or the clause end; a comma inside a date ("as of September 3, 2026")
-does not cut. For a table cell, it is the row label after its last colon, with
-the table's scale declaration blanked. The same description is read for a prose
-claim and for a traced number on the second gate. Ordinal period phrases ("the
-second quarter", "third-quarter"), comparison bases ("the prior year", "year over year"), a
-window the claim states as a period, and a closed list of context words are not
-content words. The list holds pronouns (we, he, which), recognition verbs
-(totaled, generated), the links "associated", "related", "driven", "due" and
-"primarily", approximation hedges (approximately, nearly, roughly), "record" and
-the point abbreviations "pt" and "pts". It never holds a noun, adjective,
-comparator, definition modifier or direction word. A claim's description also
-counts words after an "and" or "but" that has no figure after it ("research and
-development"), and a total with its per-share restatement ("$973 million, or $0.92 per share, of cash dividends paid") share the trailing metric as their description. A figure the sentence gives to another noun then stays
-unchecked: "a record of nearly $26.0 billion to shareholders" is not a
-free-cash-flow figure, "benefiting our diluted earnings per share by $1.93" is
-not the diluted EPS, and "cash, marketable investments, and restricted cash of
-$73.48 billion" is not "cash". The rule is applied together with the clause rule,
-so it never admits a figure the clause rule rejected, but it can move a claim
-from unchecked to validated when it removes a wrong-metric candidate that made
-the clause rule ambiguous. A correct figure whose description carries words the
-claim leaves out (a trailing explanation with no comma, such as "net discrete
-tax expense of $15.9 billion attributable to upward adjustments to our
-investments") is left unchecked; that recall cost is accepted.
+latest of the clause start, the previous figure's end, the last "(" when no ")"
+follows it (only the last "(" is looked at; an earlier unclosed one is not
+searched for) and the last colon or semicolon after that. After the figure, it is
+the text up to the first comma, semicolon, colon, parenthesis, em or en dash,
+the next figure or the clause end; a comma inside a date ("as of September 3,
+2026") does not cut. For a table cell, it is the row label after its last colon,
+with the table's scale declaration blanked. The same description is read for a
+prose claim and for a traced number on the second gate. These are not content
+words: ordinal period phrases ("the second quarter", "third-quarter"),
+comparison bases ("the prior year", "year over year", "yoy", "qoq"), every
+window token (TTM, YTD, "for the quarter": the code drops all of them from the
+own description, and a window the claim states is compared as a period), and a
+closed list of context words. The list holds pronouns (we, us, they, them,
+their, there, which, who, whose, he, she, him, her, his), recognition verbs
+(totaled, totalled, totaling, totalling, amounted, came, represented, posted,
+generated, delivered, achieved, incurred, recognized, recognised, booked), the
+links associated, related, relating, attributable, driven, due, primarily,
+mainly, largely, partly, partially and reflecting, approximation hedges
+(approximately, approx, about, around, nearly, almost, roughly, some),
+"record", and the point abbreviations "pt" and "pts". It never holds a noun,
+adjective, comparator, definition modifier or direction word. A word of the
+description that comes before the figure must be named by the claim's own
+clause. A word that comes after the figure may also be named by the claim's
+words after an "and", "but", "while", "whereas", "versus" or "vs" that has no
+figure after it ("invested over USD 76.7 billion in research and development");
+such a continuation never extends to words before the figure. A total with its
+per-share restatement ("$973 million, or $0.92 per share, of cash dividends
+paid") share the trailing metric as their description. A figure the sentence
+gives to another noun then stays unchecked: "a record of nearly $26.0 billion
+to shareholders" is not a free-cash-flow figure, "benefiting our diluted
+earnings per share by $1.93" is not the diluted EPS, and "cash, marketable
+investments, and restricted cash of $73.48 billion" is not "cash". The rule is
+applied together with the clause rule and only removes candidates: it never
+admits a figure the clause rule rejected, and in prose it never resolves an
+ambiguity. If the clause rule alone left several distinct source values for a
+prose claim and the own description removes some, the claim stays
+`unchecked / text-ambiguous`. Only a table cell, whose row label is its whole
+description, can be resolved by the rule (the first row under a scale
+declaration, "Revenue" beside "Cost of revenue", moves to validated). A correct
+figure whose description carries words the claim leaves out is left unchecked,
+and that recall cost is accepted: a trailing explanation with no comma ("net
+discrete tax expense of $15.9 billion attributable to upward adjustments to our
+investments"), a subject noun ("the DDTL Credit Agreement provides for a $17.5
+billion ... facility"), a qualifier ("the remaining Commitment Amount"), a
+fronted phrase ("Under the new lease accounting guidance, operating lease
+liabilities were $2.5 billion": the claim must name the phrase, or the source
+must put it after a comma).
 
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record

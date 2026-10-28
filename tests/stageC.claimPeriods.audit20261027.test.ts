@@ -643,9 +643,11 @@ describe("AI-302-V1 forward-looking clauses", () => {
     const GUIDED = ex("edgar:8-K EX-99.1", "2026-08-26", RELEASE.title ?? "", "Our guidance for third-quarter revenue is $108.0 billion.");
     expect((await citeExcerpt(GUIDED, "Revenue for Q2 FY2027 was USD 108.0 billion.")).entry.validationStatus).toBe("unchecked");
     expect((await citeExcerpt(GUIDED, "Revenue guidance is USD 108.0 billion.")).entry.validationStatus).toBe("validated");
-    const NOTE = ex("edgar:10-K notes", "2026-01-25", "10-K notes (FY2026)", "Under the new lease accounting guidance, operating lease liabilities were $2.5 billion.");
-    // AI-305 / OD-1: the fronted phrase is part of the figure's own description, so the claim names it ("accounting guidance" is still not forward-looking).
-    expect((await citeExcerpt(NOTE, "Under the new lease accounting guidance, operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("validated");
+    // AI-305 / OD-1: a phrase before the figure is part of its own description, so it sits after a comma here ("accounting guidance" is still not forward-looking).
+    const NOTE = ex("edgar:10-K notes", "2026-01-25", "10-K notes (FY2026)", "Operating lease liabilities were $2.5 billion, under the new lease accounting guidance.");
+    expect((await citeExcerpt(NOTE, "Operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("validated");
+    const OURS = ex("edgar:10-K notes", "2026-01-25", "10-K notes (FY2026)", "Operating lease liabilities were $2.5 billion, under our new guidance.");
+    expect((await citeExcerpt(OURS, "Operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("unchecked");
   });
   // Task 7 reviews: a RESULT claim never binds the guide, whatever forward wording sits in a neighbouring clause or after the figure.
   it.each([

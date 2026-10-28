@@ -178,6 +178,8 @@ describe("D-66 recovered filing facts", () => {
     const output = (text: string) => ({ leadership: { executives: [{ name: "Scott Gawel", title: "VP and CAO", grade: "not-assessed", credibilityGrade: "not-assessed", evidence: { compensation: [{ label: "FACT", text, source: "edgar:8-K officer", asOf: "2026-04-27" }] } }] } });
     const verified = await runVerifyPass({} as PassDeps, payload, output(text));
     expect(verified.log[0]).toMatchObject({ validationStatus: "validated" });
+    const shortForm = await runVerifyPass({} as PassDeps, payload, output("Scott Gawel's new-hire restricted stock unit grants had a combined target value of USD 12,875,000."));
+    expect(shortForm.log[0]!.validationStatus).not.toBe("validated");
     const wrongUnit = await runVerifyPass({} as PassDeps, payload, output(text.replace("USD 12,875,000", "12,875,000 shares")));
     expect(wrongUnit.coverage.factualValidation?.validated).toBe(0);
     for (const name of ["Donald Robertson", "Nicholas Parker"]) {

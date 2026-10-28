@@ -5,6 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { releaseNarrative } from "@/edgar/currentReports";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
@@ -108,5 +109,50 @@ describe("AI-305-V1 the green check of a MetricRow cell", () => {
   });
   it("a cell whose label is the sentence's own description keeps its check (control)", async () => {
     expect(await verify(MU_CASH, MU_TITLE, "Cash, marketable investments, and restricted cash", 73.48)).toBe(true);
+  });
+});
+
+// Fix round 1. The own-description rule may only make the verifier more careful: it never resolves a prose ambiguity (a claim the base left
+// unchecked stays unchecked), so a wrong claim cannot validate and a true one cannot be contradicted through it.
+describe("AI-305 fix round 1: no ambiguity resolution in prose", () => {
+  const RELEASE = releaseNarrative(readFileSync("fixtures/edgar/nvda-current-reports/q2fy27-ex99-1.txt", "utf8"));
+  const TITLE = "8-K EX-99.1 - earnings release, Q2 FY2027, quarter ended 2026-07-26 (8-K; filed 2026-08-26)";
+  it.each([
+    "Revenue for the second quarter was USD %s billion.",
+    "Revenue for the second quarter ended July 26, 2026 was USD %s billion.",
+    "Second-quarter revenue was USD %s billion.",
+  ])("the committed NVDA release: %s", (template) => {
+    expect(onExcerpt(template.replace("%s", "89.0"), RELEASE, TITLE).status).not.toBe("validated");
+    expect(onExcerpt(template.replace("%s", "96.2"), RELEASE, TITLE).status).not.toBe("contradicted");
+  });
+  it.each([
+    "Total revenue was $46.7 billion. Data Center • Second-quarter revenue was $41.1 billion. Gaming revenue was $4.3 billion.",
+    "Revenue, which includes services, was $46.7 billion. Data Center: revenue was $41.1 billion.",
+  ])("a total-revenue claim against a segment of the same words: %s", (text) => {
+    expect(onExcerpt("Total revenue was USD 41.1 billion.", text, Q2).status).not.toBe("validated");
+    expect(onExcerpt("Total revenue was USD 46.7 billion.", text, Q2).status).not.toBe("contradicted");
+  });
+  it("a table cell is still resolved by its row lead (the documented first-row move)", () => {
+    const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Revenue $ 215,938 $ 130,497 Cost of revenue 62,475 32,639 Other matters follow.";
+    expect(onExcerpt("Revenue as of 2026-01-25 was USD 215.938 billion.", text, "10-K Item 7 (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)").status).toBe("validated");
+  });
+});
+
+describe("AI-305 fix round 1: a continuation names only the source figure's own words after the figure", () => {
+  it.each([
+    ["Revenue for Q2 FY2027 was USD 5.0 billion, and services drove the growth.", "Revenue from services was $5.0 billion, and revenue from products was $7.0 billion.", "Q2 FY2027 results"],
+    ["Free cash flow for Q2 FY2027 was USD 26.0 billion and funded the return to shareholders.", "Free cash flow funded the return of $26.0 billion to shareholders.", Q2],
+    ["Free cash flow for Q2 FY2027 was USD 26.0 billion while it funded the return to shareholders.", "Free cash flow funded the return of $26.0 billion to shareholders.", Q2],
+  ])("not validated: %s", (claim, text, title) => {
+    expect(onExcerpt(claim, text, title).status).not.toBe("validated");
+  });
+  it("research and development after the figure is named by the claim's continuation (control)", () => {
+    expect(onExcerpt("NVIDIA has invested over USD 76.7 billion in research and development since its inception.",
+      "We have invested over $76.7 billion in research and development since our inception, yielding inventions.", "10-K Item 1", ["NVIDIA"]).status).toBe("validated");
+  });
+  it("a fronted phrase after a comma is not the figure's own description", () => {
+    const title = "10-K notes (FY2026)";
+    expect(onExcerpt("Operating lease liabilities were USD 2.5 billion.", "Operating lease liabilities were $2.5 billion, under the new lease accounting guidance.", title).status).toBe("validated");
+    expect(onExcerpt("Operating lease liabilities were USD 2.5 billion.", "Operating lease liabilities were $2.5 billion, under our new guidance.", title).status).not.toBe("validated");
   });
 });

@@ -146,7 +146,7 @@ interface PeriodReference { key: string; label: string; raw: string; kind: "date
  * the comparison bases it names ("compared with $10.2 billion in second quarter
  * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
  */
-interface Context { start: number; end: number; text: string; label: string; own: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
+interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
   /**
@@ -329,7 +329,7 @@ function claimContext(text: string, quantity: Quantity, all: Quantity[]): Contex
 }
 /**
  * AI-305 (OD-1): the words a sentence gives to a figure itself. Before the figure: from the latest of the clause start, the
- * preceding figure's end, the last unclosed "(" and the last ":" or ";". After it: up to the first comma, semicolon, colon,
+ * preceding figure's end, the last "(" when no ")" follows it (only the last "(" is looked at) and the last ":" or ";" after that. After it: up to the first comma, semicolon, colon,
  * parenthesis, em or en dash, the next figure or the clause end. A comma inside a date ("as of September 3, 2026") does not cut.
  */
 function ownBeforeStart(text: string, clauseStart: number, quantityStart: number, preceding: Quantity | undefined): number {
@@ -376,11 +376,12 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   const label = text.slice(labelStart, quantity.start) + " " + text.slice(quantity.end, labelEnd);
   const ownText = text.slice(start, end);
   const own = ownDescription(text, quantity, start, end, preceding, following);
+  const ownAfter = text.slice(quantity.end, ownAfterEnd(text, end, quantity.end, following));
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
   const { periods, bases } = framePeriods(text, { start, end }, quantity, all, !source, source);
-  return { start, end, text: ownText, label, own, periods, bases,
+  return { start, end, text: ownText, label, own, ownAfter, periods, bases,
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -671,9 +672,8 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * in the source clause, and a definition-changing modifier the clause states
  * must be in the claim too ("non-GAAP", "operating", "diluted"). The record
  * path keeps exact symmetry; an excerpt clause also carries its verb and its
- * context ("…is cumulatively capped at $105 billion for its initial commitment
- * under the Agreements"), which demanding in the claim failed every figure a
- * filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
+ * context ("These changes were driven by higher free cash flow that was used to return …"), which demanding in the claim failed every
+ * figure a filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
  * AI-305 / D-next (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
  * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
  * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
@@ -682,14 +682,14 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
 const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
   "segment", "not", "no", "without", "constant", "incremental", "cumulative", "average"]);
-function excerptNamesMetric(claim: string[], source: string[], named: string[], own: string[]): boolean {
+function excerptNamesMetric(claim: string[], source: string[], named: string[], own: string[], ownAfter: string[] = []): boolean {
   if (claim.length === 0 || source.length === 0) return false;
   const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
   const inClaim = (word: string): boolean => claim.some((other) => stem(word) === stem(other));
   const inNamed = (word: string): boolean => named.some((other) => stem(word) === stem(other));
   return claim.every((word) => source.some((other) => stem(word) === stem(other))) &&
     source.every((word) => !DEFINITION_MODIFIERS.has(word) || inClaim(word)) &&
-    own.every(inNamed);
+    own.every((word) => inClaim(word) || (inNamed(word) && ownAfter.some((other) => stem(word) === stem(other))));
 }
 const COMPARATIVE_LEAD = /^[\s,;(]*(?:(?:up|down|higher|lower|increas\w*|decreas\w*|rose|fell|compared)\s+)?(?:from|with|versus|vs\.?|compared (?:to|with)|against)[\s:]*$/i;
 /** The excerpt's own period statements: its reporting period, fiscal quarter, quarter end or event date — never its filing date or accession. */
@@ -878,7 +878,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, periods, bases: [], ambiguous: false, direction: null };
+        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], ambiguous: false, direction: null };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -897,7 +897,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       // The printed "TOTAL, or PER-SHARE, of cash dividends paid" shares its
       // trailing metric, but each amount retains its own printed unit/value.
       // AI-305: the appositive's trailing metric is the pair's own description ("including $973 million, or $0.92 per share, of cash dividends paid").
-      if (unitPair !== undefined) own.own = " cash dividends paid";
+      if (unitPair !== undefined) { own.own = " cash dividends paid"; own.ownAfter = own.own; }
       if (unitPair?.totalStart === quantity.start) own.label += " cash dividends paid";
       const inClause = found.filter((other) => other !== quantity && other.start >= own.start && other.end <= own.end &&
         (other.unit === quantity.unit || other.unit === null || quantity.unit === null));
@@ -1090,11 +1090,15 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // (and never binds the guide) because a neighbouring clause of the claim says "expects" or "outlook".
     const claimForward = FORWARD_LOOKING.test(own.text);
     const candidates: SourceBinding[] = [];
+    const clauseCandidates: SourceBinding[] = [];
     for (const excerpt of excerpts) {
       const bindings = options.index?.get(excerpt) ?? sourceBindings(excerpt);
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
-        if (binding.forwardLooking === claimForward && excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []), named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []))) candidates.push(binding);
+        if (binding.forwardLooking !== claimForward) continue;
+        const sourceTokens = metricTokens(binding.context.label, options.ignoreWords ?? []);
+        if (excerptNamesMetric(tokens, sourceTokens, [], [])) clauseCandidates.push(binding);
+        if (excerptNamesMetric(tokens, sourceTokens, named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []), ownDescriptionTokens(binding.context.ownAfter, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
     if (candidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
@@ -1124,12 +1128,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     };
     // AI-402: a base the claim names must be a base the source clause names; a table cell names none.
     const basesMatch = (candidate: SourceBinding): boolean => own.bases.every((base) => candidate.context.bases.some((source) => source.key === base.key));
-    let matchingPeriods = candidates.filter((candidate) => candidate.column !== undefined
+    const periodFilter = (list: SourceBinding[]): SourceBinding[] => list.filter((candidate) => candidate.column !== undefined
       ? own.bases.length === 0 && columnMatches(candidate, candidate.column)
       : basesMatch(candidate) && (candidate.context.periods.length > 0
         ? clauseMatches(candidate)
         : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
           : candidate.inherited.some((source) => source.key === period.key))));
+    let matchingPeriods = periodFilter(candidates);
     if (matchingPeriods.length === 0) {
       // One stated other period is a period mismatch (unverified, F-22); a
       // flattened table's header of several periods binds no column.
@@ -1144,7 +1149,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (sameUnit.length > 0) matchingPeriods = sameUnit;
     }
     const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
-    const distinct = new Set(matchingPeriods.map((candidate) => {
+    const distinctOf = (list: SourceBinding[]): Set<string> => new Set(list.map((candidate) => {
       const multiplier = tableScaleFor(candidate.quantity, candidate.column);
       return JSON.stringify([
         candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
@@ -1152,6 +1157,19 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         directionOf(candidate), candidate.quantity.bound, candidate.quantity.strict,
       ]);
     }));
+    const distinct = distinctOf(matchingPeriods);
+    // AI-305: the own-description rule never resolves an ambiguity in prose. When the clause rule alone left several distinct values and
+    // the own description removed some, the claim stays unchecked (a table cell's row lead is the whole description, so a table may resolve).
+    if (matchingPeriods.some((candidate) => candidate.column === undefined)) {
+      let clauseMatching = periodFilter(clauseCandidates);
+      if (unitPair !== undefined && clauseMatching.every((candidate) => candidate.unitPair === unitPair)) {
+        const sameUnit = clauseMatching.filter((candidate) => candidate.quantity.unit === quantity.unit);
+        if (sameUnit.length > 0) clauseMatching = sameUnit;
+      }
+      if (clauseMatching.length > matchingPeriods.length && distinctOf(clauseMatching).size > 1) {
+        return support("unchecked", "text-ambiguous", "multiple source values could bind the prose quantity before its own description is read", clauseMatching.slice(0, 3).map((candidate) => candidate.span));
+      }
+    }
     // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
     if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
       (candidate.column === undefined && (candidate.context.periods.filter((period) => period.kind !== "window").length > 1 ||

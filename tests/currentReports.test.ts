@@ -581,6 +581,9 @@ describe("D-63 filing evidence", () => {
     const recategorized = await runVerifyPass({} as PassDeps, payload, { leadership });
     expect(recategorized.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
     expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
+    // AI-305 / OD-1: the short label no longer binds the 105 figure (recall cost accepted).
+    const short = await runVerifyPass({} as PassDeps, payload, { keyNumbers: [{ ...keyNumbers[0]!, unit: "USD billions: aggregate payment obligation" }] });
+    expect(short.verifiedReport.keyNumbers[0]!.verified).not.toBe(true);
   });
 
   it("AI-302-V1: a key number dated to the reported quarter does not verify against an outlook bullet", async () => {
