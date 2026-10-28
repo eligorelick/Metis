@@ -361,7 +361,7 @@ describe("buildPassParams", () => {
     }
   });
 
-  // AI-309 (DECISIONS D-next-5): the context window is checked against a per-tokenizer
+  // AI-309 (DECISIONS D-121): the context window is checked against a per-tokenizer
   // estimate, not the UTF-8 byte count (the byte bound stays exported as a strict ceiling).
   it("keeps the byte bound strict and admits a Haiku request whose estimate is at the window", () => {
     const atWindow = {

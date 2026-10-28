@@ -30,7 +30,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Run Claude Haiku 4.5 on current payloads: the context check now estimates input tokens per tokenizer instead of counting bytes as tokens (AI-309).
 - Compare section grades only when `METIS_JUDGE_ORDER=both` (AI-109), and skip and disclose the mirrored judge pass on a retry that keeps sections (AI-108).
 - Mark a judge attempt whose output could not be assembled into a report as discarded, and stop the judge retries when an identical second assembly failure repeats (AI-112). State a step's whole cost in its detail, the presumed part named (JOB-204). Print the discarded mark in the audit export's charge breakdown and keep the marks durable recovery can read (RPT-210).
-- Pipeline stage-c-1.6.10 (D-next-1..7). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes; #48's and #49's audit exports now print their stored discarded marks.
+- Pipeline stage-c-1.6.10 (D-117..D-123). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes; #48's and #49's audit exports now print their stored discarded marks.
 
 ## Unreleased - a resumed plan pass names its model (2026-10-27)
 

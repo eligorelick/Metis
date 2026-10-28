@@ -940,8 +940,8 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
     expect(rows().cost).toHaveLength(0);
   });
 
-  it("pins that a connection reset before the response headers is released (D-next-1 limit)", async () => {
-    // D-next-1 limit, as at main: only a timeout after send, a stream lost after the headers, or an
+  it("pins that a connection reset before the response headers is released (D-117 limit)", async () => {
+    // D-117 limit, as at main: only a timeout after send, a stream lost after the headers, or an
     // answered-then-cancelled request is presumed. A non-timeout connection failure before the headers
     // (here an ECONNRESET on the read of an established socket, wrapped by the SDK as an
     // APIConnectionError) is released at $0 with no cost row, although the request may have been
