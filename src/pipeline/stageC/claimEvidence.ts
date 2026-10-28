@@ -840,7 +840,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // AI-402 (fix round 1): a comparison base the claim states must be established by the cited record:
     // only a year-over-year or quarter-over-quarter record measures its figure against a base period.
     const measuredAgainst = own.bases.length > 0 ? comparisonBase(record) : null;
-    if (own.bases.length > 0 && (measuredAgainst === null || !own.bases.every((base) => baseAgrees(base.raw, measuredAgainst) === true))) {
+    // A base spelled with "fiscal" ("fiscal 2025", "the second quarter of fiscal 2025") keeps that word: it is not read as a calendar year.
+    const baseText = (base: PeriodReference): string =>
+      /\bfiscal(?:\s+year)?\s+$/i.test(own.text.slice(Math.max(0, base.start - 20), base.start)) ? `fiscal ${base.raw}` : base.raw;
+    if (own.bases.length > 0 && (measuredAgainst === null || !own.bases.every((base) => baseAgrees(baseText(base), measuredAgainst) === true))) {
       return support("unchecked", "period-mismatch", "the cited numeric record does not establish the comparison base the prose names");
     }
     if (own.periods.length > 0 && !own.periods.every(periodAgrees)) {

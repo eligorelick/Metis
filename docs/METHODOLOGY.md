@@ -2699,9 +2699,10 @@ is a year-over-year or quarter-over-quarter figure, which is measured against a
 known base period: the base is compared with its fiscal label one year (or one
 quarter) earlier for an FY-labelled base, otherwise with that label or the
 calendar year of the shifted date. A base on any other record (a level, a
-period-less figure), a spelled fiscal base ("the second quarter of fiscal 2025",
-which is not read until spelled fiscal periods are), and a base that does not
-match leave the claim unverified (`period-mismatch`), never validated. Guidance,
+period-less figure), a base spelled with "fiscal" ("the second quarter of fiscal
+2025", "fiscal 2025", "fiscal year 2025"; right or wrong, as spelled fiscal
+periods are not read), and a base that does not match leave the claim
+unverified (`period-mismatch`), never validated. Guidance,
 target, estimate, outlook, forecast and consensus phrases are not comparison
 bases and keep the claim's own period.
 The period-word check compares years only; it does not adjudicate fiscal

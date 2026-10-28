@@ -510,3 +510,19 @@ describe("AI-402 fix round 1: a stated comparison base must be established by th
     expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "text-ambiguous" });
   });
 });
+
+describe("AI-402 fix round 2: a bare spelled fiscal base keeps its fiscal marker", () => {
+  const lead = "Revenue growth year over year for the quarter was 105.85%, compared with ";
+  it.each(["fiscal 2025.", "fiscal year 2025.", "fiscal 2026.", "fiscal year 2026."])(
+    "a base spelled 'fiscal' is unverified, wrong or right, until spelled fiscal periods are read (%s)", async (base) => {
+      expect((await cite([NV_YOY], NV_YOY.id, lead + base)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    });
+  it("control (pinned): an FY-labelled base is compared by fiscal label", async () => {
+    // A fiscal year is not the Q2 FY2026 quarter the figure is measured against, so a bare FY base stays unverified.
+    expect((await cite([NV_YOY], NV_YOY.id, `${lead}Q2 FY2026.`)).entry.validationStatus).toBe("validated");
+    for (const base of ["FY2026", "FY2025", "Q2 FY2025"]) expect((await cite([NV_YOY], NV_YOY.id, `${lead}${base}.`)).entry.validationStatus, base).toBe("unchecked");
+    // "FY 2026" with a space: pinned to whatever the code does today.
+    const spaced = await cite([NV_YOY], NV_YOY.id, `${lead}FY 2026.`);
+    expect(["validated", "unchecked"]).toContain(spaced.entry.validationStatus);
+  });
+});
