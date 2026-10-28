@@ -2662,6 +2662,16 @@ as-of), without the truncation marker — in
   takes the scale of an "(in millions" header above it when the table is a
   money table; a decimal cell never does, and no "$" cell does under an
   "except per share" header. Per-share and every other unit fail.
+  The claim reader (`claimEvidence.ts`, which the second gate below runs)
+  scales a table the same way: a table's "(In millions)" scales its amounts
+  and share counts only; a percent, ratio or day count is never scaled. Under
+  "(In thousands|millions, except per share data)" a decimal amount is a
+  per-share figure; under "(In billions, except per share data)" only a
+  decimal in a row that names a per-share basis (per share, EPS) is, because
+  the same table prints amounts such as "Revenue $ 216.0" as decimals. A
+  per-share cell is read as dollars per share and is compared with a claim
+  that names the per-share basis in its words ("per share"); "EPS" alone is
+  not read as that basis (DECISIONS entry 8, post-fix audit check V7).
 - The value is what the text prints, at the printed precision: "$915
   billion" supports 915e9, not 915.3e9.
 - The printed figure is specific: three significant digits, or two with a
@@ -2675,10 +2685,12 @@ as-of), without the truncation marker — in
   or, for a table cell, in that row's own label. A number with no
   description words fails (`text-context-mismatch`).
 
-The period is not compared with the column a figure was printed in, and two
-figures that share the description's words in one sentence ("Standardized
-and Advanced CET1 ratios were 14.6% and 14.1%") cannot be told apart. The
-log note on every match says the period is not machine-checked. News rows,
+Since D-66 the second gate compares the number's period with the column a
+figure was printed in (the claim reader binds a table cell by its column's
+date and fiscal label), and two figures that share the description's words in
+one sentence ("Standardized and Advanced CET1 ratios were 14.6% and 14.1%")
+cannot be told apart. The first gate (`excerptNumbers.ts`) does not check the
+period; the log note on a match is the second gate's. News rows,
 string figures and insider notes carry no text to read and stay
 `text-source`.
 

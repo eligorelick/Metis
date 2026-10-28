@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
@@ -192,5 +193,83 @@ describe("explicit currency scale against numeric registry records", () => {
     const result = await registryNumber(197e9, "currency", null);
     expect(result.entry).toMatchObject({ outcome: "verified", traceKind: "payload-match" });
     expect(result.number).toMatchObject({ value: 197e9, currency: "USD", verified: true });
+  });
+});
+
+describe("AI-403 table scale applies to amounts only", () => {
+  const filing = "edgar:10-K item7";
+  /** One filing excerpt run through the verify pass; the judge is never called. */
+  async function synthetic(sourceText: string, claim: string, title = "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)", registered = filing, asOfDate = "2026-01-25") {
+    const payload = {
+      companyName: "Example issuer", symbol: "EXAMPLE",
+      // One statements record gives the filing its reporting currency (USD).
+      provenanceRegistry: [{ id: "payload.statements.income.revenue", kind: "provider", value: 1, unit: "currency",
+        currency: "USD", period: asOfDate, asOf: asOfDate, origin: "edgar", formulaVersion: null, displayPrecision: 0 }],
+      citationRegistry: [{ id: registered, asOf: asOfDate, origin: registered, kind: "payload-text" }],
+      filings: [{ source: registered, asOf: asOfDate, text: sourceText, title, truncated: false, originalChars: sourceText.length }],
+    } as unknown as ContextPayload;
+    const result = await runVerifyPass({ runPass: () => { throw new Error("no judge in a verify test"); } } as unknown as PassDeps, payload,
+      { commentary: [{ label: "FACT", text: claim, source: registered, asOf: asOfDate }] });
+    return result.log[0]!.validationStatus;
+  }
+  const TAX = (decl: string) => `Year Ended Jan 25, 2026 Jan 26, 2025 ${decl}Income before income tax 140,000 85,000 Effective tax rate 15.1 % 13.3 % Other matters follow.`;
+
+  it.each(["(In millions) ", "($ in millions) ", "($ in millions, except per share data) "])("a percent row is not scaled under %j", async (decl) => {
+    expect(await synthetic(TAX(decl), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
+  });
+
+  it("does not contradict the NVDA summary gross-margin row", async () => {
+    const text = "Fiscal Year 2026 Summary Year Ended Jan 25, 2026 Jan 26, 2025 Change ($ in millions, except per share data) Revenue $ 215,938 $ 130,497 Up 65% Gross margin 71.1 % 75.0 % -3.9 pts Operating expenses $ 23,076 $ 16,405 Up 41% Other matters follow.";
+    expect(await synthetic(text, "Gross margin for FY2026 was 71.1%.")).not.toBe("contradicted");
+  });
+
+  describe("Note 3 per-share table", () => {
+    const full = readFileSync("fixtures/edgar/nvda-periodic-sections/nvda-10q-q2fy27-notes.txt", "utf8");
+    const from = full.indexOf("Note 3 - Net Income Per Share");
+    const endMark = "(2) Net income divided by diluted weighted average shares.";
+    const note = full.slice(from, full.indexOf(endMark) + endMark.length);
+    const run = (claim: string) => synthetic(note, claim, "10-Q notes", "edgar:10-Q notes", "2026-07-26");
+    it.each([
+      ["integer money cell is still scaled (control)", "Net income for the three months ended July 26, 2026 was USD 59,688 million.", "validated"],
+      ["the Basic per-share cell is not scaled", "Basic net income per share for the three months ended July 26, 2026 was USD 2.47.", "validated"],
+    ] as const)("%s", async (_name, claim, status) => {
+      expect(await run(claim)).toBe(status);
+    });
+    it.each([
+      "Basic net income per share for the three months ended July 26, 2026 was USD 2.47 million.",
+    ])("a per-share cell is never read as millions: %s", async (claim) => {
+      expect(await run(claim)).not.toBe("validated");
+    });
+    it.each([
+      "Diluted net income per share for the three months ended July 26, 2026 was USD 2.46.",
+      "Basic weighted average shares for the three months ended July 26, 2026 were 24,190 million shares.",
+    ])("control, not contradicted: %s", async (claim) => {
+      expect(await run(claim)).not.toBe("contradicted");
+    });
+  });
+
+  describe("billions declaration", () => {
+    const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in billions, except per share data) Revenue $ 216.0 $ 130.5 Diluted EPS $ 4.90 $ 2.94 Other matters follow.";
+    it("a decimal amount row is still scaled (control)", async () => {
+      expect(await synthetic(text, "Revenue as of 2026-01-25 was USD 216.0 billion.")).toBe("validated");
+    });
+    it.each([
+      ["Diluted EPS as of 2026-01-25 was USD 4.90 billion.", (s: string) => expect(s).not.toBe("validated")],
+      ["Diluted EPS as of 2026-01-25 was USD 4.90.", (s: string) => expect(s).not.toBe("contradicted")],
+    ] as const)("a per-share row keeps its dollars: %s", async (claim, check) => {
+      check((await synthetic(text, claim)) as string);
+    });
+  });
+
+  describe("controls that hold before and after", () => {
+    it("no declaration", async () => {
+      expect(await synthetic(TAX(""), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
+    });
+    it("an amount under (In millions) is scaled", async () => {
+      expect(await synthetic(TAX("($ in millions) "), "Income before income tax as of 2026-01-25 was USD 140.0 billion.")).toBe("validated");
+    });
+    it("a percent is not read as a scaled million", async () => {
+      expect(await synthetic(TAX("($ in millions) "), "Gross margin as of 2025-01-26 was 75,000,000%.")).not.toBe("validated");
+    });
   });
 });

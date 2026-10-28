@@ -150,7 +150,7 @@ interface SourceBinding {
    * D-66: a table cell's header scale ("(In millions)") and the excerpt's
    * fiscal labels for its column. Absent for prose figures.
    */
-  column?: { scale: number | null; aliases: string[]; date: string };
+  column?: { scale: number | null; aliases: string[]; date: string; exceptPerShare: boolean; label: string };
   /** An explicit total, or per-share, cash-dividend restatement in one clause. */
   unitPair?: { totalStart: number; perShareStart: number };
 }
@@ -628,11 +628,43 @@ function excerptWindows(excerpt: TextExcerpt): Set<string> {
 
 const HEADER_DATE = new RegExp(String.raw`\b(?:${MONTH_NAMES})\.?\s+\d{1,2},?\s+(?:19|20)\d{2}\b|\b\d{4}-\d{2}-\d{2}\b`, "gi");
 
-interface TableColumn { label: string; period: PeriodReference; window: PeriodReference | null; scale: number | null; dollars: boolean; rowStart: number }
+interface TableColumn { label: string; period: PeriodReference; window: PeriodReference | null; scale: number | null; exceptPerShare: boolean; dollars: boolean; rowStart: number }
 /** A table header's change column ("$ Change", "% Change"), which binds no period. */
 const CHANGE_COLUMN = /^[\s,|]*(?:[$%]\s*)?Change\b/i;
 const MONTHS_ENDED = /\b(Three|Six|Nine)\s+Months\s+Ended\b/gi;
 const TABLE_SCALE = /\(\s*(?:\$\s*)?in\s+(thousands|millions|billions)(?:,[^)]{0,40})?\s*\)/gi;
+/**
+ * AI-403: a row's own lead, without any table scale declaration. The first row
+ * under a header reads "($ in millions, except per share data) Revenue", and the
+ * declaration is not that row's description.
+ */
+function rowLead(label: string): string {
+  return label.replace(TABLE_SCALE, " ");
+}
+/** The per-share basis is named in the words ("Basic net income per share"), not after the figure; "EPS" alone is not read (DECISIONS entry 8). */
+function perShareInWords(quantity: Quantity, label: string): boolean {
+  return quantity.unit === "currency" && /\bper\s+share\b/i.test(label);
+}
+/**
+ * AI-403 / D-45: under "except per share data" a decimal cell is the per-share
+ * line when the declared scale is thousands or millions (statement amounts are
+ * whole numbers there) or when its own row names a per-share basis (under
+ * "($ in billions)" amounts such as "Revenue $ 216.0" are decimals too).
+ */
+function isPerShareCell(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): boolean {
+  if (column === undefined || !column.exceptPerShare || quantity.step >= 1) return false;
+  return column.scale === 1e3 || column.scale === 1e6 || /\bper[\s-]+share\b|\beps\b/i.test(rowLead(column.label));
+}
+/**
+ * AI-403: a table's "(In millions)" scales its amounts and share counts only, never a percent, a ratio, a day count
+ * or a per-share cell, and never a figure that printed its own scale word.
+ */
+function tableScaleFor(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): number {
+  if (column === undefined || quantity.scaled) return 1;
+  if (quantity.unit !== "currency" && quantity.unit !== "shares" && quantity.unit !== null) return 1;
+  if (isPerShareCell(quantity, column)) return 1;
+  return column.scale ?? 1;
+}
 /**
  * D-63: column bindings of a flattened statement table ("Jul 26, 2026 Jan 25,
  * 2026 (In millions) Cash and cash equivalents $ 22,443 $ 10,605 …"). A row is
@@ -708,13 +740,14 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       // extra currency/unit qualifier cannot disappear into reportingCurrency.
       const plainPrefix = adjacent.every((match) => /^\(\s*(?:\$\s*)?in\s+(?:thousands|millions|billions)\s*\)$/i.test(match[0]));
       const scale = !plainPrefix || scaleWords.size > 1 ? null : scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1;
+      const exceptPerShare = declarations.some((match) => /except\s+per[\s-]+share/i.test(match[0]));
       // "($ in millions)" makes every cell of the table dollars, not only the first row's.
       const dollars = declarations.some((match) => /\$/.test(match[0]));
       for (let c = 0; c < k; c++) {
         const column = header.columns[c];
         const period = column ? periodLabels(column.date)[0] : undefined;
         if (column && period !== undefined) {
-          out.set(found[q + c]!, { label: lead, period, window: windows[repeatedRuns ? Math.floor(c / runWidth) : column.run] ?? null, scale, dollars, rowStart: Math.max(prevEnd, header.end) });
+          out.set(found[q + c]!, { label: lead, period, window: windows[repeatedRuns ? Math.floor(c / runWidth) : column.run] ?? null, scale, exceptPerShare, dollars, rowStart: Math.max(prevEnd, header.end) });
         }
       }
     }
@@ -763,8 +796,11 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        const cell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
-        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases, date: column.period.key },
+        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
+        const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
+        // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
+        const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
+        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: tableColumn,
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
@@ -928,10 +964,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // The per-share basis may be named in the metric words instead of after
     // the figure ("Our DCF per share as of 2026-10-26 is USD 320.63"): it is
     // the record's own unit, not a total (live MSFT check, 2026-10-26).
-    const perShareInWords = quantity.unit === "currency" && record.unit === "currency-per-share" && /\bper\s+share\b/i.test(own.label);
     const normalizedQuantity = quantity.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction"
       ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const }
-      : perShareInWords ? { ...quantity, unit: "currency-per-share" as const } : quantity;
+      : record.unit === "currency-per-share" && perShareInWords(quantity, own.label) ? { ...quantity, unit: "currency-per-share" as const } : quantity;
     if (normalizedQuantity.unit !== record.unit) return support("unchecked", "unit-mismatch", "prose unit is not established by the cited numeric record");
     if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
       const currency = resolvedCurrency(quantity, options.reportingCurrency);
@@ -1014,7 +1049,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
     const distinct = new Set(matchingPeriods.map((candidate) => {
-      const multiplier = candidate.quantity.scaled ? 1 : candidate.column?.scale ?? 1;
+      const multiplier = tableScaleFor(candidate.quantity, candidate.column);
       return JSON.stringify([
         candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
         candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
@@ -1033,8 +1068,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     // A header's scale defines the source amount regardless of whether prose
     // spells its amount with a scale word or with all digits.
-    const tableScale = bound.column?.scale ?? 1;
-    const candidate = tableScale !== 1 && !bound.quantity.scaled
+    const tableScale = tableScaleFor(bound.quantity, bound.column);
+    const candidate = tableScale !== 1
       ? { ...bound, quantity: { ...bound.quantity, value: bound.quantity.value * tableScale, step: bound.quantity.step * tableScale } }
       : bound;
     const sourceDirection = directionOf(candidate);
@@ -1046,9 +1081,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
     }
     if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
-    if (candidate.quantity.unit !== quantity.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
-    if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
-      const currency = resolvedCurrency(quantity, options.reportingCurrency);
+    // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure.
+    const claimed = candidate.quantity.unit === "currency-per-share" && perShareInWords(quantity, own.label) ? { ...quantity, unit: "currency-per-share" as const } : quantity;
+    if (candidate.quantity.unit !== claimed.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
+    if (claimed.unit === "currency" || claimed.unit === "currency-per-share") {
+      const currency = resolvedCurrency(claimed, options.reportingCurrency);
       const sourceCurrency = resolvedCurrency(candidate.quantity, options.reportingCurrency);
       if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
       if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
