@@ -469,7 +469,6 @@ function payloadSection(
   };
 }
 
-/** Round a number to at most `dp` decimals without trailing-zero noise. */
 /**
  * Audit 2026-10-27 B3 (AI-306): the span the share-count change was measured
  * over, as the figure's label states it. A null span (no change measured) keeps
@@ -482,6 +481,7 @@ function shareCountSpanLabel(actualYears: number | null): string {
   return Math.abs(actualYears - whole) <= 0.05 ? String(whole) : actualYears.toFixed(1);
 }
 
+/** Round a number to at most `dp` decimals without trailing-zero noise. */
 function round(v: number, dp = 4): number {
   return Number(v.toFixed(dp));
 }

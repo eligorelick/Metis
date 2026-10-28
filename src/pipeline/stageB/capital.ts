@@ -938,7 +938,9 @@ export function computeCapital(
         );
         years = dateSpan;
       }
-      if (startIdx < SHARE_TREND_WINDOW_YEARS) {
+      // Audit 2026-10-27 B3 (AI-306): "only Ny available" is said only when the measured span really fell short;
+      // an irregular date span that reaches the window (within the label's 0.05y rounding) is not a shortfall.
+      if (startIdx < SHARE_TREND_WINDOW_YEARS && years < SHARE_TREND_WINDOW_YEARS - 0.05) {
         trendNotes.push(
           `requested ${SHARE_TREND_WINDOW_YEARS}y window, only ${fmt(years)}y of share history available`,
         );

@@ -31,4 +31,44 @@ describe("share-count change span label (AI-306)", () => {
     expect(capital.figures.some((f) => f.label === "weighted-average diluted common-share change (5y total)")).toBe(true);
     expect(capital.notes.some((n) => n.startsWith("Diluted share-count change:"))).toBe(false);
   });
+
+  // Four annual rows whose oldest is dated `oldest`, so the index span is three years and the date span is not.
+  const gapCapital = (oldest: string) => {
+    const bundle = completeCurrencyBundle({});
+    const income = (bundle.statements.incomeAnnual as { value: { data: { rows: { date: string; fiscalYear?: string }[] } } }).value.data.rows;
+    income[3] = { ...income[3], date: oldest, fiscalYear: oldest.slice(0, 4) };
+    const computed = runStageB(bundle);
+    const capital = assembleContextPayload(bundle, computed, EMPTY_VALIDATION).computed.find((s) => s.title === "Capital & cash (computed)")!;
+    const label = capital.figures.find((f) => f.label.startsWith("weighted-average diluted common-share change"))!.label;
+    return { years: computed.capital.shareCount.actualYears!, label, notes: capital.notes.filter((n) => n.startsWith("Diluted share-count change:")) };
+  };
+
+  it("labels an irregular gap with its date-based whole-year span and no contradictory 'only' line", () => {
+    const { years, label, notes } = gapCapital("2019-12-31"); // index span 3, date span 6
+    expect(Math.round(years)).toBe(6);
+    expect(label).toBe("weighted-average diluted common-share change (6y total)");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("irregular fiscal spacing");
+    expect(notes[0]).not.toContain("only");
+  });
+
+  it("labels an irregular five-year date span as 5y without saying only 5y is available", () => {
+    const { years, label, notes } = gapCapital("2020-12-31"); // index span 3, date span 5.0
+    expect(Math.round(years)).toBe(5);
+    expect(label).toBe("weighted-average diluted common-share change (5y total)");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("irregular fiscal spacing");
+    expect(notes[0]).not.toContain("only");
+  });
+
+  it("labels a fractional span to one decimal and keeps the shortfall line only when the window fell short", () => {
+    const long = gapCapital("2020-06-30"); // date span about 5.5
+    expect(long.label).toBe(`weighted-average diluted common-share change (${long.years.toFixed(1)}y total)`);
+    expect(long.label).toMatch(/\(5\.\dy total\)/);
+    expect(long.notes[0]).not.toContain("only");
+    const short = gapCapital("2021-06-30"); // date span about 4.5
+    expect(short.label).toMatch(/\(4\.\dy total\)/);
+    expect(short.notes[0]).toContain("irregular fiscal spacing");
+    expect(short.notes[0]).toMatch(/only 4\.\d+y of share history available/);
+  });
 });
