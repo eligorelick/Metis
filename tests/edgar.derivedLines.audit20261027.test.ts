@@ -189,3 +189,63 @@ describe("bank interest income", () => {
     expect(build(bankFacts, { bankRevenue: false }).incomeAnnual.rows[0]!.interestIncome).toBe(28_032 * M);
   });
 });
+
+describe("derived EBIT operands", () => {
+  const Q1: Filing = { filed: "2026-04-30", form: "10-Q", fp: "Q1", fy: 2026, accn: "0000000099-26-000011" };
+  const Q2: Filing = { filed: "2026-08-05", form: "10-Q", fp: "Q2", fy: 2026, accn: "0000000099-26-000012" };
+  const PRETAX = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest";
+  const lly26 = {
+    Revenues: [fact(Q1, "2026-01-01", "2026-03-31", 19_799 * M), fact(Q2, "2026-04-01", "2026-06-30", 22_974 * M)],
+    NetIncomeLoss: [fact(Q1, "2026-01-01", "2026-03-31", 7_000 * M), fact(Q2, "2026-04-01", "2026-06-30", 7_500 * M)],
+    [PRETAX]: [fact(Q1, "2026-01-01", "2026-03-31", 8_850 * M), fact(Q2, "2026-04-01", "2026-06-30", 9_247 * M)],
+    NonoperatingIncomeExpense: [fact(Q1, "2026-01-01", "2026-03-31", -65 * M), fact(Q2, "2026-04-01", "2026-06-30", 269 * M)],
+    // Quarter ends are discovered from 10-Q Assets instants: without them no quarterly row exists.
+    Assets: [fact(Q1, undefined, "2026-03-31", 110_000 * M), fact(Q2, undefined, "2026-06-30", 112_000 * M)],
+  };
+  it("with the aggregate filed and no interest element, EBIT is pretax less the aggregate, disclosed (FIN-507)", () => {
+    const q = build(lly26).incomeQuarterly;
+    const row = (d: string) => q.rows.find((r) => r.date === d)!;
+    expect(row("2026-06-30")).toMatchObject({ operatingIncome: 8_978 * M, ebit: 8_978 * M });
+    expect(row("2026-03-31")).toMatchObject({ operatingIncome: 8_915 * M, ebit: 8_915 * M });
+    const text = q.substitutions.filter((s) => s.field === "operatingIncome" && s.periods.includes("2026-06-30")).map((s) => s.text).join(" ");
+    expect(text).toMatch(/no interest-expense element .* is filed for the period/);
+    expect(text).toMatch(/understates EBIT by that interest/);
+    expect(text).not.toMatch(/may ALREADY contain the interest expense added back/);
+  });
+  it("with neither interest nor the aggregate, operating income and EBIT are withheld with the missing operand named", () => {
+    const pretaxOnly = Object.fromEntries(Object.entries(lly26).filter(([tag]) => tag !== "NonoperatingIncomeExpense"));
+    const q = build(pretaxOnly).incomeQuarterly;
+    expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBeNull();
+    expect(q.withheld).toContainEqual(expect.objectContaining({ field: "operatingIncome", text: expect.stringMatching(/interest expense .*not filed .*no NonoperatingIncomeExpense aggregate/) }));
+    const ebitHeld = q.withheld.filter((w) => w.field === "ebit").map((w) => w.text).join(" ");
+    expect(ebitHeld).toMatch(/operating income could not be derived/);
+    expect(ebitHeld).not.toMatch(/bank-style filer/);
+  });
+  it("control: a filed interest element beside the aggregate keeps today's derivation and caveat", () => {
+    const q = build({ ...lly26, InterestExpense: [fact(Q2, "2026-04-01", "2026-06-30", 150 * M)] }).incomeQuarterly;
+    expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBe((9_247 + 150 - 269) * M);
+    expect(q.substitutions.some((s) => s.field === "operatingIncome" && /may ALREADY contain/.test(s.text))).toBe(true);
+  });
+  // FIN-507-V1 (synthetic, the probe's figures)
+  const K: Filing = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13", accn: "0000000099-26-000001" };
+  const a = (v: number) => [fact(K, "2025-01-01", "2025-12-31", v)];
+  const common = {
+    Revenues: a(40_000),
+    NetIncomeLoss: a(3_000),
+    Assets: [fact(K, undefined, "2025-12-31", 90_000)],
+    InterestExpense: a(400),
+    NonoperatingIncomeExpense: a(150),
+    DepreciationDepletionAndAmortization: a(1_000),
+  };
+  it("pretax filed only as domestic + foreign still derives EBIT (FIN-507-V1)", () => {
+    const b = build({ ...common, IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic: a(2_600), IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign: a(1_400) }).incomeAnnual;
+    expect(b.rows[0]).toMatchObject({ incomeBeforeTax: 4_000, operatingIncome: 4_250, ebit: 4_250, ebitda: 5_250 });
+    const text = b.substitutions.filter((s) => s.field === "operatingIncome").map((s) => s.text).join(" ");
+    expect(text).toMatch(/IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic \+ IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign/);
+    expect(text).toMatch(/taken as the full pretax total/);
+    expect(b.withheld.filter((w) => /bank-style filer/.test(w.text))).toEqual([]);
+  });
+  it("control: with the pretax total filed, EBIT is 4,000 + 400 - 150 = 4,250 as before", () => {
+    expect(build({ ...common, [PRETAX]: a(4_000) }).incomeAnnual.rows[0]).toMatchObject({ operatingIncome: 4_250, ebit: 4_250 });
+  });
+});

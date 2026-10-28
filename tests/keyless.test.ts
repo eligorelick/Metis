@@ -1396,7 +1396,9 @@ describe("applyKeylessFallbacks — concept substitution disclosure", () => {
 
   it("adds no substitution entry when every concept resolved from its own tag", async () => {
     const out = await run(appleFacts());
-    expect(out.gaps.some((g) => /^keyless\.(income|balance|cashflow)(Annual|Quarterly)\./.test(g.field))).toBe(false);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a named withholding. The pin is about substitutions, which stay absent.
+    expect(out.gaps.some((g) => /^keyless\.(income|balance|cashflow)(Annual|Quarterly)\./.test(g.field) && g.field !== "keyless.incomeAnnual.withheld.operatingIncome" && g.field !== "keyless.incomeQuarterly.withheld.operatingIncome")).toBe(false);
   });
 });
 

@@ -259,14 +259,18 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
     // and it is null rather than zero.
     expect(q2.revenue).toBeNull();
     expect(q2.netIncome).toBe(25);
-    expect(built.incomeQuarterly.withheld).toEqual([
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    const revenueHeld = built.incomeQuarterly.withheld.filter((w) => w.field === "revenue");
+    expect(revenueHeld).toEqual([
       {
         field: "revenue",
         periods: ["2025-03-29"],
         text: expect.stringMatching(/^revenue WITHHELD for this quarter: the YTD difference derivation produced -20/),
       },
     ]);
-    const [held] = built.incomeQuarterly.withheld;
+    expect(built.incomeQuarterly.withheld.filter((w) => w.field === "operatingIncome").every((w) => /pretax income is not filed/.test(w.text))).toBe(true);
+    const [held] = revenueHeld;
     expect(held!.text).toMatch(/2025-03-29 MINUS .*2024-12-28/);
     expect(built.incomeQuarterly.notes.some((n) => /revenue WITHHELD for this quarter/.test(n))).toBe(true);
   });
@@ -275,7 +279,9 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
     const built = buildStatementsFromCompanyFacts(shrinkingYtd(), OPTS);
     const q3 = built.incomeQuarterly.rows.find((r) => r.date === "2025-06-28")!;
     expect(q3).toMatchObject({ revenue: 200, derivation: "ytd-difference" }); // 300 − 100
-    expect(built.incomeQuarterly.withheld.map((w) => w.periods).flat()).toEqual(["2025-03-29"]);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    expect(built.incomeQuarterly.withheld.filter((w) => w.field === "revenue").map((w) => w.periods).flat()).toEqual(["2025-03-29"]);
   });
 
   it("leaves a negative ANNUAL revenue alone — it was filed, not derived", () => {
@@ -287,7 +293,9 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
       }),
       OPTS,
     );
-    expect(built.incomeAnnual.withheld).toEqual([]);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    expect(built.incomeAnnual.withheld.filter((w) => w.field === "revenue")).toEqual([]);
   });
 });
 

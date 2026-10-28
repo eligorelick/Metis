@@ -303,7 +303,7 @@ rate)` row) and in the report's computed-returns notes.
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
-| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed. No universal statutory rate is assumed. |
+| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
@@ -706,6 +706,14 @@ outright — a bank, where interest is an operating cost — EBIT is withheld an
 named in the missing-data manifest rather than published under a second name.
 Interest the taxonomy nests inside the non-operating aggregate the filer
 tagged is not added back (audit 2026-10-22 B-39, below).
+
+The derivation's pre-tax operand is the same evidence as the pre-tax field: the
+filed total, else the B-32 domestic + foreign composition (audit 2026-10-27
+FIN-507-V1, D-next), and the disclosure says when the composition was taken as
+the full total. The interest operand is not required beside a filed
+`NonoperatingIncomeExpense` aggregate. Where the derivation is refused, the
+operand it lacks is named in the `operatingIncome` withholding, and `ebit` is
+withheld with it, so a missing operand is never a silent gap.
 
 A bank-routed filer's `interestIncome` is its operating total: the resolver
 tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
@@ -3778,7 +3786,8 @@ existing 0–35% clamp still applies and is disclosed when it moves the rate.
 With neither a trailing nor an annual pair, the levered WACC is still
 withheld. Oracle tags no pre-tax total, only its domestic and foreign
 components, so on the SEC path pre-tax income is now their sum when no total
-is tagged, with the composition disclosed.
+is tagged, with the composition disclosed. The derived EBIT's pre-tax operand
+reads the same composition (audit 2026-10-27 FIN-507-V1).
 
 **Principal beside carrying debt (B-5).** When the current and noncurrent
 debt lines do not both resolve, the debt check compares the filed debt aggregate
@@ -4093,7 +4102,14 @@ not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
 26,302 million). Owner decision: the taxonomy nesting is taken as the filer's
 presentation, as the withholding rule already did; the disclosure says that
 where a filer's aggregate leaves its interest out, the figure understates
-EBIT by that interest.
+EBIT by that interest. A period that files the aggregate and no interest
+element at all is derived the same way (audit 2026-10-27 FIN-507, D-next):
+pretax income less the aggregate, with a disclosure that no interest element is
+filed and that an interest line outside the aggregate would leave the figure
+understating EBIT by that interest. A period with neither the interest nor the
+aggregate is withheld, with the missing operand and the missing aggregate named
+(Eli Lilly's 2026 quarters, with the aggregate and no interest element, moved
+from no EBIT to 8,915 and 8,978 million).
 
 **Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
 capital although the filing establishes the figure.

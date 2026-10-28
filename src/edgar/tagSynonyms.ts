@@ -216,6 +216,21 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
 } as const;
 
 /**
+ * A period that files the `NonoperatingIncomeExpense` aggregate and no interest
+ * element at all (audit 2026-10-27 FIN-507; D-next extends B-39 to it). The
+ * interest part of the derived EBIT is then not required: pretax income less
+ * the aggregate is the EBIT, and `disclose` says what that rests on.
+ */
+export const EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE = {
+  adjustmentTag: "NonoperatingIncomeExpense",
+  disclose:
+    "no interest-expense element (or cash-interest stand-in) is filed for the period; with the NonoperatingIncomeExpense " +
+    "aggregate filed, pretax income less that aggregate is the EBIT (the us-gaap calculation places nonoperating " +
+    "interest, InterestExpenseNonoperating, inside the aggregate); where the filer's interest sits outside the " +
+    "aggregate on an untagged line, the figure understates EBIT by that interest",
+} as const;
+
+/**
  * The caveat every derived EBIT carries when the non-operating aggregate was
  * subtracted and an interest expense was added back from a tag the taxonomy
  * does NOT place inside it. Many filers present "total other income (expense),

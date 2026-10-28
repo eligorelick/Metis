@@ -57,7 +57,7 @@ import {
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
-  DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS,
+  DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS, EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
@@ -425,9 +425,26 @@ export type ChainSpec =
    */
   | {
       kind: "sumAll";
-      parts: { label: string; spec: ChainSpec }[];
+      parts: {
+        label: string;
+        spec: ChainSpec;
+        /**
+         * The part may be absent when the `adjustmentTag` aggregate is among the
+         * subtrahends that served: the part is skipped and `disclose` is added
+         * to the derivation's disclosure (audit 2026-10-27 FIN-507). Otherwise
+         * the derivation is refused with the missing part named.
+         */
+        optionalWhenAdjustment?: { adjustmentTag: string; disclose: string };
+      }[];
       unit: "money";
       disclose?: string;
+      /**
+       * A required part that does not resolve (or resolves in another unit) is
+       * recorded as a refusal naming it, so the field ends as a disclosed
+       * withholding and not a silent null (audit 2026-10-27 FIN-507). Set on the
+       * derived EBIT only; the other `sumAll` chains keep returning null quietly.
+       */
+      refuseWhenIncomplete?: boolean;
       minusAny?: {
         label: string;
         tags: readonly string[];
@@ -704,6 +721,26 @@ const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[]
 ].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
 const CONTINUING_EPS_WORKING_FIELDS: ReadonlySet<string> = new Set([...Object.values(CONTINUING_EPS_FIELDS), ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)]);
 
+/**
+ * Pretax income: the total, else the B-32 domestic + foreign composition. The
+ * `incomeBeforeTax` field and the derived EBIT's pretax operand read this one
+ * spec (audit 2026-10-27 FIN-507-V1).
+ */
+const INCOME_BEFORE_TAX_SPEC: ChainSpec = {
+  kind: "chain",
+  unit: "money",
+  steps: [
+    { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
+    {
+      kind: "sum",
+      tags: [...INCOME_BEFORE_TAX_COMPONENT_TAGS],
+      unit: "money",
+      disclose:
+        "no pretax-income total is tagged for the period; pretax income is composed as the filer's domestic + foreign pretax income (the total's two children in the taxonomy calculation)",
+    },
+  ],
+};
+
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
   costOfRevenue: lineItemChain("costOfRevenue", "money"),
@@ -743,8 +780,8 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
         kind: "sumAll",
         unit: "money",
         parts: [
-          { label: "pretax income", spec: { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" } },
-          { label: "interest expense", spec: INTEREST_EXPENSE_SPEC },
+          { label: "pretax income", spec: INCOME_BEFORE_TAX_SPEC },
+          { label: "interest expense", spec: INTEREST_EXPENSE_SPEC, optionalWhenAdjustment: EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE },
         ],
         minusAny: EBIT_NON_OPERATING_ADJUSTMENTS.map((a) => ({
           label: a.label,
@@ -753,6 +790,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
           ...(a.notWhenBaseTag === undefined ? {} : { notWhenBaseTag: a.notWhenBaseTag }),
         })),
         notAddedWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
+        refuseWhenIncomplete: true,
         discloseAdjusted: describeDerivedEbit,
       },
     ],
@@ -762,20 +800,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   netInterestIncome: lineItemChain("netInterestIncome", "money"),
   // Audit 2026-10-22 B-32: a filer that tags only the two components (Oracle
   // FY2026) had no pretax income, so no annual effective tax rate either.
-  incomeBeforeTax: {
-    kind: "chain",
-    unit: "money",
-    steps: [
-      { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
-      {
-        kind: "sum",
-        tags: [...INCOME_BEFORE_TAX_COMPONENT_TAGS],
-        unit: "money",
-        disclose:
-          "no pretax-income total is tagged for the period; pretax income is composed as the filer's domestic + foreign pretax income (the total's two children in the taxonomy calculation)",
-      },
-    ],
-  },
+  incomeBeforeTax: INCOME_BEFORE_TAX_SPEC,
   incomeTaxExpense: lineItemChain("incomeTaxExpense", "money"),
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
@@ -829,6 +854,12 @@ function describeDerivedEbit(ctx: {
     );
   }
   parts.push(...ctx.notAdded);
+  const pretax = ctx.parts.find((p) => p.label === "pretax income");
+  if (pretax !== undefined && INCOME_BEFORE_TAX_COMPONENT_TAGS.every((tag) => pretax.tags.some((t) => t === tag || t.endsWith(`/${tag}`)))) {
+    parts.push(
+      "the domestic + foreign composition is taken as the full pretax total, so equity-method results are subtracted as for that total",
+    );
+  }
   if (ctx.subtracted.includes("NonoperatingIncomeExpense") && ctx.notAdded.length === 0) {
     parts.push(EBIT_AGGREGATE_MAY_HOLD_INTEREST);
   }
@@ -1711,9 +1742,34 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "sumAll": {
       const present: Resolved[] = [];
       const partTags: { label: string; tags: string[] }[] = [];
+      const deferred: (typeof spec.parts)[number][] = [];
+      const field = at?.field ?? label;
+      const triedTags = (part: ChainSpec): string => {
+        const tried = new Set<string>();
+        collectTags(part, tried);
+        return [...tried].join(", ");
+      };
       for (const part of spec.parts) {
+        const refusalsBefore = notes.refusals.length;
         const r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
-        if (r === null || (present.length > 0 && present[0]!.unit !== r.unit)) return null;
+        if (r !== null && present.length > 0 && present[0]!.unit !== r.unit) {
+          if (spec.refuseWhenIncomplete === true) notes.refuse(`${field} not derived: ${part.label} is filed in ${r.unit}, not ${present[0]!.unit}`);
+          return null;
+        }
+        if (r === null) {
+          if (part.optionalWhenAdjustment !== undefined) {
+            deferred.push(part);
+            continue;
+          }
+          if (spec.refuseWhenIncomplete === true) {
+            notes.refuse(
+              notes.refusals.length > refusalsBefore
+                ? `${field} not derived: ${part.label} for the period is withheld (${notes.refusals[notes.refusals.length - 1]})`
+                : `${field} not derived: ${part.label} is not filed for the period (tags tried: ${triedTags(part.spec)})`,
+            );
+          }
+          return null;
+        }
         present.push(r);
         partTags.push({ label: part.label, tags: r.tags });
       }
@@ -1744,6 +1800,20 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
               break;
             }
           }
+        }
+        // A part that may be absent beside a filed aggregate (audit 2026-10-27
+        // FIN-507): skipped and disclosed when that aggregate served, else the
+        // derivation is refused with the missing operand named.
+        for (const part of deferred) {
+          const rule = part.optionalWhenAdjustment!;
+          if ([...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag))) {
+            notAdded.push(rule.disclose);
+            continue;
+          }
+          notes.refuse(
+            `${field} not derived: ${part.label} is not filed for the period (tags tried: ${triedTags(part.spec)}), and no ${rule.adjustmentTag} aggregate is filed that would make it unnecessary`,
+          );
+          return null;
         }
         // A part the taxonomy nests inside a subtracted aggregate is already
         // in it, so it is not added back (audit 2026-10-22 B-39).
@@ -2174,7 +2244,7 @@ interface ComputeContext {
   replace?(field: string, resolved: Resolved | null): void;
 }
 
-function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
+function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext, route: "bank" | "general"): void {
   if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null) {
     const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
     const filings = (resolved: Resolved) => JSON.stringify([...new Set((resolved.evidencePoints ?? [resolved.point]).map(p => `${p.accn}|${p.filed}|${p.form}`))].sort());
@@ -2214,12 +2284,19 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
   if (v.ebit === null || v.ebit === undefined) {
     const strictSum = add(v.incomeBeforeTax ?? null, v.interestExpense ?? null);
     v.ebit = v.operatingIncome ?? null;
-    if (v.ebit === null && strictSum !== null) {
+    if (v.ebit === null && route === "bank" && strictSum !== null) {
       const text =
         `ebit WITHHELD: pre-tax income plus interest expense is available, but that sum is EBIT only where operating ` +
         `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost. ` +
         `Publishing the sum would ` +
         `restate under a second name the figure the operating-income derivation refused.`;
+      notes.add(`income ${ctx}: ${text}`);
+      notes.withhold("ebit", ctx, text);
+    } else if (v.ebit === null && route === "general" && v.incomeBeforeTax != null) {
+      // Never silent (audit 2026-10-27 FIN-507): the operatingIncome withholding names the operand it lacks.
+      const text =
+        "ebit WITHHELD: operating income could not be derived for this period (see the operatingIncome withholding); " +
+        "pretax income plus interest expense alone is not EBIT";
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);
     }
@@ -3274,7 +3351,7 @@ const INCOME_DEF = (bankRevenue: boolean): StatementDef => ({
   aliases: {},
   unsourced: INCOME_UNSOURCED,
   computed: ["grossProfit", "ebitda", "ebit"],
-  compute: computeIncome,
+  compute: (v, n, c, cc) => computeIncome(v, n, c, cc, bankRevenue ? "bank" : "general"),
 });
 
 const BALANCE_DEF: StatementDef = {
