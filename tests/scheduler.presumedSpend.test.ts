@@ -672,6 +672,80 @@ describe("a late pass settlement", () => {
   });
 });
 
+describe("dating a request settlement across UTC midnight (JOB-203)", () => {
+  const acquiredAt = new Date("2026-08-08T23:50:00.000Z");
+  const settledAt = new Date("2026-08-09T00:04:00.000Z");
+  const BUCKETS = [
+    { startTime: "2026-08-08T00:00:00Z", endTime: "2026-08-09T00:00:00Z", reportedUsd: 11.8 },
+    { startTime: "2026-08-09T00:00:00Z", endTime: "2026-08-10T00:00:00Z", reportedUsd: 0 },
+  ];
+
+  /** The runner's request-mode shape: a pass lease resized to $0, then one request lease. */
+  function requestLease(jobId: string): { pass: PaidPassLease; request: PaidPassLease } {
+    seedJob(first.db, jobId, "AAPL");
+    const { claim, lease } = reserve(first.db, jobId, "attempt-req", 12.5, acquiredAt);
+    const resized = resizePaidPassLease(lease, 0, acquiredAt, first.db);
+    if (resized === null) throw new Error("fixture pass lease could not be resized");
+    const request = acquirePaidPassLease(
+      claim, "bull", "attempt-req#r1", 12.5, acquiredAt, LIMITS, first.db, "claude-sonnet-5",
+    );
+    if (!request.acquired) throw new Error(`fixture request lease failed: ${request.reason}`);
+    return { pass: resized, request: request.lease };
+  }
+
+  it("dates a presumed request settlement at its lease's acquisition across UTC midnight", () => {
+    const { request } = requestLease("job-req-presumed");
+    settleRequestCost(request, requestSettlement(12.5, true), settledAt, first.db);
+
+    const [row] = first.db.select().from(costLog).where(eq(costLog.jobId, "job-req-presumed")).all();
+    expect(row?.settlementKind).toBe("presumed");
+    expect(row?.createdAt).toBe("2026-08-08T23:50:00.000Z");
+    // costs:reconcile starts its Cost API window at the oldest presumed row's day.
+    expect(listPresumedCosts(first.db)[0]!.createdAt.slice(0, 10)).toBe("2026-08-08");
+    expect(reconcilePresumedCostsAgainstReportedTotals(BUCKETS, settledAt, first.db))
+      .toEqual([expect.objectContaining({ fromUsd: 12.5, toUsd: 11.8 })]);
+  });
+
+  it("keeps an actual request settlement dated when it settled", () => {
+    const { request } = requestLease("job-req-actual");
+    settleRequestCost(request, requestSettlement(0.4), settledAt, first.db);
+
+    const [row] = first.db.select().from(costLog).where(eq(costLog.jobId, "job-req-actual")).all();
+    expect(row?.settlementKind).toBe("actual");
+    expect(row?.createdAt).toBe("2026-08-09T00:04:00.000Z");
+  });
+
+  it("dates a pass-level presumed row (pass reservation mode) at the pass lease's acquisition", () => {
+    seedJob(first.db, "job-pass-presumed", "AAPL");
+    const { lease } = reserve(first.db, "job-pass-presumed", "attempt-pass", 12.5, acquiredAt);
+    const settlement = analystSettlement(12.5);
+    settlement.telemetry = { ...settlement.telemetry, presumed: true };
+    settlePaidPassLease(lease, {
+      settlement,
+      payloadFingerprint: "1.3.0:test",
+      settledAt: settledAt.toISOString(),
+    }, first.db, settledAt);
+
+    const [row] = first.db.select().from(costLog).where(eq(costLog.jobId, "job-pass-presumed")).all();
+    expect(row?.settlementKind).toBe("presumed");
+    expect(row?.createdAt).toBe("2026-08-08T23:50:00.000Z");
+  });
+
+  it("keeps an actual pass-level row dated when it settled", () => {
+    seedJob(first.db, "job-pass-actual", "AAPL");
+    const { lease } = reserve(first.db, "job-pass-actual", "attempt-pass", 12.5, acquiredAt);
+    settlePaidPassLease(lease, {
+      settlement: analystSettlement(0.4),
+      payloadFingerprint: "1.3.0:test",
+      settledAt: settledAt.toISOString(),
+    }, first.db, settledAt);
+
+    const [row] = first.db.select().from(costLog).where(eq(costLog.jobId, "job-pass-actual")).all();
+    expect(row?.settlementKind).toBe("actual");
+    expect(row?.createdAt).toBe("2026-08-09T00:04:00.000Z");
+  });
+});
+
 describe("a crashed process, from the surviving one", () => {
   it("loses no spend, duplicates no paid pass, and keeps the caps across restart", async () => {
     seedJob(first.db, "job-crash", "AAPL", 20);

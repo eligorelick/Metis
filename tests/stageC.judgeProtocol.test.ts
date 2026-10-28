@@ -24,6 +24,7 @@
 
 import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { validateBundle } from "@/pipeline/stageA/validate";
@@ -72,6 +73,9 @@ import { reportToPrintHtml } from "@/report/export/printHtml";
 import {
   assembleReport,
   buildJudgeRunPassArgs,
+  checkCarriedJudgeSections,
+  type RunPassArgs,
+  type RunPassOutcome,
   judgeUserTurns,
   MockRunPass,
   runJudgePass,
@@ -689,9 +693,138 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     const reconciliation = run.result.judgeProtocol?.reconciliation;
     expect(reconciliation?.performed).toBe(false);
     expect(run.result.judgeProtocol?.disclosures.some((entry) => /repair-in-place/.test(entry.reason))).toBe(true);
+    // AI-108: a deliberate skip must not claim the mirror "did not produce" anything.
+    expect(reconciliation?.note).not.toContain("did not produce");
+    expect(reconciliation?.note).toMatch(/^No order-sensitivity check was made: retry attempt/);
   });
 
-  it("reports agreement when the mirrored pass produced the same grades and probabilities", async () => {
+  /**
+   * AI-108: a retry that keeps sections from a cut-off response hands the same
+   * kept sections to both orders, so the compared grades are compared with
+   * themselves. The mirror is skipped and the comparison disclosed as not
+   * performed. The sectioned provider below answers each part with exactly the
+   * sections it is asked for, grading "B" under the primary order and "C" under
+   * the mirror.
+   */
+  describe("a retry that keeps sections from a cut-off response", () => {
+    type Order = "bull-first" | "bear-first";
+    const textOf = (content: RunPassArgs["messages"][number]["content"]): string =>
+      typeof content === "string" ? content : content.map((block) => ("text" in block ? block.text : "")).join("");
+    const orderOf = (args: RunPassArgs): Order => {
+      const text = textOf(args.messages[0]!.content);
+      return text.indexOf("BULL CASE (independent analyst") < text.indexOf("BEAR CASE (independent analyst")
+        ? "bull-first" : "bear-first";
+    };
+
+    /** Runs the sectioned judge with the given kept sections; returns the run and every request's order. */
+    async function sectionedRetry(kept: Record<string, unknown> | null) {
+      const { payload } = buildInputs();
+      const orders: Order[] = [];
+      let primary: Order | null = null;
+      const runPass = async (args: RunPassArgs): Promise<RunPassOutcome> => {
+        const order = orderOf(args);
+        orders.push(order);
+        primary ??= order;
+        const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(textOf(args.messages.at(-1)!.content))![1]!.split(", ");
+        const whole = fakeJudgeOutput() as unknown as Record<string, unknown>;
+        const verdict = structuredClone(whole.verdict) as { gradeStrip: Record<string, { grade: string }> };
+        for (const block of Object.values(verdict.gradeStrip)) block.grade = order === primary ? "B" : "C";
+        whole.verdict = verdict;
+        const part = Object.fromEntries(asked.map((key) => [key, whole[key]]));
+        return { ok: true, value: { data: {
+          message: { content: [{ type: "text", text: JSON.stringify(part) }], usage: { input_tokens: 10, output_tokens: 5 }, model: "chatgpt/gpt-6.1-sol" },
+          usage: { input_tokens: 10, output_tokens: 5 }, costUsd: 0, fallbackUsed: false, model: "chatgpt/gpt-6.1-sol",
+        } } } as RunPassOutcome;
+      };
+      const carried = kept === null ? undefined : checkCarriedJudgeSections(kept).kept;
+      const run = await runJudgePass(
+        { runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true, judgeOrder: "both", jobSeed: "job-ai108" },
+        payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined,
+        carried === undefined ? undefined : { completed: carried, sectionRetryCount: 1 },
+      );
+      return { run, orders, carried };
+    }
+
+    it("control: with no kept sections the mirror writes its own grades and the disagreement is disclosed", async () => {
+      const { run, orders } = await sectionedRetry(null);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(2);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(true);
+      expect(rec.agreed).toBe(false);
+    });
+
+    it("does not run or report the mirror when a retry carries a kept verdict", async () => {
+      const { run, orders, carried } = await sectionedRetry({ verdict: structuredClone(fakeJudgeOutput().verdict) });
+      expect(Object.keys(carried!)).toEqual(["verdict"]);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(1);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(false);
+      expect(rec.note).not.toContain("did not produce");
+      expect(rec.note).toMatch(/^No order-sensitivity check was made: retry attempt: sections kept/);
+      expect(run.result.judgeProtocol?.disclosures.some((d) => /kept from a cut-off response \(verdict\)/.test(d.reason))).toBe(true);
+      expect(completeJudgeProtocol(run.result.judgeProtocol!, { shared: false, analystFamily: null, judgeFamily: null } as never).note)
+        .not.toMatch(/produced the same/);
+    });
+
+    it("does not run the mirror when the kept sections exclude the graded verdict", async () => {
+      const { run, orders, carried } = await sectionedRetry({ business: structuredClone(fakeJudgeOutput().business) });
+      expect(Object.keys(carried!)).toEqual(["business"]);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(1);
+      expect(run.result.judgeProtocol!.reconciliation!.performed).toBe(false);
+      expect(run.result.judgeProtocol!.reconciliation!.note).not.toContain("did not produce");
+    });
+
+    // Review of AI-108: a continuation with nothing kept (only a smaller-batch hint, `completed: {}`)
+    // keeps no section, so nothing anchors the mirror: it runs and reconciles as on a first attempt.
+    // hasCompletedSections() is false for it, which is why the skip does not apply.
+    it("still runs the mirror when the continuation keeps no section (completed is empty)", async () => {
+      const { run, orders, carried } = await sectionedRetry({});
+      expect(carried).toEqual({});
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(2);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(true);
+      expect(rec.note).not.toMatch(/^No order-sensitivity check was made/);
+    });
+
+    it("skips the mirror on the API path when a continuation carries kept sections", async () => {
+      const { payload } = buildInputs();
+      const mock = new MockRunPass();
+      mock.onJson("llm.judge", fakeJudgeOutput());
+      mock.onJson("llm.judge", fakeJudgeOutput());
+      const carried = checkCarriedJudgeSections({ verdict: structuredClone(fakeJudgeOutput().verdict) }).kept;
+      const run = await runJudgePass(
+        makeDeps(mock, { judgeOrder: "both" }), payload, analystCase("bull"), analystCase("bear"),
+        undefined, undefined, undefined, { completed: carried, sectionRetryCount: 1 },
+      );
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(mock.calls.filter((c) => c.field === "llm.judge")).toHaveLength(1);
+      expect(run.result.judgeProtocol?.reconciliation?.performed).toBe(false);
+    });
+  });
+
+  it("control: a mirror that ran and failed keeps the 'did not produce a comparable output' wording", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.judge", fakeJudgeOutput());
+    mock.on("llm.judge", { kind: "error", error: { kind: "transport", message: "no response", model: "claude-opus-4-8", costUsd: 0 } });
+    const run = await runJudgePass(makeDeps(mock, { judgeOrder: "both" }), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+    if (!run.ok) return;
+    expect(run.result.judgeProtocol?.reconciliation?.performed).toBe(false);
+    expect(run.result.judgeProtocol?.reconciliation?.note)
+      .toMatch(/^The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: /);
+  });
+
+  it("reports agreement when the mirrored pass produced the same grades", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
     mock.onJson("llm.judge", fakeJudgeOutput());
@@ -759,7 +892,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(report.meta.judgeProtocol?.note).toContain("differed on");
   });
 
-  it("compares grades and probabilities only — prose differences are not disagreement", () => {
+  it("compares grades only — prose differences are not disagreement", () => {
     // Two runs of a language model never write the same sentence. Comparing
     // prose would report a failure on every `both` run and teach the reader to
     // ignore the field, so reconciliation is scoped to the decisions.
@@ -773,7 +906,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(agreed.agreed).toBe(true);
     expect(agreed.comparedFields).toEqual(reconciliationFields());
     expect(agreed.comparedFields).toContain("verdict.gradeStrip.valuation.grade");
-    expect(agreed.comparedFields).toContain("valuation.scenarios.base.probability");
+    expect(agreed.comparedFields).not.toContain("valuation.scenarios.base.probability");
     expect(agreed.comparedFields.some((field) => field.includes("synthesis"))).toBe(false);
 
     secondary.verdict.gradeStrip.valuation.grade = "F";
@@ -783,6 +916,33 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       { field: "verdict.gradeStrip.valuation.grade", primary: "B", secondary: "F" },
     ]);
     expect(differed.secondaryOrder).toBe("bear-first");
+  });
+
+  it("compares only the section grades the judge still writes", () => {
+    // AI-109: normalizeJudgeOutput nulls scenario probabilities (D-52), so
+    // comparing them reported agreement on a field the judge no longer writes.
+    const primary = fakeJudgeOutput({ bullProbability: 0.25 });
+    const secondary = fakeJudgeOutput({ bullProbability: 0.6 });
+    const rec = reconcileJudgeOutputs(primary, secondary, "bear-first");
+    expect(rec.performed).toBe(true);
+    expect(rec.agreed).toBe(true);
+    expect(rec.comparedFields).toHaveLength(7);
+    expect(rec.comparedFields.every((f) => f.endsWith(".grade"))).toBe(true);
+    expect(rec.note).not.toMatch(/probabilit/);
+    expect(rec.note).toContain("produced the same section grades.");
+  });
+
+  it("counts only grade fields in the disagreement denominator", () => {
+    const primary = fakeJudgeOutput({ fundamentals: "B" });
+    const secondary = fakeJudgeOutput({ fundamentals: "D" });
+    const rec = reconcileJudgeOutputs(primary, secondary, "bear-first");
+    expect(rec.note).toMatch(/differed on 1 of 7 compared field/);
+  });
+
+  it("describes a grade-only comparison in README and .env.example", () => {
+    expect(readFileSync("README.md", "utf8")).not.toMatch(/reconciles every grade and probability/);
+    expect(readFileSync("README.md", "utf8")).toMatch(/compares every section grade/);
+    expect(readFileSync(".env.example", "utf8")).not.toMatch(/scenario[\s#]*probability to two decimals/);
   });
 
   it("keeps the primary report when the mirrored pass fails, and says the check did not run", async () => {

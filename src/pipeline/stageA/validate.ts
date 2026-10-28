@@ -23,6 +23,8 @@
  */
 
 import type { FetchResult, ManifestEntry } from "@/types/core";
+import { admittedGeography, type QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
 import {
   crossCheck,
   getConcept,
@@ -134,8 +136,11 @@ export interface ValidatableBundle {
     quarterEnd: string;
     positionsSummary: FetchResult<{ rows: ValidateDatedRow[] }>;
   };
+  /** Provider segmentation (optional): drives the AI-509 geography scope gap. */
+  segmentation?: { geographic: FetchResult<FmpPayload<FmpSegmentationRow>> };
   edgar: {
     companyFacts: FetchResult<CompanyFacts>;
+    quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   };
 }
 
@@ -1147,6 +1152,18 @@ function checkCurrencyConsistency(bundle: ValidatableBundle, c: Collector): void
   }
 }
 
+/**
+ * AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is
+ * withheld downstream by `admittedGeography`; this records why, as a gap only
+ * (no new check id), so both report manifests carry it.
+ */
+function checkProviderGeographyScope(bundle: ValidatableBundle, c: Collector): void {
+  const geographic = bundle.segmentation?.geographic;
+  if (geographic === undefined || !geographic.ok) return;
+  const admitted = admittedGeography(geographic, bundle.edgar.quarterlySegments);
+  if (!admitted.ok) c.gaps.push(gapEntry("validation.providerGeography", admitted.gap.reason, "info"));
+}
+
 export function validateBundle(
   bundle: ValidatableBundle,
   opts: ValidateOptions = {},
@@ -1160,6 +1177,7 @@ export function validateBundle(
   sweepImplausibleZeros(bundle, c);
   checkCurrencyConsistency(bundle, c);
   checkCurrencyStability(bundle, c);
+  checkProviderGeographyScope(bundle, c);
 
   return { checks: c.checks, flags: c.flags, gaps: c.gaps };
 }

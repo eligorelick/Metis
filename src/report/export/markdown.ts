@@ -22,6 +22,7 @@
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
@@ -947,7 +948,7 @@ function capitalize(s: string): string {
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  report = withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)));
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,

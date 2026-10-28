@@ -104,9 +104,10 @@ export const SHARED_RULES_BLOCK = [
   "quarter ended 2026-07-26 was USD 96.2 billion.\" The verifier validates such a sentence against its record; a FACT",
   "that leaves the figure out cannot be validated.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
-  // D-57 (2026-10-15): estimates, targets, peer caps and pay rows carry no
-  // currency of their own; when the issuer's reporting and listing currencies
-  // agree they inherit it and are registered money in that currency.
+  // D-57 (2026-10-15): estimates, targets and pay rows carry no currency of
+  // their own; when the issuer's reporting and listing currencies agree they
+  // inherit it and are registered money in that currency. Peer caps do not
+  // inherit (AI-301): they take only a currency their own data states.
   "A figure shown with \"(USD, inherited)\" (any ISO code) takes the issuer's currency because its provider row states none: it is money in that currency.",
   // 2026-10-13: with peer market caps unverifiable as numbers (currency not
   // established, D-43), a medium-effort JPM report dropped its peer table
@@ -330,10 +331,13 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  as departing is described as departing (with the date), never as current, and the named successor is identified.",
   // D-63: the business description, the 10-Q notes and the release's
   // reconciliation, commitments and guarantees tables now reach the payload.
+  // Audit 2026-10-27 AI-507: by reporting period, because between a 10-K and the
+  // next 10-Q the newest 10-Q is the older filing.
   "- The 10-K Item 1 (Business) excerpt names the software platform and developer ecosystem, the product roadmap,",
   "  customers, suppliers and manufacturing partners, and competitors: use those names in the business, moat and",
-  "  competitive sections. The 10-Q notes excerpt is the latest word on customer concentration, investments (and any",
-  "  lock-up on selling them), commitments, guarantees and debt issued: prefer it to the older annual figures.",
+  "  competitive sections. Of the 10-Q and 10-K notes excerpts, the one whose reporting period ended later is the latest",
+  "  word on customer concentration, investments (and any lock-up on selling them), commitments, guarantees and debt",
+  "  issued: prefer its figures to the earlier excerpt's. A 10-Q excerpt titled [older than the 10-K ...] predates the annual report.",
   "- The issuer-filing rows carry the release's reconciliation (operating cash flow, capital purchases and principal",
   "  payments behind the issuer's free cash flow; equity-securities gains and their tax effect; GAAP and non-GAAP EPS)",
   "  and the commitments and guarantees tables: cite those rows rather than an excerpt's table cell.",

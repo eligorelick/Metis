@@ -52,6 +52,7 @@ import { establishedCurrency } from "@/report/format";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { admittedGeography } from "@/edgar/segmentFacts";
 import {
   applyDcfDisplay,
   applyFairValue,
@@ -409,7 +410,7 @@ function fundamentalsSections(
     seriesRow("Free cash flow (after SBC, house default)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcf })), cf), "currency", "computed.capital.fcf", null),
     seriesRow("Free cash flow (before SBC, vendor convention)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfBeforeSbc })), cf), "currency", "computed.capital.fcf.beforeSbc", null),
     seriesRow("FCF conversion (FCF after SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversion })), "x", "computed.capital.fcf.conversion", null),
-    seriesRow("FCF conversion (FCF before SBC / net income — the graded ratio)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
+    seriesRow("FCF conversion (FCF before SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
     seriesRow("Capex / revenue", cap.capexIntensity.series.map((y) => ({ date: y.date, value: y.capexToRevenuePct })), "%", "computed.capital.capexIntensity", null),
   ]);
 
@@ -442,7 +443,7 @@ function balanceSheetSection(
     traced(cap.capexIntensity.latestPct, "%", "computed.capital.capexIntensity", cap.asOf, { period: "capex / revenue, latest" }),
     traced(cap.capexIntensity.slopePctPtsPerYear, "pp/yr", "computed.capital.capexIntensity", cap.asOf, { period: "capex / revenue slope" }),
     traced(cap.maintenanceVsGrowthCapex.capexToDALatest, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: "capex / D&A, latest" }),
-    traced(cap.maintenanceVsGrowthCapex.capexToDA5yAvg, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: "capex / D&A, 5y average" }),
+    traced(cap.maintenanceVsGrowthCapex.capexToDA5yAvg, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: `capex / D&A, ${cap.maintenanceVsGrowthCapex.capexToDAAvgYears ?? 5}y average` }),
   ]);
 
   const debtCommentary: SourcedClaim[] = [flagClaim];
@@ -782,7 +783,7 @@ function businessSection(stub: Report["business"], bundle: DataBundle): Report["
     ...stub,
     segments: {
       product: segmentRows(bundle.segmentation.product, "fmp:revenue-product-segmentation"),
-      geographic: segmentRows(bundle.segmentation.geographic, "fmp:revenue-geographic-segmentation"),
+      geographic: segmentRows(admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments), "fmp:revenue-geographic-segmentation"),
     },
   };
 }

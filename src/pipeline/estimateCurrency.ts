@@ -1,9 +1,11 @@
 /**
- * The currency of an analyst estimate, a price target, a peer market cap or a
- * compensation total.
+ * The currency of an analyst estimate, a price target or a compensation total.
+ * (A stock-peers market cap does NOT inherit: peers are not necessarily listed
+ * where the subject is, so a peer cap takes only a currency its own row or its
+ * own profile states, AI-301; see peerListingCurrency in stageC/payload.ts.)
  *
- * FMP's /stable/analyst-estimates, /stable/price-target-consensus,
- * /stable/stock-peers and /stable/governance-executive-compensation rows carry
+ * FMP's /stable/analyst-estimates, /stable/price-target-consensus and
+ * /stable/governance-executive-compensation rows carry
  * no currency field, and FMP documents no convention for them. A row's own
  * `reportedCurrency` or `currency` always wins. Without one, the row inherits
  * the issuer's currency (D-57, which replaces D-28's own-row-only rule) when
@@ -26,6 +28,25 @@ export const ANALYST_ESTIMATE_PROVIDER_CONVENTION: string | null = null;
 function iso(value: unknown): string | null {
   const code = typeof value === "string" ? value.trim().toUpperCase() : "";
   return /^[A-Z]{3}$/.test(code) ? code : null;
+}
+
+/**
+ * The row's own ISO currency only, never a provider convention. A stock-peers
+ * row reads its currency this way (AI-301): a convention set for estimates must
+ * not turn a peer cap into money.
+ */
+export function ownRowCurrency(row: object | null | undefined): string | null {
+  const fields = (row ?? {}) as { reportedCurrency?: unknown; currency?: unknown };
+  return establishedIsoCode(fields.reportedCurrency) ?? establishedIsoCode(fields.currency);
+}
+
+/**
+ * A raw currency code taken as stated: exactly three uppercase letters, else null.
+ * Never uppercased: "GBp" (pence), "ZAc" and "ILa" are minor units, and uppercasing
+ * one would register a cap 100 times too large as major-unit money (a peer cap).
+ */
+export function establishedIsoCode(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Z]{3}$/.test(value.trim()) ? value.trim() : null;
 }
 
 /** The row's own currency, else the documented provider convention, else null. */

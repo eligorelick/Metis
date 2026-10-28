@@ -73,6 +73,48 @@ export interface SchedulerLimits {
   rollingCostWindowMs: number;
   paidPassLeaseTtlMs: number;
   jobLeaseTtlMs: number;
+  /**
+   * The per-job cap configured now (`METIS_MAX_JOB_COST_USD`). Paid admission
+   * applies the lower of this and the cap recorded on the job row when it was
+   * queued; absent or null means no live cap.
+   */
+  maxJobCostUsd?: number | null;
+}
+
+/**
+ * The per-job cap paid admission applies: the smaller of the cap recorded on
+ * the job row and the cap configured now, null when neither is set. Setting or
+ * lowering the cap binds a job still queued, or one resumed after a restart or
+ * by Retry (a resume keeps the same job row and its recorded cap); raising it
+ * never loosens a job queued under a lower one, and only a new report records
+ * the cap in force when it is created (JOB-209).
+ */
+export function effectiveJobCapUsd(
+  recorded: number | null,
+  configured: number | null | undefined,
+): number | null {
+  if (recorded === null) return configured ?? null;
+  if (configured === null || configured === undefined) return recorded;
+  return Math.min(recorded, configured);
+}
+
+/**
+ * Is this error (or anything in its cause chain, at most 8 links, cycle-safe)
+ * another connection holding the database writer lock? The SQLITE_BUSY family
+ * clears once the holder commits, so a retry can succeed. SQLITE_LOCKED is a
+ * conflict inside one connection, which waiting does not clear, so it is not
+ * transient (https://www.sqlite.org/rescode.html).
+ */
+export function isTransientWriterLock(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let entry: unknown = error;
+  for (let depth = 0; depth < 8 && entry !== null && entry !== undefined && !seen.has(entry); depth++) {
+    seen.add(entry);
+    const code = typeof entry === "object" ? (entry as { code?: unknown }).code : undefined;
+    if (typeof code === "string" && (code === "SQLITE_BUSY" || code.startsWith("SQLITE_BUSY_"))) return true;
+    entry = typeof entry === "object" ? (entry as { cause?: unknown }).cause : undefined;
+  }
+  return false;
 }
 
 export function configuredSchedulerLimits(): SchedulerLimits {
@@ -84,6 +126,7 @@ export function configuredSchedulerLimits(): SchedulerLimits {
     rollingCostWindowMs: config.rollingCostWindowMs,
     paidPassLeaseTtlMs: config.paidPassLeaseTtlMs,
     jobLeaseTtlMs: config.jobLeaseTtlMs,
+    maxJobCostUsd: config.maxJobCostUsd,
   };
 }
 
@@ -205,6 +248,13 @@ function assertLimits(limits: SchedulerLimits): void {
     (!Number.isFinite(limits.maxRollingCostUsd) || limits.maxRollingCostUsd < 0)
   ) {
     throw new Error("jobScheduler: maxRollingCostUsd must be null or a finite nonnegative value");
+  }
+  if (
+    limits.maxJobCostUsd !== null &&
+    limits.maxJobCostUsd !== undefined &&
+    (!Number.isFinite(limits.maxJobCostUsd) || limits.maxJobCostUsd < 0)
+  ) {
+    throw new Error("jobScheduler: maxJobCostUsd must be null or a finite nonnegative value");
   }
 }
 
@@ -533,7 +583,11 @@ export function settleRequestCost(
         costUsd: Number(settledMicro) / MICRO_USD,
         fallbackUsed: settlement.fallbackUsed,
         reconciledAt: null,
-        createdAt: authorityAt,
+        // A presumed row is dated at its lease's acquisition, like the expiry
+        // sweep's (JOB-203): the evidence for it is the reported total of the
+        // day the request was authorized. An actual row keeps its settlement
+        // instant: it is a measurement and is never lowered.
+        createdAt: presumed ? lease.acquiredAt : authorityAt,
       }).run();
     }
     const released = tx.delete(jobLlmLeases).where(exactLeaseWhere(lease)).run().changes > 0;
@@ -1407,15 +1461,16 @@ export function acquirePaidPassLease(
       tx.select({ costUsd: costLog.costUsd }).from(costLog).where(eq(costLog.jobId, claim.jobId)).all(),
     );
     const jobReserved = sumLeaseRowsMicro(allLive.filter((lease) => lease.jobId === claim.jobId));
+    const jobCapUsd = effectiveJobCapUsd(parent.maxCostUsd, limits.maxJobCostUsd);
     if (
       reserveMicro > 0 &&
-      parent.maxCostUsd !== null &&
-      jobSettled + jobReserved + BigInt(reserveMicro) > BigInt(capMicroUsd(parent.maxCostUsd))
+      jobCapUsd !== null &&
+      jobSettled + jobReserved + BigInt(reserveMicro) > BigInt(capMicroUsd(jobCapUsd))
     ) {
       return {
         acquired: false,
         reason:
-          jobSettled + BigInt(reserveMicro) > BigInt(capMicroUsd(parent.maxCostUsd))
+          jobSettled + BigInt(reserveMicro) > BigInt(capMicroUsd(jobCapUsd))
             ? "job-budget"
             : "job-budget-pending",
       };
@@ -1653,6 +1708,31 @@ export function releaseUnbilledPaidPassLease(
   return released;
 }
 
+/**
+ * What a step has cost in a job: every cost row of the step (presumed ones
+ * included, which are counted as spent until reconciled), the part of that sum
+ * that is still presumed (a reconciled row was lowered to its measured cost, so
+ * it counts in the sum but is no longer presumed), and the number of settled
+ * attempts. The run-panel step row and its detail both read this, so the detail
+ * never states less than the cost.
+ */
+export function stepSettledTotals(
+  jobId: string,
+  pass: DurablePass,
+  db: ThesisDb = getDb(),
+): { costUsd: number; attempts: number; presumedUsd: number } {
+  const rows = db.select({ costUsd: costLog.costUsd, settlementKind: costLog.settlementKind, reconciledAt: costLog.reconciledAt }).from(costLog)
+    .where(and(eq(costLog.jobId, jobId), eq(costLog.step, pass))).all();
+  // Counted like the cost: every settled attempt of this step in this job.
+  const attempts = db.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
+    .where(and(eq(jobPassArtifacts.jobId, jobId), eq(jobPassArtifacts.pass, pass))).all().length;
+  return {
+    costUsd: rows.reduce((total, row) => total + row.costUsd, 0),
+    attempts,
+    presumedUsd: rows.filter((row) => row.settlementKind === "presumed" && row.reconciledAt === null).reduce((total, row) => total + row.costUsd, 0),
+  };
+}
+
 export interface SettlePaidPassInput<T> {
   settlement: PassSettlement<T>;
   payloadFingerprint: string | null;
@@ -1667,7 +1747,7 @@ export interface SettlePaidPassInput<T> {
      * naming only the last attempt's cost contradicted it: NVDA's bear row
      * read "$0.2817" beside "$0.5784" after a repair (2026-10-26).
      */
-    detailAcrossAttempts?: (stepCostUsd: number, attempts: number) => string;
+    detailAcrossAttempts?: (stepCostUsd: number, attempts: number, presumedUsd: number) => string;
     /**
      * A failure the run will repair: the step stays running under `detail`
      * instead of reading ERROR while the repair waits (NVDA run #49,
@@ -1726,6 +1806,7 @@ export function settlePaidPassLease<T>(
     settlement: input.settlement,
     payloadFingerprint: input.payloadFingerprint,
     settledAt: input.settledAt,
+    presumedDatedAt: lease.acquiredAt,
   };
   const prepared = preparePassSettlement(settlementInput);
   if (authorityNow !== undefined && !Number.isFinite(authorityNow.getTime())) {
@@ -1866,13 +1947,12 @@ export function settlePaidPassLease<T>(
             step.finishedAt = input.step?.finishedAt ?? authorityAt;
             step.completedAt = step.finishedAt;
           }
-          const stepCost = tx.select({ costUsd: costLog.costUsd }).from(costLog)
-            .where(and(eq(costLog.jobId, lease.jobId), eq(costLog.step, lease.pass))).all()
-            .reduce((total, row) => total + row.costUsd, 0);
-          // Counted like the cost: every settled attempt of this step in this job.
-          const attempts = tx.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
-            .where(and(eq(jobPassArtifacts.jobId, lease.jobId), eq(jobPassArtifacts.pass, lease.pass))).all().length;
-          step.detail = (attempts > 1 ? input.step?.detailAcrossAttempts?.(stepCost, attempts) : undefined) ??
+          const { costUsd: stepCost, attempts, presumedUsd } = stepSettledTotals(lease.jobId, lease.pass, tx as ThesisDb);
+          // The detail states the step's own cost (JOB-204): the summed form
+          // whenever the step holds more than this attempt's own figure.
+          const summed = attempts > 1 || presumedUsd > 0 ||
+            Math.round(stepCost * 1e4) !== Math.round(prepared.telemetry.costUsd * 1e4);
+          step.detail = (summed ? input.step?.detailAcrossAttempts?.(stepCost, attempts, presumedUsd) : undefined) ??
             input.step?.detail ?? (
               input.settlement.outcome === "success"
                 ? `${lease.pass} pass settled`

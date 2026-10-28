@@ -42,6 +42,7 @@ import { JOB_LEASE_RENEWAL_DIVISOR, MODEL_STAGE_DEADLINE_MS } from "@/pipeline/l
 import {
   maximumPassCostUsd,
   maximumRequestCostUsd,
+  RequestSettlementNotRecordedError,
   resolveModel,
   type VerifyReservationCapability,
 } from "@/providers/anthropic";
@@ -144,7 +145,9 @@ import {
   resizePaidPassLease,
   settlePaidPassLease,
   settleRequestCost,
+  stepSettledTotals,
   PaidPassOverReservationError,
+  isTransientWriterLock,
   type JobClaim,
   type PaidPassLease,
   type SchedulerLimits,
@@ -523,8 +526,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. */
-export const PIPELINE_VERSION = "stage-c-1.6.9" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. */
+export const PIPELINE_VERSION = "stage-c-1.6.11" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -622,6 +625,16 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/**
+ * What a failed request-settlement write is thrown as. A write refused by
+ * another process's writer lock did not commit and may be retried, so the
+ * provider is told so; any other error (the over-reservation invariant, a
+ * programming error) is returned unchanged and stays loud.
+ */
+export function requestSettlementWriteError(error: unknown): unknown {
+  return isTransientWriterLock(error) ? new RequestSettlementNotRecordedError(error) : error;
+}
+
 /** A fresh StepProgress[] with every pipeline step "pending". */
 export function initialSteps(): StepProgress[] {
   return PIPELINE_STEPS.map((step) => ({ step, status: "pending" as const }));
@@ -642,6 +655,19 @@ interface RunState {
   schedulerLimits: SchedulerLimits;
   steps: StepProgress[];
   totalCostUsd: number;
+  /**
+   * AI-112: judge attempts whose output was paid for and then rejected at
+   * report assembly. They settled as successes, so no failure artifact marks
+   * them; the runner records them here for the cost breakdown. Lives in this
+   * process only: a durable verify recovery after a crash does not see it.
+   */
+  assemblyRejected: AssemblyRejectedAttempt[];
+}
+
+interface AssemblyRejectedAttempt {
+  pass: "synthesize";
+  attemptId: string;
+  reason: string;
 }
 
 type JobEventPayload = JobEvent extends infer Event
@@ -1081,10 +1107,10 @@ function passErrorDetails(error: unknown): { kind?: string; retryable?: boolean 
   };
 }
 
-/** `total`: the step's cost and attempt count when earlier attempts settled too. */
+/** `total`: the step's cost, attempt count and presumed part when the step holds more than this attempt. */
 function settlementStepDetail<T>(
   settlement: PassSettlement<T>,
-  total?: { costUsd: number; attempts: number },
+  total?: { costUsd: number; attempts: number; presumedUsd: number },
 ): string {
   if (settlement.outcome === "failure") return settlement.failure.message;
   return passDetail({
@@ -1100,7 +1126,7 @@ function settlementStepDetail<T>(
     },
     webSearches: settlement.telemetry.webSearches,
     fetchedUrls: settlement.telemetry.fetchedUrls,
-  }, total?.attempts);
+  }, total?.attempts, total?.presumedUsd);
 }
 
 /** Adopt the one exact-current settlement snapshot after its outer transaction commits. */
@@ -1397,6 +1423,9 @@ function createSettlementCheckpoint<T>(
   // after which the row expired into a presumed-maximum row that only the
   // reconcile script could lower. An over-reservation write DOES commit
   // (`inserted: true`) before it throws, so that one is removed and rethrown.
+  // A settle write refused by another process's writer lock is mapped to the
+  // provider's error class (requestSettlementWriteError), so the provider
+  // retries the write and, failing that, keeps the response (AI-308).
   const admission: RequestAdmission = {
     reserve: async ({ maximumUsd }) => reserveRequest(maximumUsd),
     settle: async (permit, settled) => {
@@ -1418,7 +1447,7 @@ function createSettlementCheckpoint<T>(
         if (error instanceof PaidPassOverReservationError && error.result.inserted) {
           requestLeases.delete(permit.id);
         }
-        throw error;
+        throw requestSettlementWriteError(error);
       }
       requestLeases.delete(permit.id);
     },
@@ -1426,6 +1455,13 @@ function createSettlementCheckpoint<T>(
       const requestLease = requestLeases.get(permit.id);
       if (requestLease === undefined) return;
       releaseUnbilledPaidPassLease(requestLease);
+      requestLeases.delete(permit.id);
+    },
+    // The settlement write gave up (AI-308): the lease stays held at its
+    // reserved maximum but is no longer renewed, so it expires into the
+    // sweep's presumed row (the cap stays honoured) and frees its capacity
+    // slot instead of blocking the pass's next request to the stage deadline.
+    abandon: (permit) => {
       requestLeases.delete(permit.id);
     },
   };
@@ -1512,7 +1548,7 @@ function createSettlementCheckpoint<T>(
             finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
             detail: note?.detail ?? settlementStepDetail(settlement),
             ...(note === null
-              ? { detailAcrossAttempts: (costUsd: number, attempts: number) => settlementStepDetail(settlement, { costUsd, attempts }) }
+              ? { detailAcrossAttempts: (costUsd: number, attempts: number, presumedUsd: number) => settlementStepDetail(settlement, { costUsd, attempts, presumedUsd }) }
               : {}),
           },
       });
@@ -2804,6 +2840,7 @@ export async function runJob<TPayload = unknown>(
     // degraded report must still carry the job's true all-in cost. A fresh
     // job's cost_log is empty, so this is a no-op there.
     totalCostUsd: sumLoggedCost(jobId),
+    assemblyRejected: [],
   };
   const jobController = new AbortController();
   const jobSignal = jobController.signal;
@@ -3276,6 +3313,9 @@ export async function runJob<TPayload = unknown>(
       let timeLimitCutoffs = 0;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
+      // AI-112: the issue key of the previous attempt's assembly failure. The same
+      // failure twice means the judge cannot repair it, so it is not bought again.
+      let previousAssemblyIssueKey: string | null = null;
       let judgeProviderAttempted = false;
       let pendingReusableJudge = reusableJudge;
 
@@ -3588,8 +3628,20 @@ export async function runJob<TPayload = unknown>(
           } catch {
             lastFailedRawOutput = "";
           }
-          lastJudgeFailureRetryable = !reusedArtifact;
-          const retrying = !reusedArtifact && attempt < maxJudgeRetries;
+          const issueKey = assemblyIssueKey(err);
+          lastJudgeFailureRetryable = !reusedArtifact && issueKey !== previousAssemblyIssueKey;
+          previousAssemblyIssueKey = issueKey;
+          // A reused artifact was not bought in this run; a fresh one was, and its
+          // output is now thrown away.
+          const rejectedAttemptId = passAttemptIds.get("synthesize");
+          if (!reusedArtifact && rejectedAttemptId !== undefined) {
+            state.assemblyRejected.push({
+              pass: "synthesize",
+              attemptId: rejectedAttemptId,
+              reason: readerSafeFailureText({ kind: "assembly" }),
+            });
+          }
+          const retrying = lastJudgeFailureRetryable && attempt < maxJudgeRetries;
           const detail = `report assembly attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying judge" : ""}: ${withPlainIssueList(lastValidationDetail)}`;
           updateRunningStepDetail(state, "synthesize", detail);
           updateRunningStepDetail(state, "verify", detail);
@@ -3717,11 +3769,17 @@ export async function runJob<TPayload = unknown>(
         const snapshot = resumeSnapshots[side];
         if (snapshot === null) continue;
         startStep(state, side);
+        // The step's own totals (JOB-204): a repaired or presumed-bearing side states its whole cost.
+        const totals = stepSettledTotals(state.jobId, side);
         finishStep(
           state,
           side,
           "done",
-          `reused persisted result from previous attempt (resume) — ${passDetail(snapshot)}`,
+          `reused persisted result from previous attempt (resume) — ${passDetail(
+            { ...snapshot, costUsd: totals.costUsd > 0 ? totals.costUsd : snapshot.costUsd },
+            totals.attempts,
+            totals.presumedUsd,
+          )}`,
           snapshot.costUsd,
         );
       }
@@ -4703,6 +4761,8 @@ const DISCARDED_REASON_BY_KIND: Readonly<Record<string, string>> = {
   // D-116: the default restated the failure ("did not produce usable output
   // because the attempt did not produce a usable result").
   transport: "the provider request failed before a usable response arrived",
+  // AI-112: a judge output that parsed but could not be assembled into a report.
+  assembly: "the report could not be assembled from its output",
 };
 const DISCARDED_REASON_DEFAULT = "the attempt did not produce a usable result";
 
@@ -4724,10 +4784,10 @@ function readerSafeFailureText(failure: { kind?: string }): string {
  * this had before. Losing the marking is a smaller harm than failing to
  * assemble the report over it.
  */
-function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
+function readDiscardedAttempts(jobId: string, assemblyRejected: readonly AssemblyRejectedAttempt[] = []): DiscardedAttempt[] {
   try {
     const lineage = readJobPassArtifactLineage(jobId);
-    return lineage.flatMap((artifact) => {
+    const rejected = lineage.flatMap((artifact): DiscardedAttempt[] => {
       if (artifact.envelope.outcome !== "failure") return [];
       return [{
         pass: artifact.pass,
@@ -4738,6 +4798,20 @@ function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
         kept: keptSectionsOf(artifact, lineage),
       }];
     });
+    // AI-112: a success artifact the report could not be assembled from.
+    const assembly = assemblyRejected.flatMap((entry): DiscardedAttempt[] => {
+      const artifact = lineage.find((candidate) => candidate.attemptId === entry.attemptId && candidate.envelope.outcome === "success");
+      if (artifact === undefined) return [];
+      return [{
+        pass: entry.pass,
+        attemptId: entry.attemptId,
+        reason: entry.reason,
+        model: artifact.telemetry.model,
+        billable: artifact.telemetry.billable,
+        kept: [],
+      }];
+    });
+    return [...rejected, ...assembly];
   } catch {
     return [];
   }
@@ -4765,17 +4839,34 @@ function keptSectionsOf(artifact: CurrentGenerationPassArtifact, lineage: readon
 }
 
 function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
-  const discarded = readDiscardedAttempts(state.jobId);
-  const entries: CostBreakdownEntry[] = readCostLedger(state.jobId).map((row) => {
+  return costBreakdownRows(state.jobId, readCostLedger(state.jobId), { keepFallbackUsed: false, assemblyRejected: state.assemblyRejected });
+}
+
+/**
+ * RPT-210: the one ledger-to-breakdown join. A row whose attempt was discarded
+ * (and kept no section, D-116) carries the mark and its reason; the live
+ * report and durable verify recovery both build their rows here, so recovery
+ * cannot drop the mark. Recovery also keeps the per-attempt `fallbackUsed`
+ * that cost_log persists.
+ */
+function costBreakdownRows(
+  jobId: string,
+  ledger: readonly CostLedgerRow[],
+  options: { keepFallbackUsed: boolean; assemblyRejected?: readonly AssemblyRejectedAttempt[] },
+): CostBreakdownEntry[] {
+  const discarded = readDiscardedAttempts(jobId, options.assemblyRejected);
+  const entries: CostBreakdownEntry[] = ledger.map((row) => {
     const match = discarded.find((attempt) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId));
     return {
       step: row.step,
       model: row.model,
       costUsd: row.costUsd,
+      // This is the only execution option cost_log persists per attempt.
+      ...(options.keepFallbackUsed ? { fallbackUsed: row.fallbackUsed } : {}),
       ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
     };
   });
-  return [...entries, ...readPlanCostBreakdown(state.jobId)];
+  return [...entries, ...readPlanCostBreakdown(jobId)];
 }
 
 function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreakdownEntry[] {
@@ -4801,7 +4892,7 @@ function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreak
  * it cost, and that the figure beside it was paid twice for one result.
  */
 function discardedAttemptGaps(state: RunState): ManifestEntry[] {
-  const discarded = readDiscardedAttempts(state.jobId);
+  const discarded = readDiscardedAttempts(state.jobId, state.assemblyRejected);
   if (discarded.length === 0) return [];
   const ledger = readCostLedger(state.jobId);
   return discarded.map((attempt) => {
@@ -5117,14 +5208,7 @@ function reconcileRecoveredVerifyReport(
     requestedEffort: null,
     fallbackUsed: verify.fallbackUsed,
   }));
-  const costBreakdown = [...ledger.map((row) => ({
-    step: row.step,
-    model: row.model,
-    costUsd: row.costUsd,
-    // This is the only execution option cost_log persists per attempt. Do not
-    // infer requested model/effort or derived adjustments for appendix rows.
-    fallbackUsed: row.fallbackUsed,
-  })), ...readPlanCostBreakdown(state.jobId)];
+  const costBreakdown = costBreakdownRows(state.jobId, ledger, { keepFallbackUsed: true });
   const report = costBreakdown.length === 0
     ? {
         ...verify.data,
@@ -5442,10 +5526,41 @@ function naScore(): Report["quality"]["forensicScores"]["altman"] {
  * Small utilities
  * ------------------------------------------------------------------------ */
 
-function passDetail(pass: PassResultLike<unknown>, attempts = 1): string {
-  const parts = [`model ${pass.model}`, `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}`];
+function passDetail(pass: PassResultLike<unknown>, attempts = 1, presumedUsd = 0): string {
+  const parts = [
+    `model ${pass.model}`,
+    `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}${
+      presumedUsd > 0 ? ` (incl. $${presumedUsd.toFixed(4)} presumed until reconciled)` : ""}`,
+  ];
   if (pass.fallbackUsed) parts.push("fallback served");
   return parts.join(", ");
+}
+
+/**
+ * Stable key of a report-assembly failure: the sorted issue paths and codes of
+ * a ReportValidationError (its `zodError` is the JSON issue list), else its
+ * message. Two attempts with the same key failed the same way.
+ *
+ * The key is the issue path plus code only, so two refinements on one path with
+ * different messages count as the same failure, and a `zodError` that is not a
+ * JSON array falls back to the message, which collapses every such failure to
+ * one key. Both are fail-safe: they buy fewer paid retries, never more.
+ */
+function assemblyIssueKey(err: unknown): string {
+  const zodError = err !== null && typeof err === "object" ? (err as { zodError?: unknown }).zodError : undefined;
+  if (typeof zodError === "string") {
+    try {
+      const issues: unknown = JSON.parse(zodError);
+      if (Array.isArray(issues)) {
+        return issues
+          .map((issue: { path?: unknown; code?: unknown }) =>
+            `${Array.isArray(issue.path) ? issue.path.join(".") : ""}:${String(issue.code)}`)
+          .sort()
+          .join("|");
+      }
+    } catch { /* not a JSON issue list: fall through to the message */ }
+  }
+  return errMessage(err);
 }
 
 function errMessage(err: unknown): string {

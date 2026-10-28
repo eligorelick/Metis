@@ -27,7 +27,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
-import { quotePriceObservationDay } from "@/providers/fmp";
+import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
@@ -35,8 +35,10 @@ import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
-import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -44,7 +46,7 @@ import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/st
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
-import { peerSizeExclusion } from "@/pipeline/peers";
+import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
@@ -71,6 +73,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
+import { admittedGeography, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -79,6 +82,7 @@ import type {
   FmpIncomeStatementRow,
   FmpRawRow,
   FmpStatementRow,
+  FmpStockPeerRow,
 } from "@/providers/fmp";
 
 /* ------------------------------------------------------------------------ *
@@ -276,6 +280,11 @@ export interface ContextPayload {
   quote: PayloadSection;
   /** Every Stage B computed metric block, with provenance/as-of. */
   computed: PayloadSection[];
+  /**
+   * Peer-screen exclusion reasons and peer-collection notes, which can quote a
+   * provider's error body; rendered inside an untrusted envelope (AI-102).
+   */
+  peerScreen?: PayloadSection;
   /** Compact statement extracts (annual + quarterly key line items). */
   statements: StatementExtractBlock[];
   /**
@@ -418,7 +427,8 @@ export interface ContextPayload {
 // D-107: the EV bridge note's amounts printed with grouped digits alter admitted context.
 // 1.47.0 (D-111): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
 // 1.48.0 (D-112): newer 10-Q facts, the newer-filing notice, each multiple's period and fiscal period, the P/E formula that ran, the withheld non-bracketing scenario fan, continuing-operations EPS and a TTM across a re-presented reorganisation alter admitted context.
-export const PAYLOAD_VERSION = "1.48.0" as const;
+// 1.49.0 (D-124 to D-127, audit 2026-10-27 B3): stock-peer caps only in an established currency, insider statistics as counts and share volumes over a named window, the share-count span, segment growth by date, FRED transform and basis wording, 8-K referents and the peer-screen envelope alter admitted context. Statement blocks collapse restated periods as Stage B does; a 10-Q older than the 10-K is marked; provider geography the issuer's XBRL contradicts is withheld and provider keys are no longer called as-reported; the fiscal-year FCF conversion is no longer called the graded ratio. Computed rows taken from one fiscal year's statement rows carry the issuer's fiscal label and period end of that year. A release fiscal label is printed in an excerpt title only when the statement rows confirm it (AI-512): a labelled income row within 3 days agrees (an annual row ending there agrees only with a Q4 label), or it is the successor of the newest labelled quarter (release end 80-100 days later), or, with only labelled annual rows, it is the next fiscal year after the newest one and its quarter number fits the days since that year's end (91n-11 to 91n+9 days, at most 366); otherwise it is withheld, and only a bundle with no labelled income row keeps it unchecked.
+export const PAYLOAD_VERSION = "1.49.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -460,6 +470,18 @@ function payloadSection(
       period: figure.period ?? null,
     })),
   };
+}
+
+/**
+ * Audit 2026-10-27 B3 (AI-306): the span the share-count change was measured
+ * over, as the figure's label states it. A null span (no change measured) keeps
+ * the requested window; a span within 0.05 of a whole number reads as that
+ * number, anything else to one decimal.
+ */
+function shareCountSpanLabel(actualYears: number | null): string {
+  if (actualYears == null) return String(SHARE_TREND_WINDOW_YEARS);
+  const whole = Math.round(actualYears);
+  return Math.abs(actualYears - whole) <= 0.05 ? String(whole) : actualYears.toFixed(1);
 }
 
 /** Round a number to at most `dp` decimals without trailing-zero noise. */
@@ -654,11 +676,28 @@ const BANK_PAYLOAD_METRICS = [
   "loanCagr3y",
 ] as const;
 
+/**
+ * The peer exclusion reasons and peer-collection notes (audit 2026-10-27 B3
+ * Task 2, AI-102). Both can quote a provider's error body verbatim, so they are
+ * their own section, which the serializer renders inside an untrusted envelope.
+ * Undefined when there is neither.
+ */
+function peerScreenSection(peerCoverage: PeerCoverage, collectionNotes: ReadonlySet<string>): PayloadSection | undefined {
+  const notes = [
+    ...peerCoverage.methodology.filter((line) => collectionNotes.has(line)),
+    ...peerCoverage.exclusions.map((entry) => `${entry.symbol}: ${entry.reason}`),
+  ];
+  if (notes.length === 0) return undefined;
+  return payloadSection({ title: "Peer screen exclusions and collection notes", figures: [], notes });
+}
+
 /** Stage B computed-metrics sections — the analytical spine of the payload. */
 function computedSections(
   computed: ComputedMetrics,
   currencies: ComputedCurrencies,
   currentPrice: number | null,
+  collectionNotes: ReadonlySet<string>,
+  annualLabels: ReadonlyMap<string, string>,
 ): PayloadSection[] {
   const sections: PayloadSection[] = [];
   const g = computed.growth;
@@ -705,9 +744,9 @@ function computedSections(
   const lastGross = g.margins.gross.series.at(-1);
   const lastOper = g.margins.operating.series.at(-1);
   const lastNet = g.margins.net.series.at(-1);
-  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date });
-  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date });
-  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date });
+  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date, ...fiscalYearOf(annualLabels, lastGross.date, lastGross.date) });
+  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date, ...fiscalYearOf(annualLabels, lastOper.date, lastOper.date) });
+  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date, ...fiscalYearOf(annualLabels, lastNet.date, lastNet.date) });
   sections.push(payloadSection({ title: "Growth & margins (computed)", figures: growthFigures, notes: g.notes }));
 
   // --- Returns (WACC / ROIC / DuPont) --------------------------------------
@@ -722,8 +761,8 @@ function computedSections(
     { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: `computed.returns.wacc.riskFree(${r.wacc.riskFreeSeriesId ?? "fred:DGS10"})`, asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "ERP used", value: r.wacc.erpPct, unit: "%", source: "computed.returns.wacc.erp", asOf: null },
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },
-    { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf },
-    { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf },
+    { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf, ...fiscalYearOf(annualLabels, r.roic.series.at(-1)?.date, r.roic.asOf) },
+    { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf, ...fiscalYearOf(annualLabels, r.dupont.latest?.date, r.dupont.asOf) },
     { label: "ROIC − WACC spread", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roic.asOf },
     // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
     ...(r.commonReturnTtm == null ? [] : [{
@@ -743,17 +782,19 @@ function computedSections(
 
   // --- Capital -------------------------------------------------------------
   const cap = computed.capital;
+  const fcfYear = fiscalYearOf(annualLabels, cap.fcf.series.at(-1)?.date, cap.asOf);
+  const capexYear = fiscalYearOf(annualLabels, cap.capexIntensity.series.at(-1)?.date, cap.asOf);
   const capFigures: PayloadFigureInput[] = [
     // WS6 review (SHOULD-FIX 4): every free-cash-flow figure names its
     // definition. The house default subtracts SBC; the vendor convention does
-    // not, and P/FCF and the graded conversion are both built on that one.
-    { label: "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf },
-    { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf },
-    { label: "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf },
-    { label: "FCF conversion (latest, before SBC — the graded ratio)", value: cap.fcf.latestConversionBeforeSbc, unit: "x", source: "computed.capital.fcf.conversionBeforeSbc", asOf: cap.asOf },
-    { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf },
+    // not, and P/FCF is built on the before-SBC figure; the graded conversion is the current-capital one (AI-511).
+    { label: "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf, ...fcfYear },
+    { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf, ...fcfYear },
+    { label: "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf, ...fcfYear },
+    { label: "FCF conversion (latest fiscal year, before SBC)", value: cap.fcf.latestConversionBeforeSbc, unit: "x", source: "computed.capital.fcf.conversionBeforeSbc", asOf: cap.asOf, ...fcfYear },
+    { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf, ...capexYear },
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },
-    { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf },
+    { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
     { label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
     { label: "SBC % revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
@@ -761,7 +802,7 @@ function computedSections(
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
-    { label: "weighted-average diluted common-share change (5y total)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
+    { label: `weighted-average diluted common-share change (${shareCountSpanLabel(cap.shareCount.actualYears)}y total)`, value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
     // D-61: the premium of today's quote over the proxy paid price is price
     // appreciation since the buybacks, labelled so and not graded; timing —
     // the price actually paid against the same year's average — is the
@@ -957,7 +998,12 @@ function computedSections(
   for (const flag of fx.flags) {
     forensicNotes.push(`FLAG [${flag.severity}] ${flag.message} (rule: ${flag.rule})`);
   }
-  sections.push(payloadSection({ title: "Forensics (computed)", figures: forensicFigures, notes: forensicNotes }));
+  // D-68: one fiscal year over the prior; each accrual-year figure is dated by its own operand year (residual a).
+  sections.push(payloadSection({
+    title: "Forensics (computed)",
+    figures: forensicFigures.map((f) => f.source.startsWith("computed.forensics.accruals.") ? { ...f, ...fiscalYearOf(annualLabels, f.asOf, f.asOf) } : f),
+    notes: forensicNotes,
+  }));
 
   const currentCapital = computed.capital.current;
   if (currentCapital) {
@@ -983,6 +1029,12 @@ function computedSections(
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
       `Current capital basis: ${currentCapital.basis}; exact window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
+      // AI-511: only the figure grading.ts graded is called graded, and its window is named.
+      ...(computed.scores?.aspects.balanceSheet.signals?.some((s) => s.id === "fcfConversionBeforeSbc")
+        ? [`The balance-sheet score grades "fcf conversion before sbc" from this section (${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}); ${currentCapital.basis === "annual"
+          ? `on this basis the graded value is computed over that annual window; "FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" covers the same window only when its fiscal year ends on ${currentCapital.asOf ?? "unknown end"}.`
+          : '"FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" is the fiscal-year ratio, reported beside it and not graded.'}`]
+        : []),
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
       ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
     ] }));
@@ -1154,10 +1206,13 @@ function computedSections(
     sections.push(payloadSection({
       title: "Comparable peers (computed)",
       figures: peerFigures.length ? peerFigures : [{ label: "qualified comparable peer valuation", value: null, unit: "x", source: "computed.valuation.peerCoverage", asOf: null }],
+      // Audit 2026-10-27 B3 Task 2 (AI-102): the collection notes and the
+      // exclusion reasons can quote a provider's error body, so they travel in
+      // `peerScreen` (an untrusted envelope); this section keeps the figures,
+      // the assembler's method lines and the comparison bases.
       notes: [
-        ...peerCoverage.methodology,
+        ...peerCoverage.methodology.filter((line) => !collectionNotes.has(line)),
         ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}`),
-        ...peerCoverage.exclusions.map((entry) => `${entry.symbol}: ${entry.reason}`),
       ],
     }));
   }
@@ -1391,6 +1446,46 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
   return null;
 }
 
+/**
+ * Whether an "FY<year>" label can belong to an annual period ending on `day`: the end's own calendar year, or the year before when the
+ * end falls in January to March (52/53-week and March year ends). The label field is the provider's or keyless builder's, and can be wrong
+ * (decisions spec 4.6: FCX's keyless 2024-12-31 row carried "2023").
+ */
+function plausibleFiscalLabel(label: string, day: string): boolean {
+  const year = Number(label.slice(2));
+  const endYear = Number(day.slice(0, 4));
+  return year === endYear || (year === endYear - 1 && Number(day.slice(5, 7)) <= 3);
+}
+
+/** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end, kept only where plausible for that end; the provably latest row per period (normalizeQuarterRows, D-13). */
+function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
+  // Reads incomeAnnual unfiltered where Stage B uses rowsInModelCurrency: a foreign-currency row sharing an end date can make this group differ from Stage B's; the lookup then fails closed (a tie drops the label) or is harmless (the date is never one Stage B states).
+  const labels = new Map<string, string>();
+  for (const row of normalizeQuarterRows(rowsOf(bundle.statements.incomeAnnual)).rows) {
+    const day = isoDay(row.date);
+    const label = issuerFiscalLabel(row);
+    if (day !== null && label !== null && /^FY\d{4}$/.test(label) && isIsoDate(day) && plausibleFiscalLabel(label, day)) labels.set(day, label);
+  }
+  return labels;
+}
+
+/**
+ * Audit 2026-10-27 B3 (residual a): a computed figure taken from one fiscal year's rows carries that year's issuer label
+ * and period end, read from the annual income row of the date Stage B states, as the annual statement cell carries them;
+ * never inferred from a calendar year or from an as-of that happens to match a year end (B1 OD-1 (b)). The period is what
+ * makes the consistency period check run, so a label never validates another year. Only when the window end is a full ISO
+ * day, equals the as-of the figure prints and the labels hold it; otherwise nothing is added.
+ */
+function fiscalYearOf(
+  labels: ReadonlyMap<string, string>,
+  windowEnd: string | null | undefined,
+  asOf: string | null | undefined,
+): { period?: string; fiscalPeriod?: string } {
+  if (typeof windowEnd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(windowEnd) || windowEnd !== asOf) return {};
+  const fiscalPeriod = labels.get(windowEnd);
+  return fiscalPeriod === undefined ? {} : { period: windowEnd, fiscalPeriod };
+}
+
 /** Source boundaries only: issuer calendars and 52/53-week years vary (SEC API guidance). */
 function statementPeriodContext(row: FmpRawRow, key: string, kind: "instant" | "duration"): PeriodContext | undefined {
   const field = (row as FmpStatementRow).fieldProvenance?.[key];
@@ -1480,6 +1575,36 @@ function extractStatement<TRow extends FmpRawRow>(
   }) };
 }
 
+/**
+ * One row per fiscal period, the row Stage B uses (audit 2026-10-27 AI-505,
+ * D-13 "last-filed wins"): the provably latest filing wins and a period served
+ * twice with no provable order is left out, as `normalizeQuarterRows` decides
+ * for growth, returns and capital. A row whose date is not a real day keeps its
+ * "unknown" column. The notes cover only periods inside the block's window and
+ * carry validated ISO days, never provider text.
+ */
+function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: number): { rows: T[]; notes: string[] } {
+  const { rows: winners, rejected } = normalizeQuarterRows(rows);
+  const kept = new Set<T>(winners);
+  const realDay = (row: T): boolean => normalizeQuarterRows([row]).rows.length === 1;
+  const out = rows.filter((row) => kept.has(row) || !realDay(row));
+  // extractStatement keeps the first `periods` rows: note only what that window shows, or would have shown.
+  const shown = out.slice(0, periods).filter(realDay).map((row) => String(row.date));
+  const oldest = shown.reduce<string | null>((min, day) => (min === null || day < min ? day : min), null);
+  const inWindow = (day: string): boolean => shown.length < periods || (oldest !== null && day >= oldest);
+  const served = new Map<string, number>();
+  for (const row of rows) if (realDay(row)) served.set(String(row.date), (served.get(String(row.date)) ?? 0) + 1);
+  return {
+    rows: out,
+    notes: [
+      ...[...served].filter(([day, n]) => n > 1 && shown.includes(day))
+        .map(([day, n]) => `Fiscal period ${day} was served ${n} times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses.`),
+      ...rejected.filter((entry) => entry.reason.startsWith("duplicate fiscal period") && inWindow(entry.period))
+        .map((entry) => `Fiscal period ${entry.period} was served more than once with no provably latest filing; it is left out, as Stage B leaves it out.`),
+    ],
+  };
+}
+
 function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
@@ -1490,19 +1615,25 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   // admission before raw statement cells can enter the analyst or verifier registry.
   const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
     admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
-  const push = (b: StatementExtractBlock | null): void => {
-    if (b) blocks.push(b);
+  const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
+    if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);
   };
   const statementAsOf = (statement: DataBundle["statements"]["incomeAnnual"]): string =>
     statement.ok ? statement.value.asOf : "";
   const source = (statement: DataBundle["statements"]["incomeAnnual"], name: string): string =>
     statementSourceTag(statement.ok ? statement.value.source : undefined, name);
-  push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")));
-  push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")));
-  push(extractStatement("Balance sheet — annual", balances(rowsOf(bundle.statements.balanceAnnual)), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"));
-  push(extractStatement("Balance sheet — quarterly", balances(rowsOf(bundle.statements.balanceQuarterly)), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"));
-  push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")));
-  push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")));
+  const income = oneRowPerPeriod(rowsOf(bundle.statements.incomeAnnual), A);
+  const incomeQ = oneRowPerPeriod(rowsOf(bundle.statements.incomeQuarterly), Q);
+  const bal = oneRowPerPeriod(rowsOf(bundle.statements.balanceAnnual), A);
+  const balQ = oneRowPerPeriod(rowsOf(bundle.statements.balanceQuarterly), Q);
+  const cash = oneRowPerPeriod(rowsOf(bundle.statements.cashflowAnnual), A);
+  const cashQ = oneRowPerPeriod(rowsOf(bundle.statements.cashflowQuarterly), Q);
+  push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
+  push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
+  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"), bal.notes);
+  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"), balQ.notes);
+  push(extractStatement("Cash flow — annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
+  push(extractStatement("Cash flow — quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   return blocks;
 }
 
@@ -1645,41 +1776,192 @@ function nextEarningsNote(bundle: DataBundle): string | null {
 }
 
 /**
- * FMP's stock-peers list draws peers from the subject's own exchange, so a
- * peer market cap without a currency inherits the subject's listing currency
- * under the same D-57 rule (which requires it to equal the reporting one).
+ * A stock-peers market cap is money only in a currency the run holds for that
+ * peer (AI-301): the provider row's own currency, else the listing currency of
+ * a profile the peer collection read for that symbol. The subject's currency is
+ * never assumed (FMP documents its peers as same-exchange, but its own answers
+ * list foreign exchanges). The size screen is the one Stage B discovery uses.
  */
-function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
+function peerListingCurrency(bundle: DataBundle, symbol: string, row: FmpStockPeerRow): string | null {
+  const own = ownRowCurrency(row);
+  if (own !== null) return own;
+  const collection = bundle.peerFundamentals;
+  const recorded = establishedIsoCode(collection?.listingCurrencies?.[symbol]);
+  if (recorded !== null) return recorded;
+  // Pre-batch snapshots recorded no currencies: read the admitted candidate's profile.
+  const candidateProfile = collection?.candidates[symbol]?.profile;
+  const profileRow = candidateProfile ? firstRow(candidateProfile) : null;
+  return profileRow && strOrNull(profileRow.symbol)?.trim().toUpperCase() === symbol ? establishedIsoCode(profileRow.currency) : null;
+}
+
+function peersSection(bundle: DataBundle): PayloadSection {
   // D-65: discovery candidates outside the comparable-size band are named in
   // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
   const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
-  const screened = rowsOf(bundle.peers).map((p) => ({ p, size: peerSizeExclusion(subjectCap, numOrNull(p.mktCap)) }));
-  const peers = screened.filter((s) => s.size === null).map((s) => s.p).slice(0, PAYLOAD_BUDGETS.listRows);
+  const subjectCurrency = establishedIsoCode(firstRow(bundle.profile)?.currency) ?? establishedIsoCode(firstRow(bundle.quote)?.currency);
+  const screened = rowsOf(bundle.peers).map((p) => {
+    const symbol = (strOrNull(p.symbol) ?? "").trim().toUpperCase();
+    const currency = peerListingCurrency(bundle, symbol, p);
+    return { p, currency, screen: peerDiscoveryScreen({ subjectSymbol: bundle.symbol, subjectCurrency, subjectCap, peerSymbol: symbol, peerCurrency: currency, peerCap: numOrNull(p.mktCap) }) };
+  });
+  const peers = screened.filter((s) => s.screen.kind !== "excluded").slice(0, PAYLOAD_BUDGETS.listRows);
   const asOf = bundle.peers.ok ? bundle.peers.value.asOf : null;
-  const figures: PayloadFigureInput[] = peers.map((p) => ({
+  const figures: PayloadFigureInput[] = peers.map(({ p, currency }) => ({
     label: `${strOrNull(p.symbol) ?? "?"} — ${strOrNull(p.companyName) ?? "?"}`,
     value: numOrNull(p.mktCap),
     unit: "currency mkt cap",
-    ...rowCurrency(p, issuer),
+    currency,
     source: "fmp:stock-peers",
     asOf,
   }));
-  const sizeNotes = screened.filter((s) => s.size !== null)
-    .map((s) => `${strOrNull(s.p.symbol) ?? "?"} (${strOrNull(s.p.companyName) ?? "?"}) is not listed as a peer: ${s.size}.`);
-  return payloadSection({ title: "Peers", figures, notes: [...inheritanceNote(figures, issuer), ...sizeNotes] });
+  const name = (p: FmpStockPeerRow) => `${strOrNull(p.symbol) ?? "?"} (${strOrNull(p.companyName) ?? "?"})`;
+  const sizeNotes = screened.flatMap((s) => s.screen.kind === "excluded" ? [`${name(s.p)} is not listed as a peer: ${s.screen.reason}.`] : []);
+  const notCompared = screened.flatMap((s) => s.screen.kind === "not-compared" ? [`${name(s.p)}: ${s.screen.reason}.`] : []);
+  return payloadSection({
+    title: "Peers",
+    figures,
+    notes: [
+      "Peer market caps are money only in the listing currency this run read for that peer (its own provider row or its profile in the peer collection); a cap shown \"(currency unknown)\" is not citable as money, and the subject's currency is never assumed for a peer.",
+      ...sizeNotes,
+      ...notCompared,
+    ],
+  });
 }
+
+/**
+ * AI-117: FMP's insider statistics are calendar-quarter rows whose
+ * `totalPurchases`/`totalSales` are open-market transaction counts (Form 4
+ * codes P and S), not shares. The window is the trailing four complete
+ * calendar quarters; the quarter containing `asOf` is left out, and a gap in
+ * the served quarters ends the window.
+ */
+export interface InsiderStatisticsWindow {
+  /** Newest first, consecutive, complete. */
+  quarters: { year: number; quarter: 1 | 2 | 3 | 4 }[];
+  /** First day of the oldest quarter, last day of the newest. */
+  start: string;
+  end: string;
+  openMarketPurchases: number | null;
+  openMarketSales: number | null;
+  acquiredTransactions: number | null;
+  disposedTransactions: number | null;
+  sharesAcquired: number | null;
+  sharesDisposed: number | null;
+  /** The served quarter that contains `asOf`. */
+  inProgress: { year: number; quarter: number } | null;
+}
+
+function insiderQuarterIndex(year: number, quarter: number): number {
+  return year * 4 + (quarter - 1);
+}
+
+function insiderQuarterContaining(asOf: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(asOf);
+  if (!m) return null;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return insiderQuarterIndex(Number(m[1]), Math.ceil(month / 3));
+}
+
+function insiderStatisticRows(rows: readonly FmpInsiderTradeStatisticsRow[]): (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] {
+  const seen = new Set<number>();
+  const kept: (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] = [];
+  for (const row of rows) {
+    const { year, quarter } = row;
+    if (!Number.isInteger(year) || !Number.isInteger(quarter) || quarter! < 1 || quarter! > 4) continue;
+    const index = insiderQuarterIndex(year!, quarter!);
+    if (seen.has(index)) continue;
+    seen.add(index);
+    kept.push({ ...row, year: year!, quarter: quarter as 1 | 2 | 3 | 4 });
+  }
+  return kept;
+}
+
+export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatisticsRow[], asOf: string): InsiderStatisticsWindow | null {
+  const current = insiderQuarterContaining(asOf);
+  if (current === null) return null;
+  const served = insiderStatisticRows(rows);
+  const complete = served
+    .filter((row) => insiderQuarterIndex(row.year, row.quarter) < current)
+    .sort((a, b) => insiderQuarterIndex(b.year, b.quarter) - insiderQuarterIndex(a.year, a.quarter));
+  const taken: typeof complete = [];
+  for (const row of complete) {
+    if (taken.length === 4) break;
+    const last = taken[taken.length - 1];
+    if (last && insiderQuarterIndex(last.year, last.quarter) - insiderQuarterIndex(row.year, row.quarter) !== 1) break;
+    taken.push(row);
+  }
+  const newest = taken[0];
+  const oldest = taken[taken.length - 1];
+  if (!newest || !oldest) return null;
+  const sum = (key: "totalPurchases" | "totalSales" | "acquiredTransactions" | "disposedTransactions" | "totalAcquired" | "totalDisposed"): number | null => {
+    let total = 0;
+    for (const row of taken) {
+      const v = row[key];
+      if (!isNum(v)) return null;
+      total += v;
+    }
+    return total;
+  };
+  const quarterEnd = (year: number, quarter: number) => {
+    const month = quarter * 3;
+    return `${year}-${String(month).padStart(2, "0")}-${month === 6 || month === 9 ? "30" : "31"}`;
+  };
+  const inProgress = served.find((row) => insiderQuarterIndex(row.year, row.quarter) === current);
+  return {
+    quarters: taken.map((row) => ({ year: row.year, quarter: row.quarter })),
+    start: `${oldest.year}-${String((oldest.quarter - 1) * 3 + 1).padStart(2, "0")}-01`,
+    end: quarterEnd(newest.year, newest.quarter),
+    openMarketPurchases: sum("totalPurchases"),
+    openMarketSales: sum("totalSales"),
+    acquiredTransactions: sum("acquiredTransactions"),
+    disposedTransactions: sum("disposedTransactions"),
+    sharesAcquired: sum("totalAcquired"),
+    sharesDisposed: sum("totalDisposed"),
+    inProgress: inProgress ? { year: inProgress.year, quarter: inProgress.quarter } : null,
+  };
+}
+
+const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
-  const stats = firstRow(bundle.insiderStats);
   const statsAsOf = bundle.insiderStats.ok ? bundle.insiderStats.value.asOf : null;
-  if (stats) {
+  const statRows = rowsOf(bundle.insiderStats);
+  const win = statsAsOf === null ? null : insiderStatisticsWindow(statRows, statsAsOf);
+  if (win && statsAsOf !== null) {
+    const n = win.quarters.length;
+    const words = INSIDER_WINDOW_WORDS[n] ?? String(n);
+    const w = `${words} calendar quarter${n === 1 ? "" : "s"} ended ${win.end}`;
+    const common = {
+      source: "fmp:insider-statistics",
+      asOf: statsAsOf,
+      period: win.end,
+      periodContext: { kind: "duration" as const, start: win.start, end: win.end, ...(n === 4 ? { basis: "rolling-12-month" as const } : {}) },
+    };
+    const ratio = win.acquiredTransactions !== null && win.disposedTransactions !== null && win.disposedTransactions !== 0
+      ? round(win.acquiredTransactions / win.disposedTransactions, 4)
+      : null;
     figures.push(
-      { label: "insider total purchases", value: numOrNull(stats.totalPurchases), unit: "shares", source: "fmp:insider-statistics", asOf: statsAsOf },
-      { label: "insider total sales", value: numOrNull(stats.totalSales), unit: "shares", source: "fmp:insider-statistics", asOf: statsAsOf },
-      { label: "acquired/disposed ratio", value: numOrNull(stats.acquiredDisposedRatio), unit: "x", source: "fmp:insider-statistics", asOf: statsAsOf },
+      { label: `insider open-market purchase transactions (Form 4 code P), ${w}`, value: win.openMarketPurchases, unit: "count", ...common },
+      { label: `insider open-market sale transactions (Form 4 code S), ${w}`, value: win.openMarketSales, unit: "count", ...common },
+      { label: `insider shares acquired, all reported acquisitions incl. awards, option exercises and gifts received, ${w}`, value: win.sharesAcquired, unit: "shares", ...common },
+      { label: `insider shares disposed, all reported dispositions incl. open-market sales, tax withholding and gifts, ${w}`, value: win.sharesDisposed, unit: "shares", ...common },
+      { label: `insider acquired/disposed transaction-count ratio (all acquisition and disposition codes), ${w}`, value: ratio, unit: "x", ...common },
     );
+    const list = [...win.quarters].reverse().map((q) => `${q.year} Q${q.quarter}`).join(", ");
+    notes.push(
+      `Insider statistics: FMP calendar quarters ${list} (${win.start} to ${win.end}) summed` +
+        `${win.inProgress ? `; ${win.inProgress.year} Q${win.inProgress.quarter} is in progress at ${statsAsOf} and is left out (its Form 4 rows are listed below)` : ""}. ` +
+        "Purchase and sale figures count open-market transactions (Form 4 codes P and S), not shares; the share volumes cover every reported acquisition or disposition.",
+    );
+  } else if (statsAsOf !== null) {
+    const current = insiderQuarterContaining(statsAsOf);
+    const only = current === null ? undefined : insiderStatisticRows(statRows).find((row) => insiderQuarterIndex(row.year, row.quarter) === current);
+    if (only) {
+      notes.push(`Insider statistics: FMP serves only ${only.year} Q${only.quarter}, which is in progress at ${statsAsOf}; no complete calendar quarter is summed.`);
+    }
   }
   const trades = rowsOf(bundle.insiderTrades).slice(0, PAYLOAD_BUDGETS.listRows);
   for (const tr of trades) {
@@ -1781,6 +2063,9 @@ function shortInterestSection(bundle: DataBundle): PayloadSection {
 
 function segmentsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
+  // AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is withheld, with the fixed reason.
+  const geographic = admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
+  const providerKeyNotes: string[] = [];
   const build = (
     res: DataBundle["segmentation"]["product"],
     kind: string,
@@ -1791,6 +2076,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
     const currency = isoCurrency(latest?.reportedCurrency);
     const data = latest?.data;
     if (data && typeof data === "object") {
+      const before = figures.length;
       // Deterministic ordering: sort segment keys alphabetically.
       for (const key of Object.keys(data).sort()) {
         figures.push({
@@ -1803,14 +2089,22 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
           ...(kind === "geographic" && selectedGeographyNotes(res).length > 0 ? { period: asOf } : {}),
         });
       }
+      // Fixed text: no provider key reaches a note.
+      if (figures.length > before && !(res.ok && res.value.source === "edgar")) {
+        providerKeyNotes.push(`${kind === "product" ? "Product" : "Geographic"} keys are FMP's normalised names, not read from the filing's XBRL; FMP's assignment of revenue to them is not checked against the filing.`);
+      }
     }
   };
   build(bundle.segmentation.product, "product");
-  build(bundle.segmentation.geographic, "geographic");
+  build(geographic, "geographic");
   return payloadSection({
-    title: "Revenue segmentation (as-reported keys — never hard-coded)",
+    title: "Revenue segmentation (keys as each source names them — never hard-coded)",
     figures,
-    notes: selectedGeographyNotes(bundle.segmentation.geographic),
+    notes: [
+      ...selectedGeographyNotes(geographic),
+      ...providerKeyNotes,
+      ...(bundle.segmentation.geographic.ok && !geographic.ok ? [geographic.gap.reason] : []),
+    ],
   });
 }
 
@@ -1835,7 +2129,7 @@ function macroSection(bundle: DataBundle): PayloadSection {
           const figureUnit = fredFigureUnit(seriesId, unitsOf(seriesId));
           const served = numOrNull(last.value);
           figures.push({
-            label: `${seriesId}${tag}`,
+            label: `${seriesId}${unitsOf(seriesId) === "chg" ? " change from prior observation" : ""}${tag}`,
             // FRED serves its scaled series with at most three decimals, so a
             // ×1,000 or larger product is a whole number; rounding only removes
             // binary float noise that would otherwise fail the value match.
@@ -1929,25 +2223,100 @@ export function riskFactorBudget(sourceChars: number): number {
     Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
 }
 
+/** Printed in place of a release's fiscal label that the run's statement rows contradict. It holds no digit and no "year" or "quarter" word, so no title reader takes a period or window from it. */
+const FISCAL_LABEL_WITHHELD = " [issuer fiscal label withheld: the release and the statement rows disagree]";
+
+const FISCAL_DAY_MS = 86_400_000;
+const fiscalDayMs = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
+/** The tolerance between a release's quarter end and a statement row's period end (fiscalLabelOf, releaseFiscalLabelContradicted). */
+const sameFiscalPeriodEnd = (a: string, b: string): boolean => Math.abs(fiscalDayMs(a) - fiscalDayMs(b)) <= 3 * FISCAL_DAY_MS;
+/** "Q1 FY2025" -> "Q2 FY2025"; "Q4 FY2025" -> "Q1 FY2026"; null for any other label. */
+function successorQuarterLabel(label: string): string | null {
+  const m = /^Q([1-4]) FY(\d{4})$/.exec(label);
+  if (m === null) return null;
+  return m[1] === "4" ? `Q1 FY${Number(m[2]) + 1}` : `Q${Number(m[1]) + 1} FY${m[2]}`;
+}
+
+/**
+ * AI-512: a release label the run's own statement rows do not support.
+ * (1) An annual or quarterly income-statement row ending within three days of
+ * `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
+ * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
+ * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025" and
+ * contradicts a "Q1" to "Q3" label, because an annual period that ends at the
+ * quarter end makes that quarter the fiscal fourth.
+ * (2) No labelled row lies within three days, but labelled quarterly rows
+ * exist (the release is newer than every statement row, or older): the label
+ * is supported only when the quarter end falls 80 to 100 days after the newest
+ * labelled quarterly row's end and the label is that row's successor quarter.
+ * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the label's fiscal year is the
+ * newest labelled annual row's fiscal year + 1 and the quarter end falls 91n-11 to 91n+9 days (at most 366) after that row's
+ * end, n being the label's quarter number.
+ * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
+ */
+function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
+  const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
+  let near = false;
+  let newest: { end: string; own: string } | null = null;
+  let newestAnnual: { end: string; own: string } | null = null;
+  const annual = rowsOf(bundle.statements.incomeAnnual);
+  const quarterly = rowsOf(bundle.statements.incomeQuarterly);
+  for (const row of [...annual, ...quarterly]) {
+    const end = isoDay(row.date);
+    const own = issuerFiscalLabel(row);
+    if (end === null || !isIsoDate(end) || own === null) continue;
+    if (quarterly.includes(row) && own.startsWith("Q") && (newest === null || end > newest.end)) newest = { end, own };
+    if (!quarterly.includes(row) && /^FY\d{4}$/.test(own) && (newestAnnual === null || end > newestAnnual.end)) newestAnnual = { end, own };
+    if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
+    near = true;
+    if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
+    if (!quarterly.includes(row) && /^Q[1-3]/.test(label)) return true;   // an annual period ending here makes this quarter the fiscal fourth
+  }
+  if (near) return false;
+  if (newest === null) {
+    if (newestAnnual === null) return false;
+    const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
+    const n = Number(/^Q([1-4])/.exec(label)?.[1] ?? 0);   // the quarter number fixes the days after a fiscal year end: Q1 80-100, Q2 171-191, Q3 262-282, Q4 353-366
+    return !(n >= 1 && days >= 91 * n - 11 && days <= Math.min(91 * n + 9, 366) && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
+  }
+  const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
+  return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);
+}
+
 /**
  * D-66: the fiscal label an earnings release gives the quarter ending on (or
  * within three days of) `periodEnd`; an annual filing takes that quarter's
  * fiscal year. Null when no release reports that period.
+ * Audit 2026-10-27 AI-512: a release label the run's own statement rows contradict is withheld, not replaced; a stale label in a stored parse made by an earlier parser is caught here, where it is read.
  */
 function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): string | null {
   const res = bundle.edgar?.currentReports;
   if (!res?.ok) return null;
-  const day = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
   const release = res.value.data.releases.find((r) => r.reported.periodEnd !== null && isIsoDate(r.reported.periodEnd) &&
-    Math.abs(day(r.reported.periodEnd) - day(periodEnd)) <= 3 * 86_400_000 && r.reported.fiscal !== null);
+    sameFiscalPeriodEnd(r.reported.periodEnd, periodEnd) && r.reported.fiscal !== null);
   const label = release?.reported.fiscal?.label ?? null;
-  if (label === null) return null;
+  if (label === null || (release !== undefined && releaseFiscalLabelContradicted(bundle, label, release.reported.periodEnd as string))) return null;
   if (form === "10-K" || form === "20-F") return /^Q4\s+(FY\d{4})$/.exec(label)?.[1] ?? null;
   return /^Q[1-3]\s+FY\d{4}$/.test(label) ? label : null;
 }
 
+/**
+ * Audit 2026-10-27 AI-507: the newest ISO reporting period among the 10-K
+ * sections the run read (a 20-F filer files no 10-Q, so it never gets a marker).
+ */
+function latestAnnualPeriod(edgar: DataBundle["edgar"] | undefined): string | null {
+  let latest: string | null = null;
+  for (const res of [edgar?.business, edgar?.item1a, edgar?.mdna, edgar?.tenKNotes]) {
+    if (!res?.ok || res.value.data.form !== "10-K") continue;
+    const day = isoDay(res.value.data.reportDate);
+    if (day !== null && isIsoDate(day) && (latest === null || day > latest)) latest = day;
+  }
+  return latest;
+}
+
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
+  const annualEnd = latestAnnualPeriod(bundle.edgar);
   const add = (
     res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } } | undefined,
     title: (form: string) => string,
@@ -1960,9 +2329,13 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     const sec = res.value.data;
     const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
     const kept = cut.superseded ?? [];
-    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
-      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const reportingPeriod = isoDay(sec.reportDate);
+    // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
+    // word (periods, never filing dates; an equal end is not older).
+    const older = sec.form === "10-Q" && annualEnd !== null && reportingPeriod !== null && isIsoDate(reportingPeriod) && reportingPeriod < annualEnd;
+    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
+      (older ? ` [older than the 10-K for the period ended ${annualEnd}]` : "") +
+      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const filingDate = isoDay(sec.filingDate);
     // D-66: the issuer's own fiscal label for that period, from its earnings
     // release ("Q2 FY2027"), so a figure stated for "the second quarter of
@@ -2092,9 +2465,13 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   if (latest !== undefined) {
     // D-63: the quarter end is stated too, so a figure the narrative gives
     // without restating its period is read as that quarter's (claimEvidence).
-    const fiscal = latest.reported.fiscal?.label ?? null;
+    const stated = latest.reported.fiscal?.label ?? null;
     const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
-    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
+    // AI-512: a label the statement rows for that quarter end contradict is withheld from the title.
+    const withheld = stated !== null && periodEnd !== null && releaseFiscalLabelContradicted(bundle, stated, periodEnd);
+    const fiscal = withheld ? null : stated;
+    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}`
+      : withheld ? `quarter ended ${periodEnd}${FISCAL_LABEL_WITHHELD}` : fiscal ?? periodEnd ?? "latest quarter";
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
     const primaryRelease = latest.releaseExhibit === null && latest.releaseUrl !== null;
     narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
@@ -2422,9 +2799,8 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
 /** Latest quarter, the quarter before it, and the quarter about a year earlier. */
 function segmentColumns(quarters: readonly { start: string; end: string }[]): number[] {
   if (quarters.length === 0) return [];
-  const latest = Date.parse(`${quarters[0]!.end}T00:00:00Z`);
-  const yearAgo = quarters.findIndex((q, i) => i > 0 && Math.abs((latest - Date.parse(`${q.end}T00:00:00Z`)) / 86_400_000 - 364) <= 16);
-  return [...new Set([0, ...(quarters.length > 1 ? [1] : []), ...(yearAgo > 0 ? [yearAgo] : [])])];
+  const yearAgo = priorQuarterIndex(quarters.map((q) => q.end), YOY_WINDOW_DAYS);
+  return [...new Set([0, ...(quarters.length > 1 ? [1] : []), ...(yearAgo !== null ? [yearAgo] : [])])];
 }
 
 /** The eight-quarter trend, segment growth and guidance-vs-actual differences (computed rows). */
@@ -2450,8 +2826,8 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   const segments = bundle.edgar?.quarterlySegments;
   if (segments?.ok) {
     for (const axis of segments.value.data.axes) {
-      const columns = segmentColumns(axis.quarters);
-      const latestEnd = axis.quarters[0]!.end;
+      const ends = axis.quarters.map((q) => q.end);
+      const latestEnd = ends[0]!;
       for (const row of axis.rows) {
         const latest = row.values[0];
         if (latest === null || latest === undefined) continue;
@@ -2460,8 +2836,9 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
           return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
-        const qoq = growth(columns.includes(1) ? 1 : undefined);
-        const yoy = growth(columns.find((i) => i > 1));
+        // AI-406: a rate is computed only against the quarter its label names.
+        const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
+        const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
         if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
         if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
         const total = axis.total[0];
@@ -3047,7 +3424,7 @@ export function assembleContextPayload(
   // resolved them. Each figure below takes only the one its evidence supports.
   const currencies = statementCurrencies(bundle);
   // D-57: the one currency single-currency provider rows (estimates, targets,
-  // peer caps, compensation) inherit when they carry none — the same rule
+  // compensation) inherit when they carry none — the same rule
   // Stage B applied to the analyst-consensus growth case.
   const issuer = inheritedIssuerCurrency({
     reporting: currencies.model,
@@ -3078,6 +3455,9 @@ export function assembleContextPayload(
   const segmentRevenue = segmentRevenueSection(bundle);
   const issuerFilings = issuerFilingsSection(disclosures);
   const filingFacts = filingFactsSection(disclosures);
+  const peerCollectionNotes: ReadonlySet<string> = new Set(bundle.peerFundamentals?.notes ?? []);
+  const peerCoverage = computed.valuation.kind === "pre-revenue" ? undefined : computed.valuation.multiples.peerCoverage;
+  const peerScreen = peerCoverage === undefined ? undefined : peerScreenSection(peerCoverage, peerCollectionNotes);
   const missingData = mergeManifest([
     bundle.gaps,
     computed.gaps,
@@ -3097,14 +3477,15 @@ export function assembleContextPayload(
       industry: computed.route.evidence.industry,
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
-    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
+    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle)),
     statements: statementExtracts(bundle),
+    ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),
     ...(issuerFilings === undefined ? {} : { issuerFilings }),
     ...(filingFacts === undefined ? {} : { filingFacts }),
     estimates: estimatesSection(bundle, issuer, computed),
-    peers: peersSection(bundle, issuer),
+    peers: peersSection(bundle),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
     leadership: leadershipSection(bundle, issuer),
@@ -3323,6 +3704,14 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
+  // Audit 2026-10-27 B3 Task 2 (AI-102): exclusion reasons and collection notes
+  // can quote a provider's error body: enveloped, one entry per line (D-101).
+  if (payload.peerScreen) {
+    parts.push(renderUntrustedLines(
+      "## Peer screen exclusions and collection notes (untrusted provider data)",
+      payload.peerScreen.notes.map((n) => `- ${n}`),
+    ));
+  }
   for (const b of payload.statements) parts.push(renderStatement(b));
   // Issuer member labels and outlook caveats are filing text: untrusted.
   if (payload.quarterlyTrend) parts.push(renderUntrustedSection(payload.quarterlyTrend));

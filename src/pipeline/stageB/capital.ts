@@ -269,6 +269,8 @@ export interface CapitalResult {
   maintenanceVsGrowthCapex: {
     capexToDALatest: number | null;
     capexToDA5yAvg: number | null;
+    /** AI-410: how many annual capex/D&A values the average covers (null when none); the average is a "5y" mean only at five. */
+    capexToDAAvgYears: number | null;
     /** min(|capex|, D&A) — the heuristic maintenance share. */
     impliedMaintenanceCapex: number | null;
     /** max(0, |capex| − D&A) — the heuristic growth share. */
@@ -673,6 +675,7 @@ export function computeCapital(
     capexToDAValues.length > 0
       ? capexToDAValues.reduce((s, v) => s + v, 0) / capexToDAValues.length
       : null;
+  const capexToDAAvgYears = capexToDAValues.length > 0 ? capexToDAValues.length : null;
 
   // --- Net debt / EBITDA ------------------------------------------------------------
   let netDebtToEbitda: CapitalResult["netDebtToEbitda"] = {
@@ -938,7 +941,9 @@ export function computeCapital(
         );
         years = dateSpan;
       }
-      if (startIdx < SHARE_TREND_WINDOW_YEARS) {
+      // Audit 2026-10-27 B3 (AI-306): "only Ny available" is said only when the measured span really fell short;
+      // an irregular date span that reaches the window (within the label's 0.05y rounding) is not a shortfall.
+      if (startIdx < SHARE_TREND_WINDOW_YEARS && years < SHARE_TREND_WINDOW_YEARS - 0.05) {
         trendNotes.push(
           `requested ${SHARE_TREND_WINDOW_YEARS}y window, only ${fmt(years)}y of share history available`,
         );
@@ -963,6 +968,11 @@ export function computeCapital(
         actualYears: years,
         note: trendNotes.join("; "),
       };
+      // Audit 2026-10-27 B3 (AI-306): a short or irregular window reaches the
+      // notes channel, so the payload's span label has its reason beside it.
+      if (trendNotes.length > 1) {
+        notes.push(`Diluted share-count change: ${trendNotes.slice(1).join("; ")} (${start.date} to ${end.date}).`);
+      }
     } else if (inc.length > 0) {
       gaps.push({
         field: "capital.shareCountTrend",
@@ -1222,6 +1232,7 @@ export function computeCapital(
     maintenanceVsGrowthCapex: {
       capexToDALatest: latestCapexRow?.capexToDA ?? null,
       capexToDA5yAvg,
+      capexToDAAvgYears,
       impliedMaintenanceCapex: impliedMaintenance,
       impliedGrowthCapex: impliedGrowth,
       note: MAINT_CAPEX_HEURISTIC_NOTE,
@@ -1249,7 +1260,7 @@ export function computeCapital(
     const reason = options.modelEligibilityReason ?? "Not applicable to financial companies: funding liabilities and financial assets are operating inputs; industrial free cash flow, debt/EBITDA and EBIT interest coverage are not meaningful.";
     result.fcf = { series: [], latestFcf: null, latestFcfBeforeSbc: null, latestSbc: null,
       latestConversion: null, latestConversionBeforeSbc: null, basis: reason };
-    result.maintenanceVsGrowthCapex = { capexToDALatest: null, capexToDA5yAvg: null,
+    result.maintenanceVsGrowthCapex = { capexToDALatest: null, capexToDA5yAvg: null, capexToDAAvgYears: null,
       impliedMaintenanceCapex: null, impliedGrowthCapex: null, note: reason };
     result.netDebtToEbitda = { value: null, netDebt: null, ebitda: null, asOf,
       resolution: { ...result.netDebtToEbitda.resolution, value: null, reason }, note: reason };

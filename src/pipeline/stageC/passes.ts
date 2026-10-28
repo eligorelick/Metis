@@ -40,6 +40,7 @@ import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathL
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { admittedGeography } from "@/edgar/segmentFacts";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey, type MultipleStat } from "@/pipeline/stageB/valuation";
@@ -2404,18 +2405,26 @@ export async function runJudgePass(
   // below is what the cost log records for the pass.
   let result = run.result;
   const repairTurn = validationFeedback !== undefined && validationFeedback.length > 0;
-  if (presentation.secondaryOrder !== null && repairTurn) {
+  if (presentation.secondaryOrder !== null && (repairTurn || hasCompletedSections(continuation))) {
     // A validation retry carries the primary's "repair this JSON in place"
-    // turn. A mirrored request anchored on that same previous output is not
-    // an independent draw — reconciling two repairs of one document measured
-    // nothing about order sensitivity while the report said the two passes
-    // agreed — so the mirror is not run and the reconciliation is disclosed as
-    // not performed.
+    // turn, and a retry after a cut-off response carries the sections that
+    // response already wrote under the seeded order (the retry is told to stay
+    // consistent with them, and both orders would receive the same ones). A
+    // mirrored request anchored on either is not an independent draw —
+    // reconciling two repairs of one document, or grades the mirror never
+    // wrote, measured nothing about order sensitivity while the report said the
+    // two passes agreed — so the mirror is not run (no second paid request) and
+    // the reconciliation is disclosed as not performed.
     draft = withReconciliation(
       draft,
       reconciliationNotPerformed(
-        "retry attempt: the mirrored (opposite-order) judge pass is not run against a repair-in-place turn, " +
-          "because a mirror anchored on the previous output is not an independent draw",
+        repairTurn
+          ? "retry attempt: the mirrored (opposite-order) judge pass is not run against a repair-in-place turn, " +
+              "because a mirror anchored on the previous output is not an independent draw"
+          : `retry attempt: sections kept from a cut-off response (${Object.keys(continuation!.completed).join(", ")}) ` +
+              "were written under the seeded order, so a mirrored request would be anchored on them and is not an " +
+              "independent draw; the mirrored judge pass was not run",
+        "skipped",
       ),
     );
   } else if (presentation.secondaryOrder !== null) {
@@ -3763,8 +3772,10 @@ export function applySegmentShares(
     return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
   };
   const productTotal = latestSegmentationTotal(bundle?.segmentation?.product);
-  const geographicTotal = latestSegmentationTotal(bundle?.segmentation?.geographic);
-  const primary = bundle?.segmentation?.geographic;
+  // AI-509: the share basis follows the same admission as the payload and the data-only report.
+  const primary = bundle?.segmentation?.geographic === undefined ? undefined
+    : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
+  const geographicTotal = latestSegmentationTotal(primary);
   const basis = selectedGeographyNotes(primary)[0];
   const latest = primary?.ok ? primary.value.data.rows[0] : undefined;
   const geographic = basis && primary?.ok && latest?.data && typeof latest.reportedCurrency === "string" && typeof latest.date === "string"
@@ -4041,6 +4052,7 @@ export async function runJudgeVerifyAssemble(
           reconciliationNotPerformed(
             `${JUDGE_ORDER_ENV_KEY}=both is configured, but this judge path runs a single ${presentation.order} pass; ` +
               "the mirrored pass and its reconciliation are only run by the job runner",
+            "skipped",
           ),
         );
 
