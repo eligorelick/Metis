@@ -2173,8 +2173,23 @@ function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): str
   return /^Q[1-3]\s+FY\d{4}$/.test(label) ? label : null;
 }
 
+/**
+ * Audit 2026-10-27 AI-507: the newest ISO reporting period among the 10-K
+ * sections the run read (a 20-F filer files no 10-Q, so it never gets a marker).
+ */
+function latestAnnualPeriod(edgar: DataBundle["edgar"] | undefined): string | null {
+  let latest: string | null = null;
+  for (const res of [edgar?.business, edgar?.item1a, edgar?.mdna, edgar?.tenKNotes]) {
+    if (!res?.ok || res.value.data.form !== "10-K") continue;
+    const day = isoDay(res.value.data.reportDate);
+    if (day !== null && isIsoDate(day) && (latest === null || day > latest)) latest = day;
+  }
+  return latest;
+}
+
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
+  const annualEnd = latestAnnualPeriod(bundle.edgar);
   const add = (
     res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } } | undefined,
     title: (form: string) => string,
@@ -2187,9 +2202,13 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     const sec = res.value.data;
     const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
     const kept = cut.superseded ?? [];
-    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
-      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const reportingPeriod = isoDay(sec.reportDate);
+    // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
+    // word (periods, never filing dates; an equal end is not older).
+    const older = sec.form === "10-Q" && annualEnd !== null && reportingPeriod !== null && isIsoDate(reportingPeriod) && reportingPeriod < annualEnd;
+    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
+      (older ? ` [older than the 10-K for the period ended ${annualEnd}]` : "") +
+      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const filingDate = isoDay(sec.filingDate);
     // D-66: the issuer's own fiscal label for that period, from its earnings
     // release ("Q2 FY2027"), so a figure stated for "the second quarter of

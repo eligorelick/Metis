@@ -3845,6 +3845,8 @@ megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both
 with their filings and dates.
 
+**An older 10-Q (audit 2026-10-27 AI-507, D-next).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. Each 10-Q excerpt is then titled "[older than the 10-K for the period ended <date>]", and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
+
 ### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
 
 The independent audit of 2026-10-22 found figures withheld although the filed
