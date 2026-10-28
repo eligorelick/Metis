@@ -3,7 +3,10 @@
  *
  * Every concept chain in src/edgar/statements.ts reads its tag list from this
  * table, so a taxonomy review has one place to look and one stamp to update.
- * Order matters: within a line item the first tag present for the period wins.
+ * Order matters: within a line item the first tag present for the period wins,
+ * unless it is below a component the line item declares (`unlessBelow`, audit
+ * 2026-10-27 FIN-510): a synonym below its own filed component is a subset line,
+ * not the total, so the next synonym is tried.
  *
  * Review stamp: the element names below were reviewed against the US-GAAP
  * 2025 taxonomy element list on 2026-09-02 (an offline review of names; no
@@ -38,10 +41,20 @@ export interface TagSynonymEntry {
   tags: readonly string[];
   /** Tried only after every `tags` entry misses, in order, each disclosed separately. */
   standIns?: readonly TagStandIn[];
+  /**
+   * Component tags the line item contains. A synonym whose value is below the
+   * same period's value of any of them (beyond `SYNONYM_FLOOR_TOLERANCE`) is a
+   * subset line and is skipped. Declared only where a us-gaap definition puts
+   * the component inside the figure the line item stands for.
+   */
+  unlessBelow?: readonly string[];
 }
 
-const entry = (tags: readonly string[], standIns?: readonly TagStandIn[]): TagSynonymEntry =>
-  standIns === undefined ? { tags } : { tags, standIns };
+const entry = (tags: readonly string[], standIns?: readonly TagStandIn[], unlessBelow?: readonly string[]): TagSynonymEntry => ({
+  tags,
+  ...(standIns === undefined ? {} : { standIns }),
+  ...(unlessBelow === undefined ? {} : { unlessBelow }),
+});
 
 /**
  * `Revenues` first: it is the taxonomy's total-revenue element, and the
@@ -226,10 +239,13 @@ export const LINE_ITEM_TAGS = {
   bankRevenueComponents: entry(["InterestIncomeExpenseNet", "NoninterestIncome"]),
   costOfRevenue: entry(["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold", "CostOfServices"]),
   grossProfit: entry(["GrossProfit"]),
-  researchAndDevelopmentExpenses: entry([
-    "ResearchAndDevelopmentExpense",
-    "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
-  ]),
+  // The aggregate includes acquired in-process R&D and software; the second
+  // element is the same scope excluding them, so a value below it is not the total.
+  researchAndDevelopmentExpenses: entry(
+    ["ResearchAndDevelopmentExpense", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
+    undefined,
+    ["ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
+  ),
   sellingGeneralAndAdministrativeExpenses: entry(["SellingGeneralAndAdministrativeExpense"]),
   sellingAndMarketingExpenses: entry(["SellingAndMarketingExpense"]),
   generalAndAdministrativeExpenses: entry(["GeneralAndAdministrativeExpense"]),
@@ -255,11 +271,13 @@ export const LINE_ITEM_TAGS = {
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),
-  depreciationAndAmortization: entry([
-    "DepreciationDepletionAndAmortization",
-    "DepreciationAndAmortization",
-    "DepreciationAmortizationAndAccretionNet",
-  ]),
+  // Total D&A contains total depreciation and the amortization of intangibles,
+  // so a combined tag below either is a subset line (audit 2026-10-27 FIN-510).
+  depreciationAndAmortization: entry(
+    ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"],
+    undefined,
+    DEPRECIATION_COMPONENT_TAGS,
+  ),
   // A filer with no dilutive securities can tag one figure for both bases with
   // the combined elements; each is the basic and the diluted figure at once
   // (audit 2026-10-22 B-35).
@@ -498,4 +516,10 @@ export function tagsFor(item: LineItem): string[] {
 /** The stand-ins of one line item, in order; empty when it has none. */
 export function standInsFor(item: LineItem): TagStandIn[] {
   return [...(LINE_ITEM_TAGS[item].standIns ?? [])];
+}
+
+/** The component floors of one line item (a fresh array); empty when it declares none. */
+export function floorsFor(item: LineItem): string[] {
+  const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
+  return [...(entryFor.unlessBelow ?? [])];
 }

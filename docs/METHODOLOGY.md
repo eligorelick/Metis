@@ -1838,6 +1838,11 @@ individually increase the reconstruction:
 - Where **real-estate** depreciation is not tagged separately, total
   depreciation and amortization is added back; NAREIT adds back only the
   real-estate portion.
+  That stand-in is the filer's total: a combined tag below the same period's
+  `Depreciation` or `AmortizationOfIntangibleAssets` is skipped by the same
+  floor and allowance as the statement builder's D&A (see "D&A from separate
+  lines (B-7)"), so a subset line is never added back as the total (audit
+  2026-10-27 FIN-510-V2).
 - Where the **real-estate impairment** element is not tagged, the generic
   `AssetImpairmentCharges` is added back; NAREIT adds back only impairments of
   depreciable real estate, so a goodwill write-down inside that charge does not
@@ -3816,6 +3821,25 @@ periods, so they had no D&A and no EBITDA, and EV/EBITDA, net debt/EBITDA and
 the capex split were withheld. When no combined tag is filed for a period, D&A
 is now the filer's `Depreciation` + `AmortizationOfIntangibleAssets`; when no
 amortization is tagged for the period either, it is `Depreciation` alone.
+A combined tag is the D&A only when it is not below the same period's
+`Depreciation` or `AmortizationOfIntangibleAssets`, with a rounding allowance
+of the larger of 0.5% of the component and 2 million in the row's currency
+(a house constant). Total D&A contains total depreciation and the
+amortization of intangibles, so a combined tag below either is a subset line
+(McDonald's `DepreciationDepletionAndAmortization` of $457M beside its own
+`Depreciation` of $1,600M). us-gaap defines `Depreciation` as including
+production and non-production depreciation, while `DepreciationAndAmortization`
+is defined as the non-production charge. A combined tag below a component is
+skipped, with a note, and the next combined tag is tried, then the composition
+below. With no combined tag that passes and no `Depreciation` filed (Cisco's
+FY2026: $700M combined beside $916M of amortization), D&A is withheld with the
+reason, never published as a figure known to be partial. A non-production
+`DepreciationAndAmortization` at or above `Depreciation` cannot be told from a
+total in companyfacts and is kept. The same rule applies to R&D:
+`ResearchAndDevelopmentExpense` below the same period's
+`ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost` is not the total,
+because the first includes acquired in-process R&D and software and the second
+excludes them (audit 2026-10-27 FIN-510 and FIN-510-V1, D-next).
 Either is a stand-in for the period and is disclosed as a lower bound,
 because a combined cash-flow line can hold other amortization: Microsoft's
 "depreciation, amortization, and other" is larger than the two tagged lines.

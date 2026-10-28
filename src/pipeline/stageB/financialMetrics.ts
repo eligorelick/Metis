@@ -38,6 +38,8 @@
  */
 
 import { getConcept, type ChainStep, type CompanyFacts } from "@/edgar/xbrl";
+import { belowComponentFloor } from "@/edgar/synonymFloor";
+import { DEPRECIATION_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
 import { shareCountOnBasis, type StockSplits } from "@/edgar/splits";
 import { tangibleCommonEquity } from "@/pipeline/stageB/returns";
 import type { FetchResult, ManifestEntry, SectorRoute } from "@/types/core";
@@ -328,7 +330,8 @@ export const REAL_ESTATE_IMPAIRMENT_TAGS = ["ImpairmentOfRealEstate"] as const;
  * The generic charge, used only as a labeled stand-in when the real-estate
  * element is untagged — it may carry goodwill or other non-real-estate
  * write-downs, so adding it back puts FFO at or ABOVE the definition, the same
- * direction the total-D&A stand-in errs in.
+ * direction the total-D&A stand-in errs in (the stand-in is the filer's total,
+ * never a combined tag below its own Depreciation or amortization, FIN-510-V2).
  */
 export const GENERIC_IMPAIRMENT_TAGS = ["AssetImpairmentCharges"] as const;
 export const STRAIGHT_LINE_RENT_TAGS = [
@@ -344,6 +347,7 @@ export const STRAIGHT_LINE_RENT_TAGS = [
  * below; unreconciled FFO and issuer-specific adjustments prevent a guaranteed bound.
  */
 export const RECURRING_CAPEX_TAGS = ["PaymentsForCapitalImprovements"] as const;
+/** Combined D&A tags, tried in order; each is checked against its own filed components (FIN-510-V2). */
 export const DEPRECIATION_AMORTIZATION_TAGS = [
   "DepreciationDepletionAndAmortization",
   "DepreciationAndAmortization",
@@ -398,6 +402,29 @@ function resolveTag(
   if (!r.ok) return null;
   const v = r.value.data;
   return { value: v.value, unit: v.unit, tag: v.tag, start: v.period.start, end: v.period.end, filed: v.filed, accn: v.accn, sourcePath: tagPath(v.tag) };
+}
+
+/**
+ * The first combined D&A tag that is not below the same period's `Depreciation`
+ * or `AmortizationOfIntangibleAssets` (same predicate and rounding allowance as
+ * the statement builder's component floor, audit 2026-10-27 FIN-510-V2): a
+ * combined tag below a component the total contains is a subset line, not the
+ * filer's total D&A. Null when none passes.
+ */
+function totalDaNotBelowComponents(
+  facts: CompanyFacts | null,
+  period: { end: string; durationHint?: "FY" | "Q" },
+): TagHit | null {
+  for (const tag of DEPRECIATION_AMORTIZATION_TAGS) {
+    const hit = resolveTag(facts, [tag], period);
+    if (hit === null) continue;
+    const components = DEPRECIATION_COMPONENT_TAGS.flatMap((componentTag) => {
+      const c = resolveTag(facts, [componentTag], period);
+      return c !== null && c.unit === hit.unit && c.value > 0 ? [{ tag: componentTag, value: c.value }] : [];
+    });
+    if (belowComponentFloor(hit.value, components) === null) return hit;
+  }
+  return null;
 }
 
 /** An ISO-4217 code, or null: the currency a money metric is stated in. */
@@ -1818,7 +1845,7 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
   }
 
   const reDep = flow === null ? null : resolveTag(facts, REAL_ESTATE_DEPRECIATION_TAGS, flow);
-  const totalDa = flow === null ? null : resolveTag(facts, DEPRECIATION_AMORTIZATION_TAGS, flow);
+  const totalDa = flow === null ? null : totalDaNotBelowComponents(facts, flow);
   const daValue =
     reDep?.value ?? totalDa?.value ?? (isNum(inputs.depreciationAndAmortization) ? inputs.depreciationAndAmortization : null);
   const daIsRealEstate = reDep !== null;

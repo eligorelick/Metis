@@ -62,10 +62,12 @@ import {
   REVENUE_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
   GROSS_PROFIT_COST_TAGS,
+  floorsFor,
   standInsFor,
   tagsFor,
   type TagStandIn,
 } from "@/edgar/tagSynonyms";
+import { belowComponentFloor } from "@/edgar/synonymFloor";
 import {
   CORE_FACT_FORMS,
   QUARTER_DURATION_DAYS,
@@ -400,7 +402,14 @@ type UnitKind = "money" | "perShare" | "shares";
  * the absent-component note, exactly as tag names do for `sumAny`.
  */
 export type ChainSpec =
-  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string }
+  /**
+   * `unlessBelow` lists component tags the figure contains (audit 2026-10-27
+   * FIN-510): a synonym whose value is below the same period's value of any
+   * of them is a subset line, so it is skipped with a note and the next
+   * synonym is tried. If every present synonym is skipped, the step returns
+   * null and records a refusal; the chain falls to its next step.
+   */
+  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[] }
   | { kind: "sum"; tags: string[]; unit: "money"; disclose?: string }
   | { kind: "sumAny"; tags: string[]; unit: "money" }
   | { kind: "sumAnyOf"; parts: { label: string; spec: ChainSpec }[]; unit: "money" }
@@ -502,7 +511,8 @@ const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
 /** A line item's own tags first, then its stand-ins one at a time. */
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
   const standIns = standInsFor(item);
-  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit };
+  const floors = floorsFor(item);
+  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }) };
   return standIns.length === 0 ? own : { kind: "chain", unit, steps: [own, ...standInSteps(standIns, unit)] };
 }
 
@@ -631,7 +641,8 @@ const DEPRECIATION_SPEC: ChainSpec = {
   kind: "chain",
   unit: "money",
   steps: [
-    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money" },
+    // A combined tag below the same period's Depreciation or amortization is a subset line (FIN-510).
+    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money", unlessBelow: [...DEPRECIATION_COMPONENT_TAGS] },
     {
       kind: "sum",
       tags: [...DEPRECIATION_COMPONENT_TAGS],
@@ -1268,6 +1279,8 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
     return;
   }
   for (const tag of spec.tags) into.add(tag);
+  // A floor tag is only ever resolved by tag, so it has to be parsed into the index.
+  if (spec.kind === "first") for (const tag of spec.unlessBelow ?? []) into.add(tag);
 }
 
 /** Every us-gaap tag any chain or anchor can ask for; nothing else is parsed. */
@@ -1513,6 +1526,20 @@ interface NoteSink {
   substitute(field: string, period: string, text: string): void;
   /** Record that `field` at row `period` was left null on purpose, for the reason `text`. */
   withhold(field: string, period: string, text: string): void;
+  /**
+   * Refusals recorded during resolution (a `first` step that skipped every
+   * synonym). `buildStatementRows` turns the last new one into a withholding
+   * only when the field ends null; a later step that serves leaves it a note.
+   */
+  readonly refusals: string[];
+  refuse(text: string): void;
+  /**
+   * Run a probe with `add`, `substitute`, `withhold` and `refuse` turned into
+   * no-ops (nested calls work) and return its result. A probe resolves a tag
+   * only to look at its value; the resolver's side effects belong to the field
+   * being resolved, not to the probe.
+   */
+  quietly<T>(fn: () => T): T;
 }
 
 function createNoteSink(): NoteSink {
@@ -1520,6 +1547,8 @@ function createNoteSink(): NoteSink {
   const notes: string[] = [];
   const substitutions: Substitution[] = [];
   const withheld: Withholding[] = [];
+  const refusals: string[] = [];
+  let muted = 0;
   const record = (into: { field: string; text: string; periods: string[] }[], field: string, period: string, text: string): void => {
     const existing = into.find((s) => s.field === field && s.text === text);
     if (existing === undefined) into.push({ field, text, periods: [period] });
@@ -1529,16 +1558,28 @@ function createNoteSink(): NoteSink {
     notes,
     substitutions,
     withheld,
+    refusals,
     add(note: string): void {
-      if (seen.has(note)) return;
+      if (muted > 0 || seen.has(note)) return;
       seen.add(note);
       notes.push(note);
     },
     substitute(field: string, period: string, text: string): void {
-      record(substitutions, field, period, text);
+      if (muted === 0) record(substitutions, field, period, text);
     },
     withhold(field: string, period: string, text: string): void {
-      record(withheld, field, period, text);
+      if (muted === 0) record(withheld, field, period, text);
+    },
+    refuse(text: string): void {
+      if (muted === 0) refusals.push(text);
+    },
+    quietly<T>(fn: () => T): T {
+      muted += 1;
+      try {
+        return fn();
+      } finally {
+        muted -= 1;
+      }
     },
   };
 }
@@ -1613,9 +1654,26 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       return null;
     }
     case "first": {
+      const skipped: string[] = [];
       for (const tag of spec.tags) {
         const r = resolve(tag, spec.unit);
         if (r === null) continue;
+        if (spec.unlessBelow !== undefined) {
+          // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
+          const components: { tag: string; value: number }[] = [];
+          for (const floorTag of spec.unlessBelow) {
+            if (floorTag === tag) continue;
+            const f = notes.quietly(() => resolve(floorTag, spec.unit));
+            if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
+          }
+          const hit = belowComponentFloor(r.value, components);
+          if (hit !== null) {
+            const text = `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
+            notes.add(`${label}: ${text}`);
+            skipped.push(text);
+            continue;
+          }
+        }
         if (spec.sign === undefined) return disclosed(r);
         const decimals = spec.unit === "perShare" ? PER_SHARE_DECIMALS : MONEY_DECIMALS;
         const signed: Resolved = { ...r, value: tidy(r.value * spec.sign, decimals) };
@@ -1626,6 +1684,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           signed.original = { ...r.original, value: tidy(r.original.value * spec.sign, decimals) };
         }
         return disclosed(signed);
+      }
+      if (skipped.length > 0) {
+        notes.refuse(
+          `${at?.field ?? label} withheld: every combined synonym filed for the period is below a component it includes (${skipped.join("; ")}), and no composition of its components is filed`,
+        );
       }
       return null;
     }
@@ -2802,9 +2865,12 @@ function buildStatementRows<TRow>(
     };
     for (const [field, spec] of Object.entries(def.chains)) {
       resolvingField = field;
+      const refusalsBefore = notes.refusals.length;
       const r = resolveSpec(spec, sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
       values[field] = r === null ? null : tidy(r.value, decimalsFor(spec.unit));
       if (r !== null) resolutions.set(field, r);
+      // A refusal becomes a withholding only when the field ends null; if a later chain step served, it stays a note.
+      else if (notes.refusals.length > refusalsBefore) notes.withhold(field, slot.date, notes.refusals[notes.refusals.length - 1]!);
     }
     // A quarter derived by SUBTRACTING year-to-date figures can come out
     // negative when the two operands do not describe the same thing â€” a
