@@ -552,7 +552,11 @@ export function settleRequestCost(
         costUsd: Number(settledMicro) / MICRO_USD,
         fallbackUsed: settlement.fallbackUsed,
         reconciledAt: null,
-        createdAt: authorityAt,
+        // A presumed row is dated at its lease's acquisition, like the expiry
+        // sweep's (JOB-203): the evidence for it is the reported total of the
+        // day the request was authorized. An actual row keeps its settlement
+        // instant: it is a measurement and is never lowered.
+        createdAt: presumed ? lease.acquiredAt : authorityAt,
       }).run();
     }
     const released = tx.delete(jobLlmLeases).where(exactLeaseWhere(lease)).run().changes > 0;
@@ -1745,6 +1749,7 @@ export function settlePaidPassLease<T>(
     settlement: input.settlement,
     payloadFingerprint: input.payloadFingerprint,
     settledAt: input.settledAt,
+    presumedDatedAt: lease.acquiredAt,
   };
   const prepared = preparePassSettlement(settlementInput);
   if (authorityNow !== undefined && !Number.isFinite(authorityNow.getTime())) {

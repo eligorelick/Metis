@@ -214,6 +214,10 @@ reconciliation writes; `--write` lowers qualifying presumed ledger rows.
 Ordinary database opening can still perform schema/cache maintenance.
 The comparison bounds presumed spend by bucket totals minus recorded
 settlements; it cannot attribute an organization total to an exact request.
+A presumed row is compared with the UTC day its request was authorized.
+Anthropic's documentation does not say which day a request that spans midnight
+is reported on, so a request measured across midnight can still be counted in
+the later day.
 Other organization usage can prevent a reduction. Changes refresh job progress
 costs but leave saved report cost figures as persisted. The corrected export
 CLI can reconstruct an export's cost from the current job ledger.
