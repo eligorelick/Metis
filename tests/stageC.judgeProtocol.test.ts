@@ -24,6 +24,7 @@
 
 import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { validateBundle } from "@/pipeline/stageA/validate";
@@ -691,7 +692,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(run.result.judgeProtocol?.disclosures.some((entry) => /repair-in-place/.test(entry.reason))).toBe(true);
   });
 
-  it("reports agreement when the mirrored pass produced the same grades and probabilities", async () => {
+  it("reports agreement when the mirrored pass produced the same grades", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
     mock.onJson("llm.judge", fakeJudgeOutput());
@@ -759,7 +760,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(report.meta.judgeProtocol?.note).toContain("differed on");
   });
 
-  it("compares grades and probabilities only — prose differences are not disagreement", () => {
+  it("compares grades only — prose differences are not disagreement", () => {
     // Two runs of a language model never write the same sentence. Comparing
     // prose would report a failure on every `both` run and teach the reader to
     // ignore the field, so reconciliation is scoped to the decisions.
@@ -773,7 +774,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(agreed.agreed).toBe(true);
     expect(agreed.comparedFields).toEqual(reconciliationFields());
     expect(agreed.comparedFields).toContain("verdict.gradeStrip.valuation.grade");
-    expect(agreed.comparedFields).toContain("valuation.scenarios.base.probability");
+    expect(agreed.comparedFields).not.toContain("valuation.scenarios.base.probability");
     expect(agreed.comparedFields.some((field) => field.includes("synthesis"))).toBe(false);
 
     secondary.verdict.gradeStrip.valuation.grade = "F";
@@ -783,6 +784,32 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       { field: "verdict.gradeStrip.valuation.grade", primary: "B", secondary: "F" },
     ]);
     expect(differed.secondaryOrder).toBe("bear-first");
+  });
+
+  it("compares only the section grades the judge still writes", () => {
+    // AI-109: normalizeJudgeOutput nulls scenario probabilities (D-52), so
+    // comparing them reported agreement on a field the judge no longer writes.
+    const primary = fakeJudgeOutput({ bullProbability: 0.25 });
+    const secondary = fakeJudgeOutput({ bullProbability: 0.6 });
+    const rec = reconcileJudgeOutputs(primary, secondary, "bear-first");
+    expect(rec.performed).toBe(true);
+    expect(rec.agreed).toBe(true);
+    expect(rec.comparedFields).toHaveLength(7);
+    expect(rec.comparedFields.every((f) => f.endsWith(".grade"))).toBe(true);
+    expect(rec.note).not.toMatch(/probabilit/);
+    expect(rec.note).toContain("produced the same section grades.");
+  });
+
+  it("counts only grade fields in the disagreement denominator", () => {
+    const primary = fakeJudgeOutput({ fundamentals: "B" });
+    const secondary = fakeJudgeOutput({ fundamentals: "D" });
+    const rec = reconcileJudgeOutputs(primary, secondary, "bear-first");
+    expect(rec.note).toMatch(/differed on 1 of 7 compared field/);
+  });
+
+  it("describes a grade-only comparison in README and .env.example", () => {
+    expect(readFileSync("README.md", "utf8")).not.toMatch(/reconciles every grade and probability/);
+    expect(readFileSync(".env.example", "utf8")).not.toMatch(/scenario[\s#]*probability to two decimals/);
   });
 
   it("keeps the primary report when the mirrored pass fails, and says the check did not run", async () => {
