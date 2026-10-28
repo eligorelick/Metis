@@ -35,6 +35,13 @@ function withRelease(label: string, periodEnd = "2026-03-31", rowLabelled = true
   (bundle.edgar as unknown as Record<string, unknown>).tenQMdna = section("10-Q", "tenQItem2", [periodEnd, "2026-05-01"], "0000000000-26-000026", "One customer accounted for 12% of revenue.");
   return bundle;
 }
+/** Strips every fiscal field from the annual and quarterly income rows: nothing labelled remains. */
+function noLabels(b: DataBundle): DataBundle {
+  for (const f of [b.statements.incomeAnnual, b.statements.incomeQuarterly]) {
+    for (const row of (f as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows) { delete row.fiscalYear; delete row.period; }
+  }
+  return b;
+}
 const build = (b: DataBundle) => assembleContextPayload(b, runStageB(b), EMPTY_VALIDATION);
 const title = (p: ContextPayload, source: string) => p.filings.find((e) => e.source === source)!.title;
 const verdict = async (p: ContextPayload, text: string) => (await runVerifyPass({} as PassDeps, p, { commentary: [{ label: "FACT", text, source: "edgar:8-K EX-99.1", asOf: "2026-04-30" }] }))
@@ -58,8 +65,8 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     expect(title(agree, "edgar:10-Q item2")).toContain("reporting period ended 2026-03-31 (Q1 FY2026); filed 2026-05-01");
     expect((await verdict(agree, "Northern segment sales increased 16% year over year in Q1 FY2026.")).validationStatus).toBe("validated");
     expect((await verdict(agree, "Northern segment sales increased 16% year over year in Q1 FY2025.")).validationStatus).not.toBe("validated");
-    // The stated limit: with no fiscal fields on the statement row, nothing contradicts the release, and its label stays.
-    expect(title(build(withRelease("Q1 FY2025", "2026-03-31", false)), "edgar:8-K EX-99.1")).toContain("Q1 FY2025, quarter ended 2026-03-31");
+    // The stated limit: with no fiscal fields on any income row, nothing contradicts the release, and its label stays.
+    expect(title(build(noLabels(withRelease("Q1 FY2025", "2026-03-31", false))), "edgar:8-K EX-99.1")).toContain("Q1 FY2025, quarter ended 2026-03-31");
   });
 
   it("checks a fourth-quarter release and the 10-K title against the annual row's fiscal year (review focus 12)", () => {
@@ -109,8 +116,18 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     expect(releaseTitle(released("Q1 FY2025", "2025-03-31", ["2026-03-31", "Q1 FY2026"]))).toContain(WITHHELD);   // older than the newest row
   });
 
-  it("keeps the label when no statement row carries a fiscal label (the stated limit: nothing contradicts it)", () => {
+  it("with only labelled annual rows, prints a label that is the next fiscal year within 366 days and withholds the rest", () => {
+    const annualOnly = (label: string, periodEnd: string): ContextPayload => {
+      const b = withRelease(label, periodEnd, false);   // no quarterly row is labelled; the newest annual row is FY2025 ended 2025-12-31
+      return build(b);
+    };
+    expect(releaseTitle(annualOnly("Q1 FY2025", "2026-03-31"))).toContain(WITHHELD);   // the AMZN #43 shape
+    expect(releaseTitle(annualOnly("Q1 FY2026", "2026-03-31"))).toContain("Q1 FY2026, quarter ended 2026-03-31");
+    expect(releaseTitle(annualOnly("Q1 FY2027", "2027-03-31"))).toContain(WITHHELD);   // 455 days after the newest annual end
+  });
+
+  it("keeps the label when no income row of any kind carries a fiscal label (the stated limit: nothing contradicts it)", () => {
     // Without a labelled row the run cannot say the release is wrong, so it is printed, as at the base.
-    expect(releaseTitle(build(withRelease("Q2 FY2026", "2026-06-30", false)))).toContain("Q2 FY2026, quarter ended 2026-06-30");
+    expect(releaseTitle(build(noLabels(withRelease("Q2 FY2026", "2026-06-30", false))))).toContain("Q2 FY2026, quarter ended 2026-06-30");
   });
 });

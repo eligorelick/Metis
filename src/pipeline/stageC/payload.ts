@@ -2235,12 +2235,15 @@ function successorQuarterLabel(label: string): string | null {
  * exist (the release is newer than every statement row, or older): the label
  * is supported only when the quarter end falls 80 to 100 days after the newest
  * labelled quarterly row's end and the label is that row's successor quarter.
- * (3) No labelled quarterly row at all: nothing contradicts the label, so it stays.
+ * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the quarter end falls 1 to 366
+ * days after the newest labelled annual row's end and the label's fiscal year is that row's fiscal year + 1.
+ * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
  */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
   const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
   let near = false;
   let newest: { end: string; own: string } | null = null;
+  let newestAnnual: { end: string; own: string } | null = null;
   const annual = rowsOf(bundle.statements.incomeAnnual);
   const quarterly = rowsOf(bundle.statements.incomeQuarterly);
   for (const row of [...annual, ...quarterly]) {
@@ -2248,11 +2251,17 @@ function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, perio
     const own = issuerFiscalLabel(row);
     if (end === null || !isIsoDate(end) || own === null) continue;
     if (quarterly.includes(row) && own.startsWith("Q") && (newest === null || end > newest.end)) newest = { end, own };
+    if (!quarterly.includes(row) && /^FY\d{4}$/.test(own) && (newestAnnual === null || end > newestAnnual.end)) newestAnnual = { end, own };
     if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
     near = true;
     if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
   }
-  if (near || newest === null) return false;
+  if (near) return false;
+  if (newest === null) {
+    if (newestAnnual === null) return false;
+    const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
+    return !(days >= 1 && days <= 366 && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
+  }
   const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
   return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);
 }
