@@ -8,6 +8,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   AnthropicError,
   APIConnectionError,
+  APIConnectionTimeoutError,
   APIError,
   APIUserAbortError,
   BadRequestError,
@@ -2134,5 +2135,148 @@ describe("stream idle timeout", () => {
     expect(result.ok).toBe(true);
     expect(streamCalls).toHaveLength(1);
     expect(streamCalls[0]).toMatchObject({ max_tokens: 500 });
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * A pass result states what its requests settled (AI-114): every failed
+ * request's charge, a failed pause resumption's snapshot and a request
+ * presumed at its maximum included, in both reservation modes.
+ * ------------------------------------------------------------------------ */
+
+describe("a pass result states what its requests settled", () => {
+  afterEach(() => {
+    _setTransportRetrySleepForTests();
+  });
+
+  const MODEL = "claude-opus-5-5";
+  const passOpts = {
+    model: MODEL,
+    system: "system",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxTokens: 16_000,
+    effort: "low" as const,
+    field: "llm.bull",
+  };
+
+  function recordingAdmission(maximumUsd?: number) {
+    const settled: RequestSettlement[] = [];
+    let released = 0;
+    let n = 0;
+    const admission = {
+      reserve: async (request: { maximumUsd: number }) => ({
+        id: `permit-${++n}`,
+        maximumUsd: maximumUsd ?? request.maximumUsd,
+      }),
+      settle: async (_permit: unknown, settlement: RequestSettlement) => {
+        settled.push(settlement);
+      },
+      release: async () => {
+        released += 1;
+      },
+    };
+    return { admission, settled, released: () => released };
+  }
+
+  /** Attempt 1 pauses; its resumption is billed (message_start) and then fails; attempt 2 succeeds. */
+  function failedResumptionScripts(): StreamScript[] {
+    const paused = syntheticMessage({
+      model: MODEL,
+      stop_reason: "pause_turn",
+      usage: syntheticUsage({ input_tokens: 1_000, output_tokens: 100 }),
+    });
+    const ok = syntheticMessage({ model: MODEL, usage: syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }) });
+    return [
+      { events: [{ type: "message_start", message: paused }], final: paused },
+      {
+        events: [messageStartEvent({ input_tokens: 2_000, cache_creation_input_tokens: 60_000, output_tokens: 1 }, MODEL)],
+        failWith: midStreamOverloadedError(),
+      },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ];
+  }
+
+  it("counts a failed pause_turn resumption's settlement in the pass result (request mode)", async () => {
+    instantSleep();
+    const { admission, settled } = recordingAdmission();
+    const { client } = fakeStreamingClient(failedResumptionScripts());
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...passOpts, admission });
+
+    expect(settled).toHaveLength(3);
+    expect(settled[0].costUsd).toBeCloseTo(computeCostUsd(syntheticUsage({ input_tokens: 1_000, output_tokens: 100 }), MODEL), 9);
+    expect(settled[2].costUsd).toBeCloseTo(computeCostUsd(syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }), MODEL), 9);
+    const ledgerUsd = settled.reduce((sum, s) => sum + s.costUsd, 0);
+    const ledgerInput = settled.reduce((sum, s) => sum + (s.usage?.input_tokens ?? 0), 0);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.data.usage.input_tokens).toBe(ledgerInput); // 6,000
+    expect(result.value.data.costUsd).toBeCloseTo(ledgerUsd, 9);
+    expect(result.value.data.presumed === true).toBe(settled.some((s) => s.presumed === true));
+  });
+
+  it("reports in pass mode what request mode settles for the same requests", async () => {
+    instantSleep();
+    const { admission, settled } = recordingAdmission();
+    _resetAnthropicForTests(fakeStreamingClient(failedResumptionScripts()).client);
+    await runPass({ ...passOpts, admission });
+    const ledgerUsd = settled.reduce((sum, s) => sum + s.costUsd, 0);
+
+    _resetAnthropicForTests(fakeStreamingClient(failedResumptionScripts()).client);
+    const passMode = await runPass(passOpts);
+
+    expect(passMode.ok).toBe(true);
+    if (!passMode.ok) return;
+    expect(passMode.value.data.costUsd).toBeCloseTo(ledgerUsd, 9);
+  });
+
+  it("includes a request presumed at its maximum after a send timeout in the pass result", async () => {
+    instantSleep();
+    const { admission, settled } = recordingAdmission(9.53);
+    const ok = syntheticMessage({
+      model: "claude-opus-4-8",
+      usage: syntheticUsage({ input_tokens: 15_000, cache_creation_input_tokens: 75_000, output_tokens: 6_000 }),
+    });
+    const { client } = fakeStreamingClient([{ failWith: new APIConnectionTimeoutError() }, { final: ok }]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...passOpts, model: "claude-opus-4-8", admission });
+
+    expect(settled[0]).toMatchObject({ presumed: true, costUsd: 9.53 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.data.costUsd).toBeCloseTo(9.53 + settled[1].costUsd, 9);
+    expect(result.value.data.presumed).toBe(true);
+  });
+
+  it("carries a terminal request presumed at its maximum, with no usage, on the transport error", async () => {
+    instantSleep();
+    const { admission, settled } = recordingAdmission(9.53);
+    const { client } = fakeStreamingClient([{ failWith: new APIConnectionTimeoutError() }]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...passOpts, model: "claude-opus-4-8", admission });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const ledgerUsd = settled.reduce((sum, s) => sum + s.costUsd, 0);
+    expect(settled.every((s) => s.presumed === true)).toBe(true);
+    expect(result.error.costUsd).toBeCloseTo(ledgerUsd, 9);
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.usage).toBeUndefined();
+  });
+
+  it("control: a single clean request's pass result equals its one settlement", async () => {
+    const { admission, settled } = recordingAdmission();
+    const ok = syntheticMessage({ model: MODEL, usage: syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }) });
+    const { client } = fakeStreamingClient([{ events: [{ type: "message_start", message: ok }], final: ok }]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...passOpts, admission });
+
+    expect(settled).toHaveLength(1);
+    expect(result.ok && result.value.data.costUsd).toBeCloseTo(settled[0].costUsd, 9);
+    expect(result.ok && result.value.data.presumed).toBeUndefined();
   });
 });
