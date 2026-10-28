@@ -137,7 +137,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.43.0 (D-112): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
 // 1.44.0 (D-113): an `info` EDGAR note (one derived reading withheld) no longer marks EDGAR missing or forensics provisional.
 // 1.45.0 (D-124 to D-127): payload records carry the right label, unit, currency and period; reports before 1.45.0 are shown through `withLegacyPayloadRecordSafety`. The data-only FCF conversion label no longer says "graded ratio", and stored provider geography and that label are shown through rules 7 and 8 of the legacy view. A computed fiscal-year row's label and period, and a release fiscal label withheld unless the statement rows confirm it (a labelled row within 3 days, the newest labelled quarter's successor, or with only annual rows the next fiscal year at the days its quarter number fits), change which period claims validate.
-export const REPORT_SPEC_VERSION = "1.45.0" as const;
+// 1.46.0 (D-next): a [validated] claim's periods, windows, comparison base, "latest" and forward-looking wording are established by the record or excerpt clause it cites; the period check never fails a phrase the citation check accepts.
+export const REPORT_SPEC_VERSION = "1.46.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

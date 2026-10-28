@@ -13,7 +13,8 @@
  * Report 1.45.0, payload 1.49.0 and Stage B ..._28 (audit 2026-10-27 B3) move the
  * payload-record labels, units, currencies and periods; a pass stored under
  * 1.48.0 is never resumed. Pipeline stage-c-1.6.11 moves for the reworded
- * reconciliation rule.
+ * reconciliation rule. Report 1.46.0 and pipeline stage-c-1.6.12 (audit 2026-10-27 B1)
+ * move the claim verifier's period rules; payload 1.49.0 and Stage B ..._28 do not.
  * Earlier stamps:
  *
  *  - REPORT_SPEC_VERSION 1.4.0: every share count and per-share figure is on
@@ -89,13 +90,13 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.45.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.46.0");
     expect(PAYLOAD_VERSION).toBe("1.49.0");
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_28");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.45.0");
+    expect(newReport().meta.specVersion).toBe("1.46.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.49.0");
