@@ -19,6 +19,8 @@ interface Quantity {
   scaled: boolean;
   /** AI-409: the comparator printed directly before the figure ("less than", "over"), or null for a point figure. */
   bound: "upper" | "lower" | null;
+  /** AI-409: a strict bound excludes its own value ("more than", "less than"); an inclusive one ("at least", "up to") keeps it. */
+  strict: boolean;
 }
 const SCALES: Record<string, number> = { k: 1e3, thousand: 1e3, thousands: 1e3, m: 1e6, mm: 1e6, mn: 1e6, mln: 1e6, mil: 1e6, mio: 1e6, million: 1e6, millions: 1e6,
   b: 1e9, bn: 1e9, bln: 1e9, billion: 1e9, billions: 1e9, trillion: 1e12, trillions: 1e12 };
@@ -50,12 +52,19 @@ const DURATION_MONTHS = /(?<![\d.,])\d+(?:[.,]\d+)*\s+months?\b/gi;
  */
 const BOUND_TAIL_CHARS = 48;
 const boundEnd = (comparators: string) => new RegExp(String.raw`(?<![A-Za-z])(?:${comparators})(?![A-Za-z])(?:\s+(?:${HEDGE_WORDS.source}))?\s*$`, "i");
-const LOWER_NEGATED = boundEnd(String.raw`(?:not|no)\s+(?:less|fewer)\s+than`);
-const UPPER_BOUND = boundEnd(String.raw`(?:less|fewer)\s+than|(?:no|not)\s+more\s+than|under|below|up\s+to|at\s+most|a\s+maximum\s+of|not\s+to\s+exceed|[≤<]`);
-const LOWER_BOUND = boundEnd(String.raw`more\s+than|greater\s+than|over|above|at\s+least|in\s+excess\s+of|exceed(?:s|ed|ing)?|a\s+minimum\s+of|[≥>]`);
-function boundBefore(text: string, start: number): "upper" | "lower" | null {
+// Inclusive kinds first: "no less than" would otherwise read as the strict "less than", "no more than" as "more than".
+const LOWER_INCLUSIVE = boundEnd(String.raw`(?:not|no)\s+(?:less|fewer)\s+than|at\s+least|a\s+minimum\s+of|≥`);
+const UPPER_INCLUSIVE = boundEnd(String.raw`(?:no|not)\s+more\s+than|up\s+to|at\s+most|a\s+maximum\s+of|not\s+to\s+exceed|≤`);
+const UPPER_STRICT = boundEnd(String.raw`(?:less|fewer)\s+than|under|below|<`);
+const LOWER_STRICT = boundEnd(String.raw`more\s+than|greater\s+than|over|above|in\s+excess\s+of|exceed(?:s|ed|ing)?|>`);
+function boundBefore(text: string, start: number): { bound: "upper" | "lower" | null; strict: boolean } {
   const tail = text.slice(Math.max(0, start - BOUND_TAIL_CHARS), start);
-  return LOWER_NEGATED.test(tail) ? "lower" : UPPER_BOUND.test(tail) ? "upper" : LOWER_BOUND.test(tail) ? "lower" : null;
+  return LOWER_INCLUSIVE.test(tail) ? { bound: "lower", strict: false } : UPPER_INCLUSIVE.test(tail) ? { bound: "upper", strict: false }
+    : UPPER_STRICT.test(tail) ? { bound: "upper", strict: true } : LOWER_STRICT.test(tail) ? { bound: "lower", strict: true } : { bound: null, strict: false };
+}
+/** AI-409: a source bound supports a claim bound of its direction that is no stricter: strict implies strict or inclusive, inclusive implies only inclusive. */
+function boundSupports(claim: Quantity, source: Quantity): boolean {
+  return claim.bound === source.bound && (claim.strict === source.strict || (source.strict && !claim.strict));
 }
 /** D-66: "was negative USD 23.2 billion" states the sign in a word. */
 const SIGN_WORD = /\b(?:negative|minus)\s+$/i;
@@ -121,7 +130,7 @@ function quantities(text: string): Quantity[] {
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
     step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
     scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined),
-    bound: boundBefore(masked, start) }];
+    ...boundBefore(masked, start) }];
   });
 }
 
@@ -1072,7 +1081,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return JSON.stringify([
         candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
         candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
-        directionOf(candidate), candidate.quantity.bound,
+        directionOf(candidate), candidate.quantity.bound, candidate.quantity.strict,
       ]);
     }));
     // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
@@ -1114,8 +1123,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
     }
     // AI-409: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
-    if (quantity.bound !== candidate.quantity.bound) {
-      return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not", [candidate.span]);
+    if (!boundSupports(quantity, candidate.quantity)) {
+      return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not imply", [candidate.span]);
     }
     if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
       1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {

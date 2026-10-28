@@ -116,8 +116,37 @@ describe("AI-409 round 1 spellings", () => {
   it("control: exact against exact validates", () => {
     expect(onExcerpt("Revenue was $5 billion.", "Revenue was $5 billion.", "x:synthetic", "2026-07-26").status).toBe("validated");
   });
-  it("strict and non-strict symbols of one direction are the same bound (documented)", () => {
-    expect(onExcerpt("Revenue was > $5 billion.", "Revenue was ≥ $5 billion.", "x:synthetic", "2026-07-26").status).toBe("validated");
+  // Fix round 2: strict and inclusive bounds. A strict source bound implies a strict or inclusive claim
+  // bound of the same direction; an inclusive source bound implies only an inclusive claim bound.
+  it.each([
+    ["more than", true], ["over", true], ["above", true], ["exceeding", true], ["in excess of", true], ["greater than", true], [">", true],
+    ["at least", false], ["a minimum of", false], ["no less than", false], ["not less than", false], ["no fewer than", false], ["≥", false],
+    ["less than", true], ["under", true], ["below", true], ["fewer than", true], ["<", true],
+    ["up to", false], ["at most", false], ["no more than", false], ["not more than", false], ["a maximum of", false], ["not to exceed", false], ["≤", false],
+  ])("reads the strictness of %s", (spelling, strict) => {
+    expect(readProseQuantities(`${spelling} $5 billion`)[0].strict).toBe(strict);
+  });
+  it("a point figure is not strict", () => {
+    expect(readProseQuantities("$5 billion")[0].strict).toBe(false);
+  });
+  it.each([
+    ["more than", "at least", "unvalidated"],
+    [">", "≥", "unvalidated"],
+    // Phrases with different words stay unchecked: D-63's word test still needs the claim's words in the source clause
+    // ("at least" is not in "more than"; "up" is a direction word). The implication rule is exercised by the symbol pairs.
+    ["at least", "more than", "unvalidated"],
+    ["≥", ">", "validated"],
+    ["up to", "less than", "unvalidated"],
+    ["less than", "up to", "unvalidated"],
+    ["≤", "<", "validated"],
+    ["<", "≤", "unvalidated"],
+    // Opposite directions never validate.
+    ["at least", "up to", "unvalidated"],
+    ["less than", "more than", "unvalidated"],
+  ])("claim %s against source %s", (claimWord, sourceWord, expected) => {
+    const status = onExcerpt(`Revenue was ${claimWord} $5 billion.`, `Revenue was ${sourceWord} $5 billion.`, "x:synthetic", "2026-07-26").status;
+    if (expected === "validated") expect(status).toBe("validated");
+    else expect(status).not.toBe("validated");
   });
   it("reads a long padded tail in under 250 ms", () => {
     const t0 = performance.now();
