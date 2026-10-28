@@ -50,6 +50,8 @@ The stored run inputs of NVDA #48, #49 and #50, AMZN #43 and run #46 were replay
 | #49 | 5 | 5 | 16 | 16 | 0 / 0 | 0 of 233 | 8/8 passed, 0 failed |
 | #50 | 106 | 106 | 114 | 114 | 0 / 0 | 0 of 700 | 117/117 passed, 0 failed |
 
+The validated, unverified and contradicted totals count the report's prose claims (the factual-claim entries of the verification log, JUDGMENT claims excluded). Traced numbers (key numbers and table cells) are not in them, while "Rows changed" counts log rows of both kinds, so the two #43 key numbers that moved from unverified to validated leave #43 at 60 and 60.
+
 Every changed row is explained by a finding of this batch:
 
 - **#43, two key numbers, unverified to validated** (the 15.9 net discrete tax expense in the fundamentals and quality sections). The claim states the filing's amount and period and no longer fails on a base or window word. These are correct claims. The rows changed in their reason code only: five other rows, `text-context-mismatch` to `text-ambiguous` (the increase in depreciation and amortization expense, the reduction in net income, and the net discrete tax expense sentences); none changed status.

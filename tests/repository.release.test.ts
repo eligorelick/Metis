@@ -98,6 +98,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-27-audit-batch7-paid-spend-accounting.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
   "docs/audit/2026-10-27-audit-fix-01-claim-verifier-periods.md",
+  "docs/audit/2026-10-27-audit-fix-02-claim-verifier-numbers.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
