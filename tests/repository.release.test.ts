@@ -121,6 +121,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/ui-refinement-review.md",
   "docs/superpowers/plans/2026-10-25-ui-refinement.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-01-claim-verifier-periods.md",
+  "docs/superpowers/plans/2026-10-27-audit-fix-02-claim-verifier-numbers.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-03-payload-records.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-07-paid-spend-accounting.md",
   "docs/superpowers/plans/2026-10-27-audit-remediation.md",
