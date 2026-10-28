@@ -2745,7 +2745,8 @@ as-of), without the truncation marker — in
   per-share basis in its words ("per share") is compared with it only when the
   cell's own row names a per-share basis (the declaration is a scale rule, not
   the row's description); "EPS" alone is not read as that basis in a claim
-  (DECISIONS entry 8, post-fix audit check V7).
+  (DECISIONS, "Audit batch B2: known residuals of the claim-verifier number
+  fixes"; post-fix audit check V7).
 - The value is what the text prints, at the printed precision: "$915
   billion" supports 915e9, not 915.3e9.
 - The printed figure is specific: three significant digits, or two with a

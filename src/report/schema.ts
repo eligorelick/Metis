@@ -1595,7 +1595,10 @@ export const VerificationLogEntrySchema = z
      *    and a versioned formula identity — traceability, not independent audit.
      *  - "excerpt-match" (D-45): the value is printed, at its precision and
      *    unit, in the exact filing/transcript excerpt it cites, beside most of
-     *    the words of its own description. The period is not machine-checked.
+     *    the words of its own description. The first gate (excerptNumbers.ts)
+     *    does not check the period; the second gate, the source-span binding of
+     *    claimEvidence.ts, checks a period the number supplies against the
+     *    clause or table column it binds (D-66).
      *  - "untraced": neither — flagged, never counted as traced.
      * NONE of these is factual verification; the value is not re-derived or
      * re-fetched (see runVerifyPass docstring).

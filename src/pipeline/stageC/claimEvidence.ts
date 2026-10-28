@@ -765,7 +765,10 @@ const TABLE_SCALE = /\(\s*(?:\$\s*)?in\s+(thousands|millions|billions)(?:,[^)]{0
 function rowLead(label: string): string {
   return label.replace(TABLE_SCALE, " ");
 }
-/** The per-share basis is named in the words ("Basic net income per share"), not after the figure; "EPS" alone is not read (DECISIONS entry 8). */
+/**
+ * The per-share basis is named in the words ("Basic net income per share"), not after the figure; "EPS" alone is not read (DECISIONS,
+ * "Audit batch B2: known residuals of the claim-verifier number fixes").
+ */
 function perShareInWords(quantity: Quantity, label: string): boolean {
   return quantity.unit === "currency" && /\bper\s+share\b/i.test(label);
 }

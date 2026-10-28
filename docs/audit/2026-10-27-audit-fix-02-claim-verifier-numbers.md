@@ -17,15 +17,18 @@ Every new test failed before its fix, except the controls that pass on both side
 | AI-403 (Medium), covering AI-203: a table's scale declaration was applied to percents and per-share cells | Fixed. The declaration scales money amounts, share counts and unit-less cells only; under "except per share" a decimal cell is per share, and a per-share claim takes only a row that names its own per-share basis. | `7c14b1a`, `c706956`, `1682157` | `tests/stageC.excerptCurrencyScale.test.ts` ("AI-403 table scale applies to amounts only") |
 | AI-401 (High), covering AI-401-V2: a hedge or "an increase of" made a change read as a level | Fixed. A hedge before the figure and a change noun plus "of" keep a change a change; "a gain of" is unknown. | `31bb9e5`, `1e85b60` | `tests/stageC.factualValidation.test.ts` ("relation") |
 | AI-401-V1 (High): a figure before an apposition comma was read as a change | Fixed. A postposed direction word separated from the figure by `,` `;` `:` an em or en dash or `(` leaves the figure a level. | `2572dd1`, `c40c1c7` | `tests/stageC.factualValidation.test.ts` ("apposition") |
-| AI-409 (Low): a source bound was read as the exact figure | Fixed. A prose or source comparator before the figure makes it a bound (strict or inclusive); an exact claim never validates against a bound. | `b9ff182`, `e504402`, `029facb`, `2b5a350` | `tests/stageC.claimEvidence.bounds.test.ts` |
+| AI-409 (Low): a source bound was read as the exact figure | Fixed. A prose or source comparator before the figure makes it a bound (strict or inclusive); an exact claim never validates against a bound, and a bound claim at another figure is unchecked, never contradicted (final review). | `b9ff182`, `e504402`, `029facb`, `2b5a350`, `fbb031b` | `tests/stageC.claimEvidence.bounds.test.ts` |
 | AI-305 (High), AI-305-V1 (Medium): a figure validated a claim for a metric the sentence gives to another noun | Fixed (OD-1, D-next). A figure binds only to its own description, judged twice so the description can only leave a claim unchecked. | `903b2cd`, `b7780b2`, `9a727aa`, `6c32375`, `9eb7325`, `350088f` | `tests/stageC.claimEvidence.ownDescription.test.ts` (including the 66-case property table) |
-| AI-503 (High), AI-503-V1 (High), AI-503-V2 (Medium): a comparison base was read as the level | Fixed (round-4 conventions, D-next). A figure after "from", "compared with/to", "versus", "vs." or "against" is a base and binds only a base; the end of a "<direction> from $A to $B" move takes the move's metric, with the head withheld unless only time words sit between the figures. | `e44bae3`, `18ecf27` | `tests/stageC.claimEvidence.comparisonBase.test.ts` |
+| AI-503 (High), AI-503-V1 (High), AI-503-V2 (Medium): a comparison base was read as the level | Fixed (round-4 conventions, D-next). A figure after "from", "compared with/to", "versus", "vs." or "against" is a base and binds only a base; the end of a "<direction> from $A to $B" move takes the move's metric, with the head withheld unless only time words sit between the figures; the end keeps none of the periods, windows or fiscal year-end stated between the figures (final review). | `e44bae3`, `18ecf27`, `4880263` | `tests/stageC.claimEvidence.comparisonBase.test.ts` |
 | AI-116, AI-103, AI-407, AI-408, AI-104, AI-111, AI-501, AI-502, AI-504 (Medium and Low) | Deferred to B2b, not built and not dropped. Each is independent of the built tasks; their plan tasks (10 to 15, 17 to 19) remain valid. AI-501, AI-502 and AI-504 probe rows keep their base status (Table 4). | none | none |
 | Stamps | Report 1.47.0 only. | `19b64bd` | `tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`, `tests/stageC.payload.passes.test.ts` |
-| Audited fixture comparison | One moved leaf, `report.meta.specVersion`, in the group `claim-verifier-numbers-20261027`, which absorbed B1's single-leaf group because B1 and B2 ship as one pull request (provisional decision ids D-128 for B1 and D-129 for B2). | `6eb1e02` | `tests/audit.fixtureComparison.test.ts` |
+| Audited fixture comparison | One moved leaf, `report.meta.specVersion`, in the group `claim-verifier-numbers-20261027`, which absorbed B1's single-leaf group because B1 and B2 ship as one pull request (provisional decision ids D-128 for B1 and D-129 for B2). | `6eb1e02`, `7826339` | `tests/audit.fixtureComparison.test.ts` |
 | CHANGELOG and decisions | Changelog section; three D-next decision entries. | `30544fd`, `0896012` | `tests/docs.lint.test.ts` |
+| Plan | The executed plan, `docs/superpowers/plans/2026-10-27-audit-fix-02-claim-verifier-numbers.md`, committed byte-identical to the planning copy. | `5eeafa2` | `tests/repository.release.test.ts` |
 
 Re-pins: two existing tests named less than the figure's own description, which OD-1 now requires. Each claim was lengthened to name the description in full (still validated) and the short form is pinned unchecked: the "aggregate payment obligation" key number in `tests/currentReports.test.ts` and the Gawel equity-grant claim in `tests/edgar.filingFacts.test.ts`. The lease-accounting note claim in `tests/stageC.claimPeriods.audit20261027.test.ts` was re-pinned by the first OD-1 commit and restored (validated, with a control that stays unchecked) by its review fix. The payload golden did not move; the stamp pins moved with the stamp.
+
+Final review (2026-10-28). The fresh review of the whole B1 and B2 diff found three code defects, fixed test-first with no re-pin: the end of a base-first move kept the periods, windows and fiscal year-end stated for its start, so "Total debt decreased to USD 8.5 billion at fiscal year-end" validated against a quarterly filing's "decreased from $10.0 billion at fiscal year-end to $8.5 billion" (`4880263`); B1's comparison-base reader backtracked exponentially on comma-grouped table rows (`934498d`, recorded in B1's note); and a bound claim at another figure was contradicted, as NVIDIA's 10-K "over $76.7 billion" did to the true "over USD 70 billion" (`fbb031b`). The records that described superseded states were corrected with them (`7826339`, `5eeafa2` and the records commit that adds this paragraph).
 
 ## Owner decisions and conventions
 
@@ -33,7 +36,7 @@ Recorded in `docs/audit/DECISIONS.md` as D-next entries, renumbered at merge:
 
 - **OD-1**, an excerpt figure binds only to its own description (AI-305, AI-305-V1). It states the structural guard: each claim is judged twice, and the own description can only leave a claim unchecked; it never validates or contradicts a claim and never resolves an ambiguity in prose.
 - **Round-4 conventions** for AI-503, AI-503-V1 and AI-503-V2: comparison bases and the end of a base-first move. These are house conventions, not owner decisions.
-- **Known residuals** (r1, r5, r6, r7 and the two readings below), so the post-fix audit can probe them.
+- **Known residuals** (r1, r5, r6, r7, r8 and the two readings below), so the post-fix audit can probe them.
 
 OD-2 to OD-6 are written by B2b with their tasks.
 
@@ -58,6 +61,8 @@ This batch alone (`mbase` to `final`):
 | #48 | 65 to 65 | 163 to 163 | 100 to 100 | 0 to 0 | 284 to 284 of 289 | 0 | 0 | 0 |
 | #49 | 5 to 5 | 20 to 20 | 16 to 16 | 0 to 0 | 206 to 206 of 207 | 0 | 0 | 0 |
 | #50 | 106 to 106 | 218 to 218 | 114 to 114 | 0 to 0 | 353 to 352 of 365 | 0 | 1 | 0 |
+
+These totals are not comparable with the replay table of B1's disposition note, which ends at 60 validated and 99 unverified for #43 and 35 and 105 for #46, against 60 and 97 and 35 and 103 here. Both harnesses rebuild the payload from the stored run-input snapshot, but they verify different claim sets. B1's harness replays each stored report file, and on #43 and #46 that file still carries two code-written method notes ("Capital grading basis: ..." and "The debt bridge distinguishes ...") with the FACT label they were stored with. This note's harness replays the run's last synthesize-pass output through the production verify facade, which writes those two notes as JUDGMENT (audit 2026-10-22 F-20). So B1's counts hold two more qualitative factual claims on #43 and on #46, each cited and counted as unverified; #48, #49 and #50 count the same in both.
 
 Against `base` (B1 head), including the merged main:
 
@@ -98,9 +103,9 @@ The HEAD result is the base result; the fixed result is the result with the fix.
 | AI-403 | `excerptCurrencyScale` (8 failed) | a 71.1% gross margin and the Basic per-share 2.47 contradicted; "USD 2.47 million" and "Diluted EPS ... 4.90 billion" validated | unchecked, or validated for the correct figure |
 | AI-401, AI-401-V2 | `factualValidation` "relation" (12 failed) | a hedged or "an increase of" change read as a level; pairs compared equal to a level claim | a change stays a change |
 | AI-401-V1 | `factualValidation` "apposition" (9 failed) | "X was $5.0 billion, up sequentially" read as a change | a level |
-| AI-409 | `bounds` (23 failed in total) | an exact claim validated against "more than", "at least", "at most" | unchecked |
-| AI-305, AI-305-V1 | `ownDescription` (8 failed) | the $26.0 billion shareholder return validated a free-cash-flow claim; Micron EPS $1.93, an AMZN run rate, Micron combined cash and an NVDA debt-securities sentence validated | unchecked; the first Revenue row binds |
-| AI-503, AI-503-V1, AI-503-V2 | `comparisonBase` (22 failed of 45, then 17 of 20 new pins at the review fix) | the true "increased to USD 279 billion" contradicted by the $119 billion start; the false start validated | validated end, contradicted false start, unchecked base claims |
+| AI-409 | `bounds` (23 failed in total, then 5 of 7 new tests at the final review) | an exact claim validated against "more than", "at least", "at most"; a bound claim at another figure ("over USD 70 billion" against NVIDIA's "over $76.7 billion") contradicted | unchecked |
+| AI-305, AI-305-V1 | `ownDescription` (8 failed) | the $26.0 billion shareholder return validated a free-cash-flow claim; Micron EPS $1.93, an AMZN run rate, Micron combined cash and an NVDA debt-securities sentence validated | unchecked |
+| AI-503, AI-503-V1, AI-503-V2 | `comparisonBase` (22 failed of 45, then 17 of 20 new pins at the review fix, then 5 of 8 at the final review) | the true "increased to USD 279 billion" contradicted by the $119 billion start; the false start validated; "decreased to USD 8.5 billion at fiscal year-end" validated by $A's year-end | validated end, contradicted false start, unchecked base claims and year-end claims naming $A's time |
 
 ### Table 4: round-4 probe claims (counts per finding)
 
@@ -124,6 +129,8 @@ Rows beyond the plan's list that moved, with the reason:
 
 Where a row's final status differs from the plan's expectation: none in the AI-503 family. Task 16's review-driven rules explain the head being withheld: the end label is the head plus only $B's own after-text, and `MOVE_TIME_WORDS` gates the head.
 
+After the final review's fixes (the move end's periods, the comparison-base reader's speed and the bound value rule) the replay was rerun as `final2`: it equals `final` row for row (0 changed rows, stored-report hashes, `schemaParse` and rating-gate counts equal), because no stored claim or round-4 probe claim has one of those shapes.
+
 Acceptance: every change is attributed to a finding; no stored row moved toward `validated` or `contradicted` in this batch (the validated-to-unchecked rows above are recall losses); the stored-report `schemaParse` and rating-gate hit counts are equal before and after; `sha256` of every stored report file is unchanged.
 
 ## Residuals
@@ -131,7 +138,7 @@ Acceptance: every change is attributed to a finding; no stored row moved toward 
 Recorded as known, not fixed:
 
 - Record-path claim bounds are not read ("more than USD 46 billion" against 46.7 is still read as a value; AI-409's scope is the excerpt path).
-- The own-description rule has measured recall losses, accepted as inherent to OD-1: #43 15.9 net discrete tax expense (two key numbers), #43 17.5 delayed draw term loan facility, #43 21.3 Commitment Amount, #50 25 senior unsecured notes, and the short label of NVIDIA's $105 billion aggregate payment obligation. The rule admitted exactly one move from unchecked to validated, the first Revenue row under a "($ in millions, except per share data)" declaration, which is pinned and was read against its source; the first-row Revenue move and colon-row tables otherwise stay at base text-ambiguous in prose.
+- The own-description rule has measured recall losses, accepted as inherent to OD-1: #43 15.9 net discrete tax expense (two key numbers), #43 17.5 delayed draw term loan facility, #43 21.3 Commitment Amount, #50 25 senior unsecured notes, and the short label of NVIDIA's $105 billion aggregate payment obligation. The check moves nothing toward validated: it can only leave a claim unchecked. The first Revenue row under a "($ in millions, except per share data)" declaration and the colon-row tables stay text-ambiguous, as at base, and the "Current assets: Cash and cash equivalents" row was already validated at base.
 - A statement sub-row under a heading ("Net income per share: Basic ... Diluted ...") binds only the row whose lead carries the heading. The Diluted row of NVDA's Note 3 stays unchecked.
 - A unitless share-count cell under a declaration with no "$" has no established unit and stays `text-ambiguous`.
 - An excerpt-cited MetricRow cell's column is not compared with the excerpt (D-45's "not done" stands for the excerpt path).
@@ -149,11 +156,12 @@ These readings are kept (DECISIONS, the known-residuals entry) and V7 probes the
 
 - **Spaced-dash range sign.** `readProseQuantities("Guidance is USD 1.0 - 1.2 billion.")` returns `[1, -1.2e9]` at base and after this batch. Changing it would flip table change cells such as "75.0 % -3.9 pts", outside AI-202's scope, so a later batch must decide spaced-dash ranges.
 - **"EPS" as a per-share basis.** The per-share words keep D-109's `per share` expression on both paths. "Diluted EPS as of 2026-01-25 was USD 4.90." under "($ in billions, except per share data)" moves from contradicted to `unchecked / unit-mismatch`, never validated.
-- r1, r5, r6 and r7 of the DECISIONS entry: ASCII ">=" and "<=" read as point figures; a base-time phrase after $B lets a false claim that names that time validate (predates this batch); a claim that names a second metric of the same clause can bind (contrived); verify time on one excerpt grows faster than its length (an 80,000-character whitespace run takes about 17.5 s; predates this batch).
+- r1, r5, r6, r7 and r8 of the DECISIONS entry: ASCII ">=" and "<=" read as point figures; a base-time phrase after $B lets a false claim that names that time validate (predates this batch); a claim that names a second metric of the same clause can bind (contrived); verify time on one excerpt grows with the square of a whitespace run (re-measured after the final review: an 80,000-character run takes about 3.3 s with no move near it and about 10 to 13 s inside a base-first move, about 1.3 to 1.5 times its time before Task 16; predates this batch, and the comma-row backtracking the final review found is fixed); a year-end window after a comparison cue is given to the level figure ("Inventory was USD 31.6 billion at fiscal year-end." validates against "Inventory was $31.6 billion, compared with $25.8 billion at fiscal year-end." at main, B1 and this batch; predates this batch).
 
 ## Verification
 
 - Focused files of the built tasks (comparisonBase, ownDescription, d66, bounds, tokens, excerptCurrencyScale, excerptNumbers, factualValidation, verifyChecks, numberScanLinearity, claimPeriods, metricContext): 764 tests green at Task 16's review fix.
 - `tests/stageC.payload.passes.test.ts` and `tests/stageC.judgeProtocol.test.ts`: the payload golden did not move (payload 1.49.0); only the report stamp pin moved.
 - `npm run audit:deltas`: exactly one already-classified leaf moved, `report.meta.specVersion` (`1.2.0` to `1.47.0`), now recorded in `claim-verifier-numbers-20261027`, which absorbed B1's group; no `verified`, verification-log, coverage or Stage B leaf of the DEMO control moved.
+- After the final review's fixes: the focused files above with the new final-review tests, plus docs.lint, repository.release, audit.fixtureComparison and the version stamps, 22 files and 979 tests green; `npm run test:product` 484 files, 9,948 passed and 3 skipped, with one load timeout (`tests/report.recordedSensitivity.test.ts`, 5 s) that passes alone; typecheck and eslint clean; `npm run audit:deltas` (report only) unchanged.
 - The product suite passed on the merge of the closed B1 (484 files, 9931 tests); the batch-level `npm run verify` chunks, the fresh review over the whole diff and the pull request description follow this note.
