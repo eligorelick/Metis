@@ -891,6 +891,7 @@ export function effectiveMaxTokens(
  * UTF-8 byte, while serializing the complete input also counts JSON framing.
  * Therefore serialized UTF-8 bytes are a deliberately conservative token
  * ceiling. It includes cache-controlled blocks, tools, and output schemas.
+ * Context-window admission uses estimatedRequestInputTokens instead.
  */
 export function requestInputTokenUpperBound(opts: RunPassOptions): number {
   let serialized: string;
@@ -905,6 +906,34 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
     throw new Error(`provider request input is not serializable: ${error instanceof Error ? error.message : String(error)}`);
   }
   return new TextEncoder().encode(serialized).byteLength;
+}
+
+/**
+ * Bytes per token used for the context-fit estimate (DECISIONS D-next-5).
+ * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
+ * tokenizer) and Anthropic's note that the earlier tokenizer gives about 30%
+ * fewer tokens; rounded down so the estimate over-counts.
+ */
+export const CONTEXT_ESTIMATE_BYTES_PER_TOKEN: Readonly<{ current: number; prior: number }> = {
+  current: 2.25,
+  prior: 2.75,
+};
+
+/** "prior" for registry generations below 4.7 (Claude Haiku 4.5), "current" otherwise. */
+export function tokenizerGeneration(model: string): "prior" | "current" {
+  return Number.parseFloat(registryEntryFor(model).generation) < 4.7 ? "prior" : "current";
+}
+
+/**
+ * Offline input-token estimate: serialized UTF-8 bytes divided by the model's
+ * tokenizer constant. Admission refuses only an estimate above the context
+ * window; an over-long prompt it misses is refused by the provider with a 400
+ * that settles at $0.
+ */
+export function estimatedRequestInputTokens(opts: RunPassOptions): number {
+  return Math.ceil(
+    requestInputTokenUpperBound(opts) / CONTEXT_ESTIMATE_BYTES_PER_TOKEN[tokenizerGeneration(opts.model)],
+  );
 }
 
 function boundedWebSearchUses(tools: RunPassOptions["tools"]): number {
@@ -941,10 +970,11 @@ export function validateRunPassOptions(opts: RunPassOptions): void {
     );
   }
   const inputLimit = modelContextTokenLimit(opts.model);
-  const inputUpperBound = requestInputTokenUpperBound(opts);
-  if (inputUpperBound > inputLimit) {
+  const inputEstimate = estimatedRequestInputTokens(opts);
+  if (inputEstimate > inputLimit) {
+    const k = CONTEXT_ESTIMATE_BYTES_PER_TOKEN[tokenizerGeneration(opts.model)];
     throw new Error(
-      `provider request input upper bound ${inputUpperBound.toLocaleString("en-US")} exceeds the ${inputLimit.toLocaleString("en-US")}-token model context cap`,
+      `provider request input estimate ${inputEstimate.toLocaleString("en-US")} tokens (UTF-8 bytes / ${k} for this model's tokenizer) exceeds the ${inputLimit.toLocaleString("en-US")}-token model context window`,
     );
   }
   const searchUses = boundedWebSearchUses(opts.tools);

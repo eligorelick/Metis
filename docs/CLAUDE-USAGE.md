@@ -64,6 +64,7 @@ The registry also retains Fable 5, Opus 5, Opus 4.8 and Sonnet 5. This list
 describes selectable implementation entries, not measured research-quality
 rankings. The registry's judge floor is `claude-sonnet-5-5`: Haiku analyst
 requests use Haiku, while synthesis is raised to that floor and disclosed.
+Before launch Metis estimates a request's input tokens from its size, at 2.25 bytes per token for the tokenizer Anthropic introduced with Claude 4.7 and 2.75 for Haiku 4.5's earlier one, and refuses only an estimate above the model's context window; an over-long prompt the estimate misses is refused by Anthropic before any charge.
 
 Claude effort resolves in this order: database setting, `ANALYSIS_EFFORT`,
 then `high`. Model resolves similarly: database setting, `ANALYSIS_MODEL`,

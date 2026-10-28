@@ -17,6 +17,7 @@ import {
 } from "@anthropic-ai/sdk";
 import type { BetaMessage, BetaUsage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { resetConfigCache } from "@/config/env";
+import { activeModelIds } from "@/models/registry";
 import { MODEL_STAGE_DEADLINE_MS } from "@/pipeline/leaseTiming";
 import {
   CLIENT_MAX_RETRIES,
@@ -55,6 +56,9 @@ import {
   streamIdleTimeoutMs,
   streamIdleTimeoutMsFor,
   requestInputTokenUpperBound,
+  estimatedRequestInputTokens,
+  tokenizerGeneration,
+  CONTEXT_ESTIMATE_BYTES_PER_TOKEN,
   requestReservationUsd,
   type RequestSettlement,
   supportsEffort,
@@ -355,20 +359,48 @@ describe("buildPassParams", () => {
     }
   });
 
-  it("rejects requests whose conservative serialized-input bound exceeds the model context cap", () => {
-    const atCap = {
+  // AI-309 (DECISIONS D-next-5): the context window is checked against a per-tokenizer
+  // estimate, not the UTF-8 byte count (the byte bound stays exported as a strict ceiling).
+  it("keeps the byte bound strict and admits a Haiku request whose estimate is at the window", () => {
+    const atWindow = {
       ...baseOpts,
       model: "claude-haiku-4-5",
-      system: "x".repeat(199_800),
+      system: "x".repeat(549_800),
       field: "llm.bull",
       maxTokens: 64_000,
     };
-    expect(requestInputTokenUpperBound(atCap)).toBeLessThanOrEqual(200_000);
-    expect(() => buildPassParams(atCap)).not.toThrow();
+    expect(estimatedRequestInputTokens(atWindow)).toBeLessThanOrEqual(200_000);
+    expect(() => buildPassParams(atWindow)).not.toThrow();
+  });
 
-    const overCap = { ...atCap, system: "x".repeat(200_001) };
-    expect(requestInputTokenUpperBound(overCap)).toBeGreaterThan(200_000);
-    expect(() => buildPassParams(overCap)).toThrow(/input.*200,?000|context/i);
+  it("admits a Haiku analyst request the size of a current NVDA payload", () => {
+    const opts = { ...baseOpts, model: "claude-haiku-4-5", field: "llm.bull", maxTokens: 64_000,
+      system: JSON.stringify(Array.from({ length: 6_000 }, (_, i) => ({ period: `2026-Q${(i % 4) + 1}`, revenue: 123456789.12 + i, margin: 0.4321 }))) };
+    // 6,000 rows serialize (system string inside the request JSON) to about 408,058 bytes, the size of a
+    // current NVDA payload; the old byte bound refused anything above 200,000.
+    expect(requestInputTokenUpperBound(opts)).toBeGreaterThanOrEqual(300_000);
+    expect(requestInputTokenUpperBound(opts)).toBeLessThan(549_000);
+    expect(requestInputTokenUpperBound(opts)).toBeGreaterThan(200_000);
+    expect(estimatedRequestInputTokens(opts)).toBe(Math.ceil(requestInputTokenUpperBound(opts) / 2.75));
+    expect(() => buildPassParams(opts)).not.toThrow();
+  });
+
+  it("refuses a Haiku request whose estimate exceeds the 200,000-token window", () => {
+    const over = { ...baseOpts, model: "claude-haiku-4-5", field: "llm.bull", maxTokens: 64_000, system: "x".repeat(560_000) };
+    expect(() => buildPassParams(over)).toThrow(/estimate .* exceeds the 200,000-token model context window/);
+  });
+
+  it("control: the same payload passes on a 1M-window model", () => {
+    const big = { ...baseOpts, model: "claude-sonnet-5-5", field: "llm.bull", maxTokens: 64_000, system: "x".repeat(560_000) };
+    expect(() => buildPassParams(big)).not.toThrow();
+  });
+
+  it("maps every active registry model to its tokenizer", () => {
+    expect(tokenizerGeneration("claude-haiku-4-5")).toBe("prior");
+    for (const id of activeModelIds().filter((m) => m !== "claude-haiku-4-5")) {
+      expect(tokenizerGeneration(id)).toBe("current");
+    }
+    expect(CONTEXT_ESTIMATE_BYTES_PER_TOKEN).toEqual({ current: 2.25, prior: 2.75 });
   });
 
   it("rejects raw web-search tools that bypass the bounded factory", () => {
