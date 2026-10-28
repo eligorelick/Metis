@@ -788,6 +788,10 @@ describe("payload determinism + provenance", () => {
     expect(JSON.stringify(payload).split("The balance-sheet score grades ").length - 1).toBe(1);
     expect(JSON.stringify(payload).split("Diluted share-count change: ").length - 1).toBe(1);
     const payloadJson = JSON.stringify(payload);
+    // Audit 2026-10-27 B13 Task 6 (FIN-509-V1): when no lookback year can be evaluated the one-time-items rule adds an
+    // info entry to the missing-data manifest. The preceding version had none; the entry is dropped and its count asserted.
+    const isOneTimeGap = (item: unknown): boolean => typeof item === "object" && item !== null && (item as { field?: unknown }).field === "forensics.flags.oneTimeItems";
+    expect(JSON.stringify(payload).split("one-time-items rule not evaluated").length - 1).toBe(1);
     // The label: the figure, its provenance record (the payload embeds its registry) and the graded-window note that quotes it
     // (dropped below, so it is never restored). The slug: the figure's and the record's id.
     expect(b3Restorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([3, 2]);
@@ -797,7 +801,7 @@ describe("payload determinism + provenance", () => {
     // Two each: the figure itself and its provenance record (the payload embeds its registry).
     expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item))
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item) && !isOneTimeGap(item))
         : typeof leaf === "string" ? restoreB8dText(restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")))) : leaf)) as typeof payload;
     // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
     // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
@@ -1213,8 +1217,13 @@ describe("payload determinism + provenance", () => {
       // preceding-pin chain above.
       // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
       // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
-      fingerprint: "1.49.0:c74b6cd9",
-      promptBytes: 143_867,
+      // Audit 2026-10-27 B13 Task 6 (FIN-509-V1), 2026-10-28: the fixture's income rows carry no totalOtherIncomeExpensesNet, so
+      // the one-time-items rule adds one info entry (forensics.flags.oneTimeItems) to the missing-data manifest (+432 bytes) and
+      // one citation for it. Fingerprint 1.49.0:c74b6cd9 -> 1.49.0:f42dbc29, promptBytes 143_867 -> 144_299, citationCount 75 -> 76,
+      // citationHash 423bbedf -> 77d52670. provenanceHash, provenanceIdsHash and financeHash do not move. The preceding-pin chain
+      // drops the entry (isOneTimeGap, count asserted) and its 1.36.0 pins are unchanged.
+      fingerprint: "1.49.0:f42dbc29",
+      promptBytes: 144_299,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
@@ -1222,8 +1231,8 @@ describe("payload determinism + provenance", () => {
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
       provenanceHash: "3fc51d0c",
       provenanceIdsHash: "fe7c2621",
-      citationCount: 75,
-      citationHash: "423bbedf",
+      citationCount: 76,
+      citationHash: "77d52670",
       computedFigureLabelHash: "ec8c7355",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
