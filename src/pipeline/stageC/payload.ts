@@ -2231,7 +2231,9 @@ function successorQuarterLabel(label: string): string | null {
  * (1) An annual or quarterly income-statement row ending within three days of
  * `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
  * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
- * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025".
+ * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025" and
+ * contradicts a "Q1" to "Q3" label, because an annual period that ends at the
+ * quarter end makes that quarter the fiscal fourth.
  * (2) No labelled row lies within three days, but labelled quarterly rows
  * exist (the release is newer than every statement row, or older): the label
  * is supported only when the quarter end falls 80 to 100 days after the newest
@@ -2257,6 +2259,7 @@ function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, perio
     if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
     near = true;
     if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
+    if (!quarterly.includes(row) && /^Q[1-3]/.test(label)) return true;   // an annual period ending here makes this quarter the fiscal fourth
   }
   if (near) return false;
   if (newest === null) {

@@ -132,4 +132,26 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     // Without a labelled row the run cannot say the release is wrong, so it is printed, as at the base.
     expect(releaseTitle(build(noLabels(withRelease("Q2 FY2026", "2026-06-30", false))))).toContain("Q2 FY2026, quarter ended 2026-06-30");
   });
+
+  // AI-512 final review: an annual row ending at the release's quarter end proves that quarter is the fiscal fourth quarter.
+  it.each([
+    ["Q3 FY2025", true],    // the reviewer's probe P1: the FY2025 annual row ends 2025-12-31, so that quarter is Q4
+    ["Q1 FY2025", true],
+    ["Q4 FY2025", false],   // control: the annual row's own year and the fourth quarter agree
+  ] as const)("an annual row ending at the quarter end: %s for the quarter ended 2025-12-31, withheld=%s", async (label, isWithheld) => {
+    const p = build(withRelease(label, "2025-12-31", false));
+    expect(releaseTitle(p).includes(WITHHELD)).toBe(isWithheld);
+    const claim = await verdict(p, `Northern segment sales increased 16% year over year in ${label}.`);
+    if (isWithheld) {
+      expect(releaseTitle(p)).not.toContain(label);
+      expect(claim.validationStatus).not.toBe("validated");
+    } else {
+      expect(releaseTitle(p)).toContain(`${label}, quarter ended 2025-12-31`);
+    }
+  });
+
+  it("control: a Q3 release whose quarter end is near no annual row is decided as before (rule 3: the quarter number must fit the days after the annual end)", () => {
+    expect(releaseTitle(build(withRelease("Q3 FY2026", "2026-03-31", false)))).toContain(WITHHELD);
+    expect(releaseTitle(build(withRelease("Q3 FY2026", "2026-09-30", false)))).toContain("Q3 FY2026, quarter ended 2026-09-30");   // 273 days after 2025-12-31
+  });
 });
