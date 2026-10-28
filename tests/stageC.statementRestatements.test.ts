@@ -36,7 +36,7 @@ describe("statement blocks collapse a period served twice (AI-505)", () => {
     const payload = assembleContextPayload(bundle, computed, EMPTY_VALIDATION);
     const block = payload.statements.find((b) => b.title === "Income statement — annual")!;
     expect(block.periods).toEqual(["2025-12-31", "2024-12-31", "2023-12-31", "2022-12-31", "2021-12-31"]);
-    expect(block.notes).toContain("Fiscal period 2025-12-31 was served 2 times with different filing dates; only the provably latest filing is shown, the row Stage B uses.");
+    expect(block.notes).toContain("Fiscal period 2025-12-31 was served 2 times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses.");
     const registry = payload.provenanceRegistry ?? [];
     expect(registry.filter((r) => r.id.startsWith(REVENUE_FY2025)).map((r) => [r.id, r.value])).toEqual([[REVENUE_FY2025, 985e6]]);
     const claim = (value: number) => ({ source: REVENUE_FY2025, value, unit: "currency", currency: "USD", period: "2025-12-31", asOf: "2025-12-31" });
@@ -67,7 +67,7 @@ describe("statement blocks collapse a period served twice (AI-505)", () => {
     const block = assembleContextPayload(bundle, runStageB(bundle), EMPTY_VALIDATION).statements.find((b) => b.title === "Balance sheet — quarterly")!;
     expect(block.periods).toEqual(["2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30"]);
     expect(block.lineItems.find((l) => l.lineItem === "total assets")!.byPeriod[0]).toMatchObject({ period: "2026-03-31", value: 2100e6 });
-    expect(block.notes[0]).toBe("Fiscal period 2026-03-31 was served 2 times with different filing dates; only the provably latest filing is shown, the row Stage B uses.");   // collapse notes lead
+    expect(block.notes[0]).toBe("Fiscal period 2026-03-31 was served 2 times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses.");   // collapse notes lead
   });
 
   it("notes no duplicate older than the block's window (review focus 10; control, passes on HEAD too)", () => {

@@ -177,9 +177,12 @@ reject the whole duplicate period. Values are not selected field by field
 from conflicting restatements.
 The AI context's statement blocks apply the same rule before they take their
 periods (audit 2026-10-27 AI-505, D-next): one column per fiscal period, the
-provably latest row, the figure Stage B uses; a period served twice with no
-provable order is left out and the block says so. A row whose date is not a
-real day keeps its 'unknown' column, which no claim can cite.
+provably latest row (by acceptance time, or by filing date where none is
+given), the figure Stage B uses; a period served twice with no provable order
+is left out. When such a period falls inside the block's window (five annual or
+four quarterly columns), the block says so, and it does the same for a period
+it collapsed. A row whose date is not a real day keeps its 'unknown' column,
+which no claim can cite.
 
 **TTM.** The newest four normalized quarters are usable only when consecutive
 period ends are 70–135 days apart and the newest-to-oldest period-end span is

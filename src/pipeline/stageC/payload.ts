@@ -1543,7 +1543,7 @@ function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: numbe
     rows: out,
     notes: [
       ...[...served].filter(([day, n]) => n > 1 && shown.includes(day))
-        .map(([day, n]) => `Fiscal period ${day} was served ${n} times with different filing dates; only the provably latest filing is shown, the row Stage B uses.`),
+        .map(([day, n]) => `Fiscal period ${day} was served ${n} times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses.`),
       ...rejected.filter((entry) => entry.reason.startsWith("duplicate fiscal period") && inWindow(entry.period))
         .map((entry) => `Fiscal period ${entry.period} was served more than once with no provably latest filing; it is left out, as Stage B leaves it out.`),
     ],
