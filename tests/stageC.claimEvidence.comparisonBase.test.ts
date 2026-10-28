@@ -164,3 +164,35 @@ describe("AI-503 fix round 1: words that describe $A never describe $B, and a he
     expect(holds(status, expected), `${claim} -> ${status}, wanted ${expected}`).toBe(true);
   });
 });
+
+// Final review (2026-10-28, AI-503): the periods, windows and fiscal year-end stated between $A and "to" are $A's, never $B's own. The
+// end label already dropped those words, but $B kept their periods, so a claim naming $A's year-end validated against $B.
+describe("final review (AI-503): a move end does not take $A's periods, windows or year-end", () => {
+  const K_TITLE = "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026))";
+  const DEBT = ex("Total debt decreased from $10.0 billion at fiscal year-end to $8.5 billion.", T);
+  const INV_LAST_FY = ex("Inventory increased from $25.8 billion at the end of last fiscal year to $31.6 billion, reflecting new product ramps.", T);
+  const COMMIT_FY = ex("Our commitments increased from $119 billion at the end of the fiscal year to $279 billion, primarily related to the procurement of memory.", T);
+  const INV_PRIOR_YEAR_K = ex("Inventory increased from $25.8 billion at the end of the prior year to $31.6 billion, reflecting new product ramps.", K_TITLE,
+    "edgar:10-K item7", "2026-01-25");
+  it.each([
+    ["10-Q: at fiscal year-end", DEBT, "Total debt decreased to USD 8.5 billion at fiscal year-end.", "unchecked"],
+    ["10-Q: at the end of last fiscal year", INV_LAST_FY, "Inventory increased to USD 31.6 billion at the end of last fiscal year.", "unchecked"],
+    ["10-Q: at the end of the fiscal year", COMMIT_FY, "Our commitments increased to USD 279 billion at the end of the fiscal year.", "unchecked"],
+    // Controls. Under an FY title the end is the excerpt's own year-end, which $B reads through the excerpt's inherited windows.
+    ["control: FY title, at fiscal year-end", INV_PRIOR_YEAR_K, "Inventory increased to USD 31.6 billion at fiscal year-end.", "validated"],
+    ["control: FY title, the start at fiscal year-end", INV_PRIOR_YEAR_K, "Inventory increased to USD 25.8 billion at fiscal year-end.", "contradicted"],
+    // $A's year-end no longer sits in $B's periods, so an end claim that names no time is read under the excerpt's own period.
+    ["control: no time", DEBT, "Total debt decreased to USD 8.5 billion.", "validated"],
+    ["control: the start is still a base", DEBT, "Total debt was USD 10.0 billion at fiscal year-end.", "unchecked"],
+  ] as const)("%s", (_name, excerpt, claim, expected) => {
+    const status = onExcerpt(claim, excerpt);
+    expect(holds(status, expected), `${claim} -> ${status}, wanted ${expected}`).toBe(true);
+  });
+  it("drops only the periods between $A and $B: a period before the move stays the end's own", () => {
+    const sentence = "In fiscal 2026, inventory increased from $25.8 billion at fiscal year-end to $31.6 billion.";
+    const found = readProseQuantities(sentence);
+    expect(found.map((quantity) => quantity.value)).toEqual([25.8e9, 31.6e9]);
+    const status = onExcerpt("In fiscal 2026, inventory increased to USD 31.6 billion.", ex(sentence, T));
+    expect(status).toBe("validated");
+  });
+});

@@ -2832,7 +2832,14 @@ started from. $B's description is the words before $A's "from" (the move's
 head, starting where $A's own description starts) plus $B's own words after it;
 the words between $A and "to" ("last quarter", "a year ago") describe $A and
 never $B, so "commitments increased to USD 279 billion last quarter" is not
-supported. $B gets no head, and the claim stays unverified, when any of these
+supported. The periods, windows and fiscal year-end those words state are $A's
+too: $B keeps only the periods of its clause that lie before $A or from $B on. Against
+a quarterly excerpt, "Total debt decreased from $10.0 billion at fiscal year-end
+to $8.5 billion" does not support "Total debt decreased to USD 8.5 billion at
+fiscal year-end" (the year-end is $A's); $B then reads the excerpt's own period
+and windows, so under a fiscal-year title "increased to USD 31.6 billion at
+fiscal year-end" is read against the title's year-end (audit 2026-10-27 final
+review). $B gets no head, and the claim stays unverified, when any of these
 holds: no direction word (rose, increased, fell, declined and the rest of the
 consistency reader's list) governs "from $A"; $A is in another clause than $B;
 a digit, "$", a currency sign, ";", a bullet or a line break lies between $A and

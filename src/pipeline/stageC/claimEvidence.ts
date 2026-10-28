@@ -935,6 +935,11 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const start = head === null ? null : context(body.text, previous!, found, true).direction;
       if (head !== null && start !== null) {
         // Fix round 1: the words between $A and "to" describe $A, so the end's label is the head plus its own after-text only.
+        // Final review (AI-503): so are the periods, windows and fiscal year-end stated there ("from $10.0 billion at fiscal year-end to
+        // $8.5 billion"); only those outside [$A's start, $B's start) stay the end's own. Offsets are relative to the clause start.
+        const endsOwn = (period: PeriodReference): boolean => period.start < previous!.start - own.start || period.start >= quantity.start - own.start;
+        own.periods = own.periods.filter(endsOwn);
+        own.bases = own.bases.filter(endsOwn);
         const next = found[index + 1];
         own.label = `${head} ${body.text.slice(quantity.end, next !== undefined && next.start < own.end ? next.start : own.end)}`;
         own.own = `${head} ${own.ownAfter}`;
