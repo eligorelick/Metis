@@ -44,11 +44,14 @@ import {
 import {
   MAX_PROVIDER_WEB_SEARCHES,
   PASS_MAX_REQUESTS,
+  PASS_TRANSPORT_MAX_ATTEMPTS,
   _resetAnthropicForTests,
+  isPreSendConnectionFailure,
   maximumPassCostUsd,
   maximumRequestCostUsd,
   passWorstCaseCostUsd,
   runPass,
+  webSearchTool,
   type RequestAdmission,
   type RequestPermit,
 } from "@/providers/anthropic";
@@ -809,5 +812,143 @@ describe("a caller abort after the provider answered but before message_start (A
     expect(calls()).toBe(0);
     expect(released()).toBe(1);
     expect(rows().cost).toHaveLength(0);
+  });
+});
+
+/**
+ * A request whose connection never opened was never sent, so it is released at
+ * $0; a failure after the send stays presumed (AI-307). The client is the one
+ * the real getClient() builds, on a stubbed global fetch, so these tests also
+ * prove getClient installs the pre-send classifier.
+ */
+describe("a connect-phase failure releases the request (AI-307)", () => {
+  const OFFLINE_KEY = "sk-" + "ant-api03-offline-test";
+  let fetchCount = 0;
+  let behaviour: () => never;
+  let decisions: string[] = [];
+
+  const fetchCalls = () => fetchCount;
+  const rows = () => ({ cost: first.db.select().from(costLog).all() });
+
+  function connectCause(over: Record<string, unknown>): TypeError {
+    return new TypeError("fetch failed", { cause: Object.assign(new Error(String(over.message)), over) });
+  }
+
+  function recordingAdmission(id: string): RequestAdmission {
+    seedJob(first.db, id, "AAPL");
+    const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
+    const { admission } = schedulerAdmission(claim, "bull", "connect-attempt", first.db);
+    return {
+      ...admission,
+      settle: async (permit, settled) => {
+        decisions.push(`settle presumed=${settled.presumed === true} usd=${settled.costUsd.toFixed(2)}`);
+        await admission.settle(permit, settled);
+      },
+      release: async (permit) => {
+        decisions.push("release");
+        await admission.release(permit);
+      },
+    };
+  }
+
+  async function runBull(id: string): Promise<void> {
+    await runPass({
+      model: "claude-opus-5-5",
+      system: "system",
+      messages: [{ role: "user", content: "hi" }],
+      maxTokens: 8_000,
+      field: "llm.bull",
+      reservationPass: "bull",
+      effort: "high",
+      tools: [webSearchTool(8, "claude-opus-5-5")],
+      admission: recordingAdmission(id),
+    });
+  }
+
+  beforeEach(async () => {
+    fetchCount = 0;
+    decisions = [];
+    process.env.ANTHROPIC_API_KEY = OFFLINE_KEY;
+    resetConfigCache();
+    _resetAnthropicForTests();
+    vi.stubGlobal("fetch", async () => {
+      fetchCount += 1;
+      return behaviour();
+    });
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests(async () => {});
+  });
+  afterEach(async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    resetConfigCache();
+    _resetAnthropicForTests();
+    vi.unstubAllGlobals();
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests();
+  });
+
+  it("releases a TCP connect timeout on every attempt instead of presuming the request maximum", async () => {
+    behaviour = () => {
+      throw connectCause({
+        name: "ConnectTimeoutError",
+        code: "UND_ERR_CONNECT_TIMEOUT",
+        message: "Connect Timeout Error (attempted address: 10.255.255.1:443, timeout: 10000ms)",
+      });
+    };
+    await runBull("job-connect-timeout");
+    expect(fetchCalls()).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect([...new Set(decisions)]).toEqual(["release"]);
+    expect(rows().cost).toHaveLength(0);
+  });
+
+  it("releases an OS connect ETIMEDOUT", async () => {
+    behaviour = () => {
+      throw connectCause({ code: "ETIMEDOUT", syscall: "connect", message: "connect ETIMEDOUT 160.79.104.10:443" });
+    };
+    await runBull("job-os-etimedout");
+    expect([...new Set(decisions)]).toEqual(["release"]);
+    expect(rows().cost).toHaveLength(0);
+  });
+
+  it("control: ECONNREFUSED is released", async () => {
+    behaviour = () => {
+      throw connectCause({ code: "ECONNREFUSED", message: "connect ECONNREFUSED 127.0.0.1:443" });
+    };
+    await runBull("job-refused");
+    expect([...new Set(decisions)]).toEqual(["release"]);
+  });
+
+  it("keeps a headers timeout presumed", async () => {
+    behaviour = () => {
+      throw connectCause({ name: "HeadersTimeoutError", code: "UND_ERR_HEADERS_TIMEOUT", message: "Headers Timeout Error" });
+    };
+    await runBull("job-headers-timeout");
+    expect(decisions.length).toBeGreaterThan(0);
+    expect(decisions.every((d) => d.startsWith("settle presumed=true"))).toBe(true);
+  });
+
+  it("keeps the SDK request timeout presumed", async () => {
+    // The SDK's own timer aborts its internal controller, so fetch rejects with an
+    // AbortError while the caller's signal is live; the SDK maps that to
+    // APIConnectionTimeoutError. A bare AbortError must pass the wrapper unchanged.
+    behaviour = () => {
+      throw Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
+    };
+    await runBull("job-sdk-timeout");
+    expect(fetchCalls()).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect(decisions.every((d) => d.startsWith("settle presumed=true"))).toBe(true);
+  });
+
+  it("tags only connect-phase failures", () => {
+    const wrap = (over: Record<string, unknown>) => connectCause({ message: "x", ...over });
+    for (const code of ["UND_ERR_CONNECT_TIMEOUT", "ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]) {
+      expect(isPreSendConnectionFailure(wrap({ code }))).toBe(true);
+    }
+    expect(isPreSendConnectionFailure(wrap({ code: "ETIMEDOUT", syscall: "connect" }))).toBe(true);
+    expect(isPreSendConnectionFailure(wrap({ code: "ETIMEDOUT", syscall: "getaddrinfo" }))).toBe(true);
+    for (const code of ["UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET", "ECONNRESET", "ETIMEDOUT"]) {
+      expect(isPreSendConnectionFailure(wrap({ code }))).toBe(false);
+    }
+    expect(isPreSendConnectionFailure(Object.assign(new Error("aborted"), { name: "AbortError" }))).toBe(false);
   });
 });

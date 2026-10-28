@@ -539,6 +539,65 @@ export function connectionFailureCode(err: unknown): string | null {
 }
 
 /**
+ * A fetch that failed before any request byte left the machine (connect phase).
+ * The message deliberately avoids "timeout" / "timed out" and sets no `cause`:
+ * the SDK tests String(err) + String(err.cause) for those words and would
+ * otherwise wrap it as a cause-less APIConnectionTimeoutError, which the
+ * settlement treats as a request that was sent and then lost.
+ */
+export class PreSendConnectionError extends Error {
+  readonly name = "PreSendConnectionError";
+  constructor(
+    readonly connectCode: string,
+    readonly original: unknown,
+  ) {
+    super("the connection to the provider could not be opened, so the request was never sent");
+  }
+}
+
+/** Codes that mean the connection never opened, wherever they sit. */
+const PRE_SEND_CODES: ReadonlySet<string> = new Set([
+  "UND_ERR_CONNECT_TIMEOUT",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+]);
+
+/**
+ * undici UND_ERR_CONNECT_TIMEOUT; ECONNREFUSED, ENOTFOUND, EAI_AGAIN,
+ * EHOSTUNREACH, ENETUNREACH; ETIMEDOUT only with syscall "connect" or
+ * "getaddrinfo". Header, body and socket failures happen after the send.
+ */
+export function isPreSendConnectionFailure(err: unknown): boolean {
+  return preSendConnectCode(err) !== null;
+}
+
+function preSendConnectCode(err: unknown): string | null {
+  for (const entry of causeChain(err)) {
+    const { code, syscall } = (entry ?? {}) as { code?: unknown; syscall?: unknown };
+    if (typeof code !== "string") continue;
+    if (PRE_SEND_CODES.has(code)) return code;
+    if (code === "ETIMEDOUT" && (syscall === "connect" || syscall === "getaddrinfo")) return code;
+  }
+  return null;
+}
+
+/** Rethrows a pre-send failure as PreSendConnectionError; reads globalThis.fetch at call time when inner is omitted. */
+export function preSendClassifyingFetch(inner?: typeof fetch): typeof fetch {
+  return (async (...args: Parameters<typeof fetch>) => {
+    try {
+      return await (inner ?? globalThis.fetch)(...args);
+    } catch (err) {
+      const code = preSendConnectCode(err);
+      if (code !== null) throw new PreSendConnectionError(code, err);
+      throw err;
+    }
+  }) as typeof fetch;
+}
+
+/**
  * A stream that died between the response headers and `message_stop`.
  *
  * The SDK produces `APIConnectionError` only for a fetch that fails BEFORE the
@@ -672,6 +731,7 @@ export function getClient(): Anthropic | null {
           apiKey: key,
           maxRetries: CLIENT_MAX_RETRIES,
           timeout: REQUEST_TIMEOUT_MS,
+          fetch: preSendClassifyingFetch(),
         })
       : null;
   }
@@ -1712,6 +1772,7 @@ async function settleRequest(
  * this kind is presumed rather than released.
  */
 function timedOutAfterSend(err: unknown): boolean {
+  if (causeChain(err).some((entry) => entry instanceof PreSendConnectionError)) return false;
   if (err instanceof StreamIdleTimeoutError) return true;
   if (err instanceof APIConnectionTimeoutError) return true;
   if (isStreamConnectionFailure(err)) return true;

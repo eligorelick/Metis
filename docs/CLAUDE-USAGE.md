@@ -154,6 +154,9 @@ and up to **five `pause_turn` resumptions** within an execution. Retryable
 rate-limit responses honor provider retry delays; enforced spend-limit errors
 stop. Request timeout and effort-scaled stream-idle limits can abort stalled
 work. These paths can create billable requests even when no report completes.
+A request whose connection could not be opened (a connect timeout, a refused
+connection or a failed name lookup) never reached Anthropic and is not charged;
+a timeout after the request was sent is presumed.
 A pass's recorded cost, tokens and presumed flag are the sum of what each of
 its requests settled, retries and pause resumptions included, in both
 reservation modes. A request that ends after it started reporting usage but
