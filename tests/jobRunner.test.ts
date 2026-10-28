@@ -2639,7 +2639,7 @@ describe("runJob - durable paid-pass settlements", () => {
     };
     const claim = scheduler.claimQueuedJobById(jobId, "abandoned-lease", new Date(), limits)!;
     const base = mockPasses();
-    const abandoned = deferred();
+    const abandoned = deferred<string>();
     const finish = deferred();
     let secondAdmitted = false;
     const passes: PipelinePasses = {
@@ -2671,7 +2671,7 @@ describe("runJob - durable paid-pass settlements", () => {
       claim,
       schedulerLimits: limits,
     });
-    const permitId = (await abandoned.promise) as string;
+    const permitId = await abandoned.promise;
     const heldExpiry = handle.db.select().from(jobLlmLeases).where(eq(jobLlmLeases.permitId, permitId)).get()!.leaseExpiresAt;
 
     // Past several renewal beats, short of the lease's own expiry: an
