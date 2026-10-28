@@ -749,6 +749,7 @@ const BASE_CUE = String.raw`(?:(?:as\s+)?compared\s+(?:with|to)|versus|vs\.?|rel
 // interval or a start ("from 2025-07-27 to 2026-07-26", "from the third quarter 2026 onward").
 const BASE_TAIL = new RegExp(String.raw`(?:\b(${BASE_CUE})\s+${BASE_FILLER}|\b(from)\s+(?:${BASE_WORD})*${BASE_AMOUNT}${BASE_FILLER})$`, "i");
 // The cue is looked for in the clause before the phrase: not across ;, a bullet, a newline or a sentence end ("vs. " is not one).
+const FORWARD_REFERENCE = /\b(?:guidance|targets?|estimates?|estimated|outlook|forecasts?|consensus)\b/i;
 const BASE_CLAUSE_CUT = /;|•|\n|(?<!\bvs)[.!?](?=\s)/g;
 
 /**
@@ -756,6 +757,8 @@ const BASE_CLAUSE_CUT = /;|•|\n|(?<!\bvs)[.!?](?=\s)/g;
  * with only amounts and connecting words between them; null when it follows none.
  */
 export function comparisonCueEnd(text: string, index: number): number | null {
+  // Guidance, a target, an estimate or an outlook is not a prior period to compare with ("against 2026 guidance").
+  if (FORWARD_REFERENCE.test(text.slice(index, index + 60).split(/[,;.]/)[0]!)) return null;
   const from = Math.max(0, index - 120);
   const head = text.slice(from, index);
   const cut = [...head.matchAll(BASE_CLAUSE_CUT)].at(-1);
@@ -801,12 +804,17 @@ function scanPeriodPhrases(
       const insideValue = valueSpans.some(([start, end]) => index >= start && index < end);
       if (insideValue || taken.some(([start, end]) => index >= start && index < end)) continue;
       taken.push([index, index + match[0].length]);
-      const phrase = match[0].trim();
+      let phrase = match[0].trim();
       const key = phrase.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      const cue = comparisonCueEnd(sentence, index);
-      (cue !== null && !located.some((n) => cue <= n.start && n.end <= index) ? bases : own).push(phrase);
+      // A bare year read out of a spelled fiscal period ("the second quarter of fiscal 2025") belongs to that
+      // whole phrase: its cue is looked for before the phrase's first word, and it keeps its "fiscal" (see baseAgrees).
+      const spelled = /(?:\b(?:first|second|third|fourth)\s+quarter\s+(?:of\s+)?)?\bfiscal(?:\s+year)?\s+$/i.exec(sentence.slice(Math.max(0, index - 40), index));
+      const cue = comparisonCueEnd(sentence, spelled === null ? index : index - spelled[0].length);
+      const isBase = cue !== null && !located.some((n) => cue <= n.start && n.end <= index);
+      if (isBase && spelled !== null) phrase = `fiscal ${phrase}`;
+      (isBase ? bases : own).push(phrase);
     }
   }
   return { own, bases };
@@ -835,7 +843,7 @@ export function findComparisonBasePhrases(
  * (AI-402-V2 / C-2): the record's ISO period 12 (or 3) months earlier and its fiscal
  * label one fiscal year (or quarter) earlier. Null when the record names no such basis.
  */
-function comparisonBase(record: NumericProvenanceRecord): { end: string; fiscal: string | null } | null {
+export function comparisonBase(record: NumericProvenanceRecord): { end: string; fiscal: string | null } | null {
   const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(record.period ?? "");
   if (date === null) return null;
   const named = `${record.id} ${record.label ?? ""}`;
@@ -860,9 +868,11 @@ function comparisonBase(record: NumericProvenanceRecord): { end: string; fiscal:
 }
 
 /** Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. */
-function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
+export function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
   // An FY-labelled base is compared by fiscal label only (by calendar year it would be the AI-405 error again).
   if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(phrase)) return base.fiscal === null ? null : periodsAgree(phrase, base.end, base.fiscal);
+  // Until spelled fiscal periods are read (Task 9), a spelled "fiscal" base is not compared by calendar year: neither the right nor the wrong one is established.
+  if (/\bfiscal\b/i.test(phrase)) return null;
   return (base.fiscal !== null && periodsAgree(phrase, base.end, base.fiscal)) || phraseNamesRecordYear(phrase, base.end);
 }
 

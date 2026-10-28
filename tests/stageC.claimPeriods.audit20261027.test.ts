@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { namesRecency, reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
-import { comparisonCueEnd, consistencyManifestEntries } from "@/pipeline/stageC/consistency";
+import { comparisonCueEnd, consistencyManifestEntries, findComparisonBasePhrases, findPeriodPhrases } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import type { VerificationLogEntry } from "@/report/schema";
@@ -468,5 +468,45 @@ describe("AI-402 comparison bases", () => {
     expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
     // Control: the complete interval still validates.
     expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months from 2025-07-27 to 2026-07-26 was USD 134.36 billion.")).entry.validationStatus).toBe("validated");
+  });
+});
+
+describe("AI-402 fix round 1: a stated comparison base must be established by the cited evidence", () => {
+  const LEVEL_25 = rec({ id: "computed.test.gross-margin-level", label: "gross margin", kind: "computed", unit: "percent", currency: null, value: 74,
+    period: "2025-06-30", asOf: "2025-06-30", origin: "computed.test" });
+  const LEVEL_26 = { ...LEVEL_25, period: "2026-06-30", asOf: "2026-06-30" };
+  it.each([
+    [LEVEL_26, "Gross margin was 74%, up from Q2 2019."],
+    [GM, "Gross margin was 71.1%, compared with fiscal 2019."],
+    [LEVEL_26, "Gross margin was 74%, compared with second quarter 2025."],
+  ])("a base on a level or period-less record is not established, so the claim stays unverified (%#)", async (record, text) => {
+    const { entry, out } = await cite([record], record.id, text);
+    expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    expect(out.coverage.factualValidation?.validated).toBe(0);
+  });
+  it("guidance, target, estimate and outlook phrases are not comparison bases and keep the claim's own period", async () => {
+    for (const text of ["Gross margin was 74%, against 2026 guidance.", "Gross margin was 74%, compared with 2026 estimates."])
+      expect((await cite([LEVEL_25], LEVEL_25.id, text)).entry.validationStatus, text).toBe("unchecked");
+    // The claim keeps its own period: "2026" is a stated period, not a base.
+    const sentence = "Gross margin was 74%, against 2026 guidance.";
+    expect(findPeriodPhrases(sentence, [], [])).toEqual(["2026"]);
+    expect(findComparisonBasePhrases(sentence, [], [])).toEqual([]);
+  });
+  it("a spelled fiscal base is not compared by calendar year before Task 9: neither the wrong nor the right one validates", async () => {
+    for (const text of ["Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2025.",
+      "Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2026."])
+      expect((await cite([NV_YOY], NV_YOY.id, text)).entry, text).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("a QoQ base against a YoY record, and the reverse, stay unverified", async () => {
+    expect((await cite([NV_YOY], NV_YOY.id, "Revenue growth year over year for the quarter was 105.85%, compared with Q1 FY2027.")).entry.validationStatus).toBe("unchecked");
+    expect((await cite([NV_QOQ], NV_QOQ.id, "Revenue growth quarter over quarter for the quarter was 17.9%, compared with Q2 FY2026.")).entry.validationStatus).toBe("unchecked");
+  });
+  it("two rows: one record cannot bind two figures, at HEAD and now, so the claim is not validated by the base alone", async () => {
+    const Q_NOW = rec({ ...Q_REV, value: 81.6e9 });
+    const Q_PRIOR = rec({ ...Q_REV, id: "payload.statements.income-statement-quarterly.2025-07-27.revenue", value: 72.0e9, period: "2025-07-27", asOf: "2025-07-27",
+      periodContext: { kind: "duration", start: "2025-04-28", end: "2025-07-27", basis: "fiscal-quarter", fiscalLabel: "Q2 FY2026" }, fiscalPeriod: "Q2 FY2026" });
+    const { entry } = await cite([Q_NOW, Q_PRIOR, USD_ROW], Q_NOW.id, "Revenue was USD 81.6 billion in Q2 FY2027, up from USD 72.0 billion in Q2 FY2026.");
+    // Ruling (b) (a cited record whose own period is the base) is not reachable: the record path binds one figure per claim (text-ambiguous at HEAD too).
+    expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "text-ambiguous" });
   });
 });

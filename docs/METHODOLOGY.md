@@ -2694,11 +2694,16 @@ words after a change word ("up 23% from", "grew 20% over"), and a bare "from"
 only across an amount ("from $10.1 billion in the second quarter of fiscal
 2025"), never directly before a period ("from 2025-07-27 to 2026-07-26"); the
 release parser (D-98) reads them more widely. A base the claim names must be a
-base the source names; against a year-over-year or quarter-over-quarter
-figure, the period check compares the base with the period the figure is
-measured against: its fiscal label one year (or one quarter) earlier for an
-FY-labelled base, otherwise that label or the calendar year of the shifted
-date.
+base the source names. A record citation establishes a base only when the record
+is a year-over-year or quarter-over-quarter figure, which is measured against a
+known base period: the base is compared with its fiscal label one year (or one
+quarter) earlier for an FY-labelled base, otherwise with that label or the
+calendar year of the shifted date. A base on any other record (a level, a
+period-less figure), a spelled fiscal base ("the second quarter of fiscal 2025",
+which is not read until spelled fiscal periods are), and a base that does not
+match leave the claim unverified (`period-mismatch`), never validated. Guidance,
+target, estimate, outlook, forecast and consensus phrases are not comparison
+bases and keep the claim's own period.
 The period-word check compares years only; it does not adjudicate fiscal
 quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,

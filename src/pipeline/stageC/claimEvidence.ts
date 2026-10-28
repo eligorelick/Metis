@@ -1,7 +1,7 @@
 /** Conservative numeric support for prose. A citation alone never proves a fact. */
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
-import { comparisonCueEnd, findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
+import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
 import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 
@@ -837,6 +837,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // 2026-10-22 F-22: nor can a record whose period differs. A period, unit or
     // currency the record does not establish leaves the claim unverified;
     // "contradicted" is reserved for a value or sign conflict.
+    // AI-402 (fix round 1): a comparison base the claim states must be established by the cited record:
+    // only a year-over-year or quarter-over-quarter record measures its figure against a base period.
+    const measuredAgainst = own.bases.length > 0 ? comparisonBase(record) : null;
+    if (own.bases.length > 0 && (measuredAgainst === null || !own.bases.every((base) => baseAgrees(base.raw, measuredAgainst) === true))) {
+      return support("unchecked", "period-mismatch", "the cited numeric record does not establish the comparison base the prose names");
+    }
     if (own.periods.length > 0 && !own.periods.every(periodAgrees)) {
       const unknownFiscal = fiscalPeriod === undefined && own.periods.some((period) => /\bFY\s*\d{4}\b/i.test(period.label));
       return record.period === null || unknownFiscal
