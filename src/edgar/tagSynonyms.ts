@@ -6,7 +6,9 @@
  * Order matters: within a line item the first tag present for the period wins,
  * unless it is below a component the line item declares (`unlessBelow`, audit
  * 2026-10-27 FIN-510): a synonym below its own filed component is a subset line,
- * not the total, so the next synonym is tried.
+ * not the total, so the next synonym is tried. Floors compare the same period
+ * only. `DepreciationDepletionAndAmortization` is additionally floored by
+ * `DepreciationAndAmortization` (`unlessBelowTag`), never the reverse.
  *
  * Review stamp: the element names below were reviewed against the US-GAAP
  * 2025 taxonomy element list on 2026-09-02 (an offline review of names; no
@@ -48,10 +50,21 @@ export interface TagSynonymEntry {
    * the component inside the figure the line item stands for.
    */
   unlessBelow?: readonly string[];
+  /**
+   * Floors that bind one synonym only: a component that contains that synonym
+   * but not every other synonym of the line item. Same per-period comparison.
+   */
+  unlessBelowTag?: Readonly<Record<string, readonly string[]>>;
 }
 
-const entry = (tags: readonly string[], standIns?: readonly TagStandIn[], unlessBelow?: readonly string[]): TagSynonymEntry => ({
+const entry = (
+  tags: readonly string[],
+  standIns?: readonly TagStandIn[],
+  unlessBelow?: readonly string[],
+  unlessBelowTag?: Readonly<Record<string, readonly string[]>>,
+): TagSynonymEntry => ({
   tags,
+  ...(unlessBelowTag === undefined ? {} : { unlessBelowTag }),
   ...(standIns === undefined ? {} : { standIns }),
   ...(unlessBelow === undefined ? {} : { unlessBelow }),
 });
@@ -277,6 +290,10 @@ export const LINE_ITEM_TAGS = {
     ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"],
     undefined,
     DEPRECIATION_COMPONENT_TAGS,
+    // DepreciationAndAmortization is the other combined D&A element: beside it, a
+    // DepreciationDepletionAndAmortization below it is the subset (MCD's quarters).
+    // Not the reverse, so there is no cycle.
+    { DepreciationDepletionAndAmortization: ["DepreciationAndAmortization"] },
   ),
   // A filer with no dilutive securities can tag one figure for both bases with
   // the combined elements; each is the basic and the diluted figure at once
@@ -516,6 +533,12 @@ export function tagsFor(item: LineItem): string[] {
 /** The stand-ins of one line item, in order; empty when it has none. */
 export function standInsFor(item: LineItem): TagStandIn[] {
   return [...(LINE_ITEM_TAGS[item].standIns ?? [])];
+}
+
+/** The floors that bind one synonym only (a fresh object); empty when the line item declares none. */
+export function tagFloorsFor(item: LineItem): Record<string, string[]> {
+  const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
+  return Object.fromEntries(Object.entries(entryFor.unlessBelowTag ?? {}).map(([tag, floors]) => [tag, [...floors]]));
 }
 
 /** The component floors of one line item (a fresh array); empty when it declares none. */

@@ -63,6 +63,7 @@ import {
   GROSS_PROFIT_REVENUE_TAGS,
   GROSS_PROFIT_COST_TAGS,
   floorsFor,
+  tagFloorsFor,
   standInsFor,
   tagsFor,
   type TagStandIn,
@@ -409,7 +410,9 @@ export type ChainSpec =
    * synonym is tried. If every present synonym is skipped, the step returns
    * null and records a refusal; the chain falls to its next step.
    */
-  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[] }
+  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[];
+      /** Extra floors for one synonym only (a component that contains that synonym but not the others). */
+      unlessBelowTag?: Readonly<Record<string, readonly string[]>> }
   | { kind: "sum"; tags: string[]; unit: "money"; disclose?: string }
   | { kind: "sumAny"; tags: string[]; unit: "money" }
   | { kind: "sumAnyOf"; parts: { label: string; spec: ChainSpec }[]; unit: "money" }
@@ -512,7 +515,9 @@ const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
   const standIns = standInsFor(item);
   const floors = floorsFor(item);
-  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }) };
+  const tagFloors = tagFloorsFor(item);
+  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }),
+    ...(Object.keys(tagFloors).length === 0 ? {} : { unlessBelowTag: tagFloors }) };
   return standIns.length === 0 ? own : { kind: "chain", unit, steps: [own, ...standInSteps(standIns, unit)] };
 }
 
@@ -642,7 +647,7 @@ const DEPRECIATION_SPEC: ChainSpec = {
   unit: "money",
   steps: [
     // A combined tag below the same period's Depreciation or amortization is a subset line (FIN-510).
-    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money", unlessBelow: [...DEPRECIATION_COMPONENT_TAGS] },
+    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money", unlessBelow: [...DEPRECIATION_COMPONENT_TAGS], unlessBelowTag: tagFloorsFor("depreciationAndAmortization") },
     {
       kind: "sum",
       tags: [...DEPRECIATION_COMPONENT_TAGS],
@@ -1280,7 +1285,7 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
   }
   for (const tag of spec.tags) into.add(tag);
   // A floor tag is only ever resolved by tag, so it has to be parsed into the index.
-  if (spec.kind === "first") for (const tag of spec.unlessBelow ?? []) into.add(tag);
+  if (spec.kind === "first") for (const tag of [...(spec.unlessBelow ?? []), ...Object.values(spec.unlessBelowTag ?? {}).flat()]) into.add(tag);
 }
 
 /** Every us-gaap tag any chain or anchor can ask for; nothing else is parsed. */
@@ -1659,16 +1664,17 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         const r = resolve(tag, spec.unit);
         if (r === null) continue;
         if (spec.unlessBelow !== undefined) {
+          const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
           // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
           const components: { tag: string; value: number }[] = [];
-          for (const floorTag of spec.unlessBelow) {
+          for (const floorTag of floorTags) {
             if (floorTag === tag) continue;
             const f = notes.quietly(() => resolve(floorTag, spec.unit));
             if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
           }
           const hit = belowComponentFloor(r.value, components);
           if (hit !== null) {
-            const text = `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
+            const text = `${tag} ${r.value} not used â€” below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
             notes.add(`${label}: ${text}`);
             skipped.push(text);
             continue;

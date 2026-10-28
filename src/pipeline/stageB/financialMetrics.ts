@@ -39,7 +39,7 @@
 
 import { getConcept, type ChainStep, type CompanyFacts } from "@/edgar/xbrl";
 import { belowComponentFloor } from "@/edgar/synonymFloor";
-import { DEPRECIATION_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
+import { DEPRECIATION_COMPONENT_TAGS, tagFloorsFor } from "@/edgar/tagSynonyms";
 import { shareCountOnBasis, type StockSplits } from "@/edgar/splits";
 import { tangibleCommonEquity } from "@/pipeline/stageB/returns";
 import type { FetchResult, ManifestEntry, SectorRoute } from "@/types/core";
@@ -418,7 +418,8 @@ function totalDaNotBelowComponents(
   for (const tag of DEPRECIATION_AMORTIZATION_TAGS) {
     const hit = resolveTag(facts, [tag], period);
     if (hit === null) continue;
-    const components = DEPRECIATION_COMPONENT_TAGS.flatMap((componentTag) => {
+    const floorTags = [...DEPRECIATION_COMPONENT_TAGS, ...(tagFloorsFor("depreciationAndAmortization")[tag] ?? [])];
+    const components = floorTags.flatMap((componentTag) => {
       const c = resolveTag(facts, [componentTag], period);
       return c !== null && c.unit === hit.unit && c.value > 0 ? [{ tag: componentTag, value: c.value }] : [];
     });

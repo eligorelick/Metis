@@ -57,17 +57,17 @@ describe("component floors", () => {
     expect(b.incomeAnnual.rows[0]!.depreciationAndAmortization).toBe(3_000 * M);
   });
   it("a total within rounding of a component is kept (0.5% house tolerance)", () => {
-    const b = build({ ...mcd, DepreciationDepletionAndAmortization: fy25(1_595 * M) });
+    const b = build({ ...mcd, DepreciationAndAmortization: [], DepreciationDepletionAndAmortization: fy25(1_595 * M) }); // no DA: isolates the Depreciation floor
     expect(b.incomeAnnual.rows[0]!.depreciationAndAmortization).toBe(1_595 * M);
   });
   it("a small total within the absolute rounding allowance of a component is kept; beyond it, it is not", () => {
-    const small = { ...mcd, DepreciationDepletionAndAmortization: fy25(99 * M), DepreciationAndAmortization: fy25(150 * M), Depreciation: fy25(100 * M) };
+    const small = { ...mcd, DepreciationDepletionAndAmortization: fy25(99 * M), DepreciationAndAmortization: [], Depreciation: fy25(100 * M) }; // no DA: isolates the Depreciation floor
     expect(build(small).incomeAnnual.rows[0]!.depreciationAndAmortization).toBe(99 * M); // 1M below: within max(0.5M, 2M)
-    expect(build({ ...small, DepreciationDepletionAndAmortization: fy25(97 * M) }).incomeAnnual.rows[0]!.depreciationAndAmortization).toBe(150 * M); // 3M below
+    expect(build({ ...small, DepreciationDepletionAndAmortization: fy25(97 * M) }).incomeAnnual.rows[0]!.depreciationAndAmortization).toBe(100 * M); // 3M below: Depreciation alone, a lower bound
   });
   it("a floor probe that cannot resolve writes no note and no withholding", () => {
     // Depreciation filed in another currency: unmuted, sameRowEvidence would record a mixed_unit withholding on D&A.
-    const facts = companyFacts({ ...mcd, Depreciation: [] }) as unknown as { facts: { "us-gaap": Record<string, unknown> } };
+    const facts = companyFacts({ ...mcd, DepreciationAndAmortization: [], Depreciation: [] }) as unknown as { facts: { "us-gaap": Record<string, unknown> } };
     facts.facts["us-gaap"].Depreciation = { label: "Depreciation", units: { EUR: fy25(1_500 * M) } };
     const b = buildStatementsFromCompanyFacts(facts as never, {
       symbol: "SYN",
@@ -130,5 +130,42 @@ describe("component floors", () => {
       build({ Revenues: fy25(40_000 * M), NetIncomeLoss: fy25(3_000 * M), ResearchAndDevelopmentExpense: fy25(5_000 * M) }).incomeAnnual.rows[0]!
         .researchAndDevelopmentExpenses,
     ).toBe(5_000 * M);
+  });
+  it("the skip note and the withholding carry the em-dash sentence and no replacement character", () => {
+    const b = build(mcd);
+    const note = b.incomeAnnual.notes.find((n) => /DepreciationDepletionAndAmortization 457000000/.test(n))!;
+    expect(note).toContain("not used — below the same period's Depreciation 1600000000, so it is not the total");
+    expect(note).not.toContain("�");
+    const K26: Filing = { filed: "2026-09-10", form: "10-K", fp: "FY", fy: 2026, accn: "0000000099-26-000002" };
+    const y = (v: number) => [fact(K26, "2025-07-27", "2026-07-25", v)];
+    const w = build({ Revenues: y(60_000 * M), NetIncomeLoss: y(11_000 * M), OperatingIncomeLoss: y(15_368 * M),
+      Assets: [fact(K26, undefined, "2026-07-25", 120_000 * M)],
+      DepreciationDepletionAndAmortization: y(700 * M), AmortizationOfIntangibleAssets: y(916 * M) })
+      .incomeAnnual.withheld.find((x) => x.field === "depreciationAndAmortization")!;
+    expect(w.text).toContain("not used — below the same period's AmortizationOfIntangibleAssets 916000000");
+    expect(w.text).not.toContain("�");
+  });
+
+  describe("DepreciationAndAmortization floors DepreciationDepletionAndAmortization (fix round 1)", () => {
+    const Q1: Filing = { filed: "2026-05-01", form: "10-Q", fp: "Q1", fy: 2026, accn: "0000000099-26-000010" };
+    const q = (v: number) => [fact(Q1, "2026-01-01", "2026-03-31", v)];
+    const base = {
+      Revenues: q(6_500 * M), NetIncomeLoss: q(2_000 * M), OperatingIncomeLoss: q(3_000 * M),
+      Assets: [fact(Q1, undefined, "2026-03-31", 60_000 * M)],
+    };
+    const quarter = (extra: Record<string, unknown[]>) => build({ ...base, ...extra }).incomeQuarterly.rows.find((r) => r.date === "2026-03-31")!;
+    it("MCD quarterly: a DDA of 111M beside a DA of 565M is the subset, so D&A is 565M", () => {
+      const r = quarter({ DepreciationDepletionAndAmortization: q(111 * M), DepreciationAndAmortization: q(565 * M) });
+      expect(r.depreciationAndAmortization).toBe(565 * M);
+      expect(r.fieldProvenance?.depreciationAndAmortization?.tags).toEqual(["us-gaap/DepreciationAndAmortization"]);
+      expect(r.ebitda).toBe(3_565 * M);
+    });
+    it("control: a DDA at or above its DA keeps DDA", () => {
+      const r = quarter({ DepreciationDepletionAndAmortization: q(600 * M), DepreciationAndAmortization: q(565 * M) });
+      expect(r.depreciationAndAmortization).toBe(600 * M);
+    });
+    it("control: a filer with only DDA keeps DDA", () => {
+      expect(quarter({ DepreciationDepletionAndAmortization: q(111 * M) }).depreciationAndAmortization).toBe(111 * M);
+    });
   });
 });

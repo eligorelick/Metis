@@ -36,6 +36,10 @@ describe("FFO total-D&A stand-in", () => {
     expect(r.ffoBasis).toMatch(/total depreciation and amortization 2199000000/);
     expect(r.sources.join(" ")).toMatch(/DepreciationAndAmortization/);
   });
+  it("a DepreciationDepletionAndAmortization below the filed DepreciationAndAmortization is not the total (no Depreciation filed)", () => {
+    const noDep = Object.fromEntries(Object.entries(mcdFfo).filter(([tag]) => tag !== "Depreciation"));
+    expect(run(noDep).ffo).toBe(10_762 * M);
+  });
   it("control: a filed real-estate depreciation still comes first", () => {
     expect(run({ ...mcdFfo, [REAL_ESTATE_DEPRECIATION_TAGS[0]]: fy25(300 * M) }).ffo).toBe(8_863 * M);
   });

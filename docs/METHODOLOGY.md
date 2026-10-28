@@ -3822,8 +3822,12 @@ the capex split were withheld. When no combined tag is filed for a period, D&A
 is now the filer's `Depreciation` + `AmortizationOfIntangibleAssets`; when no
 amortization is tagged for the period either, it is `Depreciation` alone.
 A combined tag is the D&A only when it is not below the same period's
-`Depreciation` or `AmortizationOfIntangibleAssets`, with a rounding allowance
-of the larger of 0.5% of the component and 2 million in the row's currency
+`Depreciation` or `AmortizationOfIntangibleAssets` (and, for
+`DepreciationDepletionAndAmortization` only, not below the same period's
+`DepreciationAndAmortization`: McDonald's quarterly $111M beside $565M). A floor
+applies only when its component is filed for the same period; a component filed
+for another period is not compared. The rounding allowance is
+the larger of 0.5% of the component and 2 million in the row's currency
 (a house constant). Total D&A contains total depreciation and the
 amortization of intangibles, so a combined tag below either is a subset line
 (McDonald's `DepreciationDepletionAndAmortization` of $457M beside its own
