@@ -249,6 +249,27 @@ D-28's own-row-only rule, which discarded USD consensus, peer sizes and
 executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
 rule of D-28 is restored.
 
+**Insider statistics (AI-117, D-next).** FMP's insider statistics are
+calendar-quarter rows. Its `totalPurchases` and `totalSales` are counts of
+open-market transactions (Form 4 codes P and S), not shares; the acquired and
+disposed share volumes are separate fields that cover every reported
+acquisition or disposition, awards, option exercises, gifts and tax
+withholding included (SEC, "Ownership Form Codes"). The payload sums the
+trailing four complete calendar quarters before the quarter that contains the
+fetch day and states the window in every label ("four calendar quarters ended
+2026-06-30"), in the record's `period` (the window end) and in its
+`periodContext` (`duration`, with `basis: "rolling-12-month"` when four quarters
+are summed). The end date is named because FMP may serve no row for the newest
+complete quarter. Five figures are registered: open-market purchase and sale
+transaction counts (unit `count`), shares acquired and shares disposed (unit
+`shares`), and the acquired/disposed transaction-count ratio (acquired
+transactions over disposed transactions, all codes). The quarter in progress is
+left out of the sums (its Form 4 rows are still listed one by one). A missing
+quarter ends the window, so fewer than four quarters are labelled as what they
+are, a repeated quarter keeps its first row, and a sum with a missing value is
+withheld. With no complete quarter there is no statistics figure and a note
+says which quarter is in progress. Covered by `tests/stageC.insiderStatistics.test.ts`.
+
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
 `tests/currency.annualCompatibility.test.ts`,

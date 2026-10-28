@@ -122,6 +122,15 @@ function ok<T>(
 }
 const gap = { ok: false as const, gap: { field: "x", reason: "fixture gap", severity: "info" as const } };
 
+/** Audit 2026-10-27 B3 Task 3 (AI-117): 2026 Q2 is in progress at the fixture's asOf; four complete quarters (2025 Q2 to 2026 Q1) are summed. */
+const INSIDER_STAT_ROWS = [
+  { year: 2026, quarter: 2, totalPurchases: 0, totalSales: 1, acquiredTransactions: 0, disposedTransactions: 1, totalAcquired: 0, totalDisposed: 10_000 },
+  { year: 2026, quarter: 1, totalPurchases: 0, totalSales: 1, acquiredTransactions: 3, disposedTransactions: 4, totalAcquired: 30_000, totalDisposed: 40_000 },
+  { year: 2025, quarter: 4, totalPurchases: 1, totalSales: 4, acquiredTransactions: 2, disposedTransactions: 6, totalAcquired: 20_000, totalDisposed: 60_000 },
+  { year: 2025, quarter: 3, totalPurchases: 0, totalSales: 2, acquiredTransactions: 1, disposedTransactions: 3, totalAcquired: 10_000, totalDisposed: 30_000 },
+  { year: 2025, quarter: 2, totalPurchases: 0, totalSales: 3, acquiredTransactions: 2, disposedTransactions: 5, totalAcquired: 20_000, totalDisposed: 50_000 },
+];
+
 function fmpPayload<T>(rows: T[], asOf: string, endpoint: string) {
   return ok({ rows, raw: {} }, asOf, endpoint);
 }
@@ -308,7 +317,7 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
       latest: fmpPayload([{ symbol, period: "Q2", year: 2026, date: "2026-05-01", content: "CEO: Revenue grew this quarter. ".repeat(2000) }], "2026-05-01", "earning-call-transcript"),
     },
     insiderTrades: fmpPayload([{ transactionDate: "2026-06-01", reportingName: "Tim Cook", typeOfOwner: "CEO", transactionType: "S-Sale", securitiesTransacted: 50000, price: 205 }], "2026-06-01", "insider-trades"),
-    insiderStats: fmpPayload([{ year: 2026, quarter: 2, totalPurchases: 0, totalSales: 500000, acquiredDisposedRatio: 0.1 }], "2026-06-30", "insider-statistics"),
+    insiderStats: fmpPayload(INSIDER_STAT_ROWS, "2026-06-30", "insider-statistics"),
     institutional: {
       year: 2026,
       quarter: 1 as const,
@@ -674,7 +683,25 @@ describe("payload determinism + provenance", () => {
       inheritedPeerRecord("payload.peers.msft-microsoft", "MSFT — Microsoft", 3400000000000),
       inheritedPeerRecord("payload.peers.googl-alphabet", "GOOGL — Alphabet", 2200000000000),
     ];
-    const registryWithoutPeers = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
+    // Audit 2026-10-27 B3 Task 3 (AI-117): the five windowed insider-statistics records
+    // replaced the three quarter-row records; the preceding registry carried exactly these
+    // three (constants of the preceding fixture row: 0 and 500000 shares, ratio 0.1, no period).
+    const oldInsiderRecord = (id: string, label: string, value: number, unit: string) => ({
+      id, label, kind: "provider" as const, value, unit, currency: null,
+      period: null, asOf: "2026-06-30", origin: "fmp:insider-statistics", formulaVersion: null, displayPrecision: 4,
+    });
+    const restoredInsiderRecords = [
+      oldInsiderRecord("payload.insiders.insider-total-purchases", "insider total purchases", 0, "shares"),
+      oldInsiderRecord("payload.insiders.insider-total-sales", "insider total sales", 500000, "shares"),
+      oldInsiderRecord("payload.insiders.acquired-disposed-ratio", "acquired/disposed ratio", 0.1, "ratio"),
+    ];
+    const withOldInsiderRecords = (registry: NonNullable<typeof payload.provenanceRegistry>) => {
+      const first = registry.findIndex((record) => record.origin === "fmp:insider-statistics");
+      expect(registry.filter((record) => record.origin === "fmp:insider-statistics")).toHaveLength(5);
+      expect(registry.slice(first, first + 5).every((record) => record.origin === "fmp:insider-statistics")).toBe(true);
+      return [...registry.slice(0, first), ...restoredInsiderRecords as unknown as typeof registry, ...registry.slice(first + 5)];
+    };
+    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
@@ -729,6 +756,19 @@ describe("payload determinism + provenance", () => {
     expect(precedingPeerCoverage.length).toBe(1);
     precedingPeerCoverage[0]!.notes.push(...precedingPayload.peerScreen!.notes);
     delete precedingPayload.peerScreen;
+    // Audit 2026-10-27 B3 Task 3 (AI-117): restore the three quarter-row insider figures
+    // (same positions as the five windowed ones) and drop the window note.
+    const insiderStatFigures = precedingPayload.insiders.figures.filter((figure) => figure.source === "fmp:insider-statistics");
+    expect(insiderStatFigures).toHaveLength(5);
+    expect(precedingPayload.insiders.figures.slice(0, 5)).toEqual(insiderStatFigures);
+    precedingPayload.insiders.figures = [
+      ...restoredInsiderRecords.map((record) => ({
+        label: record.label, value: record.value, unit: record.unit === "ratio" ? "x" : record.unit, source: record.origin, asOf: record.asOf, currency: null, period: null, provenanceId: record.id,
+      }) as unknown as (typeof insiderStatFigures)[number]),
+      ...precedingPayload.insiders.figures.slice(5),
+    ];
+    expect(precedingPayload.insiders.notes.filter((note) => note.startsWith("Insider statistics: "))).toHaveLength(1);
+    precedingPayload.insiders.notes = precedingPayload.insiders.notes.filter((note) => !note.startsWith("Insider statistics: "));
     // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
     // manifest into untrusted-data envelopes, under new headings. Unwrapping
     // exactly those two blocks back to their preceding raw lines must
@@ -1086,15 +1126,18 @@ describe("payload determinism + provenance", () => {
       // Audit 2026-10-27 B3 Task 2 (AI-102): peer exclusion reasons travel in their own untrusted envelope
       // (the fixture's one subject-level exclusion leaves "Comparable peers (computed)" for it, +157 bytes);
       // no record, figure or citation moves, so only fingerprint and promptBytes change.
-      fingerprint: "1.48.0:d9973282",
-      promptBytes: 141_037,
-      provenanceCount: 529,
+      // Audit 2026-10-27 B3 Task 3 (AI-117): insider statistics as counts and share volumes over a
+      // named window. The fixture's five synthetic quarter rows give five windowed records in place
+      // of three (529 -> 531), a window note and longer labels; no citation or finance leaf moves.
+      fingerprint: "1.48.0:93c339f9",
+      promptBytes: 143_158,
+      provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "a8795a7e",
-      provenanceIdsHash: "38d75f2d",
+      provenanceHash: "7fe528aa",
+      provenanceIdsHash: "6a3f2661",
       citationCount: 75,
       citationHash: "423bbedf",
       computedFigureLabelHash: "dc5ba34e",

@@ -27,7 +27,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
-import { quotePriceObservationDay } from "@/providers/fmp";
+import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
@@ -1722,17 +1722,140 @@ function peersSection(bundle: DataBundle): PayloadSection {
   });
 }
 
+/**
+ * AI-117: FMP's insider statistics are calendar-quarter rows whose
+ * `totalPurchases`/`totalSales` are open-market transaction counts (Form 4
+ * codes P and S), not shares. The window is the trailing four complete
+ * calendar quarters; the quarter containing `asOf` is left out, and a gap in
+ * the served quarters ends the window.
+ */
+export interface InsiderStatisticsWindow {
+  /** Newest first, consecutive, complete. */
+  quarters: { year: number; quarter: 1 | 2 | 3 | 4 }[];
+  /** First day of the oldest quarter, last day of the newest. */
+  start: string;
+  end: string;
+  openMarketPurchases: number | null;
+  openMarketSales: number | null;
+  acquiredTransactions: number | null;
+  disposedTransactions: number | null;
+  sharesAcquired: number | null;
+  sharesDisposed: number | null;
+  /** The served quarter that contains `asOf`. */
+  inProgress: { year: number; quarter: number } | null;
+}
+
+function insiderQuarterIndex(year: number, quarter: number): number {
+  return year * 4 + (quarter - 1);
+}
+
+function insiderQuarterContaining(asOf: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(asOf);
+  if (!m) return null;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return insiderQuarterIndex(Number(m[1]), Math.ceil(month / 3));
+}
+
+function insiderStatisticRows(rows: readonly FmpInsiderTradeStatisticsRow[]): (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] {
+  const seen = new Set<number>();
+  const kept: (FmpInsiderTradeStatisticsRow & { year: number; quarter: 1 | 2 | 3 | 4 })[] = [];
+  for (const row of rows) {
+    const { year, quarter } = row;
+    if (!Number.isInteger(year) || !Number.isInteger(quarter) || quarter! < 1 || quarter! > 4) continue;
+    const index = insiderQuarterIndex(year!, quarter!);
+    if (seen.has(index)) continue;
+    seen.add(index);
+    kept.push({ ...row, year: year!, quarter: quarter as 1 | 2 | 3 | 4 });
+  }
+  return kept;
+}
+
+export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatisticsRow[], asOf: string): InsiderStatisticsWindow | null {
+  const current = insiderQuarterContaining(asOf);
+  if (current === null) return null;
+  const served = insiderStatisticRows(rows);
+  const complete = served
+    .filter((row) => insiderQuarterIndex(row.year, row.quarter) < current)
+    .sort((a, b) => insiderQuarterIndex(b.year, b.quarter) - insiderQuarterIndex(a.year, a.quarter));
+  const taken: typeof complete = [];
+  for (const row of complete) {
+    if (taken.length === 4) break;
+    const last = taken[taken.length - 1];
+    if (last && insiderQuarterIndex(last.year, last.quarter) - insiderQuarterIndex(row.year, row.quarter) !== 1) break;
+    taken.push(row);
+  }
+  const newest = taken[0];
+  const oldest = taken[taken.length - 1];
+  if (!newest || !oldest) return null;
+  const sum = (key: "totalPurchases" | "totalSales" | "acquiredTransactions" | "disposedTransactions" | "totalAcquired" | "totalDisposed"): number | null => {
+    let total = 0;
+    for (const row of taken) {
+      const v = row[key];
+      if (!isNum(v)) return null;
+      total += v;
+    }
+    return total;
+  };
+  const quarterEnd = (year: number, quarter: number) => {
+    const month = quarter * 3;
+    return `${year}-${String(month).padStart(2, "0")}-${month === 6 || month === 9 ? "30" : "31"}`;
+  };
+  const inProgress = served.find((row) => insiderQuarterIndex(row.year, row.quarter) === current);
+  return {
+    quarters: taken.map((row) => ({ year: row.year, quarter: row.quarter })),
+    start: `${oldest.year}-${String((oldest.quarter - 1) * 3 + 1).padStart(2, "0")}-01`,
+    end: quarterEnd(newest.year, newest.quarter),
+    openMarketPurchases: sum("totalPurchases"),
+    openMarketSales: sum("totalSales"),
+    acquiredTransactions: sum("acquiredTransactions"),
+    disposedTransactions: sum("disposedTransactions"),
+    sharesAcquired: sum("totalAcquired"),
+    sharesDisposed: sum("totalDisposed"),
+    inProgress: inProgress ? { year: inProgress.year, quarter: inProgress.quarter } : null,
+  };
+}
+
+const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
+
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
-  const stats = firstRow(bundle.insiderStats);
   const statsAsOf = bundle.insiderStats.ok ? bundle.insiderStats.value.asOf : null;
-  if (stats) {
+  const statRows = rowsOf(bundle.insiderStats);
+  const win = statsAsOf === null ? null : insiderStatisticsWindow(statRows, statsAsOf);
+  if (win && statsAsOf !== null) {
+    const n = win.quarters.length;
+    const words = INSIDER_WINDOW_WORDS[n] ?? String(n);
+    const w = `${words} calendar quarter${n === 1 ? "" : "s"} ended ${win.end}`;
+    const common = {
+      source: "fmp:insider-statistics",
+      asOf: statsAsOf,
+      period: win.end,
+      periodContext: { kind: "duration" as const, start: win.start, end: win.end, ...(n === 4 ? { basis: "rolling-12-month" as const } : {}) },
+    };
+    const ratio = win.acquiredTransactions !== null && win.disposedTransactions !== null && win.disposedTransactions !== 0
+      ? round(win.acquiredTransactions / win.disposedTransactions, 4)
+      : null;
     figures.push(
-      { label: "insider total purchases", value: numOrNull(stats.totalPurchases), unit: "shares", source: "fmp:insider-statistics", asOf: statsAsOf },
-      { label: "insider total sales", value: numOrNull(stats.totalSales), unit: "shares", source: "fmp:insider-statistics", asOf: statsAsOf },
-      { label: "acquired/disposed ratio", value: numOrNull(stats.acquiredDisposedRatio), unit: "x", source: "fmp:insider-statistics", asOf: statsAsOf },
+      { label: `insider open-market purchase transactions (Form 4 code P), ${w}`, value: win.openMarketPurchases, unit: "count", ...common },
+      { label: `insider open-market sale transactions (Form 4 code S), ${w}`, value: win.openMarketSales, unit: "count", ...common },
+      { label: `insider shares acquired, all reported acquisitions incl. awards, option exercises and gifts received, ${w}`, value: win.sharesAcquired, unit: "shares", ...common },
+      { label: `insider shares disposed, all reported dispositions incl. open-market sales, tax withholding and gifts, ${w}`, value: win.sharesDisposed, unit: "shares", ...common },
+      { label: `insider acquired/disposed transaction-count ratio (all acquisition and disposition codes), ${w}`, value: ratio, unit: "x", ...common },
     );
+    const list = [...win.quarters].reverse().map((q) => `${q.year} Q${q.quarter}`).join(", ");
+    notes.push(
+      `Insider statistics: FMP calendar quarters ${list} (${win.start} to ${win.end}) summed` +
+        `${win.inProgress ? `; ${win.inProgress.year} Q${win.inProgress.quarter} is in progress at ${statsAsOf} and is left out (its Form 4 rows are listed below)` : ""}. ` +
+        "Purchase and sale figures count open-market transactions (Form 4 codes P and S), not shares; the share volumes cover every reported acquisition or disposition.",
+    );
+  } else if (statsAsOf !== null) {
+    const current = insiderQuarterContaining(statsAsOf);
+    const only = current === null ? undefined : insiderStatisticRows(statRows).find((row) => insiderQuarterIndex(row.year, row.quarter) === current);
+    if (only) {
+      notes.push(`Insider statistics: FMP serves only ${only.year} Q${only.quarter}, which is in progress at ${statsAsOf}; no complete calendar quarter is summed.`);
+    }
   }
   const trades = rowsOf(bundle.insiderTrades).slice(0, PAYLOAD_BUDGETS.listRows);
   for (const tr of trades) {
