@@ -2727,6 +2727,7 @@ money, whatever noun follows it ("USD 99 billion share repurchase
 authorization", "a $45.32 share price"), and so a share count written that way
 ("$15.2 billion shares") is a unit mismatch. Other currency signs (€, £, ¥) are
 not read there (audit 2026-10-27 AI-304-V2).
+A figure the source states as a bound ("less than 1%", "over $76.7 billion") supports only a claim that states the same kind of bound. The prose quantity reader marks a comparator directly before a figure, with only whitespace or the currency between: "less than", "fewer than", "no more than", "under", "below", "up to", "at most", "a maximum of" and "not to exceed" are upper bounds; "more than", "over", "above", "at least", "in excess of", "exceed(s/ed/ing)" and "a minimum of" are lower bounds. On a filing excerpt, a claim whose bound differs from the bound of its source figure (none, upper or lower) stays unchecked, and two source figures that differ only by their bound stay ambiguous. The wording of the bound must still be in the source clause (D-63), so "more than" against a source "over" stays unchecked. A cited typed record is not changed: a bound in the claim is still read as a value there (audit 2026-10-27 AI-409).
 A period that directly follows a comparison word ("compared with $10.2 billion
 in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
 the comparison's base: it belongs to the amount between the comparison word and

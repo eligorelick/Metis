@@ -17,6 +17,8 @@ interface Quantity {
   unit: CanonicalUnit | null; currency: string | null; dollar: boolean;
   /** D-66: a scale word was printed with the figure ("496 million"). */
   scaled: boolean;
+  /** AI-409: the comparator printed directly before the figure ("less than", "over"), or null for a point figure. */
+  bound: "upper" | "lower" | null;
 }
 const SCALES: Record<string, number> = { k: 1e3, thousand: 1e3, thousands: 1e3, m: 1e6, mm: 1e6, mn: 1e6, mln: 1e6, mil: 1e6, mio: 1e6, million: 1e6, millions: 1e6,
   b: 1e9, bn: 1e9, bln: 1e9, billion: 1e9, billions: 1e9, trillion: 1e12, trillions: 1e12 };
@@ -39,6 +41,17 @@ const WINDOW_LABEL = /\b\d{1,2}M(?=\s+(?:ending|ended)\b)/g;
  * scale token is a whole word now, so the "m" of "months" no longer hides them.
  */
 const DURATION_MONTHS = /(?<![\d.,])\d+(?:[.,]\d+)*\s+months?\b/gi;
+/**
+ * AI-409: a comparator directly before the figure makes it a bound, not a point. "no more than" and
+ * "not to exceed" are tested before "more than" and "exceed", which they contain. The text before the
+ * figure is cut to a short tail first, so the trailing whitespace test stays linear.
+ */
+const UPPER_BOUND = /(?<![A-Za-z])(?:(?:less|fewer)\s+than|no\s+more\s+than|under|below|up\s+to|at\s+most|a\s+maximum\s+of|not\s+to\s+exceed)\s*$/i;
+const LOWER_BOUND = /(?<![A-Za-z])(?:more\s+than|over|above|at\s+least|in\s+excess\s+of|exceed(?:s|ed|ing)?|a\s+minimum\s+of)\s*$/i;
+function boundBefore(text: string, start: number): "upper" | "lower" | null {
+  const tail = text.slice(Math.max(0, start - 24), start);
+  return UPPER_BOUND.test(tail) ? "upper" : LOWER_BOUND.test(tail) ? "lower" : null;
+}
 /** D-66: "was negative USD 23.2 billion" states the sign in a word. */
 const SIGN_WORD = /\b(?:negative|minus)\s+$/i;
 
@@ -102,7 +115,8 @@ function quantities(text: string): Quantity[] {
     return [{ start, end, value: (/^[-−]$/.test(lead ?? "") || /^[-−]$/.test(groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
     step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
-    scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined) }];
+    scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined),
+    bound: boundBefore(masked, start) }];
   });
 }
 
@@ -1053,7 +1067,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return JSON.stringify([
         candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
         candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
-        directionOf(candidate),
+        directionOf(candidate), candidate.quantity.bound,
       ]);
     }));
     // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
@@ -1093,6 +1107,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       const sourceCurrency = resolvedCurrency(candidate.quantity, options.reportingCurrency);
       if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
       if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
+    }
+    // AI-409: a source bound ("less than 1%", "over $76.7 billion") is not the exact figure, and a bound the source does not state is not either.
+    if (quantity.bound !== candidate.quantity.bound) {
+      return support("unchecked", "text-context-mismatch", "the source states only a bound, or the prose states a bound the source does not", [candidate.span]);
     }
     if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
       1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {
