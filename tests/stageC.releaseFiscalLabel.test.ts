@@ -46,7 +46,9 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     expect(title(p, "edgar:8-K EX-99.1")).toBe(`8-K EX-99.1 - earnings release, quarter ended 2026-03-31${WITHHELD} (8-K 0000000000-26-000024; filed 2026-04-30)`);
     expect(title(p, "edgar:10-Q item2")).toContain("(10-Q 0000000000-26-000026; reporting period ended 2026-03-31; filed 2026-05-01)");
     expect(p.filings.map((e) => e.title).join("\n")).not.toContain("FY2025");
-    expect((await verdict(p, "Northern segment sales increased 16% year over year in Q1 FY2025.")).validationStatus).not.toBe("validated");   // the probe's assertion
+    const stale = await verdict(p, "Northern segment sales increased 16% year over year in Q1 FY2025.");   // the probe's assertion
+    expect(stale.validationStatus).not.toBe("validated");
+    expect(stale.reason).toBe("text-context-mismatch");
     expect((await verdict(p, "Northern segment sales increased 16% year over year.")).validationStatus).toBe("validated");                    // D-63 control
   });
 
@@ -74,5 +76,41 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     const withheld = build(tenK("2026"));
     expect(title(withheld, "edgar:8-K EX-99.1")).toContain(`quarter ended 2025-12-31${WITHHELD}`);
     expect(title(withheld, "edgar:10-K notes")).not.toContain("FY2025");
+  });
+
+  // The release is newer than (or older than) every statement row: the label is printed only as the successor quarter of the newest labelled quarterly row, 80 to 100 days on.
+  const quarters = (b: DataBundle, rows: [date: string, label: string][]): DataBundle => {
+    const target = (b.statements.incomeQuarterly as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data;
+    const base = target.rows[0]!;
+    target.rows = rows.map(([date, label]) => { const [, q, y] = /^Q([1-4]) FY(\d{4})$/.exec(label)!; return { ...base, date, fiscalYear: y, period: `Q${q}` }; });
+    return b;
+  };
+  const released = (label: string, periodEnd: string, newest: [string, string]): ContextPayload => build(quarters(withRelease(label, periodEnd, false), [newest]));
+  const releaseTitle = (p: ContextPayload) => title(p, "edgar:8-K EX-99.1");
+
+  it("prints a release label that is the successor of the newest labelled quarter, and withholds one that is not (earnings day; AMZN #43 shape)", async () => {
+    const ok = released("Q2 FY2026", "2026-06-30", ["2026-03-31", "Q1 FY2026"]);
+    expect(releaseTitle(ok)).toContain("Q2 FY2026, quarter ended 2026-06-30");
+    const wrong = released("Q1 FY2025", "2026-03-31", ["2025-12-31", "Q4 FY2025"]);   // newest row Q4 FY2025; the release names the quarter after it Q1 FY2025
+    expect(releaseTitle(wrong)).toBe(`8-K EX-99.1 - earnings release, quarter ended 2026-03-31${WITHHELD} (8-K 0000000000-26-000024; filed 2026-04-30)`);
+    expect(wrong.filings.map((e) => e.title).join("\n")).not.toContain("FY2025");
+    expect((await verdict(wrong, "Northern segment sales increased 16% year over year in Q1 FY2025.")).validationStatus).not.toBe("validated");
+    expect((await verdict(wrong, "Northern segment sales increased 16% year over year.")).validationStatus).toBe("validated");   // D-63 control
+  });
+
+  it("rolls the fiscal year over from a fourth quarter to the next first quarter", () => {
+    expect(releaseTitle(released("Q1 FY2026", "2026-03-31", ["2025-12-31", "Q4 FY2025"]))).toContain("Q1 FY2026, quarter ended 2026-03-31");
+    expect(releaseTitle(released("Q1 FY2025", "2026-03-31", ["2025-12-31", "Q4 FY2025"]))).toContain(WITHHELD);   // the same shape, the year not rolled
+  });
+
+  it("withholds a release more than 100 days after the newest labelled row, or older than it with no row within three days", () => {
+    expect(releaseTitle(released("Q2 FY2026", "2026-07-15", ["2026-03-31", "Q1 FY2026"]))).toContain(WITHHELD);   // 106 days
+    expect(releaseTitle(released("Q2 FY2026", "2026-06-10", ["2026-03-31", "Q1 FY2026"]))).toContain(WITHHELD);   // 71 days
+    expect(releaseTitle(released("Q1 FY2025", "2025-03-31", ["2026-03-31", "Q1 FY2026"]))).toContain(WITHHELD);   // older than the newest row
+  });
+
+  it("keeps the label when no statement row carries a fiscal label (the stated limit: nothing contradicts it)", () => {
+    // Without a labelled row the run cannot say the release is wrong, so it is printed, as at the base.
+    expect(releaseTitle(build(withRelease("Q2 FY2026", "2026-06-30", false)))).toContain("Q2 FY2026, quarter ended 2026-06-30");
   });
 });
