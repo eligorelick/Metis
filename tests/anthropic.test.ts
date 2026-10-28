@@ -2539,3 +2539,88 @@ describe("a stream that dies after message_start", () => {
     expect(settled[0].costUsd).toBeCloseTo(requestReservationUsd(bull), 6); // $52.64
   });
 });
+
+describe("a caller abort after the final message_delta (final review I1)", () => {
+  afterEach(() => {
+    _setTransportRetrySleepForTests();
+  });
+
+  const MODEL = "claude-opus-5-5";
+  const opts55 = {
+    model: MODEL,
+    system: "system",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxTokens: 32_000,
+    effort: "high" as const,
+    field: "llm.bull",
+    reservationPass: "bull" as const,
+  };
+  const START = { input_tokens: 5_000, cache_creation_input_tokens: 40_000, output_tokens: 1 };
+  const finalDelta = {
+    type: "message_delta",
+    delta: { stop_reason: "end_turn", stop_sequence: null },
+    usage: { output_tokens: 3_000 },
+  };
+
+  function recording() {
+    const settled: RequestSettlement[] = [];
+    let n = 0;
+    const admission = {
+      reserve: async (request: { maximumUsd: number }) => ({ id: `permit-${++n}`, maximumUsd: request.maximumUsd }),
+      settle: async (_permit: unknown, settlement: RequestSettlement) => {
+        settled.push(settlement);
+      },
+      release: async () => {
+        throw new Error("a request that answered must not be released");
+      },
+    };
+    return { admission, settled };
+  }
+
+  it.each([
+    ["without web search", false],
+    ["with web search on", true],
+  ])("settles the reported usage as actual and says so in the pass result (%s)", async (_label, withSearch) => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const { client } = fakeStreamingClient([
+      { events: [messageStartEvent(START, MODEL), finalDelta], failWith: new APIUserAbortError() },
+    ]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({
+      ...opts55,
+      ...(withSearch ? { tools: [webSearchTool(8, MODEL)] } : {}),
+      admission,
+    });
+
+    expect(settled).toHaveLength(1);
+    expect(settled[0].presumed).toBeUndefined();
+    expect(settled[0].usage?.output_tokens).toBe(3_000);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.aborted).toBe(true);
+    expect(result.error.presumed).toBeFalsy();
+    expect(result.error.costUsd).toBeCloseTo(settled[0].costUsd, 9);
+    expect(result.error.message).not.toMatch(/presumed/i);
+    expect(result.gap.reason).not.toMatch(/presumed/i);
+  });
+
+  it("control: an abort before the final delta stays presumed, with the remainder", async () => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const { client } = fakeStreamingClient([
+      { events: [messageStartEvent(START, MODEL)], failWith: new APIUserAbortError() },
+    ]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...opts55, admission });
+
+    expect(settled[0].presumed).toBe(true);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.aborted).toBe(true);
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.message).toMatch(/presumed 127,999 remaining output tokens/);
+  });
+});

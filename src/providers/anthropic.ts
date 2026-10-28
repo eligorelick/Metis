@@ -2562,6 +2562,10 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           // plus the presumed remainder, or the request maximum when no usage
           // had arrived, flagged presumed (DECISIONS D-09, D-10).
           signalFirst("abort");
+          // An abort after the final message_delta settled the reported usage
+          // as actual (classifier rule 2): the result states the charge, not a
+          // remainder nobody presumed.
+          if (!charge.presumed) return transportFailureResult(opts, cause, completed, attempt, failed);
           return presumedRemainderResult(
             opts,
             completed,
