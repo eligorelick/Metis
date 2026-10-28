@@ -48,6 +48,11 @@ function quantities(text: string): Quantity[] {
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
     let start = match.index + match[0].search(/\S/);
+    // A dash after a figure and one space ("$1.0 -$1.2 billion", "2024 -$5
+    // million") joins two amounts; it is no sign. Read on the original text,
+    // because the masked copy blanks a year or a date.
+    const lead = groups.lead !== undefined && /\d\s$/.test(text.slice(Math.max(0, start - 2), start)) ? undefined : groups.lead;
+    if (lead === undefined && groups.lead !== undefined) start += 1;
     let end = match.index + match[0].trimEnd().length;
     // The "100" (and the "0") of a score's own scale were read already.
     if (scaled.some((range) => start >= range.start && start < range.end)) return [];
@@ -65,7 +70,7 @@ function quantities(text: string): Quantity[] {
       }
     }
     const signWord = SIGN_WORD.exec(masked.slice(Math.max(0, start - 12), start));
-    if (signWord !== null && !groups.sign && !groups.lead) start -= signWord[0].length;
+    if (signWord !== null && !groups.sign && !lead) start -= signWord[0].length;
     const scale = SCALES[(groups.scale ?? (groups.prefix ? declaredMoneyScale : undefined) ?? "").toLowerCase()] ?? 1;
     const token = (groups.unit ?? "").toLowerCase();
     const prefix = (groups.prefix ?? "").trim();
@@ -88,7 +93,7 @@ function quantities(text: string): Quantity[] {
     // Accounting parentheses enclose the complete amount (including currency
     // and unit); they are part of its sign, not disposable prose punctuation.
     const accountingNegative = /\(\s*$/.test(masked.slice(0, start)) && /^\s*\)/.test(masked.slice(end));
-    return [{ start, end, value: (/^[-−]$/.test(groups.lead ?? groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
+    return [{ start, end, value: (/^[-−]$/.test(lead ?? "") || /^[-−]$/.test(groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
     step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
     scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined) }];

@@ -14,7 +14,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runConsistencyChecks, parseNumbers, proseNumbers } from "@/pipeline/stageC/consistency";
-import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
+import { readProseQuantities, validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
@@ -66,6 +66,12 @@ describe.each(Object.entries(PADS))("number scanners on %s padding (SEC-203)", (
       const { ms } = timed(() => parseNumbers(`${lead}${pad}x`));
       expect(ms).toBeLessThan(250);
     }
+  });
+
+  it("a figure, a long run and a dash before a currency stays fast", () => {
+    const { value, ms } = timed(() => readProseQuantities(`${pad.repeat(2)}1 -$5`));
+    expect(value.map((quantity) => quantity.value)).toEqual([1, 5]);
+    expect(ms).toBeLessThan(250);
   });
 
   it("runConsistencyChecks still checks the unit in under 250 ms", () => {

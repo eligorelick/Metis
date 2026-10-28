@@ -131,11 +131,9 @@ describe("AI-202 leading sign", () => {
   const L = "Net debt excluding operating leases as of 2026-07-26 was";
   const written = ["-$23.220 billion.", "\u2212$23.220 billion.", "-USD 23.220 billion.", "\u2212USD 23.220 billion."];
 
-  it("reads a minus written directly before the currency as a negative amount", () => {
-    for (const amount of written) {
-      expect(check(`${L} ${amount}`, netDebt(-23_220e6))).toBe("validated");
-      expect(check(`${L} ${amount}`, netDebt(23_220e6))).toBe("contradicted");
-    }
+  it.each(written)("reads %s as a negative amount", (amount) => {
+    expect(check(`${L} ${amount}`, netDebt(-23_220e6))).toBe("validated");
+    expect(check(`${L} ${amount}`, netDebt(23_220e6))).toBe("contradicted");
   });
 
   it("keeps the other spellings of a negative amount", () => {
@@ -150,5 +148,16 @@ describe("AI-202 leading sign", () => {
     expect(values("Guidance is $1.0 - $1.2 billion.")).toEqual([1, 1.2e9]);
     expect(values("FY2025-$5 million")).toEqual([5e6]);
     expect(values("a 3-$4 range")).toEqual([3, 4]);
+    // A dash after a figure and one space is no sign either (review of AI-202).
+    expect(values("$1.0 -$1.2 billion")).toEqual([1, 1.2e9]);
+    expect(values("2024 -$5 million")).toEqual([5e6]);
+  });
+
+  it("reads a minus before a currency after a word, a parenthesis or a sign", () => {
+    const values = (text: string) => readProseQuantities(text).map((quantity) => quantity.value);
+    expect(values("+$-5")).toEqual([-5]);
+    expect(values("-$-5")).toEqual([-5]);
+    expect(values("Net debt -$23.2 B")).toEqual([-23.2e9]);
+    expect(values("(-$5 million)")).toEqual([-5e6]);
   });
 });
