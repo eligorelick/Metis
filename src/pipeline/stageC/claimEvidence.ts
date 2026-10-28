@@ -257,10 +257,26 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
   };
   return { periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase) };
 }
-/** AI-404 / C-3: a claim that states one figure is read for its periods and bases as a whole; several figures keep per-clause reading. */
+// OD-3: management's expectation, outlook or guidance is not a reported result (accounting-standard "guidance" is not matched).
+const FORWARD_LOOKING = /\b(?:(?:is|are|was|were|be|been|being|remains?|remained)\s+(?:now\s+|currently\s+|still\s+|also\s+)?(?:expected|projected|forecast(?:ed)?|anticipated|estimated|guided)\s+to|expects?|expecting|anticipates?|anticipating|forecasts?|outlook|guidance\s+(?:for|of|range|calls?\s+for|is|was|issued)|(?:our|its|management['’]s|the\s+company['’]s)\s+(?:[a-z-]+\s+){0,3}guidance)\b/i;
+/**
+ * AI-404 / C-3: a claim that states one figure is read for its periods and bases as a whole; several figures keep per-clause reading.
+ * A period named only in a forward-looking clause or sentence is not lent to a figure whose own clause is not forward-looking
+ * ("Revenue was USD 108.0 billion; NVIDIA expects strength in Q3 FY2027.").
+ */
 function claimContext(text: string, quantity: Quantity, all: Quantity[]): Context {
   const own = context(text, quantity, all);
-  return all.length === 1 ? { ...own, ...framePeriods(text, { start: 0, end: text.length }, quantity, all, true) } : own;
+  if (all.length !== 1) return own;
+  const whole = framePeriods(text, { start: 0, end: text.length }, quantity, all, true);
+  if (FORWARD_LOOKING.test(own.text)) return { ...own, ...whole };
+  const forward: [number, number][] = [];
+  let from = 0;
+  for (const boundary of [...text.matchAll(HARD_BOUNDARY), { index: text.length, 0: "" }]) {
+    if (FORWARD_LOOKING.test(text.slice(from, boundary.index))) forward.push([from, boundary.index]);
+    from = boundary.index + boundary[0].length;
+  }
+  const lent = (period: PeriodReference): boolean => !forward.some(([a, b]) => period.start >= a && period.start < b);
+  return { ...own, periods: whole.periods.filter(lent), bases: whole.bases.filter(lent) };
 }
 function context(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
   let start = 0;

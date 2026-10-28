@@ -558,3 +558,40 @@ describe("AI-404 periods named outside the figure's clause", () => {
     expect(entry.sourceSpans).toHaveLength(2);
   });
 });
+
+// AI-404 fix round 1: a forward-looking clause lends its period to no past figure.
+const GUIDE: TextExcerpt = { source: "edgar:8-K EX-99.2", asOf: "2026-08-26",
+  title: "8-K EX-99.2 — CFO commentary, Q2 FY2027, quarter ended 2026-07-26 (8-K; filed 2026-08-26)",
+  text: "Revenue is expected to be $108.0 billion in the third quarter of fiscal 2027.", truncated: false, originalChars: 76 };
+describe("AI-404 fix round 1: forward-looking clauses and the whole-claim period", () => {
+  it("a guided figure stated as a past result is not dated by a forward-looking clause", async () => {
+    expect((await citeExcerpt(GUIDE, "Revenue was USD 108.0 billion; NVIDIA expects strength in Q3 FY2027.")).entry.validationStatus).not.toBe("validated");
+    expect((await citeExcerpt(GUIDE, "Revenue was USD 108.0 billion.")).entry).toMatchObject({ validationStatus: "unchecked", reason: "text-context-mismatch" });
+  });
+  it("record path: the citation check does not lend a forward-looking clause's period (the sentence-level period check still demotes it)", async () => {
+    const fwd = await cite([Q_REV], Q_REV.id, "Revenue was USD 96.22 billion; NVIDIA expects strength in Q3 FY2027.");
+    // Not period-mismatch from the citation check; fail-closed, never validated: consistency.ts reads the whole sentence's years.
+    expect(fwd.entry).toMatchObject({ validationStatus: "unchecked", reason: "period-word-mismatch" });
+  });
+  it("control: a non-forward clause still lends its period (excerpt and record path)", async () => {
+    expect((await citeExcerpt(COMMENTARY, "Inventory was USD 31.6 billion; that was Q2 FY2027.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(COMMENTARY, "Inventory was USD 31.6 billion; that was Q1 FY2027.")).entry.validationStatus).not.toBe("validated");
+    expect((await cite([Q_REV, Q1_REV], Q_REV.id, "Revenue was USD 96.22 billion; NVIDIA expects strength in Q3 FY2027. That was the quarter ended 2026-04-26.")).entry.validationStatus)
+      .toBe("unchecked");
+  });
+  it("control (pinned): a forward-looking claim's own period is still read", async () => {
+    const guided = await citeExcerpt(GUIDE, "Revenue for Q3 FY2027 is expected to be USD 108.0 billion.");
+    const wrong = await citeExcerpt(GUIDE, "Revenue for Q2 FY2027 is expected to be USD 108.0 billion.");
+    expect(guided.entry.validationStatus).toBe("validated");
+    expect(wrong.entry.validationStatus).not.toBe("validated");
+  });
+  it("pinned (C-3): a period named in a neighbouring non-forward clause is read as the figure's period, so the claim validates only when the figure matches the source for that period", async () => {
+    // "the firm reorganized in 2025" names 2025 and the source dates 43% to 2025: validated by design; against 2026 it is not.
+    expect((await citeExcerpt(TWO, "Gross margin was 43%; the firm reorganized in 2025.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(TWO, "Gross margin was 43%; the firm reorganized in 2026.")).entry.validationStatus).not.toBe("validated");
+  });
+  it("M1: a figure's digits are not read as a year in a source clause", async () => {
+    const SRC: TextExcerpt = { source: "edgar:10-Q item2", asOf: "2026-06-30", title: "Quarterly review", text: "Inventory was $2,026 million.", truncated: false, originalChars: 29 };
+    expect((await citeExcerpt(SRC, "Inventory was USD 2,026 million.")).entry.validationStatus).toBe("validated");
+  });
+});

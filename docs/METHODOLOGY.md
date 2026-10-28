@@ -2705,13 +2705,17 @@ periods are not read), and a base that does not match leave the claim
 unverified, never validated. Guidance,
 target, estimate, outlook, forecast and consensus phrases are not comparison
 bases and keep the claim's own period.
-A claim that states one figure is read for its periods as a whole, whichever
-clause or sentence names them; a claim with several figures is read clause by
-clause.
 The period-word check compares years only; it does not adjudicate fiscal
 quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
+A claim that states one figure is read for its periods as a whole: a period
+named anywhere in it, whichever clause or sentence names it, is read as the
+figure's period, except one named only in a forward-looking clause ("NVIDIA
+expects strength in Q3 FY2027"), which is not lent to a figure whose own clause
+is not forward-looking. The claim is therefore validated only when the figure
+matches the source for that period. A claim with several figures is read clause
+by clause.
 
 "Contradicted" means a value conflict only: a stated amount outside its cited
 figure's rounding interval, or a direction word against the sign of its cited
