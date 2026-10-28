@@ -227,3 +227,31 @@ describe("AI-303-V3 fiscal year-end", () => {
     expect(windowsNamed("at the latest quarter end")).toEqual([]);
   });
 });
+
+// AI-303-V3 fix round 1: a source clause or an annual excerpt's own date can state the year-end.
+describe("AI-303-V3 fiscal year-end on a filing excerpt", () => {
+  const K_DATE: TextExcerpt = { ...ANNUAL_NOTE, text: "As of January 25, 2026, total debt was $10.0 billion." };
+  const K_TABLE: TextExcerpt = { ...ANNUAL_NOTE, text: "Liquidity Jan 25, 2026 Jan 26, 2025 (In millions) Total debt $ 10,000 $ 8,500 " };
+  const Q_YE: TextExcerpt = { ...QUARTER_NOTE, text: "Total debt at fiscal year-end was $10.0 billion." };
+  const Q_DATE: TextExcerpt = { ...QUARTER_NOTE, text: "As of July 26, 2026, total debt was $10.0 billion." };
+  const V = async (excerpt: TextExcerpt, text: string) => (await citeExcerpt(excerpt, text)).entry.validationStatus;
+  it("a year-end claim naming the 10-K's own reporting date validates; another date does not", async () => {
+    expect(await V(K_DATE, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).toBe("validated");
+    expect(await V(K_DATE, "Total debt at fiscal year-end (2025-01-26) was USD 10.0 billion.")).not.toBe("validated");
+    expect(await V(K_DATE, "Total debt as of 2026-01-25 was USD 10.0 billion.")).toBe("validated");
+    expect(await V(K_TABLE, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).toBe("validated");
+    expect(await V(K_TABLE, "Total debt at fiscal year-end (2025-01-26) was USD 8.5 billion.")).not.toBe("validated");
+  });
+  it("a clause that states the year-end itself establishes it, in a 10-Q too", async () => {
+    expect(await V(Q_YE, "Total debt at fiscal year-end was USD 10.0 billion.")).toBe("validated");
+    expect(await V(Q_YE, "Total debt at the end of the fiscal year was USD 10.0 billion.")).toBe("validated");
+  });
+  it("controls: a quarter-end or undated-year-end source never validates a year-end claim", async () => {
+    expect(await V(Q_DATE, "Total debt at fiscal year-end was USD 10.0 billion.")).not.toBe("validated");
+    expect(await V(Q_DATE, "Total debt at fiscal year-end (2026-07-26) was USD 10.0 billion.")).not.toBe("validated");
+    // the 10-Q clause names the year-end but not its date: the claim's date is not stated by any source
+    expect(await V(Q_YE, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).not.toBe("validated");
+    expect(await V(Q_YE, "Total debt was USD 10.0 billion.")).not.toBe("validated");
+    expect(await V({ ...QUARTER_NOTE, text: "As of January 25, 2026, total debt was $10.0 billion." }, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).not.toBe("validated");
+  });
+});

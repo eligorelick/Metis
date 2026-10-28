@@ -108,6 +108,8 @@ interface SourceBinding {
   inherited: PeriodReference[];
   /** AI-303 / C-6: the windows the excerpt's title states; a clause naming no period is read under them. Empty for table cells. */
   inheritedWindows: ReadonlySet<string>;
+  /** AI-303-V3: the excerpt's title carries an FY or Q4 label, so a figure dated to its reporting date (the excerpt's asOf) is a fiscal year-end figure. */
+  yearEnd: boolean;
   /**
    * D-63: a source clause is ambiguous for this figure only when another
    * figure of its unit could be part of the same list (no metric words of its
@@ -121,7 +123,7 @@ interface SourceBinding {
    * D-66: a table cell's header scale ("(In millions)") and the excerpt's
    * fiscal labels for its column. Absent for prose figures.
    */
-  column?: { scale: number | null; aliases: string[] };
+  column?: { scale: number | null; aliases: string[]; date: string };
   /** An explicit total, or per-share, cash-dividend restatement in one clause. */
   unitPair?: { totalStart: number; perShareStart: number };
 }
@@ -153,7 +155,7 @@ const NOT_A_WINDOW_AFTER = /^[\s‐‑–—-]*(?:ago|earlier|later|before|end|e
 const NAMED_PERIOD_AFTER = /^[\s‐‑–—-]*(?:(?:19|20)\d{2}|FY\s*\d{4}|Q[1-4])\b/i;
 // "year ended" does not match (`end` needs a word end); "quarter end" stays a descriptor.
 const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b|\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?(?:fiscal\s+)?year\b/gi;
-function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodReference[] {
+function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
   const take = (pattern: RegExp, read: (match: RegExpMatchArray) => Omit<PeriodReference, "raw">): void => {
@@ -169,7 +171,8 @@ function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodRe
   };
   // AI-303-V3: the fiscal year-end is an instant, read before the window words so
   // "the end of the fiscal year" is not an annual window. A claim's reading only.
-  if (options.loose) take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
+  // A source clause that states the year-end itself names it too ({ yearEnd: true }).
+  if (options.loose || options.yearEnd) take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
   take(/\b(?:year[\s‐‑–—-]+to[\s‐‑–—-]+date|ytd)\b/gi, () => ({ kind: "window", key: "YTD", label: "YTD" }));
   take(/\b(?:quarter[\s‐‑–—-]+to[\s‐‑–—-]+date|qtd)\b/gi, () => ({ kind: "window", key: "QTD", label: "QTD" }));
   take(/\b(?:month[\s‐‑–—-]+to[\s‐‑–—-]+date|mtd)\b/gi, () => ({ kind: "window", key: "MTD", label: "MTD" }));
@@ -248,7 +251,7 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
-  return { start, end, text: ownText, label, periods: periodLabels(ownText, { loose: !source }),
+  return { start, end, text: ownText, label, periods: periodLabels(ownText, { loose: !source, yearEnd: source }),
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -647,6 +650,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   const bodies = excerpt.spans ?? [{ start: 0, end: excerpt.text.length, text: excerpt.text.split("…[TRUNCATED")[0] }];
   const inherited = excerptPeriods(excerpt);
   const inheritedWindows = excerptWindows(excerpt);
+  const yearEnd = inheritedWindows.has("FYE");
   return bodies.flatMap((body) => {
     // D-66: a footnote marker after a row label ("Unrealized gains (1) 4,900")
     // is not the row's first figure.
@@ -683,7 +687,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
         const cell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
-        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases },
+        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases, date: column.period.key },
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
@@ -700,7 +704,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           const lead = body.text.slice(Math.max(own.start, before ? before.end : own.start), other.start);
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
-      return { quantity, context: own, inherited, inheritedWindows, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      return { quantity, context: own, inherited, inheritedWindows, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -844,18 +848,27 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // D-66: a table cell is named by its column's date (with the window its
     // header states, when it states one) or by the excerpt's fiscal label for
     // that column; it is never read under the excerpt's period alone.
+    // AI-303-V3: a fiscal year-end claim naming the date of an FY or Q4 excerpt's own reporting date
+    // (its asOf) has its year-end read from the excerpt's title; any other date needs the clause to say so.
+    const withoutTitleYearEnd = (candidate: SourceBinding, date: string | undefined): PeriodReference[] =>
+      candidate.yearEnd && date !== undefined && date === candidate.span.asOf ? own.periods.filter((period) => period.key !== "FYE") : own.periods;
     const columnMatches = (candidate: SourceBinding, column: NonNullable<SourceBinding["column"]>): boolean => {
       const keys = new Set(candidate.context.periods.map((period) => period.key));
-      if (own.periods.length === 0 || !own.periods.every((period) => keys.has(period.key) || column.aliases.includes(period.key))) return false;
+      const ownPeriods = withoutTitleYearEnd(candidate, column.date);
+      if (ownPeriods.length === 0 || !ownPeriods.every((period) => keys.has(period.key) || column.aliases.includes(period.key))) return false;
       // A date alone names the column; when the header repeats the date
       // under another window, both columns match and the reading stays ambiguous.
-      return own.periods.some((period) => column.aliases.includes(period.key) || (period.kind === "date" && keys.has(period.key)));
+      return ownPeriods.some((period) => column.aliases.includes(period.key) || (period.kind === "date" && keys.has(period.key)));
+    };
+    const clauseMatches = (candidate: SourceBinding): boolean => {
+      const ownPeriods = withoutTitleYearEnd(candidate, candidate.context.periods.find((period) => period.kind === "date")?.key);
+      return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
+        candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
     };
     let matchingPeriods = candidates.filter((candidate) => candidate.column !== undefined
       ? columnMatches(candidate, candidate.column)
       : candidate.context.periods.length > 0
-        ? own.periods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
-          candidate.context.periods.every((period) => own.periods.some((stated) => stated.key === period.key))
+        ? clauseMatches(candidate)
         : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
           : candidate.inherited.some((source) => source.key === period.key)));
     if (matchingPeriods.length === 0) {
