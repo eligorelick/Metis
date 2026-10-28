@@ -2696,8 +2696,10 @@ billion"), or one followed by a space ("$1.0 - $1.2 billion"), is not read as
 that sign (audit 2026-10-27 AI-202).
 Scale words, units and currency codes are read only as whole words (the M of
 "Marketable" is not millions, the AUD in "fraud" is not a currency, a
-hyphenated compound such as "Share-based" is not a unit, and "percentage-point"
-is a unit, and so is "basis-point"); "N months" (any whole or decimal N) is a
+hyphenated compound such as "Share-based" is not a unit, except that
+"percentage point", "percentage-point", "basis point" and "basis-point" are
+units, and the ratio "x" is the one unit a hyphenated word may follow: "10x-ish"
+reads 10x); "N months" (any whole or decimal N) is a
 period phrase, not a quantity. The scale abbreviations read are k, m, mm, mn,
 mln, mil, mio, b, bn and bln, besides the spelled-out words (audit 2026-10-27
 AI-304).
