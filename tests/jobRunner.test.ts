@@ -9525,6 +9525,34 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(steps.get("bear")?.detail).toBe("model claude-opus-4-8, $0.4700");
   });
 
+  it("does not call a reconciled presumed row presumed in a step's detail", async () => {
+    // A reconciled row keeps settlementKind "presumed" but holds its measured
+    // cost; the step still sums it, and the detail must not claim it is presumed.
+    const { jobId } = createJob("AAPL");
+    handle.db.insert(costLog).values({
+      jobId,
+      runGeneration: 0,
+      attemptId: null,
+      presumedAttemptId: "dead-attempt",
+      settlementKind: "presumed",
+      step: "bull",
+      model: "claude-opus-4-8",
+      costUsd: 2.1,
+      reconciledAt: NOW().toISOString(),
+      createdAt: NOW().toISOString(),
+    }).run();
+    const { passes } = mockPasses({ bullCostUsd: 0.4 });
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const bullStep = (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.stepsJson ?? "[]") as StepProgress[])
+      .find((step) => step.step === "bull")!;
+    expect(bullStep.costUsd).toBeCloseTo(2.5, 6);
+    expect(detailCost(bullStep.detail)).toBeCloseTo(2.5, 4);
+    expect(bullStep.detail).not.toContain("presumed");
+  });
+
   it("marks the discarded attempt in the cost breakdown and says so in the manifest", async () => {
     // A repaired pass bills twice for one result. Before this the report showed
     // two `bear` rows with nothing to say which of them bought anything — the

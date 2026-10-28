@@ -1709,7 +1709,8 @@ export function releaseUnbilledPaidPassLease(
 /**
  * What a step has cost in a job: every cost row of the step (presumed ones
  * included, which are counted as spent until reconciled), the part of that sum
- * that is presumed, and the number of settled attempts. The run-panel step row
+ * that is still presumed (a reconciled row was lowered to its measured cost, so
+ * it counts in the sum but is no longer presumed), and the number of settled attempts. The run-panel step row
  * and its detail both read this, so the detail never states less than the cost.
  */
 export function stepSettledTotals(
@@ -1717,7 +1718,7 @@ export function stepSettledTotals(
   pass: DurablePass,
   db: ThesisDb = getDb(),
 ): { costUsd: number; attempts: number; presumedUsd: number } {
-  const rows = db.select({ costUsd: costLog.costUsd, settlementKind: costLog.settlementKind }).from(costLog)
+  const rows = db.select({ costUsd: costLog.costUsd, settlementKind: costLog.settlementKind, reconciledAt: costLog.reconciledAt }).from(costLog)
     .where(and(eq(costLog.jobId, jobId), eq(costLog.step, pass))).all();
   // Counted like the cost: every settled attempt of this step in this job.
   const attempts = db.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
@@ -1725,7 +1726,7 @@ export function stepSettledTotals(
   return {
     costUsd: rows.reduce((total, row) => total + row.costUsd, 0),
     attempts,
-    presumedUsd: rows.filter((row) => row.settlementKind === "presumed").reduce((total, row) => total + row.costUsd, 0),
+    presumedUsd: rows.filter((row) => row.settlementKind === "presumed" && row.reconciledAt === null).reduce((total, row) => total + row.costUsd, 0),
   };
 }
 
