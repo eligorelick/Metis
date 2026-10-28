@@ -654,6 +654,19 @@ interface RunState {
   schedulerLimits: SchedulerLimits;
   steps: StepProgress[];
   totalCostUsd: number;
+  /**
+   * AI-112: judge attempts whose output was paid for and then rejected at
+   * report assembly. They settled as successes, so no failure artifact marks
+   * them; the runner records them here for the cost breakdown. Lives in this
+   * process only: a durable verify recovery after a crash does not see it.
+   */
+  assemblyRejected: AssemblyRejectedAttempt[];
+}
+
+interface AssemblyRejectedAttempt {
+  pass: "synthesize";
+  attemptId: string;
+  reason: string;
 }
 
 type JobEventPayload = JobEvent extends infer Event
@@ -2819,6 +2832,7 @@ export async function runJob<TPayload = unknown>(
     // degraded report must still carry the job's true all-in cost. A fresh
     // job's cost_log is empty, so this is a no-op there.
     totalCostUsd: sumLoggedCost(jobId),
+    assemblyRejected: [],
   };
   const jobController = new AbortController();
   const jobSignal = jobController.signal;
@@ -3291,6 +3305,9 @@ export async function runJob<TPayload = unknown>(
       let timeLimitCutoffs = 0;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
+      // AI-112: the issue key of the previous attempt's assembly failure. The same
+      // failure twice means the judge cannot repair it, so it is not bought again.
+      let previousAssemblyIssueKey: string | null = null;
       let judgeProviderAttempted = false;
       let pendingReusableJudge = reusableJudge;
 
@@ -3603,8 +3620,20 @@ export async function runJob<TPayload = unknown>(
           } catch {
             lastFailedRawOutput = "";
           }
-          lastJudgeFailureRetryable = !reusedArtifact;
-          const retrying = !reusedArtifact && attempt < maxJudgeRetries;
+          const issueKey = assemblyIssueKey(err);
+          lastJudgeFailureRetryable = !reusedArtifact && issueKey !== previousAssemblyIssueKey;
+          previousAssemblyIssueKey = issueKey;
+          // A reused artifact was not bought in this run; a fresh one was, and its
+          // output is now thrown away.
+          const rejectedAttemptId = passAttemptIds.get("synthesize");
+          if (!reusedArtifact && rejectedAttemptId !== undefined) {
+            state.assemblyRejected.push({
+              pass: "synthesize",
+              attemptId: rejectedAttemptId,
+              reason: readerSafeFailureText({ kind: "assembly" }),
+            });
+          }
+          const retrying = lastJudgeFailureRetryable && attempt < maxJudgeRetries;
           const detail = `report assembly attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying judge" : ""}: ${withPlainIssueList(lastValidationDetail)}`;
           updateRunningStepDetail(state, "synthesize", detail);
           updateRunningStepDetail(state, "verify", detail);
@@ -4718,6 +4747,8 @@ const DISCARDED_REASON_BY_KIND: Readonly<Record<string, string>> = {
   // D-116: the default restated the failure ("did not produce usable output
   // because the attempt did not produce a usable result").
   transport: "the provider request failed before a usable response arrived",
+  // AI-112: a judge output that parsed but could not be assembled into a report.
+  assembly: "the report could not be assembled from its output",
 };
 const DISCARDED_REASON_DEFAULT = "the attempt did not produce a usable result";
 
@@ -4739,10 +4770,10 @@ function readerSafeFailureText(failure: { kind?: string }): string {
  * this had before. Losing the marking is a smaller harm than failing to
  * assemble the report over it.
  */
-function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
+function readDiscardedAttempts(jobId: string, assemblyRejected: readonly AssemblyRejectedAttempt[] = []): DiscardedAttempt[] {
   try {
     const lineage = readJobPassArtifactLineage(jobId);
-    return lineage.flatMap((artifact) => {
+    const rejected = lineage.flatMap((artifact): DiscardedAttempt[] => {
       if (artifact.envelope.outcome !== "failure") return [];
       return [{
         pass: artifact.pass,
@@ -4753,6 +4784,20 @@ function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
         kept: keptSectionsOf(artifact, lineage),
       }];
     });
+    // AI-112: a success artifact the report could not be assembled from.
+    const assembly = assemblyRejected.flatMap((entry): DiscardedAttempt[] => {
+      const artifact = lineage.find((candidate) => candidate.attemptId === entry.attemptId && candidate.envelope.outcome === "success");
+      if (artifact === undefined) return [];
+      return [{
+        pass: entry.pass,
+        attemptId: entry.attemptId,
+        reason: entry.reason,
+        model: artifact.telemetry.model,
+        billable: artifact.telemetry.billable,
+        kept: [],
+      }];
+    });
+    return [...rejected, ...assembly];
   } catch {
     return [];
   }
@@ -4780,7 +4825,7 @@ function keptSectionsOf(artifact: CurrentGenerationPassArtifact, lineage: readon
 }
 
 function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
-  const discarded = readDiscardedAttempts(state.jobId);
+  const discarded = readDiscardedAttempts(state.jobId, state.assemblyRejected);
   const entries: CostBreakdownEntry[] = readCostLedger(state.jobId).map((row) => {
     const match = discarded.find((attempt) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId));
     return {
@@ -4816,7 +4861,7 @@ function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreak
  * it cost, and that the figure beside it was paid twice for one result.
  */
 function discardedAttemptGaps(state: RunState): ManifestEntry[] {
-  const discarded = readDiscardedAttempts(state.jobId);
+  const discarded = readDiscardedAttempts(state.jobId, state.assemblyRejected);
   if (discarded.length === 0) return [];
   const ledger = readCostLedger(state.jobId);
   return discarded.map((attempt) => {
@@ -5461,6 +5506,28 @@ function passDetail(pass: PassResultLike<unknown>, attempts = 1): string {
   const parts = [`model ${pass.model}`, `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}`];
   if (pass.fallbackUsed) parts.push("fallback served");
   return parts.join(", ");
+}
+
+/**
+ * Stable key of a report-assembly failure: the sorted issue paths and codes of
+ * a ReportValidationError (its `zodError` is the JSON issue list), else its
+ * message. Two attempts with the same key failed the same way.
+ */
+function assemblyIssueKey(err: unknown): string {
+  const zodError = err !== null && typeof err === "object" ? (err as { zodError?: unknown }).zodError : undefined;
+  if (typeof zodError === "string") {
+    try {
+      const issues: unknown = JSON.parse(zodError);
+      if (Array.isArray(issues)) {
+        return issues
+          .map((issue: { path?: unknown; code?: unknown }) =>
+            `${Array.isArray(issue.path) ? issue.path.join(".") : ""}:${String(issue.code)}`)
+          .sort()
+          .join("|");
+      }
+    } catch { /* not a JSON issue list: fall through to the message */ }
+  }
+  return errMessage(err);
 }
 
 function errMessage(err: unknown): string {

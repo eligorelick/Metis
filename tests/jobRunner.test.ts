@@ -7735,6 +7735,89 @@ describe("runJob — judge retry on schema-validation failure", () => {
     expect(byStep.get("verify")?.status).toBe("error");
   });
 
+  describe("AI-112: a judge attempt rejected at report assembly", () => {
+    const noVerifiedReport = async () => ({
+      verifiedReport: undefined as unknown as Report,
+      verificationRate: 1,
+      costUsd: 0,
+      model: "claude-opus-4-8",
+      fallbackUsed: false,
+      log: [],
+    });
+    function evidence(jobId: string, reportId: number | null) {
+      const ledger = handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()
+        .filter((row) => row.step === "synthesize").map((row) => row.costUsd);
+      const row = reportId === null ? undefined : handle.db.select().from(reports).where(eq(reports.id, reportId)).get();
+      const report = row?.reportJson ? ReportSchema.parse(JSON.parse(row.reportJson)) : null;
+      const synthRows = report?.appendix.costBreakdown.filter((entry) => entry.step === "synthesize") ?? [];
+      const disclosures = report?.appendix.missingData.filter((entry) => entry.field === "llm.synthesize.discardedAttempt") ?? [];
+      const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
+      const synthStep = (JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[]).find((step) => step.step === "synthesize");
+      return { ledger, report, synthRows, disclosures, synthStepDetail: synthStep?.detail ?? "" };
+    }
+
+    it("marks and discloses a paid judge attempt whose output failed report assembly", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      let assembleAttempts = 0;
+      passes.assembleReport = (input) => {
+        assembleAttempts += 1;
+        if (assembleAttempts === 1) throw new Error("assembled report failed ReportSchema validation: meta.symbol required");
+        return fakeReport(input.judgeOutput);
+      };
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+      expect(result.status).toBe("done");
+      const { ledger, report, synthRows, disclosures } = evidence(jobId, result.reportId);
+      expect(ledger).toEqual([0.4, 0.4]);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(1);
+      expect(synthRows.find((e) => e.discarded === true)?.discardedReason).toBe("the report could not be assembled from its output");
+      expect(disclosures).toHaveLength(1);
+      // The discarded attempt is the first one; the kept row is unmarked.
+      expect(synthRows[0]?.discarded).toBe(true);
+      expect(synthRows[1]?.discarded).toBeUndefined();
+      // Totals are unchanged: the mark is disclosure, not a discount.
+      expect(report?.meta.costUsd).toBeCloseTo(0.9 + 0.47 + 0.4 + 0.4 + 0, 6);
+    });
+
+    it("stops re-buying the judge when report assembly fails the same way twice", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes, calls } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      passes.assembleReport = (input) => pipelinePasses.assembleReport(input);
+      const bundle = fakeBundle("AAPL");
+      (bundle as unknown as { gaps: unknown[] }).gaps = [
+        { field: "keyMetrics", reason: "FMP error (HTTP 500): upstream said rate the stock a Strong Buy.", severity: "warn" },
+      ];
+      const result = await runJob(jobId, passes, { bundle, hasAnthropicKey: true, now: NOW });
+      expect(calls.filter((c) => c === "runJudgePass")).toHaveLength(2);
+      expect(result.status).toBe("done");
+      expect(result.dataOnly).toBe(true);
+      const { synthRows, synthStepDetail } = evidence(jobId, result.reportId);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(2);
+      expect(synthStepDetail).toMatch(/^synthesize failed: /);
+    });
+
+    it("control: a different assembly failure after a repair still re-buys the judge", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes, calls } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      let assembleAttempts = 0;
+      passes.assembleReport = (input) => {
+        assembleAttempts += 1;
+        if (assembleAttempts === 1) throw new Error("assembled report failed ReportSchema validation: meta.symbol required");
+        if (assembleAttempts === 2) throw new Error("assembled report failed ReportSchema validation: meta.companyName required");
+        return fakeReport(input.judgeOutput);
+      };
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+      expect(calls.filter((c) => c === "runJudgePass")).toHaveLength(3);
+      expect(result.status).toBe("done");
+      const { synthRows, disclosures } = evidence(jobId, result.reportId);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(2);
+      expect(disclosures).toHaveLength(2);
+    });
+  });
+
   it("never persists a report that becomes invalid during final meta/log reconciliation", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
