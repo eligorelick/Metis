@@ -291,6 +291,10 @@ describe("factual prose numeric validation", () => {
       const result = await verifyFrom(source, AMZN, "Free cash flow decreased to an outflow of USD 7.6 billion for the trailing twelve months.");
       expect(result.log[0]?.validationStatus).toBe("validated");
     });
+    it("the AMZN change claim on the 'increase of' source validates (recall pin, AI-401 review)", async () => {
+      const result = await verifyFrom(source, AMZN, "Purchases of property and equipment, net of proceeds from sales and incentives, increased by USD 66.1 billion for the trailing twelve months.");
+      expect(result.log[0]?.validationStatus).toBe("validated");
+    });
     it("a transcript with the same hedged wording on both sides validates", async () => {
       const result = await verifyFrom("fmp:earning-call-transcript", "Data center revenue grew around 12% sequentially.", "Data center revenue grew around 12% sequentially.");
       expect(result.log[0]?.validationStatus).toBe("validated");
