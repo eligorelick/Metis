@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { APIError } from "@anthropic-ai/sdk";
@@ -21,10 +22,12 @@ import type { BetaMessage, BetaUsage } from "@anthropic-ai/sdk/resources/beta/me
 import { resetConfigCache } from "@/config/env";
 import { createDatabase, setDbForTests, type DatabaseHandle, type ThesisDb } from "@/db";
 import { costLog, jobLlmLeases, jobs } from "@/db/schema";
-import { initialSteps } from "@/pipeline/jobRunner";
+import { initialSteps, requestSettlementWriteError } from "@/pipeline/jobRunner";
 import {
   acquirePaidPassLease,
   claimNextQueuedJob,
+  isTransientWriterLock,
+  reconcileExpiredJobClaims,
   releaseUnbilledPaidPassLease,
   requestAttemptId,
   resizePaidPassLease,
@@ -45,12 +48,15 @@ import {
   MAX_PROVIDER_WEB_SEARCHES,
   PASS_MAX_REQUESTS,
   PASS_TRANSPORT_MAX_ATTEMPTS,
+  RequestSettlementNotRecordedError,
   _resetAnthropicForTests,
+  computeCostUsd,
   isPreSendConnectionFailure,
   maximumPassCostUsd,
   maximumRequestCostUsd,
   passWorstCaseCostUsd,
   runPass,
+  runPassStreaming,
   webSearchTool,
   type RequestAdmission,
   type RequestPermit,
@@ -950,5 +956,193 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
       expect(isPreSendConnectionFailure(wrap({ code }))).toBe(false);
     }
     expect(isPreSendConnectionFailure(Object.assign(new Error("aborted"), { name: "AbortError" }))).toBe(false);
+  });
+});
+
+/**
+ * A completed paid response whose ledger write meets another process's writer
+ * lock (AI-308). The admission mirrors the runner's: a settle write that
+ * throws leaves the request lease in the map. A second connection holds
+ * BEGIN IMMEDIATE on the same temporary file, as a second process would.
+ */
+describe("a contended ledger write keeps a completed response (AI-308)", () => {
+  const OFFLINE_KEY = "sk-" + "ant-api03-offline-test";
+  const MODEL = "claude-opus-5-5";
+  const USAGE = { input_tokens: 5_720, cache_creation_input_tokens: 153_607, cache_read_input_tokens: 0, output_tokens: 2_410 };
+  const frame = (e: Record<string, unknown>) => `event: ${String(e.type)}\ndata: ${JSON.stringify(e)}\n\n`;
+  const body = [
+    { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: MODEL, content: [], stop_reason: null, stop_sequence: null, usage: { ...USAGE, output_tokens: 1 } } },
+    { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+    { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "{\"thesis\":\"done\"}" } },
+    { type: "content_block_stop", index: 0 },
+    { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: USAGE },
+    { type: "message_stop" },
+  ].map(frame).join("");
+  const passOptions = {
+    model: MODEL,
+    system: "system",
+    messages: [{ role: "user" as const, content: "hi" }],
+    tools: [webSearchTool(8, MODEL)],
+    maxTokens: 64_000,
+    effort: "high" as const,
+    field: "llm.bull",
+    reservationPass: "bull" as const,
+  };
+  let file: string;
+  let holder: Database.Database | null = null;
+  let sleeps: number[] = [];
+
+  beforeEach(async () => {
+    file = join(directory, "locked.db");
+    first.sqlite.close();
+    second.sqlite.close();
+    first = createDatabase(file);
+    second = createDatabase(file);
+    first.sqlite.pragma("busy_timeout = 100"); // production 5000 ms, scaled
+    setDbForTests(first.db);
+    sleeps = [];
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests(async (ms) => { sleeps.push(ms); });
+  });
+  afterEach(async () => {
+    try { holder?.exec("ROLLBACK"); } catch { /* none open */ }
+    holder?.close();
+    holder = null;
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests();
+  });
+
+  function lockingClient(): Anthropic {
+    const fetchImpl = async (): Promise<Response> => {
+      holder = new Database(file);
+      holder.pragma("busy_timeout = 100");
+      holder.exec("BEGIN IMMEDIATE"); // another process takes the writer lock
+      return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+    };
+    return new Anthropic({ apiKey: OFFLINE_KEY, fetch: fetchImpl as never, maxRetries: 0 });
+  }
+
+  /** The runner's admission shape: the write error is mapped, the lease stays in the map. */
+  function runnerShapedAdmission(id: string, onWriteError: () => void, failWith?: Error) {
+    seedJob(first.db, id, "NVDA");
+    const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
+    const leases = new Map<string, PaidPassLease>();
+    const errors: string[] = [];
+    let seq = 0;
+    const admission: RequestAdmission = {
+      reserve: async ({ maximumUsd }) => {
+        seq += 1;
+        const a = acquirePaidPassLease(claim, "bull", requestAttemptId("attempt", seq), maximumUsd, NOW, LIMITS, first.db, MODEL);
+        if (!a.acquired) throw new Error(`blocked by ${a.reason}`);
+        leases.set(a.lease.permitId, a.lease);
+        return { id: a.lease.permitId, maximumUsd: a.lease.reservedCostUsd };
+      },
+      settle: async (permit, s) => {
+        const lease = leases.get(permit.id);
+        if (lease === undefined) return;
+        try {
+          if (failWith !== undefined) throw failWith;
+          settleRequestCost(lease, {
+            model: s.model,
+            inputTokens: s.usage?.input_tokens ?? 0,
+            outputTokens: s.usage?.output_tokens ?? 0,
+            cacheReadTokens: s.usage?.cache_read_input_tokens ?? 0,
+            cacheWriteTokens: s.usage?.cache_creation_input_tokens ?? 0,
+            webSearches: s.webSearches,
+            costUsd: s.costUsd,
+            fallbackUsed: s.fallbackUsed,
+            ...(s.presumed === true ? { presumed: true } : {}),
+          }, NOW, first.db);
+        } catch (error) {
+          errors.push(`${(error as { code?: string }).code}`);
+          onWriteError();
+          throw requestSettlementWriteError(error);
+        }
+        leases.delete(permit.id);
+      },
+      release: async (permit) => {
+        const lease = leases.get(permit.id);
+        if (lease === undefined) return;
+        releaseUnbilledPaidPassLease(lease, first.db, NOW);
+        leases.delete(permit.id);
+      },
+    };
+    return { admission, errors };
+  }
+
+  async function outcomeOf(p: Promise<{ ok: boolean }>): Promise<string> {
+    try {
+      return (await p).ok ? "resolved ok" : "resolved failure";
+    } catch (e) {
+      return `REJECTED ${(e as Error).name}: ${(e as Error).message}`;
+    }
+  }
+
+  it("returns a completed response once a retried settle records it (S1)", async () => {
+    const { admission, errors } = runnerShapedAdmission("s1", () => {
+      if (holder?.inTransaction) holder.exec("COMMIT"); // the lock clears before the retry
+    });
+    _resetAnthropicForTests(lockingClient());
+    const outcome = await outcomeOf(runPassStreaming({ ...passOptions, admission }).result);
+    const rows = first.db.select().from(costLog).all();
+    const liveLeases = first.db.select().from(jobLlmLeases).all().length;
+    expect(errors).toEqual(["SQLITE_BUSY"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.costUsd).toBeCloseTo(computeCostUsd(USAGE, MODEL), 6);
+    expect(rows[0]!.settlementKind).toBe("actual");
+    expect(liveLeases).toBe(0);
+    expect(outcome).toBe("resolved ok");
+    expect(sleeps).toEqual([250]);
+  });
+
+  it("returns a completed response when the lock outlasts every retry, leaving the lease to be presumed (S2)", async () => {
+    const { admission, errors } = runnerShapedAdmission("s2", () => {});
+    _resetAnthropicForTests(lockingClient());
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const outcome = await outcomeOf(runPassStreaming({ ...passOptions, admission }).result);
+    holder?.exec("COMMIT");
+    const before = first.db.select().from(costLog).all().length;
+    reconcileExpiredJobClaims(new Date(NOW.getTime() + 16 * 60 * 1000), first.db);
+    const after = first.db.select().from(costLog).all().map((r) => [r.costUsd, r.settlementKind]);
+    expect(errors).toEqual(["SQLITE_BUSY", "SQLITE_BUSY", "SQLITE_BUSY", "SQLITE_BUSY"]); // first try + 3 retries
+    expect(sleeps).toEqual([250, 1_000, 4_000]);
+    expect(log.mock.calls.filter(([m]) => String(m).includes("llm.bull"))).toHaveLength(1);
+    log.mockRestore();
+    expect(outcome).toBe("resolved ok");
+    expect(before).toBe(0);
+    expect(after).toEqual([[maximumRequestCostUsd(MODEL, "bull"), "presumed"]]); // $52.64 after the expiry sweep
+  });
+
+  it("control: a settle failure that is not lock contention still rejects the pass", async () => {
+    const { admission } = runnerShapedAdmission(
+      "s3",
+      () => {},
+      new Error("jobScheduler invariant: actual paid-pass cost exceeds its reservation"),
+    );
+    _resetAnthropicForTests(lockingClient());
+    await expect(runPassStreaming({ ...passOptions, admission }).result).rejects.toThrow(/exceeds its reservation/);
+    expect(sleeps).toEqual([]);
+  });
+
+  it("treats only the SQLITE_BUSY family as a contended ledger write", () => {
+    const busy = (code: string) => Object.assign(new Error("database is locked"), { code });
+    for (const code of ["SQLITE_BUSY", "SQLITE_BUSY_RECOVERY", "SQLITE_BUSY_SNAPSHOT", "SQLITE_BUSY_TIMEOUT"]) {
+      expect(requestSettlementWriteError(busy(code))).toBeInstanceOf(RequestSettlementNotRecordedError);
+      expect(requestSettlementWriteError(new Error("wrapped", { cause: busy(code) }))).toBeInstanceOf(RequestSettlementNotRecordedError);
+    }
+    const locked = busy("SQLITE_LOCKED");
+    expect(requestSettlementWriteError(locked)).toBe(locked); // same-connection conflict: stays loud
+  });
+
+  it("walks a bounded, cycle-safe cause chain and ignores non-error values", () => {
+    const cyclic: { cause?: unknown } = {};
+    cyclic.cause = cyclic;
+    expect(isTransientWriterLock(cyclic)).toBe(false);
+    let deep: unknown = Object.assign(new Error("busy"), { code: "SQLITE_BUSY" });
+    for (let i = 0; i < 8; i++) deep = new Error("wrapper", { cause: deep });
+    expect(isTransientWriterLock(deep)).toBe(false); // past the 8-link bound
+    for (const value of [null, undefined, "SQLITE_BUSY", 5, { code: 5 }]) {
+      expect(isTransientWriterLock(value)).toBe(false);
+    }
   });
 });

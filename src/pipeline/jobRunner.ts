@@ -42,6 +42,7 @@ import { JOB_LEASE_RENEWAL_DIVISOR, MODEL_STAGE_DEADLINE_MS } from "@/pipeline/l
 import {
   maximumPassCostUsd,
   maximumRequestCostUsd,
+  RequestSettlementNotRecordedError,
   resolveModel,
   type VerifyReservationCapability,
 } from "@/providers/anthropic";
@@ -145,6 +146,7 @@ import {
   settlePaidPassLease,
   settleRequestCost,
   PaidPassOverReservationError,
+  isTransientWriterLock,
   type JobClaim,
   type PaidPassLease,
   type SchedulerLimits,
@@ -620,6 +622,16 @@ class SupersededRunError extends Error {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/**
+ * What a failed request-settlement write is thrown as. A write refused by
+ * another process's writer lock did not commit and may be retried, so the
+ * provider is told so; any other error (the over-reservation invariant, a
+ * programming error) is returned unchanged and stays loud.
+ */
+export function requestSettlementWriteError(error: unknown): unknown {
+  return isTransientWriterLock(error) ? new RequestSettlementNotRecordedError(error) : error;
 }
 
 /** A fresh StepProgress[] with every pipeline step "pending". */
@@ -1397,6 +1409,9 @@ function createSettlementCheckpoint<T>(
   // after which the row expired into a presumed-maximum row that only the
   // reconcile script could lower. An over-reservation write DOES commit
   // (`inserted: true`) before it throws, so that one is removed and rethrown.
+  // A settle write refused by another process's writer lock is mapped to the
+  // provider's error class (requestSettlementWriteError), so the provider
+  // retries the write and, failing that, keeps the response (AI-308).
   const admission: RequestAdmission = {
     reserve: async ({ maximumUsd }) => reserveRequest(maximumUsd),
     settle: async (permit, settled) => {
@@ -1418,7 +1433,7 @@ function createSettlementCheckpoint<T>(
         if (error instanceof PaidPassOverReservationError && error.result.inserted) {
           requestLeases.delete(permit.id);
         }
-        throw error;
+        throw requestSettlementWriteError(error);
       }
       requestLeases.delete(permit.id);
     },

@@ -1746,6 +1746,51 @@ function errorMessageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** The ledger write for a settled request did not commit and may be retried. */
+export class RequestSettlementNotRecordedError extends Error {
+  readonly name = "RequestSettlementNotRecordedError";
+  constructor(readonly cause: unknown) {
+    super(`request settlement was not recorded: ${errorMessageOf(cause)}`);
+  }
+}
+
+/**
+ * Waits before each retry of a contended ledger write (about five seconds in
+ * all, on top of the database's own busy timeout on every try).
+ */
+export const LEDGER_SETTLE_RETRY_DELAYS_MS: readonly number[] = [250, 1_000, 4_000];
+
+/**
+ * Settle, retrying only {@link RequestSettlementNotRecordedError}; true when
+ * the write committed. When every retry fails the permit is left held: the
+ * response was received and paid for, so the caller keeps it and the lease is
+ * presumed at expiry (D-07) until a late settlement or reconciliation lowers
+ * it. Any other error propagates.
+ */
+async function settleWithLedgerRetry(
+  admission: RequestAdmission,
+  permit: RequestPermit,
+  settlement: RequestSettlement,
+  field: string,
+): Promise<boolean> {
+  for (let retry = 0; ; retry++) {
+    try {
+      await admission.settle(permit, settlement);
+      return true;
+    } catch (error) {
+      if (!(error instanceof RequestSettlementNotRecordedError)) throw error;
+      if (retry >= LEDGER_SETTLE_RETRY_DELAYS_MS.length) {
+        console.error(
+          `[anthropic] ${field}: request settlement could not be recorded (${errorMessageOf(error.cause)}); ` +
+            "keeping the response and leaving the reservation to be presumed at expiry",
+        );
+        return false;
+      }
+      await transportRetrySleep(LEDGER_SETTLE_RETRY_DELAYS_MS[retry]!);
+    }
+  }
+}
+
 /** Settle one admitted request whose final message arrived, at what it billed. */
 async function settleRequest(
   admission: RequestAdmission | undefined,
@@ -1755,14 +1800,14 @@ async function settleRequest(
 ): Promise<void> {
   if (admission === undefined || permit === null) return;
   const billing = billingForMessage(billed, opts);
-  await admission.settle(permit, {
+  await settleWithLedgerRetry(admission, permit, {
     usage: messageUsage(billed),
     costUsd: billing.costUsd,
     model: actualModel(billed) || opts.model,
     webSearches: webSearchCount(billed),
     fallbackUsed: detectFallbackUsed(billed),
     ...(billing.presumed ? { presumed: true } : {}),
-  });
+  }, opts.field ?? "llm.pass");
 }
 
 /**
@@ -1843,14 +1888,14 @@ async function settleFailedRequest(
     return;
   }
   const { reported, costUsd, presumed } = outcome.charge;
-  await opts.admission.settle(permit, {
+  await settleWithLedgerRetry(opts.admission, permit, {
     ...(reported === null ? {} : { usage: messageUsage(reported) }),
     costUsd,
     model: reported === null ? opts.model : actualModel(reported) || opts.model,
     webSearches: reported === null ? 0 : webSearchCount(reported),
     fallbackUsed: reported === null ? false : detectFallbackUsed(reported),
     ...(presumed ? { presumed: true } : {}),
-  });
+  }, opts.field ?? "llm.pass");
 }
 
 /**
@@ -2408,6 +2453,8 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           signalFirst("streamEvent"),
         );
         await settleRequest(opts.admission, permit, opts, message);
+        // Recorded, or kept unrecorded after its retries (logged there): the
+        // response is interpreted either way and the lease is not released.
         permit = null;
         const { final, billableMessages } = await resumeIfPausedWithUsage(
           client,
@@ -2523,11 +2570,12 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
         if (permit !== null && opts.admission !== undefined) {
           if (dispatched) {
             // The request went out and its settlement write itself failed
-            // (both the in-line settle and the catch's retry threw — a
-            // writer-lock timeout, say). Releasing here would return money
-            // the provider may already have billed; leaving the reservation
-            // lets it expire into presumed spend that a later measurement or
-            // the reported totals can lower (D-07).
+            // with something other than a retried writer-lock contention
+            // (that case keeps the response and clears the permit above).
+            // Releasing here would return money the provider may already
+            // have billed; leaving the reservation lets it expire into
+            // presumed spend that a later measurement or the reported
+            // totals can lower (D-07).
             console.error(
               `[anthropic] ${opts.field ?? "llm.pass"}: request settlement could not be recorded; ` +
                 "leaving the reservation to be presumed at expiry rather than releasing it",

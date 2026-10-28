@@ -75,6 +75,25 @@ export interface SchedulerLimits {
   jobLeaseTtlMs: number;
 }
 
+/**
+ * Is this error (or anything in its cause chain, at most 8 links, cycle-safe)
+ * another connection holding the database writer lock? The SQLITE_BUSY family
+ * clears once the holder commits, so a retry can succeed. SQLITE_LOCKED is a
+ * conflict inside one connection, which waiting does not clear, so it is not
+ * transient (https://www.sqlite.org/rescode.html).
+ */
+export function isTransientWriterLock(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let entry: unknown = error;
+  for (let depth = 0; depth < 8 && entry !== null && entry !== undefined && !seen.has(entry); depth++) {
+    seen.add(entry);
+    const code = typeof entry === "object" ? (entry as { code?: unknown }).code : undefined;
+    if (typeof code === "string" && (code === "SQLITE_BUSY" || code.startsWith("SQLITE_BUSY_"))) return true;
+    entry = typeof entry === "object" ? (entry as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
 export function configuredSchedulerLimits(): SchedulerLimits {
   const config = getConfig();
   return {
