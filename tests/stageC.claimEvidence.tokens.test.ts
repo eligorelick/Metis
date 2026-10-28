@@ -111,3 +111,26 @@ describe("token readings", () => {
     expect(quantities.map((quantity) => [quantity.value, quantity.unit])).toEqual([[12, "percent"], [5, null]]);
   });
 });
+
+describe("AI-304 review round 1", () => {
+  it.each(["Inventory covers 1.5 months of sales.", "Inventory covers 12.5 months of sales.", "Revenue came from a 120 months lease term."])(
+    "reads no figure in the period phrase: %s", (text) => {
+      expect(readProseQuantities(text)).toEqual([]);
+    });
+  it("keeps a figure beside a period phrase", () => {
+    expect(readProseQuantities("In the 12 months revenue was $5.").map((quantity) => quantity.value)).toEqual([5]);
+  });
+  it.each([
+    ["$5 mn", 5e6], ["$5mn", 5e6], ["€5 mln", 5e6], ["USD 5 Mn", 5e6], ["$5 mil", 5e6], ["5 mio", 5e6], ["$5 bln", 5e9], ["5 million", 5e6],
+    ["5 markets", 5], ["$5 mils", 5], ["5 milestones", 5],
+  ])("reads the scale of %s", (text, value) => {
+    expect(readProseQuantities(text)[0]?.value).toBe(value);
+  });
+  it("reads basis points across a no-break space and a hyphen", () => {
+    expect(readProseQuantities("a margin of 8 basis points")[0]).toMatchObject({ value: 0.08, unit: "percentage-points" });
+    expect(readProseQuantities("a 25 basis-point cut")[0]).toMatchObject({ value: 0.25, unit: "percentage-points" });
+  });
+  it.each([["10x-ish", 10], ["5x-based", 5]])("keeps the ratio of %s", (text, value) => {
+    expect(readProseQuantities(text).map((quantity) => [quantity.value, quantity.unit])).toEqual([[value, "ratio"]]);
+  });
+});

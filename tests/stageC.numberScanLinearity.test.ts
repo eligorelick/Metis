@@ -143,3 +143,12 @@ describe("direction window distance (SEC-203 review)", () => {
     expect(direction(41).checked).toBe(0);
   });
 });
+
+describe("whole-word tokens stay linear (AI-304 review)", () => {
+  it("scans a long gap between a figure and its x, or its months, in linear time", () => {
+    for (const text of [`1${" ".repeat(16_000)}x`, `1.5${"\u00a0".repeat(16_000)}months`]) {
+      const { ms } = timed(() => readProseQuantities(text));
+      expect(ms).toBeLessThan(1000);
+    }
+  });
+});
