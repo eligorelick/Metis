@@ -21,7 +21,7 @@ All twelve findings were re-read against the base and still read true; none is s
 | AI-405: the consistency period check was stricter than the citation check | Fixed (C-5). A spelled fiscal period is compared through the issuer's fiscal label before calendar years; a 52/53-week year is read by `periodsAgree`. | `6baf29f` | the AI-405 tests |
 | Composition with B3 Task 8E (C-11): a latest-year row carries the fiscal label that the period rule reads | Test only. The label establishes FY2025 and the annual window and nothing else; the test fails when the labels are removed. | `5a96043` | `tests/stageC.latestFiscalLabels.test.ts` |
 | Review minors of Task 9: the OD-3 pin comment and the consistency module doc | Fixed in comments only. | `af8998a` | none (comments) |
-| Stamps and the audited fixture comparison | Report 1.46.0 and pipeline stage-c-1.6.12; the one moved leaf (`report.meta.specVersion`) is recorded in its own group. | `ff4a3fb`, `36e3ed0` | `tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` |
+| Stamps and the audited fixture comparison | Report 1.46.0 and pipeline stage-c-1.6.12; the one moved leaf (`report.meta.specVersion`) was recorded in its own group, which B2 absorbed into `claim-verifier-numbers-20261027` (provisional decision ids D-128 and D-129) because B1 and B2 ship as one pull request. | `ff4a3fb`, `36e3ed0` | `tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` |
 
 Re-pins: each carries a dated comment naming its finding. Two Task 6 pins moved with AI-405 (a right spelled-fiscal base now validates; a wrong spelled base stays unverified and its reason changes from `period-mismatch` to `period-word-mismatch`), and the stamp pins moved with the stamps. The payload golden did not move.
 
@@ -93,5 +93,5 @@ At this branch's head, B2's control for AI-503-V2 (ctl-real-noperiod: the true c
 
 - The verifier sweep (every test file that calls `runVerifyPass` or `validateClaimNumericSupport`, found by `grep`): 38 files, 1386 tests green at the stamp commit, including `tests/stageC.latestFiscalLabels.test.ts` and `tests/stageC.releaseFiscalLabel.test.ts`.
 - `tests/stageC.payload.passes.test.ts`: the payload golden did not move (payload 1.49.0, fingerprint `1.49.0:c74b6cd9`); only the report stamp pin moved.
-- `npm run audit:deltas`: exactly one already-classified leaf moved, `report.meta.specVersion` (`1.2.0` to `1.46.0`), now recorded in its own group; nothing else moved.
+- `npm run audit:deltas`: exactly one already-classified leaf moved, `report.meta.specVersion` (`1.2.0` to `1.46.0`), recorded at B1's stamp commit in its own group; nothing else moved. B2 absorbed that group into `claim-verifier-numbers-20261027`, which takes the leaf on to `1.47.0`.
 - The product suite passed on the merge base (479 files, 9502 tests); the batch-level `npm run verify` chunks, the fresh review over the whole diff and the paired B2 results are recorded in the pull request.
