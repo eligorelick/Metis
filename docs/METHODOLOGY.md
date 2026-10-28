@@ -2685,6 +2685,10 @@ string figures and insider notes carry no text to read and stay
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record
 years, unit words against record families, and sourcing of named individuals.
+The number scanners that feed these checks (the consistency number scanner and
+the prose quantity reader) are linear in claim length: a long run of whitespace
+in model or filing text cannot make the verify step slow (audit 2026-10-27
+SEC-203).
 A period that directly follows a comparison word ("compared with $10.2 billion
 in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
 the comparison's base: it belongs to the amount between the comparison word and

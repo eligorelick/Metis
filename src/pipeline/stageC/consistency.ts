@@ -216,9 +216,11 @@ interface ParsedNumber {
 }
 
 // A signed, optionally $-prefixed number with optional thousands separators,
-// followed by an optional scale word and an optional unit token.
+// followed by an optional scale word and an optional unit token. Each optional
+// prefix token consumes its own trailing whitespace, so two whitespace loops
+// are never adjacent and a long whitespace run is scanned once (SEC-203).
 const NUMBER_PATTERN = new RegExp(
-  String.raw`([-+−])?\s*(\$|US\$)?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*` +
+  String.raw`(?:([-+−])\s*)?(?:(\$|US\$)\s*)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*` +
     String.raw`(thousands?|millions?|billions?|trillions?|bn|mm|k)?\s*` +
     String.raw`(%|percentage points?|percent|pps?|bps?|basis points?|dollars?|usd|shares?|x|times)?`,
   "gi",
@@ -235,7 +237,7 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
     if (!Number.isFinite(magnitude)) continue;
     const normalizedScale = scaleWord?.toLowerCase() ?? null;
     out.push({
-      start: match.index,
+      start: match.index + whole.search(/\S/),
       end: match.index + whole.length,
       magnitude,
       decimals: fraction === undefined ? 0 : fraction.length - 1,
