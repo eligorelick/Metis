@@ -711,6 +711,30 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   });
 }
 
+// Audit 2026-10-27 AI-303-V4 / C-4: "latest" on a figure from a reported-period
+// series (statement, quarterly-trend and segment rows) must be the newest period
+// of that series the registry holds. A series is a registry id carrying exactly
+// one ISO date that equals the record's own period and is not after its as-of, so
+// analyst estimates and projections (periods after the as-of) are never a series.
+const RECENCY = /\b(?:latest|most[\s‐‑–—-]+recent|newest)\b/i;
+
+function reportedSeries(record: NumericProvenanceRecord): { key: string; date: string } | null {
+  const dates = record.id.match(/\d{4}-\d{2}-\d{2}/g);
+  if (dates === null || dates.length !== 1 || record.period !== dates[0] || !isIsoDate(dates[0])) return null;
+  if (isIsoDate(record.asOf) && dates[0] > record.asOf) return null;
+  return { key: record.id.replace(dates[0], "*"), date: dates[0] };
+}
+
+/** Series key (record id with its date replaced by "*") -> the newest registered date. */
+export function reportedSeriesLatest(registry: readonly NumericProvenanceRecord[]): ReadonlyMap<string, string> {
+  const latest = new Map<string, string>();
+  for (const record of registry) {
+    const series = reportedSeries(record);
+    if (series !== null && (latest.get(series.key) ?? "") < series.date) latest.set(series.key, series.date);
+  }
+  return latest;
+}
+
 export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   record?: NumericProvenanceRecord;
   excerpts: readonly TextExcerpt[];
@@ -718,6 +742,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   reportingCurrency: string | null;
   ignoreWords?: readonly string[];
   index?: ClaimEvidenceIndex;
+  seriesLatest?: ReadonlyMap<string, string>;
 }): ClaimNumericSupport {
   const stated = quantities(claim.text);
   if (stated.length === 0) return support(statesNumberWord(claim.text) ? "unchecked" : "cited", "supported",
@@ -744,6 +769,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const labels = labelReadings(record);
     if (!labels.some((label) => namesMetric(claimTokens, perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)))))) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
+    }
+    // AI-303-V4: a record citation states one figure, so the whole claim is read.
+    const series = RECENCY.test(typedText) ? reportedSeries(record) : null;
+    if (series !== null && (options.seriesLatest?.get(series.key) ?? series.date) > series.date) {
+      return support("unchecked", "period-mismatch", "the prose calls the figure the latest, but a later period of the cited series is registered");
     }
     if (own.periods.some((period) => period.kind === "month" && !periodLabels(record.period ?? "").some((source) => source.key === period.key))) {
       return support("unchecked", "period-mismatch", "a monthly prose period is not established by the typed record's period");

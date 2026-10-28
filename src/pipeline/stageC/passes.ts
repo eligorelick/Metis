@@ -104,7 +104,7 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
   citationAsOf,
   citationSourceId,
@@ -2923,6 +2923,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const reportingCurrency = statementCurrencies.size === 1 ? [...statementCurrencies][0] : null;
   const issuerWords = [payload.companyName ?? "", payload.symbol ?? ""];
   const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
+  const seriesLatest = reportedSeriesLatest(registry);
 
   for (const { number, path, rowLabel } of numbers) {
     const sourceId = citationSourceId(number);
@@ -3164,7 +3165,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
     const validation = supported && sourceId !== null
-      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex })
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
       validation.reason = "supported";

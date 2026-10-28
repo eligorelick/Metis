@@ -3,7 +3,7 @@
 // (fixtures/edgar/nvda-current-reports/) or are round numbers. No provider,
 // network, database or model call.
 import { describe, expect, it } from "vitest";
-import { windowsNamed } from "@/pipeline/stageC/claimEvidence";
+import { reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
 import { consistencyManifestEntries } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
@@ -253,5 +253,38 @@ describe("AI-303-V3 fiscal year-end on a filing excerpt", () => {
     expect(await V(Q_YE, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).not.toBe("validated");
     expect(await V(Q_YE, "Total debt was USD 10.0 billion.")).not.toBe("validated");
     expect(await V({ ...QUARTER_NOTE, text: "As of January 25, 2026, total debt was $10.0 billion." }, "Total debt at fiscal year-end (2026-01-25) was USD 10.0 billion.")).not.toBe("validated");
+  });
+});
+
+// AI-303-V4: "latest" means the newest registered period of the cited series.
+const Q1_REV = rec({ id: "payload.statements.income-statement-quarterly.2026-04-26.revenue", label: "revenue", value: 81_615_000_000, period: "2026-04-26",
+  periodContext: { kind: "duration", start: "2026-01-26", end: "2026-04-26", basis: "fiscal-quarter", fiscalLabel: "Q1 FY2027" }, fiscalPeriod: "Q1 FY2027",
+  asOf: "2026-07-26", origin: "edgar:income-statement(quarter)" });
+const Q1_DEBT = debt({ id: "payload.statements.balance-sheet-quarterly.2026-04-26.total-debt", value: 20e9, period: "2026-04-26",
+  periodContext: { kind: "instant", at: "2026-04-26", fiscalLabel: "Q1 FY2027" }, fiscalPeriod: "Q1 FY2027", asOf: "2026-07-26", origin: "edgar:balance-sheet(quarter)" });
+const EST_A = rec({ id: "payload.estimates.est-revenue-2027-01-31", label: "est revenue 2027-01-31", value: 300e9, period: "2027-01-31", asOf: "2026-07-26", origin: "test:estimates" });
+const EST_B = rec({ ...EST_A, id: "payload.estimates.est-revenue-2028-01-30", label: "est revenue 2028-01-30", period: "2028-01-30", value: 350e9 });
+
+describe("AI-303-V4 latest", () => {
+  it("AI-303-V4: the newest registered period per reported series; forecasts are no series", () => {
+    const latest = reportedSeriesLatest([Q1_REV, Q_REV, FY_REV, Q1_DEBT, Q_DEBT, EST_A, EST_B, TTM_OCF, GM]);
+    expect(latest.get("payload.statements.income-statement-quarterly.*.revenue")).toBe("2026-07-26");
+    expect(latest.get("payload.statements.balance-sheet-quarterly.*.total-debt")).toBe("2026-07-26");
+    expect(latest.get("payload.statements.income-statement-annual.*.revenue")).toBe("2026-01-25");
+    expect(latest.size).toBe(3);
+  });
+  it.each([
+    [Q1_REV, "Revenue for the latest quarter was USD 81.62 billion."],
+    [Q1_REV, "Latest quarterly revenue was USD 81.62 billion."],
+    [Q1_DEBT, "Total debt at the latest quarter end was USD 20.00 billion."],
+    [Q1_DEBT, "Total debt at the most recent quarter-end was USD 20.00 billion."],
+  ])("AI-303-V4: an older period called the latest is not validated (%#)", async (record, text) => {
+    expect((await cite([Q_REV, Q1_REV, Q_DEBT, Q1_DEBT], record.id, text)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("AI-303-V4 control: the newest period called the latest, and an older one named exactly, validate", async () => {
+    const registry = [Q_REV, Q1_REV, Q_DEBT, Q1_DEBT, GM];
+    for (const [record, text] of [[Q_REV, "Revenue for the latest quarter was USD 96.22 billion."], [Q_DEBT, "Total debt at the latest quarter end was USD 30.00 billion."],
+      [Q1_REV, "Revenue for Q1 FY2027 was USD 81.62 billion."], [GM, "Latest gross margin was 71.1%."]] as const)
+      expect((await cite(registry, record.id, text)).entry.validationStatus).toBe("validated");
   });
 });
