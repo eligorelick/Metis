@@ -128,7 +128,7 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
   lines.push(
     "### Recorded API charge breakdown",
     "",
-    table(["Step", "Model", "Cost (USD)"], report.appendix.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd)])),
+    table(["Step", "Model", "Cost (USD)", "Note"], report.appendix.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd), e.discarded === true ? `discarded: ${e.discardedReason ?? "its output was not used"}` : ""])),
     "",
     `Recorded API charge total: **${formatCostUsd(totalCost)}**. Plan subscriptions and unreported usage are not priced by this ledger.`,
   );

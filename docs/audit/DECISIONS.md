@@ -2374,7 +2374,151 @@ NVDA report #50 (GPT-6.1 Sol, max reasoning, ChatGPT plan, 2026-10-27).
 
 Pipeline stage-c-1.6.9 marks these conventions. Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports and artifacts keep their bytes, #50's included.
 
-## D-next - A peer market cap is money only in a currency the peer's own data establishes (2026-10-28)
+## D-117 - A failed paid request settles at the worst case given what it reported, and a request that never left the machine settles at nothing (2026-10-28)
+
+Audit 2026-10-27, batch B7 (AI-113, AI-113-V1, AI-114, AI-307).
+
+- **What happened.** The two failure catches in the Claude adapter (the first request and a `pause_turn` resumption) each decided what a failed request cost, and they decided differently.
+  - A stream that died after `message_start` was recorded as an `actual` row at about one output token, because the cumulative output count arrives only in the final `message_delta`. The idle guard presumed the remainder for the same wire state.
+  - A request the provider had answered and the caller then cancelled was released at $0, while a socket death in the same state was presumed.
+  - A pass result left out the settlement of a failed pause resumption.
+  - A connect timeout was read by the SDK as a request that was sent and then lost, so it was presumed at the request maximum on every attempt. The audit's probe measured $315.84 presumed on one Opus 5.5 bull pass (six attempts at $52.64) for requests Anthropic never received.
+- **Options.**
+  - (a) Keep two catches and fix each case where it stands. The same wire state then settles different figures depending on which catch saw it.
+  - (b) One classifier for both catches, ordered by what the request is known to have reached.
+- **Choice: (b).**
+  - A stream the idle guard abandoned, or one that reported usage but ended before its final usage event (whatever ended it), settles at its reported usage plus the presumed remainder: the unreported output at the model's output price, or the request maximum when the request carries web-search or server-fallback exposure. It is marked `presumed`.
+  - A stream whose final usage event arrived settles at that usage, `actual`, and the pass result says the same: a caller abort after that event is reported as an abort with an actual charge, not as a presumed remainder.
+  - With no usage reported, a request the provider had answered and the caller then cancelled, or one that went out and then timed out or lost its connection, is presumed at the request maximum.
+  - A request that never reached the provider (connect timeout, refused connection, name lookup failure, an unreachable host or network at connect) is released at $0. A fetch wrapper installed with the client tags these failures before the SDK can read them as a timeout.
+  - A pass result is the sum of its requests' settlements, failed pause resumptions included, in both reservation modes.
+  - The idle guard's no-usage figure rises from the output remainder to the request maximum, so one wire state settles one figure whichever of the idle guard, the caller or the network ended it. This follows the rule that a paid cost is overstated rather than understated: an overstated presumption is visible and lowered by `costs:reconcile`, an understated one breaks the caps. The main session confirmed the raise on 2026-10-28 (decisions spec 4.3, B7). It is reversed by making `abandonedRequestCostUsd` return the output remainder again when nothing was reported (its `reported === null` branch).
+- **Revises.** D-09 ("a dead stream settles the usage reported so far plus the worst case for the remainder") now covers every cause, not only the idle guard. It extends D-10 ("a request that times out after send is presumed spent until reconciled") and applies D-07's rule that presumed spend over-counts until reconciled.
+- **Limits.**
+  - A non-timeout connection failure before the response headers (for example ECONNRESET on an established socket) is released at $0, as it was before this batch. Only a request that timed out after it was sent, a stream lost after the headers, or a request answered and then cancelled is presumed. This is AI-307's purpose: a network blip must not book a presumed request maximum. `costs:reconcile` lowers presumed rows only, so a provider charge for such a request would be under-recorded until noticed.
+  - An abort in the microtask gap between the connection opening and the response headers is released; a timer-driven abort (a stage deadline, a cancel) is unlikely to land there. Node's `fetch` does not report when the request body finished sending.
+  - A server `error` event after HTTP 200 but before `message_start` is released, as an HTTP error status is: no response had started. The classifier reads the error text for one case: an error whose message contains "timeout" or "timed out" is read as a timeout after send and presumed at the request maximum, so the same wire state can settle $0 or the maximum depending on the provider's wording.
+  - The stream-idle timer starts before the connection opens, so an idle limit below the connect timeout (about 10 seconds) presumes a hung connect at the request maximum. The idle limit is `METIS_STREAM_IDLE_SECONDS` (default 300) times the effort multiplier: 1 at low and medium, 2 at high, 3 at xhigh, 4 at max, and 1 for a model without effort.
+  - Two rare cases are carried to batch 8, which changes the same adapter. (a) When the charge at the final usage event is itself presumed (a reported model the registry does not know, or a refusal with no output and no category), the pass detail still describes a presumed remainder; the flag and the figure are right. (b) With a reported model the registry does not know, an abandoned stream adds the output remainder to a figure already at the request maximum, so it over-counts by up to one output remainder (an over-count, never an under-count).
+  - EHOSTUNREACH and ENETUNREACH count as never sent only from the connect syscall. ETIMEDOUT counts only from the connect or name-lookup syscalls. The same codes from another syscall happen after the send and are not tagged; they fall under the first limit above.
+  - The SDK maps its own request timer to a timeout error; a test through the real client pins that a timer abort stays presumed.
+- **Validation.** Failing-first tests in `tests/anthropic.test.ts` and `tests/requestAdmission.test.ts` use the real SDK with an in-memory `fetch` and a temporary scheduler database:
+  - a stream cut after `message_start` is presumed, including inside a `pause_turn` resumption, and a search-capable request keeps the request maximum;
+  - a final usage event followed by a dead socket settles the reported usage;
+  - an idle stream with no reported usage is presumed at the request maximum;
+  - a pass result counts a failed pause resumption in request mode and settles the same figures in pass mode, with a control that a single clean request equals its one settlement;
+  - an abort after the provider answered but before `message_start` is presumed, with controls that a socket death in the same state settles the same figure and an abort before dispatch is released;
+  - every connect-phase failure is released on every attempt, with controls for a headers timeout and the SDK request timeout (presumed), a connect-syscall route failure carrying a timeout-shaped message (released) and the connect-syscall rule of the tagging predicate.
+
+## D-118 - A contended ledger write keeps the completed response (2026-10-28)
+
+Audit 2026-10-27, batch B7 (AI-308).
+
+- **What happened.** A finished paid response whose cost record met another process's database writer lock (SQLITE_BUSY) threw the whole pass away, although the provider had already billed it.
+- **Options.**
+  - (a) Let the error propagate, as before.
+  - (b) Retry the write briefly, then keep the response and let the lease be presumed at expiry (D-07).
+- **Choice: (b).**
+  - The runner maps writer-lock contention to `RequestSettlementNotRecordedError`. Only the SQLITE_BUSY family (`isTransientWriterLock`: SQLITE_BUSY and its extended codes, searched along the cause chain) is retried.
+  - The provider retries the write three times, waiting 250, 1,000 and 4,000 ms (5.25 seconds in all) on top of the database's own busy timeout on each try. Every request settlement, a completed request's and a failed one's, goes through this retry. If every retry fails, the response is returned and the permit stays held. The provider then tells the admission to abandon the permit: the runner stops renewing that lease, so it expires into the expiry sweep's presumed row at its reserved maximum (the cap stays honoured and the capacity slot frees, rather than blocking the pass's next request while the pass runs). Only `costs:reconcile` can lower that row.
+  - `SQLITE_LOCKED` (a conflict inside one connection, which waiting does not clear) and every other settle error stay loud. Source for the codes: https://www.sqlite.org/rescode.html.
+- **Revises.** Applies D-07 ("lease expiry without settlement is presumed spent") to a response that was received but not recorded.
+- **Limits.** A write that never commits leaves a presumed row at the reserved maximum, which over-counts until reconciled. The pass waits the retry delays plus the database's busy timeout on each try before it keeps the response. If the lock then clears and the report is published before the lease expires, the published report's cost total and breakdown, which are read from the ledger, leave that request out. The expiry sweep later records it in the ledger, but the stored report is not updated. Before this batch the same request was thrown away and also reached the ledger only through the sweep, so this is not new; it needs about twenty seconds of continuous writer-lock contention. Carried to batch 8 (job lifecycle), which owns the publish path.
+- **Validation.** `tests/requestAdmission.test.ts` holds BEGIN IMMEDIATE on the same temporary database from a second connection, as a second process would. It covers a settle that is recorded on a retry (the response is returned), one that outlasts every retry (the response is returned and the lease is left to be presumed), and a control that a settle failure that is not lock contention still rejects the pass. Unit tests pin that only the SQLITE_BUSY family counts and that the cause-chain walk is bounded and cycle-safe.
+
+## D-119 - A presumed row is dated at its request's authorization (2026-10-28)
+
+Audit 2026-10-27, batch B7 (JOB-203).
+
+- **What happened.** The expiry sweep dated a presumed row at its lease's acquisition, but the settlement paths dated it when it settled. The audit's probe showed a $12.50 presumption lowered to $0 against the next day, because `costs:reconcile` never fetched the day that held the charge.
+- **Options.**
+  - (a) Keep settlement dating for presumed rows.
+  - (b) Date every presumed row at its lease's acquisition and leave actual rows at their settlement instant.
+  - (c) Date actual rows at acquisition too.
+  - (d) Reconcile against two-day windows.
+- **Choice: (b).** Request settlement and the pass-level presumed row use the lease's `acquiredAt`, like the sweep. An actual row is a measurement that is never lowered, so it keeps its settlement instant. Anthropic's documentation does not say which instant assigns a request to a day, so the repository keeps its recorded premise (D-07's revision: a call bills on a day bounded by its authorization) and applies it to every row the reconciler can lower. (c) would drop settled spend from a rolling window shorter than one request at the moment it is written. (d) changes the per-day allocation for every row to hedge one boundary case.
+- **Revises.** Extends D-07's 2026-09-06 revision (F68/F76, sweep only) to the settlement paths. D-09 and D-10 are unchanged.
+- **Limits.** The three residuals of OD-5:
+  - Anthropic documents neither attribution instant (start or completion of a request). If a request measured across 00:00 UTC is bucketed by its start, its actual row sits in the later day's accounted total and can lower a presumed row on that day by at most that request's measured cost.
+  - If Anthropic instead buckets by completion, a presumed row for a request that spanned midnight is compared with the earlier day, whose total may not hold the charge, and can be lowered too far. The same exposure has applied to every swept row since 782a853, and is limited to presumed requests that span 00:00 UTC.
+  - A backdated presumed row leaves the rolling-cap window sooner. Dating at acquisition moves a presumed row into the window up to one request duration earlier, so with a rolling window shorter than a request it can leave the window sooner. The sweep has done the same since 782a853; until it settled, the request counted as a live reservation.
+- **Validation.** `tests/scheduler.presumedSpend.test.ts` covers a presumed request settlement and a pass-level presumed row (pass reservation mode) dated at their lease's acquisition across UTC midnight, with controls that an actual request row and an actual pass-level row keep the instant they settled.
+
+## D-120 - Paid work is admitted against the lower of the recorded and the configured job cap (2026-10-28)
+
+Audit 2026-10-27, batch B7 (JOB-209).
+
+- **What happened.** `METIS_MAX_JOB_COST_USD` is copied onto the job row when the job is created, so an operator who lowered the cap and restarted was not obeyed for a job still queued or resumed afterwards.
+- **Options.**
+  - (a) Apply the configured cap alone. Raising it would loosen a job created under a stricter cap.
+  - (b) Keep the snapshot and document it.
+  - (c) Apply the lower of the two.
+- **Choice: (c).** `effectiveJobCapUsd` returns the smaller of the cap recorded on the job row and the cap configured now (`SchedulerLimits.maxJobCostUsd`, read with the other limits), null when neither is set. Paid admission uses it. Setting or lowering the cap and restarting binds a job that has not finished. Raising it does not loosen a job created under a lower cap, and a new report records the cap in force when it is created. The row snapshot stays.
+- **Revises.** D-10's admission wording ("`settled + live reservations + this request ≤ caps`") now names which cap applies.
+- **Limits.** The recorded cap of an existing job never rises. To run under a higher cap, start a new report.
+- **Validation.** `tests/requestAdmission.test.ts` ("per-job cap") covers a job queued before a restart that set the cap, a control that a job queued after the cap is refused, a recorded cap kept when the configured cap is raised, the recorded cap used when none is configured now, a live cap below the recorded one with a reservation filling it, admission when neither cap is set, a zero reservation under a zero cap, the smaller of two non-null caps, and rejection of a configured cap that is not null or a finite nonnegative number.
+
+## D-121 - Context fit is an estimate per tokenizer, and Claude Haiku 4.5 stays (2026-10-28)
+
+Audit 2026-10-27, batch B7 (AI-309).
+
+- **What happened.** The offline input bound counted each UTF-8 byte as a token, so every current payload (323,567 to 383,847 bytes) was refused on Haiku 4.5's 200,000-token window although Anthropic billed the same NVDA request at 159,327 input tokens on the newer tokenizer.
+- **Options.**
+  - (a) Call `count_tokens` before launch. The endpoint returns `invalid_request_error` for requests with server tools such as web search, which every analyst pass carries, and it would turn the synchronous preflight into a network call.
+  - (b) Withdraw Haiku 4.5 from Settings and the README.
+  - (c) Estimate the input offline per tokenizer and refuse only an estimate above the window.
+- **Choice: (c).** Input tokens are estimated as ceil(serialized UTF-8 bytes / k), with k = 2.25 for the tokenizer introduced with Claude 4.7 and k = 2.75 for the earlier one (Haiku 4.5). Tokenizer generations are compared as integers: "4.10" is after "4.7", where a decimal comparison would put it before. The strict byte bound (`requestInputTokenUpperBound`) stays exported.
+  - Calibration: Metis's own billed NVDA request (report #48: 379,563 bytes, 159,327 billed input tokens) is 2.38 bytes per token on the newer tokenizer. Anthropic documents the newer tokenizer as approximately 30 percent more tokens for the same text, depending on content, which puts the earlier one near 3.1 bytes per token. Both constants are rounded down so the estimate over-counts Metis payloads.
+- **Limits.**
+  - The estimate is calibrated on Metis payloads: it leaves about 11% margin on the prior tokenizer and about 5% on the current one. It is not a ceiling.
+  - It is backstopped by the provider's context-window refusal: a prompt the estimate admits wrongly is refused with a 400 that the transport settles at $0 (`tests/requestAdmission.test.ts`, "settles a request that never reached the provider at zero"). A refusal the estimate should not have made would publish a data-only report for nothing, so an estimate close to the truth is the better design.
+  - The paid-request reservation is sized from the context window, not from this estimate (D-10).
+- **Validation.** `tests/anthropic.test.ts` covers a Haiku request whose estimate is at the window (admitted) and one above it (refused), a Haiku request the size of a current NVDA payload (admitted), a control that the same payload passes on a 1M-window model, the numeric ordering of registry generations, and the tokenizer of every active registry model. The batch's local replay of stored NVDA inputs (reports 43, 46, 48 and 49; not committed) found no Haiku refusal.
+
+## D-122 - `both` compares section grades only, and an anchored retry skips its mirror (2026-10-28)
+
+Audit 2026-10-27, batch B7 (AI-108, AI-109).
+
+- **What happened.** With `METIS_JUDGE_ORDER=both`, two things made the order check read as agreement when it measured nothing.
+  - It compared the three scenario probabilities, which the judge no longer writes (D-52 nulls them), so it reported agreement on a field neither pass produced and counted it in the denominator.
+  - On a retry that carried sections kept from a cut-off response, the mirrored request received the same kept sections, so the compared grades were compared with themselves.
+- **Options.**
+  - (a) Run a fresh mirror without the kept sections. It doubles the time that caused the cut-off, can be cut off again, and spends money or plan allowance the owner did not ask for.
+  - (b) Skip the mirror only when `verdict` is carried. A mirror that writes its own grades while told to stay consistent with the primary's other kept sections is still anchored.
+  - (c) Skip and disclose the mirror on every retry that carries any kept section.
+- **Choice: (c).**
+  - The reconciliation compares the seven section grades only.
+  - A retry that carries any kept section sends no mirrored request. The reconciliation is disclosed as not performed: "No order-sensitivity check was made: ..." with a reason that names the kept sections. The standalone judge path states its missing mirror the same way. No second paid call is made.
+  - The kept sections were written under the seeded order and the retry is told to stay consistent with them, so a mirror built on them is not an independent draw. This is the reason the repair-turn branch already gave.
+- **Revises.** D-20 ("`both` runs the judge twice with swapped order and reconciles") now compares grades and has a stated exception for anchored retries. Consistent with D-52 and D-70. It supersedes the D-116 Limits bullet "With `THESIS_JUDGE_ORDER=both`, the mirrored request carries the same kept sections ...": no mirrored request is sent with kept sections any more. D-116 stays as written.
+- **Limits.** A judge pass retried after a cut-off response has no order-sensitivity check. The report says so rather than reporting agreement.
+- **Validation.** `tests/stageC.judgeProtocol.test.ts` covers the grade-only comparison (prose differences are not disagreement, only grade fields are in the denominator), a control that a retry with no kept section still runs the mirror and discloses a disagreement, no mirror when a retry keeps a verdict or other sections, the API path, and a control that a mirror that ran and failed keeps the "did not produce a comparable output" wording. `tests/stageC.payload.passes.test.ts` pins the skip wording. The batch's local replay of report #50's retry (three kept sections: verdict, business, fundamentals; not committed) sends no mirrored request.
+
+## D-123 - Discarded attempts and step costs read the ledger, and the audit export prints the mark (2026-10-28)
+
+Audit 2026-10-27, batch B7 (AI-112, JOB-204, RPT-210).
+
+- **What happened.**
+  - A judge output that parsed but failed report assembly was retried up to the limit even when the failure repeated unchanged, and was not marked discarded.
+  - A run-panel step's detail stated the last attempt's telemetry rather than the step's summed cost, and did not say how much of it was presumed.
+  - The audit export's charge breakdown did not print the discarded mark that stored reports already carried, and durable verify recovery built its rows without the marks.
+- **Options.**
+  - (a) Classify which report paths the judge writes. The report tree mixes judge text and pipeline figures under the same keys, and a wrong map would either re-buy forever or refuse a repairable retry.
+  - (b) Retry an assembly failure once and stop when the next attempt fails with the same issue list.
+- **Choice: (b).**
+  - A judge attempt whose output failed assembly is marked discarded with the fixed reason "the report could not be assembled from its output", the same fixed-phrase convention as every discarded reason (the stored #48 and #49 marks read "its output did not satisfy the report schema"). It is never quoted from the error. A reused durable artifact is never marked, since it was not bought in this run.
+  - The retry stops when the issue list (sorted path and code) equals the previous attempt's.
+  - A step's detail states the summed step cost. When the step has several attempts, a presumed part, or a cost that differs from the telemetry, the detail says so and names the presumed part. Only unreconciled presumed rows count as presumed.
+  - The audit export's charge breakdown has a fourth Note column that prints each discarded charge's mark and reason. Normal assembly and durable verify recovery build their rows through one shared join, so recovery keeps the discarded marks it can read from the stored pass artifacts and the per-attempt fallback flag.
+- **Revises.** Extends D-113 ("a repaired step states its whole cost") and commit 35fa83b (failure artifacts disclosed as discarded) to a success artifact rejected at assembly.
+- **Limits.**
+  - The assembly-rejection record lives in the running process, so a crash-recovery rebuild does not mark an assembly rejection. Durable recovery keeps the marks it reads from stored pass artifacts.
+  - The rule retries once and stops on an identical repeat; it does not decide whether the failing field belongs to the judge.
+- **Validation.** `tests/jobRunner.test.ts` covers the assembly mark and disclosure, the stop on an identical second assembly failure, a control that a different second failure still re-buys the judge, a reused repaired side's summed cost after a resume, a step's presumed request in its detail, a control that a reconciled presumed row is not called presumed, and a durable verify recovery that keeps a rejected bull row's mark. `tests/report.markdownCostTotal.test.ts` covers the Note column and a control that an undiscarded row has an empty Note and an unchanged total. The batch's local replay of stored reports (not committed) prints #48's bear $0.296630 and #49's bear $0.045210 and bull $0.428250 as discarded; every other line and both totals are unchanged.
+
+Pipeline stage-c-1.6.10 marks these conventions (D-117..D-123). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. The audit listed `REPORT_SPEC_VERSION` for RPT-210; it is not moved because the audit export now prints a flag that every stored report already carried, and no field, grade, label or schema meaning changed. D-62 left the report spec and payload unchanged when it moved the cost breakdown into the audit export, and D-116 moved only the pipeline stamp for run-metadata changes. A bump would make every earlier report "not comparable" in the history diff. Stored reports and artifacts keep their bytes.
+
+## D-124 - A peer market cap is money only in a currency the peer's own data establishes (2026-10-28)
 
 The independent audit of 2026-10-27 (batch B3, payload records) found that the AI context gave every stock-peer market cap the subject's currency (D-57), so a Taiwan, Hong Kong or Tokyo listing in a NASDAQ subject's peer list verified as US dollars (AI-301, Critical), and that the size screen compared a local-currency cap with the subject's dollars before any currency was known (AI-301-V1). The owner confirmed the decision on 2026-10-28 with its coverage trade (`docs/superpowers/specs/2026-10-27-audit-remediation-decisions.md`, section 4.3). This entry also carries the batch's mechanical fixes under "Also in this batch" below. Every rule is class-wide; none names a ticker.
 
@@ -2393,15 +2537,15 @@ The independent audit of 2026-10-27 (batch B3, payload records) found that the A
 - **AI-310.** FRED native units: APU000072610 in USD per kilowatt-hour, PCE, PCEND and PCEDG in USD billions at a seasonally adjusted annual rate, and a `chg` series (PAYEMS) named as the change from the prior observation.
 - **AI-101.** An 8-K event excerpt keeps the sentence that names whose amount it is: an honorific-and-surname passage is added with the nearest earlier passage naming that surname in full, a pronoun passage with the one before it (up to three hops, all or nothing within the budget), and an award of shares ranks with the dollar amounts. Coverage version `section-evidence-5/event`; other profiles keep `section-evidence-2`.
 - **AI-505.** Each statement block holds one column per fiscal period, the row Stage B uses (`normalizeQuarterRows`, D-13 "last-filed wins"); a period served twice with no provable order is left out and a note says so, for periods inside the block's window only. A row with an invalid date keeps its "unknown", never-citable column.
-- **AI-507.** The reconciliation rule reads the notes by reporting period, never filing date, and a 10-Q excerpt older than the newest 10-K says so in its title. Reading the 10-K's Item 9B is coverage, not a defect fix, and is left for later. This is a pass-prompt text change, so `PIPELINE_VERSION` moves to stage-c-1.6.10.
+- **AI-507.** The reconciliation rule reads the notes by reporting period, never filing date, and a 10-Q excerpt older than the newest 10-K says so in its title. Reading the 10-K's Item 9B is coverage, not a defect fix, and is left for later. This is a pass-prompt text change, so `PIPELINE_VERSION` moves to stage-c-1.6.11.
 - **AI-511.** Only the figure the balance-sheet score graded is called graded: the fiscal-year FCF conversion row reads "latest fiscal year, before SBC", and a note in "Current capital (computed)" names the graded basis and window. The current-capital label keeps its text, so its ids and the D-62 alias group are unchanged.
 - **AI-512.** A release's fiscal label that the run's own income rows do not support is withheld from the excerpt title, not replaced: a labelled income row within three days of the quarter end that disagrees withholds it (an annual row ending there makes that quarter the fiscal fourth, so it agrees with "Q4" of its year only and contradicts any "Q1" to "Q3" label; B3 final review); with none that near, it is kept only as the successor of the newest labelled quarter (80 to 100 days later) or, when only annual rows are labelled, as the next fiscal year within that quarter's day window; a bundle with no labelled income row keeps it unchecked. Alternatives rejected: preferring the statement row's label (picks a winner with no proof of which source is right), re-parsing the stored text at assembly (a parser-version policy that belongs to the current-reports batch), and withholding every release label (loses the correct labels D-66 relies on). Basis: D-66, "explicit fiscal contradictions require an established fiscal basis". The guidance rows' and track record's labels are the same root on another surface and are left for the current-reports batch.
 - **Residual (a).** A latest-year computed row (latest margins, ROIC, DuPont ROE, free cash flow, FCF conversion, capex) and the accrual-year rows carry the fiscal-year label the statement data carries (`fiscalPeriod`, "FY<yyyy>"; the provider's or the keyless builder's, not necessarily the company's own) and that year's period end, taken from the annual income row of the date Stage B's own result states, and only when that date equals the as-of the figure prints and the label is plausible for the period end (its year is the end's calendar year, or that year minus one when the end falls in January to March; B3 final review, because a keyless row can carry a wrong year, as FCX's 2024-12-31 row carried "2023"). This is option (a) of the fiscal-label decision in the claim-verifier batch, done here; it is never inferred from a calendar year (that batch's rejected option (b)). The period is set beside the label because a label alone, with a null period, skipped the consistency period check and let wrong-year claims validate under the verifier `main` has before that batch merges. Multi-year, mixed-input, current-capital and non-latest single-year figures get no label.
 - **Limits.** AI-101's stored reports keep their figures as stored. The condition, a kept amount whose recipient is named only in a cut sentence, cannot be detected from a stored report: it keeps neither the excerpt nor the omitted sentence. Its only trace, the evidence-coverage line "N of M source chars omitted by section-evidence-2/event", is on every cut 8-K event excerpt in six stored reports (#43, #45, #48, #49, #50 and #52), so a rule keyed on it would mark correct citations, and a rule keyed on words such as "salary" would be an issuer-text heuristic. #43's two affected items are already unverified and a judgment note hedges them.
 
-Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and pipeline stage-c-1.6.10 mark these conventions. In the provider-free DEMO control, the report stamp, the capex/D&A years count, a share-count window note and the shifted later capital notes move, and the peer-coverage methodology sentence changes; no figure moves. Stored reports and snapshots keep their bytes (D-67). See the [disposition record](2026-10-27-audit-fix-03-payload-records.md).
+Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and pipeline stage-c-1.6.11 mark these conventions. In the provider-free DEMO control, the report stamp, the capex/D&A years count, a share-count window note and the shifted later capital notes move, and the peer-coverage methodology sentence changes; no figure moves. Stored reports and snapshots keep their bytes (D-67). See the [disposition record](2026-10-27-audit-fix-03-payload-records.md).
 
-## D-next - Insider statistics are open-market transaction counts and share volumes over the trailing four complete calendar quarters (2026-10-28)
+## D-125 - Insider statistics are open-market transaction counts and share volumes over the trailing four complete calendar quarters (2026-10-28)
 
 FMP's insider statistics are calendar-quarter rows. The payload registered `totalPurchases` and `totalSales`, which are counts of transactions, as "shares", took them from the first row only (FMP's newest calendar quarter, which may have been the quarter in progress at the fetch date), and gave the acquired/disposed figure a bare label (AI-117, High; AI-117-V1).
 
@@ -2412,7 +2556,7 @@ FMP's insider statistics are calendar-quarter rows. The payload registered `tota
 - **Disclosure**: reader labels for the five figures; METHODOLOGY "Insider statistics". A stored report from before spec 1.45.0 shows the two figures as unverified transaction counts, with a presentation-correction entry; a log entry for a corrected figure moves from validated to unchecked and the displayed coverage counts exclude it (D-67).
 - **Sources**: SEC, "Ownership Form Codes" (https://www.sec.gov/edgar/searchedgar/ownershipformcodes.html): P and S as open-market purchase and sale, A, F and M under Rule 16b-3, G a bona fide gift. OpenBB Platform reference for FMP insider statistics (https://docs.openbb.co/odp/python/reference/equity/ownership/insider_trading): `total_purchases` and `total_sales` as transaction counts. Lakonishok and Lee (2001), "Are Insider Trades Informative?", Review of Financial Studies 14(1) (https://ideas.repec.org/a/oup/rfinst/v14y2001i1p79-111.html).
 
-## D-next - Peer screen reasons travel enveloped; an envelope change alone does not move the payload version (2026-10-28)
+## D-126 - Peer screen reasons travel enveloped; an envelope change alone does not move the payload version (2026-10-28)
 
 A peer exclusion reason can quote a provider's error body verbatim (a 402 or a quota message), and the payload printed it, with the collection notes, in "Comparable peers (computed)" outside every envelope (AI-102). D-101 had enveloped gap reasons and data-quality flags, with the guarantee that sections rendered outside the envelopes carry no free provider text.
 
@@ -2424,7 +2568,7 @@ A peer exclusion reason can quote a provider's error body verbatim (a 402 or a q
 - **Sources**: OWASP Top 10 for LLM Applications, LLM01 Prompt Injection (https://genai.owasp.org/llmrisk/llm01-prompt-injection/), mitigation "Segregate and identify external content"; D-101.
 - **Extends**: D-101.
 
-## D-next - A provider's geographic rows are company geography only where the issuer's own XBRL does not contradict them (2026-10-28)
+## D-127 - A provider's geographic rows are company geography only where the issuer's own XBRL does not contradict them (2026-10-28)
 
 The provider's annual "geographic" segmentation was passed to the AI as the company's as-reported geography whenever it held a finite row (AI-509). For AMZN it held the issuer's three business segments ("North America Segment", "International Segment", "Amazon Web Services Segment"), for NVDA region names the issuer does not use ("Other Americas", "TAIWAN, PROVINCE OF CHINA"), and the shares computed against that total were verified.
 

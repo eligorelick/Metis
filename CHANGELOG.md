@@ -20,7 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - payload records carry the right label, unit, currency and period (2026-10-28)
 
-The independent audit of 2026-10-27 found records the AI context and the data-only report named wrongly: a peer's market cap in the subject's currency, insider counts shown as shares, spans and periods labelled for more than they covered. This batch fixes them where each record is built. Every rule is class-wide; none names a ticker. The decisions are D-next in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-27-audit-fix-03-payload-records.md) lists every finding.
+The independent audit of 2026-10-27 found records the AI context and the data-only report named wrongly: a peer's market cap in the subject's currency, insider counts shown as shares, spans and periods labelled for more than they covered. This batch fixes them where each record is built. Every rule is class-wide; none names a ticker. The decisions are D-124 to D-127 in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-27-audit-fix-03-payload-records.md) lists every finding.
 
 - A peer's market cap is money only in a currency that peer's own data establishes (AI-301, AI-301-V1). It was given the subject's currency, so a Taiwan, Hong Kong or Tokyo listing read as US dollars and a claim of that size in dollars verified. A peer cap now takes its row's own currency, or the listing currency of a profile the peer collection already read for it. Otherwise it reads "(currency unknown)" and is not registered. On an entry-tier FMP key most peer profiles are refused, so many US peer caps will read "(currency unknown)": an honest unknown is better than a cap in the wrong currency.
   - The size screen compares caps only in an established equal currency, or between listings on the same market. A name on another market is "size not compared" and goes to the profile read inside the existing candidate budget, instead of being excluded on a ratio of local currency to dollars.
@@ -40,7 +40,21 @@ The independent audit of 2026-10-27 found records the AI context and the data-on
   - An excerpt is no longer titled with a fiscal quarter the company's own statements contradict, and a wrong-quarter claim can no longer pass through such a title (AI-512).
   - Older reports can still show an 8-K amount whose recipient the cut excerpt did not name. This cannot be detected from a stored report, so the limitation is recorded and the figure is shown as stored (AI-101).
 - Stored reports are shown under the corrections at display time, never rewritten: a report saved before spec 1.45.0 shows foreign peer caps without a currency or check mark, insider counts as unverified counts, the capex/D&A label as "average of up to 5 fiscal years", the data-only FRED unit sentences, provider geography the report's own XBRL contradicts as unverified, and "the graded ratio" without those words. A fixed note in the missing-data manifest discloses it.
-- Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and pipeline stage-c-1.6.10 mark these conventions. No stored report is rewritten and no snapshot changes.
+- Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and pipeline stage-c-1.6.11 mark these conventions. No stored report is rewritten and no snapshot changes.
+
+## Unreleased - every paid request settled and shown at its real cost (2026-10-28)
+
+- Record a paid request that fails after it started generating at its reported usage plus what it could still have generated (the request maximum when it carries web search or a server fallback), marked presumed, whatever ended it: the idle guard, the caller, a server error event or a dropped connection (AI-113). A request the provider had answered but that was cancelled before any usage arrived is presumed at the request maximum instead of dropped (AI-113-V1).
+- Do not charge a request whose connection never opened (AI-307). One network blip used to book $315.84 presumed on an Opus 5.5 bull pass (six attempts at the $52.64 request maximum) for requests Anthropic never received.
+- Make a pass's recorded cost and tokens equal the sum of its requests' settlements, failed pause resumptions included (AI-114).
+- Keep a finished response when the database writer lock delays its cost record: the write is retried three times, then the response is kept and the lease is presumed at expiry (AI-308). The runner stops renewing that lease, so it expires on schedule and frees its capacity slot instead of holding it while the pass runs.
+- Report a caller abort after a request's final usage event as the actual charge it settled, not as a presumed remainder; settle an idle stream with no usage at the permit's maximum, like the other no-usage charge.
+- Date a presumed cost row on the day its request was authorized, so `costs:reconcile` compares it with the right day (JOB-203).
+- Admit paid work against the lower of the job's recorded cap and the cap configured now (JOB-209).
+- Run Claude Haiku 4.5 on current payloads: the context check now estimates input tokens per tokenizer instead of counting bytes as tokens (AI-309).
+- Compare section grades only when `METIS_JUDGE_ORDER=both` (AI-109), and skip and disclose the mirrored judge pass on a retry that keeps sections (AI-108).
+- Mark a judge attempt whose output could not be assembled into a report as discarded, and stop the judge retries when an identical second assembly failure repeats (AI-112). State a step's whole cost in its detail, the presumed part named (JOB-204). Print the discarded mark in the audit export's charge breakdown and keep the marks durable recovery can read (RPT-210).
+- Pipeline stage-c-1.6.10 (D-117..D-123). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes; #48's and #49's audit exports now print their stored discarded marks.
 
 ## Unreleased - a resumed plan pass names its model (2026-10-27)
 

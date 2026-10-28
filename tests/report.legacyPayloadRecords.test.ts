@@ -109,7 +109,7 @@ describe("legacy payload-record view", () => {
     expect(after.macro.relevantSeries.find((r) => r.seriesId === "PAYEMS")!.relevance).toBe("Core macro series tracked for every issuer. Displayed in persons (FRED serves thousands; shown ×1,000).");   // control
     expect(after.macro.relevantSeries.find((r) => r.seriesId === "DGS10")!.relevance).toBe("The model wrote this: electricity moved. Displayed in USD per therm.");   // model prose is left alone
     expect(after.appendix.verificationLog!.find((e) => e.path === "leadership.insiderSummary[0]")).toMatchObject({ validationStatus: "unchecked", numericSupportStatus: "unchecked" });
-    expect(after.appendix.verificationLog!.every((e) => (e.note ?? "").includes("(display correction, D-next)"))).toBe(true);
+    expect(after.appendix.verificationLog!.every((e) => (e.note ?? "").includes("(display correction, D-124, D-125, D-127)"))).toBe(true);
     // 3b: counts move only for corrected LOG entries. PEER_FOREIGN has no log entry in this fixture, so only the insider
     // key number's entry leaves numeric.supported (3 → 2), and the #48-shaped claim moves from validated to unchecked.
     expect(after.meta.provenanceCoverage).toMatchObject({ numeric: { supported: 2, total: 4, rate: 0.5 },
@@ -161,10 +161,10 @@ describe("legacy payload-record view", () => {
     const audit = reportToAuditMarkdown(legacy);
     expect(audit).toContain(PAYLOAD_RECORD_CORRECTION_FIELD);
     expect(audit).toContain("Deterministic presentation correction");
-    expect(audit).toContain("(display correction, D-next)");                                   // the insider log entries, moved to unchecked
+    expect(audit).toContain("(display correction, D-124, D-125, D-127)");                                   // the insider log entries, moved to unchecked
     const current = reportToAuditMarkdown(stored("1.45.0"));                                   // control: a current report carries neither
     expect(current).not.toContain(PAYLOAD_RECORD_CORRECTION_FIELD);
-    expect(current).not.toContain("(display correction, D-next)");
+    expect(current).not.toContain("(display correction, D-124, D-125, D-127)");
   });
 
   it("compares spec versions numerically", () => {

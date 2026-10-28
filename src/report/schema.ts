@@ -136,7 +136,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.42.0 (D-111): the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line.
 // 1.43.0 (D-112): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
 // 1.44.0 (D-113): an `info` EDGAR note (one derived reading withheld) no longer marks EDGAR missing or forensics provisional.
-// 1.45.0 (D-next): payload records carry the right label, unit, currency and period; reports before 1.45.0 are shown through `withLegacyPayloadRecordSafety`. The data-only FCF conversion label no longer says "graded ratio", and stored provider geography and that label are shown through rules 7 and 8 of the legacy view. A computed fiscal-year row's label and period, and a release fiscal label withheld unless the statement rows confirm it (a labelled row within 3 days, the newest labelled quarter's successor, or with only annual rows the next fiscal year at the days its quarter number fits), change which period claims validate.
+// 1.45.0 (D-124 to D-127): payload records carry the right label, unit, currency and period; reports before 1.45.0 are shown through `withLegacyPayloadRecordSafety`. The data-only FCF conversion label no longer says "graded ratio", and stored provider geography and that label are shown through rules 7 and 8 of the legacy view. A computed fiscal-year row's label and period, and a release fiscal label withheld unless the statement rows confirm it (a labelled row within 3 days, the newest labelled quarter's successor, or with only annual rows the next fiscal year at the days its quarter number fits), change which period claims validate.
 export const REPORT_SPEC_VERSION = "1.45.0" as const;
 
 /* ------------------------------------------------------------------------ *
@@ -691,14 +691,19 @@ export const JudgeOrderDisagreementSchema = z
 /**
  * `THESIS_JUDGE_ORDER=both` reconciliation. RECONCILIATION MEANS: the two judge
  * passes (identical inputs, swapped case order) must agree on every A-F section
- * grade and on each scenario probability to two decimals. Those are the fields
- * a reader acts on and the ones position bias would move. When they disagree,
+ * grade. Scenario probabilities are not compared: the judge's probabilities are
+ * not published (D-52), so a comparison would report agreement on a field it
+ * no longer writes. Grades are the fields a reader acts on and the ones
+ * position bias would move. When they disagree,
  * the PRIMARY pass (the seeded order) is the report — the secondary is never
  * silently averaged in — and every disagreeing field is listed here and in the
  * missing-data manifest, so an order-sensitive grade is disclosed rather than
  * hidden. Prose, reasoning and disagreement lists are NOT compared: two runs of
  * a language model never produce identical prose and demanding it would report
  * a failure on every run.
+ *
+ * `agreed` is meaningful only when `performed` is true; a reconciliation that
+ * was not performed always stores `agreed: false`.
  */
 export const JudgeReconciliationSchema = z
   .object({

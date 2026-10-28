@@ -64,6 +64,16 @@ The registry also retains Fable 5, Opus 5, Opus 4.8 and Sonnet 5. This list
 describes selectable implementation entries, not measured research-quality
 rankings. The registry's judge floor is `claude-sonnet-5-5`: Haiku analyst
 requests use Haiku, while synthesis is raised to that floor and disclosed.
+Before launch Metis estimates a request's input tokens from its size, at 2.25
+bytes per token for the tokenizer Anthropic introduced with Claude 4.7 and 2.75
+for Haiku 4.5's earlier one, and refuses only an estimate above the model's
+context window. The constants are calibrated on Metis payloads (about 11% margin
+on the earlier tokenizer, about 5% on the current one), so the estimate is not a
+ceiling; an over-long prompt it misses is refused by Anthropic before any
+charge. The estimate counts the input only: a request whose input fits the
+window but whose input plus the output ceiling does not is launched, and
+Anthropic stops it with `model_context_window_exceeded`, a paid stop that
+discards the partial output and records what was billed.
 
 Claude effort resolves in this order: database setting, `ANALYSIS_EFFORT`,
 then `high`. Model resolves similarly: database setting, `ANALYSIS_MODEL`,
@@ -99,6 +109,13 @@ Analyst JSON uses Anthropic structured output. The judge's larger schema is
 included in its prompt and validated locally, rather than sent as a strict
 structured-output grammar. Invalid judge/report output can receive up to two
 additional repair attempts; completed rejected requests still incur usage.
+A report-assembly failure that repeats unchanged after a repair ends the
+retries, and each judge attempt whose output could not be assembled into the
+report is marked discarded, with a fixed reason, in the stored report's cost
+breakdown. The audit export prints each discarded charge with its reason in a
+Note column. Durable verify recovery keeps the marks it can read from the
+stored pass artifacts; an assembly rejection is recorded only in the running
+process, so a crash-recovery rebuild does not mark it.
 A rejected bull or bear case gets one repair attempt, including a schema-valid
 case that is empty (no drivers or risks, or no positive price target with a
 horizon). A blank `sourceId` is read as absent rather than rejected, so it no
@@ -107,6 +124,9 @@ longer costs a repair. Entity-validation repairs can also add analyst work.
 `METIS_JUDGE_ORDER` defaults to `random`, deterministically seeded by job ID.
 `bull-first` and `bear-first` fix the presentation order. `both` requests a
 second judge assessment with the cases swapped, then reconciles the pair;
+on a retry that repairs a rejected output or keeps sections from a cut-off
+response, the mirrored request would not be an independent draw, so it is not
+run and the report says the comparison was not performed;
 this can roughly double judge work before any repairs. Order and reconciliation
 are disclosed in the report. Bull, bear and judge can share a model family;
 their adversarial roles do not establish independent model judgments.
@@ -115,8 +135,12 @@ With Claude streaming, bull starts first and bear waits for its first stream
 event, allowing the evidence prefix cache to become reusable. Requests may
 then overlap. If bull fails before that event, bear is not launched; when a
 side's terminal failure makes synthesis impossible, the other request is
-aborted and its incurred or presumed spend is retained. Non-streaming and
-subscription paths run the analysts sequentially.
+aborted and its incurred or presumed spend is retained. A request the
+provider has already answered is presumed even when it is cancelled before
+any usage arrives, at the whole request maximum when no usage was reported.
+A stream that goes silent before any usage arrives is presumed at the same
+figure. A cancel before the provider answers is not charged. Non-streaming
+and subscription paths run the analysts sequentially.
 
 AI off, missing authorization, unsupported model selection and some terminal
 analysis failures produce disclosed data-only reports. A data-only result may
@@ -150,6 +174,24 @@ and up to **five `pause_turn` resumptions** within an execution. Retryable
 rate-limit responses honor provider retry delays; enforced spend-limit errors
 stop. Request timeout and effort-scaled stream-idle limits can abort stalled
 work. These paths can create billable requests even when no report completes.
+A request whose connection could not be opened (a connect timeout, a refused
+connection, an unreachable host or network at connect, or a failed name lookup)
+never reached Anthropic and is not charged; a timeout after the request was
+sent is presumed. A server error event after the response started (HTTP 200)
+but before `message_start` is released, as an HTTP error status is, except that
+an error whose text contains "timeout" or "timed out" is read as a timeout after
+send and presumed at the request maximum. The stream-idle timer starts before
+the connection opens, so an idle limit below the connect timeout (about 10
+seconds) presumes a hung connect at the request maximum. The idle limit is
+`METIS_STREAM_IDLE_SECONDS` times the effort multiplier (1 at low and medium,
+2 at high, 3 at xhigh, 4 at max; 1 for a model without effort).
+A pass's recorded cost, tokens and presumed flag are the sum of what each of
+its requests settled, retries and pause resumptions included, in both
+reservation modes. A request that ends after it started reporting usage but
+before its final usage event (a mid-stream server error, a dropped connection,
+a stall or a cancel) is recorded as its reported usage plus the most it could
+still have generated, marked presumed until `npm run costs:reconcile` lowers
+it; with web search or a server fallback the whole request maximum is kept.
 
 The two Fable registry entries configure an explicit server-side refusal
 fallback to `claude-opus-4-8`. Other entries have no such fallback. Requests
@@ -179,10 +221,19 @@ These are implementation assumptions, not an invoice guarantee. A small cap
 can refuse a request whose typical actual cost would have fit. Completed usage
 remains recorded when later admission fails.
 
+A job is admitted against the lower of the per-job cap recorded when it was
+queued and the cap configured now, so setting or lowering
+`METIS_MAX_JOB_COST_USD` and restarting also binds a job that is still queued
+or that resumes after the restart or by Retry (a resume keeps the same job row
+and its recorded cap). Raising the cap does not loosen an older job; a new
+report records the cap in force when it is created.
+
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
 full reserved amount as **presumed spend**. A late settlement can replace that
-presumption automatically. A ledger amount based on usage still uses local
+presumption automatically, except for a request (completed or failed) whose
+cost record stayed locked through every retry: that lease is no longer renewed, so it
+expires into the presumed row, and only `npm run costs:reconcile` lowers it. A ledger amount based on usage still uses local
 registry prices; it is not a provider invoice.
 
 For abandoned requests that never settle, run:
@@ -200,6 +251,10 @@ reconciliation writes; `--write` lowers qualifying presumed ledger rows.
 Ordinary database opening can still perform schema/cache maintenance.
 The comparison bounds presumed spend by bucket totals minus recorded
 settlements; it cannot attribute an organization total to an exact request.
+A presumed row is compared with the UTC day its request was authorized.
+Anthropic's documentation does not say which day a request that spans midnight
+is reported on, so a request measured across midnight can still be counted in
+the later day.
 Other organization usage can prevent a reduction. Changes refresh job progress
 costs but leave saved report cost figures as persisted. The corrected export
 CLI can reconstruct an export's cost from the current job ledger.

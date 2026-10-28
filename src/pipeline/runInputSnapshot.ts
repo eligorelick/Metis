@@ -27,7 +27,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-108: net income attributable to the parent derived as ProfitLoss less NCI income when NetIncomeLoss is not filed, and read as parent income.
 // D-111: the risk-free rate from the bundle's riskFreeFallback (last cached DGS10, then the Treasury par curve) when DGS10 and FMP treasury have none, and a degraded-inputs entry in fairValue.reasons naming each substituted input.
 // D-112: newer 10-Q instance facts merged into companyfacts, an undated release ordered by filing, a newer release's dollars bound to a single-currency history, each multiple's period, the non-bracketing scenario fan withheld, continuing-operations EPS and the economic issuer of a re-presented predecessor's rows.
-// D-next (audit 2026-10-27 B3): the discovery size screen compares an established or same-market listing only, the peer collection records each read profile's listing currency, and the capex/D&A average counts its years. Stage A records a `validation.providerGeography` gap when provider geography is withheld.
+// D-124 (audit 2026-10-27 B3): the discovery size screen compares an established or same-market listing only, the peer collection records each read profile's listing currency, and the capex/D&A average counts its years. Stage A records a `validation.providerGeography` gap when provider geography is withheld.
 export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_28" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }

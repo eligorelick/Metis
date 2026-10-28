@@ -176,7 +176,7 @@ entire day; tied or overlapping intervals, invalid recency, or missing recency
 reject the whole duplicate period. Values are not selected field by field
 from conflicting restatements.
 The AI context's statement blocks apply the same rule before they take their
-periods (audit 2026-10-27 AI-505, D-next): one column per fiscal period, the
+periods (audit 2026-10-27 AI-505, D-124): one column per fiscal period, the
 provably latest row (by acceptance time, or by filing date where none is
 given), the figure Stage B uses; a period served twice with no provable order
 is left out. When such a period falls inside the block's window (five annual or
@@ -241,7 +241,7 @@ also withheld when the reporting and listing currencies differ, or when either
 is unknown. An inherited figure is rendered "(USD, inherited)" in the AI
 payload, its registry record carries `currencyBasis: "inherited"`, and the
 `valuation.analystEstimates.currency` manifest entry says the estimates were
-inherited. Stock-peer market caps do not inherit (AI-301, D-next, revising
+inherited. Stock-peer market caps do not inherit (AI-301, D-124, revising
 D-57 for peers): FMP documents its peers as same-exchange, but its own answers
 list foreign exchanges (a NASDAQ subject's list holds `.T`, `.TW`, `.HK` and
 `.SS` symbols), so the premise cannot establish a currency. A peer cap is money
@@ -263,7 +263,7 @@ D-28's own-row-only rule, which discarded USD consensus, peer sizes and
 executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
 rule of D-28 is restored.
 
-**Insider statistics (AI-117, D-next).** FMP's insider statistics are
+**Insider statistics (AI-117, D-125).** FMP's insider statistics are
 calendar-quarter rows. Its `totalPurchases` and `totalSales` are counts of
 open-market transactions (Form 4 codes P and S), not shares; the acquired and
 disposed share volumes are separate fields that cover every reported
@@ -822,7 +822,7 @@ twelve-month basis it is not the graded value and is not called graded; on the
 annual basis the current-capital section names the graded annual window and
 says the fiscal-year row covers the same window only when its fiscal year ends
 on that window's end date, rather than calling that row not graded (audit
-2026-10-27 AI-511, D-next). Price to free cash flow uses the **before**
+2026-10-27 AI-511, D-124). Price to free cash flow uses the **before**
 figure — the same basis as the own-history distribution it is ranked in — and is
 labelled "P/FCF (before SBC)" wherever it renders, with the basis string saying
 that the capital block's house-default figure is a different number.
@@ -2785,7 +2785,7 @@ its value reads "Cited; contradicted by its source" (it was cited, never
 statuses, and its evidence-class table gives the coverage counts with
 grade-strip reasoning included.
 
-**Stored payload-record corrections (D-next).** A report saved before report
+**Stored payload-record corrections (D-124, D-125, D-127).** A report saved before report
 spec 1.45.0 is displayed, on the page, in the Markdown, print and audit exports
 and in the history view, through `withLegacyPayloadRecordSafety`
 (`src/report/legacyPayloadRecordSafety.ts`). The stored report, its bytes and
@@ -2814,7 +2814,7 @@ its labels (the stored-report form of OD-4; rule 7). (6) A data-only "FCF conver
 ratio": the row is a fiscal-year series, and the graded figure is the
 balance-sheet driver row (rule 8). A log entry for a corrected figure moves from
 validated to unchecked (and verified to unverified) with the note "(display
-correction, D-next)", and the displayed coverage counts exclude the corrected
+correction, D-124, D-125, D-127)", and the displayed coverage counts exclude the corrected
 entries: the stored-report rule above, applied to these entries. One
 "presentation.payloadRecords" missing-data entry discloses the correction. The
 stored report and its recorded counts are unchanged. Known limitation: in a
@@ -2835,7 +2835,7 @@ only the tied period is left no record is labelled. These are the latest margins
 FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
 a statement cell's are not. They let prose name that fiscal year or "the fiscal
 year", and, as for a statement cell, a sentence naming another year stays
-unverified (audit 2026-10-27 B3, D-next). The label is the one the statement data
+unverified (audit 2026-10-27 B3, D-124). The label is the one the statement data
 carries (the provider's or the keyless builder's), which can be wrong (FCX's keyless
 2024-12-31 row carried "2023"), so the lookup keeps it only when it is plausible for
 the period end: the year of the end, or the year before when the end falls in January
@@ -3373,7 +3373,7 @@ sales were shown as parts of service sales. Members renamed between filings are
 still not joined (D-63), so an annual-only member can leave a fourth-quarter
 cell blank.
 
-**Provider geography (audit 2026-10-27 AI-509, D-next).** FMP's annual
+**Provider geography (audit 2026-10-27 AI-509, D-127).** FMP's annual
 "geographic" rows are company geography only when the issuer's own XBRL in the
 same run does not contradict them. They are withheld when a key names one of the
 issuer's reportable business segments (segment revenue is not entity-wide
@@ -3637,7 +3637,7 @@ FRED skips the observation. Valid data renders as before. Peer-screen
 exclusion reasons and peer-collection notes can also quote a provider's error
 body, so they travel in their own envelope ("Peer screen exclusions and
 collection notes"), one entry per line; "Comparable peers (computed)" keeps
-only the figures, the fixed method lines and the comparison bases (D-next).
+only the figures, the fixed method lines and the comparison bases (D-126).
 
 **The judge reads the cases as arguments (F-6).** Each analyst case the judge
 receives is enveloped the same way and labelled model-authored. The judge is
@@ -3912,7 +3912,7 @@ dated the release, which would have raised a false notice. This is only the part
 notice needs; ordering releases that state no period is left for a later
 batch.
 
-**8-K event excerpts (D-next).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`.
+**8-K event excerpts (D-124).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`.
 
 **A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
 reaches the analysis passes as a 12,000-character selection read for
@@ -3936,9 +3936,9 @@ megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both
 with their filings and dates.
 
-**An older 10-Q (audit 2026-10-27 AI-507, D-next).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. The 10-Q MD&A, notes and Item 5 (other information) excerpts are then titled "[older than the 10-K for the period ended <date>]" (the Item 4 controls and signatures excerpts carry no such marker), and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
+**An older 10-Q (audit 2026-10-27 AI-507, D-124).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. The 10-Q MD&A, notes and Item 5 (other information) excerpts are then titled "[older than the 10-K for the period ended <date>]" (the Item 4 controls and signatures excerpts carry no such marker), and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
 
-**A release's fiscal label (audit 2026-10-27 AI-512, D-next).** An excerpt title takes a quarter's fiscal label from the earnings release only where the run's own income-statement rows support it. (1) If a labelled annual or quarterly income row ends within three days of the release's quarter end, the label is kept unless that row gives another fiscal year or, for a quarter label, another quarter; an annual row's FY2025 agrees with Q4 FY2025 only, and contradicts any Q1 to Q3 label, because an annual period ending at the quarter end makes that quarter the fiscal fourth. (2) If no labelled row lies within three days but labelled quarterly rows exist, as on earnings day when the release is newer than every statement row, the label is kept only when the quarter end falls 80 to 100 days after the newest labelled quarterly row's period end and the label is that row's successor quarter (Q1 to Q2 to Q3 to Q4 to Q1 of the next fiscal year). A release more than 100 days later, or older than that row, is withheld. (3) If no quarterly income row carries a fiscal label but a labelled annual income row exists, the label is kept only when its fiscal year is that newest labelled annual row's fiscal year plus one (a quarter ending after a fiscal year's end belongs to the next fiscal year) and its quarter number n fits the days between that row's period end and the quarter end, which must be 91n-11 to 91n+9 inclusive and at most 366 (Q1 80 to 100, Q2 171 to 191, Q3 262 to 282, Q4 353 to 366); otherwise it is withheld. (4) Only a bundle with no labelled income row (an annual row with an FY label or a quarterly row with a Q label) leaves nothing to contradict the release, and its label is kept; this is a stated limit. When a label is withheld, the earnings-release and CFO-commentary titles state the quarter-end date and that the label was withheld, while the 10-Q and 10-K titles simply drop the label. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The check is skipped when the release has no parseable quarter end: the title then prints the release's label alone, with no quarter-end date, and no 10-Q or 10-K title takes a label from that release. The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
+**A release's fiscal label (audit 2026-10-27 AI-512, D-124).** An excerpt title takes a quarter's fiscal label from the earnings release only where the run's own income-statement rows support it. (1) If a labelled annual or quarterly income row ends within three days of the release's quarter end, the label is kept unless that row gives another fiscal year or, for a quarter label, another quarter; an annual row's FY2025 agrees with Q4 FY2025 only, and contradicts any Q1 to Q3 label, because an annual period ending at the quarter end makes that quarter the fiscal fourth. (2) If no labelled row lies within three days but labelled quarterly rows exist, as on earnings day when the release is newer than every statement row, the label is kept only when the quarter end falls 80 to 100 days after the newest labelled quarterly row's period end and the label is that row's successor quarter (Q1 to Q2 to Q3 to Q4 to Q1 of the next fiscal year). A release more than 100 days later, or older than that row, is withheld. (3) If no quarterly income row carries a fiscal label but a labelled annual income row exists, the label is kept only when its fiscal year is that newest labelled annual row's fiscal year plus one (a quarter ending after a fiscal year's end belongs to the next fiscal year) and its quarter number n fits the days between that row's period end and the quarter end, which must be 91n-11 to 91n+9 inclusive and at most 366 (Q1 80 to 100, Q2 171 to 191, Q3 262 to 282, Q4 353 to 366); otherwise it is withheld. (4) Only a bundle with no labelled income row (an annual row with an FY label or a quarterly row with a Q label) leaves nothing to contradict the release, and its label is kept; this is a stated limit. When a label is withheld, the earnings-release and CFO-commentary titles state the quarter-end date and that the label was withheld, while the 10-Q and 10-K titles simply drop the label. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The check is skipped when the release has no parseable quarter end: the title then prints the release's label alone, with no quarter-end date, and no 10-Q or 10-K title takes a label from that release. The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
 
 ### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
 

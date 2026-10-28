@@ -2405,18 +2405,26 @@ export async function runJudgePass(
   // below is what the cost log records for the pass.
   let result = run.result;
   const repairTurn = validationFeedback !== undefined && validationFeedback.length > 0;
-  if (presentation.secondaryOrder !== null && repairTurn) {
+  if (presentation.secondaryOrder !== null && (repairTurn || hasCompletedSections(continuation))) {
     // A validation retry carries the primary's "repair this JSON in place"
-    // turn. A mirrored request anchored on that same previous output is not
-    // an independent draw — reconciling two repairs of one document measured
-    // nothing about order sensitivity while the report said the two passes
-    // agreed — so the mirror is not run and the reconciliation is disclosed as
-    // not performed.
+    // turn, and a retry after a cut-off response carries the sections that
+    // response already wrote under the seeded order (the retry is told to stay
+    // consistent with them, and both orders would receive the same ones). A
+    // mirrored request anchored on either is not an independent draw —
+    // reconciling two repairs of one document, or grades the mirror never
+    // wrote, measured nothing about order sensitivity while the report said the
+    // two passes agreed — so the mirror is not run (no second paid request) and
+    // the reconciliation is disclosed as not performed.
     draft = withReconciliation(
       draft,
       reconciliationNotPerformed(
-        "retry attempt: the mirrored (opposite-order) judge pass is not run against a repair-in-place turn, " +
-          "because a mirror anchored on the previous output is not an independent draw",
+        repairTurn
+          ? "retry attempt: the mirrored (opposite-order) judge pass is not run against a repair-in-place turn, " +
+              "because a mirror anchored on the previous output is not an independent draw"
+          : `retry attempt: sections kept from a cut-off response (${Object.keys(continuation!.completed).join(", ")}) ` +
+              "were written under the seeded order, so a mirrored request would be anchored on them and is not an " +
+              "independent draw; the mirrored judge pass was not run",
+        "skipped",
       ),
     );
   } else if (presentation.secondaryOrder !== null) {
@@ -4043,6 +4051,7 @@ export async function runJudgeVerifyAssemble(
           reconciliationNotPerformed(
             `${JUDGE_ORDER_ENV_KEY}=both is configured, but this judge path runs a single ${presentation.order} pass; ` +
               "the mirrored pass and its reconciliation are only run by the job runner",
+            "skipped",
           ),
         );
 

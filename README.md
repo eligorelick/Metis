@@ -145,8 +145,8 @@ advantage, and the order is printed in the report header. Both cases share one
 character target; actual lengths and protected-content excess are disclosed.
 Each analyst scores its own side 1-5 against a stated rubric, and
 the judge may discount a side that scored itself low.
-`METIS_JUDGE_ORDER=both` runs the judge twice with the cases swapped and
-reconciles every grade and probability, for two judge passes.
+`METIS_JUDGE_ORDER=both` adds a second judge pass with the cases swapped and
+compares every section grade; a retry that keeps earlier sections skips it.
 
 The verification pass makes no model call. It measures citation coverage — can
 each figure be traced to the record it cites — and separately checks the prose
@@ -189,7 +189,7 @@ with effort — both bound a request at the model's full context and output ceil
 The primary-model output ceiling varies with effort; thinking bills as output.
 Below `high`, passes use analyst 64K/judge 96K; at `high` and above, the model's
 registry ceiling applies. Fallback output is additional and covered by request
-reservations. Abandoned search/fallback requests retain their presumed bound.
+reservations. A cut-off request is presumed at its worst case until reconciled.
 
 The estimated run is a calculation, not a measurement: the fixture shape at effort
 `high` and registry rates, Haiku's synthesize figures those of Claude Sonnet 5.5

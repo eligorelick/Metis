@@ -12,7 +12,7 @@
  * and divides bank loan ratios by gross loans; a 1.14.0 pass is never resumed.
  * Report 1.45.0, payload 1.49.0 and Stage B ..._28 (audit 2026-10-27 B3) move the
  * payload-record labels, units, currencies and periods; a pass stored under
- * 1.48.0 is never resumed. Pipeline stage-c-1.6.10 moves for the reworded
+ * 1.48.0 is never resumed. Pipeline stage-c-1.6.11 moves for the reworded
  * reconciliation rule.
  * Earlier stamps:
  *

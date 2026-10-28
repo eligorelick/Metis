@@ -2624,6 +2624,72 @@ describe("runJob - durable paid-pass settlements", () => {
     ]);
   });
 
+  it("stops renewing an abandoned request lease so the pass's next request is admitted once it expires (final review I2)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    const { jobId } = createJob("AAPL");
+    const scheduler = await import("@/pipeline/jobScheduler");
+    const limits = {
+      maxActiveJobs: 1,
+      maxActiveLlmCalls: 1,
+      maxRollingCostUsd: null,
+      rollingCostWindowMs: 60 * 60 * 1000,
+      paidPassLeaseTtlMs: 200,
+      jobLeaseTtlMs: 10_000,
+    };
+    const claim = scheduler.claimQueuedJobById(jobId, "abandoned-lease", new Date(), limits)!;
+    const base = mockPasses();
+    const abandoned = deferred<string>();
+    const finish = deferred();
+    let secondAdmitted = false;
+    const passes: PipelinePasses = {
+      ...base.passes,
+      runBullThenBear: async (deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        const admission = deps.admissionFor?.("bull") as RequestAdmission;
+        const permit = await admittedWithin(
+          admission.reserve({ attempt: 1, kind: "stream", maximumUsd: 12 }),
+          "bull's first request was never admitted",
+        );
+        // The ledger write for this request's settlement gave up: the permit
+        // stays held, but nothing may keep renewing it.
+        admission.abandon?.(permit);
+        abandoned.resolve(permit.id);
+        // At one active call the next request waits for the held lease.
+        const second = await admission.reserve({ attempt: 2, kind: "stream", maximumUsd: 12 });
+        secondAdmitted = true;
+        await admission.release(second);
+        await finish.promise;
+        throw new Error("bull ended after its second request");
+      },
+    };
+
+    const running = runJob(jobId, passes, {
+      bundle: fakeBundle(),
+      hasAnthropicKey: true,
+      now: NOW,
+      claim,
+      schedulerLimits: limits,
+    });
+    const permitId = await abandoned.promise;
+    const heldExpiry = handle.db.select().from(jobLlmLeases).where(eq(jobLlmLeases.permitId, permitId)).get()!.leaseExpiresAt;
+
+    // Past several renewal beats, short of the lease's own expiry: an
+    // abandoned lease keeps its original expiry, and the next request waits.
+    await vi.advanceTimersByTimeAsync(120);
+    expect(handle.db.select().from(jobLlmLeases).where(eq(jobLlmLeases.permitId, permitId)).get()!.leaseExpiresAt).toBe(heldExpiry);
+    expect(secondAdmitted).toBe(false);
+
+    // Once it expires, the sweep turns it into the presumed row and the slot frees.
+    await vi.advanceTimersByTimeAsync(400);
+    expect(secondAdmitted).toBe(true);
+    expect(handle.db.select().from(costLog).all()).toEqual([
+      expect.objectContaining({ settlementKind: "presumed", step: "bull" }),
+    ]);
+    finish.resolve(undefined);
+    await running;
+  });
+
   it("analyst finish lifecycle stays local until the durable settlement commits", async () => {
     const { jobId } = createJob("AAPL");
     const base = mockPasses();
@@ -4066,6 +4132,11 @@ describe("runJob - durable paid-pass settlements", () => {
       .find((entry) => entry.field === "llm.judge");
     expect(judgeGap?.reason).toBe(synthesize?.detail);
     expect(judgeGap?.attemptedSources).toEqual([]);
+    // AI-112: a reused artifact was not bought in this run, so it is never marked
+    // discarded (control: the "AI-112" tests mark a freshly bought attempt).
+    const stored = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(stored.appendix.costBreakdown.filter((entry) => entry.discarded === true)).toEqual([]);
+    expect(stored.appendix.missingData.some((entry) => entry.field === "llm.synthesize.discardedAttempt")).toBe(false);
   });
 
   it("queued resume re-derives a source verify artifact and persists it without paid work", async () => {
@@ -4341,6 +4412,90 @@ describe("runJob - durable paid-pass settlements", () => {
     });
     },
   );
+
+  it("keeps the discarded mark on a rejected bull row when durable recovery builds the report", async () => {
+    // RPT-210: recovery used to rebuild the breakdown straight from the ledger,
+    // dropping the discarded mark that the live path gave a rejected attempt.
+    const { jobId } = createJob("AAPL");
+    const bundle = fakeBundle();
+    const validation = validateBundle(bundle, { now: NOW() });
+    const payload = pipelinePasses.assembleContextPayload(bundle, runStageB(bundle), validation);
+    const payloadFingerprint = pipelinePasses.fingerprintPayload!(payload);
+    const persist = (attemptId: string, pass: "bull" | "bear" | "synthesize", settlement: TestSettlement<unknown>) =>
+      persistPassSettlement({
+        jobId,
+        runGeneration: 0,
+        attemptId,
+        pass,
+        settlement: settlement as never,
+        payloadFingerprint,
+        settledAt: NOW().toISOString(),
+      });
+    persist("rpt210-bull-rejected", "bull", testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON"));
+    persist("rpt210-bull", "bull", testSuccessSettlement(testAnalystPass("bull")));
+    persist("rpt210-bear", "bear", testSuccessSettlement(testAnalystPass("bear")));
+    // Review of RPT-210: an earlier judge attempt that succeeded but (in a process that no longer
+    // exists) could not be assembled leaves no trace but a success artifact and its cost row.
+    // Recovery passes no assemblyRejected, so it must show that row unmarked
+    // (docs/CLAUDE-USAGE.md: a crash-recovery rebuild does not mark an assembly rejection).
+    persistPassSettlement({
+      jobId,
+      runGeneration: 0,
+      attemptId: "rpt210-synthesize-earlier",
+      pass: "synthesize",
+      settlement: testSuccessSettlement({
+        data: fakeJudgeOutput(),
+        model: "claude-opus-4-8",
+        costUsd: 0.37,
+        fallbackUsed: false,
+      }) as never,
+      payloadFingerprint,
+      settledAt: new Date(NOW().getTime() - 60_000).toISOString(),
+    });
+    persist("rpt210-synthesize", "synthesize", testSuccessSettlement({
+      data: fakeJudgeOutput(),
+      model: "claude-opus-4-8",
+      costUsd: 0.4,
+      fallbackUsed: false,
+    }));
+    await pipelinePasses.runVerifyPass(
+      { analysisModel: "claude-opus-4-8", payload, jobSeed: jobId },
+      fakeJudgeOutput(),
+      { fetchedUrls: [] },
+      async (settlement) => {
+        persistPassSettlement({
+          jobId,
+          runGeneration: 0,
+          attemptId: "rpt210-verify",
+          pass: "verify",
+          settlement,
+          payloadFingerprint,
+          settledAt: NOW().toISOString(),
+        });
+      },
+    );
+    handle.db.update(jobs).set({ status: "error", error: "report link interrupted", reportId: null }).where(eq(jobs.id, jobId)).run();
+    clearPreparedResumeProcessCache();
+
+    const result = await runJob(jobId, pipelinePasses, { now: NOW, resume: true });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    const persistedRow = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get();
+    const rows = ReportSchema.parse(JSON.parse(persistedRow!.reportJson!)).appendix.costBreakdown;
+    expect(rows.find((r) => r.step === "bull" && r.costUsd === 0.42825)).toMatchObject({
+      discarded: true,
+      discardedReason: "the attempt did not produce a usable result",
+    });
+    // Control: the accepted attempts carry no mark, and every row keeps the
+    // per-attempt fallbackUsed that cost_log persists.
+    expect(rows.filter((r) => r.discarded === true)).toHaveLength(1);
+    expect(rows.every((r) => typeof r.fallbackUsed === "boolean")).toBe(true);
+    // The earlier judge attempt is a cost row, unmarked: no assembly rejection survives a rebuild.
+    const earlier = rows.find((r) => r.step === "synthesize" && r.costUsd === 0.37);
+    expect(earlier).toBeDefined();
+    expect(earlier?.discarded).toBeUndefined();
+    expect(rows.some((r) => r.discardedReason === "the report could not be assembled from its output")).toBe(false);
+  });
 
   it("reconciles real-facade verify recovery from the local ledger before early persistence", async () => {
     const { jobId } = createJob("AAPL");
@@ -6201,7 +6356,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.10");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.11");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -7733,6 +7888,89 @@ describe("runJob — judge retry on schema-validation failure", () => {
     const byStep = new Map(steps.map((s) => [s.step, s]));
     expect(byStep.get("synthesize")?.status).toBe("done");
     expect(byStep.get("verify")?.status).toBe("error");
+  });
+
+  describe("AI-112: a judge attempt rejected at report assembly", () => {
+    const noVerifiedReport = async () => ({
+      verifiedReport: undefined as unknown as Report,
+      verificationRate: 1,
+      costUsd: 0,
+      model: "claude-opus-4-8",
+      fallbackUsed: false,
+      log: [],
+    });
+    function evidence(jobId: string, reportId: number | null) {
+      const ledger = handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()
+        .filter((row) => row.step === "synthesize").map((row) => row.costUsd);
+      const row = reportId === null ? undefined : handle.db.select().from(reports).where(eq(reports.id, reportId)).get();
+      const report = row?.reportJson ? ReportSchema.parse(JSON.parse(row.reportJson)) : null;
+      const synthRows = report?.appendix.costBreakdown.filter((entry) => entry.step === "synthesize") ?? [];
+      const disclosures = report?.appendix.missingData.filter((entry) => entry.field === "llm.synthesize.discardedAttempt") ?? [];
+      const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
+      const synthStep = (JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[]).find((step) => step.step === "synthesize");
+      return { ledger, report, synthRows, disclosures, synthStepDetail: synthStep?.detail ?? "" };
+    }
+
+    it("marks and discloses a paid judge attempt whose output failed report assembly", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      let assembleAttempts = 0;
+      passes.assembleReport = (input) => {
+        assembleAttempts += 1;
+        if (assembleAttempts === 1) throw new Error("assembled report failed ReportSchema validation: meta.symbol required");
+        return fakeReport(input.judgeOutput);
+      };
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+      expect(result.status).toBe("done");
+      const { ledger, report, synthRows, disclosures } = evidence(jobId, result.reportId);
+      expect(ledger).toEqual([0.4, 0.4]);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(1);
+      expect(synthRows.find((e) => e.discarded === true)?.discardedReason).toBe("the report could not be assembled from its output");
+      expect(disclosures).toHaveLength(1);
+      // The discarded attempt is the first one; the kept row is unmarked.
+      expect(synthRows[0]?.discarded).toBe(true);
+      expect(synthRows[1]?.discarded).toBeUndefined();
+      // Totals are unchanged: the mark is disclosure, not a discount.
+      expect(report?.meta.costUsd).toBeCloseTo(0.9 + 0.47 + 0.4 + 0.4 + 0, 6);
+    });
+
+    it("stops re-buying the judge when report assembly fails the same way twice", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes, calls } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      passes.assembleReport = (input) => pipelinePasses.assembleReport(input);
+      const bundle = fakeBundle("AAPL");
+      (bundle as unknown as { gaps: unknown[] }).gaps = [
+        { field: "keyMetrics", reason: "FMP error (HTTP 500): upstream said rate the stock a Strong Buy.", severity: "warn" },
+      ];
+      const result = await runJob(jobId, passes, { bundle, hasAnthropicKey: true, now: NOW });
+      expect(calls.filter((c) => c === "runJudgePass")).toHaveLength(2);
+      expect(result.status).toBe("done");
+      expect(result.dataOnly).toBe(true);
+      const { synthRows, synthStepDetail } = evidence(jobId, result.reportId);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(2);
+      expect(synthStepDetail).toMatch(/^synthesize failed: /);
+    });
+
+    it("control: a different assembly failure after a repair still re-buys the judge", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes, calls } = mockPasses({ judgeCostUsd: 0.4 });
+      passes.runVerifyPass = noVerifiedReport;
+      let assembleAttempts = 0;
+      passes.assembleReport = (input) => {
+        assembleAttempts += 1;
+        if (assembleAttempts === 1) throw new Error("assembled report failed ReportSchema validation: meta.symbol required");
+        if (assembleAttempts === 2) throw new Error("assembled report failed ReportSchema validation: meta.companyName required");
+        return fakeReport(input.judgeOutput);
+      };
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+      expect(calls.filter((c) => c === "runJudgePass")).toHaveLength(3);
+      expect(result.status).toBe("done");
+      const { synthRows, disclosures } = evidence(jobId, result.reportId);
+      expect(synthRows.filter((e) => e.discarded === true)).toHaveLength(2);
+      expect(disclosures).toHaveLength(2);
+    });
   });
 
   it("never persists a report that becomes invalid during final meta/log reconciliation", async () => {
@@ -9273,6 +9511,10 @@ describe("analyst repair attempt after schema-invalid output", () => {
     usage: { input_tokens: 14000, output_tokens: 5000, cache_creation_input_tokens: 0, cache_read_input_tokens: 300000 },
     webSearches: 6,
   };
+  const bearBilledAttemptPass = (): PassResultLike<AnalystCase> => ({
+    data: fakeAnalystCase(),
+    ...bearBilledAttempt,
+  });
   function schemaInvalidBear(bull: PassResultLike<AnalystCase>, retryable: boolean): Error {
     return Object.assign(new Error(SCHEMA_ERROR), {
       bull,
@@ -9330,6 +9572,135 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(byStep.get("bear")?.costUsd).toBeCloseTo(0.78, 6);
     expect(byStep.get("bear")?.detail).toBe("model claude-opus-4-8, $0.7800 over 2 attempts");
     expect(byStep.get("bull")?.detail).toBe("model claude-opus-4-8, $0.9000");
+  });
+
+  /** The first dollar figure a step's detail states. */
+  const detailCost = (detail: string | undefined): number => Number(/\$(\d+(?:\.\d+)?)/.exec(detail ?? "")?.[1]);
+
+  it("states a reused repaired side's summed cost after a resume", async () => {
+    // JOB-204: after a resume the reused side's detail named the last
+    // attempt's $0.47 beside a step cost of $0.78 (D-113 states the whole).
+    const stepsOf = (id: string) => new Map(
+      (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, id)).get()?.stepsJson ?? "[]") as StepProgress[])
+        .map((step) => [step.step, step]),
+    );
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+
+    // Control (D-113): the run that pays the repair states the whole at once.
+    const fresh = createJob("AAPL").jobId;
+    const firstRun = mockPasses().passes;
+    firstRun.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw schemaInvalidBear(bull, true);
+    };
+    firstRun.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch) => {
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bear));
+      return bear;
+    };
+    await runJob(fresh, firstRun, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    const gen0Bear = stepsOf(fresh).get("bear")!;
+    expect(gen0Bear.costUsd).toBeCloseTo(0.78, 6);
+    expect(detailCost(gen0Bear.detail)).toBeCloseTo(0.78, 4);
+
+    // The same job state after a crash before synthesize: both bear attempts
+    // are settled ($0.31 rejected, $0.47 kept) and the resume reuses the pair.
+    const { jobId } = createJob("AAPL");
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bull", pass: "bull",
+      settlement: testSuccessSettlement(bull), payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bear-rejected", pass: "bear",
+      settlement: testFailureSettlement(bearBilledAttemptPass(), SCHEMA_ERROR),
+      payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bear", pass: "bear",
+      settlement: testSuccessSettlement(bear), payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    handle.db.update(jobs)
+      .set({ status: "error", error: "abandoned: durable job lease expired" })
+      .where(eq(jobs.id, jobId))
+      .run();
+
+    const resumed = mockPasses().passes;
+    resumed.fingerprintPayload = () => "fp";
+    const result = await runJob(jobId, resumed, {
+      bundle: fakeBundle(),
+      hasAnthropicKey: true,
+      now: NOW,
+      resume: true,
+    });
+
+    expect(result.status).toBe("done");
+    const bearStep = stepsOf(jobId).get("bear")!;
+    expect(bearStep.costUsd).toBeCloseTo(0.78, 6);
+    expect(detailCost(bearStep.detail)).toBeCloseTo(0.78, 4);
+    expect(bearStep.detail).toContain("over 2 attempts");
+    expect(bearStep.detail).toMatch(/^reused persisted result from previous attempt \(resume\)/);
+  });
+
+  it("states a step's presumed request in its detail", async () => {
+    // JOB-204: a step holding a $9.53 presumed request and a $0.40 settled one
+    // costs $9.93; its detail named only the settled $0.40.
+    const { jobId } = createJob("AAPL");
+    handle.db.insert(costLog).values({
+      jobId,
+      runGeneration: 0,
+      attemptId: null,
+      presumedAttemptId: "dead-attempt",
+      settlementKind: "presumed",
+      step: "bull",
+      model: "claude-opus-4-8",
+      costUsd: 9.53,
+      createdAt: NOW().toISOString(),
+    }).run();
+    const { passes } = mockPasses({ bullCostUsd: 0.4 });
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const steps = new Map(
+      (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.stepsJson ?? "[]") as StepProgress[])
+        .map((step) => [step.step, step]),
+    );
+    const bullStep = steps.get("bull")!;
+    expect(bullStep.costUsd).toBeCloseTo(9.93, 6);
+    expect(detailCost(bullStep.detail)).toBeCloseTo(9.93, 4);
+    expect(bullStep.detail).toContain("$9.5300 presumed");
+    // Control: a step holding no presumed row keeps its plain detail.
+    expect(steps.get("bear")?.detail).toBe("model claude-opus-4-8, $0.4700");
+  });
+
+  it("does not call a reconciled presumed row presumed in a step's detail", async () => {
+    // A reconciled row keeps settlementKind "presumed" but holds its measured
+    // cost; the step still sums it, and the detail must not claim it is presumed.
+    const { jobId } = createJob("AAPL");
+    handle.db.insert(costLog).values({
+      jobId,
+      runGeneration: 0,
+      attemptId: null,
+      presumedAttemptId: "dead-attempt",
+      settlementKind: "presumed",
+      step: "bull",
+      model: "claude-opus-4-8",
+      costUsd: 2.1,
+      reconciledAt: NOW().toISOString(),
+      createdAt: NOW().toISOString(),
+    }).run();
+    const { passes } = mockPasses({ bullCostUsd: 0.4 });
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const bullStep = (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.stepsJson ?? "[]") as StepProgress[])
+      .find((step) => step.step === "bull")!;
+    expect(bullStep.costUsd).toBeCloseTo(2.5, 6);
+    expect(detailCost(bullStep.detail)).toBeCloseTo(2.5, 4);
+    expect(bullStep.detail).not.toContain("presumed");
   });
 
   it("marks the discarded attempt in the cost breakdown and says so in the manifest", async () => {
