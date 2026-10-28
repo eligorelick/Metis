@@ -146,7 +146,7 @@ interface PeriodReference { key: string; label: string; raw: string; kind: "date
  * the comparison bases it names ("compared with $10.2 billion in second quarter
  * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
  */
-interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
+interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null; base: boolean }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
   /**
@@ -350,6 +350,10 @@ function ownDescription(text: string, quantity: Quantity, start: number, end: nu
   return text.slice(ownBeforeStart(text, start, quantity.start, preceding), quantity.start) + " " +
     text.slice(quantity.end, ownAfterEnd(text, end, quantity.end, following));
 }
+/** The test seam for `context`. */
+export function readContextForTests(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
+  return context(text, quantity, all, source);
+}
 function context(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
   let start = 0;
   let end = text.length;
@@ -381,7 +385,10 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
   const { periods, bases } = framePeriods(text, { start, end }, quantity, all, !source, source);
-  return { start, end, text: ownText, label, own, ownAfter, periods, bases,
+  // AI-503: a figure the text introduces with "from", "compared with/to", "versus", "vs." or "against" is a comparison base. The raw text
+  // before the figure is read, not the clause: a clause can start at a "versus" connector and leave the figure nothing before it.
+  const base = COMPARISON_BASE_LEAD.test(text.slice(Math.max(0, quantity.start - 24), quantity.start));
+  return { start, end, text: ownText, label, own, ownAfter, periods, bases, base,
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -678,6 +685,7 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
  * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
  * The two tests are conjoined, so this never admits a candidate the clause test rejected.
+ * AI-503 / D-next: a comparison base binds only a comparison base, and a move's end takes the move's head (`Context.base`, `moveHead`).
  */
 const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
@@ -690,6 +698,25 @@ function excerptNamesMetric(claim: string[], source: string[], named: string[], 
   return claim.every((word) => source.some((other) => stem(word) === stem(other))) &&
     source.every((word) => !DEFINITION_MODIFIERS.has(word) || inClaim(word)) &&
     own.every((word) => inClaim(word) || (inNamed(word) && ownAfter.some((other) => stem(word) === stem(other))));
+}
+/**
+ * AI-503: the words that make the next figure a comparison base. A base supports only a claim figure introduced the same way, and it
+ * takes no reporting period from the excerpt.
+ */
+const COMPARISON_BASE_LEAD = /\b(?:from|compared\s+(?:with|to)|versus|vs\.?|against)\s*$/i;
+/**
+ * AI-503: in "<direction word> from $A ... to $B" the metric and the direction belong to $B. Returns the words from the start of $A's own
+ * description up to its "from" (the move's head), when "from" opens $A, both figures lie in the clause and $B is the next figure after
+ * a bare "to"; null otherwise.
+ */
+function moveHead(text: string, previous: Quantity, current: Quantity, all: readonly Quantity[], clause: { start: number; end: number }): string | null {
+  const fromLead = /\bfrom\s*$/i.exec(text.slice(Math.max(0, previous.start - 24), previous.start));
+  if (fromLead === null) return null;
+  if (previous.start < clause.start || current.end > clause.end) return null;
+  if (!/^[^\d$€£¥;•\n]*\bto\s*$/i.test(text.slice(previous.end, current.start))) return null;
+  const fromAt = Math.max(0, previous.start - 24) + fromLead.index;
+  const before = all.filter((other) => other.end < previous.start && other.start >= clause.start).at(-1);
+  return text.slice(ownBeforeStart(text, clause.start, previous.start, before), fromAt);
 }
 const COMPARATIVE_LEAD = /^[\s,;(]*(?:(?:up|down|higher|lower|increas\w*|decreas\w*|rose|fell|compared)\s+)?(?:from|with|versus|vs\.?|compared (?:to|with)|against)[\s:]*$/i;
 /** The excerpt's own period statements: its reporting period, fiscal quarter, quarter end or event date — never its filing date or accession. */
@@ -870,7 +897,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       dividendPairs.set(total, pair);
       dividendPairs.set(perShare, pair);
     }
-    return found.map((quantity) => {
+    return found.map((quantity, index) => {
       const column = columns.get(quantity);
       if (column !== undefined) {
         // A table cell: its row label and its column's date (and the window
@@ -878,7 +905,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], ambiguous: false, direction: null };
+        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], ambiguous: false, direction: null, base: false };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -893,6 +920,16 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
+      // AI-503: the end of "<direction word> from $A ... to $B" takes the move's metric and direction. The words between $A and "to"
+      // ("last quarter", "a year ago") describe $A. Without a governing direction word the end figure keeps its own label.
+      const previous = index > 0 ? found[index - 1]! : undefined;
+      const head = previous === undefined ? null : moveHead(body.text, previous, quantity, found, own);
+      const start = head === null ? null : context(body.text, previous!, found, true).direction;
+      if (head !== null && start !== null) {
+        own.label = `${head} ${own.label}`;
+        own.own = `${head} ${own.ownAfter}`;
+        own.direction = { ...start, relation: "level" };
+      }
       const unitPair = dividendPairs.get(quantity);
       // The printed "TOTAL, or PER-SHARE, of cash dividends paid" shares its
       // trailing metric, but each amount retains its own printed unit/value.
@@ -909,7 +946,9 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
       const forwardLooking = FORWARD_LOOKING.test(own.text);
-      return { quantity, context: own, inherited: forwardLooking ? [] : inherited, inheritedWindows: forwardLooking ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      // AI-503: a comparison base is not a figure of the excerpt's reporting period.
+      const noPeriod = forwardLooking || own.base;
+      return { quantity, context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -1096,6 +1135,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
         if (binding.forwardLooking !== claimForward) continue;
+        // AI-503: a comparison base binds only a comparison base (a claim "increased from USD 25.8 billion" binds the source's base).
+        if (binding.context.base !== own.base) continue;
         const sourceTokens = metricTokens(binding.context.label, options.ignoreWords ?? []);
         if (excerptNamesMetric(tokens, sourceTokens, [], [])) clauseCandidates.push(binding);
         if (excerptNamesMetric(tokens, sourceTokens, named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []), ownDescriptionTokens(binding.context.ownAfter, options.ignoreWords ?? []))) candidates.push(binding);

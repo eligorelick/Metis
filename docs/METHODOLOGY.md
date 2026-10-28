@@ -2751,6 +2751,16 @@ fronted phrase ("Under the new lease accounting guidance, operating lease
 liabilities were $2.5 billion": the claim must name the phrase, or the source
 must put it after a comma).
 
+A figure the source introduces with "from", "compared with", "versus" or
+"against" is a comparison base (audit 2026-10-27 AI-503, AI-503-V1 and
+AI-503-V2; D-next): it supports only a claim figure introduced the same way, and
+it does not take the excerpt's reporting period. In "<metric> increased from $A
+... to $B" the metric and the direction belong to $B, so "commitments increased
+to USD 279 billion" is read against $279 billion, not the $119 billion the move
+started from. When no direction word governs "from" (a range, "went from", a
+verb far from the figure), $B is not given the metric and the claim stays
+unverified.
+
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record
 years, unit words against record families, and sourcing of named individuals.
