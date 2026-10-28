@@ -2739,8 +2739,9 @@ twice, with the clause rule alone and with the own-description filter, and
 when the filter would give the claim a different result from the clause rule
 alone, the claim is unchecked; it never makes a claim validated or contradicted.
 If the filter leaves no candidate, the claim is unchecked. An invalid or
-locale-ambiguous date among the clause candidates still fails the claim as
-`period-mismatch`. A correct
+locale-ambiguous date among the clause candidates still leaves the claim
+unchecked, as `period-mismatch` unless the filter leaves no candidate (then the
+filter's own reason is given). A correct
 figure whose description carries words the claim leaves out is left unchecked,
 and that recall cost is accepted: a trailing explanation with no comma ("net
 discrete tax expense of $15.9 billion attributable to upward adjustments to our
