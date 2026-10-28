@@ -295,6 +295,26 @@ export interface SegmentSeries {
   residualCells: number;
 }
 
+/**
+ * D-63 (AI-406): the windows, in days before the latest quarter end, that make
+ * a column the adjacent quarter (a 14-week quarter is 98 days) or the
+ * year-ago quarter (52-week years give 364 days, 53-week years 371).
+ */
+export const QOQ_WINDOW_DAYS = { min: 80, max: 100 } as const;
+export const YOY_WINDOW_DAYS = { min: 350, max: 380 } as const;
+
+/** Index (> 0) of the first column, newest first, whose end is min..max days before ends[0]; null if none. */
+export function priorQuarterIndex(ends: readonly string[], window: { min: number; max: number }): number | null {
+  if (ends.length < 2) return null;
+  const latest = Date.parse(`${ends[0]!}T00:00:00Z`);
+  const index = ends.findIndex((end, i) => {
+    if (i === 0) return false;
+    const days = (latest - Date.parse(`${end}T00:00:00Z`)) / 86_400_000;
+    return days >= window.min && days <= window.max;
+  });
+  return index > 0 ? index : null;
+}
+
 export interface QuarterlySegmentRevenue {
   /** Newest-first quarter windows covered by the consolidated total. */
   quarters: { start: string; end: string }[];

@@ -72,6 +72,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
+import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -2611,9 +2612,8 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
 /** Latest quarter, the quarter before it, and the quarter about a year earlier. */
 function segmentColumns(quarters: readonly { start: string; end: string }[]): number[] {
   if (quarters.length === 0) return [];
-  const latest = Date.parse(`${quarters[0]!.end}T00:00:00Z`);
-  const yearAgo = quarters.findIndex((q, i) => i > 0 && Math.abs((latest - Date.parse(`${q.end}T00:00:00Z`)) / 86_400_000 - 364) <= 16);
-  return [...new Set([0, ...(quarters.length > 1 ? [1] : []), ...(yearAgo > 0 ? [yearAgo] : [])])];
+  const yearAgo = priorQuarterIndex(quarters.map((q) => q.end), YOY_WINDOW_DAYS);
+  return [...new Set([0, ...(quarters.length > 1 ? [1] : []), ...(yearAgo !== null ? [yearAgo] : [])])];
 }
 
 /** The eight-quarter trend, segment growth and guidance-vs-actual differences (computed rows). */
@@ -2639,8 +2639,8 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   const segments = bundle.edgar?.quarterlySegments;
   if (segments?.ok) {
     for (const axis of segments.value.data.axes) {
-      const columns = segmentColumns(axis.quarters);
-      const latestEnd = axis.quarters[0]!.end;
+      const ends = axis.quarters.map((q) => q.end);
+      const latestEnd = ends[0]!;
       for (const row of axis.rows) {
         const latest = row.values[0];
         if (latest === null || latest === undefined) continue;
@@ -2649,8 +2649,9 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
           return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
-        const qoq = growth(columns.includes(1) ? 1 : undefined);
-        const yoy = growth(columns.find((i) => i > 1));
+        // AI-406: a rate is computed only against the quarter its label names.
+        const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
+        const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
         if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
         if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
         const total = axis.total[0];

@@ -3290,6 +3290,14 @@ sales were shown as parts of service sales. Members renamed between filings are
 still not joined (D-63), so an annual-only member can leave a fourth-quarter
 cell blank.
 
+Segment growth uses the same windows as the consolidated trend: quarter over
+quarter only against the quarter ending 80-100 days earlier, year over year
+only against the one ending 350-380 days earlier (a 14-week quarter and a
+53-week year still count). With no such quarter the rate is withheld, in the
+AI context and in the classic segment table, which shows a dash. The dated
+segment revenue rows still show the latest quarter, the one before it and the
+year-ago quarter, each labelled with its own quarter end.
+
 **Wording (finding 20).** A failed Piotroski signal states what its figures did
 ("current ratio fell"), never the test it failed. The accrual scaler is labelled
 "average NOA or total assets", because it falls back to total assets when net

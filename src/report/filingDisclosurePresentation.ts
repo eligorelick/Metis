@@ -1,3 +1,4 @@
+import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
@@ -252,7 +253,9 @@ function trackRecordTable(d: FilingDisclosures): ReportAuditTable[] {
 function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
   return d.segments.map((s) => {
     const latest = s.quarters[0]!;
-    const yearAgo = s.quarters.findIndex((q, i) => i > 0 && Math.abs((Date.parse(`${latest}T00:00:00Z`) - Date.parse(`${q}T00:00:00Z`)) / 86_400_000 - 364) <= 16);
+    // AI-406: growth only against the quarter the column names; no such quarter gives a dash.
+    const quarterAgo = priorQuarterIndex(s.quarters, QOQ_WINDOW_DAYS) ?? -1;
+    const yearAgo = priorQuarterIndex(s.quarters, YOY_WINDOW_DAYS) ?? -1;
     const growth = (values: (number | null)[], i: number): string => {
       const now = values[0];
       const prior = i < 0 ? null : values[i] ?? null;
@@ -262,11 +265,11 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const rows = s.rows.map((r) => [
       r.childOf === null ? r.label : `  ↳ ${r.label}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
-      growth(r.values, 1),
+      growth(r.values, quarterAgo),
       growth(r.values, yearAgo),
       total !== null && total > 0 && r.values[0] !== null && r.values[0] !== undefined ? pct((r.values[0] / total) * 100) : DASH,
     ]);
-    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), growth(s.total, 1), growth(s.total, yearAgo), total !== null ? "100.0%" : DASH]);
+    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), growth(s.total, quarterAgo), growth(s.total, yearAgo), total !== null ? "100.0%" : DASH]);
     const notes = [
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
