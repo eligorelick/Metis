@@ -84,8 +84,10 @@ export interface SchedulerLimits {
 /**
  * The per-job cap paid admission applies: the smaller of the cap recorded on
  * the job row and the cap configured now, null when neither is set. Setting or
- * lowering the cap binds queued and retried jobs; raising it never loosens a
- * job queued under a lower one (JOB-209).
+ * lowering the cap binds a job still queued, or one resumed after a restart or
+ * by Retry (a resume keeps the same job row and its recorded cap); raising it
+ * never loosens a job queued under a lower one, and only a new report records
+ * the cap in force when it is created (JOB-209).
  */
 export function effectiveJobCapUsd(
   recorded: number | null,

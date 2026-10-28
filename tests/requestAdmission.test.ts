@@ -933,7 +933,7 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
 
   it("control: a connect-syscall EHOSTUNREACH is released", async () => {
     behaviour = () => {
-      throw connectCause({ code: "EHOSTUNREACH", syscall: "connect", message: "connect EHOSTUNREACH 160.79.104.10:443" });
+      throw connectCause({ code: "EHOSTUNREACH", syscall: "connect", message: "connect EHOSTUNREACH 160.79.104.10:443, request timed out" });
     };
     await runBull("job-hostunreach-connect");
     expect([...new Set(decisions)]).toEqual(["release"]);

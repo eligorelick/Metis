@@ -214,9 +214,9 @@ remains recorded when later admission fails.
 A job is admitted against the lower of the per-job cap recorded when it was
 queued and the cap configured now, so setting or lowering
 `METIS_MAX_JOB_COST_USD` and restarting also binds a job that is still queued
-or that resumes after the restart. A Retry creates a new job row, which records
-the cap in force when it is created. Raising the cap does not loosen an older
-job (start a new report).
+or that resumes after the restart or by Retry (a resume keeps the same job row
+and its recorded cap). Raising the cap does not loosen an older job; a new
+report records the cap in force when it is created.
 
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
