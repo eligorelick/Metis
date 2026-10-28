@@ -789,12 +789,17 @@ describe("a caller abort after the provider answered but before message_start (A
     ]);
     _resetAnthropicForTests(client);
 
-    await runPass({ ...passOpts, admission, signal: controller.signal });
+    const result = await runPass({ ...passOpts, admission, signal: controller.signal });
 
     expect(calls()).toBe(2);
     expect(released()).toBe(0);
     expect(rows().cost).toHaveLength(2);
-    expect(rows().cost.filter((c) => c.settlementKind === "presumed")).toHaveLength(1);
+    const presumed = rows().cost.filter((c) => c.settlementKind === "presumed");
+    expect(presumed).toHaveLength(1);
+    // The presumed row is the request maximum, and the pass error states the sum of both settled rows.
+    expect(presumed[0]!.costUsd).toBeCloseTo(maximumRequestCostUsd("claude-sonnet-5", "bull"), 6);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.costUsd).toBeCloseTo(rows().cost.reduce((sum, row) => sum + row.costUsd, 0), 6);
   });
 
   it("control: a socket death in the same state settles the same figure", async () => {
@@ -1210,6 +1215,23 @@ describe("per-job cap (JOB-209)", () => {
     createJob("AAPL");
     restartWith(undefined);
     expect(lease()).toEqual({ acquired: false, reason: "job-budget" });
+  });
+
+  // Review of JOB-209: the lowered live cap also closes the gap through live reservations.
+  it("reports job-budget-pending when the live cap is below the recorded cap and a reservation fills it", () => {
+    restartWith("30");
+    createJob("AAPL");
+    restartWith("5");
+    const claim = claimNextQueuedJob("owner", undefined, configuredSchedulerLimits(), first.db)!;
+    const lowLimits = { ...configuredSchedulerLimits(), maxActiveLlmCalls: 2 };
+    expect(acquirePaidPassLease(claim, "bull", "a1", 3, undefined, lowLimits, first.db)).toMatchObject({ acquired: true });
+    // 3 live + 3 more is $6, over the live $5 cap but under the recorded $30; nothing is settled yet.
+    expect(acquirePaidPassLease(claim, "bear", "a2", 3, undefined, lowLimits, first.db))
+      .toEqual({ acquired: false, reason: "job-budget-pending" });
+    // Control: the same two reservations fit when the live cap equals the recorded one.
+    restartWith("30");
+    expect(acquirePaidPassLease(claim, "bear", "a3", 3, undefined, { ...configuredSchedulerLimits(), maxActiveLlmCalls: 2 }, first.db))
+      .toMatchObject({ acquired: true });
   });
 
   it("admits when neither cap is set", () => {

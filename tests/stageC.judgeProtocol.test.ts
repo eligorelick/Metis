@@ -780,6 +780,20 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       expect(run.result.judgeProtocol!.reconciliation!.note).not.toContain("did not produce");
     });
 
+    // Review of AI-108: a continuation with nothing kept (only a smaller-batch hint, `completed: {}`)
+    // keeps no section, so nothing anchors the mirror: it runs and reconciles as on a first attempt.
+    // hasCompletedSections() is false for it, which is why the skip does not apply.
+    it("still runs the mirror when the continuation keeps no section (completed is empty)", async () => {
+      const { run, orders, carried } = await sectionedRetry({});
+      expect(carried).toEqual({});
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(2);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(true);
+      expect(rec.note).not.toMatch(/^No order-sensitivity check was made/);
+    });
+
     it("skips the mirror on the API path when a continuation carries kept sections", async () => {
       const { payload } = buildInputs();
       const mock = new MockRunPass();
@@ -927,6 +941,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
 
   it("describes a grade-only comparison in README and .env.example", () => {
     expect(readFileSync("README.md", "utf8")).not.toMatch(/reconciles every grade and probability/);
+    expect(readFileSync("README.md", "utf8")).toMatch(/compares every section grade/);
     expect(readFileSync(".env.example", "utf8")).not.toMatch(/scenario[\s#]*probability to two decimals/);
   });
 

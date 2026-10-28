@@ -4368,6 +4368,24 @@ describe("runJob - durable paid-pass settlements", () => {
     persist("rpt210-bull-rejected", "bull", testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON"));
     persist("rpt210-bull", "bull", testSuccessSettlement(testAnalystPass("bull")));
     persist("rpt210-bear", "bear", testSuccessSettlement(testAnalystPass("bear")));
+    // Review of RPT-210: an earlier judge attempt that succeeded but (in a process that no longer
+    // exists) could not be assembled leaves no trace but a success artifact and its cost row.
+    // Recovery passes no assemblyRejected, so it must show that row unmarked
+    // (docs/CLAUDE-USAGE.md: a crash-recovery rebuild does not mark an assembly rejection).
+    persistPassSettlement({
+      jobId,
+      runGeneration: 0,
+      attemptId: "rpt210-synthesize-earlier",
+      pass: "synthesize",
+      settlement: testSuccessSettlement({
+        data: fakeJudgeOutput(),
+        model: "claude-opus-4-8",
+        costUsd: 0.37,
+        fallbackUsed: false,
+      }) as never,
+      payloadFingerprint,
+      settledAt: new Date(NOW().getTime() - 60_000).toISOString(),
+    });
     persist("rpt210-synthesize", "synthesize", testSuccessSettlement({
       data: fakeJudgeOutput(),
       model: "claude-opus-4-8",
@@ -4406,6 +4424,11 @@ describe("runJob - durable paid-pass settlements", () => {
     // per-attempt fallbackUsed that cost_log persists.
     expect(rows.filter((r) => r.discarded === true)).toHaveLength(1);
     expect(rows.every((r) => typeof r.fallbackUsed === "boolean")).toBe(true);
+    // The earlier judge attempt is a cost row, unmarked: no assembly rejection survives a rebuild.
+    const earlier = rows.find((r) => r.step === "synthesize" && r.costUsd === 0.37);
+    expect(earlier).toBeDefined();
+    expect(earlier?.discarded).toBeUndefined();
+    expect(rows.some((r) => r.discardedReason === "the report could not be assembled from its output")).toBe(false);
   });
 
   it("reconciles real-facade verify recovery from the local ledger before early persistence", async () => {
