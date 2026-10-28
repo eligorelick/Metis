@@ -37,6 +37,7 @@ import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnri
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
+import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
@@ -1519,6 +1520,36 @@ function extractStatement<TRow extends FmpRawRow>(
   }) };
 }
 
+/**
+ * One row per fiscal period, the row Stage B uses (audit 2026-10-27 AI-505,
+ * D-13 "last-filed wins"): the provably latest filing wins and a period served
+ * twice with no provable order is left out, as `normalizeQuarterRows` decides
+ * for growth, returns and capital. A row whose date is not a real day keeps its
+ * "unknown" column. The notes cover only periods inside the block's window and
+ * carry validated ISO days, never provider text.
+ */
+function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: number): { rows: T[]; notes: string[] } {
+  const { rows: winners, rejected } = normalizeQuarterRows(rows);
+  const kept = new Set<T>(winners);
+  const realDay = (row: T): boolean => normalizeQuarterRows([row]).rows.length === 1;
+  const out = rows.filter((row) => kept.has(row) || !realDay(row));
+  // extractStatement keeps the first `periods` rows: note only what that window shows, or would have shown.
+  const shown = out.slice(0, periods).filter(realDay).map((row) => String(row.date));
+  const oldest = shown.reduce<string | null>((min, day) => (min === null || day < min ? day : min), null);
+  const inWindow = (day: string): boolean => shown.length < periods || (oldest !== null && day >= oldest);
+  const served = new Map<string, number>();
+  for (const row of rows) if (realDay(row)) served.set(String(row.date), (served.get(String(row.date)) ?? 0) + 1);
+  return {
+    rows: out,
+    notes: [
+      ...[...served].filter(([day, n]) => n > 1 && shown.includes(day))
+        .map(([day, n]) => `Fiscal period ${day} was served ${n} times with different filing dates; only the provably latest filing is shown, the row Stage B uses.`),
+      ...rejected.filter((entry) => entry.reason.startsWith("duplicate fiscal period") && inWindow(entry.period))
+        .map((entry) => `Fiscal period ${entry.period} was served more than once with no provably latest filing; it is left out, as Stage B leaves it out.`),
+    ],
+  };
+}
+
 function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
@@ -1529,19 +1560,25 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   // admission before raw statement cells can enter the analyst or verifier registry.
   const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
     admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
-  const push = (b: StatementExtractBlock | null): void => {
-    if (b) blocks.push(b);
+  const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
+    if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);
   };
   const statementAsOf = (statement: DataBundle["statements"]["incomeAnnual"]): string =>
     statement.ok ? statement.value.asOf : "";
   const source = (statement: DataBundle["statements"]["incomeAnnual"], name: string): string =>
     statementSourceTag(statement.ok ? statement.value.source : undefined, name);
-  push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")));
-  push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")));
-  push(extractStatement("Balance sheet — annual", balances(rowsOf(bundle.statements.balanceAnnual)), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"));
-  push(extractStatement("Balance sheet — quarterly", balances(rowsOf(bundle.statements.balanceQuarterly)), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"));
-  push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")));
-  push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")));
+  const income = oneRowPerPeriod(rowsOf(bundle.statements.incomeAnnual), A);
+  const incomeQ = oneRowPerPeriod(rowsOf(bundle.statements.incomeQuarterly), Q);
+  const bal = oneRowPerPeriod(rowsOf(bundle.statements.balanceAnnual), A);
+  const balQ = oneRowPerPeriod(rowsOf(bundle.statements.balanceQuarterly), Q);
+  const cash = oneRowPerPeriod(rowsOf(bundle.statements.cashflowAnnual), A);
+  const cashQ = oneRowPerPeriod(rowsOf(bundle.statements.cashflowQuarterly), Q);
+  push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
+  push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
+  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"), bal.notes);
+  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"), balQ.notes);
+  push(extractStatement("Cash flow — annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
+  push(extractStatement("Cash flow — quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   return blocks;
 }
 
