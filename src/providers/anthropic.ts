@@ -561,14 +561,14 @@ const PRE_SEND_CODES: ReadonlySet<string> = new Set([
   "ECONNREFUSED",
   "ENOTFOUND",
   "EAI_AGAIN",
-  "EHOSTUNREACH",
-  "ENETUNREACH",
 ]);
 
 /**
- * undici UND_ERR_CONNECT_TIMEOUT; ECONNREFUSED, ENOTFOUND, EAI_AGAIN,
- * EHOSTUNREACH, ENETUNREACH; ETIMEDOUT only with syscall "connect" or
- * "getaddrinfo". Header, body and socket failures happen after the send.
+ * undici UND_ERR_CONNECT_TIMEOUT; ECONNREFUSED, ENOTFOUND, EAI_AGAIN;
+ * ETIMEDOUT only with syscall "connect" or "getaddrinfo"; EHOSTUNREACH and
+ * ENETUNREACH only with syscall "connect" (a route lost on an established
+ * socket reads the same code with another syscall, after the send). Header,
+ * body and socket failures happen after the send.
  */
 export function isPreSendConnectionFailure(err: unknown): boolean {
   return preSendConnectCode(err) !== null;
@@ -580,6 +580,7 @@ function preSendConnectCode(err: unknown): string | null {
     if (typeof code !== "string") continue;
     if (PRE_SEND_CODES.has(code)) return code;
     if (code === "ETIMEDOUT" && (syscall === "connect" || syscall === "getaddrinfo")) return code;
+    if ((code === "EHOSTUNREACH" || code === "ENETUNREACH") && syscall === "connect") return code;
   }
   return null;
 }

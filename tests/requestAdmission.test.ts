@@ -926,6 +926,15 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
     expect([...new Set(decisions)]).toEqual(["release"]);
   });
 
+  it("control: a connect-syscall EHOSTUNREACH is released", async () => {
+    behaviour = () => {
+      throw connectCause({ code: "EHOSTUNREACH", syscall: "connect", message: "connect EHOSTUNREACH 160.79.104.10:443" });
+    };
+    await runBull("job-hostunreach-connect");
+    expect([...new Set(decisions)]).toEqual(["release"]);
+    expect(rows().cost).toHaveLength(0);
+  });
+
   it("keeps a headers timeout presumed", async () => {
     behaviour = () => {
       throw connectCause({ name: "HeadersTimeoutError", code: "UND_ERR_HEADERS_TIMEOUT", message: "Headers Timeout Error" });
@@ -949,8 +958,15 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
 
   it("tags only connect-phase failures", () => {
     const wrap = (over: Record<string, unknown>) => connectCause({ message: "x", ...over });
-    for (const code of ["UND_ERR_CONNECT_TIMEOUT", "ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]) {
+    for (const code of ["UND_ERR_CONNECT_TIMEOUT", "ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN"]) {
       expect(isPreSendConnectionFailure(wrap({ code }))).toBe(true);
+    }
+    // Re-pinned (review of AI-307): EHOSTUNREACH and ENETUNREACH are pre-send only from the connect
+    // syscall, like ETIMEDOUT; a route loss on an established socket happens after the send.
+    for (const code of ["EHOSTUNREACH", "ENETUNREACH"]) {
+      expect(isPreSendConnectionFailure(wrap({ code, syscall: "connect" }))).toBe(true);
+      expect(isPreSendConnectionFailure(wrap({ code, syscall: "read" }))).toBe(false);
+      expect(isPreSendConnectionFailure(wrap({ code }))).toBe(false);
     }
     expect(isPreSendConnectionFailure(wrap({ code: "ETIMEDOUT", syscall: "connect" }))).toBe(true);
     expect(isPreSendConnectionFailure(wrap({ code: "ETIMEDOUT", syscall: "getaddrinfo" }))).toBe(true);
