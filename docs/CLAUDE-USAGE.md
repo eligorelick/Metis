@@ -148,6 +148,10 @@ still contain charges from work already attempted. Cancellation does not undo
 remote usage. A saved successful analyst checkpoint can support an explicit
 retry if its evidence and execution fingerprint still match.
 
+Retrying a data-only report reuses the analyst passes that already finished and
+replaces the fallback with the new run's report. If that run fails again, it
+saves a new data-only report and Retry stays available.
+
 ## Request ceilings, caching and retries
 
 The analyst pass constant is **64,000 output tokens** and the judge constant is

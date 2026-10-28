@@ -154,6 +154,10 @@ earlier spend remains in the ledger. Retry rejects queued/running, canceled and
 unsupported jobs, active same-issuer conflicts and incompatible/unresumable
 terminal work. Start a new report when no compatible tail can be resumed.
 
+Retry of a data-only fallback reuses the settled analyst passes and replaces the
+fallback with the resumed run's report; if the resumed run fails again it links a
+new data-only report and stays resumable.
+
 Claude USD caps apply to reservations plus settled spend, not estimated typical
 run cost. Plan-based usage is not measured by those dollar caps. Abandoned paid
 leases preserve conservative presumed spend until a late settlement or explicit

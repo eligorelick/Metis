@@ -2634,7 +2634,9 @@ function settleQueuedResumeWithoutExecution(
           .from(reports)
           .where(eq(reports.id, row.reportId))
           .get();
-    if (linkedReport !== undefined) {
+    // A data-only fallback is not a finished run: it falls through to the
+    // `error` mutation below and stays linked (the admission rule, DB-001).
+    if (linkedReport !== undefined && !reportJsonIsDataOnly(linkedReport.reportJson)) {
       const stepsJson = normalizeLinkedReportRecoverySteps(
         row.stepsJson,
         authority.toISOString(),
@@ -2782,6 +2784,8 @@ export async function runJob<TPayload = unknown>(
       schedulerLimits,
     ) ?? undefined;
     if (schedulerClaim === undefined) {
+      // Only reports a row another path already made terminal: a data-only
+      // fallback is never closed before dispatch (DB-001), so it is claimed above.
       const afterClaim = getJobSnapshot(jobId);
       const linkedReportExists = afterClaim?.reportId !== null && afterClaim?.reportId !== undefined &&
         getDb().select({ id: reports.id }).from(reports)
