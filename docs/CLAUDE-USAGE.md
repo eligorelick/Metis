@@ -70,7 +70,10 @@ for Haiku 4.5's earlier one, and refuses only an estimate above the model's
 context window. The constants are calibrated on Metis payloads (about 11% margin
 on the earlier tokenizer, about 5% on the current one), so the estimate is not a
 ceiling; an over-long prompt it misses is refused by Anthropic before any
-charge.
+charge. The estimate counts the input only: a request whose input fits the
+window but whose input plus the output ceiling does not is launched, and
+Anthropic stops it with `model_context_window_exceeded`, a paid stop that
+discards the partial output and records what was billed.
 
 Claude effort resolves in this order: database setting, `ANALYSIS_EFFORT`,
 then `high`. Model resolves similarly: database setting, `ANALYSIS_MODEL`,
@@ -174,7 +177,12 @@ work. These paths can create billable requests even when no report completes.
 A request whose connection could not be opened (a connect timeout, a refused
 connection, an unreachable host or network at connect, or a failed name lookup)
 never reached Anthropic and is not charged; a timeout after the request was
-sent is presumed.
+sent is presumed. A server error event after the response started (HTTP 200)
+but before `message_start` is released, as an HTTP error status is, except that
+an error whose text contains "timeout" or "timed out" is read as a timeout after
+send and presumed at the request maximum. The stream-idle timer starts before
+the connection opens, so `METIS_STREAM_IDLE_SECONDS` below the connect timeout
+(about 10 seconds) presumes a hung connect at the request maximum.
 A pass's recorded cost, tokens and presumed flag are the sum of what each of
 its requests settled, retries and pause resumptions included, in both
 reservation modes. A request that ends after it started reporting usage but
@@ -221,7 +229,9 @@ report records the cap in force when it is created.
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
 full reserved amount as **presumed spend**. A late settlement can replace that
-presumption automatically. A ledger amount based on usage still uses local
+presumption automatically, except for a finished request whose cost record
+stayed locked through every retry: that lease is no longer renewed, so it
+expires into the presumed row, and only `npm run costs:reconcile` lowers it. A ledger amount based on usage still uses local
 registry prices; it is not a provider invoice.
 
 For abandoned requests that never settle, run:

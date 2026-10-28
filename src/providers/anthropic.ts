@@ -912,8 +912,9 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
 /**
  * Bytes per token used for the context-fit estimate (DECISIONS D-next-5).
  * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
- * tokenizer) and Anthropic's note that the earlier tokenizer gives about 30%
- * fewer tokens; rounded down so the estimate over-counts. The estimate is
+ * tokenizer) and Anthropic's note that the newer tokenizer gives about 30%
+ * more tokens (about 23% fewer on the earlier one); rounded down so the
+ * estimate over-counts. The estimate is
  * calibrated on Metis payloads, not a ceiling: it leaves about 11% margin on
  * the prior tokenizer and about 5% on the current one. The backstop for a
  * prompt it misses is the provider's own context-window 400, which settles
