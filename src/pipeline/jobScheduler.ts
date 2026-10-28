@@ -1710,8 +1710,9 @@ export function releaseUnbilledPaidPassLease(
  * What a step has cost in a job: every cost row of the step (presumed ones
  * included, which are counted as spent until reconciled), the part of that sum
  * that is still presumed (a reconciled row was lowered to its measured cost, so
- * it counts in the sum but is no longer presumed), and the number of settled attempts. The run-panel step row
- * and its detail both read this, so the detail never states less than the cost.
+ * it counts in the sum but is no longer presumed), and the number of settled
+ * attempts. The run-panel step row and its detail both read this, so the detail
+ * never states less than the cost.
  */
 export function stepSettledTotals(
   jobId: string,

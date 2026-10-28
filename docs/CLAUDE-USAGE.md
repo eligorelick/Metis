@@ -64,7 +64,13 @@ The registry also retains Fable 5, Opus 5, Opus 4.8 and Sonnet 5. This list
 describes selectable implementation entries, not measured research-quality
 rankings. The registry's judge floor is `claude-sonnet-5-5`: Haiku analyst
 requests use Haiku, while synthesis is raised to that floor and disclosed.
-Before launch Metis estimates a request's input tokens from its size, at 2.25 bytes per token for the tokenizer Anthropic introduced with Claude 4.7 and 2.75 for Haiku 4.5's earlier one, and refuses only an estimate above the model's context window; an over-long prompt the estimate misses is refused by Anthropic before any charge.
+Before launch Metis estimates a request's input tokens from its size, at 2.25
+bytes per token for the tokenizer Anthropic introduced with Claude 4.7 and 2.75
+for Haiku 4.5's earlier one, and refuses only an estimate above the model's
+context window. The constants are calibrated on Metis payloads (about 11% margin
+on the earlier tokenizer, about 5% on the current one), so the estimate is not a
+ceiling; an over-long prompt it misses is refused by Anthropic before any
+charge.
 
 Claude effort resolves in this order: database setting, `ANALYSIS_EFFORT`,
 then `high`. Model resolves similarly: database setting, `ANALYSIS_MODEL`,
@@ -166,8 +172,9 @@ rate-limit responses honor provider retry delays; enforced spend-limit errors
 stop. Request timeout and effort-scaled stream-idle limits can abort stalled
 work. These paths can create billable requests even when no report completes.
 A request whose connection could not be opened (a connect timeout, a refused
-connection or a failed name lookup) never reached Anthropic and is not charged;
-a timeout after the request was sent is presumed.
+connection, an unreachable host or network at connect, or a failed name lookup)
+never reached Anthropic and is not charged; a timeout after the request was
+sent is presumed.
 A pass's recorded cost, tokens and presumed flag are the sum of what each of
 its requests settled, retries and pause resumptions included, in both
 reservation modes. A request that ends after it started reporting usage but
@@ -206,8 +213,10 @@ remains recorded when later admission fails.
 
 A job is admitted against the lower of the per-job cap recorded when it was
 queued and the cap configured now, so setting or lowering
-`METIS_MAX_JOB_COST_USD` and restarting also binds queued and retried jobs;
-raising it does not loosen an older job (start a new report).
+`METIS_MAX_JOB_COST_USD` and restarting also binds a job that is still queued
+or that resumes after the restart. A Retry creates a new job row, which records
+the cap in force when it is created. Raising the cap does not loosen an older
+job (start a new report).
 
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its

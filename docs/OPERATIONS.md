@@ -158,8 +158,9 @@ Claude USD caps apply to reservations plus settled spend, not estimated typical
 run cost. Plan-based usage is not measured by those dollar caps. Abandoned paid
 leases preserve conservative presumed spend until a late settlement or explicit
 reconciliation lowers it. If another process holds the database writer lock when
-a finished request is recorded, Metis retries the write for about five seconds
-and then keeps the response; a request it could not record is counted at its
+a finished request is recorded, Metis retries the write, waiting 0.25, 1 and 4
+seconds between its tries (5.25 seconds in all) on top of the database's own
+five-second busy timeout on each try, and then keeps the response; a request it could not record is counted at its
 reserved maximum when its lease expires, until a late settlement or
 `npm run costs:reconcile` lowers it. See [usage controls](CLAUDE-USAGE.md) before
 sizing caps.

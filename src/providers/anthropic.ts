@@ -1807,8 +1807,8 @@ export class RequestSettlementNotRecordedError extends Error {
 }
 
 /**
- * Waits before each retry of a contended ledger write (about five seconds in
- * all, on top of the database's own busy timeout on every try).
+ * Waits before each retry of a contended ledger write (5.25 seconds in all, on
+ * top of the database's own busy timeout on every try).
  */
 export const LEDGER_SETTLE_RETRY_DELAYS_MS: readonly number[] = [250, 1_000, 4_000];
 
@@ -1890,15 +1890,18 @@ type FailedRequestOutcome = { kind: "release" } | { kind: "charge"; charge: Fail
 /**
  * Decide what a failed request is recorded at: the single rule both failure
  * catches (the first request and a pause resumption) share, so one wire state
- * settles one figure. In order: a stream the idle guard abandoned, or one that
- * reported usage but ended before its final usage event (any cause), is its
- * reported usage plus the presumed remainder (the request maximum when no
- * usage was reported); a stream whose final usage event arrived settles at
- * that usage; a request the provider had answered and the caller then
- * cancelled, or one that went out and then timed out or lost its connection,
- * with no usage reported, is presumed at the request maximum; anything else
- * never reached the provider and is released at $0 (DECISIONS D-10: "a
- * request that times out after send is presumed spent until reconciled").
+ * settles one figure. In order:
+ *  1. A stream the idle guard abandoned, or one that reported usage but ended
+ *     before its final usage event (whatever the cause), is its reported usage
+ *     plus the presumed remainder (the request maximum when no usage was
+ *     reported).
+ *  2. A stream whose final usage event arrived settles at that usage.
+ *  3. With no usage reported, a request the provider had answered and the
+ *     caller then cancelled, or one that went out and then timed out or lost
+ *     its connection, is presumed at the request maximum.
+ *  4. Anything else never reached the provider and is released at $0
+ *     (DECISIONS D-10: "a request that times out after send is presumed
+ *     spent until reconciled").
  */
 function classifyFailedRequest(
   opts: RunPassOptions,
@@ -2270,22 +2273,21 @@ function billedMessageFromSnapshot(
 }
 
 /**
- * The result for a stream that ended after generation started without its final
- * usage event, whatever the cause (DECISIONS D-09): what the provider reported before it stopped being read, PLUS the
- * worst case for the rest of the response, priced at the model's output rate
- * for the tokens the request could still emit.
+ * The cost of a stream that ended after generation started without its final
+ * usage event, whatever the cause (DECISIONS D-09): what the provider reported
+ * before the stream stopped being read, PLUS the worst case for the rest of the
+ * response, priced at the model's output rate for the tokens the request could
+ * still emit.
  *
- * Anthropic bills for generation, and neither a stalled stream nor one the
- * caller aborted gives any way to know how much of it happened: the API
- * reports cumulative output tokens only in the final `message_delta`, so a
- * stream cut mid-generation has reported input tokens and ~1 output token.
- * Recording only the last reported usage would understate the charge exactly
- * when nothing else can correct it, so the remainder is presumed spent and
- * named as presumed. The whole figure stays inside the pass reservation,
- * which already bounds the full output ceiling. `headline` is what the pass
- * gap and error say happened; `aborted` marks a caller abort so an
- * orchestrator that stopped the request on purpose can tell it from a
- * provider fault.
+ * Anthropic bills for generation, and an unfinished stream gives no way to know
+ * how much of it happened, whether it stalled, the caller aborted it, the
+ * server sent an error event or the connection dropped: the API reports
+ * cumulative output tokens only in the final `message_delta`, so a stream cut
+ * mid-generation has reported input tokens and ~1 output token. Recording only
+ * the last reported usage would understate the charge exactly when nothing else
+ * can correct it, so the remainder is presumed spent and named as presumed. The
+ * whole figure stays inside the pass reservation, which already bounds the full
+ * output ceiling.
  */
 function abandonedRequestCostUsd(opts: RunPassOptions, reported: BetaMessage | null): number {
   // Nothing reported: the input the provider may have billed is unknown as
