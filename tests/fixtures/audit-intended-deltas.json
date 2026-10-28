@@ -10264,16 +10264,16 @@
       ]
     },
     {
-      "name": "audit-b1-claim-verifier-periods-20261027",
+      "name": "claim-verifier-numbers-20261027",
       "decisions": [
-        "D-128"
+        "D-129"
       ],
-      "reason": "Claim verifier period rules (D-128), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.46.0 (a validated claim's periods, windows, comparison base and recency are established by what it cites), out of audit-b3-payload-records-20261027, whose record for 1.45.0 stands in D-124 to D-127. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-128.",
+      "reason": "Claim verifier number readings (D-129; D-128 is B1's period rules), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.47.0 (an excerpt figure is read with its sign, scale, unit, relation and bound, binds to its own description, and a comparison base binds only a comparison base), out of the B1 claim-verifier period rules, whose record for spec 1.46.0 stands in D-128. No value, availability flag, order, verified flag or verification-log leaf moves. D-128 and D-129 are provisional numbers renumbered at merge.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.46.0"
+          "after": "1.47.0"
         }
       ]
     }
