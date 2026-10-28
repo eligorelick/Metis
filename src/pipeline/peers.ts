@@ -1,6 +1,7 @@
 /** Optional, bounded peer inputs. Never builds a report or invokes keyless providers. */
 import type { FmpBalanceSheetRow, FmpClient, FmpIncomeStatementRow, FmpProfileRow, FmpQuoteRow, FmpRawRow, FmpStockPeerRow } from "@/providers/fmp";
 import type { FmpFetch } from "@/pipeline/types";
+import { estimateCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
@@ -41,6 +42,49 @@ export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unkn
   return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule D-65)`;
 }
 
+const isoCode = (v: unknown): string | null => {
+  const code = typeof v === "string" ? v.trim().toUpperCase() : "";
+  return /^[A-Z]{3}$/.test(code) ? code : null;
+};
+
+/**
+ * The exchange suffix of a symbol in the provider's Yahoo-style symbology
+ * ("285A.T" -> "T", "MU" -> null, "BRK-B" -> null). A symbology heuristic: a
+ * dotted share class ("BRK.B") reads as a suffix too.
+ */
+export function listingSuffix(symbol: string): string | null {
+  return /\.([A-Z]{1,4})$/.exec(symbol.trim().toUpperCase())?.[1] ?? null;
+}
+
+export type PeerScreen =
+  | { kind: "in-band" }
+  | { kind: "excluded"; reason: string }
+  | { kind: "not-compared"; reason: string };
+
+/**
+ * One size-screen rule for Stage B discovery and the payload (AI-301, D-65).
+ * Caps are compared only when both currencies are established and equal, or,
+ * when the provider row states none, only when the peer is on the subject's
+ * listing market (same exchange suffix). That presumption only decides whether
+ * a name is size-screened; it never establishes money.
+ */
+export function peerDiscoveryScreen(i: {
+  subjectSymbol: string; subjectCurrency: string | null | undefined; subjectCap: unknown;
+  peerSymbol: string; peerCurrency: string | null | undefined; peerCap: unknown;
+}): PeerScreen {
+  const subject = isoCode(i.subjectCurrency);
+  const peer = isoCode(i.peerCurrency);
+  if (peer !== null) {
+    if (peer !== subject) return { kind: "not-compared", reason: `size not compared: listed in ${peer}, the subject in ${subject ?? "an unestablished currency"}; no currency conversion` };
+  } else if (listingSuffix(i.peerSymbol) !== listingSuffix(i.subjectSymbol)) {
+    // Say only what was compared: a suffix is a symbology heuristic, not proof of an exchange (BRK.B).
+    const shown = (s: string | null) => (s === null ? "none" : `.${s}`);
+    return { kind: "not-compared", reason: `size not compared: the provider row states no currency and its exchange suffix (${shown(listingSuffix(i.peerSymbol))}) differs from the subject's (${shown(listingSuffix(i.subjectSymbol))})` };
+  }
+  const size = peerSizeExclusion(i.subjectCap, i.peerCap);
+  return size === null ? { kind: "in-band" } : { kind: "excluded", reason: size };
+}
+
 export interface PeerExclusion { symbol: string; reason: string }
 export interface PeerCoverage {
   methodology: string[];
@@ -63,6 +107,8 @@ export interface PeerCollection {
   candidateCount: number;
   exclusions: PeerExclusion[];
   notes: string[];
+  /** Normalized symbol -> ISO listing currency of every profile read for it, admitted or not. Absent in pre-batch snapshots. */
+  listingCurrencies?: Record<string, string>;
   /** Observation cutoff; composition root advances this after core inputs settle. */
   collectedAt?: string;
 }
@@ -119,9 +165,11 @@ export async function loadPeerFundamentals(opts: {
     if (seen.has(symbol)) { result.exclusions.push({ symbol, reason: "self or duplicate candidate symbol" }); continue; }
     seen.add(symbol);
     // D-65: a micro-cap beside a mega-cap is not requested; the comparison
-    // repeats the screen on the candidate's own quote.
-    const size = peerSizeExclusion(opts.profile.marketCap, row.mktCap);
-    if (size !== null) { result.exclusions.push({ symbol, reason: size }); continue; }
+    // repeats the screen on the candidate's own quote. A row on another
+    // listing market is not size-compared here (its cap may be in another
+    // currency); the profile read and the quote-based test decide (AI-301-V1).
+    const screen = peerDiscoveryScreen({ subjectSymbol: opts.symbol, subjectCurrency: opts.profile.currency, subjectCap: opts.profile.marketCap, peerSymbol: symbol, peerCurrency: estimateCurrency(row), peerCap: row.mktCap });
+    if (screen.kind === "excluded") { result.exclusions.push({ symbol, reason: screen.reason }); continue; }
     symbols.push(symbol);
   }
   result.candidateCount = symbols.length;
@@ -144,7 +192,12 @@ export async function loadPeerFundamentals(opts: {
   const seenIssuers = new Set<string>();
   const seenNames = new Set<string>();
   const subjectProfile = opts.profile;
+  const recordCurrency = (symbol: string, peer: FmpProfileRow): void => {
+    const code = isoCode(peer.currency);
+    if (normalize(peer.symbol) === symbol && code !== null) (result.listingCurrencies ??= {})[symbol] = code;
+  };
   const admit = (symbol: string, peer: FmpProfileRow): string | null => {
+    recordCurrency(symbol, peer);
     const reason = profileReason(subjectProfile, peer, symbol);
     const id = issuer(peer.cik); const name = companyName(peer.companyName);
     if (reason || seenIssuers.has(id) || (name && seenNames.has(name))) return reason ?? "duplicate issuer/share class";
@@ -263,7 +316,7 @@ export function comparePeerFundamentals(opts: {
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
     methodology: [
-      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
+      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",

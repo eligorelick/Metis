@@ -36,7 +36,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, 
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
-import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { estimateCurrency, inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -44,7 +44,7 @@ import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/st
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
-import { peerSizeExclusion } from "@/pipeline/peers";
+import { peerDiscoveryScreen } from "@/pipeline/peers";
 import { consensusYearsText } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
@@ -79,6 +79,7 @@ import type {
   FmpIncomeStatementRow,
   FmpRawRow,
   FmpStatementRow,
+  FmpStockPeerRow,
 } from "@/providers/fmp";
 
 /* ------------------------------------------------------------------------ *
@@ -1645,28 +1646,56 @@ function nextEarningsNote(bundle: DataBundle): string | null {
 }
 
 /**
- * FMP's stock-peers list draws peers from the subject's own exchange, so a
- * peer market cap without a currency inherits the subject's listing currency
- * under the same D-57 rule (which requires it to equal the reporting one).
+ * A stock-peers market cap is money only in a currency the run holds for that
+ * peer (AI-301): the provider row's own currency, else the listing currency of
+ * a profile the peer collection read for that symbol. The subject's currency is
+ * never assumed (FMP documents its peers as same-exchange, but its own answers
+ * list foreign exchanges). The size screen is the one Stage B discovery uses.
  */
-function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
+function peerListingCurrency(bundle: DataBundle, symbol: string, row: FmpStockPeerRow): string | null {
+  const own = estimateCurrency(row);
+  if (own !== null) return own;
+  const collection = bundle.peerFundamentals;
+  const recorded = isoCurrency(collection?.listingCurrencies?.[symbol]);
+  if (recorded !== null) return recorded;
+  // Pre-batch snapshots recorded no currencies: read the admitted candidate's profile.
+  const candidateProfile = collection?.candidates[symbol]?.profile;
+  const profileRow = candidateProfile ? firstRow(candidateProfile) : null;
+  return profileRow && strOrNull(profileRow.symbol)?.trim().toUpperCase() === symbol ? isoCurrency(profileRow.currency) : null;
+}
+
+function peersSection(bundle: DataBundle): PayloadSection {
   // D-65: discovery candidates outside the comparable-size band are named in
   // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
   const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
-  const screened = rowsOf(bundle.peers).map((p) => ({ p, size: peerSizeExclusion(subjectCap, numOrNull(p.mktCap)) }));
-  const peers = screened.filter((s) => s.size === null).map((s) => s.p).slice(0, PAYLOAD_BUDGETS.listRows);
+  const subjectCurrency = isoCurrency(firstRow(bundle.profile)?.currency) ?? isoCurrency(firstRow(bundle.quote)?.currency);
+  const screened = rowsOf(bundle.peers).map((p) => {
+    const symbol = (strOrNull(p.symbol) ?? "").trim().toUpperCase();
+    const currency = peerListingCurrency(bundle, symbol, p);
+    return { p, currency, screen: peerDiscoveryScreen({ subjectSymbol: bundle.symbol, subjectCurrency, subjectCap, peerSymbol: symbol, peerCurrency: currency, peerCap: numOrNull(p.mktCap) }) };
+  });
+  const peers = screened.filter((s) => s.screen.kind !== "excluded").slice(0, PAYLOAD_BUDGETS.listRows);
   const asOf = bundle.peers.ok ? bundle.peers.value.asOf : null;
-  const figures: PayloadFigureInput[] = peers.map((p) => ({
+  const figures: PayloadFigureInput[] = peers.map(({ p, currency }) => ({
     label: `${strOrNull(p.symbol) ?? "?"} — ${strOrNull(p.companyName) ?? "?"}`,
     value: numOrNull(p.mktCap),
     unit: "currency mkt cap",
-    ...rowCurrency(p, issuer),
+    currency,
     source: "fmp:stock-peers",
     asOf,
   }));
-  const sizeNotes = screened.filter((s) => s.size !== null)
-    .map((s) => `${strOrNull(s.p.symbol) ?? "?"} (${strOrNull(s.p.companyName) ?? "?"}) is not listed as a peer: ${s.size}.`);
-  return payloadSection({ title: "Peers", figures, notes: [...inheritanceNote(figures, issuer), ...sizeNotes] });
+  const name = (p: FmpStockPeerRow) => `${strOrNull(p.symbol) ?? "?"} (${strOrNull(p.companyName) ?? "?"})`;
+  const sizeNotes = screened.flatMap((s) => s.screen.kind === "excluded" ? [`${name(s.p)} is not listed as a peer: ${s.screen.reason}.`] : []);
+  const notCompared = screened.flatMap((s) => s.screen.kind === "not-compared" ? [`${name(s.p)}: ${s.screen.reason}.`] : []);
+  return payloadSection({
+    title: "Peers",
+    figures,
+    notes: [
+      "Peer market caps are money only in the listing currency this run read for that peer (its own provider row or its profile in the peer collection); a cap shown \"(currency unknown)\" is not citable as money, and the subject's currency is never assumed for a peer.",
+      ...sizeNotes,
+      ...notCompared,
+    ],
+  });
 }
 
 function insidersSection(bundle: DataBundle): PayloadSection {
@@ -3047,7 +3076,7 @@ export function assembleContextPayload(
   // resolved them. Each figure below takes only the one its evidence supports.
   const currencies = statementCurrencies(bundle);
   // D-57: the one currency single-currency provider rows (estimates, targets,
-  // peer caps, compensation) inherit when they carry none — the same rule
+  // compensation) inherit when they carry none — the same rule
   // Stage B applied to the analyst-consensus growth case.
   const issuer = inheritedIssuerCurrency({
     reporting: currencies.model,
@@ -3104,7 +3133,7 @@ export function assembleContextPayload(
     ...(issuerFilings === undefined ? {} : { issuerFilings }),
     ...(filingFacts === undefined ? {} : { filingFacts }),
     estimates: estimatesSection(bundle, issuer, computed),
-    peers: peersSection(bundle, issuer),
+    peers: peersSection(bundle),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
     leadership: leadershipSection(bundle, issuer),

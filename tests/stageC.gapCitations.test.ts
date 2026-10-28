@@ -201,15 +201,16 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
     ], "2026-07-01", "executive-compensation");
   };
 
-  it("with the issuer's reporting and listing currencies agreeing, the same rows are inherited money (D-57)", () => {
+  it("with the issuer's reporting and listing currencies agreeing, compensation and targets are inherited money (D-57) but a peer cap is not (AI-301)", () => {
     const payload = build(false, withRows);
     const inherited = (payload.provenanceRegistry ?? []).filter((r) => r.currencyBasis === "inherited");
+    // Audit 2026-10-27 B3 Task 1 (AI-301): stock-peer caps no longer inherit the subject's currency.
+    expect(inherited.some((r) => r.origin === "fmp:stock-peers")).toBe(false);
     expect(inherited).toEqual(expect.arrayContaining([
-      expect.objectContaining({ origin: "fmp:stock-peers", value: 221_304_234_781, currency: "USD" }),
       expect.objectContaining({ origin: "fmp:executive-compensation", value: 20_062_612, currency: "USD", asOf: "2026-04-06" }),
       expect.objectContaining({ origin: "fmp:price-target-consensus", currency: "USD" }),
     ]));
-    expect(serializePayloadForPrompt(payload)).toMatch(/C — Citigroup Inc\.: 221304234781 currency mkt cap \(USD, inherited\)/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/C — Citigroup Inc\.: 221304234781 currency mkt cap \(currency unknown\)/);
   });
 
   it("registers the printed tags as unestablished, with the currency flagged unknown", () => {

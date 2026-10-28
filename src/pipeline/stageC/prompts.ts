@@ -104,9 +104,10 @@ export const SHARED_RULES_BLOCK = [
   "quarter ended 2026-07-26 was USD 96.2 billion.\" The verifier validates such a sentence against its record; a FACT",
   "that leaves the figure out cannot be validated.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
-  // D-57 (2026-10-15): estimates, targets, peer caps and pay rows carry no
-  // currency of their own; when the issuer's reporting and listing currencies
-  // agree they inherit it and are registered money in that currency.
+  // D-57 (2026-10-15): estimates, targets and pay rows carry no currency of
+  // their own; when the issuer's reporting and listing currencies agree they
+  // inherit it and are registered money in that currency. Peer caps do not
+  // inherit (AI-301): they take only a currency their own data states.
   "A figure shown with \"(USD, inherited)\" (any ISO code) takes the issuer's currency because its provider row states none: it is money in that currency.",
   // 2026-10-13: with peer market caps unverifiable as numbers (currency not
   // established, D-43), a medium-effort JPM report dropped its peer table

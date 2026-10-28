@@ -644,6 +644,9 @@ describe("payload determinism + provenance", () => {
       // says the cells are withheld rather than "rendered null". No value moves.
       ["3,196,000,000,000", "3196000000000", 8],
       ["are withheld and shown as —", "rendered null", 1],
+      // Audit 2026-10-27 B3 Task 1 (AI-301): the peer methodology sentence names the
+      // established-currency or same-market basis of the size screen; two copies in the finance block.
+      [", compared only between established equal currencies or same-market listings", "", 2],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -656,12 +659,27 @@ describe("payload determinism + provenance", () => {
     // Codex review of PR #42 (D-99): the method stamps restored above and the
     // notes and risk readings' selection version are the only registry text
     // that moves; restore them as well.
-    const precedingRegistry = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
+    // Audit 2026-10-27 B3 Task 1 (AI-301): the two stock-peer caps lost their inherited
+    // USD records. The preceding registry carried them straight after the last
+    // payload.estimates.* record; re-insert exactly those two (this fixture's peers).
+    const inheritedPeerRecord = (id: string, label: string, value: number) => ({
+      id, label, kind: "provider" as const, value, unit: "currency", currency: "USD", currencyBasis: "inherited" as const,
+      period: null, asOf: "2026-07-01", origin: "fmp:stock-peers", formulaVersion: null, displayPrecision: 4,
+    });
+    const restoredPeerRecords = [
+      inheritedPeerRecord("payload.peers.msft-microsoft", "MSFT — Microsoft", 3400000000000),
+      inheritedPeerRecord("payload.peers.googl-alphabet", "GOOGL — Alphabet", 2200000000000),
+    ];
+    const registryWithoutPeers = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
       return before;
     });
+    expect(registryWithoutPeers.filter((record) => record.origin === "fmp:stock-peers")).toHaveLength(0);
+    const lastEstimate = registryWithoutPeers.reduce((last, record, index) => record.id.startsWith("payload.estimates.") ? index : last, -1);
+    expect(lastEstimate).toBe(355);
+    const precedingRegistry = [...registryWithoutPeers.slice(0, lastEstimate + 1), ...restoredPeerRecords as unknown as typeof registryWithoutPeers, ...registryWithoutPeers.slice(lastEstimate + 1)];
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
     // D-99 adds one payload note, the consensus-target reconciliation (AMZN
@@ -688,6 +706,15 @@ describe("payload determinism + provenance", () => {
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
       Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
         : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
+    // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
+    // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
+    expect(precedingPayload.peers.figures.map((figure) => [figure.label, figure.currency])).toEqual([["MSFT — Microsoft", null], ["GOOGL — Alphabet", null]]);
+    expect(precedingPayload.peers.notes).toEqual(["Peer market caps are money only in the listing currency this run read for that peer (its own provider row or its profile in the peer collection); a cap shown \"(currency unknown)\" is not citable as money, and the subject's currency is never assumed for a peer."]);
+    precedingPayload.peers.figures = precedingPayload.peers.figures.map((figure) => {
+      const { label, value, unit, source, asOf, period } = figure;
+      return { label, value, unit, currency: "USD", currencyInherited: true, source, asOf, period, provenanceId: restoredPeerRecords.find((record) => record.label === figure.label)!.id } as unknown as typeof figure;
+    });
+    precedingPayload.peers.notes = ["Money rows marked \"inherited\": currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)."];
     // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
     // manifest into untrusted-data envelopes, under new headings. Unwrapping
     // exactly those two blocks back to their preceding raw lines must
@@ -1035,17 +1062,24 @@ describe("payload determinism + provenance", () => {
       // pin, and the versioned header moves with payload 1.48.0. This
       // fixture's multiples are TTM, so their records keep their labels, ids
       // and null period (B-9 names only a fiscal-year multiple's year).
-      fingerprint: "1.48.0:416db791",
-      promptBytes: 140_781,
-      provenanceCount: 531,
+      // Audit 2026-10-27 B3 Task 1 (AI-301): stock-peer caps no longer inherit the
+      // subject's currency. The two fixture peers (MSFT, GOOGL) lose their inherited
+      // USD records (531 -> 529) and read "(currency unknown)"; their shared
+      // fmp:stock-peers tag becomes one payload-unestablished citation (74 -> 75);
+      // the peers block states the fixed currency note instead of the D-57 note and
+      // the peer methodology names the established-currency or same-market basis
+      // (financeHash). The preceding pins above are reproduced by exact restorations.
+      fingerprint: "1.48.0:bf5f6139",
+      promptBytes: 140_880,
+      provenanceCount: 529,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "73762e7f",
-      provenanceIdsHash: "623dfb46",
-      citationCount: 74,
-      citationHash: "5d7e100c",
+      provenanceHash: "a8795a7e",
+      provenanceIdsHash: "38d75f2d",
+      citationCount: 75,
+      citationHash: "423bbedf",
       computedFigureLabelHash: "dc5ba34e",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
@@ -1082,7 +1116,7 @@ describe("payload determinism + provenance", () => {
       // D-107: the grouped EV digits and the grid guard wording, restored above.
       // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "4022589a",
+      financeHash: "3fc254c2",
     });
   });
 

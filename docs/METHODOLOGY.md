@@ -214,8 +214,8 @@ resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
 **Provider rows without a currency (D-57).** FMP's analyst-estimate,
-price-target, stock-peer and executive-compensation rows carry no currency
-field. `src/pipeline/estimateCurrency.ts` gives each row its own
+price-target and executive-compensation rows (and its stock-peer rows, see
+below) carry no currency field. `src/pipeline/estimateCurrency.ts` gives each row its own
 `reportedCurrency`/`currency` when it has one. Otherwise the row inherits the
 issuer's currency, but only when three things agree:
 
@@ -229,13 +229,24 @@ also withheld when the reporting and listing currencies differ, or when either
 is unknown. An inherited figure is rendered "(USD, inherited)" in the AI
 payload, its registry record carries `currencyBasis: "inherited"`, and the
 `valuation.analystEstimates.currency` manifest entry says the estimates were
-inherited. Stock-peer market caps inherit the subject's currency because FMP
-draws peers from the subject's own exchange. All estimate rows must resolve to
+inherited. Stock-peer market caps do not inherit (AI-301, D-next, revising
+D-57 for peers): FMP documents its peers as same-exchange, but its own answers
+list foreign exchanges (a NASDAQ subject's list holds `.T`, `.TW`, `.HK` and
+`.SS` symbols), so the premise cannot establish a currency. A peer cap is money
+only in a currency the run holds for that peer: its own provider row's
+`currency`/`reportedCurrency`, else the listing currency of a profile the peer
+collection read for that symbol (admitted or excluded; `PeerCollection.
+listingCurrencies`). Otherwise it is rendered "(currency unknown)", is not
+registered, and no citation of it verifies as money; the prompt's peer-table
+rule leaves that peer's metrics empty. On an entry-tier key most peer profiles
+are refused, so U.S. peer caps will often read "(currency unknown)": an honest
+unknown is preferred to a cap in the wrong currency. All estimate rows must resolve to
 the model currency to enter the consensus growth method and the year-one
 revenue anchor. A row in another currency is excluded, as is a row whose
 currency stays unknown, and no FX conversion is attempted. D-57 replaces
 D-28's own-row-only rule, which discarded USD consensus, peer sizes and
-executive pay for a USD issuer (NVDA report #34).
+executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
+rule of D-28 is restored.
 
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
@@ -1244,10 +1255,17 @@ not an exhaustive or independently optimized peer universe.
 
 **Size screen (D-65).** A candidate whose market capitalization is more than
 `PEER_SIZE_RATIO_LIMIT` = 100 times smaller or larger than the subject's is not
-a comparable company: it is excluded at discovery (on the discovery row's
-market cap, so it costs no provider reads), again at comparison (on its own
-quote), and left out of the peer list the analysis reads, with a note naming it
-and the ratio. Size is a priced risk characteristic (Fama and French 1992) and
+a comparable company: it is excluded at discovery, again at comparison (on its
+own quote), and left out of the peer list the analysis reads, with a note naming
+it and the ratio. Caps are compared only between established equal currencies
+or, when the discovery row states no currency, between listings on the same
+market (the same exchange suffix: none for a U.S. listing, `.T` for Tokyo), one
+rule shared by Stage B discovery and the payload (`peerDiscoveryScreen`). A
+same-market or same-currency row is screened on the discovery row's cap at no
+provider read; a row on another market is "size not compared" at discovery (the
+reason is stated) and goes to the profile read, where the listing-currency gate
+and the screen on its own quote decide. The suffix presumption only decides
+whether a name is size-screened; it never makes a cap money. Size is a priced risk characteristic (Fama and French 1992) and
 multiples differ systematically with it; comparable-company practice selects
 on industry first and size second, and industry is the decisive screen (Alford
 1992), so the bound is deliberately loose. NVDA ($5.24T) keeps AVGO, AMD, INTC,
