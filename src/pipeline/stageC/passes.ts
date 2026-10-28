@@ -40,6 +40,7 @@ import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathL
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { admittedGeography } from "@/edgar/segmentFacts";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey, type MultipleStat } from "@/pipeline/stageB/valuation";
@@ -3770,8 +3771,10 @@ export function applySegmentShares(
     return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
   };
   const productTotal = latestSegmentationTotal(bundle?.segmentation?.product);
-  const geographicTotal = latestSegmentationTotal(bundle?.segmentation?.geographic);
-  const primary = bundle?.segmentation?.geographic;
+  // AI-509: the share basis follows the same admission as the payload and the data-only report.
+  const primary = bundle?.segmentation?.geographic === undefined ? undefined
+    : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
+  const geographicTotal = latestSegmentationTotal(primary);
   const basis = selectedGeographyNotes(primary)[0];
   const latest = primary?.ok ? primary.value.data.rows[0] : undefined;
   const geographic = basis && primary?.ok && latest?.data && typeof latest.reportedCurrency === "string" && typeof latest.date === "string"

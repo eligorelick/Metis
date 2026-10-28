@@ -120,6 +120,9 @@ Sources referred to by name throughout:
   series `DGS10` (10-Year Treasury Constant Maturity), alongside `DGS2`,
   `T10Y2Y`, `T10Y3M`, `EFFR`, `CPIAUCSL`, `CPILFESL`, `UNRATE`, `PAYEMS`,
   `T10YIE`, `BAMLH0A0HYM2` and `VIXCLS` in the macro dashboard.
+  `PAYEMS` is read as the change from the prior month (FRED `units=chg`) and
+  labelled so; `PCE`, `PCEND` and `PCEDG` are seasonally adjusted annual rates;
+  `APU000072610` is the U.S. city-average electricity price per kilowatt-hour.
 - **NAREIT**, *Funds From Operations White Paper*, for the FFO definition and
   its restatements.
 - **Piotroski (2000)**, *Value Investing: The Use of Historical Financial
@@ -172,6 +175,14 @@ or `filingDate` when acceptance is absent. Date-only recency represents the
 entire day; tied or overlapping intervals, invalid recency, or missing recency
 reject the whole duplicate period. Values are not selected field by field
 from conflicting restatements.
+The AI context's statement blocks apply the same rule before they take their
+periods (audit 2026-10-27 AI-505, D-124): one column per fiscal period, the
+provably latest row (by acceptance time, or by filing date where none is
+given), the figure Stage B uses; a period served twice with no provable order
+is left out. When such a period falls inside the block's window (five annual or
+four quarterly columns), the block says so, and it does the same for a period
+it collapsed. A row whose date is not a real day keeps its 'unknown' column,
+which no claim can cite.
 
 **TTM.** The newest four normalized quarters are usable only when consecutive
 period ends are 70–135 days apart and the newest-to-oldest period-end span is
@@ -214,10 +225,11 @@ resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
 **Provider rows without a currency (D-57).** FMP's analyst-estimate,
-price-target, stock-peer and executive-compensation rows carry no currency
+price-target, executive-compensation and stock-peer rows carry no currency
 field. `src/pipeline/estimateCurrency.ts` gives each row its own
-`reportedCurrency`/`currency` when it has one. Otherwise the row inherits the
-issuer's currency, but only when three things agree:
+`reportedCurrency`/`currency` when it has one. Otherwise an estimate, target or
+compensation row inherits the issuer's currency (a stock-peer row never does,
+see below), but only when three things agree:
 
 - the reporting currency the statements establish (the model currency);
 - the listing currency on the profile;
@@ -229,13 +241,48 @@ also withheld when the reporting and listing currencies differ, or when either
 is unknown. An inherited figure is rendered "(USD, inherited)" in the AI
 payload, its registry record carries `currencyBasis: "inherited"`, and the
 `valuation.analystEstimates.currency` manifest entry says the estimates were
-inherited. Stock-peer market caps inherit the subject's currency because FMP
-draws peers from the subject's own exchange. All estimate rows must resolve to
+inherited. Stock-peer market caps do not inherit (AI-301, D-124, revising
+D-57 for peers): FMP documents its peers as same-exchange, but its own answers
+list foreign exchanges (a NASDAQ subject's list holds `.T`, `.TW`, `.HK` and
+`.SS` symbols), so the premise cannot establish a currency. A peer cap is money
+only in a currency the run holds for that peer: its own provider row's
+`currency`/`reportedCurrency`, else the listing currency of a profile the peer
+collection read for that symbol (admitted or excluded; `PeerCollection.
+listingCurrencies`). A raw code is taken as stated, never uppercased: only three
+uppercase letters count, so a minor-unit code such as `GBp` (pence), `ZAc` or `ILa`
+establishes nothing (an LSE cap served in pence would otherwise be registered 100
+times too large). Otherwise it is rendered "(currency unknown)", is not
+registered, and no citation of it verifies as money; the prompt's peer-table
+rule leaves that peer's metrics empty. On an entry-tier key most peer profiles
+are refused, so U.S. peer caps will often read "(currency unknown)": an honest
+unknown is preferred to a cap in the wrong currency. All estimate rows must resolve to
 the model currency to enter the consensus growth method and the year-one
 revenue anchor. A row in another currency is excluded, as is a row whose
 currency stays unknown, and no FX conversion is attempted. D-57 replaces
 D-28's own-row-only rule, which discarded USD consensus, peer sizes and
-executive pay for a USD issuer (NVDA report #34).
+executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
+rule of D-28 is restored.
+
+**Insider statistics (AI-117, D-125).** FMP's insider statistics are
+calendar-quarter rows. Its `totalPurchases` and `totalSales` are counts of
+open-market transactions (Form 4 codes P and S), not shares; the acquired and
+disposed share volumes are separate fields that cover every reported
+acquisition or disposition, awards, option exercises, gifts and tax
+withholding included (SEC, "Ownership Form Codes"). The payload sums the
+trailing four complete calendar quarters before the quarter that contains the
+fetch day and states the window in every label ("four calendar quarters ended
+2026-06-30"), in the record's `period` (the window end) and in its
+`periodContext` (`duration`, with `basis: "rolling-12-month"` when four quarters
+are summed). The end date is named because FMP may serve no row for the newest
+complete quarter. Five figures are registered: open-market purchase and sale
+transaction counts (unit `count`), shares acquired and shares disposed (unit
+`shares`), and the acquired/disposed transaction-count ratio (acquired
+transactions over disposed transactions, all codes). The quarter in progress is
+left out of the sums (its Form 4 rows are still listed one by one). A missing
+quarter ends the window, so fewer than four quarters are labelled as what they
+are, a repeated quarter keeps its first row, and a sum with a missing value is
+withheld. With no complete quarter there is no statistics figure and a note
+says which quarter is in progress. Covered by `tests/stageC.insiderStatistics.test.ts`.
 
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
@@ -332,7 +379,10 @@ where ROIC is inapplicable; it is not computed by substituting a vendor ROE.
 
 `src/pipeline/stageB/capital.ts` derives capex/revenue, capex/D&A, before- and
 after-SBC FCF conversion, share trends, SBC intensity, interest coverage and
-net debt/EBITDA where the route permits them. Conversion requires positive
+net debt/EBITDA where the route permits them. Capex/D&A is shown for the latest
+year and as the mean of up to five years; the label states how many years the
+mean covers (`capexToDAAvgYears`, the count of finite ratios averaged, so "5y"
+only at five). Conversion requires positive
 net income, and leverage requires positive EBITDA. Maintenance capex
 `min(abs(capex), D&A)` and growth capex `max(0, abs(capex) − D&A)` are house
 heuristics, not a filed maintenance/development split.
@@ -764,7 +814,15 @@ balance-sheet grade scores, under a driver named `fcfConversionBeforeSbc`: that
 is the definition used by the unbacktested conversion band, and grading the
 after-SBC ratio against it would charge the same expense twice, because SBC as a
 percentage of free cash flow is already one of the five scored metrics. The
-aspect note states the definition. Price to free cash flow uses the **before**
+aspect note states the definition. The graded value is the current-capital
+ratio: the trailing twelve months when complete, current, currency-compatible
+quarterly windows exist, else the annual window (D-60). The capital
+section's fiscal-year row is labelled "latest fiscal year". On the trailing-
+twelve-month basis it is not the graded value and is not called graded; on the
+annual basis the current-capital section names the graded annual window and
+says the fiscal-year row covers the same window only when its fiscal year ends
+on that window's end date, rather than calling that row not graded (audit
+2026-10-27 AI-511, D-124). Price to free cash flow uses the **before**
 figure — the same basis as the own-history distribution it is ranked in — and is
 labelled "P/FCF (before SBC)" wherever it renders, with the basis string saying
 that the capital block's house-default figure is a different number.
@@ -794,7 +852,11 @@ a loss year are excluded from the diluted count by the filer, so a loss-making
 issuer's overhang understates the award pool; the note says this.
 
 Separately, the five-year diluted share-count trend reports buyback, dilution
-or flat (within ±1%), annualised over the span actually available.
+or flat (within ±1%), annualised over the span actually available. The total change is
+measured over up to five fiscal years; its payload label names the span measured ("(3y total)" for
+three years, one decimal for a span that is not a whole number of years), and a shorter or irregular
+window is stated in the capital notes with its start and end dates. A five-year span keeps the "(5y total)"
+label and adds no note.
 
 Per-share values use the weighted-average diluted count from the newer of the
 latest quarterly and latest annual income statement; when only the annual count
@@ -1244,10 +1306,18 @@ not an exhaustive or independently optimized peer universe.
 
 **Size screen (D-65).** A candidate whose market capitalization is more than
 `PEER_SIZE_RATIO_LIMIT` = 100 times smaller or larger than the subject's is not
-a comparable company: it is excluded at discovery (on the discovery row's
-market cap, so it costs no provider reads), again at comparison (on its own
-quote), and left out of the peer list the analysis reads, with a note naming it
-and the ratio. Size is a priced risk characteristic (Fama and French 1992) and
+a comparable company: it is excluded at discovery, again at comparison (on its
+own quote), and left out of the peer list the analysis reads, with a note naming
+it and the ratio. Caps are compared only between established equal currencies
+or, when no currency is established for the peer (neither its own row nor a
+profile read for it states one), between listings on the same
+market (the same exchange suffix: none for a U.S. listing, `.T` for Tokyo), one
+rule shared by Stage B discovery and the payload (`peerDiscoveryScreen`). A
+same-market or same-currency row is screened on the discovery row's cap at no
+provider read; a row on another market is "size not compared" at discovery (the
+payload's Peers notes state why) and goes to the profile read, where the listing-currency gate
+and the screen on its own quote decide. The suffix presumption only decides
+whether a name is size-screened; it never makes a cap money. Size is a priced risk characteristic (Fama and French 1992) and
 multiples differ systematically with it; comparable-company practice selects
 on industry first and size second, and industry is the decisive screen (Alford
 1992), so the bound is deliberately loose. NVDA ($5.24T) keeps AVGO, AMD, INTC,
@@ -2715,6 +2785,69 @@ its value reads "Cited; contradicted by its source" (it was cited, never
 statuses, and its evidence-class table gives the coverage counts with
 grade-strip reasoning included.
 
+**Stored payload-record corrections (D-124, D-125, D-127).** A report saved before report
+spec 1.45.0 is displayed, on the page, in the Markdown, print and audit exports
+and in the history view, through `withLegacyPayloadRecordSafety`
+(`src/report/legacyPayloadRecordSafety.ts`). The stored report, its bytes and
+its recorded counts are unchanged (D-67); a report at or after 1.45.0 is passed
+through as the identical object. The view makes six display-time corrections and
+every note it adds is a fixed string. (1) A peer market cap whose symbol has a
+different exchange suffix from the subject's is shown without a currency and
+without the check mark (a unit that names the currency, such as "USD", reads
+"currency"): reports before this spec gave it the subject's currency
+(D-57), and a peer's currency is established only by that peer's own data; a
+same-market peer cap is left as stored. (2) The insider "total purchases" and
+"total sales" figures are shown as transaction counts, unverified: they counted
+open-market transactions, not shares, over one calendar quarter at the fetch
+date. (3) The capex/D&A average labelled "5y average" is shown as "average of
+up to 5 fiscal years (the number averaged was not recorded)". (4) In a data-only
+report's macro rows, the generator's own sentences "Displayed in USD per therm."
+(APU000072610) and "Displayed in USD (FRED serves billions; …)" (PCE, PCEND,
+PCEDG) read "per kilowatt-hour" and "at a seasonally adjusted annual rate"; only
+the generator's exact sentence, on those FRED series, is replaced, and any other
+relevance text (the model's own included) is left as written. (5) The provider's annual
+"geographic" rows (not SEC-parsed rows) are kept as served but shown unverified
+with no share, and the reason, when the report's own XBRL segment tables
+contradict them (the same record cited elsewhere in the report, such as a key
+number, is shown unverified with the same reason): the rows name the issuer's reportable business segments, or the
+issuer tags its own geographic revenue and a provider region name is not one of
+its labels (the stored-report form of OD-4; rule 7). (6) A data-only "FCF conversion
+(FCF before SBC / net income — the graded ratio)" row reads without "the graded
+ratio": the row is a fiscal-year series, and the graded figure is the
+balance-sheet driver row (rule 8). A log entry for a corrected figure moves from
+validated to unchecked (and verified to unverified) with the note "(display
+correction, D-124, D-125, D-127)", and the displayed coverage counts exclude the corrected
+entries: the stored-report rule above, applied to these entries. One
+"presentation.payloadRecords" missing-data entry discloses the correction. The
+stored report and its recorded counts are unchanged. Known limitation: in a
+report whose 8-K event excerpts were selected before `section-evidence-5/event`,
+a kept amount may belong to a person the cut excerpt did not name (audit
+2026-10-27 AI-101). The stored report does not keep the excerpt, so this cannot
+be found or corrected at display; such figures are shown as stored.
+
+A computed figure Stage B takes from one fiscal year's statement rows carries
+that year's issuer label (for example FY2025) and its period end only when the
+annual income row for the date Stage B states for it carries a fiscal label
+(`issuerFiscalLabel`: the row's fiscal year and a full-year period) and that
+date equals the as-of the figure prints. Otherwise it carries neither. The label
+is never inferred from a calendar year. An annual period served twice with no
+provable order is dropped by Stage B and by this lookup alike: the figure then
+falls back to the prior year and carries that year's label and as-of, and when
+only the tied period is left no record is labelled. These are the latest margins, ROIC, DuPont ROE, free cash flow,
+FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
+a statement cell's are not. They let prose name that fiscal year or "the fiscal
+year", and, as for a statement cell, a sentence naming another year stays
+unverified (audit 2026-10-27 B3, D-124). The label is the one the statement data
+carries (the provider's or the keyless builder's), which can be wrong (FCX's keyless
+2024-12-31 row carried "2023"), so the lookup keeps it only when it is plausible for
+the period end: the year of the end, or the year before when the end falls in January
+to March (52/53-week and March year ends). Otherwise the figure carries no label and
+no period, as when the row has none. A `(latest)` record now carries its fiscal
+period, so a key number written with a descriptive period ("latest", "latest fiscal
+year") fails the period check, while one written with the date or the FY label
+passes. This is the safe direction: a correct claim may go unverified, a wrong-year
+claim does not validate.
+
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the
 cited figures the verification log marks contradicted (a value mismatch). These
@@ -3242,6 +3375,33 @@ sales were shown as parts of service sales. Members renamed between filings are
 still not joined (D-63), so an annual-only member can leave a fourth-quarter
 cell blank.
 
+**Provider geography (audit 2026-10-27 AI-509, D-127).** FMP's annual
+"geographic" rows are company geography only when the issuer's own XBRL in the
+same run does not contradict them. They are withheld when a key names one of the
+issuer's reportable business segments (segment revenue is not entity-wide
+geographic revenue, ASC 280-10-55-21). They are also withheld when the issuer
+tags its own geographic revenue (at least one row on its geographic axis; an
+axis with no rows is no evidence) and a provider region name is not one of the
+issuer's geographic labels (a single such name withholds the whole set); the
+quarterly segment section then carries the issuer's geography under its own
+labels. The withholding applies in the AI context, to the segment-share basis
+(`applySegmentShares`) and to the data-only report alike. Otherwise they are shown as FMP's
+normalised names, not checked against the filing, and the section is titled
+"keys as each source names them", not "as-reported". The reason is a data gap in
+the report (`validation.providerGeography`). SEC-parsed geography (D-80) is
+unchanged.
+
+Segment growth uses the same windows as the consolidated trend: quarter over
+quarter only against the quarter ending 80-100 days earlier, year over year
+only against the one ending 350-380 days earlier (a 14-week quarter and a
+53-week year still count). With no such quarter the rate is withheld, in the
+AI context and in the classic segment table, which shows a dash. The dated
+segment revenue rows still show the latest quarter, the next older column in the
+filing and the year-ago column (the one ending 350-380 days before the latest),
+each labelled with its own quarter end. The next older column is not read as
+"the prior quarter": a quarter-over-quarter rate uses only the column ending 80-100
+days before the latest quarter, and is withheld when no column does.
+
 **Wording (finding 20).** A failed Piotroski signal states what its figures did
 ("current ratio fell"), never the test it failed. The accrual scaler is labelled
 "average NOA or total assets", because it falls back to total assets when net
@@ -3475,7 +3635,11 @@ stated only as one of FMP's five rating words (Strong Buy, Buy, Hold, Sell,
 Strong Sell) and is otherwise withheld. Statement period labels and the
 FINRA and FRED observation dates must be ISO days: a statement period with
 another date shows as "unknown", FINRA discards the row as malformed, and
-FRED skips the observation. Valid data renders as before.
+FRED skips the observation. Valid data renders as before. Peer-screen
+exclusion reasons and peer-collection notes can also quote a provider's error
+body, so they travel in their own envelope ("Peer screen exclusions and
+collection notes"), one entry per line; "Comparable peers (computed)" keeps
+only the figures, the fixed method lines and the comparison bases (D-126).
 
 **The judge reads the cases as arguments (F-6).** Each analyst case the judge
 receives is enveloped the same way and labelled model-authored. The judge is
@@ -3750,6 +3914,8 @@ dated the release, which would have raised a false notice. This is only the part
 notice needs; ordering releases that state no period is left for a later
 batch.
 
+**8-K event excerpts (D-124).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`.
+
 **A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
 reaches the analysis passes as a 12,000-character selection read for
 financial families. Southern Co.'s 10-K excerpt stated large-load contracts of
@@ -3771,6 +3937,10 @@ example "[kept first: passages updating the 10-K's figures for gigawatts,
 megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both
 with their filings and dates.
+
+**An older 10-Q (audit 2026-10-27 AI-507, D-124).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. The 10-Q MD&A, notes and Item 5 (other information) excerpts are then titled "[older than the 10-K for the period ended <date>]" (the Item 4 controls and signatures excerpts carry no such marker), and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
+
+**A release's fiscal label (audit 2026-10-27 AI-512, D-124).** An excerpt title takes a quarter's fiscal label from the earnings release only where the run's own income-statement rows support it. (1) If a labelled annual or quarterly income row ends within three days of the release's quarter end, the label is kept unless that row gives another fiscal year or, for a quarter label, another quarter; an annual row's FY2025 agrees with Q4 FY2025 only, and contradicts any Q1 to Q3 label, because an annual period ending at the quarter end makes that quarter the fiscal fourth. (2) If no labelled row lies within three days but labelled quarterly rows exist, as on earnings day when the release is newer than every statement row, the label is kept only when the quarter end falls 80 to 100 days after the newest labelled quarterly row's period end and the label is that row's successor quarter (Q1 to Q2 to Q3 to Q4 to Q1 of the next fiscal year). A release more than 100 days later, or older than that row, is withheld. (3) If no quarterly income row carries a fiscal label but a labelled annual income row exists, the label is kept only when its fiscal year is that newest labelled annual row's fiscal year plus one (a quarter ending after a fiscal year's end belongs to the next fiscal year) and its quarter number n fits the days between that row's period end and the quarter end, which must be 91n-11 to 91n+9 inclusive and at most 366 (Q1 80 to 100, Q2 171 to 191, Q3 262 to 282, Q4 353 to 366); otherwise it is withheld. (4) Only a bundle with no labelled income row (an annual row with an FY label or a quarterly row with a Q label) leaves nothing to contradict the release, and its label is kept; this is a stated limit. When a label is withheld, the earnings-release and CFO-commentary titles state the quarter-end date and that the label was withheld, while the 10-Q and 10-K titles simply drop the label. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The check is skipped when the release has no parseable quarter end: the title then prints the release's label alone, with no quarter-end date, and no 10-Q or 10-K title takes a label from that release. The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
 
 ### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
 

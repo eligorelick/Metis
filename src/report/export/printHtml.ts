@@ -1,6 +1,7 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 /**
@@ -761,7 +762,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  report = withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)));
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {

@@ -51,6 +51,15 @@ function ok<T>(data: T, asOf: string, endpoint = "fmp", source: DataSource = "fm
 }
 const gap = { ok: false as const, gap: { field: "x", reason: "fixture gap", severity: "info" as const } };
 
+/** Audit 2026-10-27 B3 Task 3 (AI-117): 2026 Q2 is in progress at the fixture's asOf; four complete quarters (2025 Q2 to 2026 Q1) are summed. */
+const INSIDER_STAT_ROWS = [
+  { year: 2026, quarter: 2, totalPurchases: 0, totalSales: 1, acquiredTransactions: 0, disposedTransactions: 1, totalAcquired: 0, totalDisposed: 10_000 },
+  { year: 2026, quarter: 1, totalPurchases: 0, totalSales: 1, acquiredTransactions: 3, disposedTransactions: 4, totalAcquired: 30_000, totalDisposed: 40_000 },
+  { year: 2025, quarter: 4, totalPurchases: 1, totalSales: 4, acquiredTransactions: 2, disposedTransactions: 6, totalAcquired: 20_000, totalDisposed: 60_000 },
+  { year: 2025, quarter: 3, totalPurchases: 0, totalSales: 2, acquiredTransactions: 1, disposedTransactions: 3, totalAcquired: 10_000, totalDisposed: 30_000 },
+  { year: 2025, quarter: 2, totalPurchases: 0, totalSales: 3, acquiredTransactions: 2, disposedTransactions: 5, totalAcquired: 20_000, totalDisposed: 50_000 },
+];
+
 function fmpPayload<T>(rows: T[], asOf: string, endpoint: string) {
   return ok({ rows, raw: {} }, asOf, endpoint);
 }
@@ -181,7 +190,7 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
       latest: fmpPayload([{ symbol, period: "Q2", year: 2026, date: "2026-05-01", content: "CEO: Revenue grew this quarter. ".repeat(50) }], "2026-05-01", "earning-call-transcript"),
     },
     insiderTrades: fmpPayload([{ transactionDate: "2026-06-01", reportingName: "Tim Cook", typeOfOwner: "CEO", transactionType: "S-Sale", securitiesTransacted: 50000, price: 205 }], "2026-06-01", "insider-trades"),
-    insiderStats: fmpPayload([{ year: 2026, quarter: 2, totalPurchases: 0, totalSales: 500000, acquiredDisposedRatio: 0.1 }], "2026-06-30", "insider-statistics"),
+    insiderStats: fmpPayload(INSIDER_STAT_ROWS, "2026-06-30", "insider-statistics"),
     institutional: {
       year: 2026,
       quarter: 1 as const,

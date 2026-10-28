@@ -8,6 +8,14 @@ export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
  * for government cases, their relief, fines and scheduled trials.
  */
 export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
+/**
+ * The 8-K event reading. section-evidence-5 (AI-101): a passage that refers to
+ * a person by honorific and surname, or by a leading pronoun, is kept only
+ * together with the sentence that introduces that person, and an award of
+ * shares ranks like a dollar amount. Not -3: that numeral was the notes/risk
+ * selector until D-99, and a version string must not change its method.
+ */
+export const EVENT_SELECTION_VERSION = "section-evidence-5";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
@@ -260,6 +268,29 @@ const PROSE_BOUNDARY = new RegExp([
   String.raw`\s+(?=Note \d{1,2}\s*[-–—:.]\s*[A-Z])`,
   String.raw`(?<=[\d)%])\s+(?=[A-Z][a-z]+[ ,][^.]{0,80}?\b(?:we|our|was|were|is|are|had|has|have|represented|accounted)\b)`,
 ].join("|"), "g");
+// The surname capture admits an inner apostrophe only before a capital (O’Brien, D'Angelo), so a possessive
+// "Ms. Testcase’s" captures "Testcase". A class that includes ’ captures "Testcase’s", matches no full name,
+// and leaves the salary sentence orphaned, which is the defect.
+const HONORIFIC_LEAD = /^\s*(?:Mr|Ms|Mrs|Dr)\.\s+([A-Z][\p{L}-]*(?:['’][A-Z][\p{L}-]*)*)/u;
+const PRONOUN_LEAD = /^\s*(?:(?:In|During|On)\s[^,]{1,40},\s*)?(?:she|he|her|his)\b/iu;
+const fullNameEnding = (surname: string) =>
+  new RegExp(String.raw`\b[A-Z][\p{L}'’-]+(?:\s+[A-Z]\.)?\s+${surname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\b`, "u");
+/**
+ * AI-101: the passage that says who an event passage is about. An honorific and
+ * surname at the start: the nearest earlier passage naming that person in full
+ * ("Alan R. Testcase", "Jane Testcase"; "Mr. Testcase" does not match, because
+ * "Mr" is followed by "."). A leading third-person pronoun: the previous passage.
+ */
+function eventReferent(all: readonly Passage[], index: number): Passage | undefined {
+  const body = all[index]?.text ?? "";
+  const honorific = HONORIFIC_LEAD.exec(body);
+  if (honorific) {
+    const name = fullNameEnding(honorific[1]!);
+    for (let i = index - 1; i >= 0; i--) if (name.test(all[i]!.text)) return all[i];
+    return undefined;
+  }
+  return PRONOUN_LEAD.test(body) && index > 0 ? all[index - 1] : undefined;
+}
 const TABLE_TOKEN = /^(?:[$(]?[\d,.]+\)?%?|\$|%|\(|\)|—|–|-)$/;
 
 function passages(text: string, profile: EvidenceProfile): Passage[] {
@@ -279,7 +310,9 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
       const body = text.slice(start, end);
       if (body.trim() !== "") {
         const categories = families.filter((category) => CATEGORY_PATTERNS[category].test(body));
-        const quantities = (body.match(/\d[\d,.]*\s*(?:%|billion|million)|\$\s*\d/g) ?? []).length;
+        // An 8-K award "for 4,912 shares" ranks with the dollar amounts (AI-101).
+        const quantities = (body.match(/\d[\d,.]*\s*(?:%|billion|million)|\$\s*\d/g) ?? []).length +
+          (profile === "event" ? (body.match(/\b\d[\d,]*\s+shares\b/g) ?? []).length : 0);
         let score = Math.min(quantities, 8) * 3 + categories.length * 2 +
           (/\b(?:expect|outlook|guidance|tax charge|valuation allowance|severance|free cash flow)\b/i.test(body) ? 8 : 0);
         let table = false;
@@ -339,7 +372,17 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       /\b(?:those|these|such|this)\s+(?:commitments|obligations|amounts?|revenue|backlog)\b/i.test(passage.text) &&
       previous?.categories.includes("performance-obligations");
     const needsContext = fundingContext || marketingContext || backlogContext;
-    const additions = (needsContext ? [previous, passage] : [passage]).filter((candidate) => !selected.includes(candidate));
+    // AI-101: an event passage about a person named elsewhere travels with the
+    // sentence naming them (up to three hops, stopping at one already kept).
+    const chain: Passage[] = [passage];
+    if (profile === "event") {
+      for (let hop = 0; hop < 3; hop++) {
+        const referent = eventReferent(all, all.indexOf(chain[0]!));
+        if (referent === undefined || chain.includes(referent) || selected.includes(referent)) break;
+        chain.unshift(referent);
+      }
+    }
+    const additions = (needsContext ? [previous, passage] : chain).filter((candidate) => !selected.includes(candidate));
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
         separator.length * (selected.length > 0 ? additions.length : additions.length - 1)
@@ -425,6 +468,6 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   // Tiny caller budgets are valid too; do not return a marker longer than them.
   return { text: (joined + marker).slice(0, budget),
     truncated: omittedChars > 0, originalChars: text.length, spans,
-    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories },
+    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : profile === "event" ? EVENT_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories },
     ...(superseding.length > 0 ? { superseded: superseding.filter((measure) => superseded.has(measure.name)).map((measure) => measure.name) } : {}) };
 }

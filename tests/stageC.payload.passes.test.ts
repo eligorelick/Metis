@@ -122,6 +122,15 @@ function ok<T>(
 }
 const gap = { ok: false as const, gap: { field: "x", reason: "fixture gap", severity: "info" as const } };
 
+/** Audit 2026-10-27 B3 Task 3 (AI-117): 2026 Q2 is in progress at the fixture's asOf; four complete quarters (2025 Q2 to 2026 Q1) are summed. */
+const INSIDER_STAT_ROWS = [
+  { year: 2026, quarter: 2, totalPurchases: 0, totalSales: 1, acquiredTransactions: 0, disposedTransactions: 1, totalAcquired: 0, totalDisposed: 10_000 },
+  { year: 2026, quarter: 1, totalPurchases: 0, totalSales: 1, acquiredTransactions: 3, disposedTransactions: 4, totalAcquired: 30_000, totalDisposed: 40_000 },
+  { year: 2025, quarter: 4, totalPurchases: 1, totalSales: 4, acquiredTransactions: 2, disposedTransactions: 6, totalAcquired: 20_000, totalDisposed: 60_000 },
+  { year: 2025, quarter: 3, totalPurchases: 0, totalSales: 2, acquiredTransactions: 1, disposedTransactions: 3, totalAcquired: 10_000, totalDisposed: 30_000 },
+  { year: 2025, quarter: 2, totalPurchases: 0, totalSales: 3, acquiredTransactions: 2, disposedTransactions: 5, totalAcquired: 20_000, totalDisposed: 50_000 },
+];
+
 function fmpPayload<T>(rows: T[], asOf: string, endpoint: string) {
   return ok({ rows, raw: {} }, asOf, endpoint);
 }
@@ -308,7 +317,7 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
       latest: fmpPayload([{ symbol, period: "Q2", year: 2026, date: "2026-05-01", content: "CEO: Revenue grew this quarter. ".repeat(2000) }], "2026-05-01", "earning-call-transcript"),
     },
     insiderTrades: fmpPayload([{ transactionDate: "2026-06-01", reportingName: "Tim Cook", typeOfOwner: "CEO", transactionType: "S-Sale", securitiesTransacted: 50000, price: 205 }], "2026-06-01", "insider-trades"),
-    insiderStats: fmpPayload([{ year: 2026, quarter: 2, totalPurchases: 0, totalSales: 500000, acquiredDisposedRatio: 0.1 }], "2026-06-30", "insider-statistics"),
+    insiderStats: fmpPayload(INSIDER_STAT_ROWS, "2026-06-30", "insider-statistics"),
     institutional: {
       year: 2026,
       quarter: 1 as const,
@@ -496,7 +505,11 @@ describe("payload determinism + provenance", () => {
     expect(section?.figures.map((figure) => figure.value)).toEqual([18, 15, 4]);
     const ids = section?.figures.map((figure) => figure.provenanceId);
     expect(ids?.every((id) => payload.provenanceRegistry?.some((record) => record.id === id))).toBe(true);
-    expect(section?.notes.join(" ")).toContain("P5: incompatible currency");
+    // Audit 2026-10-27 B3 Task 2 (AI-102): an exclusion reason can quote a provider's error body, so
+    // it lives in the enveloped peer-screen section, not the computed one.
+    expect(payload.peerScreen?.notes).toContain("P5: incompatible currency");
+    expect(section?.notes.join(" ")).not.toContain("P5:");
+    expect(section?.notes).toContain("same currency and issuer-common earnings basis");
   });
   it("produces byte-identical serialized output for identical inputs", () => {
     const a = buildInputs();
@@ -644,6 +657,9 @@ describe("payload determinism + provenance", () => {
       // says the cells are withheld rather than "rendered null". No value moves.
       ["3,196,000,000,000", "3196000000000", 8],
       ["are withheld and shown as —", "rendered null", 1],
+      // Audit 2026-10-27 B3 Task 1 (AI-301): the peer methodology sentence names the
+      // established-currency or same-market basis of the size screen; two copies in the finance block.
+      [", compared only between established equal currencies or same-market listings", "", 2],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -656,12 +672,92 @@ describe("payload determinism + provenance", () => {
     // Codex review of PR #42 (D-99): the method stamps restored above and the
     // notes and risk readings' selection version are the only registry text
     // that moves; restore them as well.
-    const precedingRegistry = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
+    // Audit 2026-10-27 B3 Task 1 (AI-301): the two stock-peer caps lost their inherited
+    // USD records. The preceding registry carried them straight after the last
+    // payload.estimates.* record; re-insert exactly those two (this fixture's peers).
+    const inheritedPeerRecord = (id: string, label: string, value: number) => ({
+      id, label, kind: "provider" as const, value, unit: "currency", currency: "USD", currencyBasis: "inherited" as const,
+      period: null, asOf: "2026-07-01", origin: "fmp:stock-peers", formulaVersion: null, displayPrecision: 4,
+    });
+    const restoredPeerRecords = [
+      inheritedPeerRecord("payload.peers.msft-microsoft", "MSFT — Microsoft", 3400000000000),
+      inheritedPeerRecord("payload.peers.googl-alphabet", "GOOGL — Alphabet", 2200000000000),
+    ];
+    // Audit 2026-10-27 B3 Task 3 (AI-117): the five windowed insider-statistics records
+    // replaced the three quarter-row records; the preceding registry carried exactly these
+    // three (constants of the preceding fixture row: 0 and 500000 shares, ratio 0.1, no period).
+    const oldInsiderRecord = (id: string, label: string, value: number, unit: string) => ({
+      id, label, kind: "provider" as const, value, unit, currency: null,
+      period: null, asOf: "2026-06-30", origin: "fmp:insider-statistics", formulaVersion: null, displayPrecision: 4,
+    });
+    const restoredInsiderRecords = [
+      oldInsiderRecord("payload.insiders.insider-total-purchases", "insider total purchases", 0, "shares"),
+      oldInsiderRecord("payload.insiders.insider-total-sales", "insider total sales", 500000, "shares"),
+      oldInsiderRecord("payload.insiders.acquired-disposed-ratio", "acquired/disposed ratio", 0.1, "ratio"),
+    ];
+    const withOldInsiderRecords = (registry: NonNullable<typeof payload.provenanceRegistry>) => {
+      const first = registry.findIndex((record) => record.origin === "fmp:insider-statistics");
+      expect(registry.filter((record) => record.origin === "fmp:insider-statistics")).toHaveLength(5);
+      expect(registry.slice(first, first + 5).every((record) => record.origin === "fmp:insider-statistics")).toBe(true);
+      return [...registry.slice(0, first), ...restoredInsiderRecords as unknown as typeof registry, ...registry.slice(first + 5)];
+    };
+    // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured
+    // (this fixture has five annual rows, so four years). The preceding label and id said "5y total".
+    const b4Restorations: [string, string][] = [
+      ["weighted-average diluted common-share change (4y total)", "weighted-average diluted common-share change (5y total)"],
+      ["weighted-average-diluted-common-share-change-4y-total", "weighted-average-diluted-common-share-change-5y-total"],
+    ];
+    const restoreB4Text = (text: string): string => b4Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    // Audit 2026-10-27 B3 Task 8C (AI-511): the fiscal-year FCF conversion is no longer called the graded ratio.
+    // Counted separately on the registry JSON and the payload JSON (the d99 counts are asserted on the finance text).
+    const b3Restorations: [string, string][] = [
+      ["FCF conversion (latest fiscal year, before SBC)", "FCF conversion (latest, before SBC — the graded ratio)"],
+      ["fcf-conversion-latest-fiscal-year-before-sbc", "fcf-conversion-latest-before-sbc-the-graded-ratio"],
+    ];
+    const restoreB3Text = (text: string): string => b3Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported, and two fixed notes say
+    // whose names they are. This fixture's product and geographic rows are FMP rows with no XBRL axis to contradict them.
+    const b8dRestorations: [string, string][] = [
+      ["Revenue segmentation (keys as each source names them — never hard-coded)", "Revenue segmentation (as-reported keys — never hard-coded)"],
+    ];
+    const restoreB8dText = (text: string): string => b8dRestorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    const isProviderKeyNote = (item: unknown): boolean => typeof item === "string" && / keys are FMP's normalised names, not read from the filing's XBRL; /.test(item);
+    const registryJson = JSON.stringify(payload.provenanceRegistry ?? []);
+    expect(b8dRestorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([0]);
+    expect(b3Restorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([1, 1]);
+    expect([registryJson.split(b4Restorations[0]![0]).length - 1, registryJson.split(b4Restorations[1]![0]).length - 1]).toEqual([1, 1]);
+    // Audit 2026-10-27 B3 Task 8E (residual a): the (latest) and accrual-year computed records carry the issuer's fiscal
+    // label of the year they were computed over, and the (latest) ones that year's end as their period. Neither is printed.
+    // 1.36.0 carried neither: delete the labels, then reset the period on the labelled non-accrual records (the accrual-year
+    // records already carried their period). Each counted first.
+    const isB8eOrigin = (origin: string): boolean => origin.startsWith("computed.forensics.accruals.") || [
+      "computed.growth.margins.gross", "computed.growth.margins.operating", "computed.growth.margins.net", "computed.returns.roic", "computed.returns.dupont",
+      "computed.capital.fcf", "computed.capital.fcf.beforeSbc", "computed.capital.fcf.conversion", "computed.capital.fcf.conversionBeforeSbc",
+      "computed.capital.capexIntensity", "computed.capital.maintenanceVsGrowthCapex",
+    ].includes(origin);
+    let b8eLabelsRemoved = 0, b8ePeriodsReset = 0;
+    const restoreB8e = (record: NonNullable<typeof payload.provenanceRegistry>[number]): NonNullable<typeof payload.provenanceRegistry>[number] => {
+      if (record.kind !== "computed" || !isB8eOrigin(record.origin) || record.fiscalPeriod === undefined) return record;
+      const { fiscalPeriod, ...rest } = record;
+      expect(fiscalPeriod).toMatch(/^FY\d{4}$/);
+      b8eLabelsRemoved += 1;
+      if (record.origin.startsWith("computed.forensics.accruals.")) return rest;
+      expect(record.period).toBe(record.asOf);
+      b8ePeriodsReset += 1;
+      return { ...rest, period: null };
+    };
+    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB3Text(restoreB4Text(registryJson)).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(restoreB8e).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
       return before;
     });
+    // Measured on this fixture: 39 labelled records, 11 of them (the (latest) rows) also reset to a null period.
+    expect([b8eLabelsRemoved, b8ePeriodsReset]).toEqual([39, 11]);
+    expect(registryWithoutPeers.filter((record) => record.origin === "fmp:stock-peers")).toHaveLength(0);
+    const lastEstimate = registryWithoutPeers.reduce((last, record, index) => record.id.startsWith("payload.estimates.") ? index : last, -1);
+    expect(lastEstimate).toBe(355);
+    const precedingRegistry = [...registryWithoutPeers.slice(0, lastEstimate + 1), ...restoredPeerRecords as unknown as typeof registryWithoutPeers, ...registryWithoutPeers.slice(lastEstimate + 1)];
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
     // D-99 adds one payload note, the consensus-target reconciliation (AMZN
@@ -685,9 +781,56 @@ describe("payload determinism + provenance", () => {
     for (const [now, , count] of f19Restorations) expect(payloadText.split(now).length - 1).toBe(count);
     const restoreF19 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? f19Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
+    // Audit 2026-10-27 B3 Task 4 (AI-306): drop the share-count window note and restore the "5y total" label and id.
+    const isShareWindowNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Diluted share-count change: ");
+    // Audit 2026-10-27 B3 Task 8C (AI-511): drop the graded-window note and restore the "graded ratio" label and id.
+    const isGradedWindowNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("The balance-sheet score grades ");
+    expect(JSON.stringify(payload).split("The balance-sheet score grades ").length - 1).toBe(1);
+    expect(JSON.stringify(payload).split("Diluted share-count change: ").length - 1).toBe(1);
+    const payloadJson = JSON.stringify(payload);
+    // The label: the figure, its provenance record (the payload embeds its registry) and the graded-window note that quotes it
+    // (dropped below, so it is never restored). The slug: the figure's and the record's id.
+    expect(b3Restorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([3, 2]);
+    // The title is printed once (the segments section); the two provider-key notes (product, geographic) are dropped below.
+    expect(b8dRestorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([1]);
+    expect(payloadJson.split(" keys are FMP's normalised names, not read from the filing's XBRL; ").length - 1).toBe(2);
+    // Two each: the figure itself and its provenance record (the payload embeds its registry).
+    expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
-        : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item))
+        : typeof leaf === "string" ? restoreB8dText(restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")))) : leaf)) as typeof payload;
+    // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
+    // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
+    expect(precedingPayload.peers.figures.map((figure) => [figure.label, figure.currency])).toEqual([["MSFT — Microsoft", null], ["GOOGL — Alphabet", null]]);
+    expect(precedingPayload.peers.notes).toEqual(["Peer market caps are money only in the listing currency this run read for that peer (its own provider row or its profile in the peer collection); a cap shown \"(currency unknown)\" is not citable as money, and the subject's currency is never assumed for a peer."]);
+    precedingPayload.peers.figures = precedingPayload.peers.figures.map((figure) => {
+      const { label, value, unit, source, asOf, period } = figure;
+      return { label, value, unit, currency: "USD", currencyInherited: true, source, asOf, period, provenanceId: restoredPeerRecords.find((record) => record.label === figure.label)!.id } as unknown as typeof figure;
+    });
+    precedingPayload.peers.notes = ["Money rows marked \"inherited\": currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)."];
+    // Audit 2026-10-27 B3 Task 2 (AI-102): the peer exclusion reasons (and any collection
+    // notes) moved from "Comparable peers (computed)" into their own untrusted envelope.
+    // This fixture has no peer collection, so the section holds exactly the one subject-level
+    // exclusion, which sat last in the computed notes; fold it back and drop the section.
+    expect(precedingPayload.peerScreen?.notes.length).toBe(1);
+    expect(precedingPayload.peerScreen?.figures).toEqual([]);
+    const precedingPeerCoverage = precedingPayload.computed.filter((section) => section.title === "Comparable peers (computed)");
+    expect(precedingPeerCoverage.length).toBe(1);
+    precedingPeerCoverage[0]!.notes.push(...precedingPayload.peerScreen!.notes);
+    delete precedingPayload.peerScreen;
+    // Audit 2026-10-27 B3 Task 3 (AI-117): restore the three quarter-row insider figures
+    // (same positions as the five windowed ones) and drop the window note.
+    const insiderStatFigures = precedingPayload.insiders.figures.filter((figure) => figure.source === "fmp:insider-statistics");
+    expect(insiderStatFigures).toHaveLength(5);
+    expect(precedingPayload.insiders.figures.slice(0, 5)).toEqual(insiderStatFigures);
+    precedingPayload.insiders.figures = [
+      ...restoredInsiderRecords.map((record) => ({
+        label: record.label, value: record.value, unit: record.unit === "ratio" ? "x" : record.unit, source: record.origin, asOf: record.asOf, currency: null, period: null, provenanceId: record.id,
+      }) as unknown as (typeof insiderStatFigures)[number]),
+      ...precedingPayload.insiders.figures.slice(5),
+    ];
+    expect(precedingPayload.insiders.notes.filter((note) => note.startsWith("Insider statistics: "))).toHaveLength(1);
+    precedingPayload.insiders.notes = precedingPayload.insiders.notes.filter((note) => !note.startsWith("Insider statistics: "));
     // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
     // manifest into untrusted-data envelopes, under new headings. Unwrapping
     // exactly those two blocks back to their preceding raw lines must
@@ -1035,18 +1178,53 @@ describe("payload determinism + provenance", () => {
       // pin, and the versioned header moves with payload 1.48.0. This
       // fixture's multiples are TTM, so their records keep their labels, ids
       // and null period (B-9 names only a fiscal-year multiple's year).
-      fingerprint: "1.48.0:416db791",
-      promptBytes: 140_781,
+      // Audit 2026-10-27 B3 Task 1 (AI-301): stock-peer caps no longer inherit the
+      // subject's currency. The two fixture peers (MSFT, GOOGL) lose their inherited
+      // USD records (531 -> 529) and read "(currency unknown)"; their shared
+      // fmp:stock-peers tag becomes one payload-unestablished citation (74 -> 75);
+      // the peers block states the fixed currency note instead of the D-57 note and
+      // the peer methodology names the established-currency or same-market basis
+      // (financeHash). The preceding pins above are reproduced by exact restorations.
+      // Audit 2026-10-27 B3 Task 2 (AI-102): peer exclusion reasons travel in their own untrusted envelope
+      // (the fixture's one subject-level exclusion leaves "Comparable peers (computed)" for it, +157 bytes);
+      // no record, figure or citation moves, so only fingerprint and promptBytes change.
+      // Audit 2026-10-27 B3 Task 3 (AI-117): insider statistics as counts and share volumes over a
+      // named window. The fixture's five synthetic quarter rows give five windowed records in place
+      // of three (529 -> 531), a window note and longer labels; no citation or finance leaf moves.
+      // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured.
+      // The fixture has five annual income rows, so four years: the label reads "(4y total)"
+      // (its registry id follows), and the capital notes state the short window (+120 bytes);
+      // no count, citation or finance leaf moves. Restored in the preceding-pin chain above.
+      // Audit 2026-10-27 B3 Task 8C (AI-511): the fiscal-year FCF conversion is no longer called the graded
+      // ratio; the current-capital section names the graded window. One registry record changes label and id
+      // (provenanceHash, provenanceIdsHash, computedFigureLabelHash); the fixture's balance-sheet aspect grades
+      // fcfConversionBeforeSbc, so the section gains one note (+249 bytes with the shorter label). Count,
+      // citations and financeHash do not move. Restored by b3Restorations in the preceding-pin chain above.
+      // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported. The section
+      // title reads "keys as each source names them" and two fixed notes (product, geographic) say the keys are
+      // FMP's normalised names (+340 bytes). The fixture's rows are FMP rows with no XBRL axis to contradict them,
+      // so nothing is withheld; no record, count, citation or finance leaf moves, only fingerprint and promptBytes.
+      // Restored by b8dRestorations and isProviderKeyNote in the preceding-pin chain above.
+      // Audit 2026-10-27 B3 Task 8E (residual a): (latest) and accrual-year computed records carry the issuer's fiscal
+      // label of the year they were computed over, and the (latest) ones its period end, as the annual statement cell
+      // does; nothing printed moves. 39 records gain fiscalPeriod (FY2025, FY2024 for a prior-year operand) and 11 of
+      // them also gain period (the 28 accrual-year records already carried theirs), so only provenanceHash moves;
+      // fingerprint, promptBytes, counts, ids, citations, labels and financeHash do not. Restored by restoreB8e in the
+      // preceding-pin chain above.
+      // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
+      // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
+      fingerprint: "1.49.0:c74b6cd9",
+      promptBytes: 143_867,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "73762e7f",
-      provenanceIdsHash: "623dfb46",
-      citationCount: 74,
-      citationHash: "5d7e100c",
-      computedFigureLabelHash: "dc5ba34e",
+      provenanceHash: "3fc51d0c",
+      provenanceIdsHash: "fe7c2621",
+      citationCount: 75,
+      citationHash: "423bbedf",
+      computedFigureLabelHash: "ec8c7355",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -1082,7 +1260,7 @@ describe("payload determinism + provenance", () => {
       // D-107: the grouped EV digits and the grid guard wording, restored above.
       // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "4022589a",
+      financeHash: "3fc254c2",
     });
   });
 
@@ -1206,7 +1384,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.48.0");
+    expect(first.payloadVersion).toBe("1.49.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2735,7 +2913,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.44.0");
+    expect(report.meta.specVersion).toBe("1.45.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -5160,16 +5338,16 @@ describe("macro figures carry their units", () => {
     bundle.macro.sector.PCE = ok([{ date: "2026-06-01", value: 20123.4 }], "2026-06-01", "/fred/series/observations?series_id=PCE", "fred");
     const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
     const figure = (source: string) => payload.macro.figures.find((f) => f.source === source)!;
-    expect(figure("fred:PAYEMS")).toMatchObject({ value: -23_000, unit: "count", provenanceId: "payload.macro.payems-core" });
+    expect(figure("fred:PAYEMS")).toMatchObject({ value: -23_000, unit: "count", label: "PAYEMS change from prior observation (core)", provenanceId: "payload.macro.payems-change-from-prior-observation-core" });
     expect(figure("fred:DCOILWTICO")).toMatchObject({ value: 68.42, unit: "USD", currency: "USD", provenanceId: "payload.macro.dcoilwtico-sector" });
-    expect(figure("fred:PCE")).toMatchObject({ value: 20_123_400_000_000, unit: "USD", currency: "USD" });
+    expect(figure("fred:PCE")).toMatchObject({ value: 20_123_400_000_000, unit: "USD", currency: "USD", label: "PCE (sector)" });
     expect(payload.macro.notes).toContain(
-      "Units: PAYEMS: persons (FRED serves thousands; shown ×1,000); DCOILWTICO: USD per barrel; PCE: USD (FRED serves billions; shown ×1,000,000,000)",
+      "Units: PAYEMS: persons (FRED serves thousands; shown ×1,000), as the change from the prior observation; DCOILWTICO: USD per barrel; PCE: USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)",
     );
     const deps = makeDeps(new MockRunPass());
     const root = {
       numbers: [
-        { value: -23_000, unit: "count", currency: null, period: null, source: "payload.macro.payems-core", asOf: "2026-08-01", verified: null },
+        { value: -23_000, unit: "count", currency: null, period: null, source: "payload.macro.payems-change-from-prior-observation-core", asOf: "2026-08-01", verified: null },
         { value: 68.42, unit: "USD", currency: "USD", period: null, source: "payload.macro.dcoilwtico-sector", asOf: "2026-07-03", verified: null },
       ],
     };

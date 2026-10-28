@@ -645,13 +645,21 @@ describe("fred series catalogs", () => {
     ["CPIAUCSL", "pc1", { unit: "%", scale: 1, qualifier: null }],
     ["T10Y2Y", "lin", { unit: "pp", scale: 1, qualifier: null }],
     ["VIXCLS", "lin", { unit: "index", scale: 1, qualifier: null }],
-    ["PAYEMS", "chg", { unit: "count", scale: 1e3, qualifier: "persons (FRED serves thousands; shown ×1,000)" }],
+    ["PAYEMS", "chg", { unit: "count", scale: 1e3, qualifier: "persons (FRED serves thousands; shown ×1,000), as the change from the prior observation" }],
+    // AI-310: the level and the change are different figures; the unit names the transform.
+    ["PAYEMS", "lin", { unit: "count", scale: 1e3, qualifier: "persons (FRED serves thousands; shown ×1,000)" }],
+    ["APU000072610", "lin", { unit: "USD", scale: 1, qualifier: "USD per kilowatt-hour" }],
     // Housing starts and vehicle sales are seasonally adjusted ANNUAL rates;
     // the qualifier names the basis (audit 2026-09-06, F224).
     ["HOUST", "lin", { unit: "count", scale: 1e3, qualifier: "units at a seasonally adjusted annual rate (FRED serves thousands; shown ×1,000)" }],
     ["TOTALSA", "lin", { unit: "count", scale: 1e6, qualifier: "units at a seasonally adjusted annual rate (FRED serves millions; shown ×1,000,000)" }],
     ["DCOILWTICO", "lin", { unit: "USD", scale: 1, qualifier: "USD per barrel" }],
-    ["PCE", "lin", { unit: "USD", scale: 1e9, qualifier: "USD (FRED serves billions; shown ×1,000,000,000)" }],
+    ["PCE", "lin", { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" }],
+    ["PCEND", "lin", { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" }],
+    ["PCEDG", "lin", { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" }],
+    // Controls: not annual rates (FRED: "Billions of U.S. Dollars, Seasonally Adjusted"; "Millions of Dollars, Seasonally Adjusted").
+    ["DPSACBW027SBOG", "lin", { unit: "USD", scale: 1e9, qualifier: "USD (FRED serves billions; shown ×1,000,000,000)" }],
+    ["RSAFS", "lin", { unit: "USD", scale: 1e6, qualifier: "USD (FRED serves millions; shown ×1,000,000)" }],
     ["NOSUCHSERIES", "lin", { unit: "", scale: 1, qualifier: null }],
   ] as const)("figure unit of %s under %s", (id, units, expected) => {
     expect(fredFigureUnit(id, units)).toEqual(expected);
