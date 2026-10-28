@@ -520,9 +520,7 @@ describe("AI-402 fix round 2: a bare spelled fiscal base keeps its fiscal marker
   it("control (pinned): an FY-labelled base is compared by fiscal label", async () => {
     // A fiscal year is not the Q2 FY2026 quarter the figure is measured against, so a bare FY base stays unverified.
     expect((await cite([NV_YOY], NV_YOY.id, `${lead}Q2 FY2026.`)).entry.validationStatus).toBe("validated");
-    for (const base of ["FY2026", "FY2025", "Q2 FY2025"]) expect((await cite([NV_YOY], NV_YOY.id, `${lead}${base}.`)).entry.validationStatus, base).toBe("unchecked");
-    // "FY 2026" with a space: pinned to whatever the code does today.
-    const spaced = await cite([NV_YOY], NV_YOY.id, `${lead}FY 2026.`);
-    expect(["validated", "unchecked"]).toContain(spaced.entry.validationStatus);
+    // The spaced "FY 2026" is deterministic too (AI-402 review minor): unchecked, like the unspaced spelling.
+    for (const base of ["FY2026", "FY 2026", "FY2025", "Q2 FY2025"]) expect((await cite([NV_YOY], NV_YOY.id, `${lead}${base}.`)).entry.validationStatus, base).toBe("unchecked");
   });
 });

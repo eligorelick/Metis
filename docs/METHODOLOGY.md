@@ -2702,7 +2702,7 @@ calendar year of the shifted date. A base on any other record (a level, a
 period-less figure), a base spelled with "fiscal" ("the second quarter of fiscal
 2025", "fiscal 2025", "fiscal year 2025"; right or wrong, as spelled fiscal
 periods are not read), and a base that does not match leave the claim
-unverified (`period-mismatch`), never validated. Guidance,
+unverified, never validated. Guidance,
 target, estimate, outlook, forecast and consensus phrases are not comparison
 bases and keep the claim's own period.
 The period-word check compares years only; it does not adjudicate fiscal
