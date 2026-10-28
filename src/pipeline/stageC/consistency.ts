@@ -673,7 +673,10 @@ export function quantityDirection(
     hit.end <= quantity.start ? quantity.start - hit.end : hit.start >= quantity.end ? hit.start - quantity.end : Infinity;
   const hits = findDirectionWords(sentence).filter((hit) => {
     const own = distance(hit, { start, end });
-    return own <= DIRECTION_WINDOW_CHARS && quantities.every((quantity) => distance(hit, quantity) >= own);
+    if (own > DIRECTION_WINDOW_CHARS || !quantities.every((quantity) => distance(hit, quantity) >= own)) return false;
+    // A word after the figure and across a comma, semicolon, colon, dash or parenthesis is an apposition
+    // ("16.5%, an increase from a year ago"): it describes a comparison, not the figure (AI-401-V1).
+    return !(hit.start >= end && /[,;:—–(]/.test(sentence.slice(end, hit.start)));
   }).sort((a, b) => distance(a, { start, end }) - distance(b, { start, end }));
   const nearest = hits[0];
   if (!nearest) return null;

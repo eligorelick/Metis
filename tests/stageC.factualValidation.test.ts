@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { quantityDirection } from "@/pipeline/stageC/consistency";
@@ -302,6 +303,71 @@ describe("factual prose numeric validation", () => {
     it("increased by is not validated against increased to", async () => {
       const result = await verify("Capital expenditures increased to USD 27.5 billion.", "Capital expenditures increased by USD 27.5 billion.");
       expect(result.log[0]?.validationStatus).not.toBe("validated");
+    });
+  });
+
+  describe("apposition: a direction word after a comma describes a comparison, not the figure (AI-401-V1)", () => {
+    const EX99 = readFileSync("fixtures/edgar/nvda-current-reports/q2fy27-ex99-2.txt", "utf8");
+    const TAX = "GAAP effective tax rate for the second quarter was 16.5%, an increase from a year ago, primarily due to higher revenue.";
+    const dirOf = (sentence: string, figure: string) => {
+      const start = sentence.indexOf(figure);
+      expect(start).toBeGreaterThanOrEqual(0);
+      return quantityDirection(sentence, start, start + figure.length, [{ start, end: start + figure.length }]);
+    };
+    /** The excerpt is registered under an edgar id, with one statements record that fixes the reporting currency (USD). */
+    const verifyAt = (id: string, text: string, claim: string, at: string) => {
+      const registered = { ...payload(text),
+        provenanceRegistry: [{ id: "payload.statements.income.revenue", kind: "provider", value: 1, unit: "currency",
+          currency: "USD", period: at, asOf: at, origin: "edgar", formulaVersion: null, displayPrecision: 0 }],
+        citationRegistry: [{ id, asOf: at, origin: id, kind: "payload-text" }],
+        filings: [{ source: id, asOf: at, text, title: "Quarterly review", truncated: false, originalChars: text.length }] } as unknown as ContextPayload;
+      return runVerifyPass({} as PassDeps, registered, { commentary: [{ label: "FACT", text: claim, source: id, asOf: at }] });
+    };
+    const EDGAR = "edgar:8-K EX-99.2";
+    it("the fixture holds the tax-rate sentence exactly once", () => {
+      expect(EX99.split(TAX)).toHaveLength(2);
+    });
+    it.each([
+      [TAX, "16.5%", null],
+      // A comma, dash or parenthesis between the figure and the word makes the word an apposition.
+      ["Inventory was USD 31.6 billion, up sequentially from USD 25.8 billion.", "USD 31.6 billion", null],
+      ["Inventory was USD 31.6 billion – down slightly – from USD 35.0 billion.", "USD 31.6 billion", null],
+      ["Inventory was USD 31.6 billion (up sequentially).", "USD 31.6 billion", null],
+      // Controls that read the same before and after the fix.
+      ["Revenue was 31% lower.", "31%", "change"],
+      ["Revenue was USD 46.7 billion, up 56% from a year ago.", "56%", "change"],
+      ["Revenue rose 31%, driven by data center.", "31%", "change"],
+      ["Inventory was USD 31.6 billion, up from USD 25.8 billion.", "USD 25.8 billion", "level"],
+    ])("direction of %s at %s", (sentence, figure, relation) => {
+      const direction = dirOf(sentence, figure);
+      if (relation === null) expect(direction).toBeNull();
+      else expect(direction?.relation).toBe(relation);
+    });
+    it.each([
+      "GAAP effective tax rate for the second quarter increased by 16.5% from a year ago.",
+      "GAAP effective tax rate for the second quarter rose 16.5% from a year ago.",
+    ])("a change claim is not validated by the apposition sentence: %s", async (claim) => {
+      const result = await verifyAt(EDGAR, TAX, claim, "2026-07-26");
+      expect(result.log[0]?.validationStatus).not.toBe("validated");
+    });
+    it("the level claim on the apposition sentence validates", async () => {
+      const result = await verifyAt(EDGAR, TAX, "GAAP effective tax rate for the second quarter was 16.5%.", "2026-07-26");
+      expect(result.log[0]?.validationStatus).toBe("validated");
+    });
+    it.each([
+      ["Inventory was USD 31.6 billion, up sequentially from USD 25.8 billion.", "Inventory increased by USD 31.6 billion."],
+      ["Inventory was USD 31.6 billion, down slightly from USD 35.0 billion.", "Inventory decreased by USD 31.6 billion."],
+      // Controls: not validated before the fix either.
+      ["Gross margin was 72.4%, a decrease from 75.1% a year ago.", "Gross margin decreased by 72.4%."],
+      ["Inventory was USD 31.6 billion, up from USD 25.8 billion.", "Inventory increased by USD 31.6 billion."],
+      ["Revenue was USD 46.7 billion, up 56% from a year ago.", "Revenue increased by USD 46.7 billion."],
+    ])("a level with an apposition is not validated as a change: %#", async (text, claim) => {
+      const result = await verifyAt(source, text, claim, asOf);
+      expect(result.log[0]?.validationStatus).not.toBe("validated");
+    });
+    it("the D-63 level claim still validates (control)", async () => {
+      const result = await verifyAt(source, "Inventory was USD 31.6 billion, up from USD 25.8 billion.", "Inventory was USD 31.6 billion.", asOf);
+      expect(result.log[0]?.validationStatus).toBe("validated");
     });
   });
 
