@@ -913,16 +913,37 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
  * Bytes per token used for the context-fit estimate (DECISIONS D-next-5).
  * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
  * tokenizer) and Anthropic's note that the earlier tokenizer gives about 30%
- * fewer tokens; rounded down so the estimate over-counts.
+ * fewer tokens; rounded down so the estimate over-counts. The estimate is
+ * calibrated on Metis payloads, not a ceiling: it leaves about 11% margin on
+ * the prior tokenizer and about 5% on the current one. The backstop for a
+ * prompt it misses is the provider's own context-window 400, which settles
+ * at $0 (D-next-5).
  */
 export const CONTEXT_ESTIMATE_BYTES_PER_TOKEN: Readonly<{ current: number; prior: number }> = {
   current: 2.25,
   prior: 2.75,
 };
 
-/** "prior" for registry generations below 4.7 (Claude Haiku 4.5), "current" otherwise. */
+/**
+ * "prior" for registry generations below 4.7, "current" otherwise. A
+ * generation is "major" or "major.minor" with integer parts, so "4.10" is
+ * after "4.7" (a decimal comparison would put it before).
+ */
+export function tokenizerForGeneration(generation: string): "prior" | "current" {
+  const [major = "0", minor = "0"] = generation.split(".");
+  const m = Number.parseInt(major, 10);
+  const n = Number.parseInt(minor, 10);
+  return m < 4 || (m === 4 && n < 7) ? "prior" : "current";
+}
+
+/**
+ * The tokenizer generation of a registry model (Claude Haiku 4.5 is "prior").
+ * An unknown model id throws here, but validateRunPassOptions has already
+ * refused it (assertPricedModel runs first), so that throw is unreachable on
+ * the request path.
+ */
 export function tokenizerGeneration(model: string): "prior" | "current" {
-  return Number.parseFloat(registryEntryFor(model).generation) < 4.7 ? "prior" : "current";
+  return tokenizerForGeneration(registryEntryFor(model).generation);
 }
 
 /**

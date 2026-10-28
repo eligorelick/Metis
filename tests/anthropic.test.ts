@@ -58,6 +58,7 @@ import {
   requestInputTokenUpperBound,
   estimatedRequestInputTokens,
   tokenizerGeneration,
+  tokenizerForGeneration,
   CONTEXT_ESTIMATE_BYTES_PER_TOKEN,
   requestReservationUsd,
   type RequestSettlement,
@@ -393,6 +394,16 @@ describe("buildPassParams", () => {
   it("control: the same payload passes on a 1M-window model", () => {
     const big = { ...baseOpts, model: "claude-sonnet-5-5", field: "llm.bull", maxTokens: 64_000, system: "x".repeat(560_000) };
     expect(() => buildPassParams(big)).not.toThrow();
+  });
+
+  // Review of AI-309: generations are "major.minor" strings, not decimals; "4.10" is after "4.7".
+  it("orders a registry generation numerically by major then minor", () => {
+    expect(tokenizerForGeneration("4.10")).toBe("current");
+    expect(tokenizerForGeneration("4.7")).toBe("current");
+    expect(tokenizerForGeneration("4.6")).toBe("prior");
+    expect(tokenizerForGeneration("4.5")).toBe("prior");
+    expect(tokenizerForGeneration("5")).toBe("current");
+    expect(tokenizerForGeneration("3.9")).toBe("prior");
   });
 
   it("maps every active registry model to its tokenizer", () => {
