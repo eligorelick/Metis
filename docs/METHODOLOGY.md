@@ -4110,7 +4110,11 @@ EBIT by that interest. A period that files the aggregate and no interest
 element at all is derived the same way (audit 2026-10-27 FIN-507, D-next):
 pretax income less the aggregate, with a disclosure that no interest element is
 filed and that an interest line outside the aggregate would leave the figure
-understating EBIT by that interest. A period with neither the interest nor the
+understating EBIT by that interest. The nesting is read from the period: when the
+filer tags the period's interest as `InterestExpenseNonoperating` in any
+filing (Eli Lilly re-filed FY2022 and FY2023 that way in its FY2024 10-K), the
+interest is not added back, whichever interest element serves the row (audit
+2026-10-27 FIN-508). A period with neither the interest nor the
 aggregate is withheld, with the missing operand and the missing aggregate named
 (Eli Lilly's 2026 quarters, with the aggregate and no interest element, moved
 from no EBIT to 8,915 and 8,978 million).

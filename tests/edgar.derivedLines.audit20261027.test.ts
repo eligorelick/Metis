@@ -279,3 +279,53 @@ describe("derived EBIT operands", () => {
     expect(build({ ...common, [PRETAX]: a(4_000) }).incomeAnnual.rows[0]).toMatchObject({ operatingIncome: 4_250, ebit: 4_250 });
   });
 });
+
+describe("B-39 keyed on the period", () => {
+  const PRETAX = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest";
+  const k23: Filing = { filed: "2023-02-22", form: "10-K", fp: "FY", fy: 2022, accn: "0000000099-23-000001" };
+  const k24: Filing = { filed: "2024-02-21", form: "10-K", fp: "FY", fy: 2023, accn: "0000000099-24-000001" };
+  const k25b: Filing = { filed: "2025-02-19", form: "10-K", fp: "FY", fy: 2024, accn: "0000000099-25-000001" };
+  const y22 = (f: Filing, v: number) => fact(f, "2022-01-01", "2022-12-31", v);
+  const AS_OF_2025 = { asOf: "2025-03-01", factsObservedAt: "2025-03-01T00:00:00.000Z" };
+  const lly22: Record<string, unknown[]> = {
+    Revenues: [y22(k23, 28_541.4 * M), y22(k24, 28_541.4 * M), y22(k25b, 28_541.4 * M)],
+    NetIncomeLoss: [y22(k23, 6_244.8 * M)],
+    Assets: [fact(k23, undefined, "2022-12-31", 49_490 * M)],
+    [PRETAX]: [y22(k23, 6_806.4 * M), y22(k24, 6_806.4 * M), y22(k25b, 6_806.4 * M)],
+    NonoperatingIncomeExpense: [y22(k23, -320.9 * M), y22(k24, -320.9 * M), y22(k25b, -320.9 * M)],
+    InterestExpense: [y22(k23, 331.6 * M), y22(k24, 331.6 * M)],
+    InterestExpenseNonoperating: [y22(k25b, 331.6 * M)],
+  };
+  // Synthetic 2022 quarters so a Q4 2022 row is derived (FY - 9M); quarter ends come from 10-Q Assets instants.
+  const withQuarters2022 = (facts: Record<string, unknown[]>, q3: Filing): Record<string, unknown[]> => {
+    const q1: Filing = { filed: "2022-05-03", form: "10-Q", fp: "Q1", fy: 2022, accn: "0000000099-22-000001" };
+    const q2: Filing = { filed: "2022-08-02", form: "10-Q", fp: "Q2", fy: 2022, accn: "0000000099-22-000002" };
+    const quarters: [Filing, string, string][] = [[q1, "2022-01-01", "2022-03-31"], [q2, "2022-04-01", "2022-06-30"], [q3, "2022-07-01", "2022-09-30"]];
+    const perQuarter: Record<string, number> = { Revenues: 7_000 * M, [PRETAX]: 1_700 * M, NonoperatingIncomeExpense: -80 * M, InterestExpense: 83 * M };
+    const out: Record<string, unknown[]> = { ...facts };
+    for (const [tag, v] of Object.entries(perQuarter)) {
+      out[tag] = [...(out[tag] ?? []), ...quarters.map(([f, s, e]) => fact(f, s, e, v)), fact(q3, "2022-01-01", "2022-09-30", 3 * v)];
+    }
+    out.Assets = [...(out.Assets ?? []), ...quarters.map(([f, , e]) => fact(f, undefined, e, 49_000 * M))];
+    return out;
+  };
+  it("interest the filer re-filed as the aggregate's child is not added back for that period (FIN-508)", () => {
+    const b = build(lly22, AS_OF_2025).incomeAnnual;
+    expect(b.rows.find((r) => r.date === "2022-12-31")!.operatingIncome).toBeCloseTo(7_127.3 * M, 0);
+    const text = b.substitutions.filter((s) => s.field === "operatingIncome").map((s) => s.text).join(" ");
+    expect(text).toMatch(/also tags this period's interest as InterestExpenseNonoperating/);
+    expect(text).not.toMatch(/may ALREADY contain the interest expense added back/);
+  });
+  it("control: with no InterestExpenseNonoperating fact for the period, today's add-back and caveat stand", () => {
+    const older = Object.fromEntries(Object.entries(lly22).filter(([tag]) => tag !== "InterestExpenseNonoperating"));
+    const b = build(older, AS_OF_2025).incomeAnnual;
+    expect(b.rows.find((r) => r.date === "2022-12-31")!.operatingIncome).toBeCloseTo(7_458.9 * M, 0);
+    expect(b.substitutions.some((s) => s.field === "operatingIncome" && /may ALREADY contain/.test(s.text))).toBe(true);
+  });
+  it("control: the period check adds no 'not derived' note for a child tag filed annually only", () => {
+    const q322: Filing = { filed: "2022-11-01", form: "10-Q", fp: "Q3", fy: 2022, accn: "0000000099-22-000003" };
+    const b = build(withQuarters2022(lly22, q322), AS_OF_2025);
+    expect(b.incomeQuarterly.rows.some((r) => r.date === "2022-12-31")).toBe(true);
+    expect(b.incomeQuarterly.notes.filter((n) => /InterestExpenseNonoperating .* not derived/.test(n))).toEqual([]);
+  });
+});

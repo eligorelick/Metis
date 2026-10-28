@@ -213,6 +213,17 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
     "component of the NonoperatingIncomeExpense aggregate subtracted here, so pretax income less that aggregate " +
     "already excludes it; where the filer's aggregate leaves its interest out, the figure understates EBIT by that " +
     "interest",
+  /**
+   * The nesting is read from the PERIOD (audit 2026-10-27 FIN-508): the part
+   * labelled `partLabel` is left out too when another filing tags this period's
+   * interest as `partTag`, whichever interest element served the row.
+   */
+  partLabel: "interest expense",
+  discloseRefiled:
+    "interest expense is not added back: the filer also tags this period's interest as " +
+    `${INTEREST_INSIDE_NONOPERATING_TAG} (in a later filing), the us-gaap component of the NonoperatingIncomeExpense ` +
+    "aggregate subtracted here, so pretax income less that aggregate already excludes it; where the aggregate leaves " +
+    "its interest out, the figure understates EBIT by that interest",
 } as const;
 
 /**

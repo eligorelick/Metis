@@ -460,9 +460,13 @@ export type ChainSpec =
        * Tag pairs the taxonomy nests: when `partTag` served a part AND
        * `adjustmentTag` resolved as an adjustment, the first is already inside
        * the second, so that part is not added (audit 2026-10-22 B-39; it was
-       * withheld) and `disclose` says so.
+       * withheld) and `disclose` says so. When no part was served by
+       * `partTag`, the aggregate resolved and the part labelled `partLabel` was
+       * served by another tag, `partTag` is probed for the same period (any
+       * filing): found, the part is left out too and `discloseRefiled` is
+       * pushed (audit 2026-10-27 FIN-508).
        */
-      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
+      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string; partLabel?: string; discloseRefiled?: string }[];
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
@@ -1858,6 +1862,19 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         for (const rule of spec.notAddedWhen ?? []) {
           const inside = [...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag));
           const index = present.findIndex((r) => r.tags.includes(rule.partTag));
+          if (index < 0 && inside && rule.partLabel !== undefined && rule.discloseRefiled !== undefined) {
+            // Resolved only in this case (lazy resolution) and quietly: a probe that cannot resolve writes no
+            // period_mismatch, mixed_unit or "not derived" entry against the field.
+            const served = partTags.findIndex((p) => p.label === rule.partLabel);
+            const child = served < 0 ? null : notes.quietly(() => resolve(rule.partTag, spec.unit));
+            if (child !== null && child.unit === present[0]!.unit) {
+              total -= present[served]!.value;
+              present.splice(served, 1);
+              partTags.splice(served, 1);
+              notAdded.push(rule.discloseRefiled);
+            }
+            continue;
+          }
           if (index < 0 || !inside) continue;
           total -= present[index]!.value;
           present.splice(index, 1);
