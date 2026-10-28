@@ -2,6 +2,8 @@
 // AMZN #43 EDGAR registry rows; amounts come from the committed SEC fixtures
 // (fixtures/edgar/nvda-current-reports/) or are round numbers. No provider,
 // network, database or model call.
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { namesRecency, reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
@@ -593,5 +595,64 @@ describe("AI-404 fix round 1: forward-looking clauses and the whole-claim period
   it("M1: a figure's digits are not read as a year in a source clause", async () => {
     const SRC: TextExcerpt = { source: "edgar:10-Q item2", asOf: "2026-06-30", title: "Quarterly review", text: "Inventory was $2,026 million.", truncated: false, originalChars: 29 };
     expect((await citeExcerpt(SRC, "Inventory was USD 2,026 million.")).entry.validationStatus).toBe("validated");
+  });
+});
+
+// AI-302-V1 (OD-3): a forward-looking clause binds only a forward-looking claim, under no inherited period.
+// Excerpts are sliced from the committed SEC fixtures (no network).
+const fixture = (name: string): string => readFileSync(path.join(process.cwd(), "fixtures/edgar/nvda-current-reports", name), "utf8");
+const EX991 = fixture("q2fy27-ex99-1.txt");
+const EX992 = fixture("q2fy27-ex99-2.txt");
+const ex = (source: string, asOf: string, title: string, text: string): TextExcerpt => ({ source, asOf, title, text, truncated: false, originalChars: text.length });
+const releaseStart = EX991.indexOf("NVIDIA (NASDAQ: NVDA) today reported");
+const RELEASE = ex("edgar:8-K EX-99.1", "2026-08-26", "8-K EX-99.1 - earnings release, Q2 FY2027, quarter ended 2026-07-26 (8-K; filed 2026-08-26)",
+  EX991.slice(releaseStart, EX991.indexOf("Highlights", releaseStart)));
+const inventoryAt = EX992.indexOf("Inventory was $31.6 billion");
+const COMMENTARY_FULL = ex("edgar:8-K EX-99.2", "2026-08-26", COMMENTARY.title ?? "",
+  `${EX992.slice(inventoryAt, EX992.indexOf(". ", inventoryAt) + 1)}\n${EX992.slice(EX992.indexOf("Revenue is expected to be $108.0 billion"), EX992.indexOf("For the full year fiscal 2027"))}`);
+describe("AI-302-V1 forward-looking clauses", () => {
+  it("setup: both slices carry the outlook bullets", () => {
+    expect(RELEASE.text).toContain("are expected to be 74.0%");
+    expect(COMMENTARY_FULL.text).toContain("are expected to be 74.0%");
+    expect(COMMENTARY_FULL.text).toContain("Inventory was $31.6 billion");
+  });
+  it.each([RELEASE, COMMENTARY_FULL])("AI-302-V1: the Q3 FY2027 guide is not validated as the Q2 FY2027 result (%#)", async (excerpt) => {
+    const { entry, out } = await citeExcerpt(excerpt, "GAAP and non-GAAP gross margins for Q2 FY2027 were 74.0%.");
+    expect(entry.validationStatus).toBe("unchecked");
+    expect(out.coverage.factualValidation?.validated).toBe(0);
+    expect((await citeExcerpt(excerpt, "GAAP and non-GAAP gross margins were 74.0%.")).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-302-V1: the guide dated by the quarter end is not validated, and the true result is not contradicted by the guide", async () => {
+    expect((await citeExcerpt(RELEASE, "GAAP and non-GAAP gross margins in the period ended 2026-07-26 were 74.0%.")).entry.validationStatus).toBe("unchecked");
+    const { entry } = await citeExcerpt(RELEASE, "GAAP and non-GAAP gross margins for Q2 FY2027 were 75.0%.");
+    expect(entry.validationStatus).not.toBe("contradicted");
+    expect((entry.sourceSpans ?? []).map((s) => s.text).join(" ")).not.toMatch(/expected to be 74\.0%/);
+  });
+  it("AI-302-V1 control: a forward-looking claim binds the guide; a result claim binds the result", async () => {
+    expect((await citeExcerpt(RELEASE, "GAAP and non-GAAP gross margins are expected to be 74.0%.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(COMMENTARY_FULL, "Inventory for Q2 FY2027 was USD 31.6 billion.")).entry.validationStatus).toBe("validated");
+    // OD-3 non-goal: an outlook lead's period is not carried to its bullets
+    expect((await citeExcerpt(RELEASE, "Revenue for Q3 FY2027 is expected to be USD 108.0 billion.")).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-302-V1: management guidance is forward-looking; accounting guidance is not", async () => {
+    const GUIDED = ex("edgar:8-K EX-99.1", "2026-08-26", RELEASE.title ?? "", "Our guidance for third-quarter revenue is $108.0 billion.");
+    expect((await citeExcerpt(GUIDED, "Revenue for Q2 FY2027 was USD 108.0 billion.")).entry.validationStatus).toBe("unchecked");
+    expect((await citeExcerpt(GUIDED, "Revenue guidance is USD 108.0 billion.")).entry.validationStatus).toBe("validated");
+    const NOTE = ex("edgar:10-K notes", "2026-01-25", "10-K notes (FY2026)", "Under the new lease accounting guidance, operating lease liabilities were $2.5 billion.");
+    expect((await citeExcerpt(NOTE, "Operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("validated");
+  });
+  // Task 7 reviews: a RESULT claim never binds the guide, whatever forward wording sits in a neighbouring clause or after the figure.
+  it.each([
+    "Revenue was USD 108.0 billion in Q3 FY2027.",
+    "Revenue was USD 108.0 billion, as expected in Q3 FY2027.",
+    "Revenue was USD 108.0 billion; the Q3 FY2027 target is strong.",
+    "Revenue was USD 108.0 billion; we are confident about Q3 FY2027.",
+    "Revenue was USD 108.0 billion; NVIDIA expects strength in Q3 FY2027.",
+  ])("AI-302-V1: a result claim does not bind the guided figure (%s)", async (text) => {
+    expect((await citeExcerpt(GUIDE, text)).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-302-V1 control: a forward-looking claim still binds the guide it states", async () => {
+    expect((await citeExcerpt(GUIDE, "Revenue for Q3 FY2027 is expected to be USD 108.0 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(GUIDE, "Revenue is expected to be USD 108.0 billion in the third quarter of fiscal 2027.")).entry.validationStatus).toBe("validated");
   });
 });

@@ -114,6 +114,11 @@ interface SourceBinding {
   inherited: PeriodReference[];
   /** AI-303 / C-6: the windows the excerpt's title states; a clause naming no period is read under them. Empty for table cells. */
   inheritedWindows: ReadonlySet<string>;
+  /**
+   * AI-302-V1 / OD-3: the source clause is management's expectation, outlook or guidance. It inherits no period or window from the
+   * excerpt's title and binds only a claim whose own clause is forward-looking (a result clause only a result claim). Always false for table cells.
+   */
+  forwardLooking: boolean;
   /** AI-303-V3: the excerpt's title carries an FY or Q4 label, so a figure dated to its reporting date (the excerpt's asOf) is a fiscal year-end figure. */
   yearEnd: boolean;
   /**
@@ -743,7 +748,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
         const cell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
-        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases, date: column.period.key },
+        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases, date: column.period.key },
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
@@ -760,7 +765,8 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           const lead = body.text.slice(Math.max(own.start, before ? before.end : own.start), other.start);
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
-      return { quantity, context: own, inherited, inheritedWindows, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      const forwardLooking = FORWARD_LOOKING.test(own.text);
+      return { quantity, context: own, inherited: forwardLooking ? [] : inherited, inheritedWindows: forwardLooking ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -933,12 +939,15 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word.
     const ownWindowTokens = new Set(own.periods.filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
     const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
+    // AI-302-V1 / OD-3: modality must match. Only the figure's own clause decides it, so a result figure never turns forward-looking
+    // (and never binds the guide) because a neighbouring clause of the claim says "expects" or "outlook".
+    const claimForward = FORWARD_LOOKING.test(own.text);
     const candidates: SourceBinding[] = [];
     for (const excerpt of excerpts) {
       const bindings = options.index?.get(excerpt) ?? sourceBindings(excerpt);
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
-        if (excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []))) candidates.push(binding);
+        if (binding.forwardLooking === claimForward && excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
     if (candidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {

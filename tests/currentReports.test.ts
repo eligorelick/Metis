@@ -579,6 +579,16 @@ describe("D-63 filing evidence", () => {
     expect(recategorized.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
     expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
   });
+
+  it("AI-302-V1: a key number dated to the reported quarter does not verify against an outlook bullet", async () => {
+    const payload = payloadOf(nvdaBundle());
+    const keyNumbers = [
+      { value: 31.6, unit: "USD billions: Inventory", currency: "USD", period: "2026-07-26", source: "edgar:8-K EX-99.2", asOf: "2026-08-26", verified: null },
+      { value: 74.0, unit: "% GAAP and non-GAAP gross margins", currency: null, period: "2026-07-26", source: "edgar:8-K EX-99.2", asOf: "2026-08-26", verified: null },
+    ];
+    const result = await runVerifyPass({} as PassDeps, payload, { keyNumbers });
+    expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, false]);
+  });
 });
 
 describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
