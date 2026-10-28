@@ -73,6 +73,9 @@ import { reportToPrintHtml } from "@/report/export/printHtml";
 import {
   assembleReport,
   buildJudgeRunPassArgs,
+  checkCarriedJudgeSections,
+  type RunPassArgs,
+  type RunPassOutcome,
   judgeUserTurns,
   MockRunPass,
   runJudgePass,
@@ -690,6 +693,102 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     const reconciliation = run.result.judgeProtocol?.reconciliation;
     expect(reconciliation?.performed).toBe(false);
     expect(run.result.judgeProtocol?.disclosures.some((entry) => /repair-in-place/.test(entry.reason))).toBe(true);
+  });
+
+  /**
+   * AI-108: a retry that keeps sections from a cut-off response hands the same
+   * kept sections to both orders, so the compared grades are compared with
+   * themselves. The mirror is skipped and the comparison disclosed as not
+   * performed. The sectioned provider below answers each part with exactly the
+   * sections it is asked for, grading "B" under the primary order and "C" under
+   * the mirror.
+   */
+  describe("a retry that keeps sections from a cut-off response", () => {
+    type Order = "bull-first" | "bear-first";
+    const textOf = (content: RunPassArgs["messages"][number]["content"]): string =>
+      typeof content === "string" ? content : content.map((block) => ("text" in block ? block.text : "")).join("");
+    const orderOf = (args: RunPassArgs): Order => {
+      const text = textOf(args.messages[0]!.content);
+      return text.indexOf("BULL CASE (independent analyst") < text.indexOf("BEAR CASE (independent analyst")
+        ? "bull-first" : "bear-first";
+    };
+
+    /** Runs the sectioned judge with the given kept sections; returns the run and every request's order. */
+    async function sectionedRetry(kept: Record<string, unknown> | null) {
+      const { payload } = buildInputs();
+      const orders: Order[] = [];
+      let primary: Order | null = null;
+      const runPass = async (args: RunPassArgs): Promise<RunPassOutcome> => {
+        const order = orderOf(args);
+        orders.push(order);
+        primary ??= order;
+        const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(textOf(args.messages.at(-1)!.content))![1]!.split(", ");
+        const whole = fakeJudgeOutput() as unknown as Record<string, unknown>;
+        const verdict = structuredClone(whole.verdict) as { gradeStrip: Record<string, { grade: string }> };
+        for (const block of Object.values(verdict.gradeStrip)) block.grade = order === primary ? "B" : "C";
+        whole.verdict = verdict;
+        const part = Object.fromEntries(asked.map((key) => [key, whole[key]]));
+        return { ok: true, value: { data: {
+          message: { content: [{ type: "text", text: JSON.stringify(part) }], usage: { input_tokens: 10, output_tokens: 5 }, model: "chatgpt/gpt-6.1-sol" },
+          usage: { input_tokens: 10, output_tokens: 5 }, costUsd: 0, fallbackUsed: false, model: "chatgpt/gpt-6.1-sol",
+        } } } as RunPassOutcome;
+      };
+      const carried = kept === null ? undefined : checkCarriedJudgeSections(kept).kept;
+      const run = await runJudgePass(
+        { runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true, judgeOrder: "both", jobSeed: "job-ai108" },
+        payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined,
+        carried === undefined ? undefined : { completed: carried, sectionRetryCount: 1 },
+      );
+      return { run, orders, carried };
+    }
+
+    it("control: with no kept sections the mirror writes its own grades and the disagreement is disclosed", async () => {
+      const { run, orders } = await sectionedRetry(null);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(2);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(true);
+      expect(rec.agreed).toBe(false);
+    });
+
+    it("does not run or report the mirror when a retry carries a kept verdict", async () => {
+      const { run, orders, carried } = await sectionedRetry({ verdict: structuredClone(fakeJudgeOutput().verdict) });
+      expect(Object.keys(carried!)).toEqual(["verdict"]);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(1);
+      const rec = run.result.judgeProtocol!.reconciliation!;
+      expect(rec.performed).toBe(false);
+      expect(run.result.judgeProtocol?.disclosures.some((d) => /kept from a cut-off response \(verdict\)/.test(d.reason))).toBe(true);
+      expect(completeJudgeProtocol(run.result.judgeProtocol!, { shared: false, analystFamily: null, judgeFamily: null } as never).note)
+        .not.toMatch(/produced the same/);
+    });
+
+    it("does not run the mirror when the kept sections exclude the graded verdict", async () => {
+      const { run, orders, carried } = await sectionedRetry({ business: structuredClone(fakeJudgeOutput().business) });
+      expect(Object.keys(carried!)).toEqual(["business"]);
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(new Set(orders).size).toBe(1);
+      expect(run.result.judgeProtocol!.reconciliation!.performed).toBe(false);
+    });
+
+    it("skips the mirror on the API path when a continuation carries kept sections", async () => {
+      const { payload } = buildInputs();
+      const mock = new MockRunPass();
+      mock.onJson("llm.judge", fakeJudgeOutput());
+      mock.onJson("llm.judge", fakeJudgeOutput());
+      const carried = checkCarriedJudgeSections({ verdict: structuredClone(fakeJudgeOutput().verdict) }).kept;
+      const run = await runJudgePass(
+        makeDeps(mock, { judgeOrder: "both" }), payload, analystCase("bull"), analystCase("bear"),
+        undefined, undefined, undefined, { completed: carried, sectionRetryCount: 1 },
+      );
+      expect(run.ok).toBe(true);
+      if (!run.ok) return;
+      expect(mock.calls.filter((c) => c.field === "llm.judge")).toHaveLength(1);
+      expect(run.result.judgeProtocol?.reconciliation?.performed).toBe(false);
+    });
   });
 
   it("reports agreement when the mirrored pass produced the same grades", async () => {

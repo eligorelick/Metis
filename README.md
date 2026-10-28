@@ -145,8 +145,8 @@ advantage, and the order is printed in the report header. Both cases share one
 character target; actual lengths and protected-content excess are disclosed.
 Each analyst scores its own side 1-5 against a stated rubric, and
 the judge may discount a side that scored itself low.
-`METIS_JUDGE_ORDER=both` runs the judge twice with the cases swapped and
-compares every section grade, for two judge passes.
+`METIS_JUDGE_ORDER=both` adds a second judge pass with the cases swapped and
+compares every section grade; a retry that keeps earlier sections skips it.
 
 The verification pass makes no model call. It measures citation coverage — can
 each figure be traced to the record it cites — and separately checks the prose

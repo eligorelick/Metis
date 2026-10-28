@@ -108,6 +108,9 @@ longer costs a repair. Entity-validation repairs can also add analyst work.
 `METIS_JUDGE_ORDER` defaults to `random`, deterministically seeded by job ID.
 `bull-first` and `bear-first` fix the presentation order. `both` requests a
 second judge assessment with the cases swapped, then reconciles the pair;
+on a retry that repairs a rejected output or keeps sections from a cut-off
+response, the mirrored request would not be an independent draw, so it is not
+run and the report says the comparison was not performed;
 this can roughly double judge work before any repairs. Order and reconciliation
 are disclosed in the report. Bull, bear and judge can share a model family;
 their adversarial roles do not establish independent model judgments.
