@@ -1733,9 +1733,9 @@ type FailedRequestOutcome = { kind: "release" } | { kind: "charge"; charge: Fail
  * Decide what a failed request is recorded at: the single rule both failure
  * catches (the first request and a pause resumption) share, so one wire state
  * settles one figure. In order: a stream the idle guard abandoned, or one the
- * caller aborted after usage was reported, is its reported usage plus the
- * presumed remainder; any other failure that reported usage settles at that
- * usage; a request that went out and then timed out or lost its connection
+ * stream that reported usage but ended before its final usage event (any
+ * cause) is its reported usage plus the presumed remainder; a stream whose
+ * final usage event arrived settles at that usage; a request that went out and then timed out or lost its connection
  * with no usage reported is presumed at the request maximum; anything else
  * never reached the provider and is released at $0 (DECISIONS D-10: "a
  * request that times out after send is presumed spent until reconciled").
@@ -1747,9 +1747,11 @@ function classifyFailedRequest(
   requestMaximumUsd: number,
 ): FailedRequestOutcome {
   const reported = billedMessageFromSnapshot(snapshot, opts);
-  if (cause instanceof StreamIdleTimeoutError || (cause instanceof APIUserAbortError && reported !== null)) {
-    // Generation had started and nobody knows how far it got: what was
-    // reported plus the presumed remainder (DECISIONS D-09).
+  if (cause instanceof StreamIdleTimeoutError || (reported !== null && snapshot.finalUsage !== true)) {
+    // Generation had started and nobody knows how far it got, whatever ended
+    // the stream (the idle guard, the caller, a server error event, a dropped
+    // connection): what was reported plus the presumed remainder (DECISIONS
+    // D-09). Only the cumulative output count in the final delta is exact.
     return { kind: "charge", charge: { reported, costUsd: abandonedRequestCostUsd(opts, reported), presumed: true } };
   }
   if (reported !== null) {
@@ -2011,6 +2013,8 @@ interface StreamedUsageSnapshot {
   content?: BetaMessage["content"];
   stopReason?: BetaMessage["stop_reason"];
   stopDetails?: BetaMessage["stop_details"];
+  /** True once the final `message_delta` (non-null stop reason, cumulative usage) arrived. */
+  finalUsage?: boolean;
 }
 
 function trackStreamedUsage(
@@ -2049,7 +2053,10 @@ function trackStreamedUsage(
         ...(u.server_tool_use ? { server_tool_use: u.server_tool_use } : {}),
         ...(u.iterations != null ? { iterations: u.iterations } : {}),
       };
-      if (event.delta.stop_reason != null) snapshot.stopReason = event.delta.stop_reason;
+      if (event.delta.stop_reason != null) {
+        snapshot.stopReason = event.delta.stop_reason;
+        snapshot.finalUsage = true;
+      }
       if (event.delta.stop_details != null) snapshot.stopDetails = event.delta.stop_details;
       const final = u.iterations?.[u.iterations.length - 1];
       if (final && (final.type === "message" || final.type === "fallback_message") && final.model) snapshot.model = final.model;
@@ -2092,8 +2099,8 @@ function billedMessageFromSnapshot(
 }
 
 /**
- * The result for a stream abandoned after generation started (DECISIONS
- * D-09): what the provider reported before it stopped being read, PLUS the
+ * The result for a stream that ended after generation started without its final
+ * usage event, whatever the cause (DECISIONS D-09): what the provider reported before it stopped being read, PLUS the
  * worst case for the rest of the response, priced at the model's output rate
  * for the tokens the request could still emit.
  *

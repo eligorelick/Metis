@@ -189,7 +189,7 @@ with effort — both bound a request at the model's full context and output ceil
 The primary-model output ceiling varies with effort; thinking bills as output.
 Below `high`, passes use analyst 64K/judge 96K; at `high` and above, the model's
 registry ceiling applies. Fallback output is additional and covered by request
-reservations. Abandoned search/fallback requests retain their presumed bound.
+reservations. A cut-off request is presumed at its worst case until reconciled.
 
 The estimated run is a calculation, not a measurement: the fixture shape at effort
 `high` and registry rates, Haiku's synthesize figures those of Claude Sonnet 5.5

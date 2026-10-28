@@ -152,7 +152,11 @@ stop. Request timeout and effort-scaled stream-idle limits can abort stalled
 work. These paths can create billable requests even when no report completes.
 A pass's recorded cost, tokens and presumed flag are the sum of what each of
 its requests settled, retries and pause resumptions included, in both
-reservation modes.
+reservation modes. A request that ends after it started reporting usage but
+before its final usage event (a mid-stream server error, a dropped connection,
+a stall or a cancel) is recorded as its reported usage plus the most it could
+still have generated, marked presumed until `npm run costs:reconcile` lowers
+it; with web search or a server fallback the whole request maximum is kept.
 
 The two Fable registry entries configure an explicit server-side refusal
 fallback to `claude-opus-4-8`. Other entries have no such fallback. Requests

@@ -55,6 +55,7 @@ import {
   streamIdleTimeoutMs,
   streamIdleTimeoutMsFor,
   requestInputTokenUpperBound,
+  requestReservationUsd,
   type RequestSettlement,
   supportsEffort,
   thinkingConfigFor,
@@ -1506,7 +1507,9 @@ describe("runPassStreaming transport retry", () => {
     expect(result.error.model).toBe("claude-opus-4-8");
     expect(result.error.fallbackUsed).toBe(true);
     expect(result.error.usage?.input_tokens).toBe(3_000);
-    expect(result.error.costUsd).toBeCloseTo(0.0125, 10);
+    // Cut off before its final usage event: presumed at the request maximum (fallback exposure).
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.costUsd).toBeCloseTo(requestReservationUsd({ ...streamingOpts, model: "claude-fable-5" }), 10);
   });
 
   it.each([false, true])("uses the same full request bound after interrupted fallback exposure (switch seen: %s)", async (switched) => {
@@ -1586,8 +1589,12 @@ describe("runPassStreaming transport retry", () => {
     expect(result.value.data.usage.input_tokens).toBe(10_000);
     expect(result.value.data.usage.output_tokens).toBe(28_000);
     expect(result.value.data.usage.server_tool_use?.web_search_requests).toBe(5);
+    // The dead attempt never reached its final usage event: its reported usage
+    // plus the unreported output remainder (8,001 x $25/MTok), presumed.
+    expect(result.value.data.presumed).toBe(true);
     expect(result.value.data.costUsd).toBeCloseTo(
       computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) +
+        0.200025 +
         computeCostUsd(finalUsage, "claude-opus-4-8", 3),
       10,
     );
@@ -1635,8 +1642,9 @@ describe("runPassStreaming transport retry", () => {
     if (!result.ok) return;
     expect(result.value.data.usage.input_tokens).toBe(10_000);
     expect(result.value.data.usage.output_tokens).toBe(28_000);
-    // The dead attempt settled what it had reported (it reached generation).
+    // The dead attempt settled what it had reported plus the presumed remainder.
     expect(settled).toHaveLength(2);
+    expect(settled[0]!.presumed).toBe(true);
     expect(settled[0]).toMatchObject({ usage: { input_tokens: 5_000, output_tokens: 8_000 } });
   });
 
@@ -1713,7 +1721,8 @@ describe("runPassStreaming transport retry", () => {
     expect(result.error.aborted).toBe(true);
     // Attempt 1 streamed 5K input + 8K output before it died: still billed.
     expect(result.error.usage).toMatchObject({ input_tokens: 5_000, output_tokens: 8_000 });
-    expect(result.error.costUsd).toBeCloseTo(computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2), 10);
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.costUsd).toBeCloseTo(computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) + 0.200025, 10);
   });
 
   /**
@@ -1793,7 +1802,7 @@ describe("runPassStreaming transport retry", () => {
       requestedModel: streamingOpts.model, requestedEffort: null, effectiveEffort: null,
     });
     expect(result.error.costUsd).toBeCloseTo(
-      PASS_TRANSPORT_MAX_ATTEMPTS * computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2),
+      PASS_TRANSPORT_MAX_ATTEMPTS * (computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) + 0.200025),
       10,
     );
   });
@@ -2213,7 +2222,8 @@ describe("a pass result states what its requests settled", () => {
     if (!result.ok) return;
     expect(result.value.data.usage.input_tokens).toBe(ledgerInput); // 6,000
     expect(result.value.data.costUsd).toBeCloseTo(ledgerUsd, 9);
-    expect(result.value.data.presumed === true).toBe(settled.some((s) => s.presumed === true));
+    expect(settled.filter((s) => s.presumed === true)).toHaveLength(1); // the failed resumption
+    expect(result.value.data.presumed).toBe(true);
   });
 
   it("reports in pass mode what request mode settles for the same requests", async () => {
@@ -2278,5 +2288,179 @@ describe("a pass result states what its requests settled", () => {
     expect(settled).toHaveLength(1);
     expect(result.ok && result.value.data.costUsd).toBeCloseTo(settled[0].costUsd, 9);
     expect(result.ok && result.value.data.presumed).toBeUndefined();
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * A stream that dies after message_start without its final message_delta is
+ * presumed at reported usage plus the worst-case remainder, whatever ended it
+ * (AI-113); one whose final delta arrived settles at what it reported.
+ * ------------------------------------------------------------------------ */
+
+describe("a stream that dies after message_start", () => {
+  afterEach(() => {
+    _setTransportRetrySleepForTests();
+  });
+
+  const MODEL = "claude-opus-5-5";
+  const opts55 = {
+    model: MODEL,
+    system: "system",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxTokens: 32_000,
+    effort: "high" as const,
+    field: "llm.judge",
+    reservationPass: "synthesize" as const,
+  };
+  const START = { input_tokens: 5_000, cache_creation_input_tokens: 40_000, output_tokens: 1 };
+
+  function socketDeath(): AnthropicError {
+    return Object.assign(new AnthropicError("terminated"), {
+      cause: new TypeError("terminated", {
+        cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }),
+      }),
+    });
+  }
+
+  function recording() {
+    const settled: RequestSettlement[] = [];
+    let released = 0;
+    let n = 0;
+    const admission = {
+      reserve: async (request: { maximumUsd: number }) => ({ id: `permit-${++n}`, maximumUsd: request.maximumUsd }),
+      settle: async (_permit: unknown, settlement: RequestSettlement) => {
+        settled.push(settlement);
+      },
+      release: async () => {
+        released += 1;
+      },
+    };
+    return { admission, settled, released: () => released };
+  }
+
+  const okMessage = () =>
+    syntheticMessage({ model: MODEL, usage: syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }) });
+
+  it.each([
+    ["overloaded_error", () => midStreamOverloadedError()],
+    ["socket death after headers", () => socketDeath()],
+    ["caller abort", () => new APIUserAbortError()],
+  ])("presumes %s after message_start at reported usage plus the output remainder", async (_label, make) => {
+    instantSleep();
+    const { admission, settled, released } = recording();
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([
+      { events: [messageStartEvent(START, MODEL)], failWith: make() },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ]);
+    _resetAnthropicForTests(client);
+
+    await runPass({ ...opts55, admission });
+
+    expect(released()).toBe(0);
+    expect(settled[0]).toMatchObject({ presumed: true, usage: { input_tokens: 5_000, output_tokens: 1 } });
+    expect(settled[0].costUsd).toBeCloseTo(2.78, 6); // 0.22002 reported + (128,000 - 1) x $20/MTok
+  });
+
+  it("carries the presumed figure and flag into the pass result after a successful retry", async () => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([
+      { events: [messageStartEvent(START, MODEL)], failWith: midStreamOverloadedError() },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...opts55, admission });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.data.presumed).toBe(true);
+    expect(result.value.data.costUsd).toBeCloseTo(
+      settled.reduce((sum, s) => sum + s.costUsd, 0),
+      9,
+    );
+  });
+
+  it("settles reported usage when the final message_delta arrived before the socket died", async () => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([
+      {
+        events: [
+          messageStartEvent(START, MODEL),
+          { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 3_000 } },
+        ],
+        failWith: socketDeath(),
+      },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ]);
+    _resetAnthropicForTests(client);
+
+    await runPass({ ...opts55, admission });
+
+    expect(settled[0].presumed).toBeUndefined();
+    expect(settled[0].usage?.output_tokens).toBe(3_000);
+    expect(settled[0].costUsd).toBeCloseTo(0.28, 9); // 5,000 x $4 + 40,000 x $5 + 3,000 x $20 per MTok
+  });
+
+  it("presumes a resumption that dies after message_start once, and the pass result counts it once", async () => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const paused = syntheticMessage({
+      model: MODEL,
+      stop_reason: "pause_turn",
+      usage: syntheticUsage({ input_tokens: 1_000, output_tokens: 100 }),
+    });
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([
+      { events: [{ type: "message_start", message: paused }], final: paused },
+      {
+        events: [messageStartEvent({ input_tokens: 2_000, cache_creation_input_tokens: 60_000, output_tokens: 1 }, MODEL)],
+        failWith: midStreamOverloadedError(),
+      },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({
+      model: MODEL,
+      system: "system",
+      messages: [{ role: "user" as const, content: "hi" }],
+      maxTokens: 16_000,
+      effort: "low" as const,
+      field: "llm.bull",
+      admission,
+    });
+
+    expect(settled).toHaveLength(3);
+    expect(settled.filter((s) => s.presumed === true)).toHaveLength(1);
+    expect(settled[1].costUsd).toBeCloseTo(0.628, 9); // 0.30802 + (16,000 - 1) x $20/MTok
+    expect(result.ok && result.value.data.costUsd).toBeCloseTo(0.652, 9); // 0.006 + 0.628 + 0.018
+    expect(result.ok && result.value.data.presumed).toBe(true);
+  });
+
+  it("keeps the request maximum for a search-capable request that dies after message_start", async () => {
+    instantSleep();
+    const { admission, settled } = recording();
+    const ok = okMessage();
+    const bull = {
+      ...opts55,
+      field: "llm.bull",
+      reservationPass: "bull" as const,
+      tools: [webSearchTool(8, MODEL)],
+    };
+    const { client } = fakeStreamingClient([
+      { events: [messageStartEvent(START, MODEL)], failWith: midStreamOverloadedError() },
+      { events: [{ type: "message_start", message: ok }], final: ok },
+    ]);
+    _resetAnthropicForTests(client);
+
+    await runPass({ ...bull, admission });
+
+    expect(settled[0]).toMatchObject({ presumed: true });
+    expect(settled[0].costUsd).toBeCloseTo(requestReservationUsd(bull), 6); // $52.64
   });
 });

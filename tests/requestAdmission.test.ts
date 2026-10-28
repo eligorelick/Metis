@@ -463,7 +463,9 @@ describe("every provider request is admitted and settled on its own", () => {
       requestAttemptId("pass-attempt", 1),
       requestAttemptId("pass-attempt", 2),
     ]);
-    expect(rows.every((row) => row.settlementKind === "actual")).toBe(true);
+    // The failed attempt died after message_start without its final usage event: presumed.
+    expect(rows.map((row) => row.settlementKind)).toEqual(["presumed", "actual"]);
+    expect(rows[0]!.costUsd).toBeLessThanOrEqual(maximumRequestCostUsd("claude-sonnet-5", "bull"));
     // No reservation outlives the pass.
     expect(first.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
