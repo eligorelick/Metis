@@ -77,4 +77,72 @@ The view leaves two cases as stored: a same-market peer cap (its premise holds u
 
 ## Replay
 
-The before and after replay of stored run inputs through the payload assembler (no provider or model call) is recorded in this section when the replay task of the plan runs it; FMP-derived values are left out of committed markdown and stated as "as served by FMP in the stored snapshot". Until then only the stored-report display replay above has been run.
+The replay ran the five stored run inputs (AMZN #43, MU #46, NVDA #48, #49 and #50) through the payload assembler twice, with no provider or model call: once on main at `6542531` ("before") and once on this branch ("after"). Each input went through the snapshot check, Stage A validation, Stage B and payload assembly, and the verify pass ran on stated claims with its deterministic checks only. It also replayed the 12 stored reports that the display rules touch or control through the stored-report view and the Markdown export (file SHA-256 read before and after), one in-memory restatement injected into #50, and the peer discovery screen on MU #46's stored rows with a stub client that refuses every symbol (HTTP 402). FMP-derived values are left out of this note and stated as "as served by FMP in the stored snapshot"; SEC, FRED, public-company and computed figures are written as observed. B1 is not on main, so the "after with B1" label was not run. The harness is uncommitted. The results below are the observed values; 37 of the 40 rows checked match the plan, and the 3 that deviate follow the tables.
+
+| Input | Figure | Before (main) | After (this branch) |
+|---|---|---|---|
+| MU #46 | Peer caps registered as money | 10, all "(USD, inherited)", the Tokyo-listed row included | 0 registered; all 10 "(currency unknown)"; six foreign rows carry "size not compared" |
+| MU #46 | Peer exclusion lines outside every envelope | 11 (10 peer symbols and one subject-level line) | 0; all 11 inside "Peer screen exclusions and collection notes"; BEGIN = END (23 each, 22 before) |
+| MU #46 rows, subject sized as the SNDK row in the same stored answer (AI-301-V1) | Tokyo row discovery outcome | Size-screened against the subject's dollars (a yen cap compared with a USD cap), never requested | Requested and excluded with the HTTP 402 reason; no suffixed row carries a "size screen" reason; the four U.S. rows' outcomes are identical |
+| AMZN #43 | PCEDG Units entry (FRED) | "PCEDG: USD (FRED serves billions; shown ×1,000,000,000)" | "PCEDG: USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)"; RSAFS and TOTALSA unchanged |
+| all five | PAYEMS row (FRED) | "PAYEMS (core): 29000 count"; Units "persons (FRED serves thousands; shown ×1,000)" | "PAYEMS change from prior observation (core): 29000 count"; Units end ", as the change from the prior observation" |
+| NVDA #50 | Peer caps | Six "(USD, inherited)" | Five "(USD)" (AMD, AVGO, INTC, MRVL, QCOM) from the candidates' own profiles; ARM "(currency unknown)"; CBRS, CRWV, MOVE and XLAB size-excluded as before |
+| AMZN #43 | Peer caps | Seven "(USD, inherited)" | EBAY "(USD)"; the other six "(currency unknown)"; CPNG, GLBE and W size-excluded as before |
+| NVDA #48, #49, #50 | Insider statistics | Three records, "insider total purchases/sales" in shares for the quarter in progress, no period, a bare ratio | Five records over 2025-10-01 to 2026-09-30 (two open-market transaction counts, two share volumes, a count ratio), each with a period and a rolling-12-month context, and a note that 2026 Q4 is in progress |
+| all five | Share-count label | "(5y total)" | Unchanged (ten income rows: control) |
+| all five | Segment growth rows | 32 to 40 growth rows per input | Labels, values and notes identical (control) |
+| AMZN #43 | 8-K 0001018724-26-000036 excerpt | A salary sentence kept; the new director's share award absent | The director's share award kept; no salary sentence (its referent sentence is in the cut passage) |
+| all five | Provenance registry | 730, 704, 935, 940 and 940 records | 721, 694, 932, 937 and 937 records; every difference is in the families listed under "Registry"; no computed value moved |
+| NVDA #50 with a later-filed FY2026 restatement injected (AI-505) | Annual income block | Periods 2026-01-25 twice and FY2022 lost; two FY2026 revenue records (`…revenue`, `…revenue.2`), both validated as FACTs | Five distinct periods (FY2022 back); one record, holding the restated value; the original value cited against it is contradicted; a "Fiscal period 2026-01-25 was served 2 times" note |
+| all five, unmodified | Six statement blocks | As stored | Byte-identical (AI-505 control) |
+| MU #46 (AI-507) | 10-Q MD&A, notes and Item 5 titles; framings | No marker; the bull, bear and judge framings all call the 10-Q notes "the latest word" | Each title carries "[older than the 10-K for the period ended 2026-09-03]"; the framings prefer the later notes by reporting period |
+| NVDA #50 (AI-507 control) | 10-Q titles | 10-Q newer; "kept first" marker on Item 2 | Identical; no "older than" marker |
+| AMZN #43 (AI-509) | Provider "geographic" rows | Three, all named "… Segment", registered | None; the business-segments reason in the payload notes and one `validation.providerGeography` gap; product rows (7) and the XBRL segment section (36 figures) unchanged |
+| NVDA #48, #49, #50 (AI-509) | Provider "geographic" rows | Four, including "Other Americas" for the issuer's "Other" | None; the issuer-geography reason and the gap; the issuer's quarterly geographic rows unchanged |
+| MU #46 (AI-509 control) | Segmentation | No provider geography | Unchanged (no rows, no gap, no note; only the section title's wording changed) |
+| AMZN #43, NVDA #50 (AI-511) | FCF conversion label | "FCF conversion (latest, before SBC — the graded ratio)" | "FCF conversion (latest fiscal year, before SBC)", same value; the current-capital note names "ttm: 2025-07-01 to 2026-06-30" (#43) and "ttm: 2025-07-27 to 2026-07-26" (#50); the composite score and every aspect score are unchanged |
+| NVDA #48 (residual (a)) | Task 8E records | No `fiscalPeriod`; the `(latest)` rows' `period` null | 59 records labelled (53 FY2026 on the 2026-01-25 rows, 6 FY2025 on the 2025-01-26 accrual operands); the `(latest)` rows carry `period` 2026-01-25 |
+| #43, #46, #49, #50 (residual (a)) | Task 8E records | No `fiscalPeriod` | 27, 39, 59 and 59 records labelled; every `(latest)` row carries the label and period end of its snapshot's newest annual income row (FY2025 / 2025-12-31, FY2026 / 2026-09-03, FY2026 / 2026-01-25 twice) |
+| NVDA #48 (residual (a), consumer) | "ROIC for the fiscal year was 149.8%." | unchecked (text-context-mismatch) | validated |
+| NVDA #48 (residual (a), consumer) | "ROIC for the latest fiscal year was 149.8%."; "ROIC for FY2026 was 149.8%."; "The balance-sheet accrual ratio for the same year was 0.64x." | validated | validated |
+| NVDA #48 (residual (a), consumer) | "ROIC for FY2025 was 149.8%." | validated | unchecked (period-word-mismatch) |
+| NVDA #48 (residual (a), consumer) | "ROIC for fiscal 2026 was 149.8%." | validated | unchecked (period-mismatch) |
+| AMZN #43 (AI-512) | EX-99.1 and EX-99.2 titles; 10-Q Item 2, notes and Item 5 titles | "Q2 FY2025, quarter ended 2026-06-30"; "(Q2 FY2025)" | "quarter ended 2026-06-30 [issuer fiscal label withheld: the release and the statement rows disagree]"; no label on the 10-Q titles |
+| AMZN #43 (AI-512) | "North America segment sales increased 16% year over year in Q2 FY2025." | validated | unchecked; the same claim with no period stays validated (control) |
+| NVDA #50 (AI-512 control) | Release and 10-Q titles | "Q2 FY2027" | Identical |
+
+Stored reports, read as JSON files (SHA-256 unchanged on all 12, before and after the view):
+
+| Stored | Figure | Before | After |
+|---|---|---|---|
+| #46 | Markdown peer table | The six foreign rows printed as dollar amounts, all marked verified | Printed as "<amount> (currency unknown)", none verified; the four U.S. rows as stored; the manifest gains the correction note (expected disclosures 55 to 56); numeric support 267 to 261 |
+| #48 | Insider claim "Insider total purchases were 0 shares." | validated, numeric support validated | unchecked, numeric support unchecked, with the correction note |
+| #50, #52 | Insider key numbers | Two "0 shares", verified | Two unit "count", unverified, with the note |
+| #51 | Capex/D&A average | "capex / D&A, 5y average" | "capex / D&A, average of up to 5 fiscal years (the number averaged was not recorded)" |
+| #43, #47, #48, #50, #52 | Provider geographic rows | All verified, with shares | All unverified, shares n/a. Displayed numeric support 331 to 328 (#43), 289 to 285 (#48), 360 to 354 (#50 and #52: 4 geography and 2 insider key numbers each); #47 has no log entries |
+| #44, #45, #49 | Provider rows that repeat the issuer's labels (controls) | Verified, with shares | Unchanged; #45 and #49 are returned as the identical object, and #45 keeps its counts (numeric 138 of 159, validated claims 40) |
+| #39, #42, #44, #47, #51 | Data-only FCF conversion row | "… — the graded ratio" | "FCF conversion (FCF before SBC / net income)" |
+
+### Deviations from the plan's expected values
+
+- **MU #46, exclusion lines outside every envelope: 11, not 10.** The plan counted the ten peer symbols. The eleventh line is the subject-level "MU" common-earnings exclusion that the same notes list. After the change all 11 are inside the peer-screen block, so the expected After holds.
+- **#50 with the injected restatement: the note's wording.** The plan expected "was served 2 times with different filing dates". The note reads "Fiscal period 2026-01-25 was served 2 times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses." The behaviour matches (five periods, one restated record, the original not validated); only the words differ.
+- **NVDA #48, residual (a): prompt bytes and fingerprint.** The plan expected both unchanged. They move in this whole-batch replay (prompt bytes 346,277 to 349,376; fingerprint `1.48.0:210c9871` to `1.49.0:bde9159f`) because the peers, insiders, segmentation, capital label and note, excerpt titles and the version header change the prompt. Task 8E's own change prints nothing: `period` and `fiscalPeriod` are carried on the registry record only, which its golden pin checks (the provenance hash alone moves).
+
+### Moves the plan table does not list
+
+- **Event excerpts (Task 8).** The 8-K event excerpts' coverage line reads `section-evidence-5/event` where it read `section-evidence-2/event`: on NVDA #48, #49 and #50 that is the only change in eight excerpts each. On AMZN #43 the selector also dropped a bare "Item 1.01 (Entry into a Material Definitive Agreement): 3" heading line from the 8-K filed 2026-02-27 (29 characters kept instead of 88; the item heading carries no figure), beside the planned change on the 2026-09-09 8-K.
+- **Section titles and notes.** The segmentation heading reads "keys as each source names them" for "as-reported keys", on every input including the MU control. The peer methodology note says caps are compared only between established equal currencies or same-market listings. The missing-data manifest gains the `validation.providerGeography` gap on AMZN #43 and NVDA #48 to #50.
+- **Version header.** The payload header reads 1.49.0.
+
+### Registry
+
+Every provenance-registry record whose value, unit, currency, period, label, fiscal label or currency basis differs falls in one of six families, and none is outside them: peers (rows left unregistered, and EBAY on #43 and the five USD peers on #48 to #50 losing their "inherited" currency basis), insiders (three records replaced by five), macro (the renamed PAYEMS record), segments (the withheld provider geographic rows), the FCF label (the renamed fiscal-year before-SBC record) and the fiscal label (`fiscalPeriod` on 27 to 59 computed records, with `period` on the 11 `(latest)` rows). No computed value moved on any input. The prompt blocks that differ are limited to the capital label and note, the comparable-peers notes and the new peer-screen block, peers, insiders, segmentation, macro, the changed excerpt titles and coverage lines, the missing-data manifest and the version header; no quarterly-trend, segment-revenue, statement, guidance, estimates, leadership or institutional block moved.
+
+### Carry-forward from Task 8E: the 11 `(latest)` records
+
+The eleven computed `(latest)` records that gained a `period` are the gross, operating and net margins, ROIC, DuPont ROE, the two latest FCF rows, the two FCF conversions and the capex ratios (capex to revenue and capex to D&A). The stored claims and key numbers that cite them were replayed through the verify pass on each input's payload before and after.
+
+- The key numbers (4 on #43, 2 on #46, 4 on #48, 1 on #49, 2 on #50) all validate before and after.
+- The stored FACT claims (2 on #48, 1 on #50) have one verdict move: #50's "Latest annual ROIC as of 2026-01-25 was 149.8%." goes from unchecked to validated. It names the year the record covers (2026-01-25), so the move is toward validated on the right year, which is the gain residual (a) is meant to give a latest-year claim. Nothing moved toward validated on a wrong year, and nothing moved toward unchecked.
+- This goes beyond the "only toward unchecked" expectation. Eight more stored accrual-year claims move from unchecked to validated for the same reason (the accrual-year records gained the label, not the period): #43 (3), #48 (1) and #50 (4). Each names the accrual year its record covers ("for the year ended 2025-12-31", "for the fiscal year ended 2026-01-25"). The other accrual claims, which have other period or wording mismatches, stay unchecked.
