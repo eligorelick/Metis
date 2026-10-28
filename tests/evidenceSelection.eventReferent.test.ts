@@ -38,17 +38,26 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
     }
   });
   it("does not let a share count change the other profiles’ selection", () => {
-    // "shares" -> "shaves" keeps every length and position, so only the event-only share-count quantity could differ.
-    const altered = BODY.split(" shares").join(" shaves");
-    expect(altered.length).toBe(BODY.length);
+    // Equal-scoring passages rank by position, so a share-count term would lift the one share-bearing passage
+    // (fourth of thirty) ahead of its neighbours and change which of them a small budget keeps.
+    const line = (n: number) => `Revenue from customers grew to $5 billion in quarter ${n}.`;
+    const lines = Array.from({ length: 30 }, (_, n) => (n === 3 ? "Revenue from customers grew to $5 billion and 7,000 shares were awarded." : line(n)));
+    const text = lines.join("\n");
+    // "shares" -> "shaves" keeps every length and position, so only a share-count quantity could differ.
+    const altered = text.split(" shares").join(" shaves");
+    expect(altered.length).toBe(text.length);
     for (const profile of ["financial", "business", "interim"] as const) {
-      for (const budget of [600, 900, 1_200]) {
-        const a = selectMaterialEvidence(BODY, budget, profile);
+      for (const budget of [700, 900]) {
+        const a = selectMaterialEvidence(text, budget, profile);
         const b = selectMaterialEvidence(altered, budget, profile);
-        expect(a.spans.map((span) => [span.start, span.end]), `${profile} ${budget}`).toEqual(b.spans.map((span) => [span.start, span.end]));
+        const label = `${profile} ${budget}`;
+        expect(a.spans.length, label).toBeGreaterThan(0);
+        expect(a.spans.some((span) => /\d shares\b/.test(span.text)), label).toBe(true);
+        expect(a.spans.map((span) => [span.start, span.end]), label).toEqual(b.spans.map((span) => [span.start, span.end]));
       }
     }
   });
+
   it("leaves the other profiles' coverage version unchanged", () => {
     for (const profile of ["financial", "business", "interim"] as const) {
       expect(selectMaterialEvidence(BODY, 600, profile).coverage.version).toBe(profile === "financial" ? "section-evidence-2" : `section-evidence-2/${profile}`);
