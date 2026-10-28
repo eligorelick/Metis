@@ -10217,6 +10217,11 @@
           }
         },
         {
+          "path": "stageB.capital.maintenanceVsGrowthCapex.capexToDAAvgYears",
+          "beforeMissing": true,
+          "after": 2
+        },
+        {
           "path": "stageB.capital.notes.2",
           "beforeMissing": true,
           "after": "Diluted share-count change: requested 5y window, only 2y of share history available (2023-12-31 to 2025-12-31)."

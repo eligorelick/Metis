@@ -365,7 +365,10 @@ where ROIC is inapplicable; it is not computed by substituting a vendor ROE.
 
 `src/pipeline/stageB/capital.ts` derives capex/revenue, capex/D&A, before- and
 after-SBC FCF conversion, share trends, SBC intensity, interest coverage and
-net debt/EBITDA where the route permits them. Conversion requires positive
+net debt/EBITDA where the route permits them. Capex/D&A is shown for the latest
+year and as the mean of up to five years; the label states how many years the
+mean covers (`capexToDAAvgYears`, the count of finite ratios averaged, so "5y"
+only at five). Conversion requires positive
 net income, and leverage requires positive EBITDA. Maintenance capex
 `min(abs(capex), D&A)` and growth capex `max(0, abs(capex) − D&A)` are house
 heuristics, not a filed maintenance/development split.

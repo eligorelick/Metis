@@ -442,7 +442,7 @@ function balanceSheetSection(
     traced(cap.capexIntensity.latestPct, "%", "computed.capital.capexIntensity", cap.asOf, { period: "capex / revenue, latest" }),
     traced(cap.capexIntensity.slopePctPtsPerYear, "pp/yr", "computed.capital.capexIntensity", cap.asOf, { period: "capex / revenue slope" }),
     traced(cap.maintenanceVsGrowthCapex.capexToDALatest, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: "capex / D&A, latest" }),
-    traced(cap.maintenanceVsGrowthCapex.capexToDA5yAvg, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: "capex / D&A, 5y average" }),
+    traced(cap.maintenanceVsGrowthCapex.capexToDA5yAvg, "x", "computed.capital.maintenanceVsGrowthCapex", cap.asOf, { period: `capex / D&A, ${cap.maintenanceVsGrowthCapex.capexToDAAvgYears ?? 5}y average` }),
   ]);
 
   const debtCommentary: SourcedClaim[] = [flagClaim];
