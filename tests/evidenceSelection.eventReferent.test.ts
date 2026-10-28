@@ -20,7 +20,9 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
   it("keeps the appointee's award and never a relative's pay without the sentence naming her", () => {
     const cut = selectMaterialEvidence(BODY, PAYLOAD_BUDGETS.eightKEventChars, "event");
     expect(cut.text).toContain("for 4,912 shares of common stock");
-    if (cut.text.includes("Ms. Testcase’s annual salary is $172,000.")) expect(cut.text).toContain(REFERENT_AND_SALARY);
+    // The relative is introduced here; whether her pay also fits is the budget's call, and the 1,700 case below pins that it travels with it.
+    expect(cut.text).toContain("Jane Testcase, an employee of the Company, is the sister-in-law of Mr. Testcase.");
+    if (cut.text.includes("annual salary")) expect(cut.text).toContain(REFERENT_AND_SALARY);
     for (const orphan of ["omitted…]\nMs. Testcase", "omitted…]\nIn 2026, she", "omitted…]\nHer compensation"]) expect(cut.text).not.toContain(orphan);
     expect(cut.coverage.version).toBe("section-evidence-5/event");
   });
@@ -33,6 +35,18 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
       const text = selectMaterialEvidence(BODY, budget, "event").text;
       expect(text, String(budget)).not.toContain("omitted…]\nMs. Testcase");
       if (text.includes("Ms. Testcase’s annual salary")) expect(text, String(budget)).toContain(REFERENT_AND_SALARY);
+    }
+  });
+  it("does not let a share count change the other profiles’ selection", () => {
+    // "shares" -> "shaves" keeps every length and position, so only the event-only share-count quantity could differ.
+    const altered = BODY.split(" shares").join(" shaves");
+    expect(altered.length).toBe(BODY.length);
+    for (const profile of ["financial", "business", "interim"] as const) {
+      for (const budget of [600, 900, 1_200]) {
+        const a = selectMaterialEvidence(BODY, budget, profile);
+        const b = selectMaterialEvidence(altered, budget, profile);
+        expect(a.spans.map((span) => [span.start, span.end]), `${profile} ${budget}`).toEqual(b.spans.map((span) => [span.start, span.end]));
+      }
     }
   });
   it("leaves the other profiles' coverage version unchanged", () => {
