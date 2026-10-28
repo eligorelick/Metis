@@ -704,6 +704,9 @@ function excerptNamesMetric(claim: string[], source: string[], named: string[], 
  * takes no reporting period from the excerpt.
  */
 const COMPARISON_BASE_LEAD = /\b(?:from|compared\s+(?:with|to)|versus|vs\.?|against)\s*$/i;
+/** The only words that may sit between $A and the "to" that opens a move's end; they describe $A (fix round 1). */
+const MOVE_TIME_WORDS: ReadonlySet<string> = new Set(["last", "ago", "earlier", "sequentially", "quarter", "year", "prior", "first", "second",
+  "third", "fourth", "fiscal", "month", "months", "the", "a", "an", "in", "at", "of", "end"]);
 /**
  * AI-503: in "<direction word> from $A ... to $B" the metric and the direction belong to $B. Returns the words from the start of $A's own
  * description up to its "from" (the move's head), when "from" opens $A, both figures lie in the clause and $B is the next figure after
@@ -714,6 +717,11 @@ function moveHead(text: string, previous: Quantity, current: Quantity, all: read
   if (fromLead === null) return null;
   if (previous.start < clause.start || current.end > clause.end) return null;
   if (!/^[^\d$€£¥;•\n]*\bto\s*$/i.test(text.slice(previous.end, current.start))) return null;
+  // Fix round 1 (AI-503): only time words may sit between $A and "to". Any punctuation, direction word or other content word means
+  // another clause or a new subject ("... due to Data Center revenue growing to $41.1 billion"), and $B then gets no head.
+  const between = text.slice(previous.end, current.start).replace(/\bto\s*$/i, " ");
+  if (/[,:()\u2014\u2013]/.test(between) || findDirectionWords(between).length > 0) return null;
+  if (!(between.toLowerCase().match(/[a-z]+/g) ?? []).every((word) => MOVE_TIME_WORDS.has(word))) return null;
   const fromAt = Math.max(0, previous.start - 24) + fromLead.index;
   const before = all.filter((other) => other.end < previous.start && other.start >= clause.start).at(-1);
   return text.slice(ownBeforeStart(text, clause.start, previous.start, before), fromAt);
@@ -926,7 +934,9 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const head = previous === undefined ? null : moveHead(body.text, previous, quantity, found, own);
       const start = head === null ? null : context(body.text, previous!, found, true).direction;
       if (head !== null && start !== null) {
-        own.label = `${head} ${own.label}`;
+        // Fix round 1: the words between $A and "to" describe $A, so the end's label is the head plus its own after-text only.
+        const next = found[index + 1];
+        own.label = `${head} ${body.text.slice(quantity.end, next !== undefined && next.start < own.end ? next.start : own.end)}`;
         own.own = `${head} ${own.ownAfter}`;
         own.direction = { ...start, relation: "level" };
       }

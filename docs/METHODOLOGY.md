@@ -2751,15 +2751,28 @@ fronted phrase ("Under the new lease accounting guidance, operating lease
 liabilities were $2.5 billion": the claim must name the phrase, or the source
 must put it after a comma).
 
-A figure the source introduces with "from", "compared with", "versus" or
-"against" is a comparison base (audit 2026-10-27 AI-503, AI-503-V1 and
-AI-503-V2; D-next): it supports only a claim figure introduced the same way, and
-it does not take the excerpt's reporting period. In "<metric> increased from $A
-... to $B" the metric and the direction belong to $B, so "commitments increased
-to USD 279 billion" is read against $279 billion, not the $119 billion the move
-started from. When no direction word governs "from" (a range, "went from", a
-verb far from the figure), $B is not given the metric and the claim stays
-unverified.
+A figure the source introduces with "from", "compared with", "compared to",
+"versus", "vs." or "against" is a comparison base (audit 2026-10-27 AI-503,
+AI-503-V1 and AI-503-V2; D-next): it supports only a claim figure introduced the
+same way (a claim figure after these words binds only a source base), and it
+does not take the excerpt's reporting period. In "<metric> increased from $A ...
+to $B" the metric and the direction belong to $B, so "commitments increased to
+USD 279 billion" is read against $279 billion, not the $119 billion the move
+started from. $B's description is the words before $A's "from" (the move's
+head, starting where $A's own description starts) plus $B's own words after it;
+the words between $A and "to" ("last quarter", "a year ago") describe $A and
+never $B, so "commitments increased to USD 279 billion last quarter" is not
+supported. $B gets no head, and the claim stays unverified, when any of these
+holds: no direction word (rose, increased, fell, declined and the rest of the
+consistency reader's list) governs "from $A"; $A is in another clause than $B;
+a digit, "$", a currency sign, ";", a bullet or a line break lies between $A and
+"to"; the text between $A and "to" holds punctuation (a comma, colon,
+parenthesis, em or en dash), a direction word or any word outside this list:
+last, ago, earlier, sequentially, quarter, year, prior, first, second, third,
+fourth, fiscal, month, months, the, a, an, in, at, of, end. So a range
+("expected to range from $4.0 billion to $4.2 billion"), "went from", a verb
+far from "from", and a second move or a new subject ("... due to Data Center
+revenue growing to $41.1 billion") all leave $B without the metric.
 
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record

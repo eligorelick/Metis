@@ -132,3 +132,35 @@ describe("AI-503 / AI-503-V1 / AI-503-V2: a comparison base binds only a compari
     expect(onExcerpt("Inventory was USD 31.6 billion.", ex(sentence, T))).toBe("validated");
   });
 });
+
+// Fix round 1 (2026-10-28 rulings 1 and 2): a move end's description is the head plus only its own after-text, and the head is
+// withheld unless the text between $A and "to" is only the time words listed in the code.
+describe("AI-503 fix round 1: words that describe $A never describe $B, and a head needs a bare time-only between-text", () => {
+  const inv = (text: string) => ex(text, T);
+  it.each([
+    ["ruling 1: last quarter", CFO, "Our commitments increased to USD 279 billion last quarter.", "!validated"],
+    ["ruling 1: last quarter start", CFO, "Our commitments increased to USD 119 billion last quarter.", "!contradicted"],
+    ["ruling 1: a year ago", INV_AGO, "Inventory increased to USD 31.6 billion a year ago.", "!validated"],
+    ["ruling 1: a year ago start", INV_AGO, "Inventory increased to USD 25.8 billion a year ago.", "!contradicted"],
+    ["ruling 1: rose a year ago", INV_AGO, "Inventory rose to USD 31.6 billion a year ago.", "!validated"],
+    ["ruling 1: prior quarter", INV, "Inventory increased to USD 31.6 billion in the prior quarter.", "!validated"],
+    ["ruling 1: prior quarter start", INV, "Inventory increased to USD 25.8 billion in the prior quarter.", "!contradicted"],
+    ["ruling 1: first quarter", COMMIT_Q1, "Our commitments increased to USD 279 billion at the end of the first quarter.", "!validated"],
+    ["ruling 1: first quarter start", COMMIT_Q1, "Our commitments increased to USD 119 billion at the end of the first quarter.", "!contradicted"],
+    ["ruling 2: then fell", inv("Inventory rose from $25.8 billion, then fell to $20.1 billion."), "Inventory rose to USD 20.1 billion.", "!validated"],
+    ["ruling 2: due to", inv("Revenue increased from $35.0 billion a year ago, primarily due to Data Center revenue growing to $41.1 billion."), "Revenue increased to USD 41.1 billion.", "!validated"],
+    ["ruling 2: as grew", inv("Revenue increased from $35.0 billion, as Data Center revenue grew to $41.1 billion."), "Revenue increased to USD 41.1 billion.", "!validated"],
+    ["ruling 2: driven by", inv("Revenue increased from $35.0 billion a year ago, driven by Data Center revenue that rose to $41.1 billion."), "Revenue increased to USD 41.1 billion.", "!validated"],
+    ["ruling 2: memory rising", inv("Our commitments increased from $119 billion last quarter, with memory commitments rising to $160 billion."), "Our commitments increased to USD 160 billion.", "!validated"],
+    ["ruling 2: before declining", inv("Inventory increased from $25.8 billion last quarter before declining to $20.1 billion."), "Inventory declined to USD 20.1 billion.", "!contradicted"],
+    ["ruling 2: though declined", inv("Gross margin expanded from 72.7% last quarter, though it declined to 70.0%."), "Gross margin declined to 70.0%.", "!contradicted"],
+    ["ruling 2: though declined false", inv("Gross margin expanded from 72.7% last quarter, though it declined to 70.0%."), "Gross margin expanded to 70.0%.", "!validated"],
+    // Controls: these true move ends keep validating.
+    ["control: decreased", inv("Inventory decreased from $31.6 billion a year ago to $25.8 billion, reflecting lower demand."), "Inventory decreased to USD 25.8 billion.", "validated"],
+    ["control: percent", inv("Gross margin increased from 72.7% a year ago to 75.1%, reflecting a favorable mix."), "Gross margin increased to 75.1%.", "validated"],
+    ["control: sequentially", inv("Inventory increased from $25.8 billion sequentially to $31.6 billion, reflecting new product ramps."), "Inventory increased to USD 31.6 billion.", "validated"],
+  ] as const)("%s", (_name, excerpt, claim, expected) => {
+    const status = onExcerpt(claim, excerpt);
+    expect(holds(status, expected), `${claim} -> ${status}, wanted ${expected}`).toBe(true);
+  });
+});
