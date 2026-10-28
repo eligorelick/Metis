@@ -43,7 +43,7 @@ function quantities(text: string): Quantity[] {
   // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
   // distinct from a claim that simply copies "$56,586" out of a scaled table.
   const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
-  const pattern = new RegExp(String.raw`(?:(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES}))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share|score)?`, "gi");
+  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES}))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share|score)?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -65,7 +65,7 @@ function quantities(text: string): Quantity[] {
       }
     }
     const signWord = SIGN_WORD.exec(masked.slice(Math.max(0, start - 12), start));
-    if (signWord !== null && !groups.sign) start -= signWord[0].length;
+    if (signWord !== null && !groups.sign && !groups.lead) start -= signWord[0].length;
     const scale = SCALES[(groups.scale ?? (groups.prefix ? declaredMoneyScale : undefined) ?? "").toLowerCase()] ?? 1;
     const token = (groups.unit ?? "").toLowerCase();
     const prefix = (groups.prefix ?? "").trim();
@@ -88,11 +88,16 @@ function quantities(text: string): Quantity[] {
     // Accounting parentheses enclose the complete amount (including currency
     // and unit); they are part of its sign, not disposable prose punctuation.
     const accountingNegative = /\(\s*$/.test(masked.slice(0, start)) && /^\s*\)/.test(masked.slice(end));
-    return [{ start, end, value: (groups.sign === "-" || groups.sign === "−" || accountingNegative || signWord !== null ? -1 : 1) *
+    return [{ start, end, value: (/^[-−]$/.test(groups.lead ?? groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
     step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
     scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined) }];
   });
+}
+
+/** The prose quantity reader, exported for tests. */
+export function readProseQuantities(text: string): readonly Quantity[] {
+  return quantities(text);
 }
 
 /** `start` and `end` are offsets in the text the period was read from. */
