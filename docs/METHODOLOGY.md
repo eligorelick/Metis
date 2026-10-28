@@ -712,8 +712,9 @@ tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
 `InvestmentIncomeInterestAndDividend` and `InvestmentIncomeInterest` in that
 order (audit 2026-10-27 FIN-510-V1), because at a bank the investment-income
 element is only the securities interest inside the total. A non-bank keeps the
-investment-income elements first. No grade, ratio or payload line reads the
-changed bank figure.
+investment-income elements first. No figure changes: the mortgage-REIT spread
+reads the statement `interestIncome` only as a fallback when no operating tag is
+filed, so its value cannot change.
 
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below
