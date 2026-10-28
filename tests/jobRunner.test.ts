@@ -9361,6 +9361,10 @@ describe("analyst repair attempt after schema-invalid output", () => {
     usage: { input_tokens: 14000, output_tokens: 5000, cache_creation_input_tokens: 0, cache_read_input_tokens: 300000 },
     webSearches: 6,
   };
+  const bearBilledAttemptPass = (): PassResultLike<AnalystCase> => ({
+    data: fakeAnalystCase(),
+    ...bearBilledAttempt,
+  });
   function schemaInvalidBear(bull: PassResultLike<AnalystCase>, retryable: boolean): Error {
     return Object.assign(new Error(SCHEMA_ERROR), {
       bull,
@@ -9418,6 +9422,107 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(byStep.get("bear")?.costUsd).toBeCloseTo(0.78, 6);
     expect(byStep.get("bear")?.detail).toBe("model claude-opus-4-8, $0.7800 over 2 attempts");
     expect(byStep.get("bull")?.detail).toBe("model claude-opus-4-8, $0.9000");
+  });
+
+  /** The first dollar figure a step's detail states. */
+  const detailCost = (detail: string | undefined): number => Number(/\$(\d+(?:\.\d+)?)/.exec(detail ?? "")?.[1]);
+
+  it("states a reused repaired side's summed cost after a resume", async () => {
+    // JOB-204: after a resume the reused side's detail named the last
+    // attempt's $0.47 beside a step cost of $0.78 (D-113 states the whole).
+    const stepsOf = (id: string) => new Map(
+      (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, id)).get()?.stepsJson ?? "[]") as StepProgress[])
+        .map((step) => [step.step, step]),
+    );
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+
+    // Control (D-113): the run that pays the repair states the whole at once.
+    const fresh = createJob("AAPL").jobId;
+    const firstRun = mockPasses().passes;
+    firstRun.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw schemaInvalidBear(bull, true);
+    };
+    firstRun.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch) => {
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bear));
+      return bear;
+    };
+    await runJob(fresh, firstRun, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    const gen0Bear = stepsOf(fresh).get("bear")!;
+    expect(gen0Bear.costUsd).toBeCloseTo(0.78, 6);
+    expect(detailCost(gen0Bear.detail)).toBeCloseTo(0.78, 4);
+
+    // The same job state after a crash before synthesize: both bear attempts
+    // are settled ($0.31 rejected, $0.47 kept) and the resume reuses the pair.
+    const { jobId } = createJob("AAPL");
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bull", pass: "bull",
+      settlement: testSuccessSettlement(bull), payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bear-rejected", pass: "bear",
+      settlement: testFailureSettlement(bearBilledAttemptPass(), SCHEMA_ERROR),
+      payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "gen0-bear", pass: "bear",
+      settlement: testSuccessSettlement(bear), payloadFingerprint: "fp", settledAt: NOW().toISOString(),
+    });
+    handle.db.update(jobs)
+      .set({ status: "error", error: "abandoned: durable job lease expired" })
+      .where(eq(jobs.id, jobId))
+      .run();
+
+    const resumed = mockPasses().passes;
+    resumed.fingerprintPayload = () => "fp";
+    const result = await runJob(jobId, resumed, {
+      bundle: fakeBundle(),
+      hasAnthropicKey: true,
+      now: NOW,
+      resume: true,
+    });
+
+    expect(result.status).toBe("done");
+    const bearStep = stepsOf(jobId).get("bear")!;
+    expect(bearStep.costUsd).toBeCloseTo(0.78, 6);
+    expect(detailCost(bearStep.detail)).toBeCloseTo(0.78, 4);
+    expect(bearStep.detail).toContain("over 2 attempts");
+    expect(bearStep.detail).toMatch(/^reused persisted result from previous attempt \(resume\)/);
+  });
+
+  it("states a step's presumed request in its detail", async () => {
+    // JOB-204: a step holding a $9.53 presumed request and a $0.40 settled one
+    // costs $9.93; its detail named only the settled $0.40.
+    const { jobId } = createJob("AAPL");
+    handle.db.insert(costLog).values({
+      jobId,
+      runGeneration: 0,
+      attemptId: null,
+      presumedAttemptId: "dead-attempt",
+      settlementKind: "presumed",
+      step: "bull",
+      model: "claude-opus-4-8",
+      costUsd: 9.53,
+      createdAt: NOW().toISOString(),
+    }).run();
+    const { passes } = mockPasses({ bullCostUsd: 0.4 });
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const steps = new Map(
+      (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.stepsJson ?? "[]") as StepProgress[])
+        .map((step) => [step.step, step]),
+    );
+    const bullStep = steps.get("bull")!;
+    expect(bullStep.costUsd).toBeCloseTo(9.93, 6);
+    expect(detailCost(bullStep.detail)).toBeCloseTo(9.93, 4);
+    expect(bullStep.detail).toContain("$9.5300 presumed");
+    // Control: a step holding no presumed row keeps its plain detail.
+    expect(steps.get("bear")?.detail).toBe("model claude-opus-4-8, $0.4700");
   });
 
   it("marks the discarded attempt in the cost breakdown and says so in the manifest", async () => {

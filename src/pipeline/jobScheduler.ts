@@ -1706,6 +1706,29 @@ export function releaseUnbilledPaidPassLease(
   return released;
 }
 
+/**
+ * What a step has cost in a job: every cost row of the step (presumed ones
+ * included, which are counted as spent until reconciled), the part of that sum
+ * that is presumed, and the number of settled attempts. The run-panel step row
+ * and its detail both read this, so the detail never states less than the cost.
+ */
+export function stepSettledTotals(
+  jobId: string,
+  pass: DurablePass,
+  db: ThesisDb = getDb(),
+): { costUsd: number; attempts: number; presumedUsd: number } {
+  const rows = db.select({ costUsd: costLog.costUsd, settlementKind: costLog.settlementKind }).from(costLog)
+    .where(and(eq(costLog.jobId, jobId), eq(costLog.step, pass))).all();
+  // Counted like the cost: every settled attempt of this step in this job.
+  const attempts = db.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
+    .where(and(eq(jobPassArtifacts.jobId, jobId), eq(jobPassArtifacts.pass, pass))).all().length;
+  return {
+    costUsd: rows.reduce((total, row) => total + row.costUsd, 0),
+    attempts,
+    presumedUsd: rows.filter((row) => row.settlementKind === "presumed").reduce((total, row) => total + row.costUsd, 0),
+  };
+}
+
 export interface SettlePaidPassInput<T> {
   settlement: PassSettlement<T>;
   payloadFingerprint: string | null;
@@ -1720,7 +1743,7 @@ export interface SettlePaidPassInput<T> {
      * naming only the last attempt's cost contradicted it: NVDA's bear row
      * read "$0.2817" beside "$0.5784" after a repair (2026-10-26).
      */
-    detailAcrossAttempts?: (stepCostUsd: number, attempts: number) => string;
+    detailAcrossAttempts?: (stepCostUsd: number, attempts: number, presumedUsd: number) => string;
     /**
      * A failure the run will repair: the step stays running under `detail`
      * instead of reading ERROR while the repair waits (NVDA run #49,
@@ -1920,13 +1943,12 @@ export function settlePaidPassLease<T>(
             step.finishedAt = input.step?.finishedAt ?? authorityAt;
             step.completedAt = step.finishedAt;
           }
-          const stepCost = tx.select({ costUsd: costLog.costUsd }).from(costLog)
-            .where(and(eq(costLog.jobId, lease.jobId), eq(costLog.step, lease.pass))).all()
-            .reduce((total, row) => total + row.costUsd, 0);
-          // Counted like the cost: every settled attempt of this step in this job.
-          const attempts = tx.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
-            .where(and(eq(jobPassArtifacts.jobId, lease.jobId), eq(jobPassArtifacts.pass, lease.pass))).all().length;
-          step.detail = (attempts > 1 ? input.step?.detailAcrossAttempts?.(stepCost, attempts) : undefined) ??
+          const { costUsd: stepCost, attempts, presumedUsd } = stepSettledTotals(lease.jobId, lease.pass, tx as ThesisDb);
+          // The detail states the step's own cost (JOB-204): the summed form
+          // whenever the step holds more than this attempt's own figure.
+          const summed = attempts > 1 || presumedUsd > 0 ||
+            Math.round(stepCost * 1e4) !== Math.round(prepared.telemetry.costUsd * 1e4);
+          step.detail = (summed ? input.step?.detailAcrossAttempts?.(stepCost, attempts, presumedUsd) : undefined) ??
             input.step?.detail ?? (
               input.settlement.outcome === "success"
                 ? `${lease.pass} pass settled`

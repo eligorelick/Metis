@@ -145,6 +145,7 @@ import {
   resizePaidPassLease,
   settlePaidPassLease,
   settleRequestCost,
+  stepSettledTotals,
   PaidPassOverReservationError,
   isTransientWriterLock,
   type JobClaim,
@@ -1106,10 +1107,10 @@ function passErrorDetails(error: unknown): { kind?: string; retryable?: boolean 
   };
 }
 
-/** `total`: the step's cost and attempt count when earlier attempts settled too. */
+/** `total`: the step's cost, attempt count and presumed part when the step holds more than this attempt. */
 function settlementStepDetail<T>(
   settlement: PassSettlement<T>,
-  total?: { costUsd: number; attempts: number },
+  total?: { costUsd: number; attempts: number; presumedUsd: number },
 ): string {
   if (settlement.outcome === "failure") return settlement.failure.message;
   return passDetail({
@@ -1125,7 +1126,7 @@ function settlementStepDetail<T>(
     },
     webSearches: settlement.telemetry.webSearches,
     fetchedUrls: settlement.telemetry.fetchedUrls,
-  }, total?.attempts);
+  }, total?.attempts, total?.presumedUsd);
 }
 
 /** Adopt the one exact-current settlement snapshot after its outer transaction commits. */
@@ -1540,7 +1541,7 @@ function createSettlementCheckpoint<T>(
             finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
             detail: note?.detail ?? settlementStepDetail(settlement),
             ...(note === null
-              ? { detailAcrossAttempts: (costUsd: number, attempts: number) => settlementStepDetail(settlement, { costUsd, attempts }) }
+              ? { detailAcrossAttempts: (costUsd: number, attempts: number, presumedUsd: number) => settlementStepDetail(settlement, { costUsd, attempts, presumedUsd }) }
               : {}),
           },
       });
@@ -3761,11 +3762,17 @@ export async function runJob<TPayload = unknown>(
         const snapshot = resumeSnapshots[side];
         if (snapshot === null) continue;
         startStep(state, side);
+        // The step's own totals (JOB-204): a repaired or presumed-bearing side states its whole cost.
+        const totals = stepSettledTotals(state.jobId, side);
         finishStep(
           state,
           side,
           "done",
-          `reused persisted result from previous attempt (resume) — ${passDetail(snapshot)}`,
+          `reused persisted result from previous attempt (resume) — ${passDetail(
+            { ...snapshot, costUsd: totals.costUsd > 0 ? totals.costUsd : snapshot.costUsd },
+            totals.attempts,
+            totals.presumedUsd,
+          )}`,
           snapshot.costUsd,
         );
       }
@@ -5502,8 +5509,12 @@ function naScore(): Report["quality"]["forensicScores"]["altman"] {
  * Small utilities
  * ------------------------------------------------------------------------ */
 
-function passDetail(pass: PassResultLike<unknown>, attempts = 1): string {
-  const parts = [`model ${pass.model}`, `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}`];
+function passDetail(pass: PassResultLike<unknown>, attempts = 1, presumedUsd = 0): string {
+  const parts = [
+    `model ${pass.model}`,
+    `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}${
+      presumedUsd > 0 ? ` (incl. $${presumedUsd.toFixed(4)} presumed until reconciled)` : ""}`,
+  ];
   if (pass.fallbackUsed) parts.push("fallback served");
   return parts.join(", ");
 }
