@@ -1,7 +1,7 @@
 /** Conservative numeric support for prose. A citation alone never proves a fact. */
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
-import { findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
+import { comparisonCueEnd, findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
 import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 
@@ -95,8 +95,14 @@ function quantities(text: string): Quantity[] {
   });
 }
 
-interface PeriodReference { key: string; label: string; raw: string; kind: "date" | "month" | "period" | "window" }
-interface Context { start: number; end: number; text: string; label: string; periods: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
+/** `start` and `end` are offsets in the text the period was read from. */
+interface PeriodReference { key: string; label: string; raw: string; kind: "date" | "month" | "period" | "window"; start: number; end: number }
+/**
+ * `periods` are the periods the clause states for its figure; `bases` (AI-402) are
+ * the comparison bases it names ("compared with $10.2 billion in second quarter
+ * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
+ */
+interface Context { start: number; end: number; text: string; label: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
   /**
@@ -158,14 +164,16 @@ const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐
 function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
-  const take = (pattern: RegExp, read: (match: RegExpMatchArray) => Omit<PeriodReference, "raw">): void => {
+  const take = (pattern: RegExp, read: (match: RegExpMatchArray) => Omit<PeriodReference, "raw" | "start" | "end">): void => {
     rest = rest.replace(pattern, (...args: unknown[]) => {
       const match = args as unknown as RegExpMatchArray;
-      out.push({ raw: match[0], ...read(match) });
+      // The match offset is the first numeric argument after the match (capture groups are strings or undefined).
+      const start = args.find((arg, i): arg is number => i > 0 && typeof arg === "number")!;
+      out.push({ raw: match[0], start, end: start + match[0].length, ...read(match) });
       return " ".repeat(match[0].length);
     });
   };
-  const dated = (year: string, month: number, day: string): Omit<PeriodReference, "raw"> => {
+  const dated = (year: string, month: number, day: string): Omit<PeriodReference, "raw" | "start" | "end"> => {
     const iso = `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")}`;
     return { kind: "date", label: iso, key: isIsoDate(iso) ? iso : `unestablished-date:${iso}` };
   };
@@ -213,7 +221,7 @@ function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolea
         // "fiscal year 2026": the year reader blanked the year, so look at the unblanked text; the year word is part of that period.
         NAMED_PERIOD_AFTER.test(text.slice(match.index + match[0].length, match.index + match[0].length + 16))) continue;
       const key = match[1].toLowerCase() === "year" ? "annual" : "quarter";
-      out.push({ raw: match[0], kind: "window", key, label: key });
+      out.push({ raw: match[0], start: match.index, end: match.index + match[0].length, kind: "window", key, label: key });
     }
   }
   return out;
@@ -251,7 +259,14 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
-  return { start, end, text: ownText, label, periods: periodLabels(ownText, { loose: !source, yearEnd: source }),
+  // AI-402: a period that follows a comparison cue is the comparison's base, unless this figure sits between the cue and it (then it is the figure's own period).
+  const stated = periodLabels(ownText, { loose: !source, yearEnd: source });
+  const isBase = (period: PeriodReference): boolean => {
+    if (period.kind === "window") return false;
+    const cue = comparisonCueEnd(ownText, period.start);
+    return cue !== null && !(cue <= quantity.start - start && quantity.end - start <= period.start);
+  };
+  return { start, end, text: ownText, label, periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase),
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -679,7 +694,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, periods, ambiguous: false, direction: null };
+        const own = { ...context(body.text, quantity, found), label, periods, bases: [], ambiguous: false, direction: null };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -760,7 +775,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const typedText = typedClaimContext(claim.text, record);
     if (typedText === null) return support("unchecked", "text-context-mismatch", "prose vote formula does not establish the cited numerator and denominator");
     const own = context(typedText, quantity, stated);
-    if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
+    if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
     const established = new Set([...basisWindows(record), ...labelLooseWindows(record)]);
@@ -861,7 +876,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   const spans: ClaimSourceSpan[] = [];
   for (const quantity of stated) {
     const own = context(claim.text, quantity, stated);
-    if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
+    if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
@@ -901,12 +916,14 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
         candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
     };
+    // AI-402: a base the claim names must be a base the source clause names; a table cell names none.
+    const basesMatch = (candidate: SourceBinding): boolean => own.bases.every((base) => candidate.context.bases.some((source) => source.key === base.key));
     let matchingPeriods = candidates.filter((candidate) => candidate.column !== undefined
-      ? columnMatches(candidate, candidate.column)
-      : candidate.context.periods.length > 0
+      ? own.bases.length === 0 && columnMatches(candidate, candidate.column)
+      : basesMatch(candidate) && (candidate.context.periods.length > 0
         ? clauseMatches(candidate)
         : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
-          : candidate.inherited.some((source) => source.key === period.key)));
+          : candidate.inherited.some((source) => source.key === period.key))));
     if (matchingPeriods.length === 0) {
       // One stated other period is a period mismatch (unverified, F-22); a
       // flattened table's header of several periods binds no column.

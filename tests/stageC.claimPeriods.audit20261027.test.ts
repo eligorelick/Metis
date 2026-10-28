@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { namesRecency, reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
-import { consistencyManifestEntries } from "@/pipeline/stageC/consistency";
+import { comparisonCueEnd, consistencyManifestEntries } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import type { VerificationLogEntry } from "@/report/schema";
@@ -370,5 +370,103 @@ describe("AI-303-V4 hyphenated and labelled recency", () => {
       expect(namesRecency(yes), yes).toBe(true);
     for (const no of ["the latest guidance", "the latest product launch", "latest NVIDIA", "a recent quarter", "the latest, and", "latest."])
       expect(namesRecency(no), no).toBe(false);
+  });
+});
+
+const NEUTRAL = "8-K EX-99.1 - earnings release, quarter ended 2026-06-30 (8-K 0001018724-26-000024; filed 2026-07-30)";
+const SYN = (text: string): TextExcerpt => ({ source: "edgar:8-K EX-99.1", asOf: "2026-07-30", title: NEUTRAL, text, truncated: false, originalChars: text.length });
+const AMZN = SYN("• AWS segment operating income was $16.6 billion, compared with $10.2 billion in second quarter 2025. • North America segment operating income was $9.1 billion, compared with $7.5 billion in second quarter 2025.");
+const FX = SYN("Excluding the $0.1 billion favorable impact from year-over-year changes in foreign exchange rates throughout the quarter, net sales increased 20% compared with second quarter 2025.");
+const YOY_26 = rec({ id: "computed.quarterly-trend.revenue-growth-year-over-year-quarter-ended-2026-06-30", label: "revenue growth year over year, quarter ended 2026-06-30",
+  kind: "computed", unit: "percent", currency: null, value: 19.6205, period: "2026-06-30", asOf: "2026-06-30", origin: "computed.quarterly-trend" });
+const YOY_25 = rec({ ...YOY_26, id: "computed.quarterly-trend.revenue-growth-year-over-year-quarter-ended-2025-06-30", label: "revenue growth year over year, quarter ended 2025-06-30",
+  value: 13.3333, period: "2025-06-30", asOf: "2025-06-30" });
+const NV_YOY = rec({ id: "computed.quarterly-trend.revenue-growth-year-over-year-quarter-ended-2026-07-26", label: "revenue growth year over year, quarter ended 2026-07-26",
+  kind: "computed", unit: "percent", currency: null, value: 105.85, period: "2026-07-26", fiscalPeriod: "Q2 FY2027", asOf: "2026-07-26", origin: "computed.quarterly-trend" });
+const NV_QOQ = rec({ ...NV_YOY, id: "computed.quarterly-trend.revenue-growth-quarter-over-quarter-quarter-ended-2026-07-26", label: "revenue growth quarter over quarter, quarter ended 2026-07-26", value: 17.9 });
+
+describe("AI-402 comparison bases", () => {
+  const UP_FROM = SYN("Revenue was USD 12.4 billion, up 23% from the second quarter of fiscal 2025.");
+  it.each([
+    [AMZN, "AWS segment operating income in second quarter 2025 was USD 16.6 billion."],
+    [SYN("Revenue was USD 12.4 billion, compared with USD 10.1 billion for the second quarter of fiscal 2025."), "Revenue in the second quarter of fiscal 2025 was USD 12.4 billion."],
+    [UP_FROM, "Revenue in the second quarter of fiscal 2025 was USD 12.4 billion."],
+    [SYN("Revenue was USD 12.4 billion, up 23% versus the second quarter of fiscal 2025."), "Revenue in the second quarter of fiscal 2025 was USD 12.4 billion."],
+    [SYN("Net sales increased 20% compared with second quarter 2025."), "Net sales in second quarter 2025 increased 20%."],
+    [FX, "Net sales in second quarter 2025 increased 20%."],
+  ])("AI-402: a figure before the comparison word does not take the base's period (%#)", async (excerpt, text) => {
+    expect((await citeExcerpt(excerpt, text)).entry.validationStatus).toBe("unchecked");
+  });
+  it.each([
+    [AMZN, "AWS segment operating income in second quarter 2025 was USD 10.2 billion."],
+    [AMZN, "North America segment operating income in second quarter 2025 was USD 7.5 billion."],
+    [UP_FROM, "Revenue in the second quarter of fiscal 2025 was USD 10.1 billion."],
+  ])("AI-402: a correct year-ago figure is never contradicted by the current one (%#)", async (excerpt, text) => {
+    const { entry, out } = await citeExcerpt(excerpt, text);
+    expect(entry.validationStatus).toBe("unchecked");
+    expect(out.coverage.factualValidation?.contradicted).toBe(0);
+  });
+  it("AI-402: a figure before the comparison word reads the excerpt's own period", async () => {
+    expect((await citeExcerpt(AMZN, "AWS segment operating income in the quarter ended 2026-06-30 was USD 16.6 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(UP_FROM, "Revenue for the quarter ended 2026-06-30 was USD 12.4 billion.")).entry.validationStatus).toBe("validated");
+  });
+  it("AI-402: the echo of a source comparison validates; a wrong base does not", async () => {
+    const growth = SYN("Net sales increased 20% compared with second quarter 2025.");
+    expect((await citeExcerpt(growth, "Net sales increased 20% compared with second quarter 2025.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(growth, "Net sales increased 20% compared with second quarter 2024.")).entry.validationStatus).not.toBe("validated");
+  });
+  it('AI-402: a bare "from" opens an interval, not a comparison base', () => {
+    const at = (text: string, phrase: string) => comparisonCueEnd(text, text.indexOf(phrase));
+    expect(at("Operating cash flow from 2025-07-27 to 2026-07-26 was USD 134.36 billion.", "2025-07-27")).toBeNull();
+    expect(at("Capex over fiscal 2027 is expected to be USD 25 billion.", "2027")).toBeNull();
+    expect(at("Revenue from the third quarter 2026 onward is recognized ratably.", "third quarter 2026")).toBeNull();
+    expect(at("Revenue actual versus the prior guidance midpoint for Q2 FY2027 was 5.7%.", "Q2 FY2027")).toBeNull();
+    expect(at("AWS segment operating income was $16.6 billion, compared with $10.2 billion in second quarter 2025.", "second quarter 2025")).not.toBeNull();
+    expect(at("Revenue was USD 12.4 billion, up 23% from the second quarter of fiscal 2025.", "second quarter of fiscal 2025")).not.toBeNull();
+    expect(at("Revenue grew 20% over fiscal 2025.", "2025")).not.toBeNull();
+    expect(at("Net sales are expected to be between $197.0 billion and $202.0 billion, or to grow between 9% and 12% compared with third quarter 2025.", "third quarter 2025")).not.toBeNull();
+    // A bare "from" across an amount is D-98's base; "over" and an amount range are not.
+    expect(at("Revenue grew to USD 12.4 billion from USD 10.1 billion in the second quarter of fiscal 2025.", "second quarter of fiscal 2025")).not.toBeNull();
+    expect(at("Capex is expected to be over USD 10 billion in fiscal 2027.", "2027")).toBeNull();
+    expect(at("Revenue is expected to range from USD 10.0 billion to USD 10.4 billion for the fourth quarter of 2026.", "fourth quarter of 2026")).toBeNull();
+    expect(at("Revenue grew from $391.0 billion in FY2024 to $416.2 billion in FY2025.", "FY2024")).not.toBeNull();
+    expect(at("Revenue grew from $391.0 billion in FY2024 to $416.2 billion in FY2025.", "FY2025")).toBeNull();
+  });
+  it("AI-402-V2: a fiscal-label base is compared with the figure's own base quarter, not a calendar year", async () => {
+    for (const [record, text] of [[NV_YOY, "Revenue growth year over year for the quarter was 105.85%, compared with Q2 FY2026."],
+      [NV_QOQ, "Revenue growth quarter over quarter for the quarter was 17.9%, compared with Q1 FY2027."]] as const) {
+      const { entry, periodRow } = await cite([record], record.id, text);
+      expect(periodRow, text).toBeUndefined();
+      expect(entry.validationStatus, text).toBe("validated");
+    }
+    const wrong = await cite([NV_YOY], NV_YOY.id, "Revenue growth year over year for the quarter was 105.85%, compared with Q2 FY2025.");
+    expect(wrong.entry.validationStatus).toBe("unchecked");
+    expect(wrong.periodRow).toMatchObject({ reason: "period-word-mismatch" });
+  });
+  it("AI-402-V2: a correct YoY sentence naming its comparison base gets no period finding", async () => {
+    for (const text of ["Revenue growth year over year for the quarter was 19.62%, compared with second quarter 2025.",
+      "Revenue growth year over year for the quarter ended 2026-06-30 was 19.62%, compared with second quarter 2025."]) {
+      const { entry, out, periodRow, manifest } = await cite([YOY_26, YOY_25], YOY_26.id, text);
+      expect(entry).toMatchObject({ validationStatus: "validated", reason: "supported" });
+      expect(periodRow).toBeUndefined();
+      expect(manifest).not.toContain("verify.check.period");
+      expect(out.checks.period).toEqual({ checked: 1, passed: 1, failed: 0, rate: 1 });
+    }
+  });
+  it("AI-402-V2: the base is checked as the base", async () => {
+    const wrongBase = await cite([YOY_26, YOY_25], YOY_26.id, "Revenue growth year over year for the quarter was 19.62%, compared with second quarter 2024.");
+    expect(wrongBase.entry.validationStatus).toBe("unchecked");
+    expect(wrongBase.periodRow).toMatchObject({ reason: "period-word-mismatch" });
+    expect(wrongBase.periodRow?.note).toContain("comparison base");
+    const yearAgoRecord = await cite([YOY_26, YOY_25], YOY_25.id, "Revenue growth year over year for the quarter was 13.33%, compared with second quarter 2025.");
+    expect(yearAgoRecord.entry.validationStatus).not.toBe("validated");
+    expect(yearAgoRecord.periodRow).toMatchObject({ reason: "period-word-mismatch" });
+  });
+  it("AI-302 x AI-402: a start date beside a comparison that names the window's end is still only a start", async () => {
+    // Task 2's start-date gate accepts a start only when the clause names the end; a comparison base is not the clause's own period.
+    const { entry } = await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months ended 2025-07-27 was USD 134.36 billion, compared with 2026-07-26.");
+    expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    // Control: the complete interval still validates.
+    expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months from 2025-07-27 to 2026-07-26 was USD 134.36 billion.")).entry.validationStatus).toBe("validated");
   });
 });

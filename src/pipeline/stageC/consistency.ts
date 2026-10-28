@@ -19,7 +19,10 @@
  *    itself is never adjudicated. That is deliberately looser than the
  *    citation check (`periodsAgree`), which decides whether a number VERIFIES;
  *    this one only writes a log entry, and prose names bare years ("in 2025")
- *    that no fiscal calendar in the payload can adjudicate.
+ *    that no fiscal calendar in the payload can adjudicate. A phrase that follows
+ *    a comparison word ("compared with ... second quarter 2025") is the
+ *    comparison's base, compared with the period the cited growth figure is
+ *    measured against ({@link comparisonBase}), not with its own period (AI-402).
  *  - UNIT: the unit token attached to the cited figure ("%", "bps", "billion")
  *    must belong to the family the record's registry unit can express. A
  *    sentence that puts a currency on a number citing a figure whose currency
@@ -729,18 +732,56 @@ export function phraseNamesRecordYear(phrase: string, registered: string | null)
   return ya.size > 0 && ya.size === yb.size && [...ya].every((year) => yb.has(year));
 }
 
+// Audit 2026-10-27 AI-402 / C-1: a comparison base is the period of the figure a
+// comparison word introduces ("compared with $10.2 billion in second quarter 2025",
+// "up 23% from the second quarter of fiscal 2025"). The cue grammar is narrower than
+// the release parser's (D-98, src/edgar/currentReports.ts: any "from" or "over"; B9
+// owns that): a period directly after a bare "from" is an interval or a start
+// ("from 2025-07-27 to 2026-07-26"), after "over" a window or "more than".
+const BASE_WORD = String.raw`(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly|fiscal)[\s,]+`;
+const BASE_AMOUNT = String.raw`(?:US\$|[$€£¥]|(?:${CURRENCY_CODES})\s*)?[-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion|bn|mm|[bmk])?[\s,]+`;
+const BASE_FILLER = String.raw`(?:${BASE_WORD}|${BASE_AMOUNT})*`;
+const CHANGE_WORD = String.raw`(?:up|down|higher|lower|increas(?:e|ed|es|ing)|decreas(?:e|ed|es|ing)|rose|rise[sn]?|rising|fell|fall(?:s|en|ing)?|grew|grow(?:s|n|ing)?|growth|declin(?:e|ed|es|ing)|gain(?:ed|s)?|drops?|dropped|jump(?:ed|s)?)`;
+const MAGNITUDE = String.raw`(?:\s+(?:of\s+|by\s+)?(?:approximately\s+|about\s+|roughly\s+)?[-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|percentage\s+points?|basis\s+points?|bps|pp|x|times))?`;
+const BASE_CUE = String.raw`(?:(?:as\s+)?compared\s+(?:with|to)|versus|vs\.?|relative\s+to|against|than|above|below|${CHANGE_WORD}${MAGNITUDE}\s+(?:from|over))`;
+// A bare "from" governs a base only across at least one amount ("to $12.4 billion from
+// $10.1 billion in the second quarter of fiscal 2025"); a period right after it is an
+// interval or a start ("from 2025-07-27 to 2026-07-26", "from the third quarter 2026 onward").
+const BASE_TAIL = new RegExp(String.raw`(?:\b(${BASE_CUE})\s+${BASE_FILLER}|\b(from)\s+(?:${BASE_WORD})*${BASE_AMOUNT}${BASE_FILLER})$`, "i");
+// The cue is looked for in the clause before the phrase: not across ;, a bullet, a newline or a sentence end ("vs. " is not one).
+const BASE_CLAUSE_CUT = /;|•|\n|(?<!\bvs)[.!?](?=\s)/g;
+
 /**
- * Period phrases that NAME A YEAR. A bare "Q3" is skipped on purpose: without
+ * The end offset (in `text`) of the comparison cue the phrase at `index` follows,
+ * with only amounts and connecting words between them; null when it follows none.
+ */
+export function comparisonCueEnd(text: string, index: number): number | null {
+  const from = Math.max(0, index - 120);
+  const head = text.slice(from, index);
+  const cut = [...head.matchAll(BASE_CLAUSE_CUT)].at(-1);
+  const clause = cut === undefined ? head : head.slice(cut.index + cut[0].length);
+  const match = BASE_TAIL.exec(clause);
+  if (match === null) return null;
+  const cue = match[1] ?? match[2]!;
+  return from + (head.length - clause.length) + match.index + cue.length;
+}
+
+/**
+ * Period phrases that NAME A YEAR, split into the phrases the sentence states for
+ * its figure and the comparison bases (AI-402). A base is a phrase that follows a
+ * comparison cue, unless the cited figure itself sits between the cue and the phrase
+ * (then it is that figure's own period). A bare "Q3" is skipped on purpose: without
  * the issuer's fiscal calendar there is no way to decide whether Q3 is the
  * record's ISO period end, and guessing would fail correct sentences (Apple's
  * Q3 FY2025 ends in June). Skipped means "not checked", and `checked` says so.
  */
-export function findPeriodPhrases(
+function scanPeriodPhrases(
   sentence: string,
   numbers: readonly ParsedNumber[],
-  located: readonly ParsedNumber[] = [],
-): string[] {
-  const phrases: string[] = [];
+  located: readonly ParsedNumber[],
+): { own: string[]; bases: string[] } {
+  const own: string[] = [];
+  const bases: string[] = [];
   const seen = new Set<string>();
   // A four-digit number that is really a VALUE is not a year. Two ways to tell:
   // it carried a currency prefix, a scale word or a unit token, or it IS the
@@ -750,22 +791,79 @@ export function findPeriodPhrases(
     ...numbers.filter((n) => n.hadCurrencyPrefix || n.scaleWord !== null || n.unitToken !== null),
     ...located,
   ].map((n) => [n.start, n.end] as const);
-  const dateSpans: (readonly [number, number])[] = [];
+  // A phrase that starts inside an earlier one is part of it (an ISO date's year,
+  // the "2025" of "second quarter 2025"); the year set is the same.
+  const taken: (readonly [number, number])[] = [];
   for (const pattern of PERIOD_PATTERNS) {
     pattern.lastIndex = 0;
     for (const match of sentence.matchAll(pattern)) {
       const index = match.index ?? 0;
       const insideValue = valueSpans.some(([start, end]) => index >= start && index < end);
-      if (insideValue || dateSpans.some(([start, end]) => index >= start && index < end)) continue;
+      if (insideValue || taken.some(([start, end]) => index >= start && index < end)) continue;
+      taken.push([index, index + match[0].length]);
       const phrase = match[0].trim();
-      if (pattern === PERIOD_PATTERNS[0]) dateSpans.push([index, index + match[0].length]);
       const key = phrase.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      phrases.push(phrase);
+      const cue = comparisonCueEnd(sentence, index);
+      (cue !== null && !located.some((n) => cue <= n.start && n.end <= index) ? bases : own).push(phrase);
     }
   }
-  return phrases;
+  return { own, bases };
+}
+
+/** Period phrases that name a year, other than comparison bases (see {@link scanPeriodPhrases}). */
+export function findPeriodPhrases(
+  sentence: string,
+  numbers: readonly ParsedNumber[],
+  located: readonly ParsedNumber[] = [],
+): string[] {
+  return scanPeriodPhrases(sentence, numbers, located).own;
+}
+
+/** The comparison-base period phrases of a sentence (AI-402); never a phrase `findPeriodPhrases` returns. */
+export function findComparisonBasePhrases(
+  sentence: string,
+  numbers: readonly ParsedNumber[],
+  located: readonly ParsedNumber[] = [],
+): string[] {
+  return scanPeriodPhrases(sentence, numbers, located).bases;
+}
+
+/**
+ * The period a year-over-year or quarter-over-quarter figure is measured against
+ * (AI-402-V2 / C-2): the record's ISO period 12 (or 3) months earlier and its fiscal
+ * label one fiscal year (or quarter) earlier. Null when the record names no such basis.
+ */
+function comparisonBase(record: NumericProvenanceRecord): { end: string; fiscal: string | null } | null {
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(record.period ?? "");
+  if (date === null) return null;
+  const named = `${record.id} ${record.label ?? ""}`;
+  const months = /year[\s-]+over[\s-]+year|\byoy\b/i.test(named) ? 12 : /quarter[\s-]+over[\s-]+quarter|\bqoq\b/i.test(named) ? 3 : 0;
+  if (months === 0) return null;
+  const total = Number(date[1]) * 12 + (Number(date[2]) - 1) - months;
+  const year = Math.floor(total / 12);
+  const month = total % 12;
+  const day = Math.min(Number(date[3]), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+  const end = `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const label = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? "";
+  const quarter = /^Q([1-4])\s*FY\s*(\d{4})$/i.exec(label);
+  const yearOnly = /^FY\s*(\d{4})$/i.exec(label);
+  let fiscal: string | null = null;
+  if (months === 12) {
+    if (quarter !== null) fiscal = `Q${quarter[1]} FY${Number(quarter[2]) - 1}`;
+    else if (yearOnly !== null) fiscal = `FY${Number(yearOnly[1]) - 1}`;
+  } else if (quarter !== null) {
+    fiscal = quarter[1] === "1" ? `Q4 FY${Number(quarter[2]) - 1}` : `Q${Number(quarter[1]) - 1} FY${quarter[2]}`;
+  }
+  return { end, fiscal };
+}
+
+/** Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. */
+function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
+  // An FY-labelled base is compared by fiscal label only (by calendar year it would be the AI-405 error again).
+  if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(phrase)) return base.fiscal === null ? null : periodsAgree(phrase, base.end, base.fiscal);
+  return (base.fiscal !== null && periodsAgree(phrase, base.end, base.fiscal)) || phraseNamesRecordYear(phrase, base.end);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1562,26 +1660,35 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
     /* ---- period ---------------------------------------------------------- */
     if (record.period !== null) {
       const phrases = findPeriodPhrases(sentence, numbers, located);
+      const bases = findComparisonBasePhrases(sentence, numbers, located);
+      const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period) ? record.period : undefined);
+      let ownAgrees: boolean | null = null;
       if (phrases.length > 0) {
-        const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period) ? record.period : undefined);
         const fiscalQuarters = phrases.filter((phrase) => /^Q[1-4]\s*(?:of\s+)?FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
         const fiscalYears = phrases.filter((phrase) => /^FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
         const explicitFiscal = fiscalQuarters.length > 0 ? fiscalQuarters : fiscalYears;
         // An ISO calendar date alone does not establish its issuer fiscal
         // year. Leave that comparison unchecked instead of inventing one.
-        const agrees = explicitFiscal.length > 0
+        ownAgrees = explicitFiscal.length > 0
           ? fiscal === undefined ? null : explicitFiscal.some((phrase) => periodsAgree(phrase, record.period, fiscal))
           : phrases.some((phrase) => phraseNamesRecordYear(phrase, record.period));
-        if (agrees === true) {
-          period.pass();
-        } else if (agrees === false) {
-          period.fail();
-          fail(
-            "period",
-            "period-word-mismatch",
-            `The sentence names ${phrases.map((p) => `"${p}"`).join(", ")} but the cited figure is registered for period ${record.period}.`,
-          );
-        }
+      }
+      // AI-402-V2 / C-2: a comparison base is checked against the period the
+      // figure is measured against, not against the figure's own period.
+      const base = bases.length > 0 ? comparisonBase(record) : null;
+      const baseResults = base === null ? [] : bases.map((phrase) => baseAgrees(phrase, base)).filter((result): result is boolean => result !== null);
+      const baseAgreesAll: boolean | null = baseResults.length === 0 ? null : baseResults.every(Boolean);
+      if (ownAgrees === false || baseAgreesAll === false) {
+        period.fail();
+        fail(
+          "period",
+          "period-word-mismatch",
+          ownAgrees === false
+            ? `The sentence names ${phrases.map((p) => `"${p}"`).join(", ")} but the cited figure is registered for period ${record.period}.`
+            : `The sentence names ${bases.map((p) => `"${p}"`).join(", ")} as the comparison base, but the cited figure compares its period ${record.period} with the period ended about ${base!.end}${base!.fiscal === null ? "" : ` (${base!.fiscal})`}.`,
+        );
+      } else if (ownAgrees === true || baseAgreesAll === true) {
+        period.pass();
       }
     }
 

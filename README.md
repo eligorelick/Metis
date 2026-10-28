@@ -151,10 +151,10 @@ reconciles every grade and probability, for two judge passes.
 The verification pass makes no model call. It measures citation coverage — can
 each figure be traced to the record it cites — and separately checks the prose
 around figures it can locate: a direction word must match the sign of its
-change, a period naming a year must match the cited year, a unit word must fit
-the registered unit, and a claim naming a person must rest on a filing, a
-transcript, a registry figure or attributed executive/insider rows; any other
-source, or none, fails it. Checked is printed beside cited, never merged into it.
+change, a period naming a year must match the cited year, and a comparison base the
+period of the figure's own base, a unit word must fit the registered unit, and a claim
+naming a person must rest on a filing, a transcript, a registry figure or attributed
+executive/insider rows; any other source, or none, fails it. Checked is printed beside cited, never merged into it.
 
 Claude model prices and limits come from `config/models.json`; unknown IDs
 degrade to data-only reports because their spend cannot be bounded. `auto`

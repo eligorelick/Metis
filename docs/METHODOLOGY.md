@@ -2685,6 +2685,20 @@ string figures and insider notes carry no text to read and stay
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record
 years, unit words against record families, and sourcing of named individuals.
+A period that directly follows a comparison word ("compared with $10.2 billion
+in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
+the comparison's base: it belongs to the amount between the comparison word and
+it, never to a figure before the comparison word, which is read under its own
+clause or the excerpt's own period. "From" and "over" count as comparison
+words after a change word ("up 23% from", "grew 20% over"), and a bare "from"
+only across an amount ("from $10.1 billion in the second quarter of fiscal
+2025"), never directly before a period ("from 2025-07-27 to 2026-07-26"); the
+release parser (D-98) reads them more widely. A base the claim names must be a
+base the source names; against a year-over-year or quarter-over-quarter
+figure, the period check compares the base with the period the figure is
+measured against: its fiscal label one year (or one quarter) earlier for an
+FY-labelled base, otherwise that label or the calendar year of the shifted
+date.
 The period-word check compares years only; it does not adjudicate fiscal
 quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
