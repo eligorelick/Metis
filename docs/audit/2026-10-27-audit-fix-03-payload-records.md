@@ -28,7 +28,7 @@ All fifteen findings and the residual were re-read against the base and still re
 | Version stamps | Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28, pipeline stage-c-1.6.10. | `e09f8d0`, `6fe72b3` | `tests/report.versionStamps.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/jobRunner.test.ts` |
 | Records | The payload golden holds its Task 9 pin; the DEMO delta group names every moved leaf; CHANGELOG and DECISIONS. | `89265c5`, `b8f9538` | `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` |
 
-The payload golden (`tests/stageC.payload.passes.test.ts`) moved in the peer, peer-screen, insider-statistics, share-count, graded-FCF, provider-geography and fiscal-label tasks and in the stamps task, each re-pin under a dated comment, and it ends at fingerprint `1.49.0:c74b6cd9`. Its preceding-pin chain still reproduces the 1.36.0 prompt, registry and finance pins (`1.36.0:d0f49c1f`, `4c5e217d`, `666a1ab0`) through exact, occurrence-counted restorations; those three hashes were never re-pinned, and `financeHash` never moved. The restoration order was checked: the restorations give the same pins when the D-99 and fiscal-label restorations run before the text restorations.
+The payload golden (`tests/stageC.payload.passes.test.ts`) moved in the peer, peer-screen, insider-statistics, share-count, graded-FCF, provider-geography and fiscal-label tasks and in the stamps task, each re-pin under a dated comment, and it ends at fingerprint `1.49.0:c74b6cd9`. Its preceding-pin chain still reproduces the 1.36.0 prompt, registry and finance pins (`1.36.0:d0f49c1f`, `4c5e217d`, `666a1ab0`) through exact, occurrence-counted restorations; those three pins were never re-pinned, and they are what never moved. `financeHash` did move, from 4022589a to 3fc254c2 in `0c97cd8` (the peer methodology sentence Task 1 added to the finance block), and `d99Restorations` restores it. The restoration order was checked: the restorations give the same pins when the D-99 and fiscal-label restorations run before the text restorations.
 
 ## Owner decisions
 
@@ -46,9 +46,9 @@ Stored reports are never rewritten (D-67). A report saved before report spec 1.4
 | Finding | Stored-report impact | Stored reports changed at display |
 |---|---|---|
 | AI-301 | Corrected by the view (rule 1): a peer cap on another listing market than the subject's shows without a currency or check mark. A same-market cap is left as stored. | #46: six foreign peer rows (numeric support 267 to 261) |
-| AI-117 | Corrected (rule 2): the two figures show as unverified transaction counts. | #48: the insider figure and its factual claim (numeric 289 to 285); #50 and #52: two key numbers each (numeric 360 to 354 each) |
-| AI-410 | Corrected (rule 3): the "5y average" label reads "average of up to 5 fiscal years (the number averaged was not recorded)". | #39, #42, #44, #47, #51 |
-| AI-310 data-only unit sentences | Corrected (rule 4): the generator's own "USD per therm" and PCE unit sentences read the right unit. Display-only. | None: no stored report carries those sentences, so the rule is exercised by its unit test only |
+| AI-117 | Corrected (rule 2): the two figures show as unverified transaction counts. | #48: the insider entry is its factual claim (factual validated 65 to 64; #48 has no insider key number); #50 and #52: two insider key numbers each |
+| AI-410 | Corrected (rule 4): the "5y average" label reads "average of up to 5 fiscal years (the number averaged was not recorded)". | #39, #42, #44, #47, #51 |
+| AI-310 data-only unit sentences | Corrected (rule 5): the generator's own "USD per therm" and PCE unit sentences read the right unit. Display-only. | None: no stored report carries those sentences, so the rule is exercised by its unit test only |
 | AI-509 | Corrected (rule 7): provider rows the report's own XBRL contradicts are kept as served, marked unverified with the reason and no share. | #43: three rows (numeric 331 to 328); #47, #48, #50, #52: four rows each; #44, #45 and #49 unchanged |
 | AI-511 | Corrected (rule 8): the data-only label reads without "the graded ratio". | #39, #42, #44, #47, #51 |
 | AI-406 | Display-only: the classic segment table reads prior-quarter columns by the new date rule when a report is rendered; the stored bytes do not change. | Not separately replayed |
@@ -67,6 +67,7 @@ The view leaves two cases as stored: a same-market peer cap (its premise holds u
 - The 10-K's Item 9B is not read (AI-507): it is new coverage, not a defect fix, and the 10-Q's Item 5 stays the dated source for trading arrangements.
 - The guidance rows' and the guidance track record's fiscal labels print a stored parse's label (the same root as AI-512 on another surface). They belong with the current-reports batch.
 - The capital rows print the newest income year as their as-of while their values come from the newest cash-flow year. The two years agree in every stored run input a probe replayed (50 of 50), and a synthetic split is flagged by the probe's sensitivity controls, so no finding was raised. The case is latent, and the new fiscal labels already leave such a row unlabelled.
+- **M4 (parked).** The legacy view runs after the grade-override contract on the page, so an override rationale that rests on a corrected entry stays admitted on the page while the exports withhold it. It is latent: 0 of 98 stored override rationales cite a corrected id. It follows the EV view's precedent.
 - The segment-growth task covers the payload, the dated revenue rows and the classic table; other consumers of a prior-quarter column were not changed.
 
 ## Coverage trade and limits

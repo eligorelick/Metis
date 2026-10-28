@@ -244,6 +244,8 @@ every converted series. Figure labels, and hence registry ids
 (`payload.macro.payems-core`), are unchanged. An unknown series still
 renders with an empty unit, which the registry reads as an index.
 
+*Note, 2026-10-28 (audit B3, AI-310; the dated text above is left as written, as D-113 does).* The PAYEMS figure is now labelled as the change from the prior observation, because the core series is fetched as `chg` and the value is a difference, not the level: its figure label is "PAYEMS change from prior observation (core)" and its registry id is `payload.macro.payems-change-from-prior-observation-core`, not `payload.macro.payems-core`. Its Units note now reads "Units: PAYEMS: persons (FRED serves thousands; shown ×1,000), as the change from the prior observation; …". The other series' labels and ids are unchanged.
+
 ### 6. Verification reason `text-source` (`src/pipeline/stageC/passes.ts`, `provenance.ts`, `src/report/schema.ts`)
 
 A number whose source id is a registered payload-text citation is logged

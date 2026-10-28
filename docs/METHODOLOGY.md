@@ -2835,7 +2835,16 @@ only the tied period is left no record is labelled. These are the latest margins
 FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
 a statement cell's are not. They let prose name that fiscal year or "the fiscal
 year", and, as for a statement cell, a sentence naming another year stays
-unverified (audit 2026-10-27 B3, D-next).
+unverified (audit 2026-10-27 B3, D-next). The label is the one the statement data
+carries (the provider's or the keyless builder's), which can be wrong (FCX's keyless
+2024-12-31 row carried "2023"), so the lookup keeps it only when it is plausible for
+the period end: the year of the end, or the year before when the end falls in January
+to March (52/53-week and March year ends). Otherwise the figure carries no label and
+no period, as when the row has none. A `(latest)` record now carries its fiscal
+period, so a key number written with a descriptive period ("latest", "latest fiscal
+year") fails the period check, while one written with the date or the FY label
+passes. This is the safe direction: a correct claim may go unverified, a wrong-year
+claim does not validate.
 
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the
@@ -3385,8 +3394,11 @@ quarter only against the quarter ending 80-100 days earlier, year over year
 only against the one ending 350-380 days earlier (a 14-week quarter and a
 53-week year still count). With no such quarter the rate is withheld, in the
 AI context and in the classic segment table, which shows a dash. The dated
-segment revenue rows still show the latest quarter, the one before it and the
-year-ago quarter, each labelled with its own quarter end.
+segment revenue rows still show the latest quarter, the next older column in the
+filing and the year-ago column (the one ending 350-380 days before the latest),
+each labelled with its own quarter end. The next older column is not read as
+"the prior quarter": a quarter-over-quarter rate uses only the column ending 80-100
+days before the latest quarter, and is withheld when no column does.
 
 **Wording (finding 20).** A failed Piotroski signal states what its figures did
 ("current ratio fell"), never the test it failed. The accrual scaler is labelled
