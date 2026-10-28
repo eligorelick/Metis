@@ -1211,7 +1211,9 @@ describe("payload determinism + provenance", () => {
       // them also gain period (the 28 accrual-year records already carried theirs), so only provenanceHash moves;
       // fingerprint, promptBytes, counts, ids, citations, labels and financeHash do not. Restored by restoreB8e in the
       // preceding-pin chain above.
-      fingerprint: "1.48.0:78ca6362",
+      // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
+      // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
+      fingerprint: "1.49.0:c74b6cd9",
       promptBytes: 143_867,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
@@ -1382,7 +1384,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.48.0");
+    expect(first.payloadVersion).toBe("1.49.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2911,7 +2913,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.44.0");
+    expect(report.meta.specVersion).toBe("1.45.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

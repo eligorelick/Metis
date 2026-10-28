@@ -427,7 +427,8 @@ export interface ContextPayload {
 // D-107: the EV bridge note's amounts printed with grouped digits alter admitted context.
 // 1.47.0 (D-111): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
 // 1.48.0 (D-112): newer 10-Q facts, the newer-filing notice, each multiple's period and fiscal period, the P/E formula that ran, the withheld non-bracketing scenario fan, continuing-operations EPS and a TTM across a re-presented reorganisation alter admitted context.
-export const PAYLOAD_VERSION = "1.48.0" as const;
+// 1.49.0 (D-next, audit 2026-10-27 B3): stock-peer caps only in an established currency, insider statistics as counts and share volumes over a named window, the share-count span, segment growth by date, FRED transform and basis wording, 8-K referents and the peer-screen envelope alter admitted context. Statement blocks collapse restated periods as Stage B does; a 10-Q older than the 10-K is marked; provider geography the issuer's XBRL contradicts is withheld and provider keys are no longer called as-reported; the fiscal-year FCF conversion is no longer called the graded ratio. Computed rows taken from one fiscal year's statement rows carry the issuer's fiscal label and period end of that year. A release fiscal label is printed in an excerpt title only when the statement rows confirm it (AI-512): a labelled income row within 3 days agrees, or it is the successor of the newest labelled quarter (release end 80-100 days later), or, with only labelled annual rows, it is the next fiscal year after the newest one and its quarter number fits the days since that year's end (91n-11 to 91n+9 days, at most 366); otherwise it is withheld, and only a bundle with no labelled income row keeps it unchecked.
+export const PAYLOAD_VERSION = "1.49.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

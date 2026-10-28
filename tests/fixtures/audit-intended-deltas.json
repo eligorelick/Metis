@@ -10172,26 +10172,17 @@
       ]
     },
     {
-      "name": "nvda48-report-issues-20261026",
-      "decisions": [
-        "D-113"
-      ],
-      "reason": "NVDA report #48 fixes (D-113), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.44.0 (an info-severity EDGAR note no longer marks EDGAR missing or forensics provisional), out of audit-batch4-freshness-20261026, whose record for 1.43.0 stands in D-112. The control is a reserved fixture, so its EDGAR state stays missing and its forensics provisional; no value, availability flag or order moves. See docs/audit/DECISIONS.md, D-113.",
-      "deltas": [
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.44.0"
-        }
-      ]
-    },
-    {
       "name": "audit-b3-payload-records-20261027",
       "decisions": [
         "D-117"
       ],
-      "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. Task 4 (AI-306): DEMO's share history spans two fiscal years, so Stage B now adds one capital note naming the short window (stageB.capital.notes.2); the later capital notes shift by one index and keep their text, and capital.shareCount values and the leadership score do not move. D-117 is a provisional number renumbered at merge.",
+      "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. Task 4 (AI-306): DEMO's share history spans two fiscal years, so Stage B now adds one capital note naming the short window (stageB.capital.notes.2); the later capital notes shift by one index and keep their text, and capital.shareCount values and the leadership score do not move. Task 9: the report stamp moves to spec 1.45.0 (report.meta.specVersion); that leaf came out of nvda48-report-issues-20261026 (D-113), whose record for spec 1.44.0 stands in DECISIONS. D-117 is a provisional number renumbered at merge.",
       "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.45.0"
+        },
         {
           "path": "report.valuation.peerCoverage",
           "beforeMissing": true,
