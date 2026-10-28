@@ -181,8 +181,10 @@ sent is presumed. A server error event after the response started (HTTP 200)
 but before `message_start` is released, as an HTTP error status is, except that
 an error whose text contains "timeout" or "timed out" is read as a timeout after
 send and presumed at the request maximum. The stream-idle timer starts before
-the connection opens, so `METIS_STREAM_IDLE_SECONDS` below the connect timeout
-(about 10 seconds) presumes a hung connect at the request maximum.
+the connection opens, so an idle limit below the connect timeout (about 10
+seconds) presumes a hung connect at the request maximum. The idle limit is
+`METIS_STREAM_IDLE_SECONDS` times the effort multiplier (1 at low and medium,
+2 at high, 3 at xhigh, 4 at max; 1 for a model without effort).
 A pass's recorded cost, tokens and presumed flag are the sum of what each of
 its requests settled, retries and pause resumptions included, in both
 reservation modes. A request that ends after it started reporting usage but
@@ -229,8 +231,8 @@ report records the cap in force when it is created.
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
 full reserved amount as **presumed spend**. A late settlement can replace that
-presumption automatically, except for a finished request whose cost record
-stayed locked through every retry: that lease is no longer renewed, so it
+presumption automatically, except for a request (completed or failed) whose
+cost record stayed locked through every retry: that lease is no longer renewed, so it
 expires into the presumed row, and only `npm run costs:reconcile` lowers it. A ledger amount based on usage still uses local
 registry prices; it is not a provider invoice.
 
