@@ -2787,9 +2787,10 @@ that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
 (`issuerFiscalLabel`: the row's fiscal year and a full-year period) and that
 date equals the as-of the figure prints. Otherwise it carries neither. The label
-is never inferred from a calendar year, and an annual period served twice with
-no provable order is dropped by Stage B and by this lookup alike, so it is never
-labelled. These are the latest margins, ROIC, DuPont ROE, free cash flow,
+is never inferred from a calendar year. An annual period served twice with no
+provable order is dropped by Stage B and by this lookup alike: the figure then
+falls back to the prior year and carries that year's label and as-of, and when
+only the tied period is left no record is labelled. These are the latest margins, ROIC, DuPont ROE, free cash flow,
 FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
 a statement cell's are not. They let prose name that fiscal year or "the fiscal
 year", and, as for a statement cell, a sentence naming another year stays
@@ -3884,7 +3885,7 @@ with their filings and dates.
 
 **An older 10-Q (audit 2026-10-27 AI-507, D-next).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. The 10-Q MD&A, notes and Item 5 (other information) excerpts are then titled "[older than the 10-K for the period ended <date>]" (the Item 4 controls and signatures excerpts carry no such marker), and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
 
-**A release's fiscal label (audit 2026-10-27 AI-512, D-next).** An excerpt title takes a quarter's fiscal label from the earnings release only when no income-statement row the run holds for the same quarter end (within three days) gives that date another fiscal year or quarter. Otherwise the title states the quarter-end date and that the label was withheld. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
+**A release's fiscal label (audit 2026-10-27 AI-512, D-next).** An excerpt title takes a quarter's fiscal label from the earnings release only where the run's own income-statement rows support it. (1) If a labelled annual or quarterly income row ends within three days of the release's quarter end, the label is kept unless that row gives another fiscal year or, for a quarter label, another quarter (an annual row's FY2025 agrees with Q4 FY2025). (2) If no labelled row lies within three days but labelled quarterly rows exist, as on earnings day when the release is newer than every statement row, the label is kept only when the quarter end falls 80 to 100 days after the newest labelled quarterly row's period end and the label is that row's successor quarter (Q1 to Q2 to Q3 to Q4 to Q1 of the next fiscal year). A release more than 100 days later, or older than that row, is withheld. (3) If no quarterly income row carries a fiscal label, nothing contradicts the release and its label is kept; this is a stated limit. When a label is withheld, the earnings-release and CFO-commentary titles state the quarter-end date and that the label was withheld, while the 10-Q and 10-K titles simply drop the label. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The check is skipped when the release has no parseable quarter end: the title then prints the release's label alone, with no quarter-end date, and no 10-Q or 10-K title takes a label from that release. The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
 
 ### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
 
