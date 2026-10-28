@@ -149,3 +149,24 @@ describe("AI-303 windows written without for/during/over", () => {
     expect((await citeExcerpt(RELEASE_Q2, "Revenue for the fiscal year was USD 96.2 billion.")).entry.validationStatus).not.toBe("validated");
   });
 });
+
+// Fix round 1 (AI-303): "fiscal year 2026" / "calendar year 2025" name a year, not an annual window as well.
+describe("AI-303 a year word followed by its year is not also a window", () => {
+  const OPINC: TextExcerpt = { source: "edgar:10-K item7", asOf: "2026-01-25", title: "10-K FY2026",
+    text: "Operating income in fiscal year 2026 was $17.5 billion.", truncated: false, originalChars: 55 };
+  const CAL_REV = rec({ id: "payload.statements.income-statement-annual.2025-12-31.revenue", label: "revenue", value: 5e9, period: "2025", asOf: "2025-12-31" });
+  it("windowsNamed reads no window from a year word that a year follows", () => {
+    for (const text of ["Revenue in fiscal year 2025 was 5", "calendar year 2025 revenue", "in fiscal year FY2026", "the fiscal year Q2 2026"])
+      expect(windowsNamed(text), text).toEqual([]);
+    expect(windowsNamed("Revenue for the fiscal year was 5")).toEqual(["annual"]);
+    expect(windowsNamed("the quarter ended 2026-07-26")).toEqual(["quarter"]);
+  });
+  it("an excerpt claim echoing its source's 'fiscal year YYYY' validates; a wrong year does not", async () => {
+    expect((await citeExcerpt(OPINC, "Operating income in fiscal year 2026 was USD 17.5 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(OPINC, "Operating income in fiscal year 2025 was USD 17.5 billion.")).entry.validationStatus).not.toBe("validated");
+  });
+  it("a record carrying the year (and no annual basis) validates 'in fiscal year YYYY'; a wrong year does not", async () => {
+    expect((await cite([CAL_REV], CAL_REV.id, "Revenue in fiscal year 2025 was USD 5 billion.")).entry.validationStatus).toBe("validated");
+    expect((await cite([CAL_REV], CAL_REV.id, "Revenue in fiscal year 2024 was USD 5 billion.")).entry.validationStatus).toBe("unchecked");
+  });
+});

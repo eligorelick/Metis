@@ -150,6 +150,7 @@ const LOOSE_WINDOW = /\b(?:(?:fiscal|financial|calendar)[\s‐‑–—-]+)?(yea
 const NOT_A_WINDOW_BEFORE = /\b(?:a|an|one|per|each|every|half|multi|several|\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty)[\s‐‑–—-]+$|\bend\s+of\s+(?:the\s+|its\s+|our\s+|each\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?$/i;
 // A comparison or instant follows ("a year ago", "year-end", "quarter end", "year one", "prior-year quarter").
 const NOT_A_WINDOW_AFTER = /^[\s‐‑–—-]*(?:ago|earlier|later|before|end|ends|one|two|three|[1-3])\b|^[\s‐‑–—-]+(?:quarter|period)\b/i;
+const NAMED_PERIOD_AFTER = /^[\s‐‑–—-]*(?:(?:19|20)\d{2}|FY\s*\d{4}|Q[1-4])\b/i;
 function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
@@ -200,7 +201,9 @@ function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodRe
   if (options.loose) {
     for (const match of [...rest.matchAll(LOOSE_WINDOW)]) {
       if (NOT_A_WINDOW_BEFORE.test(rest.slice(Math.max(0, match.index - 24), match.index)) ||
-        NOT_A_WINDOW_AFTER.test(rest.slice(match.index + match[0].length, match.index + match[0].length + 16))) continue;
+        NOT_A_WINDOW_AFTER.test(rest.slice(match.index + match[0].length, match.index + match[0].length + 16)) ||
+        // "fiscal year 2026": the year reader blanked the year, so look at the unblanked text; the year word is part of that period.
+        NAMED_PERIOD_AFTER.test(text.slice(match.index + match[0].length, match.index + match[0].length + 16))) continue;
       const key = match[1].toLowerCase() === "year" ? "annual" : "quarter";
       out.push({ raw: match[0], kind: "window", key, label: key });
     }
