@@ -271,6 +271,14 @@ describe("AI-403 table scale applies to amounts only", () => {
     ])("not validated: %#", async (table, claim) => {
       expect(await synthetic(table, claim)).not.toBe("validated");
     });
+    // Share-named rows are not per-share rows: "Share-based" and "Shares" hold the word "share" without naming a per-share basis.
+    it.each([
+      [under("Share-based compensation $ 12.5 $ 11.0"), "Share-based compensation per share as of 2026-01-25 was USD 12.5."],
+      [under("Net income $ 59,688 $ 41,000 Share-based compensation $ 12.5 $ 11.0"), "Share-based compensation per share as of 2026-01-25 was USD 12.5."],
+      [under("Shares outstanding 1,234.5 1,200.4"), "Shares outstanding per share as of 2026-01-25 was USD 1,234.5."],
+    ])("a share-named row is not a per-share row: %#", async (table, claim) => {
+      expect(await synthetic(table, claim)).not.toBe("validated");
+    });
     it("a row that names its own per-share basis still validates (control)", async () => {
       const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Net income $ 59,688 $ 41,000 Net income per share: Basic $ 2.47 $ 1.68 Other matters follow.";
       expect(await synthetic(text, "Basic net income per share as of 2026-01-25 was USD 2.47.")).toBe("validated");
