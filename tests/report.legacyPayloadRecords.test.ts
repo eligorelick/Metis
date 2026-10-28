@@ -22,6 +22,7 @@ import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { establishedCurrency } from "@/report/format";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import {
   PAYLOAD_RECORD_CORRECTION_FIELD,
@@ -269,5 +270,52 @@ describe("legacy payload-record view", () => {
     const after = withLegacyPayloadRecordSafety(legacy);
     expect(after.business.segments.geographic[0]).toMatchObject({ sharePct: null, revenue: { verified: false } });
     expect(after.meta.provenanceCoverage!.numeric.supported).toBe(2);   // only the insider entry left it
+  });
+
+  // PR #70 review (Codex): a foreign peer cap stored with a currency-bearing unit ("USD", no currency field: the form
+  // stored report #38 uses for its same-market peers) must not keep its dollar denomination through the unit.
+  it("withholds the dollar denomination a foreign peer cap carries in its unit", () => {
+    const legacy = stored("1.44.0");
+    const bare: TracedNumber = { ...PEER_FOREIGN, unit: "USD" };
+    delete bare.currency;                                                                       // no currency field, as #38 stores it
+    legacy.competitive.peerTable = [
+      { name: "Example Tokyo Corp.", symbol: "9999.T", metrics: [bare] },
+      { name: "Peer Inc", symbol: "PEER", metrics: [{ ...PEER_US, unit: "USD", currency: undefined }] },
+    ];
+    const after = withLegacyPayloadRecordSafety(legacy);
+    const foreign = after.competitive.peerTable[0]!.metrics[0]!;
+    expect(establishedCurrency(foreign.unit, foreign.currency)).toBeNull();
+    expect(foreign.verified).toBe(false);
+    for (const surface of [reportToMarkdown(legacy), reportToPrintBody(legacy), renderToStaticMarkup(createElement(ReportView, { report: legacy }))]) {
+      expect(surface).not.toContain("$21.50T");
+      expect(surface).toContain("currency unknown");
+      expect(surface).toContain("$4.25B");                                                   // the same-market "USD" cap is left as stored (control)
+    }
+    expect(after.competitive.peerTable[1]!.metrics[0]).toEqual(legacy.competitive.peerTable[1]!.metrics[0]);
+    expect(withLegacyPayloadRecordSafety(after)).toEqual(after);
+    expect(ReportSchema.safeParse(after).success).toBe(true);
+  });
+
+  // PR #70 review (Codex): a contradicted provider-geography record cited elsewhere in the report is corrected there too,
+  // so its mark matches its corrected log entry.
+  it("marks every traced number of a contradicted provider-geography record, wherever the report shows it", () => {
+    const legacy = stored("1.44.0");
+    const row = (name: string, value: number, slug: string) => ({ name, sharePct: 50,
+      revenue: { value, unit: "currency", currency: "USD", source: `payload.segments.geographic-${slug}`, asOf: "2025-12-31", verified: true } });
+    legacy.business.segments.geographic = [row("North Region Segment", 6e9, "north-region-segment"), row("Cloud Services Segment", 3e9, "cloud-services-segment")];
+    legacy.filingDisclosures = { ...legacy.filingDisclosures!, segments: [{ axis: "us-gaap:StatementBusinessSegmentsAxis", axisLabel: "Reportable segment", currency: "USD",
+      quarters: ["2025-12-31"], rows: [{ label: "North Region", childOf: null, values: [1.5e9] }, { label: "Cloud Services", childOf: null, values: [0.75e9] }],
+      total: [2.25e9], priorPresentation: [], derivedCells: 0, sources: ["edgar:xbrl segment revenue"] }] };
+    const cited = { ...legacy.business.segments.geographic[1]!.revenue };
+    const unrelated: TracedNumber = { value: 9e9, unit: "currency", currency: "USD", source: "edgar:us-gaap:Revenues", asOf: "2025-12-31", verified: true };
+    legacy.fundamentals.graded.keyNumbers.push(cited, unrelated);
+    const after = withLegacyPayloadRecordSafety(legacy);
+    const keyNumbers = after.fundamentals.graded.keyNumbers;
+    const corrected = keyNumbers.find((n) => n.source === cited.source)!;
+    expect(corrected.verified).toBe(false);
+    expect(corrected.verificationNote).toMatch(/^Not company geography: /);
+    expect(keyNumbers.find((n) => n.source === unrelated.source)).toEqual(unrelated);       // control: another source is left as stored
+    expect(withLegacyPayloadRecordSafety(after)).toEqual(after);
+    expect(ReportSchema.safeParse(after).success).toBe(true);
   });
 });

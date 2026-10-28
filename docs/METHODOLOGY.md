@@ -2793,7 +2793,8 @@ its recorded counts are unchanged (D-67); a report at or after 1.45.0 is passed
 through as the identical object. The view makes six display-time corrections and
 every note it adds is a fixed string. (1) A peer market cap whose symbol has a
 different exchange suffix from the subject's is shown without a currency and
-without the check mark: reports before this spec gave it the subject's currency
+without the check mark (a unit that names the currency, such as "USD", reads
+"currency"): reports before this spec gave it the subject's currency
 (D-57), and a peer's currency is established only by that peer's own data; a
 same-market peer cap is left as stored. (2) The insider "total purchases" and
 "total sales" figures are shown as transaction counts, unverified: they counted
@@ -2807,7 +2808,8 @@ the generator's exact sentence, on those FRED series, is replaced, and any other
 relevance text (the model's own included) is left as written. (5) The provider's annual
 "geographic" rows (not SEC-parsed rows) are kept as served but shown unverified
 with no share, and the reason, when the report's own XBRL segment tables
-contradict them: the rows name the issuer's reportable business segments, or the
+contradict them (the same record cited elsewhere in the report, such as a key
+number, is shown unverified with the same reason): the rows name the issuer's reportable business segments, or the
 issuer tags its own geographic revenue and a provider region name is not one of
 its labels (the stored-report form of OD-4; rule 7). (6) A data-only "FCF conversion
 (FCF before SBC / net income — the graded ratio)" row reads without "the graded

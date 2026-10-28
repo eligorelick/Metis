@@ -1,6 +1,6 @@
 import { providerGeographyContradiction, type GeographyContradiction } from "@/edgar/segmentFacts";
 import { listingSuffix } from "@/pipeline/peers";
-import { normalizeFinancialUnit } from "@/report/format";
+import { normalizeFinancialUnit, unitCurrency } from "@/report/format";
 import { geographicBasisNote } from "@/report/presentation";
 import type { Report, TracedNumber } from "@/report/schema";
 
@@ -114,7 +114,8 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
     const id = idOf(n);
     if (peerIds.has(id) && normalizeFinancialUnit(n.unit) === "usd" && n.currency !== null) {
       kinds.push("foreign peer market caps");
-      return { ...n, currency: null, verified: false, verificationNote: PEER_NOTE };
+      // A unit that names a currency ("USD") would establish it again (format.ts establishedCurrency), so it becomes "currency".
+      return { ...n, unit: unitCurrency(n.unit) === null ? n.unit : "currency", currency: null, verified: false, verificationNote: PEER_NOTE };
     }
     if (INSIDER_IDS.has(id) && n.unit === "shares") {
       kinds.push("insider transaction counts");
@@ -165,10 +166,13 @@ export function withLegacyPayloadRecordSafety(report: Report): Report {
         changed = true;
         return { ...row, sharePct: null, revenue: { ...row.revenue, verified: false, verificationNote: note } };
       });
-      if (changed) {
-        kinds.push("provider geography");
-        next = { ...next, business: { ...next.business, segments: { ...next.business.segments, geographic: rows } } };
-      }
+      if (changed) next = { ...next, business: { ...next.business, segments: { ...next.business.segments, geographic: rows } } };
+      // The same record cited anywhere else in the report (a key number, a table cell) carries the same mark, as rules 1 and 2 do.
+      const marked = mapTraced(next, (n) =>
+        !geographicIds.has(idOf(n)) || (n.verified === false && n.verificationNote === note) ? n : { ...n, verified: false, verificationNote: note }) as Report;
+      if (marked !== next) changed = true;
+      next = marked;
+      if (changed) kinds.push("provider geography");
     }
   }
 
