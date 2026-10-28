@@ -278,8 +278,9 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
 const CURRENCY_CODES =
   "USD|EUR|GBP|JPY|CNY|RMB|HKD|KRW|INR|CHF|CAD|AUD|NZD|TWD|SEK|NOK|DKK|BRL|MXN|ZAR|SGD|ILS";
 // A whole-word code directly before a figure, tested on the few characters before it
-// (linear: no whitespace loop, `\s?` is one optional character).
-const CODE_JUST_BEFORE = new RegExp(String.raw`(?<![A-Za-z])(?:${CURRENCY_CODES})\s?$`);
+// (linear: no whitespace loop, `\s?` is one optional character). A slash before
+// the code is a currency pair ("EUR/USD 1.08"), not an amount of money.
+const CODE_JUST_BEFORE = new RegExp(String.raw`(?<![A-Za-z/])(?:${CURRENCY_CODES})\s?$`);
 
 const NON_QUANTITY_PATTERNS: readonly RegExp[] = [
   /\[[^[\]\n]*\]/g,

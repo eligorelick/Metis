@@ -487,6 +487,9 @@ describe("unit check", () => {
       currency: null,
       period: "2026-07-26",
     });
+    const pct = numeric({ id: "computed.growth.revenue-growth-yoy", value: 6.4, unit: "percent" });
+    const ratio = numeric({ id: "computed.leverage.ratio", origin: "computed.leverage", value: 2.5, unit: "ratio" });
+    const fxRatio = numeric({ id: "computed.hedge.ratio", origin: "computed.hedge", value: 1.08, unit: "ratio" });
     const unitFindings = (text: string, record: NumericProvenanceRecord, asOf: string) =>
       run(refs(claim(text, record.id, { asOf })), [record]).findings.filter(
         (finding) => finding.check === "unit",
@@ -501,6 +504,12 @@ describe("unit check", () => {
       ["control: the noun before the figure", "The share price was $45.32 as of 2026-07-09.", price, "2026-07-09", []],
       ["control: a share count in shares", "Diluted shares were 15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", []],
       ["control: a share count in dollars", "Diluted shares were $15.2 billion as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+      ["a currency symbol before a percent figure", "Growth was $6.4% as of 2025-09-27.", pct, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency code before a percent figure", "Growth was USD 6.4% as of 2025-09-27.", pct, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency symbol before a multiple", "Leverage was $2.5x as of 2025-09-27.", ratio, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency code before a scaled share count", "Diluted shares were USD 15.2 billion as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+      ["control: a word that ends in a code is no currency", "Growth was fraud 6.4% as of 2025-09-27.", pct, "2025-09-27", []],
+      ["an exchange-rate pair is no currency before a figure (EUR/USD)", "The EUR/USD 1.08x hedge ratio was stable as of 2025-09-27.", fxRatio, "2025-09-27", []],
       ["a share count in dollars with a share noun", "Diluted shares were $15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
     ])("%s", (_name, text, record, asOf, reasons) => {
       expect(unitFindings(text, record, asOf).map((finding) => finding.reason)).toEqual(reasons);

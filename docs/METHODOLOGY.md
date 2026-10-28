@@ -2698,16 +2698,18 @@ Scale words, units and currency codes are read only as whole words (the M of
 "Marketable" is not millions, the AUD in "fraud" is not a currency, a
 hyphenated compound such as "Share-based" is not a unit, except that
 "percentage point", "percentage-point", "basis point" and "basis-point" are
-units, and the ratio "x" is the one unit a hyphenated word may follow: "10x-ish"
-reads 10x); "N months" (any whole or decimal N) is a
+units, and the symbol % and the ratio "x" are the only units a hyphenated word
+may follow: "10x-ish" reads 10x); "N months" (any whole or decimal N) is a
 period phrase, not a quantity. The scale abbreviations read are k, m, mm, mn,
 mln, mil, mio, b, bn and bln, besides the spelled-out words (audit 2026-10-27
-AI-304). The consistency number scanner reads the same whole words, with the
-scale words thousand, million, billion, trillion, bn, mm and k only. In the unit
-check, a figure written with a currency symbol or code is an amount of money,
-whatever noun follows it ("USD 99 billion share repurchase authorization", "a
-$45.32 share price"), and a currency in front of a share count ("$15.2 billion
-shares") is a unit mismatch (audit 2026-10-27 AI-304-V2).
+AI-304). The consistency number scanner reads whole words too, with the scale
+words thousand, million, billion, trillion, bn, mm and k only. In the unit
+check, a figure written with $, US$ or an uppercase ISO currency code directly
+before it (at most one space; not part of a pair such as EUR/USD) is an amount of
+money, whatever noun follows it ("USD 99 billion share repurchase
+authorization", "a $45.32 share price"), and so a share count written that way
+("$15.2 billion shares") is a unit mismatch. Other currency signs (€, £, ¥) are
+not read there (audit 2026-10-27 AI-304-V2).
 A period that directly follows a comparison word ("compared with $10.2 billion
 in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
 the comparison's base: it belongs to the amount between the comparison word and
