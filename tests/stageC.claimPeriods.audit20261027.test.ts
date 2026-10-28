@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { namesRecency, reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
+import { namesRecency, reportedSeriesLatest, validateClaimNumericSupport, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
 import { comparisonCueEnd, consistencyManifestEntries, findComparisonBasePhrases, findPeriodPhrases } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
@@ -732,5 +732,39 @@ describe("AI-405 period check on fiscal labels", () => {
     const { periodRow, out } = await cite([NO_LABEL, USD_ROW], NO_LABEL.id, "Revenue for fiscal 2025 was USD 4.71 billion.");
     expect(periodRow).toBeUndefined();
     expect(out.checks.period.checked).toBe(0);
+  });
+});
+
+// Final review (2026-10-28, AI-402): the comparison-cue reader backtracked exponentially on comma-grouped table rows. Inside its
+// amount-and-word filler an amount's digits and its separator could both take a comma, and the space before the unit and the
+// separator could both take a space, so each comma or space doubled the paths. At the branch head these two inputs took about
+// 33.6 s and 66 s; the amount is now read one way.
+describe("final review: the comparison-cue reader stays fast on comma-grouped rows (AI-402)", () => {
+  const timed = <T>(fn: () => T): { value: T; ms: number } => {
+    const t0 = performance.now();
+    const value = fn();
+    return { value, ms: performance.now() - t0 };
+  };
+  it("verifies a claim against 1,000 characters of comma-grouped table rows in under 250 ms", () => {
+    const row = (k: number) => "more than 1 year " + Array.from({ length: 9 }, (_, i) => `${i + 1},${100 + i + k},${300 + i}`).join(" ") + " Total 2025 ";
+    const text = "(In thousands) Maturities of investments " + Array.from({ length: 8 }, (_, k) => row(k)).join("") + "and revenue was $5 billion";
+    expect(text.length).toBeGreaterThanOrEqual(1000);
+    const excerpt: TextExcerpt = { title: "10-Q (reporting period ended 2026-07-26)", text, source: "edgar:10-Q notes", asOf: "2026-07-26",
+      truncated: false, originalChars: text.length };
+    const { value, ms } = timed(() => validateClaimNumericSupport({ label: "FACT", text: "Revenue was USD 5 billion.", source: excerpt.source, asOf: excerpt.asOf },
+      { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }));
+    expect(value.status).toBe("validated");
+    expect(ms).toBeLessThan(250);
+  });
+  it("reads a 12-amount row with three spaces between amounts in under 250 ms", () => {
+    const text = "Less than " + Array.from({ length: 12 }, (_, i) => `${i + 1},234`).join("   ") + " Revenue 2025";
+    const { value, ms } = timed(() => comparisonCueEnd(text, text.indexOf("2025")));
+    // "Revenue" is not a filler word, so no cue governs the year.
+    expect(value).toBeNull();
+    expect(ms).toBeLessThan(250);
+  });
+  it("control: an amount list after a cue still reaches its base", () => {
+    const text = "Less than 1,234   2,234   3,234 in 2025";
+    expect(comparisonCueEnd(text, text.indexOf("2025"))).toBe("Less than".length);
   });
 });

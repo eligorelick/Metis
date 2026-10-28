@@ -802,7 +802,10 @@ export function phraseNamesRecordYear(phrase: string, registered: string | null)
 // owns that): a period directly after a bare "from" is an interval or a start
 // ("from 2025-07-27 to 2026-07-26"), after "over" a window or "more than".
 const BASE_WORD = String.raw`(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly|fiscal)[\s,]+`;
-const BASE_AMOUNT = String.raw`(?:US\$|[$€£¥]|(?:${CURRENCY_CODES})\s*)?[-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion|bn|mm|[bmk])?[\s,]+`;
+// An amount is read one way (final review 2026-10-28): its digits take a comma only as a thousands group, and the space before a
+// unit belongs to the unit, so the amounts of a comma-grouped table row cannot be split many ways inside BASE_FILLER (which
+// backtracked exponentially on such rows).
+const BASE_AMOUNT = String.raw`(?:US\$|[$€£¥]|(?:${CURRENCY_CODES})\s*)?[-+−]?(?:\d{1,3}(?:,\d{3})+|\d+)(?![\d,]\d)(?:\.\d+)?(?:\s*(?:%|percent|billion|million|thousand|trillion|bn|mm|[bmk]))?(?:\s*,\s*|\s+)`;
 const BASE_FILLER = String.raw`(?:${BASE_WORD}|${BASE_AMOUNT})*`;
 const CHANGE_WORD = String.raw`(?:up|down|higher|lower|increas(?:e|ed|es|ing)|decreas(?:e|ed|es|ing)|rose|rise[sn]?|rising|fell|fall(?:s|en|ing)?|grew|grow(?:s|n|ing)?|growth|declin(?:e|ed|es|ing)|gain(?:ed|s)?|drops?|dropped|jump(?:ed|s)?)`;
 const MAGNITUDE = String.raw`(?:\s+(?:of\s+|by\s+)?(?:approximately\s+|about\s+|roughly\s+)?[-+−]?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|percentage\s+points?|basis\s+points?|bps|pp|x|times))?`;

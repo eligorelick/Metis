@@ -2857,7 +2857,11 @@ years, unit words against record families, and sourcing of named individuals.
 The number scanners that feed these checks (the consistency number scanner and
 the prose quantity reader) are linear in claim length: a long run of whitespace
 in model or filing text cannot make the verify step slow (audit 2026-10-27
-SEC-203).
+SEC-203). The comparison-base reader (`comparisonCueEnd`, AI-402) reads each
+amount between a cue and its period one way: its digits take a comma only as a
+thousands group, and a space before a unit belongs to the unit. So a
+comma-grouped table row cannot make it backtrack; it backtracked exponentially
+before (about 1,000 characters of such rows took 33.6 seconds to verify).
 A direction word reads the figure as a move or as a level (audit 2026-10-27 AI-401). "Increased to (about) X" is a level, and "increased by (about) X", "rose around X" or "<change noun> of (about) X" is a change, for each change noun the verifier reads with "of" (increase, decrease, decline, drop, rise, fall, expansion, contraction; the plural of each except expansion and contraction). An approximation or bound word (about, around, approximately, roughly, nearly, almost, some, close to, more than, less than, fewer than, at least, at most, just over, just under, in excess of) between the direction word and the figure does not change which. "A gain of X" is read as neither, because an accounting gain is a level, so a claim and a source that read it differently stay unverified and one that read it alike compare as usual. A change is never validated against a level. A direction word after the figure and across a comma, semicolon, colon, em dash, en dash (an ASCII hyphen is not read as one) or parenthesis describes a comparison, not the figure ("a tax rate of 16.5%, an increase from a year ago" reads 16.5% as a level; audit 2026-10-27 AI-401-V1).
 A minus written directly before the currency (-$5 billion, −USD 5 billion)
 negates the amount; a dash that follows a letter, digit or point ("$1.0-$1.2
