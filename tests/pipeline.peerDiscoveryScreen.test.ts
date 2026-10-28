@@ -61,4 +61,16 @@ describe("peer discovery size screen (AI-301, AI-301-V1)", () => {
     // P5's profile names another symbol: its currency is not recorded (identity first).
     expect(result.listingCurrencies).toEqual({ P2: "USD", P3: "USD", P4: "JPY" });
   });
+  // AI-301 final review: a minor-unit code (pence, cents) is not the major unit, so it is never uppercased into one.
+  it.each([["GBp"], ["ZAc"], ["ILa"], ["usd"]])("treats the raw code %s as no currency: no listing currency recorded, no 'listed in' comparison", async (code) => {
+    const profiles: Record<string, object> = { P2: { ...profile, symbol: "P2", cik: "2", companyName: "Peer P2", currency: code }, P3: { ...profile, symbol: "P3", cik: "3", companyName: "Peer P3", currency: "GBP" } };
+    const result = await loadPeerFundamentals({ symbol: "ROOT", profile: { ...profile, marketCap: 1000 }, now: NOW, enabled: true,
+      discovered: data(["P2", "P3"].map((symbol) => ({ symbol }))),
+      client: () => ({ profile: async (s: string) => data([profiles[s] as never]), quote: async (s: string) => candidate(s).quote,
+        incomeStatement: async (s: string) => candidate(s).incomeQuarterly, balanceSheet: async (s: string) => candidate(s).balanceQuarterly }) });
+    expect(result.listingCurrencies).toEqual({ P3: "GBP" });   // control: an all-uppercase code is still recorded
+    const screen = (peerCurrency: string) => peerDiscoveryScreen({ subjectSymbol: "ROOT", subjectCurrency: "USD", subjectCap: 1000, peerSymbol: "P2", peerCurrency, peerCap: 1000 });
+    expect(screen(code)).toEqual({ kind: "in-band" });   // decided by the symbol, as for a row with no currency (the subject has none either)
+    expect(screen("GBP")).toEqual({ kind: "not-compared", reason: "size not compared: listed in GBP, the subject in USD; no currency conversion" });   // control
+  });
 });

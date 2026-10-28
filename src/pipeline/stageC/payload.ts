@@ -38,7 +38,7 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
-import { inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -1775,19 +1775,19 @@ function peerListingCurrency(bundle: DataBundle, symbol: string, row: FmpStockPe
   const own = ownRowCurrency(row);
   if (own !== null) return own;
   const collection = bundle.peerFundamentals;
-  const recorded = isoCurrency(collection?.listingCurrencies?.[symbol]);
+  const recorded = establishedIsoCode(collection?.listingCurrencies?.[symbol]);
   if (recorded !== null) return recorded;
   // Pre-batch snapshots recorded no currencies: read the admitted candidate's profile.
   const candidateProfile = collection?.candidates[symbol]?.profile;
   const profileRow = candidateProfile ? firstRow(candidateProfile) : null;
-  return profileRow && strOrNull(profileRow.symbol)?.trim().toUpperCase() === symbol ? isoCurrency(profileRow.currency) : null;
+  return profileRow && strOrNull(profileRow.symbol)?.trim().toUpperCase() === symbol ? establishedIsoCode(profileRow.currency) : null;
 }
 
 function peersSection(bundle: DataBundle): PayloadSection {
   // D-65: discovery candidates outside the comparable-size band are named in
   // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
   const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
-  const subjectCurrency = isoCurrency(firstRow(bundle.profile)?.currency) ?? isoCurrency(firstRow(bundle.quote)?.currency);
+  const subjectCurrency = establishedIsoCode(firstRow(bundle.profile)?.currency) ?? establishedIsoCode(firstRow(bundle.quote)?.currency);
   const screened = rowsOf(bundle.peers).map((p) => {
     const symbol = (strOrNull(p.symbol) ?? "").trim().toUpperCase();
     const currency = peerListingCurrency(bundle, symbol, p);

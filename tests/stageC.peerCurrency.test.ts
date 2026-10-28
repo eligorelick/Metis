@@ -64,4 +64,18 @@ describe("peer market-cap currency", () => {
       quote: gap, incomeQuarterly: gap, balanceQuarterly: gap };
     expect(fig(build(b as unknown as DataBundle), "PEER")).toMatchObject({ currency: "USD" });
   });
+  // AI-301 final review: a minor-unit code is never uppercased into the major unit (an LSE cap in pence would be registered 100 times too large).
+  it.each([["GBp", null], ["ZAc", null], ["GBP", "GBP"], ["USD", "USD"]] as const)("a peer listed in %s is registered in %s", (code, registered) => {
+    const payload = build(withPeers({ PEER: code }));
+    expect(fig(payload, "PEER")).toMatchObject({ value: 4e9, currency: registered });
+    expect(matchProvenanceRecord({ source: "payload.peers.peer-peer-inc", value: 4e9, unit: "currency", currency: "GBP", period: null, asOf: "2026-07-01" } as never, payload.provenanceRegistry ?? []).ok).toBe(code === "GBP");
+    if (registered === null) expect(serializePayloadForPrompt(payload)).toContain("PEER — Peer Inc: 4000000000 currency mkt cap (currency unknown)");
+  });
+
+  it.each([["GBp", null], ["GBP", "GBP"]] as const)("a stock-peers row stating %s itself is read as %s", (code, registered) => {
+    const b = withPeers({});
+    const rows = (b.peers as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+    rows[2] = { ...rows[2], currency: code };
+    expect(fig(build(b), "PEER")).toMatchObject({ value: 4e9, currency: registered });
+  });
 });

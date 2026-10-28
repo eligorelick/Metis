@@ -248,7 +248,10 @@ list foreign exchanges (a NASDAQ subject's list holds `.T`, `.TW`, `.HK` and
 only in a currency the run holds for that peer: its own provider row's
 `currency`/`reportedCurrency`, else the listing currency of a profile the peer
 collection read for that symbol (admitted or excluded; `PeerCollection.
-listingCurrencies`). Otherwise it is rendered "(currency unknown)", is not
+listingCurrencies`). A raw code is taken as stated, never uppercased: only three
+uppercase letters count, so a minor-unit code such as `GBp` (pence), `ZAc` or `ILa`
+establishes nothing (an LSE cap served in pence would otherwise be registered 100
+times too large). Otherwise it is rendered "(currency unknown)", is not
 registered, and no citation of it verifies as money; the prompt's peer-table
 rule leaves that peer's metrics empty. On an entry-tier key most peer profiles
 are refused, so U.S. peer caps will often read "(currency unknown)": an honest

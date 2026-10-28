@@ -1,7 +1,7 @@
 /** Optional, bounded peer inputs. Never builds a report or invokes keyless providers. */
 import type { FmpBalanceSheetRow, FmpClient, FmpIncomeStatementRow, FmpProfileRow, FmpQuoteRow, FmpRawRow, FmpStockPeerRow } from "@/providers/fmp";
 import type { FmpFetch } from "@/pipeline/types";
-import { ownRowCurrency } from "@/pipeline/estimateCurrency";
+import { establishedIsoCode as isoCode, ownRowCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
@@ -42,10 +42,6 @@ export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unkn
   return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule D-65)`;
 }
 
-const isoCode = (v: unknown): string | null => {
-  const code = typeof v === "string" ? v.trim().toUpperCase() : "";
-  return /^[A-Z]{3}$/.test(code) ? code : null;
-};
 
 /**
  * The exchange suffix of a symbol in the provider's Yahoo-style symbology

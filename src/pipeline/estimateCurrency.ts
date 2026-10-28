@@ -37,7 +37,16 @@ function iso(value: unknown): string | null {
  */
 export function ownRowCurrency(row: object | null | undefined): string | null {
   const fields = (row ?? {}) as { reportedCurrency?: unknown; currency?: unknown };
-  return iso(fields.reportedCurrency) ?? iso(fields.currency);
+  return establishedIsoCode(fields.reportedCurrency) ?? establishedIsoCode(fields.currency);
+}
+
+/**
+ * A raw currency code taken as stated: exactly three uppercase letters, else null.
+ * Never uppercased: "GBp" (pence), "ZAc" and "ILa" are minor units, and uppercasing
+ * one would register a cap 100 times too large as major-unit money (a peer cap).
+ */
+export function establishedIsoCode(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Z]{3}$/.test(value.trim()) ? value.trim() : null;
 }
 
 /** The row's own currency, else the documented provider convention, else null. */
