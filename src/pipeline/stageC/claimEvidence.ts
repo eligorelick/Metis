@@ -761,7 +761,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
       ? established.has(period.key) || labelled.has(period.key) || window?.key === period.key
       : record.period === null ? periodlessEstablishes(period) : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
-        (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start)) ||
+        // A lone date names the window's end; its start counts only inside the
+        // complete stated interval (audit 2026-10-27 AI-302, D-82's interval proof).
+        (period.kind === "date" && window !== null && (period.key === window.end ||
+          (period.key === window.start && own.periods.some((other) => other.kind === "date" && other.key === window.end)))) ||
         (period.kind === "date" && explicitSpan !== null && (period.key === explicitSpan.start || period.key === explicitSpan.end));
     // A record that carries no period cannot contradict a prose period; it can
     // only fail to establish it. That case is decided by periodlessEstablishes

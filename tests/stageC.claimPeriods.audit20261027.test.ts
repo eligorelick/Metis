@@ -170,3 +170,25 @@ describe("AI-303 a year word followed by its year is not also a window", () => {
     expect((await cite([CAL_REV], CAL_REV.id, "Revenue in fiscal year 2024 was USD 5 billion.")).entry.validationStatus).toBe("unchecked");
   });
 });
+
+const TTM_OCF = rec({ id: "computed.current-capital.operating-cash-flow", label: "operating cash flow", kind: "computed", value: 134.36e9,
+  period: "ttm: 2025-07-27 to 2026-07-26", asOf: "2026-07-26", origin: "computed.capital.current.cashBridge.operatingCashFlow", formulaVersion: "stage-b-v1" });
+
+describe("AI-302 trailing-window start date", () => {
+  it.each([
+    "Operating cash flow for the trailing twelve months ended 2025-07-27 was USD 134.36 billion.",
+    "Operating cash flow for the TTM ending 2025-07-27 was USD 134.36 billion.",
+    "Operating cash flow for the trailing period ended 2025-07-27 was USD 134.36 billion.",
+  ])("AI-302: a lone window start date is not the window's end: %s", async (text) => {
+    const { entry, out } = await cite([TTM_OCF], TTM_OCF.id, text);
+    expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    expect(out.coverage.factualValidation?.validated).toBe(0);
+  });
+  it("AI-302 control: the end date and the complete interval validate; an interior date does not", async () => {
+    const end = await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months ended 2026-07-26 was USD 134.36 billion.");
+    expect(end.entry.validationStatus).toBe("validated");
+    expect(end.out.checks.period.failed).toBe(0);
+    expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months from 2025-07-27 to 2026-07-26 was USD 134.36 billion.")).entry.validationStatus).toBe("validated");
+    expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months ended 2025-10-26 was USD 134.36 billion.")).entry.validationStatus).not.toBe("validated");
+  });
+});
