@@ -688,13 +688,26 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     const labelled = labelWindows(record);
     const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
+    // Audit 2026-10-27 AI-106 / OD-1: a record with no period establishes only
+    // what it carries: its as-of date, a date its period context declares, and
+    // a fiscal label it declares (matched only against an FY-style prose label).
+    // periodsAgree() is not asked: it accepts any label for a null period.
+    const periodlessDates = new Set([
+      record.asOf,
+      record.periodContext?.kind === "instant" ? record.periodContext.at : record.periodContext?.kind === "duration" ? record.periodContext.end : undefined,
+    ].filter((date): date is string => date !== undefined && isIsoDate(date)));
+    const FY_LABEL = /^(?:Q[1-4]\s*)?FY\s*\d{4}$/i;
+    const periodlessEstablishes = (period: PeriodReference): boolean =>
+      (period.kind === "date" && periodlessDates.has(period.key)) ||
+      (fiscalPeriod !== undefined && FY_LABEL.test(period.label) && periodsAgree(period.label, fiscalPeriod, fiscalPeriod));
     const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
       ? established.has(period.key) || labelled.has(period.key) || window?.key === period.key
-      : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
+      : record.period === null ? periodlessEstablishes(period) : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
         (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start)) ||
         (period.kind === "date" && explicitSpan !== null && (period.key === explicitSpan.start || period.key === explicitSpan.end));
     // A record that carries no period cannot contradict a prose period; it can
-    // only fail to establish it (NVDA final rerun: "DCF base-case year-one
+    // only fail to establish it. That case is decided by periodlessEstablishes
+    // above, not by periodsAgree (NVDA final rerun: "DCF base-case year-one
     // revenue growth over trailing revenue is 82.1353%" against a period-less
     // reverse-DCF context record was counted as a contradiction). Audit
     // 2026-10-22 F-22: nor can a record whose period differs. A period, unit or

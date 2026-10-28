@@ -2697,7 +2697,11 @@ the cited record does not establish is a metadata gap, so the claim or figure is
 unverified (period or unit not established), never contradicted. A claim whose
 direction word conflicts with its cited change stays contradicted even when its
 period or unit word also fails. That covers a
-missing or null record period, a prose period or year the period-word check
+missing or null record period (a record that carries no period establishes only
+its own as-of date, a date its period context declares, a fiscal label it
+declares when the prose names it as an FY label such as "FY2026" or "the second
+quarter of fiscal 2027", and a window its own label names; any other year,
+quarter, date or window named against it leaves the claim unverified), a prose period or year the period-word check
 cannot match to the record's window ("the twelve months ended June 30, 2026"
 against `ttm: 2025-07-01 to 2026-06-30`), and a unit or currency mismatch. The
 period-word and unit-word check failures are still listed in the verification
