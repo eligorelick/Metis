@@ -73,6 +73,27 @@ export interface SchedulerLimits {
   rollingCostWindowMs: number;
   paidPassLeaseTtlMs: number;
   jobLeaseTtlMs: number;
+  /**
+   * The per-job cap configured now (`METIS_MAX_JOB_COST_USD`). Paid admission
+   * applies the lower of this and the cap recorded on the job row when it was
+   * queued; absent or null means no live cap.
+   */
+  maxJobCostUsd?: number | null;
+}
+
+/**
+ * The per-job cap paid admission applies: the smaller of the cap recorded on
+ * the job row and the cap configured now, null when neither is set. Setting or
+ * lowering the cap binds queued and retried jobs; raising it never loosens a
+ * job queued under a lower one (JOB-209).
+ */
+export function effectiveJobCapUsd(
+  recorded: number | null,
+  configured: number | null | undefined,
+): number | null {
+  if (recorded === null) return configured ?? null;
+  if (configured === null || configured === undefined) return recorded;
+  return Math.min(recorded, configured);
 }
 
 /**
@@ -103,6 +124,7 @@ export function configuredSchedulerLimits(): SchedulerLimits {
     rollingCostWindowMs: config.rollingCostWindowMs,
     paidPassLeaseTtlMs: config.paidPassLeaseTtlMs,
     jobLeaseTtlMs: config.jobLeaseTtlMs,
+    maxJobCostUsd: config.maxJobCostUsd,
   };
 }
 
@@ -224,6 +246,13 @@ function assertLimits(limits: SchedulerLimits): void {
     (!Number.isFinite(limits.maxRollingCostUsd) || limits.maxRollingCostUsd < 0)
   ) {
     throw new Error("jobScheduler: maxRollingCostUsd must be null or a finite nonnegative value");
+  }
+  if (
+    limits.maxJobCostUsd !== null &&
+    limits.maxJobCostUsd !== undefined &&
+    (!Number.isFinite(limits.maxJobCostUsd) || limits.maxJobCostUsd < 0)
+  ) {
+    throw new Error("jobScheduler: maxJobCostUsd must be null or a finite nonnegative value");
   }
 }
 
@@ -1430,15 +1459,16 @@ export function acquirePaidPassLease(
       tx.select({ costUsd: costLog.costUsd }).from(costLog).where(eq(costLog.jobId, claim.jobId)).all(),
     );
     const jobReserved = sumLeaseRowsMicro(allLive.filter((lease) => lease.jobId === claim.jobId));
+    const jobCapUsd = effectiveJobCapUsd(parent.maxCostUsd, limits.maxJobCostUsd);
     if (
       reserveMicro > 0 &&
-      parent.maxCostUsd !== null &&
-      jobSettled + jobReserved + BigInt(reserveMicro) > BigInt(capMicroUsd(parent.maxCostUsd))
+      jobCapUsd !== null &&
+      jobSettled + jobReserved + BigInt(reserveMicro) > BigInt(capMicroUsd(jobCapUsd))
     ) {
       return {
         acquired: false,
         reason:
-          jobSettled + BigInt(reserveMicro) > BigInt(capMicroUsd(parent.maxCostUsd))
+          jobSettled + BigInt(reserveMicro) > BigInt(capMicroUsd(jobCapUsd))
             ? "job-budget"
             : "job-budget-pending",
       };

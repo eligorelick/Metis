@@ -22,10 +22,12 @@ import type { BetaMessage, BetaUsage } from "@anthropic-ai/sdk/resources/beta/me
 import { resetConfigCache } from "@/config/env";
 import { createDatabase, setDbForTests, type DatabaseHandle, type ThesisDb } from "@/db";
 import { costLog, jobLlmLeases, jobs } from "@/db/schema";
-import { initialSteps, requestSettlementWriteError } from "@/pipeline/jobRunner";
+import { createJob, getOrCreateJobForSymbol, initialSteps, requestSettlementWriteError } from "@/pipeline/jobRunner";
 import {
   acquirePaidPassLease,
   claimNextQueuedJob,
+  configuredSchedulerLimits,
+  effectiveJobCapUsd,
   isTransientWriterLock,
   reconcileExpiredJobClaims,
   releaseUnbilledPaidPassLease,
@@ -1143,6 +1145,85 @@ describe("a contended ledger write keeps a completed response (AI-308)", () => {
     expect(isTransientWriterLock(deep)).toBe(false); // past the 8-link bound
     for (const value of [null, undefined, "SQLITE_BUSY", 5, { code: 5 }]) {
       expect(isTransientWriterLock(value)).toBe(false);
+    }
+  });
+});
+
+describe("per-job cap (JOB-209)", () => {
+  // One Sonnet 5.5 analyst request reservation (README pricing table).
+  const SONNET_55_ANALYST_REQUEST_USD = 26.36;
+
+  // The "restart": the cap env changes and the cached config is dropped.
+  function restartWith(cap: string | undefined): void {
+    if (cap === undefined) delete process.env.METIS_MAX_JOB_COST_USD;
+    else process.env.METIS_MAX_JOB_COST_USD = cap;
+    resetConfigCache();
+  }
+
+  function lease(reserveUsd = SONNET_55_ANALYST_REQUEST_USD) {
+    const claim = claimNextQueuedJob("owner", undefined, configuredSchedulerLimits(), first.db)!;
+    return acquirePaidPassLease(claim, "bull", "a1", reserveUsd, undefined, configuredSchedulerLimits(), first.db);
+  }
+
+  beforeEach(() => restartWith(undefined));
+  afterEach(() => restartWith(undefined));
+
+  it("binds a job queued before a restart that set METIS_MAX_JOB_COST_USD=5", () => {
+    const { jobId } = createJob("AAPL");
+    restartWith("5");
+    expect(getOrCreateJobForSymbol("AAPL")).toMatchObject({ jobId, existing: true });
+    expect(first.db.select({ cap: jobs.maxCostUsd }).from(jobs).where(eq(jobs.id, jobId)).get()?.cap).toBeNull();
+    expect(lease()).toEqual({ acquired: false, reason: "job-budget" });
+  });
+
+  it("control: a job queued after the $5 cap is refused", () => {
+    restartWith("5");
+    createJob("AAPL");
+    expect(lease()).toEqual({ acquired: false, reason: "job-budget" });
+  });
+
+  it("keeps the recorded cap when the configured cap is raised", () => {
+    restartWith("5");
+    createJob("AAPL");
+    restartWith("30");
+    expect(lease()).toEqual({ acquired: false, reason: "job-budget" });
+  });
+
+  it("uses the recorded cap when no cap is configured now", () => {
+    restartWith("5");
+    createJob("AAPL");
+    restartWith(undefined);
+    expect(lease()).toEqual({ acquired: false, reason: "job-budget" });
+  });
+
+  it("admits when neither cap is set", () => {
+    createJob("AAPL");
+    expect(lease()).toMatchObject({ acquired: true });
+  });
+
+  it("admits a zero reservation under a zero cap", () => {
+    restartWith("0");
+    createJob("AAPL");
+    expect(lease(0)).toMatchObject({ acquired: true });
+  });
+
+  it("takes the smaller of the non-null caps", () => {
+    expect(effectiveJobCapUsd(5, 30)).toBe(5);
+    expect(effectiveJobCapUsd(30, 5)).toBe(5);
+    expect(effectiveJobCapUsd(null, 5)).toBe(5);
+    expect(effectiveJobCapUsd(5, null)).toBe(5);
+    expect(effectiveJobCapUsd(5, undefined)).toBe(5);
+    expect(effectiveJobCapUsd(null, null)).toBeNull();
+    expect(effectiveJobCapUsd(null, undefined)).toBeNull();
+  });
+
+  it("rejects a configured cap that is not null or a finite nonnegative number", () => {
+    seedJob(first.db, "job-bad-cap", "AAPL");
+    const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
+    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => acquirePaidPassLease(
+        claim, "bull", "a1", 1, NOW, { ...LIMITS, maxJobCostUsd: bad }, first.db,
+      )).toThrow(/maxJobCostUsd must be null or a finite nonnegative value/);
     }
   });
 });

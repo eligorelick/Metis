@@ -193,6 +193,11 @@ These are implementation assumptions, not an invoice guarantee. A small cap
 can refuse a request whose typical actual cost would have fit. Completed usage
 remains recorded when later admission fails.
 
+A job is admitted against the lower of the per-job cap recorded when it was
+queued and the cap configured now, so setting or lowering
+`METIS_MAX_JOB_COST_USD` and restarting also binds queued and retried jobs;
+raising it does not loosen an older job (start a new report).
+
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
 full reserved amount as **presumed spend**. A late settlement can replace that
