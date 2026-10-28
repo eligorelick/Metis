@@ -365,6 +365,21 @@ describe("factual prose numeric validation", () => {
       const result = await verifyAt(source, text, claim, asOf);
       expect(result.log[0]?.validationStatus).not.toBe("validated");
     });
+    // Pins (AI-401-V1 review): the semicolon and colon separators read the same as the comma.
+    it.each([
+      ["Revenue was USD 5.0 billion; up sequentially.", "Revenue was USD 5.0 billion."],
+      ["Revenue was USD 5.0 billion: up sequentially.", "Revenue was USD 5.0 billion."],
+    ])("a ';' or ':' apposition source validates the level claim: %#", async (text, claim) => {
+      const result = await verifyAt(source, text, claim, asOf);
+      expect(result.log[0]?.validationStatus).toBe("validated");
+    });
+    it.each([
+      ["Revenue was USD 5.0 billion; up sequentially."],
+      ["Revenue was USD 5.0 billion: up sequentially."],
+    ])("a ';' or ':' apposition source does not validate the change claim: %#", async (text) => {
+      const result = await verifyAt(source, text, "Revenue increased by USD 5.0 billion.", asOf);
+      expect(result.log[0]?.validationStatus).not.toBe("validated");
+    });
     it("the D-63 level claim still validates (control)", async () => {
       const result = await verifyAt(source, "Inventory was USD 31.6 billion, up from USD 25.8 billion.", "Inventory was USD 31.6 billion.", asOf);
       expect(result.log[0]?.validationStatus).toBe("validated");
