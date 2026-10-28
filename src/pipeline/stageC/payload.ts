@@ -2235,8 +2235,9 @@ function successorQuarterLabel(label: string): string | null {
  * exist (the release is newer than every statement row, or older): the label
  * is supported only when the quarter end falls 80 to 100 days after the newest
  * labelled quarterly row's end and the label is that row's successor quarter.
- * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the quarter end falls 1 to 366
- * days after the newest labelled annual row's end and the label's fiscal year is that row's fiscal year + 1.
+ * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the label's fiscal year is the
+ * newest labelled annual row's fiscal year + 1 and the quarter end falls 91n-11 to 91n+9 days (at most 366) after that row's
+ * end, n being the label's quarter number.
  * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
  */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
@@ -2260,7 +2261,8 @@ function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, perio
   if (newest === null) {
     if (newestAnnual === null) return false;
     const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
-    return !(days >= 1 && days <= 366 && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
+    const n = Number(/^Q([1-4])/.exec(label)?.[1] ?? 0);   // the quarter number fixes the days after a fiscal year end: Q1 80-100, Q2 171-191, Q3 262-282, Q4 353-366
+    return !(n >= 1 && days >= 91 * n - 11 && days <= Math.min(91 * n + 9, 366) && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
   }
   const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
   return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);

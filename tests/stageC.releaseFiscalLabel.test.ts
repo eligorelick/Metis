@@ -123,6 +123,8 @@ describe("a release's fiscal label the statement rows contradict (AI-512)", () =
     };
     expect(releaseTitle(annualOnly("Q1 FY2025", "2026-03-31"))).toContain(WITHHELD);   // the AMZN #43 shape
     expect(releaseTitle(annualOnly("Q1 FY2026", "2026-03-31"))).toContain("Q1 FY2026, quarter ended 2026-03-31");
+    expect(releaseTitle(annualOnly("Q3 FY2026", "2026-03-31"))).toContain(WITHHELD);   // the right fiscal year, a quarter number that does not fit 90 days after the year end
+    expect(releaseTitle(annualOnly("Q2 FY2026", "2026-06-30"))).toContain("Q2 FY2026, quarter ended 2026-06-30");   // 181 days
     expect(releaseTitle(annualOnly("Q1 FY2027", "2027-03-31"))).toContain(WITHHELD);   // 455 days after the newest annual end
   });
 
