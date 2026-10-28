@@ -409,7 +409,7 @@ function fundamentalsSections(
     seriesRow("Free cash flow (after SBC, house default)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcf })), cf), "currency", "computed.capital.fcf", null),
     seriesRow("Free cash flow (before SBC, vendor convention)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfBeforeSbc })), cf), "currency", "computed.capital.fcf.beforeSbc", null),
     seriesRow("FCF conversion (FCF after SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversion })), "x", "computed.capital.fcf.conversion", null),
-    seriesRow("FCF conversion (FCF before SBC / net income — the graded ratio)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
+    seriesRow("FCF conversion (FCF before SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
     seriesRow("Capex / revenue", cap.capexIntensity.series.map((y) => ({ date: y.date, value: y.capexToRevenuePct })), "%", "computed.capital.capexIntensity", null),
   ]);
 

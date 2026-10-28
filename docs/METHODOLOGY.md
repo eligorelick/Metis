@@ -811,7 +811,12 @@ balance-sheet grade scores, under a driver named `fcfConversionBeforeSbc`: that
 is the definition used by the unbacktested conversion band, and grading the
 after-SBC ratio against it would charge the same expense twice, because SBC as a
 percentage of free cash flow is already one of the five scored metrics. The
-aspect note states the definition. Price to free cash flow uses the **before**
+graded value is the current-capital ratio: the trailing twelve months when
+complete, current, currency-compatible quarterly windows exist, else the latest
+fiscal year (D-60). The capital section's fiscal-year row is labelled "latest
+fiscal year" and is not called graded, and the current-capital section names
+the window that was graded (audit 2026-10-27 AI-511, D-next). The aspect note
+states the definition. Price to free cash flow uses the **before**
 figure — the same basis as the own-history distribution it is ranked in — and is
 labelled "P/FCF (before SBC)" wherever it renders, with the basis string saying
 that the capital block's house-default figure is a different number.
