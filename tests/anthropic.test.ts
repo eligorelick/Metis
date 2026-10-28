@@ -8,8 +8,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   AnthropicError,
   APIConnectionError,
-  APIConnectionTimeoutError,
   APIError,
+  APIConnectionTimeoutError,
   APIUserAbortError,
   BadRequestError,
   InternalServerError,
@@ -2193,6 +2193,41 @@ describe("stream idle timeout", () => {
     if (result.ok) return;
     expect(result.error.costUsd).toBeCloseTo(requestReservationUsd(idleOpts), 6);
     expect(result.error.message).toMatch(/retained the presumed request maximum \(no usage was reported\)/);
+  }, 15_000);
+
+  it.each([
+    ["an idle stream", "idle"],
+    ["a request that timed out after send", "timeout"],
+  ])("settles %s with no usage at the permit's maximum, one figure for one wire state (final review M11)", async (_label, how) => {
+    setIdleSeconds(how === "idle" ? "1" : undefined);
+    instantSleep();
+    const permitMaximum = 1.5; // deliberately not the options' own figure
+    const settled: Array<Record<string, unknown>> = [];
+    const admission = {
+      reserve: async () => ({ id: "p1", maximumUsd: permitMaximum }),
+      settle: async (_permit: unknown, settlement: Record<string, unknown>) => {
+        settled.push(settlement);
+      },
+      release: async () => {
+        throw new Error("must not release a request the provider may have billed");
+      },
+    };
+    const script: StreamScript = how === "idle"
+      ? { events: [] }
+      : { failWith: new APIConnectionTimeoutError() };
+    const stream = makeFakeStream(script) as Record<string, unknown>;
+    stream.abort = (): void => {};
+    _resetAnthropicForTests({
+      beta: { messages: { stream: () => stream, create: async () => { throw new Error("must stream"); } } },
+    } as unknown as Anthropic);
+
+    const result = await runPass({ ...idleOpts, admission: admission as never });
+
+    expect(result.ok).toBe(false);
+    expect(settled.length).toBeGreaterThanOrEqual(1);
+    for (const settlement of settled) expect(settlement).toMatchObject({ presumed: true, costUsd: permitMaximum });
+    if (result.ok) return;
+    expect(result.error.costUsd).toBeCloseTo(permitMaximum * settled.length, 9);
   }, 15_000);
 
   it("does not fire while the stream keeps producing events", async () => {

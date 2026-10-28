@@ -1929,7 +1929,7 @@ function classifyFailedRequest(
     // the stream (the idle guard, the caller, a server error event, a dropped
     // connection): what was reported plus the presumed remainder (DECISIONS
     // D-09). Only the cumulative output count in the final delta is exact.
-    return { kind: "charge", charge: { reported, costUsd: abandonedRequestCostUsd(opts, reported), presumed: true } };
+    return { kind: "charge", charge: { reported, costUsd: abandonedRequestCostUsd(opts, reported, requestMaximumUsd), presumed: true } };
   }
   if (reported !== null) {
     const billing = billingForMessage(reported, opts);
@@ -2303,11 +2303,17 @@ function billedMessageFromSnapshot(
  * whole figure stays inside the pass reservation, which already bounds the full
  * output ceiling.
  */
-function abandonedRequestCostUsd(opts: RunPassOptions, reported: BetaMessage | null): number {
+function abandonedRequestCostUsd(
+  opts: RunPassOptions,
+  reported: BetaMessage | null,
+  requestMaximumUsd: number,
+): number {
   // Nothing reported: the input the provider may have billed is unknown as
   // well as the output, so the whole request (the figure a lost connection
-  // in the same wire state settles; DECISIONS D-10, B7 OD-2).
-  if (reported === null) return requestReservationUsd(opts);
+  // in the same wire state settles; DECISIONS D-10, B7 OD-2). The permit's
+  // own maximum, like the answered or timed-out no-usage charge: one wire
+  // state, one figure.
+  if (reported === null) return requestMaximumUsd;
   const reportedUsd = costForMessage(reported, opts);
   if (boundedWebSearchUses(opts.tools) > 0 || registryEntryFor(opts.model).serverSideFallback !== null || detectFallbackUsed(reported)) {
     // Unseen tool rounds can bill more input/searches; fallback can add a full
