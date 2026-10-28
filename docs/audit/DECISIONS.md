@@ -2374,7 +2374,7 @@ NVDA report #50 (GPT-6.1 Sol, max reasoning, ChatGPT plan, 2026-10-27).
 
 Pipeline stage-c-1.6.9 marks these conventions. Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports and artifacts keep their bytes, #50's included.
 
-## D-next-1 - A failed paid request settles at the worst case given what it reported, and a request that never left the machine settles at nothing (2026-10-28)
+## D-117 - A failed paid request settles at the worst case given what it reported, and a request that never left the machine settles at nothing (2026-10-28)
 
 Audit 2026-10-27, batch B7 (AI-113, AI-113-V1, AI-114, AI-307).
 
@@ -2410,7 +2410,7 @@ Audit 2026-10-27, batch B7 (AI-113, AI-113-V1, AI-114, AI-307).
   - an abort after the provider answered but before `message_start` is presumed, with controls that a socket death in the same state settles the same figure and an abort before dispatch is released;
   - every connect-phase failure is released on every attempt, with controls for a headers timeout and the SDK request timeout (presumed), a connect-syscall route failure carrying a timeout-shaped message (released) and the connect-syscall rule of the tagging predicate.
 
-## D-next-2 - A contended ledger write keeps the completed response (2026-10-28)
+## D-118 - A contended ledger write keeps the completed response (2026-10-28)
 
 Audit 2026-10-27, batch B7 (AI-308).
 
@@ -2426,7 +2426,7 @@ Audit 2026-10-27, batch B7 (AI-308).
 - **Limits.** A write that never commits leaves a presumed row at the reserved maximum, which over-counts until reconciled. The pass waits the retry delays plus the database's busy timeout on each try before it keeps the response. If the lock then clears and the report is published before the lease expires, the published report's cost total and breakdown, which are read from the ledger, leave that request out. The expiry sweep later records it in the ledger, but the stored report is not updated. Before this batch the same request was thrown away and also reached the ledger only through the sweep, so this is not new; it needs about twenty seconds of continuous writer-lock contention. Carried to batch 8 (job lifecycle), which owns the publish path.
 - **Validation.** `tests/requestAdmission.test.ts` holds BEGIN IMMEDIATE on the same temporary database from a second connection, as a second process would. It covers a settle that is recorded on a retry (the response is returned), one that outlasts every retry (the response is returned and the lease is left to be presumed), and a control that a settle failure that is not lock contention still rejects the pass. Unit tests pin that only the SQLITE_BUSY family counts and that the cause-chain walk is bounded and cycle-safe.
 
-## D-next-3 - A presumed row is dated at its request's authorization (2026-10-28)
+## D-119 - A presumed row is dated at its request's authorization (2026-10-28)
 
 Audit 2026-10-27, batch B7 (JOB-203).
 
@@ -2444,7 +2444,7 @@ Audit 2026-10-27, batch B7 (JOB-203).
   - A backdated presumed row leaves the rolling-cap window sooner. Dating at acquisition moves a presumed row into the window up to one request duration earlier, so with a rolling window shorter than a request it can leave the window sooner. The sweep has done the same since 782a853; until it settled, the request counted as a live reservation.
 - **Validation.** `tests/scheduler.presumedSpend.test.ts` covers a presumed request settlement and a pass-level presumed row (pass reservation mode) dated at their lease's acquisition across UTC midnight, with controls that an actual request row and an actual pass-level row keep the instant they settled.
 
-## D-next-4 - Paid work is admitted against the lower of the recorded and the configured job cap (2026-10-28)
+## D-120 - Paid work is admitted against the lower of the recorded and the configured job cap (2026-10-28)
 
 Audit 2026-10-27, batch B7 (JOB-209).
 
@@ -2458,7 +2458,7 @@ Audit 2026-10-27, batch B7 (JOB-209).
 - **Limits.** The recorded cap of an existing job never rises. To run under a higher cap, start a new report.
 - **Validation.** `tests/requestAdmission.test.ts` ("per-job cap") covers a job queued before a restart that set the cap, a control that a job queued after the cap is refused, a recorded cap kept when the configured cap is raised, the recorded cap used when none is configured now, a live cap below the recorded one with a reservation filling it, admission when neither cap is set, a zero reservation under a zero cap, the smaller of two non-null caps, and rejection of a configured cap that is not null or a finite nonnegative number.
 
-## D-next-5 - Context fit is an estimate per tokenizer, and Claude Haiku 4.5 stays (2026-10-28)
+## D-121 - Context fit is an estimate per tokenizer, and Claude Haiku 4.5 stays (2026-10-28)
 
 Audit 2026-10-27, batch B7 (AI-309).
 
@@ -2475,7 +2475,7 @@ Audit 2026-10-27, batch B7 (AI-309).
   - The paid-request reservation is sized from the context window, not from this estimate (D-10).
 - **Validation.** `tests/anthropic.test.ts` covers a Haiku request whose estimate is at the window (admitted) and one above it (refused), a Haiku request the size of a current NVDA payload (admitted), a control that the same payload passes on a 1M-window model, the numeric ordering of registry generations, and the tokenizer of every active registry model. The batch's local replay of stored NVDA inputs (reports 43, 46, 48 and 49; not committed) found no Haiku refusal.
 
-## D-next-6 - `both` compares section grades only, and an anchored retry skips its mirror (2026-10-28)
+## D-122 - `both` compares section grades only, and an anchored retry skips its mirror (2026-10-28)
 
 Audit 2026-10-27, batch B7 (AI-108, AI-109).
 
@@ -2494,7 +2494,7 @@ Audit 2026-10-27, batch B7 (AI-108, AI-109).
 - **Limits.** A judge pass retried after a cut-off response has no order-sensitivity check. The report says so rather than reporting agreement.
 - **Validation.** `tests/stageC.judgeProtocol.test.ts` covers the grade-only comparison (prose differences are not disagreement, only grade fields are in the denominator), a control that a retry with no kept section still runs the mirror and discloses a disagreement, no mirror when a retry keeps a verdict or other sections, the API path, and a control that a mirror that ran and failed keeps the "did not produce a comparable output" wording. `tests/stageC.payload.passes.test.ts` pins the skip wording. The batch's local replay of report #50's retry (three kept sections: verdict, business, fundamentals; not committed) sends no mirrored request.
 
-## D-next-7 - Discarded attempts and step costs read the ledger, and the audit export prints the mark (2026-10-28)
+## D-123 - Discarded attempts and step costs read the ledger, and the audit export prints the mark (2026-10-28)
 
 Audit 2026-10-27, batch B7 (AI-112, JOB-204, RPT-210).
 
@@ -2516,4 +2516,4 @@ Audit 2026-10-27, batch B7 (AI-112, JOB-204, RPT-210).
   - The rule retries once and stops on an identical repeat; it does not decide whether the failing field belongs to the judge.
 - **Validation.** `tests/jobRunner.test.ts` covers the assembly mark and disclosure, the stop on an identical second assembly failure, a control that a different second failure still re-buys the judge, a reused repaired side's summed cost after a resume, a step's presumed request in its detail, a control that a reconciled presumed row is not called presumed, and a durable verify recovery that keeps a rejected bull row's mark. `tests/report.markdownCostTotal.test.ts` covers the Note column and a control that an undiscarded row has an empty Note and an unchanged total. The batch's local replay of stored reports (not committed) prints #48's bear $0.296630 and #49's bear $0.045210 and bull $0.428250 as discarded; every other line and both totals are unchanged.
 
-Pipeline stage-c-1.6.10 marks these conventions (D-next-1..7). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. The audit listed `REPORT_SPEC_VERSION` for RPT-210; it is not moved because the audit export now prints a flag that every stored report already carried, and no field, grade, label or schema meaning changed. D-62 left the report spec and payload unchanged when it moved the cost breakdown into the audit export, and D-116 moved only the pipeline stamp for run-metadata changes. A bump would make every earlier report "not comparable" in the history diff. Stored reports and artifacts keep their bytes.
+Pipeline stage-c-1.6.10 marks these conventions (D-117..D-123). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. The audit listed `REPORT_SPEC_VERSION` for RPT-210; it is not moved because the audit export now prints a flag that every stored report already carried, and no field, grade, label or schema meaning changed. D-62 left the report spec and payload unchanged when it moved the cost breakdown into the audit export, and D-116 moved only the pipeline stamp for run-metadata changes. A bump would make every earlier report "not comparable" in the history diff. Stored reports and artifacts keep their bytes.
