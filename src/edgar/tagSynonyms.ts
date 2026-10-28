@@ -228,6 +228,16 @@ export const EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE = {
     "aggregate filed, pretax income less that aggregate is the EBIT (the us-gaap calculation places nonoperating " +
     "interest, InterestExpenseNonoperating, inside the aggregate); where the filer's interest sits outside the " +
     "aggregate on an untagged line, the figure understates EBIT by that interest",
+  /**
+   * The same disclosure for an interest element that IS filed but cannot be used
+   * on this row (another currency, another period): it is not added back and
+   * not converted, and the disclosure says why instead of "not filed".
+   */
+  discloseUnusable: (problem: string): string =>
+    `interest expense ${problem}, so it is not added back; with the NonoperatingIncomeExpense aggregate filed, ` +
+    "pretax income less that aggregate is the EBIT (the us-gaap calculation places nonoperating interest, " +
+    "InterestExpenseNonoperating, inside the aggregate); where the filer's interest sits outside the aggregate, " +
+    "the figure understates EBIT by that interest",
 } as const;
 
 /**

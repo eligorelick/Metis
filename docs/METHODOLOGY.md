@@ -711,7 +711,11 @@ The derivation's pre-tax operand is the same evidence as the pre-tax field: the
 filed total, else the B-32 domestic + foreign composition (audit 2026-10-27
 FIN-507-V1, D-next), and the disclosure says when the composition was taken as
 the full total. The interest operand is not required beside a filed
-`NonoperatingIncomeExpense` aggregate. Where the derivation is refused, the
+`NonoperatingIncomeExpense` aggregate. An interest element that is filed but
+unusable on the row (another currency, another period) is likewise skipped
+beside the aggregate and the disclosure says so, with no mismatch withholding
+left beside the published value; without the aggregate the part's own mismatch
+reason is the withholding. Where the derivation is refused, the
 operand it lacks is named in the `operatingIncome` withholding, and `ebit` is
 withheld with it, so a missing operand is never a silent gap.
 
@@ -720,9 +724,9 @@ tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
 `InvestmentIncomeInterestAndDividend` and `InvestmentIncomeInterest` in that
 order (audit 2026-10-27 FIN-510-V1), because at a bank the investment-income
 element is only the securities interest inside the total. A non-bank keeps the
-investment-income elements first. No figure changes: the mortgage-REIT spread
-reads the statement `interestIncome` only as a fallback when no operating tag is
-filed, so its value cannot change.
+investment-income elements first. The mortgage-REIT spread reads the statement
+`interestIncome` only as a fallback when no operating tag is filed, so its value
+does not change for a filer that tags an operating total.
 
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below

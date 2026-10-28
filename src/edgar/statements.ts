@@ -434,7 +434,7 @@ export type ChainSpec =
          * to the derivation's disclosure (audit 2026-10-27 FIN-507). Otherwise
          * the derivation is refused with the missing part named.
          */
-        optionalWhenAdjustment?: { adjustmentTag: string; disclose: string };
+        optionalWhenAdjustment?: { adjustmentTag: string; disclose: string; discloseUnusable: (problem: string) => string };
       }[];
       unit: "money";
       disclose?: string;
@@ -1574,6 +1574,12 @@ interface NoteSink {
   readonly refusals: string[];
   refuse(text: string): void;
   /**
+   * Every `withhold` text a resolution tried to record, in order, whether or not
+   * it was muted. A caller compares lengths to learn whether a resolution ran
+   * into a currency or period mismatch (`sameRowEvidence` withholds then).
+   */
+  readonly withholdAttempts: string[];
+  /**
    * Run a probe with `add`, `substitute`, `withhold` and `refuse` turned into
    * no-ops (nested calls work) and return its result. A probe resolves a tag
    * only to look at its value; the resolver's side effects belong to the field
@@ -1588,6 +1594,7 @@ function createNoteSink(): NoteSink {
   const substitutions: Substitution[] = [];
   const withheld: Withholding[] = [];
   const refusals: string[] = [];
+  const withholdAttempts: string[] = [];
   let muted = 0;
   const record = (into: { field: string; text: string; periods: string[] }[], field: string, period: string, text: string): void => {
     const existing = into.find((s) => s.field === field && s.text === text);
@@ -1599,6 +1606,7 @@ function createNoteSink(): NoteSink {
     substitutions,
     withheld,
     refusals,
+    withholdAttempts,
     add(note: string): void {
       if (muted > 0 || seen.has(note)) return;
       seen.add(note);
@@ -1608,6 +1616,7 @@ function createNoteSink(): NoteSink {
       if (muted === 0) record(substitutions, field, period, text);
     },
     withhold(field: string, period: string, text: string): void {
+      withholdAttempts.push(text);
       if (muted === 0) record(withheld, field, period, text);
     },
     refuse(text: string): void {
@@ -1742,7 +1751,8 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "sumAll": {
       const present: Resolved[] = [];
       const partTags: { label: string; tags: string[] }[] = [];
-      const deferred: (typeof spec.parts)[number][] = [];
+      // A part that may be absent, with the mismatch (currency, period) that made it unusable when it IS filed.
+      const deferred: { part: (typeof spec.parts)[number]; problem?: { text: string; kind: "currency" | "period" | "unit" } }[] = [];
       const field = at?.field ?? label;
       const triedTags = (part: ChainSpec): string => {
         const tried = new Set<string>();
@@ -1751,17 +1761,33 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       };
       for (const part of spec.parts) {
         const refusalsBefore = notes.refusals.length;
-        const r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
+        const attemptsBefore = notes.withholdAttempts.length;
+        // An optional part is probed quietly first: if it turns out unusable and the aggregate serves, the
+        // mismatch withholding it would have written must not stand beside the published value.
+        const optional = part.optionalWhenAdjustment !== undefined;
+        let r = optional
+          ? notes.quietly(() => resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`))
+          : resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
+        if (optional && r !== null && (present.length === 0 || present[0]!.unit === r.unit)) {
+          r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`); // served: its notes belong to the field
+        }
         if (r !== null && present.length > 0 && present[0]!.unit !== r.unit) {
+          if (optional) {
+            deferred.push({ part, problem: { text: `${field} not derived: ${part.label} is filed in ${r.unit}, not ${present[0]!.unit}`, kind: "unit" } });
+            continue;
+          }
           if (spec.refuseWhenIncomplete === true) notes.refuse(`${field} not derived: ${part.label} is filed in ${r.unit}, not ${present[0]!.unit}`);
           return null;
         }
         if (r === null) {
-          if (part.optionalWhenAdjustment !== undefined) {
-            deferred.push(part);
+          const mismatch = notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t));
+          if (optional) {
+            deferred.push({ part, ...(mismatch === undefined ? {} : { problem: { text: mismatch, kind: mismatch.startsWith("mixed_unit") ? "currency" : "period" } }) });
             continue;
           }
-          if (spec.refuseWhenIncomplete === true) {
+          // A part that ran into a currency or period mismatch already carries its own withholding (the
+          // mismatch text): "not filed" would be false and would stack a second reason on it.
+          if (spec.refuseWhenIncomplete === true && mismatch === undefined) {
             notes.refuse(
               notes.refusals.length > refusalsBefore
                 ? `${field} not derived: ${part.label} for the period is withheld (${notes.refusals[notes.refusals.length - 1]})`
@@ -1804,11 +1830,23 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         // A part that may be absent beside a filed aggregate (audit 2026-10-27
         // FIN-507): skipped and disclosed when that aggregate served, else the
         // derivation is refused with the missing operand named.
-        for (const part of deferred) {
+        for (const { part, problem } of deferred) {
           const rule = part.optionalWhenAdjustment!;
           if ([...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag))) {
-            notAdded.push(rule.disclose);
+            notAdded.push(
+              problem === undefined
+                ? rule.disclose
+                : rule.discloseUnusable(
+                    problem.kind === "period"
+                      ? `is filed for a different period than the row`
+                      : `is filed in another currency than the row's reporting currency (no conversion is made)`,
+                  ),
+            );
             continue;
+          }
+          if (problem !== undefined) {
+            notes.refuse(problem.text); // the part's own reason, the same text the mismatch withholding carries
+            return null;
           }
           notes.refuse(
             `${field} not derived: ${part.label} is not filed for the period (tags tried: ${triedTags(part.spec)}), and no ${rule.adjustmentTag} aggregate is filed that would make it unnecessary`,

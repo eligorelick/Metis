@@ -269,7 +269,9 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
         text: expect.stringMatching(/^revenue WITHHELD for this quarter: the YTD difference derivation produced -20/),
       },
     ]);
-    expect(built.incomeQuarterly.withheld.filter((w) => w.field === "operatingIncome").every((w) => /pretax income is not filed/.test(w.text))).toBe(true);
+    const operatingHeld = built.incomeQuarterly.withheld.filter((w) => w.field === "operatingIncome");
+    expect(operatingHeld.length).toBeGreaterThan(0);
+    expect(operatingHeld.every((w) => /pretax income is not filed/.test(w.text))).toBe(true);
     const [held] = revenueHeld;
     expect(held!.text).toMatch(/2025-03-29 MINUS .*2024-12-28/);
     expect(built.incomeQuarterly.notes.some((n) => /revenue WITHHELD for this quarter/.test(n))).toBe(true);

@@ -226,6 +226,36 @@ describe("derived EBIT operands", () => {
     expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBe((9_247 + 150 - 269) * M);
     expect(q.substitutions.some((s) => s.field === "operatingIncome" && /may ALREADY contain/.test(s.text))).toBe(true);
   });
+  // Task 3 review: an operand filed in another currency is named for what it is, and never both withheld and published.
+  const buildEur = (usGaap: Record<string, unknown[]>, eurTags: string[]) => {
+    const f = companyFacts(Object.fromEntries(Object.entries(usGaap).filter(([tag]) => !eurTags.includes(tag)))) as unknown as { facts: { "us-gaap": Record<string, unknown> } };
+    for (const tag of eurTags) f.facts["us-gaap"][tag] = { label: tag, units: { EUR: usGaap[tag] } };
+    return buildStatementsFromCompanyFacts(f as never, { symbol: "SYN", cik: "0000000099", annualPeriods: 4, quarterlyPeriods: 8, asOf: "2026-10-22", factsObservedAt: "2026-10-22T00:00:00.000Z", vendorSplits: SPLITS as never });
+  };
+  it("an interest element filed in another currency beside the aggregate is skipped, disclosed as such, and leaves no withholding beside the published value", () => {
+    const q = buildEur({ ...lly26, InterestExpense: [fact(Q2, "2026-04-01", "2026-06-30", 150 * M)] }, ["InterestExpense"]).incomeQuarterly;
+    expect(q.rows.find((r) => r.date === "2026-06-30")).toMatchObject({ operatingIncome: 8_978 * M, ebit: 8_978 * M });
+    expect(q.withheld.filter((w) => w.field === "operatingIncome" && w.periods.includes("2026-06-30"))).toEqual([]);
+    const text = q.substitutions.filter((s) => s.field === "operatingIncome" && s.periods.includes("2026-06-30")).map((s) => s.text).join(" ");
+    expect(text).toMatch(/interest expense .*filed in another currency/);
+    expect(text).not.toMatch(/no interest-expense element .* is filed for the period/);
+    expect(text).toMatch(/understates EBIT by that interest/);
+  });
+  it("an interest element filed in another currency with no aggregate withholds with the part's own reason only", () => {
+    const rest = Object.fromEntries(Object.entries(lly26).filter(([tag]) => tag !== "NonoperatingIncomeExpense"));
+    const q = buildEur({ ...rest, InterestExpense: [fact(Q2, "2026-04-01", "2026-06-30", 150 * M)] }, ["InterestExpense"]).incomeQuarterly;
+    expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBeNull();
+    const held = q.withheld.filter((w) => w.field === "operatingIncome" && w.periods.includes("2026-06-30")).map((w) => w.text);
+    expect(held.length).toBeGreaterThan(0);
+    expect(held.join(" ")).toMatch(/mixed_unit: InterestExpense uses EUR/);
+  });
+  it("a pretax total filed in another currency records the part's own reason, not also 'pretax income is not filed'", () => {
+    const q = buildEur(lly26, [PRETAX]).incomeQuarterly;
+    expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBeNull();
+    const held = q.withheld.filter((w) => w.field === "operatingIncome" && w.periods.includes("2026-06-30")).map((w) => w.text);
+    expect(held.join(" ")).toMatch(/mixed_unit: /);
+    expect(held.filter((t) => /pretax income is not filed/.test(t))).toEqual([]);
+  });
   // FIN-507-V1 (synthetic, the probe's figures)
   const K: Filing = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13", accn: "0000000099-26-000001" };
   const a = (v: number) => [fact(K, "2025-01-01", "2025-12-31", v)];
