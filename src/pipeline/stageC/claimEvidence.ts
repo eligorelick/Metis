@@ -34,16 +34,22 @@ const SCORE_SCALE = /\s*(?:\/\s*100\b|out of 100\b|on (?:the|a) 0\s*[–—-]\s*
  * weighted-projection rows' own label) read "12M" as 12 million.
  */
 const WINDOW_LABEL = /\b\d{1,2}M(?=\s+(?:ending|ended)\b)/g;
+/**
+ * AI-304: "12 months" and "6 months ended" name a period, not a quantity. The
+ * scale token is a whole word now, so the "m" of "months" no longer hides them.
+ */
+const DURATION_MONTHS = /\b\d{1,2}\s+months?\b/gi;
 /** D-66: "was negative USD 23.2 billion" states the sign in a word. */
 const SIGN_WORD = /\b(?:negative|minus)\s+$/i;
 
 function quantities(text: string): Quantity[] {
-  const masked = proseQuantityText(text).replace(WINDOW_LABEL, (match) => " ".repeat(match.length));
+  const masked = proseQuantityText(text).replace(WINDOW_LABEL, (match) => " ".repeat(match.length))
+    .replace(DURATION_MONTHS, (match) => " ".repeat(match.length));
   // TracedNumber excerpts declare their display scale before the metric,
   // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
   // distinct from a claim that simply copies "$56,586" out of a scaled table.
   const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
-  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES}))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share|score)?`, "gi");
+  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?<![A-Za-z])(?:${CURRENCIES})(?![A-Za-z]))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?:(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)(?![A-Za-z]))?\s*(?:(?<unit>%|(?:percentage[\s-]points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share|score)(?![A-Za-z]|-[A-Za-z])))?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -75,7 +81,7 @@ function quantities(text: string): Quantity[] {
     const token = (groups.unit ?? "").toLowerCase();
     const prefix = (groups.prefix ?? "").trim();
     let unit: CanonicalUnit | null = /^(?:%|percent)$/.test(token) ? "percent"
-      : /^(?:pp|pps|percentage point|percentage points|bp|bps|basis point|basis points)$/.test(token) ? "percentage-points"
+      : /^(?:pp|pps|percentage[\s-]points?|bp|bps|basis points?)$/.test(token) ? "percentage-points"
         : /^(?:x|times)$/.test(token) ? "ratio"
           : /^shares?$/.test(token) ? "shares"
             : /^days?$/.test(token) ? "days" : /^(?:people|users|subscribers|count)$/.test(token) ? "count" : null;

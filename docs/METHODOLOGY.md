@@ -2694,6 +2694,11 @@ negates the amount; a dash that follows a letter, digit or point ("$1.0-$1.2
 billion", "FY2025-$5 million"), or a figure and one space ("$1.0 -$1.2
 billion"), or one followed by a space ("$1.0 - $1.2 billion"), is not read as
 that sign (audit 2026-10-27 AI-202).
+Scale words, units and currency codes are read only as whole words (the M of
+"Marketable" is not millions, the AUD in "fraud" is not a currency, a
+hyphenated compound such as "Share-based" is not a unit, and "percentage-point"
+is a unit); "N months" is a period phrase, not a quantity (audit 2026-10-27
+AI-304).
 A period that directly follows a comparison word ("compared with $10.2 billion
 in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
 the comparison's base: it belongs to the amount between the comparison word and
