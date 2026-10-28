@@ -726,12 +726,34 @@ describe("payload determinism + provenance", () => {
     expect(b8dRestorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([0]);
     expect(b3Restorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([1, 1]);
     expect([registryJson.split(b4Restorations[0]![0]).length - 1, registryJson.split(b4Restorations[1]![0]).length - 1]).toEqual([1, 1]);
-    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB3Text(restoreB4Text(registryJson)).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(record => {
+    // Audit 2026-10-27 B3 Task 8E (residual a): the (latest) and accrual-year computed records carry the issuer's fiscal
+    // label of the year they were computed over, and the (latest) ones that year's end as their period. Neither is printed.
+    // 1.36.0 carried neither: delete the labels, then reset the period on the labelled non-accrual records (the accrual-year
+    // records already carried their period). Each counted first.
+    const isB8eOrigin = (origin: string): boolean => origin.startsWith("computed.forensics.accruals.") || [
+      "computed.growth.margins.gross", "computed.growth.margins.operating", "computed.growth.margins.net", "computed.returns.roic", "computed.returns.dupont",
+      "computed.capital.fcf", "computed.capital.fcf.beforeSbc", "computed.capital.fcf.conversion", "computed.capital.fcf.conversionBeforeSbc",
+      "computed.capital.capexIntensity", "computed.capital.maintenanceVsGrowthCapex",
+    ].includes(origin);
+    let b8eLabelsRemoved = 0, b8ePeriodsReset = 0;
+    const restoreB8e = (record: NonNullable<typeof payload.provenanceRegistry>[number]): NonNullable<typeof payload.provenanceRegistry>[number] => {
+      if (record.kind !== "computed" || !isB8eOrigin(record.origin) || record.fiscalPeriod === undefined) return record;
+      const { fiscalPeriod, ...rest } = record;
+      expect(fiscalPeriod).toMatch(/^FY\d{4}$/);
+      b8eLabelsRemoved += 1;
+      if (record.origin.startsWith("computed.forensics.accruals.")) return rest;
+      expect(record.period).toBe(record.asOf);
+      b8ePeriodsReset += 1;
+      return { ...rest, period: null };
+    };
+    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB3Text(restoreB4Text(registryJson)).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(restoreB8e).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
       return before;
     });
+    // Measured on this fixture: 39 labelled records, 11 of them (the (latest) rows) also reset to a null period.
+    expect([b8eLabelsRemoved, b8ePeriodsReset]).toEqual([39, 11]);
     expect(registryWithoutPeers.filter((record) => record.origin === "fmp:stock-peers")).toHaveLength(0);
     const lastEstimate = registryWithoutPeers.reduce((last, record, index) => record.id.startsWith("payload.estimates.") ? index : last, -1);
     expect(lastEstimate).toBe(355);
@@ -1183,6 +1205,12 @@ describe("payload determinism + provenance", () => {
       // FMP's normalised names (+340 bytes). The fixture's rows are FMP rows with no XBRL axis to contradict them,
       // so nothing is withheld; no record, count, citation or finance leaf moves, only fingerprint and promptBytes.
       // Restored by b8dRestorations and isProviderKeyNote in the preceding-pin chain above.
+      // Audit 2026-10-27 B3 Task 8E (residual a): (latest) and accrual-year computed records carry the issuer's fiscal
+      // label of the year they were computed over, and the (latest) ones its period end, as the annual statement cell
+      // does; nothing printed moves. 39 records gain fiscalPeriod (FY2025, FY2024 for a prior-year operand) and 11 of
+      // them also gain period (the 28 accrual-year records already carried theirs), so only provenanceHash moves;
+      // fingerprint, promptBytes, counts, ids, citations, labels and financeHash do not. Restored by restoreB8e in the
+      // preceding-pin chain above.
       fingerprint: "1.48.0:78ca6362",
       promptBytes: 143_867,
       provenanceCount: 531,
@@ -1190,7 +1218,7 @@ describe("payload determinism + provenance", () => {
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "bd506087",
+      provenanceHash: "3fc51d0c",
       provenanceIdsHash: "fe7c2621",
       citationCount: 75,
       citationHash: "423bbedf",

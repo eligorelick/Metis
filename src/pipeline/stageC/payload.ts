@@ -696,6 +696,7 @@ function computedSections(
   currencies: ComputedCurrencies,
   currentPrice: number | null,
   collectionNotes: ReadonlySet<string>,
+  annualLabels: ReadonlyMap<string, string>,
 ): PayloadSection[] {
   const sections: PayloadSection[] = [];
   const g = computed.growth;
@@ -742,9 +743,9 @@ function computedSections(
   const lastGross = g.margins.gross.series.at(-1);
   const lastOper = g.margins.operating.series.at(-1);
   const lastNet = g.margins.net.series.at(-1);
-  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date });
-  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date });
-  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date });
+  if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date, ...fiscalYearOf(annualLabels, lastGross.date, lastGross.date) });
+  if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date, ...fiscalYearOf(annualLabels, lastOper.date, lastOper.date) });
+  if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date, ...fiscalYearOf(annualLabels, lastNet.date, lastNet.date) });
   sections.push(payloadSection({ title: "Growth & margins (computed)", figures: growthFigures, notes: g.notes }));
 
   // --- Returns (WACC / ROIC / DuPont) --------------------------------------
@@ -759,8 +760,8 @@ function computedSections(
     { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: `computed.returns.wacc.riskFree(${r.wacc.riskFreeSeriesId ?? "fred:DGS10"})`, asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "ERP used", value: r.wacc.erpPct, unit: "%", source: "computed.returns.wacc.erp", asOf: null },
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },
-    { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf },
-    { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf },
+    { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf, ...fiscalYearOf(annualLabels, r.roic.series.at(-1)?.date, r.roic.asOf) },
+    { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf, ...fiscalYearOf(annualLabels, r.dupont.latest?.date, r.dupont.asOf) },
     { label: "ROIC − WACC spread", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roic.asOf },
     // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
     ...(r.commonReturnTtm == null ? [] : [{
@@ -780,17 +781,19 @@ function computedSections(
 
   // --- Capital -------------------------------------------------------------
   const cap = computed.capital;
+  const fcfYear = fiscalYearOf(annualLabels, cap.fcf.series.at(-1)?.date, cap.asOf);
+  const capexYear = fiscalYearOf(annualLabels, cap.capexIntensity.series.at(-1)?.date, cap.asOf);
   const capFigures: PayloadFigureInput[] = [
     // WS6 review (SHOULD-FIX 4): every free-cash-flow figure names its
     // definition. The house default subtracts SBC; the vendor convention does
     // not, and P/FCF is built on the before-SBC figure; the graded conversion is the current-capital one (AI-511).
-    { label: "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf },
-    { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf },
-    { label: "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf },
-    { label: "FCF conversion (latest fiscal year, before SBC)", value: cap.fcf.latestConversionBeforeSbc, unit: "x", source: "computed.capital.fcf.conversionBeforeSbc", asOf: cap.asOf },
-    { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf },
+    { label: "latest FCF (after SBC, house default)", value: cap.fcf.latestFcf, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf", asOf: cap.asOf, ...fcfYear },
+    { label: "latest FCF (before SBC, vendor convention)", value: cap.fcf.latestFcfBeforeSbc, unit: "currency", currency: currencies.fcf, source: "computed.capital.fcf.beforeSbc", asOf: cap.asOf, ...fcfYear },
+    { label: "FCF conversion (latest, after SBC)", value: cap.fcf.latestConversion, unit: "x", source: "computed.capital.fcf.conversion", asOf: cap.asOf, ...fcfYear },
+    { label: "FCF conversion (latest fiscal year, before SBC)", value: cap.fcf.latestConversionBeforeSbc, unit: "x", source: "computed.capital.fcf.conversionBeforeSbc", asOf: cap.asOf, ...fcfYear },
+    { label: "capex/revenue (latest)", value: cap.capexIntensity.latestPct, unit: "%", source: "computed.capital.capexIntensity", asOf: cap.asOf, ...capexYear },
     { label: "capex/revenue slope", value: cap.capexIntensity.slopePctPtsPerYear, unit: "pp/yr", source: "computed.capital.capexIntensity", asOf: cap.asOf },
-    { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf },
+    { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
     { label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
     { label: "SBC % revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
@@ -994,7 +997,12 @@ function computedSections(
   for (const flag of fx.flags) {
     forensicNotes.push(`FLAG [${flag.severity}] ${flag.message} (rule: ${flag.rule})`);
   }
-  sections.push(payloadSection({ title: "Forensics (computed)", figures: forensicFigures, notes: forensicNotes }));
+  // D-68: one fiscal year over the prior; each accrual-year figure is dated by its own operand year (residual a).
+  sections.push(payloadSection({
+    title: "Forensics (computed)",
+    figures: forensicFigures.map((f) => f.source.startsWith("computed.forensics.accruals.") ? { ...f, ...fiscalYearOf(annualLabels, f.asOf, f.asOf) } : f),
+    notes: forensicNotes,
+  }));
 
   const currentCapital = computed.capital.current;
   if (currentCapital) {
@@ -1435,6 +1443,34 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
   if (period === "FY") return `FY${year.trim()}`;
   if (period !== null && /^Q[1-4]$/.test(period)) return `${period} FY${year.trim()}`;
   return null;
+}
+
+/** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end; the provably latest row per period (normalizeQuarterRows, D-13). */
+function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
+  const labels = new Map<string, string>();
+  for (const row of normalizeQuarterRows(rowsOf(bundle.statements.incomeAnnual)).rows) {
+    const day = isoDay(row.date);
+    const label = issuerFiscalLabel(row);
+    if (day !== null && label !== null && /^FY\d{4}$/.test(label)) labels.set(day, label);
+  }
+  return labels;
+}
+
+/**
+ * Audit 2026-10-27 B3 (residual a): a computed figure taken from one fiscal year's rows carries that year's issuer label
+ * and period end, read from the annual income row of the date Stage B states, as the annual statement cell carries them;
+ * never inferred from a calendar year or from an as-of that happens to match a year end (B1 OD-1 (b)). The period is what
+ * makes the consistency period check run, so a label never validates another year. Only when the window end is a full ISO
+ * day, equals the as-of the figure prints and the labels hold it; otherwise nothing is added.
+ */
+function fiscalYearOf(
+  labels: ReadonlyMap<string, string>,
+  windowEnd: string | null | undefined,
+  asOf: string | null | undefined,
+): { period?: string; fiscalPeriod?: string } {
+  if (typeof windowEnd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(windowEnd) || windowEnd !== asOf) return {};
+  const fiscalPeriod = labels.get(windowEnd);
+  return fiscalPeriod === undefined ? {} : { period: windowEnd, fiscalPeriod };
 }
 
 /** Source boundaries only: issuer calendars and 52/53-week years vary (SEC API guidance). */
@@ -3364,7 +3400,7 @@ export function assembleContextPayload(
       industry: computed.route.evidence.industry,
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
-    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes),
+    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle)),
     statements: statementExtracts(bundle),
     ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),

@@ -2782,6 +2782,15 @@ its value reads "Cited; contradicted by its source" (it was cited, never
 statuses, and its evidence-class table gives the coverage counts with
 grade-strip reasoning included.
 
+A computed figure Stage B takes from one fiscal year's statement rows carries
+that year's issuer label (for example FY2025) and its period end, read from the
+annual income row of the date Stage B states for it and never inferred from a
+calendar year. These are the latest margins, ROIC, DuPont ROE, free cash flow,
+FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
+a statement cell's are not. They let prose name that fiscal year or "the fiscal
+year", and, as for a statement cell, a sentence naming another year stays
+unverified (audit 2026-10-27 B3, D-next).
+
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the
 cited figures the verification log marks contradicted (a value mismatch). These
