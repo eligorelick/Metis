@@ -2736,12 +2736,12 @@ to shareholders" is not a free-cash-flow figure, "benefiting our diluted
 earnings per share by $1.93" is not the diluted EPS, and "cash, marketable
 investments, and restricted cash of $73.48 billion" is not "cash". The rule is
 applied together with the clause rule and only removes candidates: it never
-admits a figure the clause rule rejected, and in prose it never resolves an
-ambiguity. If the clause rule alone left several distinct source values for a
-prose claim and the own description removes some, the claim stays
-`unchecked / text-ambiguous`. Only a table cell, whose row label is its whole
-description, can be resolved by the rule (the first row under a scale
-declaration, "Revenue" beside "Cost of revenue", moves to validated). A correct
+admits a figure the clause rule rejected, and it never resolves an ambiguity,
+in prose or in a table. If the clause rule alone left several distinct source
+values for a claim and the own description removes any of them, the claim stays
+`unchecked / text-ambiguous`; if it removes every candidate, the claim is left
+unchecked. An invalid or locale-ambiguous date anywhere among the clause
+candidates still fails the claim as `period-mismatch`. A correct
 figure whose description carries words the claim leaves out is left unchecked,
 and that recall cost is accepted: a trailing explanation with no comma ("net
 discrete tax expense of $15.9 billion attributable to upward adjustments to our

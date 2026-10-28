@@ -77,12 +77,10 @@ describe("AI-305 table rows (Review Focus 4)", () => {
   const TITLE = "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)";
   it("the first row of a statement table with a heading lead keeps its row description", () => {
     const text = "Jul 26, 2026 Jan 25, 2026 (In millions) Current assets: Cash and cash equivalents $ 22,443 $ 10,605 Other debt securities 34,143 39,065";
+    // Fix round 2 (2026-10-28 ruling A): the own description never resolves an ambiguity, so this row stays at its base result, which is already validated (no ambiguity to resolve).
     expect(onExcerpt("Cash and cash equivalents as of 2026-07-26 were USD 22.44 billion.", text, "10-Q").status).toBe("validated");
   });
-  it("the first row under a scale declaration is not asked to name the declaration (a documented move toward validated)", () => {
-    const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Revenue $ 215,938 $ 130,497 Cost of revenue 62,475 32,639 Other matters follow.";
-    expect(onExcerpt("Revenue as of 2026-01-25 was USD 215.938 billion.", text, TITLE).status).toBe("validated");
-  });
+
   it("each row binds only to its own description (control)", () => {
     const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions) Revenue $ 215,938 $ 130,497 Cost of revenue 62,475 32,639 Other matters follow.";
     expect(onExcerpt("Cost of revenue as of 2026-01-25 was USD 62.475 billion.", text, TITLE).status).toBe("validated");
@@ -131,10 +129,36 @@ describe("AI-305 fix round 1: no ambiguity resolution in prose", () => {
   ])("a total-revenue claim against a segment of the same words: %s", (text) => {
     expect(onExcerpt("Total revenue was USD 41.1 billion.", text, Q2).status).not.toBe("validated");
     expect(onExcerpt("Total revenue was USD 46.7 billion.", text, Q2).status).not.toBe("contradicted");
+    // Fix round 2 (ruling C): the form with a period fails first at 903b2cd (validated / contradicted there).
+    expect(onExcerpt("Revenue for Q2 FY2027 was USD 41.1 billion.", text, Q2).status).not.toBe("validated");
+    expect(onExcerpt("Revenue for Q2 FY2027 was USD 46.7 billion.", text, Q2).status).not.toBe("contradicted");
   });
-  it("a table cell is still resolved by its row lead (the documented first-row move)", () => {
+  it("fix round 2 (2026-10-28 ruling A): a table does not resolve a base ambiguity either; the first row stays text-ambiguous", () => {
     const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Revenue $ 215,938 $ 130,497 Cost of revenue 62,475 32,639 Other matters follow.";
-    expect(onExcerpt("Revenue as of 2026-01-25 was USD 215.938 billion.", text, "10-K Item 7 (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)").status).toBe("validated");
+    const title = "10-K Item 7 (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)";
+    expect(onExcerpt("Revenue as of 2026-01-25 was USD 215.938 billion.", text, title).status).not.toBe("validated");
+    expect(onExcerpt("Revenue as of 2026-01-25 was USD 62.475 billion.", text, title).status).not.toBe("validated");
+    expect(onExcerpt("Revenue as of 2026-01-25 was USD 62.475 billion.", text, title).status).not.toBe("contradicted");
+  });
+  describe("fix round 2: no wrong row validates and no true figure is contradicted through a table", () => {
+    const TABLE_TITLE = "10-Q (reporting period ended 2026-07-26)";
+    const unchecked = (claim: string, text: string, title = TABLE_TITLE) => expect(onExcerpt(claim, text, title).status).toBe("unchecked");
+    it.each([
+      ["Product: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Product: Revenue $ 41,100 $ 30,000 Services: Revenue $ 5,000 $ 4,000 Other matters follow."],
+      ["Data Center: Revenue", "Jul 26, 2026 Jul 27, 2025 (In millions) Data Center: Revenue $ 41,100 $ 30,000 Gaming: Revenue $ 4,300 $ 3,000 Other matters follow."],
+      ["a prose total beside a table cell", "Total revenue was $46.7 billion. Jul 26, 2026 Jul 27, 2025 (In millions) Data Center: Revenue $ 41,100 $ 30,000 Other matters follow."],
+    ])("%s", (_name, text) => {
+      unchecked("Revenue as of 2026-07-26 was USD 41.1 billion.", text);
+      unchecked("Revenue as of 2026-07-26 was USD 5.0 billion.", text);
+      unchecked("Revenue as of 2026-07-26 was USD 46.7 billion.", text);
+    });
+    it("an invalid date elsewhere in the excerpt keeps the claim period-mismatch (ruling B)", () => {
+      const text = "On 03/04/2026, total revenue was $46.7 billion. Data Center: revenue was $41.1 billion.";
+      for (const claim of ["Revenue was USD 41.1 billion.", "Revenue was USD 46.7 billion."]) {
+        const result = onExcerpt(claim, text, Q2);
+        expect([result.status, result.reason]).toEqual(["unchecked", "period-mismatch"]);
+      }
+    });
   });
 });
 

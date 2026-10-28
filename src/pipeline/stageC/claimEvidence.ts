@@ -672,8 +672,8 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * in the source clause, and a definition-changing modifier the clause states
  * must be in the claim too ("non-GAAP", "operating", "diluted"). The record
  * path keeps exact symmetry; an excerpt clause also carries its verb and its
- * context ("These changes were driven by higher free cash flow that was used to return …"), which demanding in the claim failed every
- * figure a filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
+ * context ("Inventory was $31.6 billion, up from $25.8 billion sequentially, as we prepare for …": an explanation after a comma),
+ * which demanding in the claim failed every figure a filing states in a sentence.
  * AI-305 / D-next (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
  * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
  * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
@@ -1101,8 +1101,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         if (excerptNamesMetric(tokens, sourceTokens, named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []), ownDescriptionTokens(binding.context.ownAfter, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
-    if (candidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
-      return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", candidates.slice(0, 3).map((candidate) => candidate.span));
+    // AI-305: read before the own-description rule, so a claim fails closed on an invalid date exactly as the clause rule alone would.
+    if (clauseCandidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
+      return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", clauseCandidates.slice(0, 3).map((candidate) => candidate.span));
     }
     // A clause that names no period is read under the excerpt's own (D-63);
     // one that names a period must name exactly the stated one, as before.
@@ -1143,11 +1144,14 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       }
       return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
     }
+    // A total and its per-share restatement are told apart by the unit the prose prints.
     const unitPair = matchingPeriods[0]?.unitPair;
-    if (unitPair !== undefined && matchingPeriods.every((candidate) => candidate.unitPair === unitPair)) {
-      const sameUnit = matchingPeriods.filter((candidate) => candidate.quantity.unit === quantity.unit);
-      if (sameUnit.length > 0) matchingPeriods = sameUnit;
-    }
+    const reducePair = (list: SourceBinding[]): SourceBinding[] => {
+      if (unitPair === undefined || !list.every((candidate) => candidate.unitPair === unitPair)) return list;
+      const sameUnit = list.filter((candidate) => candidate.quantity.unit === quantity.unit);
+      return sameUnit.length > 0 ? sameUnit : list;
+    };
+    matchingPeriods = reducePair(matchingPeriods);
     const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
     const distinctOf = (list: SourceBinding[]): Set<string> => new Set(list.map((candidate) => {
       const multiplier = tableScaleFor(candidate.quantity, candidate.column);
@@ -1158,17 +1162,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       ]);
     }));
     const distinct = distinctOf(matchingPeriods);
-    // AI-305: the own-description rule never resolves an ambiguity in prose. When the clause rule alone left several distinct values and
-    // the own description removed some, the claim stays unchecked (a table cell's row lead is the whole description, so a table may resolve).
-    if (matchingPeriods.some((candidate) => candidate.column === undefined)) {
-      let clauseMatching = periodFilter(clauseCandidates);
-      if (unitPair !== undefined && clauseMatching.every((candidate) => candidate.unitPair === unitPair)) {
-        const sameUnit = clauseMatching.filter((candidate) => candidate.quantity.unit === quantity.unit);
-        if (sameUnit.length > 0) clauseMatching = sameUnit;
-      }
-      if (clauseMatching.length > matchingPeriods.length && distinctOf(clauseMatching).size > 1) {
-        return support("unchecked", "text-ambiguous", "multiple source values could bind the prose quantity before its own description is read", clauseMatching.slice(0, 3).map((candidate) => candidate.span));
-      }
+    // AI-305: the own-description rule never resolves an ambiguity, in prose or in a table. When the clause rule alone left several
+    // distinct values and the own description removed some, the claim stays unchecked.
+    const clauseMatching = reducePair(periodFilter(clauseCandidates));
+    if (clauseMatching.length > matchingPeriods.length && distinctOf(clauseMatching).size > 1) {
+      return support("unchecked", "text-ambiguous", "multiple source values could bind the quantity before its own description is read", clauseMatching.slice(0, 3).map((candidate) => candidate.span));
     }
     // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
     if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
