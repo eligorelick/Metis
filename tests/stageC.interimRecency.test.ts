@@ -50,6 +50,18 @@ describe("interim notes recency (AI-507)", () => {
     expect(Object.values(t).filter((title) => /older than the 10-K/.test(String(title)))).toEqual([]);
   });
 
+  it("gives no marker when the bundle has no 10-K (no annual period to compare)", () => {
+    const bundle = withFilings(["2026-09-03", "2026-10-09"], ["2026-05-28", "2026-06-25"]);
+    const edgar = bundle.edgar as unknown as Record<string, unknown>;
+    for (const key of ["business", "item1a", "mdna", "tenKNotes"]) delete edgar[key];
+    const t = titles(bundle);
+    // Precondition: the 10-Q excerpts reach the payload at all.
+    expect(t["edgar:10-Q notes"]).toContain("reporting period ended 2026-05-28");
+    expect(t["edgar:10-Q item2"]).toBeDefined();
+    expect(t["edgar:10-Q item5"]).toBeDefined();
+    expect(Object.values(t).filter((title) => /older than the 10-K/.test(String(title)))).toEqual([]);
+  });
+
   it("compares reporting periods, not filing dates", () => {
     // Filed after the 10-K, but for an earlier quarter: still older.
     expect(titles(withFilings(["2026-09-03", "2026-10-09"], ["2026-05-28", "2026-10-20"]))["edgar:10-Q notes"]).toContain(OLDER);
