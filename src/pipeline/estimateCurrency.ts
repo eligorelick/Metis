@@ -30,6 +30,16 @@ function iso(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
+/**
+ * The row's own ISO currency only, never a provider convention. A stock-peers
+ * row reads its currency this way (AI-301): a convention set for estimates must
+ * not turn a peer cap into money.
+ */
+export function ownRowCurrency(row: object | null | undefined): string | null {
+  const fields = (row ?? {}) as { reportedCurrency?: unknown; currency?: unknown };
+  return iso(fields.reportedCurrency) ?? iso(fields.currency);
+}
+
 /** The row's own currency, else the documented provider convention, else null. */
 export function estimateCurrency(row: object | null | undefined): string | null {
   const fields = (row ?? {}) as { reportedCurrency?: unknown; currency?: unknown };

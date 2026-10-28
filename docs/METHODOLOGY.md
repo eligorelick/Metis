@@ -214,10 +214,11 @@ resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
 **Provider rows without a currency (D-57).** FMP's analyst-estimate,
-price-target and executive-compensation rows (and its stock-peer rows, see
-below) carry no currency field. `src/pipeline/estimateCurrency.ts` gives each row its own
-`reportedCurrency`/`currency` when it has one. Otherwise the row inherits the
-issuer's currency, but only when three things agree:
+price-target, executive-compensation and stock-peer rows carry no currency
+field. `src/pipeline/estimateCurrency.ts` gives each row its own
+`reportedCurrency`/`currency` when it has one. Otherwise an estimate, target or
+compensation row inherits the issuer's currency (a stock-peer row never does,
+see below), but only when three things agree:
 
 - the reporting currency the statements establish (the model currency);
 - the listing currency on the profile;
@@ -1258,12 +1259,13 @@ not an exhaustive or independently optimized peer universe.
 a comparable company: it is excluded at discovery, again at comparison (on its
 own quote), and left out of the peer list the analysis reads, with a note naming
 it and the ratio. Caps are compared only between established equal currencies
-or, when the discovery row states no currency, between listings on the same
+or, when no currency is established for the peer (neither its own row nor a
+profile read for it states one), between listings on the same
 market (the same exchange suffix: none for a U.S. listing, `.T` for Tokyo), one
 rule shared by Stage B discovery and the payload (`peerDiscoveryScreen`). A
 same-market or same-currency row is screened on the discovery row's cap at no
 provider read; a row on another market is "size not compared" at discovery (the
-reason is stated) and goes to the profile read, where the listing-currency gate
+payload's Peers notes state why) and goes to the profile read, where the listing-currency gate
 and the screen on its own quote decide. The suffix presumption only decides
 whether a name is size-screened; it never makes a cap money. Size is a priced risk characteristic (Fama and French 1992) and
 multiples differ systematically with it; comparable-company practice selects

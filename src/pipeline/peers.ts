@@ -1,7 +1,7 @@
 /** Optional, bounded peer inputs. Never builds a report or invokes keyless providers. */
 import type { FmpBalanceSheetRow, FmpClient, FmpIncomeStatementRow, FmpProfileRow, FmpQuoteRow, FmpRawRow, FmpStockPeerRow } from "@/providers/fmp";
 import type { FmpFetch } from "@/pipeline/types";
-import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { ownRowCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
@@ -168,7 +168,7 @@ export async function loadPeerFundamentals(opts: {
     // repeats the screen on the candidate's own quote. A row on another
     // listing market is not size-compared here (its cap may be in another
     // currency); the profile read and the quote-based test decide (AI-301-V1).
-    const screen = peerDiscoveryScreen({ subjectSymbol: opts.symbol, subjectCurrency: opts.profile.currency, subjectCap: opts.profile.marketCap, peerSymbol: symbol, peerCurrency: estimateCurrency(row), peerCap: row.mktCap });
+    const screen = peerDiscoveryScreen({ subjectSymbol: opts.symbol, subjectCurrency: opts.profile.currency, subjectCap: opts.profile.marketCap, peerSymbol: symbol, peerCurrency: ownRowCurrency(row), peerCap: row.mktCap });
     if (screen.kind === "excluded") { result.exclusions.push({ symbol, reason: screen.reason }); continue; }
     symbols.push(symbol);
   }

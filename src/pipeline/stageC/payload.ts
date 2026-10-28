@@ -36,7 +36,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, 
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
-import { estimateCurrency, inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -1653,7 +1653,7 @@ function nextEarningsNote(bundle: DataBundle): string | null {
  * list foreign exchanges). The size screen is the one Stage B discovery uses.
  */
 function peerListingCurrency(bundle: DataBundle, symbol: string, row: FmpStockPeerRow): string | null {
-  const own = estimateCurrency(row);
+  const own = ownRowCurrency(row);
   if (own !== null) return own;
   const collection = bundle.peerFundamentals;
   const recorded = isoCurrency(collection?.listingCurrencies?.[symbol]);
