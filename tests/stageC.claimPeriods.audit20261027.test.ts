@@ -659,9 +659,11 @@ describe("AI-302-V1 forward-looking clauses", () => {
   ])("AI-302-V1: a result claim does not bind the guided figure (%s)", async (text) => {
     expect((await citeExcerpt(GUIDE, text)).entry.validationStatus).toBe("unchecked");
   });
-  it("AI-302-V1 accepted recall loss (OD-3): a forward-looking verb outside the figure's clause leaves the claim unchecked", async () => {
-    // Forward-looking is judged from the clause of the figure (claimEvidence.ts claimForward), so a verb
-    // outside that clause does not make "USD 108.0 billion" a forward-looking figure: recall is lost, never precision. Accepted under OD-3, pinned 2026-10-28 (AI-302-V1 review).
+  it("AI-302-V1 accepted recall loss (OD-3): a guided figure restated with a subject and verb the source clause lacks leaves the claim unchecked", async () => {
+    // The loss is a metric-token mismatch (unchecked/text-context-mismatch): the claim's own words "NVIDIA expects" are metric
+    // words the source clause "Revenue is expected to be $108.0 billion ..." does not carry. It is not the own-clause modality rule
+    // ("For Q3 FY2027, revenue is expected to be USD 108.0 billion." validates). Recall is lost, never precision.
+    // Accepted under OD-3, pinned 2026-10-28 (AI-302-V1 review), reworded after the Task 9 review.
     expect((await citeExcerpt(GUIDE, "For Q3 FY2027, NVIDIA expects revenue of USD 108.0 billion.")).entry.validationStatus).toBe("unchecked");
   });
   it("AI-302-V1 control: a forward-looking claim still binds the guide it states", async () => {

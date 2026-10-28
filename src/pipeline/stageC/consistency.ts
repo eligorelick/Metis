@@ -14,9 +14,9 @@
  *    itself count; see {@link DIRECTION_WORDS}.
  *  - PERIOD: a period phrase that names a year ("in FY2024", "in Q3 2024") must
  *    name the year the cited record's period carries ({@link phraseNamesRecordYear}).
- *    The check compares YEARS only: a bare quarter is not checked (no fiscal
- *    calendar), and "Q3 2025" against a 2025-12-31 record agrees — the quarter
- *    itself is never adjudicated. The check never fails a phrase the citation
+ *    The check compares YEARS (or an issuer's fiscal label, below): a bare quarter
+ *    is not checked (no fiscal calendar), and "Q3 2025" against a 2025-12-31
+ *    record agrees — the quarter itself is never adjudicated. The check never fails a phrase the citation
  *    check (`periodsAgree`) accepts: a spelled fiscal period ("the second
  *    quarter of fiscal 2027") is read as the citation check reads it
  *    ({@link fiscalPhrase}), and an issuer fiscal label is compared through

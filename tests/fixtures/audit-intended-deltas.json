@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-27",
+  "generatedAt": "2026-10-28",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -5297,21 +5297,6 @@
           "after": null
         },
         {
-          "path": "stageB.capital.notes.2",
-          "beforeMissing": true,
-          "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
-        },
-        {
-          "path": "stageB.capital.notes.4",
-          "beforeMissing": true,
-          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
-        },
-        {
-          "path": "stageB.capital.notes.5",
-          "beforeMissing": true,
-          "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
-        },
-        {
           "path": "stageB.forensics.accruals.aggregateAccrualsBalanceSheet",
           "before": 300000000,
           "after": 250000000
@@ -6420,30 +6405,6 @@
           ]
         },
         {
-          "path": "report.valuation.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
-        },
-        {
           "path": "stageB.valuation.assumptions.growthAnchor",
           "beforeMissing": true,
           "after": {
@@ -6840,35 +6801,6 @@
           "after": 21827523493.105625
         },
         {
-          "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only."
-        },
-        {
-          "path": "stageB.valuation.multiples.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
-        },
-        {
           "path": "stageB.valuation.notes.1",
           "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
           "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
@@ -7030,11 +6962,6 @@
         },
         {
           "path": "stageB.capital.fcf.basis",
-          "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
-        },
-        {
-          "path": "stageB.capital.notes.3",
           "beforeMissing": true,
           "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
@@ -10245,16 +10172,108 @@
       ]
     },
     {
-      "name": "nvda48-report-issues-20261026",
+      "name": "audit-b3-payload-records-20261027",
       "decisions": [
-        "D-113"
+        "D-117"
       ],
-      "reason": "NVDA report #48 fixes (D-113), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.44.0 (an info-severity EDGAR note no longer marks EDGAR missing or forensics provisional), out of audit-batch4-freshness-20261026, whose record for 1.43.0 stands in D-112. The control is a reserved fixture, so its EDGAR state stays missing and its forensics provisional; no value, availability flag or order moves. See docs/audit/DECISIONS.md, D-113.",
+      "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. Task 4 (AI-306): DEMO's share history spans two fiscal years, so Stage B now adds one capital note naming the short window (stageB.capital.notes.2); the later capital notes shift by one index and keep their text, and capital.shareCount values and the leadership score do not move. Task 5 (AI-410): Stage B now records how many fiscal years the capex/D&A average covers (stageB.capital.maintenanceVsGrowthCapex.capexToDAAvgYears, 2 for DEMO); the average itself does not move. Task 9: the report stamp moves to spec 1.45.0 (report.meta.specVersion); that leaf came out of nvda48-report-issues-20261026 (D-113), whose record for spec 1.44.0 stands in DECISIONS. The leaf is now recorded under audit-b1-claim-verifier-periods-20261027, which moves it on to spec 1.46.0. D-117 is a provisional number renumbered at merge.",
+      "deltas": [
+        {
+          "path": "report.valuation.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        },
+        {
+          "path": "stageB.capital.maintenanceVsGrowthCapex.capexToDAAvgYears",
+          "beforeMissing": true,
+          "after": 2
+        },
+        {
+          "path": "stageB.capital.notes.2",
+          "beforeMissing": true,
+          "after": "Diluted share-count change: requested 5y window, only 2y of share history available (2023-12-31 to 2025-12-31)."
+        },
+        {
+          "path": "stageB.capital.notes.3",
+          "beforeMissing": true,
+          "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
+        },
+        {
+          "path": "stageB.capital.notes.4",
+          "beforeMissing": true,
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+        },
+        {
+          "path": "stageB.capital.notes.5",
+          "beforeMissing": true,
+          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
+        },
+        {
+          "path": "stageB.capital.notes.6",
+          "beforeMissing": true,
+          "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.1",
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only."
+        },
+        {
+          "path": "stageB.valuation.multiples.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "audit-b1-claim-verifier-periods-20261027",
+      "decisions": [
+        "D-128"
+      ],
+      "reason": "Claim verifier period rules (D-128), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.46.0 (a validated claim's periods, windows, comparison base and recency are established by what it cites), out of audit-b3-payload-records-20261027, whose record for 1.45.0 stands in D-124 to D-127. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-128.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.44.0"
+          "after": "1.46.0"
         }
       ]
     }

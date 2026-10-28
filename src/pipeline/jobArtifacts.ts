@@ -93,6 +93,12 @@ export interface PersistPassSettlementInput<T> extends PassArtifactIdentity {
   settlement: PassSettlement<T>;
   payloadFingerprint: string | null;
   settledAt?: string;
+  /**
+   * The instant a presumed cost row is dated at: its lease's acquisition, the
+   * day Anthropic's reported total can hold the charge (JOB-203). Actual rows
+   * keep `settledAt`.
+   */
+  presumedDatedAt?: string;
 }
 
 export interface PersistPassSettlementResult {
@@ -1019,7 +1025,9 @@ export function persistPassSettlementInTransaction<T>(
         settlementKind: prepared.telemetry.presumed === true ? "presumed" : "actual",
         presumedAttemptId: prepared.telemetry.presumed === true ? input.attemptId : null,
         reconciledAt: null,
-        createdAt: input.settledAt ?? new Date().toISOString(),
+        createdAt: prepared.telemetry.presumed === true && input.presumedDatedAt !== undefined
+          ? input.presumedDatedAt
+          : input.settledAt ?? new Date().toISOString(),
       })
       .run();
   }

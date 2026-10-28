@@ -214,6 +214,15 @@ const EXACT_LABELS: Record<string, string> = {
   "manifest.valuation.multiples.ownHistory": "Data-gap record: own-history multiple ranks",
 };
 
+/** AI-117: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
+const INSIDER_STAT_LABEL: Readonly<Record<string, string>> = {
+  "open-market-purchase-transactions": "Insider open-market purchase transactions (Form 4 code P)",
+  "open-market-sale-transactions": "Insider open-market sale transactions (Form 4 code S)",
+  "shares-acquired": "Insider shares acquired (all reported acquisitions)",
+  "shares-disposed": "Insider shares disposed (all reported dispositions)",
+  "acquired-disposed-transaction-count-ratio": "Insider acquired/disposed transaction-count ratio",
+};
+
 const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) => string]> = [
   [/^computed\.deterministic-aspect-scores\.([a-z]+)-score$/i, (m) => `${ASPECT_LABEL[m[1]!] ?? sentence(segmentWords(m[1]!))} score`],
   [/^computed\.scores\.([a-zA-Z]+)$/, (m) => `${ASPECT_LABEL[m[1]!] ?? sentence(segmentWords(m[1]!))} score`],
@@ -231,7 +240,9 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.estimates\.price-target-(consensus|high|low|median)$/, (m) => `Analyst price target (${m[1]})`],
   [/^payload\.leadership\.comp-.+-(fy\d{4})$/, (m) => `Executive compensation record (${segmentWords(m[1]!).join(" ")})`],
   [/^payload\.peers\.([a-z0-9]+)-.+$/, (m) => `${m[1]!.toUpperCase()} market cap`],
+  [/^payload\.macro\.([a-z0-9]+)-change-from-prior-observation-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}, change from prior observation`],
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
+  [/^payload\.insiders\.insider-(open-market-purchase-transactions|open-market-sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
   // D-67: "Pricetobook current", "Beneish index aqi", "Product market platform data center share of revenue …".

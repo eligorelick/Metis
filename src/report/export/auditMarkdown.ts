@@ -13,6 +13,7 @@
 import { formatExecutionMetadata } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
@@ -127,7 +128,7 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
   lines.push(
     "### Recorded API charge breakdown",
     "",
-    table(["Step", "Model", "Cost (USD)"], report.appendix.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd)])),
+    table(["Step", "Model", "Cost (USD)", "Note"], report.appendix.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd), e.discarded === true ? `discarded: ${e.discardedReason ?? "its output was not used"}` : ""])),
     "",
     `Recorded API charge total: **${formatCostUsd(totalCost)}**. Plan subscriptions and unreported usage are not priced by this ledger.`,
   );
@@ -458,7 +459,7 @@ function renderOwnHistory(report: Report): string {
 
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
-  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  report = withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)));
   indexVerificationMarks(report);
   const m = report.meta;
   const blocks = [

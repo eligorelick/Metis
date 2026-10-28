@@ -109,7 +109,7 @@ export function renderPricingBlock(registry, sizing) {
   lines.push("The primary-model output ceiling varies with effort; thinking bills as output.");
   lines.push("Below `high`, passes use analyst 64K/judge 96K; at `high` and above, the model's");
   lines.push("registry ceiling applies. Fallback output is additional and covered by request");
-  lines.push("reservations. Abandoned search/fallback requests retain their presumed bound.");
+  lines.push("reservations. A cut-off request is presumed at its worst case until reconciled.");
   lines.push("");
   lines.push("The estimated run is a calculation, not a measurement: the fixture shape at effort");
   lines.push(`\`${FIXTURE_RUN_EFFORT}\` and registry rates, Haiku's synthesize figures those of ${judge.displayName}`);

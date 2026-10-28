@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.44.0** and
-payload **1.48.0** (fixes from the NVDA report review, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.46.0** and
+payload **1.49.0** (claim verifier period rules and payload-record fixes from the 2026-10-27 audit, batches B1 and B3). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,57 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - the claim verifier compares periods and windows (2026-10-27)
+
+The independent audit of 2026-10-27 found that a factual claim could be marked `[validated]` while the period, window, comparison base or recency word it states was never compared with what it cites, and that the period check could fail a sentence the citation check had correctly accepted. This batch fixes the deterministic, no-model verify pass of Stage C. No payload, prompt, Stage B figure or stored report changes. The decision is D-next in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-27-audit-fix-01-claim-verifier-periods.md) lists each finding, its commits and the replay over the stored run inputs.
+
+- A figure with no reporting period of its own (a ratio, a share count, a fair value) is no longer confirmed for a fiscal year or a date it does not carry (AI-106). Since B3, a figure that Stage B takes from one fiscal year (the latest ROIC, margins and accrual ratios) carries that year's label, so a sentence naming that year, or "the latest fiscal year", is still confirmed (C-11).
+- "From 2025-07-27" is not confirmed against a trailing-twelve-month figure unless the sentence also states the end date (AI-302).
+- "Annual revenue", "per year", "this quarter", "at fiscal year-end" and "the latest quarter" are now read and checked, on cited figures and on filing excerpts (AI-303 and its variants).
+- A figure before "compared with ... second quarter 2025" is no longer read as a second-quarter-2025 figure, a correct year-ago figure is no longer marked contradicted, and a correct year-over-year sentence naming its base no longer gets a period finding (AI-402 and variants).
+- A period stated in another clause of a one-figure claim is checked (AI-404).
+- A company outlook or guidance ("gross margins are expected to be 74.0%", "our guidance for third-quarter revenue is $108.0 billion") no longer confirms a reported result (AI-302-V1). A source clause that reads as forward-looking (including "is expected to be paid within one year") now confirms only a claim that is itself forward-looking, which costs recall in the fail-closed direction.
+- The period check no longer fails "fiscal 2025" against a 52/53-week year that ends in January 2026, or "the second quarter of fiscal 2027" against NVIDIA's quarter ended 2026-07-26, and compares "compared with Q2 FY2026" with the growth figure's own base quarter (AI-405, AI-402-V2).
+- Report 1.46.0 and pipeline stage-c-1.6.12 (D-next); payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and score bands unchanged; stored reports keep their bytes and statuses (D-67).
+
+## Unreleased - payload records carry the right label, unit, currency and period (2026-10-28)
+
+The independent audit of 2026-10-27 found records the AI context and the data-only report named wrongly: a peer's market cap in the subject's currency, insider counts shown as shares, spans and periods labelled for more than they covered. This batch fixes them where each record is built. Every rule is class-wide; none names a ticker. The decisions are D-124 to D-127 in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-27-audit-fix-03-payload-records.md) lists every finding.
+
+- A peer's market cap is money only in a currency that peer's own data establishes (AI-301, AI-301-V1). It was given the subject's currency, so a Taiwan, Hong Kong or Tokyo listing read as US dollars and a claim of that size in dollars verified. A peer cap now takes its row's own currency, or the listing currency of a profile the peer collection already read for it. Otherwise it reads "(currency unknown)" and is not registered. On an entry-tier FMP key most peer profiles are refused, so many US peer caps will read "(currency unknown)": an honest unknown is better than a cap in the wrong currency.
+  - The size screen compares caps only in an established equal currency, or between listings on the same market. A name on another market is "size not compared" and goes to the profile read inside the existing candidate budget, instead of being excluded on a ratio of local currency to dollars.
+- Peer exclusion reasons and collection notes travel in their own untrusted block (AI-102). They could quote a provider's error text outside every envelope.
+- Insider statistics are transaction counts and share volumes over a named window (AI-117, AI-117-V1). "Total purchases" and "total sales" are counts of open-market transactions, and they were registered as shares for FMP's newest calendar quarter alone, which may have been the quarter in progress. The AI context now sums the trailing four complete calendar quarters, says "four calendar quarters ended <date>", and registers the open-market purchase and sale counts, the shares acquired and disposed (every reported acquisition or disposition, awards and withholding included) and the acquired/disposed transaction ratio.
+- The diluted share-count change names the span it measured (AI-306): "(4y total)" for four years, with a capital note when the history fell short of the requested five. The capex/D&A average names how many years it averages (AI-410): "capex / D&A, 3y average".
+- Segment growth is computed only against the quarter its label names (AI-406). A quarter-over-quarter rate needs a column 80 to 100 days earlier and a year-over-year rate one 350 to 380 days earlier. A series with only a year-ago column no longer reports a QoQ rate, and the classic table prints a dash.
+- FRED series name their transform and basis (AI-310): payrolls as the monthly change, electricity in dollars per kilowatt-hour, and PCE, PCEND and PCEDG as billions at a seasonally adjusted annual rate.
+- An 8-K amount keeps the sentence that names whose it is, and an award of shares ranks with the dollar amounts (AI-101). A salary sentence could survive the cut without the sentence naming the person.
+- Round 4:
+  - A restated year no longer shows twice in the AI's statement tables: each fiscal period has one column, the row Stage B uses, and a period served twice with no provable order is left out and said so (AI-505).
+  - The analysts are told to prefer the later of the 10-Q and 10-K notes by reporting period, and a 10-Q older than the 10-K says so in its title (AI-507).
+  - A provider's "geographic" rows that name the issuer's business segments, or that use region names the issuer's own XBRL does not, are no longer passed off as company geography. The report carries an info gap; the issuer's own quarterly geography stays (AI-509).
+  - "The graded ratio" now names the figure the balance-sheet score actually graded: the fiscal-year FCF conversion row is called "latest fiscal year", and the current-capital section names the graded window (AI-511).
+- Integration:
+  - A latest-year ratio or margin now carries the fiscal-year label the statement data carries (the provider's or the keyless builder's), attached only when it is plausible for the period end (the end's own calendar year, or the year before for an end in January to March), and the year end, so a sentence naming that fiscal year can be checked against it and one naming another year is no longer passed (audit residual (a)).
+  - An excerpt is no longer titled with a fiscal quarter the company's own statements contradict, and a wrong-quarter claim can no longer pass through such a title (AI-512).
+  - Older reports can still show an 8-K amount whose recipient the cut excerpt did not name. This cannot be detected from a stored report, so the limitation is recorded and the figure is shown as stored (AI-101).
+- Stored reports are shown under the corrections at display time, never rewritten: a report saved before spec 1.45.0 shows foreign peer caps without a currency or check mark, insider counts as unverified counts, the capex/D&A label as "average of up to 5 fiscal years", the data-only FRED unit sentences, provider geography the report's own XBRL contradicts as unverified, and "the graded ratio" without those words. A fixed note in the missing-data manifest discloses it.
+- Report 1.45.0, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and pipeline stage-c-1.6.11 mark these conventions. No stored report is rewritten and no snapshot changes.
+
+## Unreleased - every paid request settled and shown at its real cost (2026-10-28)
+
+- Record a paid request that fails after it started generating at its reported usage plus what it could still have generated (the request maximum when it carries web search or a server fallback), marked presumed, whatever ended it: the idle guard, the caller, a server error event or a dropped connection (AI-113). A request the provider had answered but that was cancelled before any usage arrived is presumed at the request maximum instead of dropped (AI-113-V1).
+- Do not charge a request whose connection never opened (AI-307). One network blip used to book $315.84 presumed on an Opus 5.5 bull pass (six attempts at the $52.64 request maximum) for requests Anthropic never received.
+- Make a pass's recorded cost and tokens equal the sum of its requests' settlements, failed pause resumptions included (AI-114).
+- Keep a finished response when the database writer lock delays its cost record: the write is retried three times, then the response is kept and the lease is presumed at expiry (AI-308). The runner stops renewing that lease, so it expires on schedule and frees its capacity slot instead of holding it while the pass runs.
+- Report a caller abort after a request's final usage event as the actual charge it settled, not as a presumed remainder; settle an idle stream with no usage at the permit's maximum, like the other no-usage charge.
+- Date a presumed cost row on the day its request was authorized, so `costs:reconcile` compares it with the right day (JOB-203).
+- Admit paid work against the lower of the job's recorded cap and the cap configured now (JOB-209).
+- Run Claude Haiku 4.5 on current payloads: the context check now estimates input tokens per tokenizer instead of counting bytes as tokens (AI-309).
+- Compare section grades only when `METIS_JUDGE_ORDER=both` (AI-109), and skip and disclose the mirrored judge pass on a retry that keeps sections (AI-108).
+- Mark a judge attempt whose output could not be assembled into a report as discarded, and stop the judge retries when an identical second assembly failure repeats (AI-112). State a step's whole cost in its detail, the presumed part named (JOB-204). Print the discarded mark in the audit export's charge breakdown and keep the marks durable recovery can read (RPT-210).
+- Pipeline stage-c-1.6.10 (D-117..D-123). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes; #48's and #49's audit exports now print their stored discarded marks.
 
 ## Unreleased - a resumed plan pass names its model (2026-10-27)
 
