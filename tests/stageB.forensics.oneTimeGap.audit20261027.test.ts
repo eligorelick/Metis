@@ -34,7 +34,7 @@ describe("one-time-items rule not evaluated (FIN-509-V1)", () => {
         field: "forensics.flags.oneTimeItems",
         severity: "info",
         reason:
-          "net other income/expense (totalOtherIncomeExpensesNet) is missing, or operating income is zero or missing, in every one of the last 5 fiscal years \u2014 one-time-items rule not evaluated (on SEC-built statements the field is the NonoperatingIncomeExpense aggregate only; a narrower OtherNonoperatingIncomeExpense is not used as a stand-in, RESEARCH 5.3)",
+          "net other income/expense (totalOtherIncomeExpensesNet) is missing, or operating income is zero or missing, in every fiscal year of the lookback \u2014 one-time-items rule not evaluated (on SEC-built statements the field is the NonoperatingIncomeExpense aggregate only; a narrower OtherNonoperatingIncomeExpense is not used as a stand-in, RESEARCH 5.3)",
       },
     ]);
   });

@@ -1222,8 +1222,11 @@ describe("payload determinism + provenance", () => {
       // one citation for it. Fingerprint 1.49.0:c74b6cd9 -> 1.49.0:f42dbc29, promptBytes 143_867 -> 144_299, citationCount 75 -> 76,
       // citationHash 423bbedf -> 77d52670. provenanceHash, provenanceIdsHash and financeHash do not move. The preceding-pin chain
       // drops the entry (isOneTimeGap, count asserted) and its 1.36.0 pins are unchanged.
-      fingerprint: "1.49.0:f42dbc29",
-      promptBytes: 144_299,
+      // Audit 2026-10-27 B13 Task 6 review, 2026-10-28 (FIN-509-V1): the gap reason reads "in every fiscal year of the
+      // lookback" in place of "in every one of the last 5 fiscal years" (-3 bytes). Fingerprint 1.49.0:f42dbc29 ->
+      // 1.49.0:2cdc3384, promptBytes 144_299 -> 144_296; no count, citation or finance leaf moves.
+      fingerprint: "1.49.0:2cdc3384",
+      promptBytes: 144_296,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
