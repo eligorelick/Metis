@@ -454,6 +454,59 @@ describe("unit check", () => {
     expect(result.findings).toEqual([]);
   });
 
+  describe("a currency in front makes the figure money, whatever noun follows (AI-304-V2)", () => {
+    const authorization = numeric({
+      id: "payload.issuer-filings.share-repurchase-authorization-remaining",
+      kind: "provider",
+      origin: "edgar:companyfacts",
+      formulaVersion: null,
+      value: 99_000_000_000,
+      unit: "currency",
+      currency: "USD",
+      period: "2026-07-26",
+    });
+    const price = numeric({
+      id: "fmp:quote",
+      kind: "provider",
+      origin: "fmp:quote",
+      formulaVersion: null,
+      value: 45.32,
+      unit: "currency-per-share",
+      currency: "USD",
+      period: null,
+      asOf: "2026-07-09",
+    });
+    const diluted = numeric({
+      id: "payload.statements.income-statement-annual.2026-07-26.diluted-shares",
+      kind: "provider",
+      origin: "fmp:income-statement(annual)",
+      formulaVersion: null,
+      label: "diluted shares",
+      value: 15_200_000_000,
+      unit: "shares",
+      currency: null,
+      period: "2026-07-26",
+    });
+    const unitFindings = (text: string, record: NumericProvenanceRecord, asOf: string) =>
+      run(refs(claim(text, record.id, { asOf })), [record]).findings.filter(
+        (finding) => finding.check === "unit",
+      );
+
+    it.each([
+      ["a code before a share noun", "NVIDIA had USD 99.00 billion share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a symbol before a share noun", "NVIDIA had a $99.00 billion share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a code before a hyphenated noun", "NVIDIA had USD 99.00 billion shareholder-return authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a symbol before a per-share noun", "The current $45.32 share price sits below the DCF value as of 2026-07-09.", price, "2026-07-09", []],
+      ["control: the noun after an of", "NVIDIA had USD 99.00 billion of share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["control: the noun before the figure", "The share price was $45.32 as of 2026-07-09.", price, "2026-07-09", []],
+      ["control: a share count in shares", "Diluted shares were 15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", []],
+      ["control: a share count in dollars", "Diluted shares were $15.2 billion as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+      ["a share count in dollars with a share noun", "Diluted shares were $15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+    ])("%s", (_name, text, record, asOf, reasons) => {
+      expect(unitFindings(text, record, asOf).map((finding) => finding.reason)).toEqual(reasons);
+    });
+  });
+
   it("does not invent a rule for dimensionless readings", () => {
     const score = numeric({ id: "computed.scores.quality", origin: "computed.scores", value: 72, unit: "score" });
     const result = run(refs(claim("The quality score was 72 out of 100.", score.id)), [score]);

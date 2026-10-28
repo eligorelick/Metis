@@ -213,16 +213,20 @@ interface ParsedNumber {
   scaleWord: string | null;
   unitToken: string | null;
   hadCurrencyPrefix: boolean;
+  /** A whole-word ISO currency code directly before the figure ("USD 99.00"). */
+  hadCurrencyCode: boolean;
 }
 
 // A signed, optionally $-prefixed number with optional thousands separators,
 // followed by an optional scale word and an optional unit token. Each optional
 // prefix token consumes its own trailing whitespace, so two whitespace loops
-// are never adjacent and a long whitespace run is scanned once (SEC-203).
+// are never adjacent and a long whitespace run is scanned once (SEC-203). Scale
+// and unit words are whole words (a hyphenated compound such as "share-based" is
+// no unit; AI-304, AI-304-V2); the ratio "x" is the one unit a hyphen may follow.
 const NUMBER_PATTERN = new RegExp(
   String.raw`(?:([-+−])\s*)?(?:(\$|US\$)\s*)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*` +
-    String.raw`(thousands?|millions?|billions?|trillions?|bn|mm|k)?\s*` +
-    String.raw`(%|percentage points?|percent|pps?|bps?|basis points?|dollars?|usd|shares?|x|times)?`,
+    String.raw`((?:thousands?|millions?|billions?|trillions?|bn|mm|k)(?![A-Za-z]))?\s*` +
+    String.raw`(%|(?:percentage[\s-]points?|percent|pps?|bps?|basis[\s-]points?|dollars?|usd|shares?|times)(?![A-Za-z]|-[A-Za-z])|x(?![A-Za-z]))?`,
   "gi",
 );
 
@@ -236,15 +240,17 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
     const magnitude = Number(`${digits.replace(/,/g, "")}${fraction ?? ""}`);
     if (!Number.isFinite(magnitude)) continue;
     const normalizedScale = scaleWord?.toLowerCase() ?? null;
+    const start = match.index + whole.search(/\S/);
     out.push({
-      start: match.index + whole.search(/\S/),
+      start,
       end: match.index + whole.length,
       magnitude,
       decimals: fraction === undefined ? 0 : fraction.length - 1,
       scale: normalizedScale === null ? 1 : (SCALE_WORDS[normalizedScale] ?? 1),
       scaleWord: normalizedScale,
-      unitToken: unitToken?.toLowerCase() ?? null,
+      unitToken: unitToken?.toLowerCase().replace(/[\s-]/g, " ") ?? null,
       hadCurrencyPrefix: currency !== undefined,
+      hadCurrencyCode: CODE_JUST_BEFORE.test(sentence.slice(Math.max(0, start - 8), start)),
     });
     if (NUMBER_PATTERN.lastIndex === match.index) NUMBER_PATTERN.lastIndex += 1;
   }
@@ -271,6 +277,10 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
 // ("JPM 43") as currencies, so the list is deliberate; extend it on evidence.
 const CURRENCY_CODES =
   "USD|EUR|GBP|JPY|CNY|RMB|HKD|KRW|INR|CHF|CAD|AUD|NZD|TWD|SEK|NOK|DKK|BRL|MXN|ZAR|SGD|ILS";
+// A whole-word code directly before a figure, tested on the few characters before it
+// (linear: no whitespace loop, `\s?` is one optional character).
+const CODE_JUST_BEFORE = new RegExp(String.raw`(?<![A-Za-z])(?:${CURRENCY_CODES})\s?$`);
+
 const NON_QUANTITY_PATTERNS: readonly RegExp[] = [
   /\[[^[\]\n]*\]/g,
   /\b\d{4}-\d{2}-\d{2}\b/g,
@@ -499,6 +509,10 @@ function locateNumbers(
 }
 
 function unitFamilyOf(parsed: ParsedNumber): UnitFamily | null {
+  // A figure written with a currency symbol or code is an amount of money,
+  // whatever noun follows it ("$99 billion share repurchase", "$45.32 share
+  // price"; AI-304-V2). A currency in front is never a share count.
+  if (parsed.hadCurrencyPrefix || parsed.hadCurrencyCode) return "money";
   const token = parsed.unitToken;
   if (token !== null) {
     if (PERCENT_TOKENS.has(token)) return "percent";
@@ -506,7 +520,6 @@ function unitFamilyOf(parsed: ParsedNumber): UnitFamily | null {
     if (SHARE_TOKENS.has(token)) return "shares";
     if (MONEY_TOKENS.has(token)) return "money";
   }
-  if (parsed.hadCurrencyPrefix) return "money";
   // A bare scale word ("416.2 billion") names a magnitude, not a unit.
   if (parsed.scaleWord !== null) return "magnitude";
   return null;

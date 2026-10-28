@@ -2702,7 +2702,12 @@ units, and the ratio "x" is the one unit a hyphenated word may follow: "10x-ish"
 reads 10x); "N months" (any whole or decimal N) is a
 period phrase, not a quantity. The scale abbreviations read are k, m, mm, mn,
 mln, mil, mio, b, bn and bln, besides the spelled-out words (audit 2026-10-27
-AI-304).
+AI-304). The consistency number scanner reads the same whole words, with the
+scale words thousand, million, billion, trillion, bn, mm and k only. In the unit
+check, a figure written with a currency symbol or code is an amount of money,
+whatever noun follows it ("USD 99 billion share repurchase authorization", "a
+$45.32 share price"), and a currency in front of a share count ("$15.2 billion
+shares") is a unit mismatch (audit 2026-10-27 AI-304-V2).
 A period that directly follows a comparison word ("compared with $10.2 billion
 in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
 the comparison's base: it belongs to the amount between the comparison word and
