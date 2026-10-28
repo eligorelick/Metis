@@ -133,7 +133,7 @@ describe("AI-303 windows written without for/during/over", () => {
     expect(windowsNamed("this quarter's revenue")).toEqual(["quarter"]);
     expect(windowsNamed("the year ended 2026-01-25")).toEqual(["annual"]);
     expect(windowsNamed("year-to-date revenue")).toEqual(["YTD"]);
-    expect(windowsNamed("at year-end")).toEqual([]); // Task 4 makes this ["FYE"]
+    expect(windowsNamed("at year-end")).toEqual(["FYE"]); // AI-303-V3: the fiscal year-end instant
     // end to end: a correct claim using such words keeps its status
     expect((await cite([Y1], Y1.id, "Consensus year-one revenue growth over TTM revenue is 73.7%.")).entry.validationStatus).toBe("validated");
     expect((await cite([Q_REV], Q_REV.id, "Revenue per year was USD 96.22 billion.")).entry.validationStatus).toBe("validated");
@@ -190,5 +190,40 @@ describe("AI-302 trailing-window start date", () => {
     expect(end.out.checks.period.failed).toBe(0);
     expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months from 2025-07-27 to 2026-07-26 was USD 134.36 billion.")).entry.validationStatus).toBe("validated");
     expect((await cite([TTM_OCF], TTM_OCF.id, "Operating cash flow for the trailing twelve months ended 2025-10-26 was USD 134.36 billion.")).entry.validationStatus).not.toBe("validated");
+  });
+});
+
+const debt = (fields: Partial<NumericProvenanceRecord> & Pick<NumericProvenanceRecord, "id" | "value">) =>
+  rec({ label: "total debt", ...fields });
+const Q_DEBT = debt({ id: "payload.statements.balance-sheet-quarterly.2026-07-26.total-debt", value: 30e9, period: "2026-07-26",
+  periodContext: { kind: "instant", at: "2026-07-26", fiscalLabel: "Q2 FY2027" }, fiscalPeriod: "Q2 FY2027", asOf: "2026-07-26", origin: "edgar:balance-sheet(quarter)" });
+const FY_DEBT = debt({ id: "payload.statements.balance-sheet-annual.2026-01-25.total-debt", value: 10e9, period: "2026-01-25",
+  periodContext: { kind: "instant", at: "2026-01-25", fiscalLabel: "FY2026" }, fiscalPeriod: "FY2026", asOf: "2026-01-25", origin: "edgar:balance-sheet(annual)" });
+const Q4_DEBT = debt({ id: "payload.statements.balance-sheet-quarterly.2026-01-25.total-debt", value: 10e9, period: "2026-01-25",
+  periodContext: { kind: "instant", at: "2026-01-25", fiscalLabel: "Q4 FY2026" }, fiscalPeriod: "Q4 FY2026", asOf: "2026-01-25", origin: "edgar:balance-sheet(quarter)" });
+const CC_DEBT = rec({ id: "computed.current-capital.total-debt-including-leases", label: "total debt including leases", kind: "computed", value: 12e9,
+  period: "2026-07-26", asOf: "2026-07-26", origin: "computed.capital.current.debtBridge.totalDebtIncludingLeases" });
+const ANNUAL_NOTE: TextExcerpt = { source: "edgar:10-K notes", asOf: "2026-01-25", title: "10-K notes (FY2026)", text: "Total debt was $10.0 billion.", truncated: false, originalChars: 29 };
+const QUARTER_NOTE: TextExcerpt = { ...ANNUAL_NOTE, source: "edgar:10-Q notes", asOf: "2026-08-26", title: "10-Q notes, Q2 FY2027, quarter ended 2026-07-26" };
+
+describe("AI-303-V3 fiscal year-end", () => {
+  it.each([
+    "Total debt at fiscal year-end was USD 30.00 billion.",
+    "Total debt at the end of the fiscal year was USD 30.00 billion.",
+    "Total debt at the latest fiscal year-end was USD 30.00 billion.",
+  ])("AI-303-V3: a mid-year quarter-end balance is not the fiscal year-end balance: %s", async (text) => {
+    expect((await cite([Q_DEBT, FY_DEBT], Q_DEBT.id, text)).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-303-V3: an FY or Q4 instant establishes the year end; an undated-basis bridge figure does not", async () => {
+    expect((await cite([Q_DEBT, FY_DEBT], FY_DEBT.id, "Total debt at fiscal year-end was USD 10.00 billion.")).entry.validationStatus).toBe("validated");
+    expect((await cite([Q4_DEBT], Q4_DEBT.id, "Total debt at the end of the fiscal year was USD 10.00 billion.")).entry.validationStatus).toBe("validated");
+    expect((await cite([CC_DEBT], CC_DEBT.id, "Total debt including leases was USD 12.00 billion at fiscal year-end.")).entry.validationStatus).toBe("unchecked");
+    expect((await cite([Q_DEBT], Q_DEBT.id, "Total debt as of 2026-01-25 was USD 30.00 billion.")).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    expect((await cite([Q_DEBT], Q_DEBT.id, "Total debt at the end of FY2026 was USD 30.00 billion.")).entry.validationStatus).toBe("unchecked");
+    expect((await citeExcerpt(ANNUAL_NOTE, "Total debt at fiscal year-end was USD 10.0 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(QUARTER_NOTE, "Total debt at fiscal year-end was USD 10.0 billion.")).entry.validationStatus).not.toBe("validated");
+    expect(windowsNamed("at year-end")).toEqual(["FYE"]);
+    expect(windowsNamed("at the end of the fiscal year")).toEqual(["FYE"]);
+    expect(windowsNamed("at the latest quarter end")).toEqual([]);
   });
 });

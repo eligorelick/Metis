@@ -151,6 +151,8 @@ const NOT_A_WINDOW_BEFORE = /\b(?:a|an|one|per|each|every|half|multi|several|\d+
 // A comparison or instant follows ("a year ago", "year-end", "quarter end", "year one", "prior-year quarter").
 const NOT_A_WINDOW_AFTER = /^[\s‐‑–—-]*(?:ago|earlier|later|before|end|ends|one|two|three|[1-3])\b|^[\s‐‑–—-]+(?:quarter|period)\b/i;
 const NAMED_PERIOD_AFTER = /^[\s‐‑–—-]*(?:(?:19|20)\d{2}|FY\s*\d{4}|Q[1-4])\b/i;
+// "year ended" does not match (`end` needs a word end); "quarter end" stays a descriptor.
+const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b|\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?(?:fiscal\s+)?year\b/gi;
 function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
@@ -165,6 +167,9 @@ function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodRe
     const iso = `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")}`;
     return { kind: "date", label: iso, key: isIsoDate(iso) ? iso : `unestablished-date:${iso}` };
   };
+  // AI-303-V3: the fiscal year-end is an instant, read before the window words so
+  // "the end of the fiscal year" is not an annual window. A claim's reading only.
+  if (options.loose) take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
   take(/\b(?:year[\s‐‑–—-]+to[\s‐‑–—-]+date|ytd)\b/gi, () => ({ kind: "window", key: "YTD", label: "YTD" }));
   take(/\b(?:quarter[\s‐‑–—-]+to[\s‐‑–—-]+date|qtd)\b/gi, () => ({ kind: "window", key: "QTD", label: "QTD" }));
   take(/\b(?:month[\s‐‑–—-]+to[\s‐‑–—-]+date|mtd)\b/gi, () => ({ kind: "window", key: "MTD", label: "MTD" }));
@@ -345,9 +350,11 @@ function basisWindows(record: NumericProvenanceRecord): Set<string> {
   const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? "";
   if (/^Q[1-4]\s/i.test(fiscal)) windows.add("quarter");
   else if (/^FY\s?\d/i.test(fiscal)) windows.add("annual");
+  // AI-303-V3: only a year-end record (an FY or fourth-quarter label, or a fiscal-year basis) establishes the year-end instant.
+  if (/^(?:Q4\s|FY\s?\d)/i.test(fiscal)) windows.add("FYE");
   const basis = record.periodContext?.basis;
   if (basis === "fiscal-quarter") windows.add("quarter");
-  if (basis === "fiscal-year") windows.add("annual");
+  if (basis === "fiscal-year") { windows.add("annual"); windows.add("FYE"); }
   if (basis === "rolling-12-month") windows.add("TTM");
   if (basis === "year-to-date") windows.add("YTD");
   return windows;
@@ -534,6 +541,7 @@ function excerptWindows(excerpt: TextExcerpt): Set<string> {
     if (period.kind !== "period") continue;
     if (/^Q[1-4]/.test(period.key)) windows.add("quarter");
     else if (/^FY/.test(period.key)) windows.add("annual");
+    if (/^Q4|^FY/.test(period.key)) windows.add("FYE"); // AI-303-V3
   }
   return windows;
 }
