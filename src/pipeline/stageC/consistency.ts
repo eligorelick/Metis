@@ -16,10 +16,13 @@
  *    name the year the cited record's period carries ({@link phraseNamesRecordYear}).
  *    The check compares YEARS only: a bare quarter is not checked (no fiscal
  *    calendar), and "Q3 2025" against a 2025-12-31 record agrees — the quarter
- *    itself is never adjudicated. That is deliberately looser than the
- *    citation check (`periodsAgree`), which decides whether a number VERIFIES;
- *    this one only writes a log entry, and prose names bare years ("in 2025")
- *    that no fiscal calendar in the payload can adjudicate. A phrase that follows
+ *    itself is never adjudicated. The check never fails a phrase the citation
+ *    check (`periodsAgree`) accepts: a spelled fiscal period ("the second
+ *    quarter of fiscal 2027") is read as the citation check reads it
+ *    ({@link fiscalPhrase}), and an issuer fiscal label is compared through
+ *    `periodsAgree` first, then by calendar-year sets (AI-405). A failure demotes
+ *    a validated claim to unverified (F-22, D-110) and adds a missing-data
+ *    manifest entry. A phrase that follows
  *    a comparison word ("compared with ... second quarter 2025") is the
  *    comparison's base, compared with the period the cited growth figure is
  *    measured against ({@link comparisonBase}), not with its own period (AI-402).
@@ -698,8 +701,24 @@ const PERIOD_PATTERNS: readonly RegExp[] = [
   /\bQ[1-4]\s*(?:of\s+)?(?:FY\s?)?['’]?(?:19|20)\d{2}\b/gi,
   /\bFY\s?['’]?(?:19|20)?\d{2}\b/gi,
   /\b(?:first|second|third|fourth)\s+quarter\s+(?:of\s+)?(?:FY\s?)?(?:19|20)\d{2}\b/gi,
+  // AI-405: the spelled fiscal forms the claim reader already reads; the year inside them is no phrase of its own.
+  /\b(?:first|second|third|fourth)\s+quarter\s+of\s+fiscal(?:\s+year)?\s+(?:19|20)\d{2}\b/gi,
+  /\bfiscal(?:\s+year)?\s+(?:19|20)\d{2}\b/gi,
   /\b(?:19|20)\d{2}\b/g,
 ];
+
+const QUARTER_WORDS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4 };
+
+/**
+ * A spelled fiscal period as the phrase the citation check reads it as (AI-405): "the second quarter of fiscal 2027"
+ * is "Q2 FY2027", "fiscal 2025" and "fiscal year 2025" are "FY2025". Null for any other phrase.
+ */
+export function fiscalPhrase(phrase: string): string | null {
+  const quarter = /^(?:the\s+)?(first|second|third|fourth)\s+quarter\s+of\s+fiscal(?:\s+year)?\s+((?:19|20)\d{2})$/i.exec(phrase.trim());
+  if (quarter !== null) return `Q${QUARTER_WORDS[quarter[1].toLowerCase()]} FY${quarter[2]}`;
+  const year = /^fiscal(?:\s+year)?\s+((?:19|20)\d{2})$/i.exec(phrase.trim());
+  return year === null ? null : `FY${year[1]}`;
+}
 
 /**
  * Whether a prose period phrase names the year(s) of a record's period. Year
@@ -804,16 +823,13 @@ function scanPeriodPhrases(
       const insideValue = valueSpans.some(([start, end]) => index >= start && index < end);
       if (insideValue || taken.some(([start, end]) => index >= start && index < end)) continue;
       taken.push([index, index + match[0].length]);
-      let phrase = match[0].trim();
+      const phrase = match[0].trim();
       const key = phrase.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      // A bare year read out of a spelled fiscal period ("the second quarter of fiscal 2025") belongs to that
-      // whole phrase: its cue is looked for before the phrase's first word, and it keeps its "fiscal" (see baseAgrees).
-      const spelled = /(?:\b(?:first|second|third|fourth)\s+quarter\s+(?:of\s+)?)?\bfiscal(?:\s+year)?\s+$/i.exec(sentence.slice(Math.max(0, index - 40), index));
-      const cue = comparisonCueEnd(sentence, spelled === null ? index : index - spelled[0].length);
+      // A spelled fiscal period ("the second quarter of fiscal 2025") is one phrase (AI-405), so its cue is looked for before its first word.
+      const cue = comparisonCueEnd(sentence, index);
       const isBase = cue !== null && !located.some((n) => cue <= n.start && n.end <= index);
-      if (isBase && spelled !== null) phrase = `fiscal ${phrase}`;
       (isBase ? bases : own).push(phrase);
     }
   }
@@ -869,10 +885,9 @@ export function comparisonBase(record: NumericProvenanceRecord): { end: string; 
 
 /** Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. */
 export function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
-  // An FY-labelled base is compared by fiscal label only (by calendar year it would be the AI-405 error again).
-  if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(phrase)) return base.fiscal === null ? null : periodsAgree(phrase, base.end, base.fiscal);
-  // Until spelled fiscal periods are read (Task 9), a spelled "fiscal" base is not compared by calendar year: neither the right nor the wrong one is established.
-  if (/\bfiscal\b/i.test(phrase)) return null;
+  // An FY-labelled base (a spelled fiscal period is read as its FY label, AI-405) is compared by fiscal label only (by calendar year it would be the AI-405 error again).
+  const labelled = fiscalPhrase(phrase) ?? phrase;
+  if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(labelled)) return base.fiscal === null ? null : periodsAgree(labelled, base.end, base.fiscal);
   return (base.fiscal !== null && periodsAgree(phrase, base.end, base.fiscal)) || phraseNamesRecordYear(phrase, base.end);
 }
 
@@ -1674,14 +1689,28 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period) ? record.period : undefined);
       let ownAgrees: boolean | null = null;
       if (phrases.length > 0) {
-        const fiscalQuarters = phrases.filter((phrase) => /^Q[1-4]\s*(?:of\s+)?FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
-        const fiscalYears = phrases.filter((phrase) => /^FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
+        // AI-405: a spelled fiscal period is the phrase the citation check reads ("Q2 FY2027", "FY2025").
+        const read = phrases.map((phrase) => fiscalPhrase(phrase) ?? phrase);
+        const fiscalQuarters = read.filter((phrase) => /^Q[1-4]\s*(?:of\s+)?FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
+        const fiscalYears = read.filter((phrase) => /^FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
         const explicitFiscal = fiscalQuarters.length > 0 ? fiscalQuarters : fiscalYears;
         // An ISO calendar date alone does not establish its issuer fiscal
         // year. Leave that comparison unchecked instead of inventing one.
-        ownAgrees = explicitFiscal.length > 0
-          ? fiscal === undefined ? null : explicitFiscal.some((phrase) => periodsAgree(phrase, record.period, fiscal))
-          : phrases.some((phrase) => phraseNamesRecordYear(phrase, record.period));
+        if (explicitFiscal.length > 0) {
+          ownAgrees = fiscal === undefined ? null : explicitFiscal.some((phrase) => periodsAgree(phrase, record.period, fiscal));
+        } else {
+          // Never stricter than the citation check: an issuer fiscal label is compared through periodsAgree first, then by calendar year.
+          const fiscalOnly = !/(?:19|20)\d{2}-\d{2}-\d{2}/.test(record.period);
+          const agreesWith = (phrase: string): boolean | null => {
+            if (fiscalOnly && /^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(phrase)) {
+              const ends = [record.asOf, record.periodContext?.kind === "duration" ? record.periodContext.end : record.periodContext?.at];
+              return ends.includes(phrase) ? true : null;
+            }
+            return (fiscal !== undefined && periodsAgree(phrase, record.period, fiscal)) || phraseNamesRecordYear(phrase, record.period);
+          };
+          const results = read.map(agreesWith);
+          ownAgrees = results.includes(true) ? true : results.includes(false) ? false : null;
+        }
       }
       // AI-402-V2 / C-2: a comparison base is checked against the period the
       // figure is measured against, not against the figure's own period.

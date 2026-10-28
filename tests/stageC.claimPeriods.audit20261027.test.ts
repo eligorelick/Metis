@@ -494,10 +494,12 @@ describe("AI-402 fix round 1: a stated comparison base must be established by th
     expect(findPeriodPhrases(sentence, [], [])).toEqual(["2026"]);
     expect(findComparisonBasePhrases(sentence, [], [])).toEqual([]);
   });
-  it("a spelled fiscal base is not compared by calendar year before Task 9: neither the wrong nor the right one validates", async () => {
-    for (const text of ["Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2025.",
-      "Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2026."])
-      expect((await cite([NV_YOY], NV_YOY.id, text)).entry, text).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  it("a spelled fiscal quarter base is compared by fiscal label (AI-405, ruling 2026-10-28): the wrong one stays unverified, the right one validates", async () => {
+    // Re-pinned 2026-10-28 (AI-405 and the controller ruling): until Task 9 neither was established; now the right base (Q2 FY2026) validates.
+    expect((await cite([NV_YOY], NV_YOY.id,
+      "Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2025.")).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-word-mismatch" });
+    expect((await cite([NV_YOY], NV_YOY.id,
+      "Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2026.")).entry.validationStatus).toBe("validated");
   });
   it("a QoQ base against a YoY record, and the reverse, stay unverified", async () => {
     expect((await cite([NV_YOY], NV_YOY.id, "Revenue growth year over year for the quarter was 105.85%, compared with Q1 FY2027.")).entry.validationStatus).toBe("unchecked");
@@ -515,9 +517,12 @@ describe("AI-402 fix round 1: a stated comparison base must be established by th
 
 describe("AI-402 fix round 2: a bare spelled fiscal base keeps its fiscal marker", () => {
   const lead = "Revenue growth year over year for the quarter was 105.85%, compared with ";
+  // Re-pinned 2026-10-28 (AI-405, controller ruling): Task 9 reads "fiscal YYYY" as the fiscal year FY<YYYY>. A fiscal year is
+  // not the Q2 FY2026 quarter the figure is measured against, so each of these stays unverified; the reason moves from the gate's
+  // period-mismatch to the period check's own base finding (period-word-mismatch), which is true here.
   it.each(["fiscal 2025.", "fiscal year 2025.", "fiscal 2026.", "fiscal year 2026."])(
-    "a base spelled 'fiscal' is unverified, wrong or right, until spelled fiscal periods are read (%s)", async (base) => {
-      expect((await cite([NV_YOY], NV_YOY.id, lead + base)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+    "a base spelled 'fiscal' year is unverified, wrong or right: it is a year, not the quarter the figure is measured against (%s)", async (base) => {
+      expect((await cite([NV_YOY], NV_YOY.id, lead + base)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-word-mismatch" });
     });
   it("control (pinned): an FY-labelled base is compared by fiscal label", async () => {
     // A fiscal year is not the Q2 FY2026 quarter the figure is measured against, so a bare FY base stays unverified.
@@ -659,5 +664,68 @@ describe("AI-302-V1 forward-looking clauses", () => {
   it("AI-302-V1 control: a forward-looking claim still binds the guide it states", async () => {
     expect((await citeExcerpt(GUIDE, "Revenue for Q3 FY2027 is expected to be USD 108.0 billion.")).entry.validationStatus).toBe("validated");
     expect((await citeExcerpt(GUIDE, "Revenue is expected to be USD 108.0 billion in the third quarter of fiscal 2027.")).entry.validationStatus).toBe("validated");
+  });
+});
+
+// AI-405 (C-5): the period check is never stricter than the citation check. Synthetic 52/53-week issuer ("Example Tools Inc").
+const ANNUAL_53 = rec({ id: "payload.statements.income-statement-annual.2026-01-03.revenue", label: "revenue", value: 4_710_000_000, period: "2026-01-03",
+  periodContext: { kind: "duration", start: "2024-12-29", end: "2026-01-03", basis: "fiscal-year", fiscalLabel: "FY2025" }, fiscalPeriod: "FY2025",
+  asOf: "2026-01-03", origin: "edgar:income-statement(annual)" });
+const QUARTER_53 = rec({ id: "payload.statements.income-statement-quarterly.2026-01-03.revenue", label: "revenue", value: 1_230_000_000, period: "2026-01-03",
+  periodContext: { kind: "duration", start: "2025-09-28", end: "2026-01-03", basis: "fiscal-quarter", fiscalLabel: "Q4 FY2025" }, fiscalPeriod: "Q4 FY2025",
+  asOf: "2026-01-03", origin: "edgar:income-statement(quarter)" });
+const GUIDE_ROW = rec({ id: "computed.quarterly-trend.q2-fy2027-revenue-actual-vs-prior-guidance-midpoint", label: "Q2 FY2027 revenue actual vs prior guidance midpoint",
+  kind: "computed", unit: "percent", currency: null, value: 5.74, period: "Q2 FY2027", asOf: "2026-07-26", origin: "computed.quarterly-trend" });
+
+describe("AI-405 period check on fiscal labels", () => {
+  it.each([
+    [ANNUAL_53, "Revenue for fiscal 2025 was USD 4.71 billion."],
+    [ANNUAL_53, "Revenue for 2025 was USD 4.71 billion."],
+    [QUARTER_53, "Revenue for Q4 2025 was USD 1.23 billion."],
+  ])("AI-405: a sentence the citation check validates is not failed by the period check: %s", async (record, text) => {
+    const { entry, periodRow, manifest } = await cite([ANNUAL_53, QUARTER_53, USD_ROW], record.id, text);
+    expect(periodRow).toBeUndefined();
+    expect(manifest).not.toContain("verify.check.period");
+    expect(entry.validationStatus).toBe("validated");
+  });
+  it("AI-405 control: FY2025 and the ISO year end validate; calendar 2026 does not", async () => {
+    for (const text of ["Revenue for FY2025 was USD 4.71 billion.", "Revenue for the fiscal year ended 2026-01-03 was USD 4.71 billion."])
+      expect((await cite([ANNUAL_53, USD_ROW], ANNUAL_53.id, text))).toMatchObject({ entry: { validationStatus: "validated" }, periodRow: undefined });
+    expect((await cite([ANNUAL_53, USD_ROW], ANNUAL_53.id, "Revenue for 2026 was USD 4.71 billion.")).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-405: a fiscal-label record named by its own quarter end gets no period finding; another date is not checked", async () => {
+    const own = await cite([GUIDE_ROW], GUIDE_ROW.id, "Revenue actual versus the prior guidance midpoint for the quarter ended 2026-07-26 was 5.74%.");
+    expect(own.periodRow).toBeUndefined();
+    const other = await cite([GUIDE_ROW], GUIDE_ROW.id, "Revenue actual versus the prior guidance midpoint for the quarter ended 2026-04-26 was 5.74%.");
+    expect(other.periodRow).toBeUndefined();
+    expect(other.out.checks.period.checked).toBe(0);
+  });
+  it("AI-405: a spelled fiscal quarter the citation check accepts gets no period finding; a wrong one still does", async () => {
+    const own = await cite([Q_REV, USD_ROW], Q_REV.id, "Revenue for the second quarter of fiscal 2027 was USD 96.22 billion.");
+    expect(own.periodRow).toBeUndefined();
+    expect(own.entry.validationStatus).toBe("validated");
+    const wrong = await cite([Q_REV, USD_ROW], Q_REV.id, "Revenue for the second quarter of fiscal 2026 was USD 96.22 billion.");
+    expect(wrong.entry.validationStatus).toBe("unchecked");
+    expect(wrong.periodRow).toMatchObject({ reason: "period-word-mismatch" });
+    // the same spelling as a comparison base (C-2): NVDA's Q2 FY2026 is the base quarter of Q2 FY2027
+    const base = await cite([NV_YOY], NV_YOY.id, "Revenue growth year over year for the quarter was 105.85%, compared with the second quarter of fiscal 2026.");
+    expect(base.periodRow).toBeUndefined();
+    expect(base.entry.validationStatus).toBe("validated");
+    expect((await cite([ANNUAL_53, USD_ROW], ANNUAL_53.id, "Revenue for fiscal year 2025 was USD 4.71 billion.")).periodRow).toBeUndefined();
+  });
+  it("AI-405 (ruling): a wrong spelled base stays unverified and gets a base finding; only the right one validates", async () => {
+    const lead = "Revenue growth year over year for the quarter was 105.85%, compared with ";
+    for (const base of ["the second quarter of fiscal 2025", "fiscal 2025", "fiscal year 2025", "fiscal 2026", "fiscal year 2026", "the second quarter of fiscal 2027"]) {
+      const { entry } = await cite([NV_YOY], NV_YOY.id, `${lead}${base}.`);
+      expect(entry.validationStatus, base).toBe("unchecked");
+    }
+    const wrongQuarter = await cite([NV_YOY], NV_YOY.id, `${lead}the second quarter of fiscal 2025.`);
+    expect(wrongQuarter.periodRow).toMatchObject({ reason: "period-word-mismatch" });
+  });
+  it("AI-405: a record with no fiscal label does not check a spelled fiscal year (D-66)", async () => {
+    const NO_LABEL = rec({ ...ANNUAL_53, id: "payload.statements.income-statement-annual.2026-01-03.nolabel-revenue", fiscalPeriod: undefined, periodContext: undefined });
+    const { periodRow, out } = await cite([NO_LABEL, USD_ROW], NO_LABEL.id, "Revenue for fiscal 2025 was USD 4.71 billion.");
+    expect(periodRow).toBeUndefined();
+    expect(out.checks.period.checked).toBe(0);
   });
 });

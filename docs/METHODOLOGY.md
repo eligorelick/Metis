@@ -2698,15 +2698,16 @@ base the source names. A record citation establishes a base only when the record
 is a year-over-year or quarter-over-quarter figure, which is measured against a
 known base period: the base is compared with its fiscal label one year (or one
 quarter) earlier for an FY-labelled base, otherwise with that label or the
-calendar year of the shifted date. A base on any other record (a level, a
-period-less figure), a base spelled with "fiscal" ("the second quarter of fiscal
-2025", "fiscal 2025", "fiscal year 2025"; right or wrong, as spelled fiscal
-periods are not read), and a base that does not match leave the claim
-unverified, never validated. Guidance,
+calendar year of the shifted date. A base spelled with "fiscal" is read as its
+fiscal label ("the second quarter of fiscal 2026" is Q2 FY2026) and compared
+with the shifted fiscal label only; "fiscal 2025" and "fiscal year 2025" are
+fiscal years, not the quarter a year-over-year figure is measured against, so
+they never match it. A base on any other record (a level, a period-less
+figure) and a base that does not match leave the claim unverified, never
+validated. Guidance,
 target, estimate, outlook, forecast and consensus phrases are not comparison
 bases and keep the claim's own period.
-The period-word check compares years only; it does not adjudicate fiscal
-quarters. A number that cannot be located confidently in its sentence is
+The period-word check reads a spelled fiscal period as the citation check does ("the second quarter of fiscal 2027" is Q2 FY2027, "fiscal 2025" is FY2025) and compares a record that carries an issuer fiscal label through the citation check's own period rule first (so "fiscal 2025" agrees with a 52/53-week year ending 2026-01-03), then by calendar year; it never fails a phrase the citation check accepts. An exact date against a record registered only under a fiscal label is checked only against its as-of date or period end. A failure leaves the claim unverified and is listed in the missing-data manifest. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
 A claim that states one figure is read for its periods as a whole: a period
