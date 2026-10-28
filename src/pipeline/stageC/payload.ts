@@ -35,6 +35,7 @@ import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import { inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -469,6 +470,18 @@ function payloadSection(
 }
 
 /** Round a number to at most `dp` decimals without trailing-zero noise. */
+/**
+ * Audit 2026-10-27 B3 (AI-306): the span the share-count change was measured
+ * over, as the figure's label states it. A null span (no change measured) keeps
+ * the requested window; a span within 0.05 of a whole number reads as that
+ * number, anything else to one decimal.
+ */
+function shareCountSpanLabel(actualYears: number | null): string {
+  if (actualYears == null) return String(SHARE_TREND_WINDOW_YEARS);
+  const whole = Math.round(actualYears);
+  return Math.abs(actualYears - whole) <= 0.05 ? String(whole) : actualYears.toFixed(1);
+}
+
 function round(v: number, dp = 4): number {
   return Number(v.toFixed(dp));
 }
@@ -783,7 +796,7 @@ function computedSections(
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
-    { label: "weighted-average diluted common-share change (5y total)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
+    { label: `weighted-average diluted common-share change (${shareCountSpanLabel(cap.shareCount.actualYears)}y total)`, value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
     // D-61: the premium of today's quote over the proxy paid price is price
     // appreciation since the buybacks, labelled so and not graded; timing —
     // the price actually paid against the same year's average — is the

@@ -827,7 +827,11 @@ a loss year are excluded from the diluted count by the filer, so a loss-making
 issuer's overhang understates the award pool; the note says this.
 
 Separately, the five-year diluted share-count trend reports buyback, dilution
-or flat (within ±1%), annualised over the span actually available.
+or flat (within ±1%), annualised over the span actually available. The total change is
+measured over up to five fiscal years; its payload label names the span measured ("(3y total)" for
+three years, one decimal for a span that is not a whole number of years), and a shorter or irregular
+window is stated in the capital notes with its start and end dates. A five-year span keeps the "(5y total)"
+label and adds no note.
 
 Per-share values use the weighted-average diluted count from the newer of the
 latest quarterly and latest annual income statement; when only the annual count

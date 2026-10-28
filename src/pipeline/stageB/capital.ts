@@ -963,6 +963,11 @@ export function computeCapital(
         actualYears: years,
         note: trendNotes.join("; "),
       };
+      // Audit 2026-10-27 B3 (AI-306): a short or irregular window reaches the
+      // notes channel, so the payload's span label has its reason beside it.
+      if (trendNotes.length > 1) {
+        notes.push(`Diluted share-count change: ${trendNotes.slice(1).join("; ")} (${start.date} to ${end.date}).`);
+      }
     } else if (inc.length > 0) {
       gaps.push({
         field: "capital.shareCountTrend",

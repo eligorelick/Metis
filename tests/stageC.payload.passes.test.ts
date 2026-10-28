@@ -701,7 +701,16 @@ describe("payload determinism + provenance", () => {
       expect(registry.slice(first, first + 5).every((record) => record.origin === "fmp:insider-statistics")).toBe(true);
       return [...registry.slice(0, first), ...restoredInsiderRecords as unknown as typeof registry, ...registry.slice(first + 5)];
     };
-    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(record => {
+    // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured
+    // (this fixture has five annual rows, so four years). The preceding label and id said "5y total".
+    const b4Restorations: [string, string][] = [
+      ["weighted-average diluted common-share change (4y total)", "weighted-average diluted common-share change (5y total)"],
+      ["weighted-average-diluted-common-share-change-4y-total", "weighted-average-diluted-common-share-change-5y-total"],
+    ];
+    const restoreB4Text = (text: string): string => b4Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    const registryJson = JSON.stringify(payload.provenanceRegistry ?? []);
+    expect([registryJson.split(b4Restorations[0]![0]).length - 1, registryJson.split(b4Restorations[1]![0]).length - 1]).toEqual([1, 1]);
+    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB4Text(registryJson).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
@@ -734,9 +743,15 @@ describe("payload determinism + provenance", () => {
     for (const [now, , count] of f19Restorations) expect(payloadText.split(now).length - 1).toBe(count);
     const restoreF19 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? f19Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
+    // Audit 2026-10-27 B3 Task 4 (AI-306): drop the share-count window note and restore the "5y total" label and id.
+    const isShareWindowNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Diluted share-count change: ");
+    expect(JSON.stringify(payload).split("Diluted share-count change: ").length - 1).toBe(1);
+    const payloadJson = JSON.stringify(payload);
+    // Two each: the figure itself and its provenance record (the payload embeds its registry).
+    expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
-        : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item))
+        : typeof leaf === "string" ? restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")) : leaf)) as typeof payload;
     // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
     // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
     expect(precedingPayload.peers.figures.map((figure) => [figure.label, figure.currency])).toEqual([["MSFT — Microsoft", null], ["GOOGL — Alphabet", null]]);
@@ -1129,18 +1144,22 @@ describe("payload determinism + provenance", () => {
       // Audit 2026-10-27 B3 Task 3 (AI-117): insider statistics as counts and share volumes over a
       // named window. The fixture's five synthetic quarter rows give five windowed records in place
       // of three (529 -> 531), a window note and longer labels; no citation or finance leaf moves.
-      fingerprint: "1.48.0:93c339f9",
-      promptBytes: 143_158,
+      // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured.
+      // The fixture has five annual income rows, so four years: the label reads "(4y total)"
+      // (its registry id follows), and the capital notes state the short window (+120 bytes);
+      // no count, citation or finance leaf moves. Restored in the preceding-pin chain above.
+      fingerprint: "1.48.0:889357f2",
+      promptBytes: 143_278,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "7fe528aa",
-      provenanceIdsHash: "6a3f2661",
+      provenanceHash: "eaf64814",
+      provenanceIdsHash: "5cdf0aa6",
       citationCount: 75,
       citationHash: "423bbedf",
-      computedFigureLabelHash: "dc5ba34e",
+      computedFigureLabelHash: "c6a253f9",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED

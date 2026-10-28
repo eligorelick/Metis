@@ -5297,21 +5297,6 @@
           "after": null
         },
         {
-          "path": "stageB.capital.notes.2",
-          "beforeMissing": true,
-          "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
-        },
-        {
-          "path": "stageB.capital.notes.4",
-          "beforeMissing": true,
-          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
-        },
-        {
-          "path": "stageB.capital.notes.5",
-          "beforeMissing": true,
-          "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
-        },
-        {
           "path": "stageB.forensics.accruals.aggregateAccrualsBalanceSheet",
           "before": 300000000,
           "after": 250000000
@@ -6977,11 +6962,6 @@
         },
         {
           "path": "stageB.capital.fcf.basis",
-          "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
-        },
-        {
-          "path": "stageB.capital.notes.3",
           "beforeMissing": true,
           "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
@@ -10210,7 +10190,7 @@
       "decisions": [
         "D-117"
       ],
-      "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. D-117 is a provisional number renumbered at merge.",
+      "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. Task 4 (AI-306): DEMO's share history spans two fiscal years, so Stage B now adds one capital note naming the short window (stageB.capital.notes.2); the later capital notes shift by one index and keep their text, and capital.shareCount values and the leadership score do not move. D-117 is a provisional number renumbered at merge.",
       "deltas": [
         {
           "path": "report.valuation.peerCoverage",
@@ -10235,6 +10215,31 @@
             ],
             "comparisons": []
           }
+        },
+        {
+          "path": "stageB.capital.notes.2",
+          "beforeMissing": true,
+          "after": "Diluted share-count change: requested 5y window, only 2y of share history available (2023-12-31 to 2025-12-31)."
+        },
+        {
+          "path": "stageB.capital.notes.3",
+          "beforeMissing": true,
+          "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
+        },
+        {
+          "path": "stageB.capital.notes.4",
+          "beforeMissing": true,
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+        },
+        {
+          "path": "stageB.capital.notes.5",
+          "beforeMissing": true,
+          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
+        },
+        {
+          "path": "stageB.capital.notes.6",
+          "beforeMissing": true,
+          "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
         },
         {
           "path": "stageB.valuation.multiples.notes.1",
