@@ -707,6 +707,14 @@ named in the missing-data manifest rather than published under a second name.
 Interest the taxonomy nests inside the non-operating aggregate the filer
 tagged is not added back (audit 2026-10-22 B-39, below).
 
+A bank-routed filer's `interestIncome` is its operating total: the resolver
+tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
+`InvestmentIncomeInterestAndDividend` and `InvestmentIncomeInterest` in that
+order (audit 2026-10-27 FIN-510-V1), because at a bank the investment-income
+element is only the securities interest inside the total. A non-bank keeps the
+investment-income elements first. No grade, ratio or payload line reads the
+changed bank figure.
+
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below
 it prints as a HOUSE CONVENTION, in those words, wherever it appears. A Gordon guard requires

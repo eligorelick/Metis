@@ -169,3 +169,23 @@ describe("component floors", () => {
     });
   });
 });
+
+describe("bank interest income", () => {
+  // FIN-510-V1 (JPM sub-case): a bank's interest income is its operating total, as the vendor field carries it.
+  const bankFacts = {
+    Revenues: fy25(182_000 * M),
+    NetIncomeLoss: fy25(57_000 * M),
+    InterestExpenseOperating: fy25(97_900 * M),
+    InvestmentIncomeInterest: fy25(28_032 * M),
+    InterestIncomeOperating: fy25(193_341 * M),
+    Assets: [fact(K25, undefined, "2025-12-31", 4_000_000 * M)],
+  };
+  it("a bank's interest income is total operating interest income, not securities interest", () => {
+    const row = build(bankFacts, { bankRevenue: true }).incomeAnnual.rows[0]!;
+    expect(row.interestIncome).toBe(193_341 * M);
+    expect(row.fieldProvenance?.interestIncome?.tags).toEqual(["us-gaap/InterestIncomeOperating"]);
+  });
+  it("control: a non-bank that tags both keeps the non-operating figure", () => {
+    expect(build(bankFacts, { bankRevenue: false }).incomeAnnual.rows[0]!.interestIncome).toBe(28_032 * M);
+  });
+});

@@ -627,6 +627,9 @@ const BANK_REVENUE_SPEC: ChainSpec = {
   ],
 };
 
+/** A bank's interest income is its operating total (audit 2026-10-27 FIN-510-V1); see `bankInterestIncome`. */
+const BANK_INTEREST_INCOME_SPEC: ChainSpec = lineItemChain("bankInterestIncome", "money");
+
 /**
  * A bank's interest expense is its cost of funds, so "pretax income + interest
  * expense" is no EBIT there (JPMorgan FY2025: 72B pretax against 97.9B of
@@ -1298,6 +1301,7 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
     for (const spec of Object.values(table)) collectTags(spec, tags);
   }
   collectTags(BANK_REVENUE_SPEC, tags);
+  collectTags(BANK_INTEREST_INCOME_SPEC, tags);
   // Completeness/scope evidence only, never carrying-value stand-ins.
   tags.add("DebtInstrumentCarryingAmount");
   tags.add("ConvertibleLongTermNotesPayable");
@@ -3259,7 +3263,12 @@ function latestCoverShareCount(index: FactIndex): SharesOutstandingPoint | null 
 const INCOME_DEF = (bankRevenue: boolean): StatementDef => ({
   statement: "income",
   chains: bankRevenue
-    ? { ...INCOME_CHAINS, revenue: BANK_REVENUE_SPEC, operatingIncome: BANK_OPERATING_INCOME_SPEC }
+    ? {
+        ...INCOME_CHAINS,
+        revenue: BANK_REVENUE_SPEC,
+        operatingIncome: BANK_OPERATING_INCOME_SPEC,
+        interestIncome: BANK_INTEREST_INCOME_SPEC,
+      }
     : INCOME_CHAINS,
   anchors: ["revenue", "netIncome"],
   aliases: {},

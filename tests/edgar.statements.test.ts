@@ -1375,14 +1375,15 @@ describe("buildStatementsFromCompanyFacts — bank interest tags", () => {
     });
   });
 
-  it("keeps the non-operating tag when a filer reports both", () => {
+  it("on a bank-routed filer resolves to total interest income when the non-operating tag is also filed", () => {
     const built = buildStatementsFromCompanyFacts(
       bankInterest({ InterestExpense: annual(4_100), InvestmentIncomeInterest: annual(900) }),
       { ...OPTS, symbol: "JPM" },
     );
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       interestExpense: 4_100,
-      interestIncome: 900,
+      // audit 2026-10-27 FIN-510-V1: on a bank-routed filer InvestmentIncomeInterest is securities interest inside total interest income; the non-bank order is pinned in tests/edgar.derivedLines.audit20261027.test.ts
+      interestIncome: 193_300,
     });
   });
 

@@ -272,6 +272,15 @@ export const LINE_ITEM_TAGS = {
     // The bank twin of the tag above: JPM's total interest income.
     "InterestIncomeOperating",
   ]),
+  // A bank's interest income is its operating total, as the vendor field carries it (audit 2026-10-27
+  // FIN-510-V1): InvestmentIncomeInterest at a bank is securities interest inside that total, so the
+  // operating elements come first. The non-bank order above is unchanged.
+  bankInterestIncome: entry([
+    "InterestIncomeOperating",
+    "InterestAndDividendIncomeOperating",
+    "InvestmentIncomeInterestAndDividend",
+    "InvestmentIncomeInterest",
+  ]),
   netInterestIncome: entry(["InterestIncomeExpenseNet"]),
   incomeBeforeTax: entry(INCOME_BEFORE_TAX_TAGS),
   incomeTaxExpense: entry(["IncomeTaxExpenseBenefit"]),

@@ -308,6 +308,14 @@ expense. Treating it as revenue overstates a bank's top line by the whole
 interest-expense line, which for a large bank is a double-digit-percentage
 error, and it flows into every margin, multiple and growth rate downstream.
 
+The same tag is the right source for the bank's `interestIncome` line, which is
+a separate field from revenue: on a bank-routed filer `interestIncome` resolves
+to the operating total first (`InterestIncomeOperating`, then
+`InterestAndDividendIncomeOperating`, then the investment-income elements),
+because `InvestmentIncomeInterest` at a bank is only the securities interest
+inside that total (audit 2026-10-27 FIN-510-V1: JPM FY2025 28.0B against
+193.3B). A non-bank keeps the investment-income elements first.
+
 ---
 
 ### 2.8 The default chain's order
