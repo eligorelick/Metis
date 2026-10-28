@@ -103,7 +103,10 @@ additional repair attempts; completed rejected requests still incur usage.
 A report-assembly failure that repeats unchanged after a repair ends the
 retries, and each judge attempt whose output could not be assembled into the
 report is marked discarded, with a fixed reason, in the stored report's cost
-breakdown.
+breakdown. The audit export prints each discarded charge with its reason in a
+Note column. Durable verify recovery keeps the marks it can read from the
+stored pass artifacts; an assembly rejection is recorded only in the running
+process, so a crash-recovery rebuild does not mark it.
 A rejected bull or bear case gets one repair attempt, including a schema-valid
 case that is empty (no drivers or risks, or no positive price target with a
 horizon). A blank `sourceId` is read as absent rather than rejected, so it no

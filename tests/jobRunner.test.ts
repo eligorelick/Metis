@@ -4347,6 +4347,67 @@ describe("runJob - durable paid-pass settlements", () => {
     },
   );
 
+  it("keeps the discarded mark on a rejected bull row when durable recovery builds the report", async () => {
+    // RPT-210: recovery used to rebuild the breakdown straight from the ledger,
+    // dropping the discarded mark that the live path gave a rejected attempt.
+    const { jobId } = createJob("AAPL");
+    const bundle = fakeBundle();
+    const validation = validateBundle(bundle, { now: NOW() });
+    const payload = pipelinePasses.assembleContextPayload(bundle, runStageB(bundle), validation);
+    const payloadFingerprint = pipelinePasses.fingerprintPayload!(payload);
+    const persist = (attemptId: string, pass: "bull" | "bear" | "synthesize", settlement: TestSettlement<unknown>) =>
+      persistPassSettlement({
+        jobId,
+        runGeneration: 0,
+        attemptId,
+        pass,
+        settlement: settlement as never,
+        payloadFingerprint,
+        settledAt: NOW().toISOString(),
+      });
+    persist("rpt210-bull-rejected", "bull", testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON"));
+    persist("rpt210-bull", "bull", testSuccessSettlement(testAnalystPass("bull")));
+    persist("rpt210-bear", "bear", testSuccessSettlement(testAnalystPass("bear")));
+    persist("rpt210-synthesize", "synthesize", testSuccessSettlement({
+      data: fakeJudgeOutput(),
+      model: "claude-opus-4-8",
+      costUsd: 0.4,
+      fallbackUsed: false,
+    }));
+    await pipelinePasses.runVerifyPass(
+      { analysisModel: "claude-opus-4-8", payload, jobSeed: jobId },
+      fakeJudgeOutput(),
+      { fetchedUrls: [] },
+      async (settlement) => {
+        persistPassSettlement({
+          jobId,
+          runGeneration: 0,
+          attemptId: "rpt210-verify",
+          pass: "verify",
+          settlement,
+          payloadFingerprint,
+          settledAt: NOW().toISOString(),
+        });
+      },
+    );
+    handle.db.update(jobs).set({ status: "error", error: "report link interrupted", reportId: null }).where(eq(jobs.id, jobId)).run();
+    clearPreparedResumeProcessCache();
+
+    const result = await runJob(jobId, pipelinePasses, { now: NOW, resume: true });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    const persistedRow = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get();
+    const rows = ReportSchema.parse(JSON.parse(persistedRow!.reportJson!)).appendix.costBreakdown;
+    expect(rows.find((r) => r.step === "bull" && r.costUsd === 0.42825)).toMatchObject({
+      discarded: true,
+      discardedReason: "the attempt did not produce a usable result",
+    });
+    // Control: the accepted attempts carry no mark, and every row keeps the
+    // per-attempt fallbackUsed that cost_log persists.
+    expect(rows.filter((r) => r.discarded === true)).toHaveLength(1);
+    expect(rows.every((r) => typeof r.fallbackUsed === "boolean")).toBe(true);
+  });
+
   it("reconciles real-facade verify recovery from the local ledger before early persistence", async () => {
     const { jobId } = createJob("AAPL");
     const bundle = fakeBundle();

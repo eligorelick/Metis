@@ -4832,17 +4832,34 @@ function keptSectionsOf(artifact: CurrentGenerationPassArtifact, lineage: readon
 }
 
 function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
-  const discarded = readDiscardedAttempts(state.jobId, state.assemblyRejected);
-  const entries: CostBreakdownEntry[] = readCostLedger(state.jobId).map((row) => {
+  return costBreakdownRows(state.jobId, readCostLedger(state.jobId), { keepFallbackUsed: false, assemblyRejected: state.assemblyRejected });
+}
+
+/**
+ * RPT-210: the one ledger-to-breakdown join. A row whose attempt was discarded
+ * (and kept no section, D-116) carries the mark and its reason; the live
+ * report and durable verify recovery both build their rows here, so recovery
+ * cannot drop the mark. Recovery also keeps the per-attempt `fallbackUsed`
+ * that cost_log persists.
+ */
+function costBreakdownRows(
+  jobId: string,
+  ledger: readonly CostLedgerRow[],
+  options: { keepFallbackUsed: boolean; assemblyRejected?: readonly AssemblyRejectedAttempt[] },
+): CostBreakdownEntry[] {
+  const discarded = readDiscardedAttempts(jobId, options.assemblyRejected);
+  const entries: CostBreakdownEntry[] = ledger.map((row) => {
     const match = discarded.find((attempt) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId));
     return {
       step: row.step,
       model: row.model,
       costUsd: row.costUsd,
+      // This is the only execution option cost_log persists per attempt.
+      ...(options.keepFallbackUsed ? { fallbackUsed: row.fallbackUsed } : {}),
       ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
     };
   });
-  return [...entries, ...readPlanCostBreakdown(state.jobId)];
+  return [...entries, ...readPlanCostBreakdown(jobId)];
 }
 
 function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreakdownEntry[] {
@@ -5184,14 +5201,7 @@ function reconcileRecoveredVerifyReport(
     requestedEffort: null,
     fallbackUsed: verify.fallbackUsed,
   }));
-  const costBreakdown = [...ledger.map((row) => ({
-    step: row.step,
-    model: row.model,
-    costUsd: row.costUsd,
-    // This is the only execution option cost_log persists per attempt. Do not
-    // infer requested model/effort or derived adjustments for appendix rows.
-    fallbackUsed: row.fallbackUsed,
-  })), ...readPlanCostBreakdown(state.jobId)];
+  const costBreakdown = costBreakdownRows(state.jobId, ledger, { keepFallbackUsed: true });
   const report = costBreakdown.length === 0
     ? {
         ...verify.data,

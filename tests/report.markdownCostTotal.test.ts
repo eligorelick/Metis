@@ -36,6 +36,37 @@ function costSection(markdown: string): string {
   return markdown.slice(start, start + 1200);
 }
 
+describe("Markdown cost appendix: discarded charges (RPT-210)", () => {
+  function discardedReport(): Report {
+    const report = reportWithCosts([0.04521, 0.42825, 0.4]);
+    report.appendix.costBreakdown[0] = {
+      ...report.appendix.costBreakdown[0],
+      step: "bear",
+      discarded: true,
+      discardedReason: "the output was not valid JSON | twice",
+    };
+    return report;
+  }
+
+  it("marks a discarded charge in the audit breakdown with its reason", () => {
+    const lines = reportToAuditMarkdown(discardedReport()).split("\n").filter((l) => l.startsWith("| bear |"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("discarded: the output was not valid JSON");
+    // The reason's pipe is escaped, so the row still has exactly 4 cells.
+    expect(lines[0]!.split(/(?<!\\)\|/).filter((cell) => cell !== "")).toHaveLength(4);
+  });
+
+  it("control: an undiscarded row has an empty Note and the total is unchanged", () => {
+    const markdown = reportToAuditMarkdown(discardedReport());
+    const plain = reportToAuditMarkdown(reportWithCosts([0.04521, 0.42825, 0.4]));
+    const row = markdown.split("\n").find((l) => l.startsWith("| step-1 |"));
+    expect(row).toMatch(/\|\s*\|$/);
+    const total = (text: string) => text.match(/Recorded API charge total: \*\*[^*]+\*\*/)?.[0];
+    expect(total(markdown)).toBe(total(plain));
+    expect(markdown).toContain("| Step | Model | Cost (USD) | Note |");
+  });
+});
+
 describe("Markdown cost appendix", () => {
   it("prints a total equal to the sum of its own displayed rows", () => {
     const costs = [0.00005, 0.00005, 0.00005];
