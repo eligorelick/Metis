@@ -110,3 +110,30 @@ describe("ParsedNumber.start (SEC-203)", () => {
     expect(parseNumbers("rose  $5 million")[0].start).toBe(6);
   });
 });
+
+describe("direction window distance (SEC-203 review)", () => {
+  const decline: NumericProvenanceRecord = { ...RECORD, id: "computed.growth.revenue-growth-yoy", value: -3.2 };
+
+  // "Revenue rose" + gap + "3.2%": the gap is one space before the number and
+  // plain filler words between, so only the window length decides.
+  const direction = (gap: number) => {
+    const filler = `${"a".repeat(gap - 2)} `;
+    const sentence = `Revenue rose ${filler}3.2% year over year.`;
+    expect(sentence.indexOf("3.2") - sentence.indexOf("rose") - "rose".length).toBe(gap);
+    return runConsistencyChecks({
+      claims: [{ claim: { text: sentence, label: "FACT", source: decline.id, asOf: decline.asOf }, path: "commentary[0]" }],
+      registry: [decline],
+      citationRegistry: [],
+      fetchedUrls: new Set(),
+      personNames: [],
+    }).checks.direction;
+  };
+
+  it("counts from the direction word's end to the figure's first digit: 40 characters attach the word", () => {
+    expect(direction(40)).toEqual({ checked: 1, passed: 0, failed: 1, rate: 0 });
+  });
+
+  it("does not attach a word 41 characters before the figure", () => {
+    expect(direction(41).checked).toBe(0);
+  });
+});
