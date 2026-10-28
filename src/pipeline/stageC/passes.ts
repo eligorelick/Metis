@@ -4048,6 +4048,7 @@ export async function runJudgeVerifyAssemble(
           reconciliationNotPerformed(
             `${JUDGE_ORDER_ENV_KEY}=both is configured, but this judge path runs a single ${presentation.order} pass; ` +
               "the mirrored pass and its reconciliation are only run by the job runner",
+            "skipped",
           ),
         );
 
