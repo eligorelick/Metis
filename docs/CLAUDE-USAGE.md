@@ -100,7 +100,10 @@ Analyst JSON uses Anthropic structured output. The judge's larger schema is
 included in its prompt and validated locally, rather than sent as a strict
 structured-output grammar. Invalid judge/report output can receive up to two
 additional repair attempts; completed rejected requests still incur usage.
-A report-assembly failure that repeats unchanged after a repair ends the retries, and every judge attempt whose output was not used is marked discarded in the audit export's charge breakdown.
+A report-assembly failure that repeats unchanged after a repair ends the
+retries, and each judge attempt whose output could not be assembled into the
+report is marked discarded, with a fixed reason, in the stored report's cost
+breakdown.
 A rejected bull or bear case gets one repair attempt, including a schema-valid
 case that is empty (no drivers or risks, or no positive price target with a
 horizon). A blank `sourceId` is read as absent rather than rejected, so it no

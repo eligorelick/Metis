@@ -5512,6 +5512,11 @@ function passDetail(pass: PassResultLike<unknown>, attempts = 1): string {
  * Stable key of a report-assembly failure: the sorted issue paths and codes of
  * a ReportValidationError (its `zodError` is the JSON issue list), else its
  * message. Two attempts with the same key failed the same way.
+ *
+ * The key is the issue path plus code only, so two refinements on one path with
+ * different messages count as the same failure, and a `zodError` that is not a
+ * JSON array falls back to the message, which collapses every such failure to
+ * one key. Both are fail-safe: they buy fewer paid retries, never more.
  */
 function assemblyIssueKey(err: unknown): string {
   const zodError = err !== null && typeof err === "object" ? (err as { zodError?: unknown }).zodError : undefined;

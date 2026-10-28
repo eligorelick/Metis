@@ -4066,6 +4066,11 @@ describe("runJob - durable paid-pass settlements", () => {
       .find((entry) => entry.field === "llm.judge");
     expect(judgeGap?.reason).toBe(synthesize?.detail);
     expect(judgeGap?.attemptedSources).toEqual([]);
+    // AI-112: a reused artifact was not bought in this run, so it is never marked
+    // discarded (control: the "AI-112" tests mark a freshly bought attempt).
+    const stored = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(stored.appendix.costBreakdown.filter((entry) => entry.discarded === true)).toEqual([]);
+    expect(stored.appendix.missingData.some((entry) => entry.field === "llm.synthesize.discardedAttempt")).toBe(false);
   });
 
   it("queued resume re-derives a source verify artifact and persists it without paid work", async () => {
