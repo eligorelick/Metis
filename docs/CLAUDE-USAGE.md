@@ -115,8 +115,12 @@ With Claude streaming, bull starts first and bear waits for its first stream
 event, allowing the evidence prefix cache to become reusable. Requests may
 then overlap. If bull fails before that event, bear is not launched; when a
 side's terminal failure makes synthesis impossible, the other request is
-aborted and its incurred or presumed spend is retained. Non-streaming and
-subscription paths run the analysts sequentially.
+aborted and its incurred or presumed spend is retained. A request the
+provider has already answered is presumed even when it is cancelled before
+any usage arrives, at the whole request maximum when no usage was reported.
+A stream that goes silent before any usage arrives is presumed at the same
+figure. A cancel before the provider answers is not charged. Non-streaming
+and subscription paths run the analysts sequentially.
 
 AI off, missing authorization, unsupported model selection and some terminal
 analysis failures produce disclosed data-only reports. A data-only result may

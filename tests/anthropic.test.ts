@@ -2119,6 +2119,38 @@ describe("stream idle timeout", () => {
     });
   }, 15_000);
 
+  it("presumes an idle stream with no reported usage at the request maximum", async () => {
+    // AI-113-V1 / B7 OD-2: with no usage reported the input is unknown as well
+    // as the output, so the silent stream settles the same figure as a socket
+    // death in that wire state: the whole request maximum.
+    setIdleSeconds("1");
+    const settled: Array<Record<string, unknown>> = [];
+    const admission = {
+      reserve: async () => ({ id: "p1", maximumUsd: requestReservationUsd(idleOpts) }),
+      settle: async (_permit: unknown, settlement: Record<string, unknown>) => {
+        settled.push(settlement);
+      },
+      release: async () => {
+        throw new Error("must not release a request the provider may have billed");
+      },
+    };
+    const stalled = makeFakeStream({ events: [] }) as Record<string, unknown>;
+    stalled.abort = (): void => {};
+    _resetAnthropicForTests({
+      beta: { messages: { stream: () => stalled, create: async () => { throw new Error("must stream"); } } },
+    } as unknown as Anthropic);
+
+    const result = await runPass({ ...idleOpts, admission: admission as never });
+
+    expect(result.ok).toBe(false);
+    expect(settled).toHaveLength(1);
+    expect(settled[0]).toMatchObject({ presumed: true });
+    expect(settled[0]!.costUsd).toBeCloseTo(requestReservationUsd(idleOpts), 6);
+    if (result.ok) return;
+    expect(result.error.costUsd).toBeCloseTo(requestReservationUsd(idleOpts), 6);
+    expect(result.error.message).toMatch(/retained the presumed request maximum \(no usage was reported\)/);
+  }, 15_000);
+
   it("does not fire while the stream keeps producing events", async () => {
     setIdleSeconds("1");
     const final = syntheticMessage({

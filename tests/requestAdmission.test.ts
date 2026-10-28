@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import type Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { APIError } from "@anthropic-ai/sdk";
 import type { BetaMessage, BetaUsage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 
@@ -654,5 +654,160 @@ describe("spend caps at a usable size", () => {
       costUsd: 1.5,
       fallbackUsed: false,
     }, NOW, first.db)).toThrow();
+  });
+});
+
+/**
+ * A request the provider has answered (HTTP 200 and SSE headers) is presumed
+ * when the caller cancels it before `message_start`, at the request maximum:
+ * the figure a socket death in the same wire state settles (AI-113-V1, B7 OD-2).
+ * Real SDK client on an in-memory fetch; no network.
+ */
+describe("a caller abort after the provider answered but before message_start (AI-113-V1)", () => {
+  const OFFLINE_KEY = "sk-" + "ant-api03-offline-test";
+
+  type Behaviour =
+    | { kind: "sse"; body: string }
+    | { kind: "hang-after-headers"; onHeaders?: () => void }
+    | { kind: "die-after-headers" };
+
+  function abortError(): Error {
+    return Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
+  }
+
+  function realClient(behaviours: Behaviour[]): { client: Anthropic; calls: () => number } {
+    let calls = 0;
+    const fetchImpl = async (_url: unknown, init?: RequestInit): Promise<Response> => {
+      const b = behaviours[Math.min(calls, behaviours.length - 1)]!;
+      calls += 1;
+      const signal = init?.signal ?? undefined;
+      if (signal?.aborted) throw abortError();
+      const headers = { "content-type": "text/event-stream", "request-id": `req_${calls}` };
+      if (b.kind === "sse") return new Response(b.body, { status: 200, headers });
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal?.addEventListener("abort", () => controller.error(abortError()), { once: true });
+          if (b.kind === "die-after-headers") {
+            setTimeout(() => controller.error(Object.assign(new TypeError("terminated"), {
+              cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }),
+            })), 5);
+          } else {
+            setTimeout(() => b.onHeaders?.(), 5);
+          }
+        },
+      });
+      return new Response(body, { status: 200, headers });
+    };
+    const client = new Anthropic({ apiKey: OFFLINE_KEY, fetch: fetchImpl as never, maxRetries: 0 });
+    return { client, calls: () => calls };
+  }
+
+  function sse(events: Array<Record<string, unknown>>): string {
+    return events.map((e) => `event: ${String(e.type)}\ndata: ${JSON.stringify(e)}\n\n`).join("");
+  }
+
+  const pausedBody = sse([
+    { type: "message_start", message: {
+      id: "msg_p", type: "message", role: "assistant", model: "claude-sonnet-5", content: [],
+      stop_reason: null, stop_sequence: null,
+      usage: { input_tokens: 1_000, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    } },
+    { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+    { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "partial" } },
+    { type: "content_block_stop", index: 0 },
+    { type: "message_delta", delta: { stop_reason: "pause_turn", stop_sequence: null }, usage: { output_tokens: 200 } },
+    { type: "message_stop" },
+  ]);
+
+  /** The scheduler admission, counting releases. */
+  function countedAdmission(id: string): { admission: RequestAdmission; released: () => number } {
+    seedJob(first.db, id, "AAPL");
+    const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
+    const { admission } = schedulerAdmission(claim, "bull", "abort-attempt", first.db);
+    let released = 0;
+    return {
+      admission: {
+        ...admission,
+        release: async (permit) => {
+          released += 1;
+          await admission.release(permit);
+        },
+      },
+      released: () => released,
+    };
+  }
+
+  const rows = () => ({ cost: first.db.select().from(costLog).all() });
+
+  beforeEach(async () => {
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests(async () => {});
+  });
+  afterEach(async () => {
+    const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
+    _setTransportRetrySleepForTests();
+  });
+
+  it("presumes a caller abort after the provider answered but before message_start", async () => {
+    const { admission, released } = countedAdmission("job-abort");
+    const controller = new AbortController();
+    const { client, calls } = realClient([
+      { kind: "hang-after-headers", onHeaders: () => controller.abort(new Error("model stage deadline")) },
+    ]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...passOpts, admission, signal: controller.signal });
+
+    expect(calls()).toBe(1);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.aborted).toBe(true);
+    expect(!result.ok && result.error.message).toMatch(/aborted by the caller after the provider answered/);
+    expect(released()).toBe(0);
+    expect(rows().cost).toHaveLength(1);
+    expect(rows().cost[0]).toMatchObject({ settlementKind: "presumed" });
+    expect(rows().cost[0]!.costUsd).toBeCloseTo(maximumRequestCostUsd("claude-sonnet-5", "bull"), 6);
+    expect(!result.ok && result.error.costUsd).toBeCloseTo(maximumRequestCostUsd("claude-sonnet-5", "bull"), 6);
+  });
+
+  it("presumes the same abort inside a pause_turn resumption", async () => {
+    const { admission, released } = countedAdmission("job-resume-abort");
+    const controller = new AbortController();
+    const { client, calls } = realClient([
+      { kind: "sse", body: pausedBody },
+      { kind: "hang-after-headers", onHeaders: () => controller.abort(new Error("job canceled")) },
+    ]);
+    _resetAnthropicForTests(client);
+
+    await runPass({ ...passOpts, admission, signal: controller.signal });
+
+    expect(calls()).toBe(2);
+    expect(released()).toBe(0);
+    expect(rows().cost).toHaveLength(2);
+    expect(rows().cost.filter((c) => c.settlementKind === "presumed")).toHaveLength(1);
+  });
+
+  it("control: a socket death in the same state settles the same figure", async () => {
+    const { admission, released } = countedAdmission("job-control");
+    const { client } = realClient([{ kind: "die-after-headers" }]);
+    _resetAnthropicForTests(client);
+
+    await runPass({ ...passOpts, admission });
+
+    expect(released()).toBe(0);
+    expect(rows().cost[0]!.costUsd).toBeCloseTo(maximumRequestCostUsd("claude-sonnet-5", "bull"), 6);
+  });
+
+  it("control: an abort before dispatch never calls fetch and is released at $0", async () => {
+    const { admission, released } = countedAdmission("job-predispatch");
+    const { client, calls } = realClient([{ kind: "hang-after-headers" }]);
+    _resetAnthropicForTests(client);
+    const controller = new AbortController();
+    controller.abort(new Error("job canceled"));
+
+    await runPass({ ...passOpts, admission, signal: controller.signal });
+
+    expect(calls()).toBe(0);
+    expect(released()).toBe(1);
+    expect(rows().cost).toHaveLength(0);
   });
 });

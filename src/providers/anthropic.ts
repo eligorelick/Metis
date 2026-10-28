@@ -1732,11 +1732,13 @@ type FailedRequestOutcome = { kind: "release" } | { kind: "charge"; charge: Fail
 /**
  * Decide what a failed request is recorded at: the single rule both failure
  * catches (the first request and a pause resumption) share, so one wire state
- * settles one figure. In order: a stream the idle guard abandoned, or one the
- * stream that reported usage but ended before its final usage event (any
- * cause) is its reported usage plus the presumed remainder; a stream whose
- * final usage event arrived settles at that usage; a request that went out and then timed out or lost its connection
- * with no usage reported is presumed at the request maximum; anything else
+ * settles one figure. In order: a stream the idle guard abandoned, or one that
+ * reported usage but ended before its final usage event (any cause), is its
+ * reported usage plus the presumed remainder (the request maximum when no
+ * usage was reported); a stream whose final usage event arrived settles at
+ * that usage; a request the provider had answered and the caller then
+ * cancelled, or one that went out and then timed out or lost its connection,
+ * with no usage reported, is presumed at the request maximum; anything else
  * never reached the provider and is released at $0 (DECISIONS D-10: "a
  * request that times out after send is presumed spent until reconciled").
  */
@@ -1758,7 +1760,11 @@ function classifyFailedRequest(
     const billing = billingForMessage(reported, opts);
     return { kind: "charge", charge: { reported, costUsd: billing.costUsd, presumed: billing.presumed } };
   }
-  if (timedOutAfterSend(cause)) {
+  // No usage was reported, so the input the provider may have billed is
+  // unknown as well as the output: the whole request maximum (DECISIONS D-10).
+  // A caller abort counts only once the provider answered (response headers
+  // or any stream event); before that the request may never have left.
+  if (timedOutAfterSend(cause) || (cause instanceof APIUserAbortError && snapshot.answered === true)) {
     return { kind: "charge", charge: { reported: null, costUsd: requestMaximumUsd, presumed: true } };
   }
   return { kind: "release" };
@@ -2015,15 +2021,22 @@ interface StreamedUsageSnapshot {
   stopDetails?: BetaMessage["stop_details"];
   /** True once the final `message_delta` (non-null stop reason, cumulative usage) arrived. */
   finalUsage?: boolean;
+  /** True once the provider answered: response headers received (`connect`) or any stream event. */
+  answered?: boolean;
 }
 
 function trackStreamedUsage(
   stream: {
-    on: (event: "streamEvent", listener: (event: BetaRawMessageStreamEvent) => void) => unknown;
+    on(event: "streamEvent", listener: (event: BetaRawMessageStreamEvent) => void): unknown;
+    on(event: "connect", listener: () => void): unknown;
   },
   snapshot: StreamedUsageSnapshot = { model: null, usage: null },
 ): StreamedUsageSnapshot {
+  stream.on("connect", () => {
+    snapshot.answered = true;
+  });
   stream.on("streamEvent", (event: BetaRawMessageStreamEvent) => {
+    snapshot.answered = true;
     if (event.type === "message_start") {
       snapshot.model = event.message.model;
       snapshot.usage = { ...event.message.usage };
@@ -2117,13 +2130,17 @@ function billedMessageFromSnapshot(
  * provider fault.
  */
 function abandonedRequestCostUsd(opts: RunPassOptions, reported: BetaMessage | null): number {
-  const reportedUsd = reported === null ? 0 : costForMessage(reported, opts);
-  if (boundedWebSearchUses(opts.tools) > 0 || registryEntryFor(opts.model).serverSideFallback !== null || (reported !== null && detectFallbackUsed(reported))) {
+  // Nothing reported: the input the provider may have billed is unknown as
+  // well as the output, so the whole request (the figure a lost connection
+  // in the same wire state settles; DECISIONS D-10, B7 OD-2).
+  if (reported === null) return requestReservationUsd(opts);
+  const reportedUsd = costForMessage(reported, opts);
+  if (boundedWebSearchUses(opts.tools) > 0 || registryEntryFor(opts.model).serverSideFallback !== null || detectFallbackUsed(reported)) {
     // Unseen tool rounds can bill more input/searches; fallback can add a full
     // model attempt. If incomplete usage retained the bound, do not add it again.
     return Math.max(reportedUsd, requestReservationUsd(opts));
   }
-  const remaining = Math.max(0, effectiveMaxTokens(opts) - (reported?.usage.output_tokens ?? 0));
+  const remaining = Math.max(0, effectiveMaxTokens(opts) - reported.usage.output_tokens);
   return reportedUsd + remaining / 1_000_000 * registryEntryFor(opts.model).pricing.outputPerMTok;
 }
 
@@ -2147,9 +2164,10 @@ function presumedRemainderResult(
   const searchExposure = boundedWebSearchUses(opts.tools) > 0;
   const detail = fallbackExposure || searchExposure
     ? `${headline}; retained the presumed request maximum, including ${[searchExposure ? "unreported search iterations" : null, fallbackExposure ? "the configured fallback attempt" : null].filter(Boolean).join(" and ")}`
-    :
-    `${headline}; settled ${accounting.usage !== undefined ? "reported usage" : "no reported usage"} ` +
-    `plus a presumed ${remainingOutputTokens.toLocaleString("en-US")} remaining output tokens at $${pricing.outputPerMTok}/MTok`;
+    : reported === null
+      ? `${headline}; retained the presumed request maximum (no usage was reported)`
+      : `${headline}; settled reported usage ` +
+        `plus a presumed ${remainingOutputTokens.toLocaleString("en-US")} remaining output tokens at $${pricing.outputPerMTok}/MTok`;
   return {
     ok: false,
     gap: gapEntry(opts, `LLM pass abandoned after ${attemptNoun}: ${detail}`),
@@ -2373,20 +2391,23 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           signalFirst("error");
           return deadStreamResult(opts, completed, failed, cause.idleMs, attempt);
         }
-        if (cause instanceof APIUserAbortError && charge?.reported != null) {
-          // Aborted after generation started — a cancel, a stage deadline, or
-          // a doomed run abandoning its sibling. The provider bills whatever it
-          // generated up to the disconnect and reports none of it (cumulative
-          // output tokens arrive only in the final message_delta), so the
-          // request settles exactly like a dead stream: reported usage plus
-          // the presumed remainder, flagged presumed (DECISIONS D-09).
+        if (cause instanceof APIUserAbortError && charge !== null) {
+          // Aborted after the provider answered — a cancel, a stage deadline,
+          // or a doomed run abandoning its sibling. The provider bills whatever
+          // it generated up to the disconnect and reports none of it
+          // (cumulative output tokens arrive only in the final message_delta),
+          // so the request settles exactly like a dead stream: reported usage
+          // plus the presumed remainder, or the request maximum when no usage
+          // had arrived, flagged presumed (DECISIONS D-09, D-10).
           signalFirst("abort");
           return presumedRemainderResult(
             opts,
             completed,
             failed,
             attempt,
-            "request aborted by the caller after generation started",
+            charge.reported === null
+              ? "request aborted by the caller after the provider answered"
+              : "request aborted by the caller after generation started",
             true,
           );
         }
