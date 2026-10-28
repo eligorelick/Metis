@@ -44,7 +44,7 @@ import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/st
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
-import { peerDiscoveryScreen } from "@/pipeline/peers";
+import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
@@ -277,6 +277,11 @@ export interface ContextPayload {
   quote: PayloadSection;
   /** Every Stage B computed metric block, with provenance/as-of. */
   computed: PayloadSection[];
+  /**
+   * Peer-screen exclusion reasons and peer-collection notes, which can quote a
+   * provider's error body; rendered inside an untrusted envelope (AI-102).
+   */
+  peerScreen?: PayloadSection;
   /** Compact statement extracts (annual + quarterly key line items). */
   statements: StatementExtractBlock[];
   /**
@@ -655,11 +660,27 @@ const BANK_PAYLOAD_METRICS = [
   "loanCagr3y",
 ] as const;
 
+/**
+ * The peer exclusion reasons and peer-collection notes (audit 2026-10-27 B3
+ * Task 2, AI-102). Both can quote a provider's error body verbatim, so they are
+ * their own section, which the serializer renders inside an untrusted envelope.
+ * Undefined when there is neither.
+ */
+function peerScreenSection(peerCoverage: PeerCoverage, collectionNotes: ReadonlySet<string>): PayloadSection | undefined {
+  const notes = [
+    ...peerCoverage.methodology.filter((line) => collectionNotes.has(line)),
+    ...peerCoverage.exclusions.map((entry) => `${entry.symbol}: ${entry.reason}`),
+  ];
+  if (notes.length === 0) return undefined;
+  return payloadSection({ title: "Peer screen exclusions and collection notes", figures: [], notes });
+}
+
 /** Stage B computed-metrics sections — the analytical spine of the payload. */
 function computedSections(
   computed: ComputedMetrics,
   currencies: ComputedCurrencies,
   currentPrice: number | null,
+  collectionNotes: ReadonlySet<string>,
 ): PayloadSection[] {
   const sections: PayloadSection[] = [];
   const g = computed.growth;
@@ -1155,10 +1176,13 @@ function computedSections(
     sections.push(payloadSection({
       title: "Comparable peers (computed)",
       figures: peerFigures.length ? peerFigures : [{ label: "qualified comparable peer valuation", value: null, unit: "x", source: "computed.valuation.peerCoverage", asOf: null }],
+      // Audit 2026-10-27 B3 Task 2 (AI-102): the collection notes and the
+      // exclusion reasons can quote a provider's error body, so they travel in
+      // `peerScreen` (an untrusted envelope); this section keeps the figures,
+      // the assembler's method lines and the comparison bases.
       notes: [
-        ...peerCoverage.methodology,
+        ...peerCoverage.methodology.filter((line) => !collectionNotes.has(line)),
         ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}`),
-        ...peerCoverage.exclusions.map((entry) => `${entry.symbol}: ${entry.reason}`),
       ],
     }));
   }
@@ -3107,6 +3131,9 @@ export function assembleContextPayload(
   const segmentRevenue = segmentRevenueSection(bundle);
   const issuerFilings = issuerFilingsSection(disclosures);
   const filingFacts = filingFactsSection(disclosures);
+  const peerCollectionNotes: ReadonlySet<string> = new Set(bundle.peerFundamentals?.notes ?? []);
+  const peerCoverage = computed.valuation.kind === "pre-revenue" ? undefined : computed.valuation.multiples.peerCoverage;
+  const peerScreen = peerCoverage === undefined ? undefined : peerScreenSection(peerCoverage, peerCollectionNotes);
   const missingData = mergeManifest([
     bundle.gaps,
     computed.gaps,
@@ -3126,8 +3153,9 @@ export function assembleContextPayload(
       industry: computed.route.evidence.industry,
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
-    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
+    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes),
     statements: statementExtracts(bundle),
+    ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),
     ...(issuerFilings === undefined ? {} : { issuerFilings }),
@@ -3352,6 +3380,14 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
+  // Audit 2026-10-27 B3 Task 2 (AI-102): exclusion reasons and collection notes
+  // can quote a provider's error body: enveloped, one entry per line (D-101).
+  if (payload.peerScreen) {
+    parts.push(renderUntrustedLines(
+      "## Peer screen exclusions and collection notes (untrusted provider data)",
+      payload.peerScreen.notes.map((n) => `- ${n}`),
+    ));
+  }
   for (const b of payload.statements) parts.push(renderStatement(b));
   // Issuer member labels and outlook caveats are filing text: untrusted.
   if (payload.quarterlyTrend) parts.push(renderUntrustedSection(payload.quarterlyTrend));

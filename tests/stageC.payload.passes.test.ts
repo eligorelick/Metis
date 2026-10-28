@@ -496,7 +496,11 @@ describe("payload determinism + provenance", () => {
     expect(section?.figures.map((figure) => figure.value)).toEqual([18, 15, 4]);
     const ids = section?.figures.map((figure) => figure.provenanceId);
     expect(ids?.every((id) => payload.provenanceRegistry?.some((record) => record.id === id))).toBe(true);
-    expect(section?.notes.join(" ")).toContain("P5: incompatible currency");
+    // Audit 2026-10-27 B3 Task 2 (AI-102): an exclusion reason can quote a provider's error body, so
+    // it lives in the enveloped peer-screen section, not the computed one.
+    expect(payload.peerScreen?.notes).toContain("P5: incompatible currency");
+    expect(section?.notes.join(" ")).not.toContain("P5:");
+    expect(section?.notes).toContain("same currency and issuer-common earnings basis");
   });
   it("produces byte-identical serialized output for identical inputs", () => {
     const a = buildInputs();
@@ -715,6 +719,16 @@ describe("payload determinism + provenance", () => {
       return { label, value, unit, currency: "USD", currencyInherited: true, source, asOf, period, provenanceId: restoredPeerRecords.find((record) => record.label === figure.label)!.id } as unknown as typeof figure;
     });
     precedingPayload.peers.notes = ["Money rows marked \"inherited\": currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)."];
+    // Audit 2026-10-27 B3 Task 2 (AI-102): the peer exclusion reasons (and any collection
+    // notes) moved from "Comparable peers (computed)" into their own untrusted envelope.
+    // This fixture has no peer collection, so the section holds exactly the one subject-level
+    // exclusion, which sat last in the computed notes; fold it back and drop the section.
+    expect(precedingPayload.peerScreen?.notes.length).toBe(1);
+    expect(precedingPayload.peerScreen?.figures).toEqual([]);
+    const precedingPeerCoverage = precedingPayload.computed.filter((section) => section.title === "Comparable peers (computed)");
+    expect(precedingPeerCoverage.length).toBe(1);
+    precedingPeerCoverage[0]!.notes.push(...precedingPayload.peerScreen!.notes);
+    delete precedingPayload.peerScreen;
     // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
     // manifest into untrusted-data envelopes, under new headings. Unwrapping
     // exactly those two blocks back to their preceding raw lines must
@@ -1069,8 +1083,11 @@ describe("payload determinism + provenance", () => {
       // the peers block states the fixed currency note instead of the D-57 note and
       // the peer methodology names the established-currency or same-market basis
       // (financeHash). The preceding pins above are reproduced by exact restorations.
-      fingerprint: "1.48.0:bf5f6139",
-      promptBytes: 140_880,
+      // Audit 2026-10-27 B3 Task 2 (AI-102): peer exclusion reasons travel in their own untrusted envelope
+      // (the fixture's one subject-level exclusion leaves "Comparable peers (computed)" for it, +157 bytes);
+      // no record, figure or citation moves, so only fingerprint and promptBytes change.
+      fingerprint: "1.48.0:d9973282",
+      promptBytes: 141_037,
       provenanceCount: 529,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move

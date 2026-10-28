@@ -3495,7 +3495,11 @@ stated only as one of FMP's five rating words (Strong Buy, Buy, Hold, Sell,
 Strong Sell) and is otherwise withheld. Statement period labels and the
 FINRA and FRED observation dates must be ISO days: a statement period with
 another date shows as "unknown", FINRA discards the row as malformed, and
-FRED skips the observation. Valid data renders as before.
+FRED skips the observation. Valid data renders as before. Peer-screen
+exclusion reasons and peer-collection notes can also quote a provider's error
+body, so they travel in their own envelope ("Peer screen exclusions and
+collection notes"), one entry per line; "Comparable peers (computed)" keeps
+only the figures, the fixed method lines and the comparison bases (D-next).
 
 **The judge reads the cases as arguments (F-6).** Each analyst case the judge
 receives is enveloped the same way and labelled model-authored. The judge is
