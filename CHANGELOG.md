@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.46.0** and
-payload **1.49.0** (claim verifier period rules and payload-record fixes from the 2026-10-27 audit, batches B1 and B3). The
+Current source declares application **0.1.0**, report spec **1.47.0** and
+payload **1.49.0** (claim verifier period and number rules and payload-record fixes from the 2026-10-27 audit, batches B1, B2 and B3). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,23 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - claim verifier reads signs, scales, units and each figure's own description (2026-10-27)
+
+The independent audit of 2026-10-27 found that the deterministic, no-model verify pass of Stage C could mark a claim `[validated]` or `contradicted` because it misread a figure in the filing excerpt it cites: a minus before the currency, a word that only began like a scale or a unit, a table scale applied to the wrong cell, a hedge or a comparison base read as the value, or another metric's figure in the same sentence. This batch fixes the excerpt path for the seven High findings and their Medium and Low siblings. No payload, prompt, Stage B figure or stored report changes. The record-path, registry, entity and rating-gate findings of the same audit (AI-407, AI-408, AI-116, AI-103, AI-104, AI-111, AI-501, AI-502, AI-504) are deferred to a follow-up batch, not dropped.
+
+- The number scanners no longer slow down on a long run of spaces or line breaks: verifying a claim with 2,000 padded characters took about 2.9 seconds and takes about 5 milliseconds (SEC-203). Proved on synthetic text.
+- A minus written directly before the currency ("-$23.22 billion") is read as a negative figure, so a correct negative claim is no longer marked contradicted against its negative record, and a range such as "$1.0-$1.2 billion" or a dashed year does not turn its upper bound negative (AI-202). No stored report spells a negative this way; proved on synthetic text. "USD 1.0 - 1.2 billion" is still read with a minus (a recorded residual).
+- A word that only begins like a scale or a unit ("months", "5 key products", "marketable", "crude oils", "fraud", "1,234 Share-based") is no longer read as millions, billions, a ratio or a share count, and "8 basis points", "0.08 percentage points", "mn", "mln", "mil", "mio" and "bln" are read as what they are (AI-304, AI-304-V1, AI-304-V3). Proved on committed tests (a Micron table's Percentages and Ratios rows, NVIDIA balance-sheet rows); no stored claim changed status.
+- A currency code or symbol before "share repurchase", "shareholder return" or "share price" is no longer flagged as a unit-word mismatch, and "$15.2 billion shares" is (AI-304-V2). Proved on synthetic text.
+- A table's "(In millions)" or "($ in millions, except per share data)" declaration scales money amounts, share counts and unit-less cells only. A percentage (NVIDIA's 71.1% gross margin) and a per-share cell (the Basic row of NVIDIA's Note 3) are no longer multiplied by it, so "USD 2.47 million" no longer validates a per-share figure and the correct figure is no longer marked contradicted (AI-403, AI-203).
+- A hedge ("about", "around", "than") or "an increase of" before a figure keeps a change a change, and "a gain of" is read as unknown, so a level claim is no longer validated by a change sentence (AMZN's "had an increase of") or the reverse (AI-401, AI-401-V2).
+- "Revenue was $5.0 billion, up sequentially" is a level, not a change: a figure before an apposition comma, semicolon, colon, dash or parenthesis is not read with the direction word that follows (AI-401-V1). Proved on sentences of NVIDIA's Q2 FY2027 press release fixture.
+- "More than $25 billion", "at least 40 billion" and "at most 5%" in a source are read as bounds, not as the figure, so an exact claim never validates against them (AI-409). Proved on synthetic text and NVIDIA fixtures; no stored claim changed.
+- A figure binds a claim only when the claim names the figure's own description. "NVIDIA returned nearly $26.0 billion to shareholders" no longer validates a free-cash-flow claim, and a Micron EPS benefit, an AMZN revenue run rate and the first Revenue row of a statement table bind the metric the sentence gives them (AI-305, AI-305-V1). Measured on reports #43, #46 and #50. The cost is recall: five stored key numbers now stay unverified because the claim leaves out nouns of the figure's own sentence (#43: the $15.9 billion net discrete tax expense in two key numbers, the $17.5 billion delayed draw term loan facility and the $21.3 billion commitment amount; #50: the $25 billion senior unsecured notes), and a short label such as NVIDIA's $105 billion obligation needs its full description.
+- A figure after "from", "compared with", "versus", "vs." or "against" is a comparison base and binds only a comparison-base claim, and the end of "increased from $A to $B" takes the move's metric (AI-503, AI-503-V1, AI-503-V2). "Commitments increased to USD 279 billion", which NVIDIA's CFO commentary states, is no longer marked contradicted by the $119 billion the commitments started from, and "increased to USD 119 billion" is no longer validated by it. NVIDIA's 10-Q sentence "significantly increased our supply and capacity commitments from $119 billion" is no longer contradicted for a true $279 billion claim; it stays unverified. Measured on the CFO commentary and 10-Q MD&A sentences that reports #48 to #50 carry.
+- Deferred to the follow-up batch (B2b), not built here: AI-407 and AI-408 (a registry figure's printed description and column period), AI-116 (insider roles), AI-103 (issuer disclosures as primary entity sources), AI-104 (the return-path fade), AI-111 (the rating-gate name exception), and AI-501, AI-502 and AI-504 (record labels, percentage-point records and operand order).
+- Report 1.47.0 (D-next); pipeline stage-c-1.6.12, payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and the score bands are unchanged. Stored reports keep their bytes and statuses (D-67).
 
 ## Unreleased - the claim verifier compares periods and windows (2026-10-27)
 
