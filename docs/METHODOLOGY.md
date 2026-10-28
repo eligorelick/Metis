@@ -2783,9 +2783,13 @@ statuses, and its evidence-class table gives the coverage counts with
 grade-strip reasoning included.
 
 A computed figure Stage B takes from one fiscal year's statement rows carries
-that year's issuer label (for example FY2025) and its period end, read from the
-annual income row of the date Stage B states for it and never inferred from a
-calendar year. These are the latest margins, ROIC, DuPont ROE, free cash flow,
+that year's issuer label (for example FY2025) and its period end only when the
+annual income row for the date Stage B states for it carries a fiscal label
+(`issuerFiscalLabel`: the row's fiscal year and a full-year period) and that
+date equals the as-of the figure prints. Otherwise it carries neither. The label
+is never inferred from a calendar year, and an annual period served twice with
+no provable order is dropped by Stage B and by this lookup alike, so it is never
+labelled. These are the latest margins, ROIC, DuPont ROE, free cash flow,
 FCF conversion and capex rows, and the accrual-year rows. Neither is printed, as
 a statement cell's are not. They let prose name that fiscal year or "the fiscal
 year", and, as for a statement cell, a sentence naming another year stays

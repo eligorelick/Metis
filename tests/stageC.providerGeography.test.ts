@@ -96,6 +96,9 @@ describe("provider geography admission (AI-509)", () => {
     const parsed = { ok: true as const, value: { ...(bundle.segmentation.geographic as { ok: true; value: object }).value, source: "edgar" as const } };
     expect(providerGeographyContradiction(["Other Americas"], [{ axis: GEOGRAPHY, rows: [{ label: "United States" }] }])).toBe("issuer-geography");   // the same keys are withheld as FMP's
     expect(admittedGeography(parsed as never, bundle.edgar!.quarterlySegments)).toBe(parsed);
+    // The direct contrast: the same rows sourced to FMP are a gap.
+    const fmp = { ok: true as const, value: { ...(bundle.segmentation.geographic as { ok: true; value: object }).value, source: "fmp" as const } };
+    expect(admittedGeography(fmp as never, bundle.edgar!.quarterlySegments)).toMatchObject({ ok: false });
   });
 
   it("keeps provider geography that repeats the issuer's own geographic labels, under the caveat (OD-4 point 2; control)", () => {

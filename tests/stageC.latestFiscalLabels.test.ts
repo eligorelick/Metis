@@ -65,6 +65,25 @@ describe("a (latest) computed row carries the fiscal label of its year (residual
     expect(rec(p, "computed.returns.roic-latest")?.fiscalPeriod).toBe("FY2025");   // control: its window still ends on its as-of
   });
 
+  it("never labels a period two annual income rows share with no provable order (normalizeQuarterRows rejects it)", () => {
+    const tied = completeCurrencyBundle({});
+    const rows = (tied.statements.incomeAnnual as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+    expect(rows[0]).toMatchObject({ date: "2025-12-31", fiscalYear: "2025" });   // precondition: the latest row is the labelled one
+    rows.unshift({ ...rows[0], fiscalYear: "2026" });   // the same period served twice with another label, the same filing day or none: no row is provably later
+    const p = build(tied);
+    // Stage B drops the whole ambiguous period and computes from the year before; the label follows that row, so neither 2025 label is ever printed.
+    expect(rec(p, "computed.returns.roic-latest")).toMatchObject({ asOf: "2024-12-31", period: "2024-12-31", fiscalPeriod: "FY2024" });
+    for (const r of p.provenanceRegistry ?? []) expect([r.id, r.fiscalPeriod]).not.toEqual([r.id, "FY2025"]);
+    for (const r of p.provenanceRegistry ?? []) expect([r.id, r.fiscalPeriod]).not.toEqual([r.id, "FY2026"]);
+    // With no earlier year to fall back on, the label is absent: the lone ambiguous period leaves no row at all.
+    const only = completeCurrencyBundle({});
+    const onlyRows = (only.statements.incomeAnnual as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+    onlyRows.splice(1);
+    onlyRows.unshift({ ...onlyRows[0], fiscalYear: "2026" });
+    const po = build(only);
+    for (const r of po.provenanceRegistry ?? []) expect(r.fiscalPeriod, r.id).toBeUndefined();
+  });
+
   it("lets prose name the fiscal year the label establishes, and only that year (consumer: claimEvidence basisWindows)", async () => {
     const p = build(completeCurrencyBundle({}));
     const v = Number((rec(p, "computed.returns.roic-latest")!.value as number).toFixed(2));   // 41.83
@@ -80,6 +99,10 @@ describe("a (latest) computed row carries the fiscal label of its year (residual
       ["computed.returns.roic-latest", `ROIC for fiscal year 2026 was ${v}%.`],
       ["computed.growth-margins.gross-margin-latest", "Gross margin for fiscal year 2024 was 40%."],
       ["computed.returns.roic-latest", `ROIC for FY2024 was ${v}%.`],
-    ] as const) expect((await verdict(p, id, text)).validationStatus, text).not.toBe("validated");
+    ] as const) {
+      const entry = await verdict(p, id, text);
+      expect(entry.validationStatus, text).not.toBe("validated");
+      expect(entry.reason, text).toBe("period-word-mismatch");   // the period check names the mismatch, not only a missing validation
+    }
   });
 });

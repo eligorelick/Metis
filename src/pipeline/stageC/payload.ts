@@ -1447,6 +1447,7 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
 
 /** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end; the provably latest row per period (normalizeQuarterRows, D-13). */
 function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
+  // Reads incomeAnnual unfiltered where Stage B uses rowsInModelCurrency: a row Stage B dropped is never a date it states, so its label is never looked up.
   const labels = new Map<string, string>();
   for (const row of normalizeQuarterRows(rowsOf(bundle.statements.incomeAnnual)).rows) {
     const day = isoDay(row.date);
