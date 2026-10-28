@@ -54,6 +54,7 @@ import {
   BALANCE_SHEET_SHARES_TAG,
   COMBINED_CURRENT_DEBT_TAG,
   EBIT_AGGREGATE_MAY_HOLD_INTEREST,
+  EBIT_OTHER_MAY_HOLD_INTEREST,
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
@@ -477,6 +478,8 @@ export type ChainSpec =
         parts: { label: string; tags: string[] }[];
         /** The `notAddedWhen` disclosures for parts left out of the sum. */
         notAdded: string[];
+        /** The resolved value of each served part and each subtracted adjustment, by label (audit 2026-10-27 FIN-509). */
+        amounts: Record<string, number>;
       }) => string;
     }
   | { kind: "diff"; plus: string; minus: string; unit: "money"; disclose?: string }
@@ -838,14 +841,26 @@ function describeDerivedEbit(ctx: {
   notInBase: string[];
   parts: { label: string; tags: string[] }[];
   notAdded: string[];
+  amounts: Record<string, number>;
 }): string {
   // WHICH pretax element served decides whether the equity-method subtraction
   // is right, so the derivation names it rather than saying "pretax income".
   const named = ctx.parts.map((p) => `${p.label} (${p.tags.join(" + ")})`).join(" + ");
   const head = `EBIT derived as ${named}: the filer reports no OperatingIncomeLoss line`;
   const parts: string[] = [];
+  const withAmount = (label: string): string => (ctx.amounts[label] === undefined ? label : `${label} (${ctx.amounts[label]})`);
+  // Components of the aggregate the filer tags stand in for it when it is not filed (audit 2026-10-27 FIN-509).
+  const aggregate = "NonoperatingIncomeExpense";
+  const standInComponents = ctx.unavailable.includes(aggregate)
+    ? ctx.subtracted.filter((label) => EBIT_NON_OPERATING_ADJUSTMENTS.some((a) => a.label === label && a.componentOf === aggregate))
+    : [];
   if (ctx.subtracted.length > 0) {
-    parts.push(`non-operating items subtracted from the derivation: ${ctx.subtracted.join(", ")}`);
+    parts.push(`non-operating items subtracted from the derivation: ${ctx.subtracted.map(withAmount).join(", ")}`);
+  }
+  if (standInComponents.length > 0) {
+    parts.push(
+      `the ${aggregate} aggregate is not filed; its components the filer tags were subtracted instead (${standInComponents.map(withAmount).join(", ")}); any untagged non-operating item stays inside the figure`,
+    );
   }
   if (ctx.alreadyInside.length > 0) {
     parts.push(
@@ -867,9 +882,16 @@ function describeDerivedEbit(ctx: {
   if (ctx.subtracted.includes("NonoperatingIncomeExpense") && ctx.notAdded.length === 0) {
     parts.push(EBIT_AGGREGATE_MAY_HOLD_INTEREST);
   }
-  if (ctx.unavailable.length > 0) {
+  const errorBand = standInComponents.length > 0
+    ? ctx.unavailable.filter((label) => label !== aggregate)
+    : ctx.unavailable;
+  if (ctx.subtracted.includes("OtherNonoperatingIncomeExpense") && ctx.amounts["interest expense"] !== undefined) {
+    // Net interest added back: the interest expense less the investment income subtracted beside it.
+    parts.push(EBIT_OTHER_MAY_HOLD_INTEREST(ctx.amounts["interest expense"] - (ctx.amounts["InvestmentIncomeInterest"] ?? 0)));
+  }
+  if (errorBand.length > 0) {
     parts.push(
-      `error band — the filer tags none of ${ctx.unavailable.join(", ")} for this period, so any such item stays inside the figure`,
+      `error band — the filer tags none of ${errorBand.join(", ")} for this period, so any such item stays inside the figure`,
     );
   } else if (ctx.subtracted.length === 0) {
     parts.push("no non-operating tag was filed for this period, so any such item stays inside the figure");
@@ -1816,6 +1838,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       const alreadyInside: string[] = [];
       const notInBase: string[] = [];
       const notAdded: string[] = [];
+      const amounts: Record<string, number> = {};
       if (spec.minusAny !== undefined) {
         const resolvedByLabel = new Map<string, Resolved>();
         for (const adjustment of spec.minusAny) {
@@ -1881,6 +1904,9 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           partTags.splice(index, 1);
           notAdded.push(rule.disclose);
         }
+        partTags.forEach((p, i) => {
+          amounts[p.label] = present[i]!.value; // present and partTags stay in step until the adjustments are appended
+        });
         for (const adjustment of spec.minusAny) {
           const hit = resolvedByLabel.get(adjustment.label);
           if (hit === undefined) {
@@ -1897,12 +1923,13 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           }
           total -= hit.value;
           subtracted.push(adjustment.label);
+          amounts[adjustment.label] = hit.value;
           present.push(hit);
         }
       }
       const combined = combine(tidy(total, MONEY_DECIMALS), present);
       if (spec.discloseAdjusted !== undefined) {
-        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded });
+        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded, amounts });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
         return combined;

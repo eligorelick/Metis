@@ -165,7 +165,11 @@ export const INTEREST_EXPENSE_STAND_INS: readonly TagStandIn[] = [
  * `componentOf` names another adjustment that already contains this one in the
  * taxonomy's income-statement calculation: `InvestmentIncomeInterest` is a
  * child of `NonoperatingIncomeExpense`, so it is subtracted on its own only
- * when the aggregate is absent.
+ * when the aggregate is absent. `OtherNonoperatingIncomeExpense` is its sibling
+ * under the aggregate (the "other" line beside interest, DQC_0181; D-next OD-2),
+ * so the same rule applies: with no aggregate filed, a filer that tags it has the
+ * result taken out of the derived EBIT, named with its amount (audit 2026-10-27
+ * FIN-509).
  *
  * `notWhenBaseTag` names base tags whose OWN DEFINITION excludes this item, so
  * subtracting it would remove money the base never held. Equity-method results
@@ -186,6 +190,7 @@ export interface EbitNonOperatingAdjustment {
 export const EBIT_NON_OPERATING_ADJUSTMENTS: readonly EbitNonOperatingAdjustment[] = [
   { label: "NonoperatingIncomeExpense", tags: ["NonoperatingIncomeExpense"] },
   { label: "InvestmentIncomeInterest", tags: ["InvestmentIncomeInterest"], componentOf: "NonoperatingIncomeExpense" },
+  { label: "OtherNonoperatingIncomeExpense", tags: ["OtherNonoperatingIncomeExpense"], componentOf: "NonoperatingIncomeExpense" },
   {
     label: "IncomeLossFromEquityMethodInvestments",
     tags: ["IncomeLossFromEquityMethodInvestments"],
@@ -262,6 +267,18 @@ export const EBIT_AGGREGATE_MAY_HOLD_INTEREST =
   "caveat — the NonoperatingIncomeExpense aggregate subtracted here is frequently presented as \"total other income " +
   "(expense), net\" and may ALREADY contain the interest expense added back; companyfacts carries no presentation " +
   "linkbase, so this cannot be checked, and where it does the figure overstates EBIT by that interest";
+
+/**
+ * The caveat a derived EBIT carries when `OtherNonoperatingIncomeExpense` was
+ * subtracted and an interest expense was added back (audit 2026-10-27 FIN-509,
+ * D-next OD-2). The element is by definition the "other" line beside separately
+ * tagged interest, but companyfacts carries no calculation linkbase, so a filer
+ * that tags an interest-inclusive total under it cannot be told apart. The
+ * amount is stated because the error is exactly the net interest added back.
+ */
+export const EBIT_OTHER_MAY_HOLD_INTEREST = (netInterestAddedBack: number): string =>
+  "caveat — OtherNonoperatingIncomeExpense is by definition the 'other' line beside separately tagged interest; " +
+  `where a filer tags an interest-inclusive total under it, the figure overstates EBIT by the net interest added back (${netInterestAddedBack})`;
 
 /** The current portion of long-term debt AND finance leases, as retailers tag their current installments. */
 export const COMBINED_CURRENT_DEBT_TAG = "LongTermDebtAndCapitalLeaseObligationsCurrent";

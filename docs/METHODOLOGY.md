@@ -719,6 +719,29 @@ reason is the withholding. Where the derivation is refused, the
 operand it lacks is named in the `operatingIncome` withholding, and `ebit` is
 withheld with it, so a missing operand is never a silent gap.
 
+What the derivation removes is the aggregate, else its components the filer
+tags (`InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`), plus
+equity-method results; each subtracted item is named in the disclosure with its
+amount (audit 2026-10-27 FIN-509, D-next). A component is never subtracted
+beside a filed aggregate, which already holds it, and when the aggregate is not
+filed the disclosure says so and lists the components taken instead. Johnson &
+Johnson's quarter ended 2026-09-27 files pretax income of 34 million,
+`InterestExpenseNonoperating` of 217, `InvestmentIncomeInterest` of 186 and
+`OtherNonoperatingIncomeExpense` of -5,780 (litigation charges and reversals),
+and no aggregate or operating income: its EBIT is 5,845 million, not 65. The
+"other" element is by definition the line beside separately tagged interest
+(Regulation S-X Rule 5-03, caption 7(d), and the interest of caption 8 are
+separate captions; XBRL US rule DQC_0181 gives interest its own element under
+the aggregate). In the planner's offline scan of the 50 retained filers, every
+filer that files an operating income, pretax income, the "other" element and
+interest ties out with the "other" line excluding interest. A filer can still
+tag an interest-inclusive total under it (NNN 2025; eBay's 2014 10-K), and
+companyfacts carries no calculation linkbase to tell. So when the "other" line
+is subtracted and an interest expense was added back, the disclosure states the
+net interest added back (interest expense less any investment income
+subtracted) as the amount by which EBIT is overstated if the "other" line
+already holds that interest.
+
 A bank-routed filer's `interestIncome` is its operating total: the resolver
 tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
 `InvestmentIncomeInterestAndDividend` and `InvestmentIncomeInterest` in that

@@ -2186,7 +2186,8 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     // reads.
     expect(built.rows[0]!.ebit).toBe(8_991);
     expect(built.substitutions[0]!.text).toMatch(
-      /non-operating items subtracted from the derivation: NonoperatingIncomeExpense, IncomeLossFromEquityMethodInvestments/,
+      // Re-pinned for audit 2026-10-27 FIN-509: each subtracted item now carries its amount.
+      /non-operating items subtracted from the derivation: NonoperatingIncomeExpense \(900\), IncomeLossFromEquityMethodInvestments \(300\)/,
     );
   });
 
@@ -2207,7 +2208,8 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     const built = ebit(pretax({}));
     expect(built.rows[0]!.operatingIncome).toBe(10_191);
     expect(built.substitutions[0]!.text).toMatch(
-      /error band — the filer tags none of NonoperatingIncomeExpense, InvestmentIncomeInterest, IncomeLossFromEquityMethodInvestments/,
+      // Re-pinned for audit 2026-10-27 FIN-509: the error band also names OtherNonoperatingIncomeExpense.
+      /error band — the filer tags none of NonoperatingIncomeExpense, InvestmentIncomeInterest, OtherNonoperatingIncomeExpense, IncomeLossFromEquityMethodInvestments/,
     );
   });
 

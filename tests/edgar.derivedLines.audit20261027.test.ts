@@ -329,3 +329,59 @@ describe("B-39 keyed on the period", () => {
     expect(b.incomeQuarterly.notes.filter((n) => /InterestExpenseNonoperating .* not derived/.test(n))).toEqual([]);
   });
 });
+
+describe("other non-operating result", () => {
+  const PRETAX = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest";
+  // JNJ filed this 10-Q on 2026-10-21 (retained companyfacts). A date after the build's asOf (2026-10-22)
+  // drops every fact, and with no 10-Q Assets instant no quarter end is discovered: both made the first draft build no row.
+  const Q3J: Filing = { filed: "2026-10-21", form: "10-Q", fp: "Q3", fy: 2026, accn: "0000000099-26-000021" };
+  const jq = (v: number) => [fact(Q3J, "2026-06-29", "2026-09-27", v)];
+  const jnj = {
+    Revenues: jq(24_000 * M),
+    NetIncomeLoss: jq(50 * M),
+    [PRETAX]: jq(34 * M),
+    InterestExpenseNonoperating: jq(217 * M),
+    InvestmentIncomeInterest: jq(186 * M),
+    OtherNonoperatingIncomeExpense: jq(-5_780 * M),
+    Assets: [fact(Q3J, undefined, "2026-09-27", 190_000 * M)],
+  };
+  const without = (facts: Record<string, unknown[]>, tag: string) => Object.fromEntries(Object.entries(facts).filter(([t]) => t !== tag));
+  const opRow = (usGaap: Record<string, unknown[]>) => build(usGaap).incomeQuarterly;
+  const opText = (q: ReturnType<typeof opRow>) => q.substitutions.filter((s) => s.field === "operatingIncome").map((s) => s.text).join(" ");
+
+  it("a filer-tagged OtherNonoperatingIncomeExpense leaves the derived EBIT and is named (FIN-509)", () => {
+    const q = opRow(jnj);
+    expect(q.rows.find((r) => r.date === "2026-09-27")!.operatingIncome).toBe(5_845 * M); // 34 + 217 - 186 + 5,780
+    const text = opText(q);
+    expect(text).toMatch(/OtherNonoperatingIncomeExpense \(-5780000000\)/);
+    expect(text).toMatch(/aggregate is not filed; its components the filer tags were subtracted instead/);
+    expect(text).toMatch(/overstates EBIT by the net interest added back \(31000000\)/);
+  });
+  it("control: beside a filed aggregate the other line is inside it and is not subtracted twice", () => {
+    // B-39: InterestExpenseNonoperating is nested in the aggregate, so EBIT = pretax - aggregate.
+    const q = opRow({ ...jnj, NonoperatingIncomeExpense: jq(-5_749 * M) });
+    expect(q.rows.find((r) => r.date === "2026-09-27")!.operatingIncome).toBe((34 + 5_749) * M);
+  });
+  it("beside a filed aggregate the disclosure lists the other line as already inside it", () => {
+    const q = opRow({ ...jnj, NonoperatingIncomeExpense: jq(-5_749 * M) });
+    expect(q.substitutions.some((s) => s.field === "operatingIncome" && /already contains them: .*OtherNonoperatingIncomeExpense/.test(s.text))).toBe(true);
+  });
+  it("control: with the aggregate filed and no interest element (Task 3), the components do not change the figure", () => {
+    const noInterest = without(jnj, "InterestExpenseNonoperating");
+    const q = opRow({ ...noInterest, NonoperatingIncomeExpense: jq(-5_749 * M) });
+    expect(q.rows.find((r) => r.date === "2026-09-27")!.operatingIncome).toBe((34 + 5_749) * M);
+  });
+  it("with the other line alone, the caveat's net interest is the whole interest added back", () => {
+    const noInvestment = without(jnj, "InvestmentIncomeInterest");
+    const text = opText(opRow(noInvestment));
+    expect(text).toMatch(/non-operating items subtracted from the derivation: OtherNonoperatingIncomeExpense \(-5780000000\)/);
+    expect(text).toMatch(/overstates EBIT by the net interest added back \(217000000\)/);
+    // The aggregate and the component that was subtracted leave the error band; the untagged ones stay in it.
+    expect(text).toMatch(/error band — the filer tags none of InvestmentIncomeInterest, IncomeLossFromEquityMethodInvestments for this period/);
+    expect(text).not.toMatch(/none of NonoperatingIncomeExpense/);
+  });
+  it("control: without the other line the disclosure carries no OtherNonoperatingIncomeExpense caveat", () => {
+    const noOther = without(jnj, "OtherNonoperatingIncomeExpense");
+    expect(opText(opRow(noOther))).not.toMatch(/net interest added back/);
+  });
+});
