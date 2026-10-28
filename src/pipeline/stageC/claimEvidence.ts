@@ -1081,8 +1081,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
     }
     if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
-    // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure.
-    const claimed = candidate.quantity.unit === "currency-per-share" && perShareInWords(quantity, own.label) ? { ...quantity, unit: "currency-per-share" as const } : quantity;
+    // AI-403: as on the record path, the per-share basis may be named in the claim's words rather than after the figure. Only a
+    // cell whose own row lead names a per-share basis takes it: a table declaration ("except per share data") is a scale rule,
+    // never the row's description, and a decimal cell it relabels per-share is not thereby a per-share row.
+    const claimed = candidate.quantity.unit === "currency-per-share" && candidate.column !== undefined &&
+      /\bper[\s-]+share\b|\beps\b/i.test(rowLead(candidate.column.label)) && perShareInWords(quantity, own.label)
+      ? { ...quantity, unit: "currency-per-share" as const } : quantity;
     if (candidate.quantity.unit !== claimed.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
     if (claimed.unit === "currency" || claimed.unit === "currency-per-share") {
       const currency = resolvedCurrency(claimed, options.reportingCurrency);

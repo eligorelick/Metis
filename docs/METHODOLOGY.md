@@ -2663,15 +2663,19 @@ as-of), without the truncation marker — in
   money table; a decimal cell never does, and no "$" cell does under an
   "except per share" header. Per-share and every other unit fail.
   The claim reader (`claimEvidence.ts`, which the second gate below runs)
-  scales a table the same way: a table's "(In millions)" scales its amounts
-  and share counts only; a percent, ratio or day count is never scaled. Under
+  scales a table the same way: a table's "(In millions)" scales its money
+  amounts, its share counts and its cells with no stated unit (the last
+  cannot validate: their unit is not established); a percent, ratio or day
+  count is never scaled. Under
   "(In thousands|millions, except per share data)" a decimal amount is a
   per-share figure; under "(In billions, except per share data)" only a
   decimal in a row that names a per-share basis (per share, EPS) is, because
   the same table prints amounts such as "Revenue $ 216.0" as decimals. A
-  per-share cell is read as dollars per share and is compared with a claim
-  that names the per-share basis in its words ("per share"); "EPS" alone is
-  not read as that basis (DECISIONS entry 8, post-fix audit check V7).
+  per-share cell is read as dollars per share. A claim that names the
+  per-share basis in its words ("per share") is compared with it only when the
+  cell's own row names a per-share basis (the declaration is a scale rule, not
+  the row's description); "EPS" alone is not read as that basis in a claim
+  (DECISIONS entry 8, post-fix audit check V7).
 - The value is what the text prints, at the printed precision: "$915
   billion" supports 915e9, not 915.3e9.
 - The printed figure is specific: three significant digits, or two with a

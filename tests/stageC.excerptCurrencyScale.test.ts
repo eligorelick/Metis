@@ -261,6 +261,22 @@ describe("AI-403 table scale applies to amounts only", () => {
     });
   });
 
+  describe("a per-share claim never validates against a row that is not per-share (review round 1)", () => {
+    // Each row is the first row under the declaration, whose text must not supply metric words to it.
+    const under = (row: string) => `Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) ${row} Other matters follow.`;
+    it.each([
+      [under("Net income $ 59.7 $ 41.2"), "Net income per share as of 2026-01-25 was USD 59.7."],
+      [under("Revenue $ 1,234.5 $ 900.1"), "Revenue per share as of 2026-01-25 was USD 1,234.5."],
+      [under("Weighted average shares 1,234.5 1,200.4"), "Weighted average shares per share as of 2026-01-25 was USD 1,234.5."],
+    ])("not validated: %#", async (table, claim) => {
+      expect(await synthetic(table, claim)).not.toBe("validated");
+    });
+    it("a row that names its own per-share basis still validates (control)", async () => {
+      const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Net income $ 59,688 $ 41,000 Net income per share: Basic $ 2.47 $ 1.68 Other matters follow.";
+      expect(await synthetic(text, "Basic net income per share as of 2026-01-25 was USD 2.47.")).toBe("validated");
+    });
+  });
+
   describe("controls that hold before and after", () => {
     it("no declaration", async () => {
       expect(await synthetic(TAX(""), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
