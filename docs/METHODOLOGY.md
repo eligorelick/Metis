@@ -2799,16 +2799,17 @@ date. (3) The capex/D&A average labelled "5y average" is shown as "average of
 up to 5 fiscal years (the number averaged was not recorded)". (4) In a data-only
 report's macro rows, the generator's own sentences "Displayed in USD per therm."
 (APU000072610) and "Displayed in USD (FRED serves billions; …)" (PCE, PCEND,
-PCEDG) read "per kilowatt-hour" and "at a seasonally adjusted annual rate"; the
-model's own relevance text is never edited. (5) The provider's annual
+PCEDG) read "per kilowatt-hour" and "at a seasonally adjusted annual rate"; only
+the generator's exact sentence, on those FRED series, is replaced, and any other
+relevance text (the model's own included) is left as written. (5) The provider's annual
 "geographic" rows (not SEC-parsed rows) are kept as served but shown unverified
 with no share, and the reason, when the report's own XBRL segment tables
 contradict them: the rows name the issuer's reportable business segments, or the
 issuer tags its own geographic revenue and a provider region name is not one of
-its labels (the stored-report form of OD-4). (6) A data-only "FCF conversion
+its labels (the stored-report form of OD-4; rule 7). (6) A data-only "FCF conversion
 (FCF before SBC / net income — the graded ratio)" row reads without "the graded
 ratio": the row is a fiscal-year series, and the graded figure is the
-balance-sheet driver row. A log entry for a corrected figure moves from
+balance-sheet driver row (rule 8). A log entry for a corrected figure moves from
 validated to unchecked (and verified to unverified) with the note "(display
 correction, D-next)", and the displayed coverage counts exclude the corrected
 entries: the stored-report rule above, applied to these entries. One

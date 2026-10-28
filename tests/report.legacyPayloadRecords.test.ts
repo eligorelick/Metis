@@ -141,7 +141,7 @@ describe("legacy payload-record view", () => {
   it("shows the corrected peer cap on every surface", () => {
     const legacy = stored("1.44.0");
     // A null currency prints "(currency unknown)" (format.ts withCurrency); the same-market cap still prints in USD (control).
-    for (const surface of [reportToMarkdown(legacy), reportToPrintBody(legacy), reportToAuditMarkdown(legacy), renderToStaticMarkup(createElement(ReportView, { report: legacy }))]) {
+    for (const surface of [reportToMarkdown(legacy), reportToPrintBody(legacy), renderToStaticMarkup(createElement(ReportView, { report: legacy }))]) {
       expect(surface).not.toContain("$21.50T");
       expect(surface).toContain("currency unknown");   // Markdown and print: "21.50T (currency unknown)"; the page may split value and suffix across elements
     }
@@ -152,6 +152,19 @@ describe("legacy payload-record view", () => {
     expect(parseStoredReportWithSafety(JSON.stringify(legacy))!.report.competitive.peerTable[0]!.metrics[0]!.verified).toBe(false);
     const current = stored("1.45.0");
     expect(reportToMarkdown(current)).toContain("$21.50T");                                    // a current report is shown as stored
+  });
+
+  it("shows the correction on the audit export, which lists no peer table", () => {
+    // The audit export has no peer-table section (its figure registry does not list competitive.peerTable), so what it
+    // shows of the correction is the manifest gap and the corrected verification-log entries.
+    const legacy = stored("1.44.0");
+    const audit = reportToAuditMarkdown(legacy);
+    expect(audit).toContain(PAYLOAD_RECORD_CORRECTION_FIELD);
+    expect(audit).toContain("Deterministic presentation correction");
+    expect(audit).toContain("(display correction, D-next)");                                   // the insider log entries, moved to unchecked
+    const current = reportToAuditMarkdown(stored("1.45.0"));                                   // control: a current report carries neither
+    expect(current).not.toContain(PAYLOAD_RECORD_CORRECTION_FIELD);
+    expect(current).not.toContain("(display correction, D-next)");
   });
 
   it("compares spec versions numerically", () => {
