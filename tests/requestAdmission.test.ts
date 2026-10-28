@@ -940,6 +940,21 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
     expect(rows().cost).toHaveLength(0);
   });
 
+  it("pins that a connection reset before the response headers is released (D-next-1 limit)", async () => {
+    // D-next-1 limit, as at main: only a timeout after send, a stream lost after the headers, or an
+    // answered-then-cancelled request is presumed. A non-timeout connection failure before the headers
+    // (here an ECONNRESET on the read of an established socket, wrapped by the SDK as an
+    // APIConnectionError) is released at $0 with no cost row, although the request may have been
+    // sent and billed; costs:reconcile lowers presumed rows only, so such a charge is not recorded.
+    behaviour = () => {
+      throw connectCause({ code: "ECONNRESET", syscall: "read", message: "read ECONNRESET" });
+    };
+    await runBull("job-econnreset-read");
+    expect(fetchCalls()).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect([...new Set(decisions)]).toEqual(["release"]);
+    expect(rows().cost).toHaveLength(0);
+  });
+
   it("keeps a headers timeout presumed", async () => {
     behaviour = () => {
       throw connectCause({ name: "HeadersTimeoutError", code: "UND_ERR_HEADERS_TIMEOUT", message: "Headers Timeout Error" });
