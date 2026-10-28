@@ -154,3 +154,31 @@ describe("AI-409 round 1 spellings", () => {
     expect(performance.now() - t0).toBeLessThan(250);
   });
 });
+
+// Final review (2026-10-28, AI-409): a bound states no value, so a bound claim whose figure differs from the source bound's is
+// unverified, never contradicted. On NVIDIA's 10-K Item 1 "over $76.7 billion" implies the true "over USD 70 billion", which the
+// value check marked contradicted. An exact claim against an exact source is unchanged.
+describe("final review: a bound claim is never contradicted by a value difference (AI-409)", () => {
+  it.each([
+    ["NVDA R&D: a lower figure the source implies", "NVIDIA has invested over USD 70 billion in research and development since its inception."],
+    ["NVDA R&D: a higher figure the source does not settle", "NVIDIA has invested over USD 80 billion in research and development since its inception."],
+  ])("%s", (_name, claim) => {
+    expect(rnd(claim)).toMatchObject({ status: "unchecked", reason: "text-context-mismatch" });
+  });
+  it.each([
+    ["forward-looking", "Revenue is expected to be more than USD 90 billion.", "Revenue is expected to be more than $100 billion."],
+    ["forward-looking with its quarter", "Revenue is expected to be more than USD 90 billion in Q3 FY2027.",
+      "Revenue is expected to be more than $100 billion in the third quarter of fiscal 2027."],
+    ["an upper bound", "Customer A accounted for less than 20% of revenue.", "Customer A accounted for less than 10% of revenue."],
+  ])("synthetic, %s: not contradicted", (_name, claim, source) => {
+    expect(onExcerpt(claim, source, "x:synthetic", "2026-07-26").status).toBe("unchecked");
+  });
+  it("control: a same-value bound validates", () => {
+    expect(rnd("NVIDIA has invested over USD 76.7 billion in research and development since its inception.").status).toBe("validated");
+    expect(onExcerpt("Revenue is expected to be more than USD 100 billion.", "Revenue is expected to be more than $100 billion.", "x:synthetic", "2026-07-26").status)
+      .toBe("validated");
+  });
+  it("control: an exact claim against an exact source with another value is still contradicted", () => {
+    expect(onExcerpt("Revenue was USD 6.2 billion.", "Revenue was $5.0 billion.", "x:synthetic", "2026-07-26")).toMatchObject({ status: "contradicted", reason: "value-mismatch" });
+  });
+});

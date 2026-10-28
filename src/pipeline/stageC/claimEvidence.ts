@@ -1264,6 +1264,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       }
       if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
         1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {
+        // Final review (AI-409): a bound states no value, so two bounds at different figures do not conflict ("over $76.7 billion"
+        // implies "over USD 70 billion"); only an exact claim against an exact source figure is contradicted by its value.
+        if (quantity.bound !== null || candidate.quantity.bound !== null) {
+          return support("unchecked", "text-context-mismatch", "the prose and the source state bounds at different figures; a bound establishes no value to compare", [candidate.span]);
+        }
         return support("contradicted", "value-mismatch", "prose quantity contradicts the uniquely bound source figure", [candidate.span]);
       }
       if (quantity.step < candidate.quantity.step / 1.001) return support("unchecked", "text-ambiguous", "prose states more precision than the source establishes", [candidate.span]);
