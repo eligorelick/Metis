@@ -108,7 +108,7 @@ describe("AI-409 round 1 spellings", () => {
   it.each(SPELLINGS)("an exact claim is not validated against a source stating the bound spelled: %s", (spelling) => {
     expect(onExcerpt("Revenue was $5 billion.", `Revenue was ${spelling} $5 billion.`, "x:synthetic", "2026-07-26").status).not.toBe("validated");
   });
-  it.each(["at least about", "≥", "greater than", "not more than", "no less than"])(
+  it.each(["at least about", "≥", "greater than", "not more than", "no less than", "up to"])(
     "control: the same-spelling bound validates against its source: %s", (spelling) => {
       const text = `Revenue was ${spelling} $5 billion.`;
       expect(onExcerpt(text, text, "x:synthetic", "2026-07-26").status).toBe("validated");
