@@ -2624,6 +2624,72 @@ describe("runJob - durable paid-pass settlements", () => {
     ]);
   });
 
+  it("stops renewing an abandoned request lease so the pass's next request is admitted once it expires (final review I2)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    const { jobId } = createJob("AAPL");
+    const scheduler = await import("@/pipeline/jobScheduler");
+    const limits = {
+      maxActiveJobs: 1,
+      maxActiveLlmCalls: 1,
+      maxRollingCostUsd: null,
+      rollingCostWindowMs: 60 * 60 * 1000,
+      paidPassLeaseTtlMs: 200,
+      jobLeaseTtlMs: 10_000,
+    };
+    const claim = scheduler.claimQueuedJobById(jobId, "abandoned-lease", new Date(), limits)!;
+    const base = mockPasses();
+    const abandoned = deferred();
+    const finish = deferred();
+    let secondAdmitted = false;
+    const passes: PipelinePasses = {
+      ...base.passes,
+      runBullThenBear: async (deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        const admission = deps.admissionFor?.("bull") as RequestAdmission;
+        const permit = await admittedWithin(
+          admission.reserve({ attempt: 1, kind: "stream", maximumUsd: 12 }),
+          "bull's first request was never admitted",
+        );
+        // The ledger write for this request's settlement gave up: the permit
+        // stays held, but nothing may keep renewing it.
+        admission.abandon?.(permit);
+        abandoned.resolve(permit.id);
+        // At one active call the next request waits for the held lease.
+        const second = await admission.reserve({ attempt: 2, kind: "stream", maximumUsd: 12 });
+        secondAdmitted = true;
+        await admission.release(second);
+        await finish.promise;
+        throw new Error("bull ended after its second request");
+      },
+    };
+
+    const running = runJob(jobId, passes, {
+      bundle: fakeBundle(),
+      hasAnthropicKey: true,
+      now: NOW,
+      claim,
+      schedulerLimits: limits,
+    });
+    const permitId = (await abandoned.promise) as string;
+    const heldExpiry = handle.db.select().from(jobLlmLeases).where(eq(jobLlmLeases.permitId, permitId)).get()!.leaseExpiresAt;
+
+    // Past several renewal beats, short of the lease's own expiry: an
+    // abandoned lease keeps its original expiry, and the next request waits.
+    await vi.advanceTimersByTimeAsync(120);
+    expect(handle.db.select().from(jobLlmLeases).where(eq(jobLlmLeases.permitId, permitId)).get()!.leaseExpiresAt).toBe(heldExpiry);
+    expect(secondAdmitted).toBe(false);
+
+    // Once it expires, the sweep turns it into the presumed row and the slot frees.
+    await vi.advanceTimersByTimeAsync(400);
+    expect(secondAdmitted).toBe(true);
+    expect(handle.db.select().from(costLog).all()).toEqual([
+      expect.objectContaining({ settlementKind: "presumed", step: "bull" }),
+    ]);
+    finish.resolve(undefined);
+    await running;
+  });
+
   it("analyst finish lifecycle stays local until the durable settlement commits", async () => {
     const { jobId } = createJob("AAPL");
     const base = mockPasses();

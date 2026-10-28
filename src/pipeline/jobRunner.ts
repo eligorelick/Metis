@@ -1457,6 +1457,13 @@ function createSettlementCheckpoint<T>(
       releaseUnbilledPaidPassLease(requestLease);
       requestLeases.delete(permit.id);
     },
+    // The settlement write gave up (AI-308): the lease stays held at its
+    // reserved maximum but is no longer renewed, so it expires into the
+    // sweep's presumed row (the cap stays honoured) and frees its capacity
+    // slot instead of blocking the pass's next request to the stage deadline.
+    abandon: (permit) => {
+      requestLeases.delete(permit.id);
+    },
   };
 
   const authorizeLaunch = (startStepAtBoundary: boolean): void => {

@@ -3,7 +3,7 @@
  * model resolution runs against an injected fake client, cost math and
  * fallback detection run against synthetic payloads.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
   AnthropicError,
@@ -61,6 +61,7 @@ import {
   tokenizerForGeneration,
   CONTEXT_ESTIMATE_BYTES_PER_TOKEN,
   requestReservationUsd,
+  RequestSettlementNotRecordedError,
   type RequestSettlement,
   supportsEffort,
   thinkingConfigFor,
@@ -2622,5 +2623,72 @@ describe("a caller abort after the final message_delta (final review I1)", () =>
     expect(result.error.aborted).toBe(true);
     expect(result.error.presumed).toBe(true);
     expect(result.error.message).toMatch(/presumed 127,999 remaining output tokens/);
+  });
+});
+
+describe("a ledger write that gives up abandons its permit (final review I2)", () => {
+  afterEach(() => {
+    _setTransportRetrySleepForTests();
+  });
+
+  const MODEL = "claude-opus-5-5";
+  const opts55 = {
+    model: MODEL,
+    system: "system",
+    messages: [{ role: "user" as const, content: "hi" }],
+    maxTokens: 32_000,
+    effort: "high" as const,
+    field: "llm.bull",
+    reservationPass: "bull" as const,
+  };
+  const okMessage = () =>
+    syntheticMessage({ model: MODEL, usage: syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }) });
+
+  function admissionFailing(failures: number) {
+    const log: string[] = [];
+    let writes = 0;
+    const admission = {
+      reserve: async (request: { maximumUsd: number }) => ({ id: "permit-1", maximumUsd: request.maximumUsd }),
+      settle: async () => {
+        writes += 1;
+        if (writes <= failures) throw new RequestSettlementNotRecordedError(new Error("database is locked"));
+        log.push("settled");
+      },
+      release: async () => {
+        log.push("released");
+      },
+      abandon: (permit: { id: string }) => {
+        log.push(`abandoned ${permit.id}`);
+      },
+    };
+    return { admission, log };
+  }
+
+  it("abandons the held permit once every retry has failed, and neither releases nor settles it", async () => {
+    _setTransportRetrySleepForTests(async () => {});
+    const { admission, log } = admissionFailing(Number.POSITIVE_INFINITY);
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([{ events: [{ type: "message_start", message: ok }], final: ok }]);
+    _resetAnthropicForTests(client);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await runPass({ ...opts55, admission });
+    error.mockRestore();
+
+    expect(result.ok).toBe(true);
+    expect(log).toEqual(["abandoned permit-1"]);
+  });
+
+  it("control: a write that succeeds on a retry abandons nothing", async () => {
+    _setTransportRetrySleepForTests(async () => {});
+    const { admission, log } = admissionFailing(1);
+    const ok = okMessage();
+    const { client } = fakeStreamingClient([{ events: [{ type: "message_start", message: ok }], final: ok }]);
+    _resetAnthropicForTests(client);
+
+    const result = await runPass({ ...opts55, admission });
+
+    expect(result.ok).toBe(true);
+    expect(log).toEqual(["settled"]);
   });
 });

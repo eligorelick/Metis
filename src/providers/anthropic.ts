@@ -1523,6 +1523,15 @@ export interface RequestAdmission {
   settle(permit: RequestPermit, settlement: RequestSettlement): Promise<void>;
   /** A request that never reached the provider: release without billing. */
   release(permit: RequestPermit): Promise<void>;
+  /**
+   * The request's settlement could not be recorded after every retry and its
+   * permit stays held (the response was received and paid for). The admission
+   * stops renewing that lease so it expires into the sweep's presumed row,
+   * rather than counting against the cap and the capacity slot for as long
+   * as the pass runs. Optional: a settlement that cannot be recorded has
+   * nothing to abandon where nothing is renewed.
+   */
+  abandon?(permit: RequestPermit): void;
 }
 
 export interface PassError {
@@ -1816,8 +1825,9 @@ export const LEDGER_SETTLE_RETRY_DELAYS_MS: readonly number[] = [250, 1_000, 4_0
  * Settle, retrying only {@link RequestSettlementNotRecordedError}; true when
  * the write committed. When every retry fails the permit is left held: the
  * response was received and paid for, so the caller keeps it and the lease is
- * presumed at expiry (D-07) until a late settlement or reconciliation lowers
- * it. Any other error propagates.
+ * presumed at expiry (D-07), and only the costs:reconcile script can lower
+ * that row. The admission is told to stop renewing the lease
+ * ({@link RequestAdmission.abandon}). Any other error propagates.
  */
 async function settleWithLedgerRetry(
   admission: RequestAdmission,
@@ -1836,6 +1846,10 @@ async function settleWithLedgerRetry(
           `[anthropic] ${field}: request settlement could not be recorded (${errorMessageOf(error.cause)}); ` +
             "keeping the response and leaving the reservation to be presumed at expiry",
         );
+        // Stop renewing the held lease: it must expire into the presumed row
+        // (cap honoured, capacity slot freed), not outlive the pass's next
+        // request.
+        admission.abandon?.(permit);
         return false;
       }
       await transportRetrySleep(LEDGER_SETTLE_RETRY_DELAYS_MS[retry]!);
