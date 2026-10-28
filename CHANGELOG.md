@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.45.0** and
-payload **1.49.0** (payload-record fixes from the 2026-10-27 audit, batch B3). The
+Current source declares application **0.1.0**, report spec **1.46.0** and
+payload **1.49.0** (claim verifier period rules and payload-record fixes from the 2026-10-27 audit, batches B1 and B3). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,19 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - the claim verifier compares periods and windows (2026-10-27)
+
+The independent audit of 2026-10-27 found that a factual claim could be marked `[validated]` while the period, window, comparison base or recency word it states was never compared with what it cites, and that the period check could fail a sentence the citation check had correctly accepted. This batch fixes the deterministic, no-model verify pass of Stage C. No payload, prompt, Stage B figure or stored report changes. The decision is D-next in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-27-audit-fix-01-claim-verifier-periods.md) lists each finding, its commits and the replay over the stored run inputs.
+
+- A figure with no reporting period of its own (a ratio, a share count, a fair value) is no longer confirmed for a fiscal year or a date it does not carry (AI-106). Since B3, a figure that Stage B takes from one fiscal year (the latest ROIC, margins and accrual ratios) carries that year's label, so a sentence naming that year, or "the latest fiscal year", is still confirmed (C-11).
+- "From 2025-07-27" is not confirmed against a trailing-twelve-month figure unless the sentence also states the end date (AI-302).
+- "Annual revenue", "per year", "this quarter", "at fiscal year-end" and "the latest quarter" are now read and checked, on cited figures and on filing excerpts (AI-303 and its variants).
+- A figure before "compared with ... second quarter 2025" is no longer read as a second-quarter-2025 figure, a correct year-ago figure is no longer marked contradicted, and a correct year-over-year sentence naming its base no longer gets a period finding (AI-402 and variants).
+- A period stated in another clause of a one-figure claim is checked (AI-404).
+- A company outlook or guidance ("gross margins are expected to be 74.0%", "our guidance for third-quarter revenue is $108.0 billion") no longer confirms a reported result (AI-302-V1). A source clause that reads as forward-looking (including "is expected to be paid within one year") now confirms only a claim that is itself forward-looking, which costs recall in the fail-closed direction.
+- The period check no longer fails "fiscal 2025" against a 52/53-week year that ends in January 2026, or "the second quarter of fiscal 2027" against NVIDIA's quarter ended 2026-07-26, and compares "compared with Q2 FY2026" with the growth figure's own base quarter (AI-405, AI-402-V2).
+- Report 1.46.0 and pipeline stage-c-1.6.12 (D-next); payload 1.49.0, Stage B ACCOUNTING_EVIDENCE_28 and score bands unchanged; stored reports keep their bytes and statuses (D-67).
 
 ## Unreleased - payload records carry the right label, unit, currency and period (2026-10-28)
 
