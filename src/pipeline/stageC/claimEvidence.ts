@@ -106,6 +106,8 @@ interface SourceBinding {
    * FY2027 CFO commentary is the quarter's inventory.
    */
   inherited: PeriodReference[];
+  /** AI-303 / C-6: the windows the excerpt's title states; a clause naming no period is read under them. Empty for table cells. */
+  inheritedWindows: ReadonlySet<string>;
   /**
    * D-63: a source clause is ambiguous for this figure only when another
    * figure of its unit could be part of the same list (no metric words of its
@@ -136,7 +138,19 @@ const MONTH_NAMES = "January|Jan|February|Feb|March|Mar|April|Apr|May|June|Jun|J
  * {@link metricTokens} keeps them as the metric words "yoy" and "qoq".
  */
 const COMPARISON_BASIS = /\b(?:year|quarter)[\s‐‑–—-]+over[\s‐‑–—-]+(?:year|quarter)\b/gi;
-function periodLabels(text: string): PeriodReference[] {
+/**
+ * Audit 2026-10-27 AI-303: a window is also written without for/during/over
+ * ("this quarter's revenue", "the latest fiscal year", "fiscal-year revenue").
+ * Read only for a claim ({ loose: true }); a source or record label keeps the
+ * explicit forms.
+ */
+const LOOSE_WINDOW = /\b(?:(?:fiscal|financial|calendar)[\s‐‑–—-]+)?(year|quarter)(?:['’]s)?\b/gi;
+// Horizons, frequencies, fractions and the end of a period are not windows ("five-year", "per year",
+// "each fiscal year's", "a quarter of", "end of the quarter").
+const NOT_A_WINDOW_BEFORE = /\b(?:a|an|one|per|each|every|half|multi|several|\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty)[\s‐‑–—-]+$|\bend\s+of\s+(?:the\s+|its\s+|our\s+|each\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?$/i;
+// A comparison or instant follows ("a year ago", "year-end", "quarter end", "year one", "prior-year quarter").
+const NOT_A_WINDOW_AFTER = /^[\s‐‑–—-]*(?:ago|earlier|later|before|end|ends|one|two|three|[1-3])\b|^[\s‐‑–—-]+(?:quarter|period)\b/i;
+function periodLabels(text: string, options: { loose?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
   const take = (pattern: RegExp, read: (match: RegExpMatchArray) => Omit<PeriodReference, "raw">): void => {
@@ -183,7 +197,19 @@ function periodLabels(text: string): PeriodReference[] {
       key: `Q${["first", "second", "third", "fourth"].indexOf(m[1].toLowerCase()) + 1}${m[2] ? "FY" : ""}${m[3]}` }));
   take(/\bQ[1-4]\s*(?:FY\s*)?(?:19|20)\d{2}\b|\bFY\s*(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\b|\b(?:TTM|LTM|YTD|Q[1-4]|H[12])\b/gi,
     (m) => ({ kind: "period", label: m[0], key: m[0].toUpperCase().replace(/\s+/g, "") }));
+  if (options.loose) {
+    for (const match of [...rest.matchAll(LOOSE_WINDOW)]) {
+      if (NOT_A_WINDOW_BEFORE.test(rest.slice(Math.max(0, match.index - 24), match.index)) ||
+        NOT_A_WINDOW_AFTER.test(rest.slice(match.index + match[0].length, match.index + match[0].length + 16))) continue;
+      const key = match[1].toLowerCase() === "year" ? "annual" : "quarter";
+      out.push({ raw: match[0], kind: "window", key, label: key });
+    }
+  }
   return out;
+}
+/** The window keys a claim names, however written (test seam, like `phraseNamesRecordYear`). */
+export function windowsNamed(text: string): string[] {
+  return periodLabels(text, { loose: true }).filter((period) => period.kind === "window").map((period) => period.key);
 }
 const HARD_BOUNDARY = /;|\n|•|[.!?](?=\s+[A-Z“"(])/g;
 function context(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
@@ -214,7 +240,7 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
-  return { start, end, text: ownText, label, periods: periodLabels(ownText),
+  return { start, end, text: ownText, label, periods: periodLabels(ownText, { loose: !source }),
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -230,8 +256,10 @@ const METRIC_GRAMMAR = new Set(["a", "an", "and", "as", "at", "by", "for", "from
   "percent", "percentage", "point", "points", "basis", "bp", "bps", "pp", "pps", "currency", "count", "dollar", "dollars",
   "thousand", "thousands", "million", "millions", "billion", "billions", "trillion", "trillions"]);
 // Words that place a figure in time without defining it ("at the latest
-// quarter end", "ROIC (latest)"). The period itself is checked separately, and
-// a named window (TTM, YTD, "for the quarter") stays a metric token. "Current"
+// quarter end", "ROIC (latest)"). A claim's window words are read as windows
+// before this drop (periodLabels with { loose: true }), so the period itself is
+// checked separately, and a named window (TTM, YTD, "for the quarter") stays a
+// metric token. "Current"
 // is not here: current assets and current liabilities are definitions.
 const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "ended", "ending", "period", "periods", "quarter",
   "year", "fiscal", "quarter-end", "year-end", "period-end"]);
@@ -274,7 +302,7 @@ function withSynonyms(tokens: readonly string[]): string[] {
 function splitCompound(word: string): string[] {
   return !word.includes("-") || word.startsWith("non-") || DEFINITION_MODIFIERS.has(word) ? [word] : word.split("-");
 }
-function metricTokens(label: string, ignore: readonly string[]): string[] {
+function metricTokens(label: string, ignore: readonly string[], options: { loose?: boolean } = {}): string[] {
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -285,7 +313,7 @@ function metricTokens(label: string, ignore: readonly string[]): string[] {
     // "Management's guidance" attributes the figure; it does not define it.
     .replace(/\b(?:management|the company)['’]s\b/gi, " ")
     .replace(LABEL_WINDOW, (_match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
-  for (const period of periodLabels(metric)) metric = metric.replace(period.raw, period.kind === "window" ? ` window${period.key} ` : " ");
+  for (const period of periodLabels(metric, options)) metric = metric.replace(period.raw, period.kind === "window" ? ` window${period.key} ` : " ");
   // Preserve the explicit horizon, including its number, when prose spells
   // out the technical-series label "6-month" as "over six months".
   metric = metric.replace(/\b(?:over\s+)?(?:six|6)[\s‐‑–—-]+months?\b/gi, " window6M ");
@@ -332,6 +360,18 @@ function labelWindows(record: NumericProvenanceRecord): Set<string> {
   for (const period of periodLabels((record.label ?? "").replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ")))
     if (period.kind === "window") windows.add(period.key);
+  return windows;
+}
+/**
+ * AI-303: the windows a record's label names loosely ("latest-quarter revenue
+ * growth"), which labelWindows does not read. Prose may name or omit them.
+ */
+function labelLooseWindows(record: NumericProvenanceRecord): Set<string> {
+  const explicit = labelWindows(record);
+  const windows = new Set<string>();
+  for (const period of periodLabels((record.label ?? "").replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year "), { loose: true }))
+    if (period.kind === "window" && !explicit.has(period.key)) windows.add(period.key);
   return windows;
 }
 /** A label's "quarter ended <date>" / "year ended <date>" is the window "for the quarter (year) ended" names in prose. */
@@ -480,6 +520,20 @@ function excerptPeriods(excerpt: TextExcerpt): PeriodReference[] {
     .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ");
   return periodLabels(title).filter((period) => period.kind === "date" || period.kind === "period");
 }
+/** AI-303 / C-6: the windows the excerpt's title states ("quarter ended …", a Q<n> FY label is a quarter, an FY label the year). */
+function excerptWindows(excerpt: TextExcerpt): Set<string> {
+  const title = excerpt.title
+    .replace(/\bfiled \d{4}-\d{2}-\d{2}\b/gi, " ")
+    .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ")
+    .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
+  const windows = new Set(periodLabels(title, { loose: true }).filter((period) => period.kind === "window").map((period) => period.key));
+  for (const period of excerptPeriods(excerpt)) {
+    if (period.kind !== "period") continue;
+    if (/^Q[1-4]/.test(period.key)) windows.add("quarter");
+    else if (/^FY/.test(period.key)) windows.add("annual");
+  }
+  return windows;
+}
 
 const HEADER_DATE = new RegExp(String.raw`\b(?:${MONTH_NAMES})\.?\s+\d{1,2},?\s+(?:19|20)\d{2}\b|\b\d{4}-\d{2}-\d{2}\b`, "gi");
 
@@ -581,6 +635,7 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
 function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   const bodies = excerpt.spans ?? [{ start: 0, end: excerpt.text.length, text: excerpt.text.split("…[TRUNCATED")[0] }];
   const inherited = excerptPeriods(excerpt);
+  const inheritedWindows = excerptWindows(excerpt);
   return bodies.flatMap((body) => {
     // D-66: a footnote marker after a row label ("Unrealized gains (1) 4,900")
     // is not the row's first figure.
@@ -617,7 +672,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
         const cell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
-        return { quantity: cell, context: own, inherited, listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases },
+        return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), listAmbiguous: false, levelBeforeComparison: false, column: { scale: column.scale, aliases },
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
@@ -634,7 +689,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           const lead = body.text.slice(Math.max(own.start, before ? before.end : own.start), other.start);
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
-      return { quantity, context: own, inherited, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      return { quantity, context: own, inherited, inheritedWindows, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -662,7 +717,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
-    const established = basisWindows(record);
+    const established = new Set([...basisWindows(record), ...labelLooseWindows(record)]);
     const ignore = options.ignoreWords ?? [];
     // D-66: a per-share record's "per share" is its unit, which the prose
     // states with the figure ("USD 0.25 per share"), not in its metric words;
@@ -670,7 +725,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const perShare = (words: string[]): string[] => record.unit === "currency-per-share" ? words.filter((word) => word !== "share" && word !== "shares") : words;
     // A window the record's basis establishes may be left unstated on either side.
     const unestablished = (words: string[]): string[] => words.filter((word) => ![...established].some((key) => word === `window${key.toLowerCase()}`));
-    const claimTokens = perShare(unestablished(metricTokens(own.label, ignore)).filter((word) => !(word === "yoy" && established.has("annual"))));
+    const claimTokens = perShare(unestablished(metricTokens(own.label, ignore, { loose: true })).filter((word) => !(word === "yoy" && established.has("annual"))));
     const labels = labelReadings(record);
     if (!labels.some((label) => namesMetric(claimTokens, perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)))))) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
@@ -756,7 +811,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
-    const tokens = metricTokens(own.label, options.ignoreWords ?? []);
+    // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word.
+    const ownWindowTokens = new Set(own.periods.filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
+    const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
     const candidates: SourceBinding[] = [];
     for (const excerpt of excerpts) {
       const bindings = options.index?.get(excerpt) ?? sourceBindings(excerpt);
@@ -785,7 +842,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       : candidate.context.periods.length > 0
         ? own.periods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
           candidate.context.periods.every((period) => own.periods.some((stated) => stated.key === period.key))
-        : own.periods.every((period) => candidate.inherited.some((source) => source.key === period.key)));
+        : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
+          : candidate.inherited.some((source) => source.key === period.key)));
     if (matchingPeriods.length === 0) {
       // One stated other period is a period mismatch (unverified, F-22); a
       // flattened table's header of several periods binds no column.

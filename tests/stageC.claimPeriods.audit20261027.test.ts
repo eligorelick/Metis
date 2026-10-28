@@ -3,6 +3,7 @@
 // (fixtures/edgar/nvda-current-reports/) or are round numbers. No provider,
 // network, database or model call.
 import { describe, expect, it } from "vitest";
+import { windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
 import { consistencyManifestEntries } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
@@ -70,5 +71,81 @@ describe("AI-106 period-less records", () => {
     expect((await cite([GM_FY], GM_FY.id, "Gross margin in 2026 was 71.1%.")).entry.validationStatus).toBe("unchecked");
     // OD-1 residual: the claim reader reads a bare "fiscal 2026" as the year 2026.
     expect((await cite([GM_FY], GM_FY.id, "Gross margin for fiscal 2026 was 71.1%.")).entry.validationStatus).toBe("unchecked");
+  });
+});
+
+const Q_REV = rec({ id: "payload.statements.income-statement-quarterly.2026-07-26.revenue", label: "revenue", value: 96_221_000_000, period: "2026-07-26",
+  periodContext: { kind: "duration", start: "2026-04-27", end: "2026-07-26", basis: "fiscal-quarter", fiscalLabel: "Q2 FY2027" }, fiscalPeriod: "Q2 FY2027",
+  asOf: "2026-07-26", origin: "edgar:income-statement(quarter)" });
+const FY_REV = rec({ id: "payload.statements.income-statement-annual.2026-01-25.revenue", label: "revenue", value: 215_938_000_000, period: "2026-01-25",
+  periodContext: { kind: "duration", start: "2025-01-27", end: "2026-01-25", basis: "fiscal-year", fiscalLabel: "FY2026" }, fiscalPeriod: "FY2026",
+  asOf: "2026-01-25", origin: "edgar:income-statement(annual)" });
+const ROIC = rec({ id: "computed.returns.roic-latest", label: "ROIC (latest)", kind: "computed", unit: "percent", currency: null, value: 149.8,
+  asOf: "2026-01-25", origin: "computed.returns.roic" });
+const ACCRUAL = rec({ id: "computed.forensics.accrual-ratio-balance-sheet", label: "accrual ratio (balance-sheet)", kind: "computed", unit: "ratio", currency: null,
+  value: 0.64, period: "2026-01-25", asOf: "2026-01-25", origin: "computed.forensics.accruals.balanceSheetAccrualRatio" });
+const LQ_YOY = rec({ id: "computed.valuation.latest-quarter-revenue-growth-year-over-year", label: "latest-quarter revenue growth, year over year", kind: "computed",
+  unit: "percent", currency: null, value: 105.85, asOf: "2026-07-26", origin: "computed.valuation.reverseDcfContext.latestQuarterYoy" });
+const Y1 = rec({ id: "computed.valuation.consensus-year-one-revenue-growth-over-ttm", label: "consensus year-one revenue growth over TTM", kind: "computed",
+  unit: "percent", currency: null, value: 73.7, asOf: "2026-07-26", origin: "computed.valuation.reverseDcfContext.consensusYearOne" });
+const ITEM7: TextExcerpt = { source: "edgar:10-K item7", asOf: "2026-01-25", title: "10-K Item 7 - Management's Discussion and Analysis (FY2026)",
+  text: "We invested $17.5 billion in private companies and infrastructure funds.", truncated: false, originalChars: 71 };
+const RELEASE_Q2: TextExcerpt = { source: "edgar:8-K EX-99.1", asOf: "2026-08-26",
+  title: "8-K EX-99.1 - earnings release, Q2 FY2027, quarter ended 2026-07-26 (8-K; filed 2026-08-26)", text: "Revenue was $96.2 billion.", truncated: false, originalChars: 26 };
+
+describe("AI-303 windows written without for/during/over", () => {
+  it.each([
+    [Q_REV, "Revenue for the latest fiscal year was USD 96.22 billion."],
+    [Q_REV, "Revenue for the most recent fiscal year was USD 96.22 billion."],
+    [FY_REV, "Revenue for the most recent quarter was USD 215.94 billion."],
+    [FY_REV, "This quarter's revenue was USD 215.94 billion."],
+    [FY_REV, "Revenue this quarter was USD 215.94 billion."],
+    [FY_REV, "The quarter's revenue was USD 215.94 billion."],
+    [FY_REV, "Latest-quarter revenue was USD 215.94 billion."],
+    [FY_REV, "Most recent quarter revenue was USD 215.94 billion."],
+    [Q_REV, "Fiscal-year revenue was USD 96.22 billion."],
+    [Q_REV, "Revenue this fiscal year was USD 96.22 billion."],
+    [Q_REV, "The fiscal year's revenue was USD 96.22 billion."],
+  ])("AI-303: a wrong window however written is not validated (%#)", async (record, text) => {
+    // the same reason the explicit "Revenue for the fiscal year was ..." control gets today
+    expect((await cite([Q_REV, FY_REV], record.id, text)).entry).toMatchObject({ validationStatus: "unchecked", reason: "text-context-mismatch" });
+  });
+  it("AI-303 control: the right window in the same spellings validates", async () => {
+    for (const [record, text] of [[Q_REV, "Revenue for the latest quarter was USD 96.22 billion."], [FY_REV, "Revenue for the latest fiscal year was USD 215.94 billion."],
+      [Q_REV, "This quarter's revenue was USD 96.22 billion."], [FY_REV, "Fiscal-year revenue was USD 215.94 billion."], [Q_REV, "Revenue for Q2 FY2027 was USD 96.22 billion."]] as const)
+      expect((await cite([Q_REV, FY_REV], record.id, text)).entry.validationStatus).toBe("validated");
+    for (const [record, text] of [[Q_REV, "Revenue for the fiscal year was USD 96.22 billion."], [FY_REV, "Quarterly revenue was USD 215.94 billion."], [Q_REV, "Annual revenue was USD 96.22 billion."]] as const)
+      expect((await cite([Q_REV, FY_REV], record.id, text)).entry.validationStatus).not.toBe("validated");
+  });
+  it("AI-303: a window a record label names loosely is established; a period-less or unlabelled record establishes none (OD-1)", async () => {
+    expect((await cite([LQ_YOY], LQ_YOY.id, "Latest-quarter revenue growth year over year was 105.85%.")).entry.validationStatus).toBe("validated");
+    expect((await cite([LQ_YOY], LQ_YOY.id, "Revenue growth year over year was 105.85%.")).entry.validationStatus).toBe("validated");
+    expect((await cite([LQ_YOY], LQ_YOY.id, "Annual revenue growth year over year was 105.85%.")).entry.validationStatus).not.toBe("validated");
+    expect((await cite([ROIC], ROIC.id, "ROIC for the latest fiscal year was 149.8%.")).entry.validationStatus).toBe("unchecked");
+    expect((await cite([ACCRUAL], ACCRUAL.id, "The balance-sheet accrual ratio for the same year was 0.64x.")).entry.validationStatus).toBe("unchecked");
+  });
+  it("AI-303: horizons, plurals and comparison words are not windows", async () => {
+    expect(windowsNamed("Consensus year-one revenue growth over TTM revenue")).toEqual(["TTM"]);
+    for (const text of ["a year ago", "the five-year period", "each fiscal year's average price", "10% per year", "the half-year", "the last four quarters",
+      "about a quarter of revenue", "at the end of the quarter", "at the latest quarter end", "year over year", "a year earlier"])
+      expect(windowsNamed(text), text).toEqual([]);
+    expect(windowsNamed("the prior-year quarter")).toEqual(["quarter"]);
+    expect(windowsNamed("this quarter's revenue")).toEqual(["quarter"]);
+    expect(windowsNamed("the year ended 2026-01-25")).toEqual(["annual"]);
+    expect(windowsNamed("year-to-date revenue")).toEqual(["YTD"]);
+    expect(windowsNamed("at year-end")).toEqual([]); // Task 4 makes this ["FYE"]
+    // end to end: a correct claim using such words keeps its status
+    expect((await cite([Y1], Y1.id, "Consensus year-one revenue growth over TTM revenue is 73.7%.")).entry.validationStatus).toBe("validated");
+    expect((await cite([Q_REV], Q_REV.id, "Revenue per year was USD 96.22 billion.")).entry.validationStatus).toBe("validated");
+  });
+  it("AI-303 (excerpt path, AI-303-V2): a quarter is not the 10-K's fiscal year; the excerpt's own window is", async () => {
+    expect((await citeExcerpt(ITEM7, "NVIDIA invested USD 17.5 billion in private companies and infrastructure funds.")).entry.validationStatus).toBe("validated");
+    for (const text of ["For the latest quarter, NVIDIA invested USD 17.5 billion in private companies and infrastructure funds.",
+      "In the most recent quarter, NVIDIA invested USD 17.5 billion in private companies and infrastructure funds.",
+      "This quarter NVIDIA invested USD 17.5 billion in private companies and infrastructure funds."])
+      expect((await citeExcerpt(ITEM7, text)).entry.validationStatus).not.toBe("validated");
+    expect((await citeExcerpt(ITEM7, "For the fiscal year, NVIDIA invested USD 17.5 billion in private companies and infrastructure funds.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(RELEASE_Q2, "Revenue for the quarter ended 2026-07-26 was USD 96.2 billion.")).entry.validationStatus).toBe("validated");
+    expect((await citeExcerpt(RELEASE_Q2, "Revenue for the fiscal year was USD 96.2 billion.")).entry.validationStatus).not.toBe("validated");
   });
 });
