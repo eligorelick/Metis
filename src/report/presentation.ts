@@ -240,6 +240,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.estimates\.price-target-(consensus|high|low|median)$/, (m) => `Analyst price target (${m[1]})`],
   [/^payload\.leadership\.comp-.+-(fy\d{4})$/, (m) => `Executive compensation record (${segmentWords(m[1]!).join(" ")})`],
   [/^payload\.peers\.([a-z0-9]+)-.+$/, (m) => `${m[1]!.toUpperCase()} market cap`],
+  [/^payload\.macro\.([a-z0-9]+)-change-from-prior-observation-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}, change from prior observation`],
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
   [/^payload\.insiders\.insider-(open-market-purchase-transactions|open-market-sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],

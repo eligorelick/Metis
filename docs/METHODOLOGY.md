@@ -120,6 +120,9 @@ Sources referred to by name throughout:
   series `DGS10` (10-Year Treasury Constant Maturity), alongside `DGS2`,
   `T10Y2Y`, `T10Y3M`, `EFFR`, `CPIAUCSL`, `CPILFESL`, `UNRATE`, `PAYEMS`,
   `T10YIE`, `BAMLH0A0HYM2` and `VIXCLS` in the macro dashboard.
+  `PAYEMS` is read as the change from the prior month (FRED `units=chg`) and
+  labelled so; `PCE`, `PCEND` and `PCEDG` are seasonally adjusted annual rates;
+  `APU000072610` is the U.S. city-average electricity price per kilowatt-hour.
 - **NAREIT**, *Funds From Operations White Paper*, for the FFO definition and
   its restatements.
 - **Piotroski (2000)**, *Value Investing: The Use of Historical Financial

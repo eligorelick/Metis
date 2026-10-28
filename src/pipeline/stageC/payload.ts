@@ -2025,7 +2025,7 @@ function macroSection(bundle: DataBundle): PayloadSection {
           const figureUnit = fredFigureUnit(seriesId, unitsOf(seriesId));
           const served = numOrNull(last.value);
           figures.push({
-            label: `${seriesId}${tag}`,
+            label: `${seriesId}${unitsOf(seriesId) === "chg" ? " change from prior observation" : ""}${tag}`,
             // FRED serves its scaled series with at most three decimals, so a
             // ×1,000 or larger product is a whole number; rounding only removes
             // binary float noise that would otherwise fail the value match.

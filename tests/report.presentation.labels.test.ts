@@ -27,6 +27,7 @@ describe("reader labels for registry ids", () => {
     ["payload.leadership.comp-jen-hsun-huang-president-and-ceo-fy2026", "Executive compensation record (FY2026)"],
     ["payload.peers.avgo-broadcom-inc", "AVGO market cap"],
     ["payload.macro.dgs10-core", "FRED DGS10"],
+    ["payload.macro.payems-change-from-prior-observation-core", "FRED PAYEMS, change from prior observation"],
     ["payload.insiders.insider-open-market-sale-transactions-form-4-code-s-four-calendar-quarters-ended-2026-09-30", "Insider open-market sale transactions (Form 4 code S), four calendar quarters ended 2026-09-30"],
     ["payload.insiders.insider-acquired-disposed-transaction-count-ratio-all-acquisition-and-disposition-codes-two-calendar-quarters-ended-2026-06-30", "Insider acquired/disposed transaction-count ratio, two calendar quarters ended 2026-06-30"],
     ["payload.insiders.mspr-2026-10", "Insider sentiment (MSPR), 2026-10"],

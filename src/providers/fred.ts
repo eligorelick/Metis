@@ -170,13 +170,13 @@ const FRED_NATIVE_UNITS: Readonly<Record<string, string>> = {
   DCOILBRENTEU: "USD/bbl",
   DHHNGSP: "USD/MMBtu",
   GASREGW: "USD/gal",
-  APU000072610: "USD/therm",
+  APU000072610: "USD/kWh",
   PCOPPUSDM: "USD/tonne",
   DGORDER: "USD millions",
   RSAFS: "USD millions",
-  PCE: "USD billions",
-  PCEND: "USD billions",
-  PCEDG: "USD billions",
+  PCE: "USD billions SAAR",
+  PCEND: "USD billions SAAR",
+  PCEDG: "USD billions SAAR",
   DPSACBW027SBOG: "USD billions",
 };
 
@@ -215,10 +215,12 @@ const FRED_FIGURE_UNITS: Readonly<Record<string, FredFigureUnit>> = {
   "USD/bbl": { unit: "USD", scale: 1, qualifier: "USD per barrel" },
   "USD/MMBtu": { unit: "USD", scale: 1, qualifier: "USD per MMBtu" },
   "USD/gal": { unit: "USD", scale: 1, qualifier: "USD per gallon" },
-  "USD/therm": { unit: "USD", scale: 1, qualifier: "USD per therm" },
+  "USD/kWh": { unit: "USD", scale: 1, qualifier: "USD per kilowatt-hour" },
   "USD/tonne": { unit: "USD", scale: 1, qualifier: "USD per tonne" },
   "USD millions": { unit: "USD", scale: 1e6, qualifier: "USD (FRED serves millions; shown ×1,000,000)" },
   "USD billions": { unit: "USD", scale: 1e9, qualifier: "USD (FRED serves billions; shown ×1,000,000,000)" },
+  // PCE, PCEND and PCEDG are "Billions of Dollars, Seasonally Adjusted Annual Rate" (AI-310).
+  "USD billions SAAR": { unit: "USD", scale: 1e9, qualifier: "USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)" },
 };
 const PERCENT_TRANSFORMS: ReadonlySet<FredUnits> = new Set<FredUnits>(["pc1", "pch", "pca", "cch", "cca"]);
 
@@ -231,7 +233,12 @@ const PERCENT_TRANSFORMS: ReadonlySet<FredUnits> = new Set<FredUnits>(["pc1", "p
 export function fredFigureUnit(seriesId: string, units: FredUnits): FredFigureUnit {
   if (PERCENT_TRANSFORMS.has(units)) return AS_SERVED("%");
   const native = FRED_NATIVE_UNITS[seriesId.trim().toUpperCase()];
-  return native === undefined ? AS_SERVED("") : FRED_FIGURE_UNITS[native] ?? AS_SERVED(native);
+  const base = native === undefined ? AS_SERVED("") : FRED_FIGURE_UNITS[native] ?? AS_SERVED(native);
+  // FRED's `chg` is "Change" from the prior observation: the figure is a
+  // difference, not the level the series' native unit describes (AI-310).
+  if (units !== "chg") return base;
+  const level = base.qualifier ?? base.unit;
+  return { ...base, qualifier: `${level === "" ? "" : `${level}, `}as the change from the prior observation` };
 }
 
 /** One parsed observation. `date` is the PERIOD START (May 2026 CPI = 2026-05-01). */

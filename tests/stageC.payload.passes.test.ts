@@ -5269,16 +5269,16 @@ describe("macro figures carry their units", () => {
     bundle.macro.sector.PCE = ok([{ date: "2026-06-01", value: 20123.4 }], "2026-06-01", "/fred/series/observations?series_id=PCE", "fred");
     const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
     const figure = (source: string) => payload.macro.figures.find((f) => f.source === source)!;
-    expect(figure("fred:PAYEMS")).toMatchObject({ value: -23_000, unit: "count", provenanceId: "payload.macro.payems-core" });
+    expect(figure("fred:PAYEMS")).toMatchObject({ value: -23_000, unit: "count", label: "PAYEMS change from prior observation (core)", provenanceId: "payload.macro.payems-change-from-prior-observation-core" });
     expect(figure("fred:DCOILWTICO")).toMatchObject({ value: 68.42, unit: "USD", currency: "USD", provenanceId: "payload.macro.dcoilwtico-sector" });
-    expect(figure("fred:PCE")).toMatchObject({ value: 20_123_400_000_000, unit: "USD", currency: "USD" });
+    expect(figure("fred:PCE")).toMatchObject({ value: 20_123_400_000_000, unit: "USD", currency: "USD", label: "PCE (sector)" });
     expect(payload.macro.notes).toContain(
-      "Units: PAYEMS: persons (FRED serves thousands; shown ×1,000); DCOILWTICO: USD per barrel; PCE: USD (FRED serves billions; shown ×1,000,000,000)",
+      "Units: PAYEMS: persons (FRED serves thousands; shown ×1,000), as the change from the prior observation; DCOILWTICO: USD per barrel; PCE: USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)",
     );
     const deps = makeDeps(new MockRunPass());
     const root = {
       numbers: [
-        { value: -23_000, unit: "count", currency: null, period: null, source: "payload.macro.payems-core", asOf: "2026-08-01", verified: null },
+        { value: -23_000, unit: "count", currency: null, period: null, source: "payload.macro.payems-change-from-prior-observation-core", asOf: "2026-08-01", verified: null },
         { value: 68.42, unit: "USD", currency: "USD", period: null, source: "payload.macro.dcoilwtico-sector", asOf: "2026-07-03", verified: null },
       ],
     };
