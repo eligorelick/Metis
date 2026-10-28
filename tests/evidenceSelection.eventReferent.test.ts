@@ -38,10 +38,11 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
     }
   });
   it("does not let a share count change the other profiles’ selection", () => {
-    // Equal-scoring passages rank by position, so a share-count term would lift the one share-bearing passage
-    // (fourth of thirty) ahead of its neighbours and change which of them a small budget keeps.
+    // Equal-scoring passages rank by position, so a share-count term would lift the share-bearing passage
+    // at position 20 (of 30) above its neighbours into a small budget. The one at position 2 is kept either way, so
+    // the selection always holds a share count and the comparison is not between two empty or share-free picks.
     const line = (n: number) => `Revenue from customers grew to $5 billion in quarter ${n}.`;
-    const lines = Array.from({ length: 30 }, (_, n) => (n === 3 ? "Revenue from customers grew to $5 billion and 7,000 shares were awarded." : line(n)));
+    const lines = Array.from({ length: 30 }, (_, n) => ([2, 20].includes(n) ? "Revenue from customers grew to $5 billion and 7,000 shares were awarded." : line(n)));
     const text = lines.join("\n");
     // "shares" -> "shaves" keeps every length and position, so only a share-count quantity could differ.
     const altered = text.split(" shares").join(" shaves");
