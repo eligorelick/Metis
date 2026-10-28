@@ -172,7 +172,9 @@ describe("D-66 recovered filing facts", () => {
     for (const value of [35e6, 5e6, 375_439, 547_942]) expect(governanceRecords.some((r) => r.value === value)).toBe(true);
     const prompt = serializePayloadForPrompt(payload);
     for (const needle of ["Groq", "375,439", "547,942", "500", "DSO outlook", "return to more normal levels next quarter"]) expect(prompt).toContain(needle);
-    const text = "Scott Gawel's new-hire restricted stock unit grants had a combined target value of USD 12,875,000.";
+    // AI-305 / OD-1: the 8-K sentence is "He will receive two new hire equity grants of restricted stock units (RSUs) with a combined target value of $12,875,000".
+    // The claim names that description in full; the shorter "new-hire restricted stock unit grants had a combined target value" is now unchecked.
+    const text = "Scott Gawel will receive two new hire equity grants of restricted stock units (RSUs) with a combined target value of USD 12,875,000.";
     const output = (text: string) => ({ leadership: { executives: [{ name: "Scott Gawel", title: "VP and CAO", grade: "not-assessed", credibilityGrade: "not-assessed", evidence: { compensation: [{ label: "FACT", text, source: "edgar:8-K officer", asOf: "2026-04-27" }] } }] } });
     const verified = await runVerifyPass({} as PassDeps, payload, output(text));
     expect(verified.log[0]).toMatchObject({ validationStatus: "validated" });

@@ -644,7 +644,8 @@ describe("AI-302-V1 forward-looking clauses", () => {
     expect((await citeExcerpt(GUIDED, "Revenue for Q2 FY2027 was USD 108.0 billion.")).entry.validationStatus).toBe("unchecked");
     expect((await citeExcerpt(GUIDED, "Revenue guidance is USD 108.0 billion.")).entry.validationStatus).toBe("validated");
     const NOTE = ex("edgar:10-K notes", "2026-01-25", "10-K notes (FY2026)", "Under the new lease accounting guidance, operating lease liabilities were $2.5 billion.");
-    expect((await citeExcerpt(NOTE, "Operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("validated");
+    // AI-305 / OD-1: the fronted phrase is part of the figure's own description, so the claim names it ("accounting guidance" is still not forward-looking).
+    expect((await citeExcerpt(NOTE, "Under the new lease accounting guidance, operating lease liabilities were USD 2.5 billion.")).entry.validationStatus).toBe("validated");
   });
   // Task 7 reviews: a RESULT claim never binds the guide, whatever forward wording sits in a neighbouring clause or after the figure.
   it.each([

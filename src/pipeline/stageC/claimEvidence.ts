@@ -146,7 +146,7 @@ interface PeriodReference { key: string; label: string; raw: string; kind: "date
  * the comparison bases it names ("compared with $10.2 billion in second quarter
  * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
  */
-interface Context { start: number; end: number; text: string; label: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
+interface Context { start: number; end: number; text: string; label: string; own: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
   /**
@@ -327,6 +327,29 @@ function claimContext(text: string, quantity: Quantity, all: Quantity[]): Contex
   const lent = (period: PeriodReference): boolean => !forward.some(([a, b]) => period.start >= a && period.start < b);
   return { ...own, periods: whole.periods.filter(lent), bases: whole.bases.filter(lent) };
 }
+/**
+ * AI-305 (OD-1): the words a sentence gives to a figure itself. Before the figure: from the latest of the clause start, the
+ * preceding figure's end, the last unclosed "(" and the last ":" or ";". After it: up to the first comma, semicolon, colon,
+ * parenthesis, em or en dash, the next figure or the clause end. A comma inside a date ("as of September 3, 2026") does not cut.
+ */
+function ownBeforeStart(text: string, clauseStart: number, quantityStart: number, preceding: Quantity | undefined): number {
+  let from = Math.max(clauseStart, preceding?.end ?? 0);
+  const lead = text.slice(from, quantityStart);
+  const open = lead.lastIndexOf("(");
+  if (open >= 0 && !lead.includes(")", open)) from += open + 1;
+  const cut = Math.max(text.slice(from, quantityStart).lastIndexOf(":"), text.slice(from, quantityStart).lastIndexOf(";"));
+  return cut >= 0 ? from + cut + 1 : from;
+}
+function ownAfterEnd(text: string, clauseEnd: number, quantityEnd: number, following: Quantity | undefined): number {
+  const limit = Math.min(clauseEnd, following?.start ?? clauseEnd);
+  const tail = text.slice(quantityEnd, limit).replace(HEADER_DATE, (date) => date.replace(/,/g, " "));
+  const cut = tail.search(/[,;:()\u2014\u2013]/);
+  return cut >= 0 ? quantityEnd + cut : limit;
+}
+function ownDescription(text: string, quantity: Quantity, start: number, end: number, preceding: Quantity | undefined, following: Quantity | undefined): string {
+  return text.slice(ownBeforeStart(text, start, quantity.start, preceding), quantity.start) + " " +
+    text.slice(quantity.end, ownAfterEnd(text, end, quantity.end, following));
+}
 function context(text: string, quantity: Quantity, all: Quantity[], source = false): Context {
   let start = 0;
   let end = text.length;
@@ -352,11 +375,12 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   const labelEnd = following ? following.start : end;
   const label = text.slice(labelStart, quantity.start) + " " + text.slice(quantity.end, labelEnd);
   const ownText = text.slice(start, end);
+  const own = ownDescription(text, quantity, start, end, preceding, following);
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
   const { periods, bases } = framePeriods(text, { start, end }, quantity, all, !source, source);
-  return { start, end, text: ownText, label, periods, bases,
+  return { start, end, text: ownText, label, own, periods, bases,
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -417,6 +441,37 @@ function withSynonyms(tokens: readonly string[]): string[] {
 /** Hyphenated words compared as their parts ("gross-margin" is "gross margin"), except a negative compound or a modifier that is one word. */
 function splitCompound(word: string): string[] {
   return !word.includes("-") || word.startsWith("non-") || DEFINITION_MODIFIERS.has(word) ? [word] : word.split("-");
+}
+/**
+ * AI-305 (OD-1): words in a figure's own description that carry no metric. The list is closed and holds no noun, adjective,
+ * comparator, definition modifier or direction word; "reported" and "total" stay meaningful (see METRIC_GRAMMAR).
+ */
+const OWN_CONTEXT_WORDS = new Set([
+  // pronouns
+  "we", "us", "they", "them", "their", "there", "which", "who", "whose", "he", "she", "him", "her", "his",
+  // recognition verbs
+  "totaled", "totalled", "totaling", "totalling", "amounted", "came", "represented", "posted", "generated", "delivered", "achieved",
+  "incurred", "recognized", "recognised", "booked",
+  // relational links
+  "associated", "related", "relating", "attributable",
+  // causal links
+  "driven", "due", "primarily", "mainly", "largely", "partly", "partially", "reflecting",
+  // hedges
+  "approximately", "approx", "about", "around", "nearly", "almost", "roughly", "some",
+  // emphasis
+  "record",
+  // point abbreviations a previous table cell leaves in a row lead
+  "pt", "pts",
+]);
+/** The content words of a figure's own description: ordinal period phrases and comparison bases are blanked, context words dropped. */
+function ownDescriptionTokens(text: string, ignore: readonly string[]): string[] {
+  const blanked = text
+    .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
+    .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
+    // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
+    .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
+  // A window is compared as a period (AI-303 / C-6), not as a metric word, exactly as the claim's own window tokens are.
+  return metricTokens(blanked, ignore).filter((word) => !OWN_CONTEXT_WORDS.has(word) && !word.startsWith("window"));
 }
 function metricTokens(label: string, ignore: readonly string[], options: { loose?: boolean } = {}): string[] {
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
@@ -619,16 +674,22 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * context ("…is cumulatively capped at $105 billion for its initial commitment
  * under the Agreements"), which demanding in the claim failed every figure a
  * filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
+ * AI-305 / D-next (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
+ * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
+ * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
+ * The two tests are conjoined, so this never admits a candidate the clause test rejected.
  */
 const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
   "segment", "not", "no", "without", "constant", "incremental", "cumulative", "average"]);
-function excerptNamesMetric(claim: string[], source: string[]): boolean {
+function excerptNamesMetric(claim: string[], source: string[], named: string[], own: string[]): boolean {
   if (claim.length === 0 || source.length === 0) return false;
   const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
   const inClaim = (word: string): boolean => claim.some((other) => stem(word) === stem(other));
+  const inNamed = (word: string): boolean => named.some((other) => stem(word) === stem(other));
   return claim.every((word) => source.some((other) => stem(word) === stem(other))) &&
-    source.every((word) => !DEFINITION_MODIFIERS.has(word) || inClaim(word));
+    source.every((word) => !DEFINITION_MODIFIERS.has(word) || inClaim(word)) &&
+    own.every(inNamed);
 }
 const COMPARATIVE_LEAD = /^[\s,;(]*(?:(?:up|down|higher|lower|increas\w*|decreas\w*|rose|fell|compared)\s+)?(?:from|with|versus|vs\.?|compared (?:to|with)|against)[\s:]*$/i;
 /** The excerpt's own period statements: its reporting period, fiscal quarter, quarter end or event date — never its filing date or accession. */
@@ -817,7 +878,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, periods, bases: [], ambiguous: false, direction: null };
+        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, periods, bases: [], ambiguous: false, direction: null };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -835,6 +896,8 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const unitPair = dividendPairs.get(quantity);
       // The printed "TOTAL, or PER-SHARE, of cash dividends paid" shares its
       // trailing metric, but each amount retains its own printed unit/value.
+      // AI-305: the appositive's trailing metric is the pair's own description ("including $973 million, or $0.92 per share, of cash dividends paid").
+      if (unitPair !== undefined) own.own = " cash dividends paid";
       if (unitPair?.totalStart === quantity.start) own.label += " cash dividends paid";
       const inClause = found.filter((other) => other !== quantity && other.start >= own.start && other.end <= own.end &&
         (other.unit === quantity.unit || other.unit === null || quantity.unit === null));
@@ -1018,6 +1081,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word.
     const ownWindowTokens = new Set(own.periods.filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
     const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
+    // AI-305: the claim names a word of the source figure's own description when the claim's description holds it. The claim's
+    // clause ends at "and"/"but"; a connector with no figure after it continues the description, as it does in a source sentence
+    // ("invested over USD 76.7 billion in research and development since its inception").
+    const named = [...new Set([...tokens, ...metricTokens(context(claim.text, quantity, stated, true).label, options.ignoreWords ?? [], { loose: true })])]
+      .filter((word) => !ownWindowTokens.has(word));
     // AI-302-V1 / OD-3: modality must match. Only the figure's own clause decides it, so a result figure never turns forward-looking
     // (and never binds the guide) because a neighbouring clause of the claim says "expects" or "outlook".
     const claimForward = FORWARD_LOOKING.test(own.text);
@@ -1026,7 +1094,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       const bindings = options.index?.get(excerpt) ?? sourceBindings(excerpt);
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
-        if (binding.forwardLooking === claimForward && excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []))) candidates.push(binding);
+        if (binding.forwardLooking === claimForward && excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []), named, ownDescriptionTokens(binding.context.own, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
     if (candidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {

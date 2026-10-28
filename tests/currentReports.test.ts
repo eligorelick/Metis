@@ -566,8 +566,11 @@ describe("D-63 filing evidence", () => {
       insiderSummary: [], governanceNotes: [],
     };
     // Six figures stated in a retained excerpt sentence were untraced on 2026-10-15; two of them.
+    // AI-305 / OD-1: the 105 figure's own description ("NVIDIA's aggregate payment obligation is cumulatively capped at $105 billion for its
+    // initial commitment under the Agreements") is named in full; the shorter "aggregate payment obligation" no longer binds it. The bundle's
+    // issuer is a synthetic one, so the sentence's own "NVIDIA" is named too.
     const keyNumbers = [
-      { value: 105, unit: "USD billions: aggregate payment obligation", currency: "USD", period: "2026-08-17", source: "edgar:8-K 0001045810-26-000069", asOf: "2026-08-17", verified: null },
+      { value: 105, unit: "USD billions: NVIDIA's aggregate payment obligation, cumulatively capped, for its initial commitment under the Agreements", currency: "USD", period: "2026-08-17", source: "edgar:8-K 0001045810-26-000069", asOf: "2026-08-17", verified: null },
       { value: 31.6, unit: "USD billions: Inventory", currency: "USD", period: "2026-07-26", source: "edgar:8-K EX-99.2", asOf: "2026-08-26", verified: null },
     ];
     const result = await runVerifyPass({} as PassDeps, payload, { leadership, keyNumbers });
