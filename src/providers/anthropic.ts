@@ -539,6 +539,66 @@ export function connectionFailureCode(err: unknown): string | null {
 }
 
 /**
+ * A fetch that failed before any request byte left the machine (connect phase).
+ * The message deliberately avoids "timeout" / "timed out" and sets no `cause`:
+ * the SDK tests String(err) + String(err.cause) for those words and would
+ * otherwise wrap it as a cause-less APIConnectionTimeoutError, which the
+ * settlement treats as a request that was sent and then lost.
+ */
+export class PreSendConnectionError extends Error {
+  readonly name = "PreSendConnectionError";
+  constructor(
+    readonly connectCode: string,
+    readonly original: unknown,
+  ) {
+    super("the connection to the provider could not be opened, so the request was never sent");
+  }
+}
+
+/** Codes that mean the connection never opened, wherever they sit. */
+const PRE_SEND_CODES: ReadonlySet<string> = new Set([
+  "UND_ERR_CONNECT_TIMEOUT",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+]);
+
+/**
+ * undici UND_ERR_CONNECT_TIMEOUT; ECONNREFUSED, ENOTFOUND, EAI_AGAIN;
+ * ETIMEDOUT only with syscall "connect" or "getaddrinfo"; EHOSTUNREACH and
+ * ENETUNREACH only with syscall "connect" (a route lost on an established
+ * socket reads the same code with another syscall, after the send). Header,
+ * body and socket failures happen after the send.
+ */
+export function isPreSendConnectionFailure(err: unknown): boolean {
+  return preSendConnectCode(err) !== null;
+}
+
+function preSendConnectCode(err: unknown): string | null {
+  for (const entry of causeChain(err)) {
+    const { code, syscall } = (entry ?? {}) as { code?: unknown; syscall?: unknown };
+    if (typeof code !== "string") continue;
+    if (PRE_SEND_CODES.has(code)) return code;
+    if (code === "ETIMEDOUT" && (syscall === "connect" || syscall === "getaddrinfo")) return code;
+    if ((code === "EHOSTUNREACH" || code === "ENETUNREACH") && syscall === "connect") return code;
+  }
+  return null;
+}
+
+/** Rethrows a pre-send failure as PreSendConnectionError; reads globalThis.fetch at call time when inner is omitted. */
+export function preSendClassifyingFetch(inner?: typeof fetch): typeof fetch {
+  return (async (...args: Parameters<typeof fetch>) => {
+    try {
+      return await (inner ?? globalThis.fetch)(...args);
+    } catch (err) {
+      const code = preSendConnectCode(err);
+      if (code !== null) throw new PreSendConnectionError(code, err);
+      throw err;
+    }
+  }) as typeof fetch;
+}
+
+/**
  * A stream that died between the response headers and `message_stop`.
  *
  * The SDK produces `APIConnectionError` only for a fetch that fails BEFORE the
@@ -672,6 +732,7 @@ export function getClient(): Anthropic | null {
           apiKey: key,
           maxRetries: CLIENT_MAX_RETRIES,
           timeout: REQUEST_TIMEOUT_MS,
+          fetch: preSendClassifyingFetch(),
         })
       : null;
   }
@@ -831,6 +892,7 @@ export function effectiveMaxTokens(
  * UTF-8 byte, while serializing the complete input also counts JSON framing.
  * Therefore serialized UTF-8 bytes are a deliberately conservative token
  * ceiling. It includes cache-controlled blocks, tools, and output schemas.
+ * Context-window admission uses estimatedRequestInputTokens instead.
  */
 export function requestInputTokenUpperBound(opts: RunPassOptions): number {
   let serialized: string;
@@ -845,6 +907,56 @@ export function requestInputTokenUpperBound(opts: RunPassOptions): number {
     throw new Error(`provider request input is not serializable: ${error instanceof Error ? error.message : String(error)}`);
   }
   return new TextEncoder().encode(serialized).byteLength;
+}
+
+/**
+ * Bytes per token used for the context-fit estimate (DECISIONS D-next-5).
+ * Calibrated on Metis's billed NVDA requests (2.38 bytes/token on the newer
+ * tokenizer) and Anthropic's note that the newer tokenizer gives about 30%
+ * more tokens (about 23% fewer on the earlier one); rounded down so the
+ * estimate over-counts. The estimate is
+ * calibrated on Metis payloads, not a ceiling: it leaves about 11% margin on
+ * the prior tokenizer and about 5% on the current one. The backstop for a
+ * prompt it misses is the provider's own context-window 400, which settles
+ * at $0 (D-next-5).
+ */
+export const CONTEXT_ESTIMATE_BYTES_PER_TOKEN: Readonly<{ current: number; prior: number }> = {
+  current: 2.25,
+  prior: 2.75,
+};
+
+/**
+ * "prior" for registry generations below 4.7, "current" otherwise. A
+ * generation is "major" or "major.minor" with integer parts, so "4.10" is
+ * after "4.7" (a decimal comparison would put it before).
+ */
+export function tokenizerForGeneration(generation: string): "prior" | "current" {
+  const [major = "0", minor = "0"] = generation.split(".");
+  const m = Number.parseInt(major, 10);
+  const n = Number.parseInt(minor, 10);
+  return m < 4 || (m === 4 && n < 7) ? "prior" : "current";
+}
+
+/**
+ * The tokenizer generation of a registry model (Claude Haiku 4.5 is "prior").
+ * An unknown model id throws here, but validateRunPassOptions has already
+ * refused it (assertPricedModel runs first), so that throw is unreachable on
+ * the request path.
+ */
+export function tokenizerGeneration(model: string): "prior" | "current" {
+  return tokenizerForGeneration(registryEntryFor(model).generation);
+}
+
+/**
+ * Offline input-token estimate: serialized UTF-8 bytes divided by the model's
+ * tokenizer constant. Admission refuses only an estimate above the context
+ * window; an over-long prompt it misses is refused by the provider with a 400
+ * that settles at $0.
+ */
+export function estimatedRequestInputTokens(opts: RunPassOptions): number {
+  return Math.ceil(
+    requestInputTokenUpperBound(opts) / CONTEXT_ESTIMATE_BYTES_PER_TOKEN[tokenizerGeneration(opts.model)],
+  );
 }
 
 function boundedWebSearchUses(tools: RunPassOptions["tools"]): number {
@@ -881,10 +993,11 @@ export function validateRunPassOptions(opts: RunPassOptions): void {
     );
   }
   const inputLimit = modelContextTokenLimit(opts.model);
-  const inputUpperBound = requestInputTokenUpperBound(opts);
-  if (inputUpperBound > inputLimit) {
+  const inputEstimate = estimatedRequestInputTokens(opts);
+  if (inputEstimate > inputLimit) {
+    const k = CONTEXT_ESTIMATE_BYTES_PER_TOKEN[tokenizerGeneration(opts.model)];
     throw new Error(
-      `provider request input upper bound ${inputUpperBound.toLocaleString("en-US")} exceeds the ${inputLimit.toLocaleString("en-US")}-token model context cap`,
+      `provider request input estimate ${inputEstimate.toLocaleString("en-US")} tokens (UTF-8 bytes / ${k} for this model's tokenizer) exceeds the ${inputLimit.toLocaleString("en-US")}-token model context window`,
     );
   }
   const searchUses = boundedWebSearchUses(opts.tools);
@@ -1411,6 +1524,15 @@ export interface RequestAdmission {
   settle(permit: RequestPermit, settlement: RequestSettlement): Promise<void>;
   /** A request that never reached the provider: release without billing. */
   release(permit: RequestPermit): Promise<void>;
+  /**
+   * The request's settlement could not be recorded after every retry and its
+   * permit stays held (the response was received and paid for). The admission
+   * stops renewing that lease so it expires into the sweep's presumed row,
+   * rather than counting against the cap and the capacity slot for as long
+   * as the pass runs. Optional: a settlement that cannot be recorded has
+   * nothing to abandon where nothing is renewed.
+   */
+  abandon?(permit: RequestPermit): void;
 }
 
 export interface PassError {
@@ -1507,15 +1629,17 @@ function interpretPassMessages(
   message: BetaMessage,
   opts: RunPassOptions,
   billableMessages: readonly BetaMessage[],
+  failed: readonly FailedRequestCharge[] = [],
 ): RunPassResult {
   message = withActualModel(message);
-  const fallbackUsed = billableMessages.some(detectFallbackUsed);
-  const usage = aggregateUsage(billableMessages);
-  const costUsd = billableMessages.reduce((sum, billedMessage) => sum + costForMessage(billedMessage, opts), 0);
+  const passTotals = passAccounting(opts, billableMessages, failed);
+  const { fallbackUsed, costUsd } = passTotals;
+  // billableMessages is never empty here, so the aggregate usage exists.
+  const usage = passTotals.usage as BetaUsage;
   const accounting = {
     model: message.model,
     execution: passExecution(opts),
-    ...(billableMessages.some((billed) => billingForMessage(billed, opts).presumed) ? { presumed: true } : {}),
+    ...(passTotals.presumed ? { presumed: true } : {}),
   };
   const fetchedUrls = [
     ...new Set(billableMessages.flatMap((billedMessage) => collectFetchedUrls(billedMessage))),
@@ -1658,14 +1782,14 @@ interface ResumedMessage {
  * A pause-resumption request failed AFTER earlier messages of the same pass
  * attempt were fully received (and billed). Carries those messages so the
  * caller's transport accounting doesn't lose their real spend, plus the
- * streamed-usage snapshot of the resumption itself, whose permit the
- * resumption already settled.
+ * resumption's own charge (what it was settled at, against its own permit,
+ * before this was thrown; null when the resumption was released at $0).
  */
 class ResumptionFailedError extends Error {
   constructor(
     readonly cause: unknown,
     readonly billableMessages: BetaMessage[],
-    readonly snapshot: StreamedUsageSnapshot = { model: null, usage: null },
+    readonly charge: FailedRequestCharge | null = null,
   ) {
     super(errorMessageOf(cause));
     this.name = "ResumptionFailedError";
@@ -1684,45 +1808,73 @@ function errorMessageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** The ledger write for a settled request did not commit and may be retried. */
+export class RequestSettlementNotRecordedError extends Error {
+  readonly name = "RequestSettlementNotRecordedError";
+  constructor(readonly cause: unknown) {
+    super(`request settlement was not recorded: ${errorMessageOf(cause)}`);
+  }
+}
+
 /**
- * Settle one admitted request with what it actually billed. A request the
- * provider never answered settles at $0 unless it was sent and then timed out
- * or lost its connection while answering — that case is presumed at the
- * request maximum until something reconciles it, because Anthropic may have
- * generated (and billed) the whole response with nobody listening
- * (DECISIONS D-10).
+ * Waits before each retry of a contended ledger write (5.25 seconds in all, on
+ * top of the database's own busy timeout on every try).
  */
+export const LEDGER_SETTLE_RETRY_DELAYS_MS: readonly number[] = [250, 1_000, 4_000];
+
+/**
+ * Settle, retrying only {@link RequestSettlementNotRecordedError}; true when
+ * the write committed. When every retry fails the permit is left held: the
+ * response was received and paid for, so the caller keeps it and the lease is
+ * presumed at expiry (D-07), and only the costs:reconcile script can lower
+ * that row. The admission is told to stop renewing the lease
+ * ({@link RequestAdmission.abandon}). Any other error propagates.
+ */
+async function settleWithLedgerRetry(
+  admission: RequestAdmission,
+  permit: RequestPermit,
+  settlement: RequestSettlement,
+  field: string,
+): Promise<boolean> {
+  for (let retry = 0; ; retry++) {
+    try {
+      await admission.settle(permit, settlement);
+      return true;
+    } catch (error) {
+      if (!(error instanceof RequestSettlementNotRecordedError)) throw error;
+      if (retry >= LEDGER_SETTLE_RETRY_DELAYS_MS.length) {
+        console.error(
+          `[anthropic] ${field}: request settlement could not be recorded (${errorMessageOf(error.cause)}); ` +
+            "keeping the response and leaving the reservation to be presumed at expiry",
+        );
+        // Stop renewing the held lease: it must expire into the presumed row
+        // (cap honoured, capacity slot freed), not outlive the pass's next
+        // request.
+        admission.abandon?.(permit);
+        return false;
+      }
+      await transportRetrySleep(LEDGER_SETTLE_RETRY_DELAYS_MS[retry]!);
+    }
+  }
+}
+
+/** Settle one admitted request whose final message arrived, at what it billed. */
 async function settleRequest(
   admission: RequestAdmission | undefined,
   permit: RequestPermit | null,
   opts: RunPassOptions,
-  billed: BetaMessage | null,
-  presumeOnNoUsage: boolean,
+  billed: BetaMessage,
 ): Promise<void> {
   if (admission === undefined || permit === null) return;
-  if (billed === null) {
-    if (!presumeOnNoUsage) {
-      await admission.release(permit);
-      return;
-    }
-    await admission.settle(permit, {
-      costUsd: permit.maximumUsd,
-      model: opts.model,
-      webSearches: 0,
-      fallbackUsed: false,
-      presumed: true,
-    });
-    return;
-  }
   const billing = billingForMessage(billed, opts);
-  await admission.settle(permit, {
+  await settleWithLedgerRetry(admission, permit, {
     usage: messageUsage(billed),
     costUsd: billing.costUsd,
     model: actualModel(billed) || opts.model,
     webSearches: webSearchCount(billed),
     fallbackUsed: detectFallbackUsed(billed),
     ...(billing.presumed ? { presumed: true } : {}),
-  });
+  }, opts.field ?? "llm.pass");
 }
 
 /**
@@ -1732,11 +1884,122 @@ async function settleRequest(
  * this kind is presumed rather than released.
  */
 function timedOutAfterSend(err: unknown): boolean {
+  if (causeChain(err).some((entry) => entry instanceof PreSendConnectionError)) return false;
   if (err instanceof StreamIdleTimeoutError) return true;
   if (err instanceof APIConnectionTimeoutError) return true;
   if (isStreamConnectionFailure(err)) return true;
   const message = errorMessageOf(err).toLowerCase();
   return message.includes("timeout") || message.includes("timed out");
+}
+
+/** What one failed provider request is recorded at (DECISIONS D-09, D-10). */
+interface FailedRequestCharge {
+  /** The streamed snapshot as a message when the request reported usage; else null. */
+  reported: BetaMessage | null;
+  costUsd: number;
+  presumed: boolean;
+}
+
+type FailedRequestOutcome = { kind: "release" } | { kind: "charge"; charge: FailedRequestCharge };
+
+/**
+ * Decide what a failed request is recorded at: the single rule both failure
+ * catches (the first request and a pause resumption) share, so one wire state
+ * settles one figure. In order:
+ *  1. A stream the idle guard abandoned, or one that reported usage but ended
+ *     before its final usage event (whatever the cause), is its reported usage
+ *     plus the presumed remainder (the request maximum when no usage was
+ *     reported).
+ *  2. A stream whose final usage event arrived settles at that usage.
+ *  3. With no usage reported, a request the provider had answered and the
+ *     caller then cancelled, or one that went out and then timed out or lost
+ *     its connection, is presumed at the request maximum.
+ *  4. Anything else never reached the provider and is released at $0
+ *     (DECISIONS D-10: "a request that times out after send is presumed
+ *     spent until reconciled").
+ */
+function classifyFailedRequest(
+  opts: RunPassOptions,
+  snapshot: StreamedUsageSnapshot,
+  cause: unknown,
+  requestMaximumUsd: number,
+): FailedRequestOutcome {
+  const reported = billedMessageFromSnapshot(snapshot, opts);
+  if (cause instanceof StreamIdleTimeoutError || (reported !== null && snapshot.finalUsage !== true)) {
+    // Generation had started and nobody knows how far it got, whatever ended
+    // the stream (the idle guard, the caller, a server error event, a dropped
+    // connection): what was reported plus the presumed remainder (DECISIONS
+    // D-09). Only the cumulative output count in the final delta is exact.
+    return { kind: "charge", charge: { reported, costUsd: abandonedRequestCostUsd(opts, reported, requestMaximumUsd), presumed: true } };
+  }
+  if (reported !== null) {
+    const billing = billingForMessage(reported, opts);
+    return { kind: "charge", charge: { reported, costUsd: billing.costUsd, presumed: billing.presumed } };
+  }
+  // No usage was reported, so the input the provider may have billed is
+  // unknown as well as the output: the whole request maximum (DECISIONS D-10).
+  // A caller abort counts only once the provider answered (response headers
+  // or any stream event); before that the request may never have left.
+  if (timedOutAfterSend(cause) || (cause instanceof APIUserAbortError && snapshot.answered === true)) {
+    return { kind: "charge", charge: { reported: null, costUsd: requestMaximumUsd, presumed: true } };
+  }
+  return { kind: "release" };
+}
+
+/** Record a failed request's outcome against its permit: release it, or settle the charge. */
+async function settleFailedRequest(
+  opts: RunPassOptions,
+  permit: RequestPermit | null,
+  outcome: FailedRequestOutcome,
+): Promise<void> {
+  if (opts.admission === undefined || permit === null) return;
+  if (outcome.kind === "release") {
+    await opts.admission.release(permit);
+    return;
+  }
+  const { reported, costUsd, presumed } = outcome.charge;
+  await settleWithLedgerRetry(opts.admission, permit, {
+    ...(reported === null ? {} : { usage: messageUsage(reported) }),
+    costUsd,
+    model: reported === null ? opts.model : actualModel(reported) || opts.model,
+    webSearches: reported === null ? 0 : webSearchCount(reported),
+    fallbackUsed: reported === null ? false : detectFallbackUsed(reported),
+    ...(presumed ? { presumed: true } : {}),
+  }, opts.field ?? "llm.pass");
+}
+
+/**
+ * A pass's accounting: the sum of what each of its requests settled, retries
+ * and pause resumptions included. `completed` are the fully received
+ * messages, `failed` the charges of requests that died; both reservation
+ * modes report this one figure.
+ */
+function passAccounting(
+  opts: RunPassOptions,
+  completed: readonly BetaMessage[],
+  failed: readonly FailedRequestCharge[],
+): {
+  usage?: BetaUsage;
+  costUsd: number;
+  presumed: boolean;
+  fallbackUsed: boolean;
+  webSearches: number;
+  model?: string;
+} {
+  // Failed snapshots first so a completed message, when there is one, stays
+  // the "final" message whose usage extras the aggregate carries.
+  const messages = [...failed.flatMap((charge) => (charge.reported === null ? [] : [charge.reported])), ...completed];
+  const completedBilling = completed.map((message) => billingForMessage(message, opts));
+  return {
+    ...(messages.length > 0 ? { usage: aggregateUsage(messages) } : {}),
+    costUsd:
+      completedBilling.reduce((sum, billing) => sum + billing.costUsd, 0) +
+      failed.reduce((sum, charge) => sum + charge.costUsd, 0),
+    presumed: completedBilling.some((billing) => billing.presumed) || failed.some((charge) => charge.presumed),
+    fallbackUsed: messages.some(detectFallbackUsed),
+    webSearches: messages.reduce((sum, message) => sum + webSearchCount(message), 0),
+    ...(messages.length > 0 ? { model: messages[messages.length - 1].model } : {}),
+  };
 }
 
 /**
@@ -1812,8 +2075,8 @@ async function streamFinalMessage(
  * "pause_turn") message if the budget is exhausted — interpretPassMessage
  * files that as a typed "paused" error rather than misreading it as success.
  * Throws {@link ResumptionFailedError} (wrapping the cause, the messages
- * billed so far and the resumption's own usage snapshot) if a resumption
- * fails; the resumption settles its own permit before throwing.
+ * billed so far and the resumption's own charge) if a resumption fails; the
+ * resumption settles its own permit before throwing.
  */
 function continuationContent(message: BetaMessage): BetaMessage["content"] {
   const lastFallback = message.content.findLastIndex((block) => block.type === "fallback");
@@ -1866,27 +2129,15 @@ async function resumeIfPausedWithUsage(
     try {
       msg = await streamFinalMessage(client, current, signal, idleMs, snapshot);
     } catch (err) {
+      let charge: FailedRequestCharge | null = null;
       if (opts !== undefined) {
-        if (
-          err instanceof StreamIdleTimeoutError ||
-          (err instanceof APIUserAbortError && snapshot.usage !== null)
-        ) {
-          // Generation had started and nobody knows how far it got: what was
-          // reported plus the presumed remainder, like the first request.
-          await settlePresumedRemainder(opts, permit, snapshot);
-        } else {
-          await settleRequest(
-            admission,
-            permit,
-            opts,
-            billedMessageFromSnapshot(snapshot, opts),
-            timedOutAfterSend(err),
-          );
-        }
+        const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts));
+        await settleFailedRequest(opts, permit, outcome);
+        if (outcome.kind === "charge") charge = outcome.charge;
       }
-      throw new ResumptionFailedError(err, billableMessages, snapshot);
+      throw new ResumptionFailedError(err, billableMessages, charge);
     }
-    if (opts !== undefined) await settleRequest(admission, permit, opts, msg, false);
+    if (opts !== undefined) await settleRequest(admission, permit, opts, msg);
     billableMessages.push(msg);
     resumptions++;
   }
@@ -1944,15 +2195,24 @@ interface StreamedUsageSnapshot {
   content?: BetaMessage["content"];
   stopReason?: BetaMessage["stop_reason"];
   stopDetails?: BetaMessage["stop_details"];
+  /** True once the final `message_delta` (non-null stop reason, cumulative usage) arrived. */
+  finalUsage?: boolean;
+  /** True once the provider answered: response headers received (`connect`) or any stream event. */
+  answered?: boolean;
 }
 
 function trackStreamedUsage(
   stream: {
-    on: (event: "streamEvent", listener: (event: BetaRawMessageStreamEvent) => void) => unknown;
+    on(event: "streamEvent", listener: (event: BetaRawMessageStreamEvent) => void): unknown;
+    on(event: "connect", listener: () => void): unknown;
   },
   snapshot: StreamedUsageSnapshot = { model: null, usage: null },
 ): StreamedUsageSnapshot {
+  stream.on("connect", () => {
+    snapshot.answered = true;
+  });
   stream.on("streamEvent", (event: BetaRawMessageStreamEvent) => {
+    snapshot.answered = true;
     if (event.type === "message_start") {
       snapshot.model = event.message.model;
       snapshot.usage = { ...event.message.usage };
@@ -1982,7 +2242,10 @@ function trackStreamedUsage(
         ...(u.server_tool_use ? { server_tool_use: u.server_tool_use } : {}),
         ...(u.iterations != null ? { iterations: u.iterations } : {}),
       };
-      if (event.delta.stop_reason != null) snapshot.stopReason = event.delta.stop_reason;
+      if (event.delta.stop_reason != null) {
+        snapshot.stopReason = event.delta.stop_reason;
+        snapshot.finalUsage = true;
+      }
       if (event.delta.stop_details != null) snapshot.stopDetails = event.delta.stop_details;
       const final = u.iterations?.[u.iterations.length - 1];
       if (final && (final.type === "message" || final.type === "fallback_message") && final.model) snapshot.model = final.model;
@@ -2025,57 +2288,67 @@ function billedMessageFromSnapshot(
 }
 
 /**
- * The result for a stream abandoned after generation started (DECISIONS
- * D-09): what the provider reported before it stopped being read, PLUS the
- * worst case for the rest of the response, priced at the model's output rate
- * for the tokens the request could still emit.
+ * The cost of a stream that ended after generation started without its final
+ * usage event, whatever the cause (DECISIONS D-09): what the provider reported
+ * before the stream stopped being read, PLUS the worst case for the rest of the
+ * response, priced at the model's output rate for the tokens the request could
+ * still emit.
  *
- * Anthropic bills for generation, and neither a stalled stream nor one the
- * caller aborted gives any way to know how much of it happened: the API
- * reports cumulative output tokens only in the final `message_delta`, so a
- * stream cut mid-generation has reported input tokens and ~1 output token.
- * Recording only the last reported usage would understate the charge exactly
- * when nothing else can correct it, so the remainder is presumed spent and
- * named as presumed. The whole figure stays inside the pass reservation,
- * which already bounds the full output ceiling. `headline` is what the pass
- * gap and error say happened; `aborted` marks a caller abort so an
- * orchestrator that stopped the request on purpose can tell it from a
- * provider fault.
+ * Anthropic bills for generation, and an unfinished stream gives no way to know
+ * how much of it happened, whether it stalled, the caller aborted it, the
+ * server sent an error event or the connection dropped: the API reports
+ * cumulative output tokens only in the final `message_delta`, so a stream cut
+ * mid-generation has reported input tokens and ~1 output token. Recording only
+ * the last reported usage would understate the charge exactly when nothing else
+ * can correct it, so the remainder is presumed spent and named as presumed. The
+ * whole figure stays inside the pass reservation, which already bounds the full
+ * output ceiling.
  */
-function abandonedRequestCostUsd(opts: RunPassOptions, reported: BetaMessage | null): number {
-  const reportedUsd = reported === null ? 0 : costForMessage(reported, opts);
-  if (boundedWebSearchUses(opts.tools) > 0 || registryEntryFor(opts.model).serverSideFallback !== null || (reported !== null && detectFallbackUsed(reported))) {
+function abandonedRequestCostUsd(
+  opts: RunPassOptions,
+  reported: BetaMessage | null,
+  requestMaximumUsd: number,
+): number {
+  // Nothing reported: the input the provider may have billed is unknown as
+  // well as the output, so the whole request (the figure a lost connection
+  // in the same wire state settles; DECISIONS D-10, B7 OD-2). The permit's
+  // own maximum, like the answered or timed-out no-usage charge: one wire
+  // state, one figure.
+  if (reported === null) return requestMaximumUsd;
+  const reportedUsd = costForMessage(reported, opts);
+  if (boundedWebSearchUses(opts.tools) > 0 || registryEntryFor(opts.model).serverSideFallback !== null || detectFallbackUsed(reported)) {
     // Unseen tool rounds can bill more input/searches; fallback can add a full
     // model attempt. If incomplete usage retained the bound, do not add it again.
     return Math.max(reportedUsd, requestReservationUsd(opts));
   }
-  const remaining = Math.max(0, effectiveMaxTokens(opts) - (reported?.usage.output_tokens ?? 0));
+  const remaining = Math.max(0, effectiveMaxTokens(opts) - reported.usage.output_tokens);
   return reportedUsd + remaining / 1_000_000 * registryEntryFor(opts.model).pricing.outputPerMTok;
 }
 
 function presumedRemainderResult(
   opts: RunPassOptions,
-  snapshot: StreamedUsageSnapshot,
-  priorBilled: readonly BetaMessage[],
+  completed: readonly BetaMessage[],
+  failed: readonly FailedRequestCharge[],
   attempts: number,
   headline: string,
   aborted: boolean,
 ): RunPassResult {
-  const reported = billedMessageFromSnapshot(snapshot, opts);
-  const billedMessages = reported ? [...priorBilled, reported] : [...priorBilled];
+  // The request that was abandoned is the last failed charge, already settled
+  // at its presumed figure; the pass total sums every request's settlement.
+  const reported = failed[failed.length - 1]?.reported ?? null;
+  const accounting = passAccounting(opts, completed, failed);
   const reportedOutputTokens = reported?.usage.output_tokens ?? 0;
   const remainingOutputTokens = Math.max(0, effectiveMaxTokens(opts) - reportedOutputTokens);
   const pricing = registryEntryFor(opts.model).pricing;
-  const priorUsd = priorBilled.reduce((sum, m) => sum + costForMessage(m, opts), 0);
-  const usage = billedMessages.length > 0 ? aggregateUsage(billedMessages) : undefined;
   const attemptNoun = `${attempts} attempt${attempts === 1 ? "" : "s"}`;
   const fallbackExposure = registryEntryFor(opts.model).serverSideFallback !== null || (reported !== null && detectFallbackUsed(reported));
   const searchExposure = boundedWebSearchUses(opts.tools) > 0;
   const detail = fallbackExposure || searchExposure
     ? `${headline}; retained the presumed request maximum, including ${[searchExposure ? "unreported search iterations" : null, fallbackExposure ? "the configured fallback attempt" : null].filter(Boolean).join(" and ")}`
-    :
-    `${headline}; settled ${billedMessages.length > 0 ? "reported usage" : "no reported usage"} ` +
-    `plus a presumed ${remainingOutputTokens.toLocaleString("en-US")} remaining output tokens at $${pricing.outputPerMTok}/MTok`;
+    : reported === null
+      ? `${headline}; retained the presumed request maximum (no usage was reported)`
+      : `${headline}; settled reported usage ` +
+        `plus a presumed ${remainingOutputTokens.toLocaleString("en-US")} remaining output tokens at $${pricing.outputPerMTok}/MTok`;
   return {
     ok: false,
     gap: gapEntry(opts, `LLM pass abandoned after ${attemptNoun}: ${detail}`),
@@ -2083,13 +2356,13 @@ function presumedRemainderResult(
       kind: "transport",
       ...(aborted ? { aborted: true as const } : {}),
       message: `${aborted ? "request aborted by the caller" : "stream idle timeout"} after ${attemptNoun}: ${detail}`,
-      usage,
-      costUsd: priorUsd + abandonedRequestCostUsd(opts, reported),
+      usage: accounting.usage,
+      costUsd: accounting.costUsd,
       presumed: true,
-      fallbackUsed: billedMessages.some(detectFallbackUsed),
-      model: billedMessages[billedMessages.length - 1]?.model || opts.model,
+      fallbackUsed: accounting.fallbackUsed,
+      model: accounting.model || opts.model,
       execution: passExecution(opts),
-      webSearches: billedMessages.reduce((sum, m) => sum + webSearchCount(m), 0),
+      webSearches: accounting.webSearches,
     },
   };
 }
@@ -2097,42 +2370,19 @@ function presumedRemainderResult(
 /** The idle-guard result: {@link presumedRemainderResult} under its own headline. */
 function deadStreamResult(
   opts: RunPassOptions,
-  snapshot: StreamedUsageSnapshot,
+  completed: readonly BetaMessage[],
+  failed: readonly FailedRequestCharge[],
   idleMs: number,
-  priorBilled: readonly BetaMessage[],
   attempts: number,
 ): RunPassResult {
   return presumedRemainderResult(
     opts,
-    snapshot,
-    priorBilled,
+    completed,
+    failed,
     attempts,
     new StreamIdleTimeoutError(idleMs).message,
     false,
   );
-}
-
-/**
- * Settle a request abandoned after generation started — by the idle guard or
- * by the caller's abort — as one admitted request: what it reported, plus the
- * presumed remainder, flagged presumed so `npm run costs:reconcile` can lower
- * it against the provider's reported totals.
- */
-async function settlePresumedRemainder(
-  opts: RunPassOptions,
-  permit: RequestPermit | null,
-  snapshot: StreamedUsageSnapshot,
-): Promise<void> {
-  if (opts.admission === undefined || permit === null) return;
-  const reported = billedMessageFromSnapshot(snapshot, opts);
-  await opts.admission.settle(permit, {
-    ...(reported === null ? {} : { usage: messageUsage(reported) }),
-    costUsd: abandonedRequestCostUsd(opts, reported),
-    model: reported === null ? opts.model : actualModel(reported),
-    webSearches: reported === null ? 0 : webSearchCount(reported),
-    fallbackUsed: reported === null ? false : detectFallbackUsed(reported),
-    presumed: true,
-  });
 }
 
 /**
@@ -2142,11 +2392,13 @@ async function settlePresumedRemainder(
 function admissionRefusedResult(
   opts: RunPassOptions,
   error: unknown,
-  billedMessages: readonly BetaMessage[],
+  completed: readonly BetaMessage[],
   attempts: number,
+  failed: readonly FailedRequestCharge[] = [],
 ): RunPassResult {
   const raw = errorMessageOf(error);
-  const billed = billedMessages.length > 0;
+  const billed = completed.length > 0 || failed.length > 0;
+  const accounting = passAccounting(opts, completed, failed);
   return {
     ok: false,
     gap: gapEntry(opts, `LLM pass stopped at a request boundary: ${raw}`),
@@ -2156,12 +2408,12 @@ function admissionRefusedResult(
       execution: passExecution(opts, billed),
       ...(billed
         ? {
-            usage: aggregateUsage(billedMessages),
-            costUsd: billedMessages.reduce((sum, m) => sum + costForMessage(m, opts), 0),
-            ...(billedMessages.some((m) => billingForMessage(m, opts).presumed) ? { presumed: true } : {}),
-            fallbackUsed: billedMessages.some(detectFallbackUsed),
-            model: billedMessages[billedMessages.length - 1].model || opts.model,
-            webSearches: billedMessages.reduce((sum, m) => sum + webSearchCount(m), 0),
+            usage: accounting.usage,
+            costUsd: accounting.costUsd,
+            ...(accounting.presumed ? { presumed: true } : {}),
+            fallbackUsed: accounting.fallbackUsed,
+            model: accounting.model || opts.model,
+            webSearches: accounting.webSearches,
           }
         : {}),
     },
@@ -2172,18 +2424,13 @@ function admissionRefusedResult(
 function transportFailureResult(
   opts: RunPassOptions,
   err: unknown,
-  billedMessages: readonly BetaMessage[],
+  completed: readonly BetaMessage[],
   attempts: number,
+  failed: readonly FailedRequestCharge[] = [],
 ): RunPassResult {
   const raw = errorMessageOf(err);
-  const billed = billedMessages.length > 0;
-  const usage = billed ? aggregateUsage(billedMessages) : undefined;
-  const costUsd = billed
-    ? billedMessages.reduce((sum, m) => sum + costForMessage(m, opts), 0)
-    : undefined;
-  const webSearches = billed
-    ? billedMessages.reduce((sum, m) => sum + webSearchCount(m), 0)
-    : undefined;
+  const billed = completed.length > 0 || failed.length > 0;
+  const accounting = passAccounting(opts, completed, failed);
   const attemptNoun = `${attempts} attempt${attempts === 1 ? "" : "s"}`;
   return {
     ok: false,
@@ -2196,13 +2443,13 @@ function transportFailureResult(
       // failure that happened to land at the same moment.
       ...(err instanceof APIUserAbortError ? { aborted: true as const } : {}),
       message: `transport failure after ${attemptNoun}: ${raw}`,
-      usage,
-      costUsd,
-      ...(billedMessages.some((m) => billingForMessage(m, opts).presumed) ? { presumed: true } : {}),
-      fallbackUsed: billed ? billedMessages.some(detectFallbackUsed) : undefined,
-      model: billed ? (billedMessages[billedMessages.length - 1].model || opts.model) : undefined,
+      usage: accounting.usage,
+      costUsd: billed ? accounting.costUsd : undefined,
+      ...(accounting.presumed ? { presumed: true } : {}),
+      fallbackUsed: billed ? accounting.fallbackUsed : undefined,
+      model: billed ? (accounting.model || opts.model) : undefined,
       execution: passExecution(opts),
-      webSearches,
+      webSearches: billed ? accounting.webSearches : undefined,
     },
   };
 }
@@ -2241,7 +2488,10 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
   });
 
   const result = (async (): Promise<RunPassResult> => {
-    const billedFailedAttempts: BetaMessage[] = [];
+    // Every message that arrived whole, and every failed request's charge,
+    // across all attempts: the pass result sums what its requests settled.
+    const completed: BetaMessage[] = [];
+    const failed: FailedRequestCharge[] = [];
     // Scaled by effort: a deep-thinking request is legitimately silent for
     // longer than a shallow one, and the guard must not mistake that for a
     // dead provider (see STREAM_IDLE_EFFORT_MULTIPLIER).
@@ -2264,7 +2514,7 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           });
         } catch (error) {
           signalFirst("error");
-          return admissionRefusedResult(opts, error, billedFailedAttempts, attempt);
+          return admissionRefusedResult(opts, error, completed, attempt, failed);
         }
       }
       // Set the instant the request goes out. A permit still held past that
@@ -2277,7 +2527,9 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
         const message = await streamFinalMessage(client, params, opts.signal, idleMs, snapshot, () =>
           signalFirst("streamEvent"),
         );
-        await settleRequest(opts.admission, permit, opts, message, false);
+        await settleRequest(opts.admission, permit, opts, message);
+        // Recorded, or kept unrecorded after its retries (logged there): the
+        // response is interpreted either way and the lease is not released.
         permit = null;
         const { final, billableMessages } = await resumeIfPausedWithUsage(
           client,
@@ -2289,65 +2541,68 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           idleMs,
         );
         signalFirst("end"); // only reachable pre-signal if the stream emitted no events
-        return interpretPassMessages(final, opts, [...billedFailedAttempts, ...billableMessages]);
+        return interpretPassMessages(final, opts, [...completed, ...billableMessages], failed);
       } catch (err) {
         if (err instanceof ResumptionAdmissionError) {
           signalFirst("error");
           return admissionRefusedResult(
-            opts, err.cause, [...billedFailedAttempts, ...err.billableMessages], attempt,
+            opts, err.cause, [...completed, ...err.billableMessages], attempt, failed,
           );
         }
         // A failed resumption has already settled its own permit and carries
         // the attempt's completed messages (incl. the streamed first message,
-        // whose permit settled when it arrived) plus its own usage snapshot;
-        // anything else is this stream's failure, still holding its permit.
+        // whose permit settled when it arrived) plus its own charge; anything
+        // else is this stream's failure, still holding its permit, which the
+        // shared classifier settles (the same rule the resumption used).
         const resumption = err instanceof ResumptionFailedError ? err : null;
         const cause = resumption === null ? err : resumption.cause;
-        const failedSnapshot = resumption === null ? snapshot : resumption.snapshot;
-        if (resumption !== null) billedFailedAttempts.push(...resumption.billableMessages);
+        let charge: FailedRequestCharge | null;
+        if (resumption === null) {
+          const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts));
+          await settleFailedRequest(opts, permit, outcome);
+          permit = null;
+          charge = outcome.kind === "charge" ? outcome.charge : null;
+        } else {
+          completed.push(...resumption.billableMessages);
+          charge = resumption.charge;
+        }
+        if (charge !== null) failed.push(charge);
         if (cause instanceof StreamIdleTimeoutError) {
-          if (resumption === null) {
-            await settlePresumedRemainder(opts, permit, snapshot);
-            permit = null;
-          }
           console.error(
             `[anthropic] ${opts.field ?? "llm.pass"}: ${cause.message}; abandoning the attempt and settling reported usage plus the presumed remainder`,
           );
           signalFirst("error");
-          return deadStreamResult(opts, failedSnapshot, cause.idleMs, billedFailedAttempts, attempt);
+          return deadStreamResult(opts, completed, failed, cause.idleMs, attempt);
         }
-        if (cause instanceof APIUserAbortError && failedSnapshot.usage !== null) {
-          // Aborted after generation started — a cancel, a stage deadline, or
-          // a doomed run abandoning its sibling. The provider bills whatever it
-          // generated up to the disconnect and reports none of it (cumulative
-          // output tokens arrive only in the final message_delta), so the
-          // request settles exactly like a dead stream: reported usage plus
-          // the presumed remainder, flagged presumed (DECISIONS D-09).
-          if (resumption === null) {
-            await settlePresumedRemainder(opts, permit, snapshot);
-            permit = null;
-          }
+        if (cause instanceof APIUserAbortError && charge !== null) {
+          // Aborted after the provider answered — a cancel, a stage deadline,
+          // or a doomed run abandoning its sibling. The provider bills whatever
+          // it generated up to the disconnect and reports none of it
+          // (cumulative output tokens arrive only in the final message_delta),
+          // so the request settles exactly like a dead stream: reported usage
+          // plus the presumed remainder, or the request maximum when no usage
+          // had arrived, flagged presumed (DECISIONS D-09, D-10).
           signalFirst("abort");
+          // An abort after the final message_delta settled the reported usage
+          // as actual (classifier rule 2): the result states the charge, not a
+          // remainder nobody presumed.
+          if (!charge.presumed) return transportFailureResult(opts, cause, completed, attempt, failed);
           return presumedRemainderResult(
             opts,
-            failedSnapshot,
-            billedFailedAttempts,
+            completed,
+            failed,
             attempt,
-            "request aborted by the caller after generation started",
+            charge.reported === null
+              ? "request aborted by the caller after the provider answered"
+              : "request aborted by the caller after generation started",
             true,
           );
-        }
-        if (resumption === null) {
-          const billed = billedMessageFromSnapshot(snapshot, opts);
-          await settleRequest(opts.admission, permit, opts, billed, timedOutAfterSend(cause));
-          permit = null;
-          if (billed) billedFailedAttempts.push(billed);
         }
         if (isRetryableTransportError(cause) && attempt < PASS_TRANSPORT_MAX_ATTEMPTS) {
           // A failure after generation started means Anthropic shed load while
           // already serving the request; re-entering immediately mostly dies
           // again, and the retry re-bills the input either way.
-          const midStream = failedSnapshot.usage !== null || resumption !== null;
+          const midStream = charge?.reported != null || resumption !== null;
           const delays = midStream
             ? PASS_MID_STREAM_RETRY_DELAYS_MS
             : PASS_TRANSPORT_RETRY_DELAYS_MS;
@@ -2369,7 +2624,7 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
             // the side as an anonymous transport failure with no `aborted`
             // flag and none of the usage its earlier attempts billed.
             signalFirst("abort");
-            return transportFailureResult(opts, new APIUserAbortError(), billedFailedAttempts, attempt);
+            return transportFailureResult(opts, new APIUserAbortError(), completed, attempt, failed);
           }
           continue;
         }
@@ -2389,16 +2644,17 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           );
         }
         signalFirst(cause instanceof APIUserAbortError ? "abort" : "error");
-        return transportFailureResult(opts, cause, billedFailedAttempts, attempt);
+        return transportFailureResult(opts, cause, completed, attempt, failed);
       } finally {
         if (permit !== null && opts.admission !== undefined) {
           if (dispatched) {
             // The request went out and its settlement write itself failed
-            // (both the in-line settle and the catch's retry threw — a
-            // writer-lock timeout, say). Releasing here would return money
-            // the provider may already have billed; leaving the reservation
-            // lets it expire into presumed spend that a later measurement or
-            // the reported totals can lower (D-07).
+            // with something other than a retried writer-lock contention
+            // (that case keeps the response and clears the permit above).
+            // Releasing here would return money the provider may already
+            // have billed; leaving the reservation lets it expire into
+            // presumed spend that a later measurement or the reported
+            // totals can lower (D-07).
             console.error(
               `[anthropic] ${opts.field ?? "llm.pass"}: request settlement could not be recorded; ` +
                 "leaving the reservation to be presumed at expiry rather than releasing it",

@@ -424,9 +424,6 @@ const GRADE_ASPECTS = [
 export function reconciliationFields(): string[] {
   return [
     ...GRADE_ASPECTS.map((aspect) => `verdict.gradeStrip.${aspect}.grade`),
-    "valuation.scenarios.bull.probability",
-    "valuation.scenarios.base.probability",
-    "valuation.scenarios.bear.probability",
   ];
 }
 
@@ -437,13 +434,6 @@ function comparableValues(output: JudgeOutput): Map<string, string> {
     values.set(
       `verdict.gradeStrip.${aspect}.grade`,
       block === undefined ? "absent" : block.grade,
-    );
-  }
-  for (const name of ["bull", "base", "bear"] as const) {
-    const scenario = output.valuation.scenarios.find((entry) => entry.name === name);
-    values.set(
-      `valuation.scenarios.${name}.probability`,
-      scenario?.probability == null ? "absent" : scenario.probability.toFixed(2),
     );
   }
   return values;
@@ -474,20 +464,27 @@ export function reconcileJudgeOutputs(
     comparedFields: reconciliationFields(),
     disagreements,
     note: agreed
-      ? `Both judge passes (${oppositeOrder(secondaryOrder)} and ${secondaryOrder}) produced the same section grades and scenario probabilities.`
-      : `The two judge passes differed on ${disagreements.length} of ${left.size} compared field(s); the ${oppositeOrder(secondaryOrder)} pass is the report and the differences are listed here, so the affected grades are known to be order-sensitive.`,
+      ? `Both judge passes (${oppositeOrder(secondaryOrder)} and ${secondaryOrder}) produced the same section grades.`
+      : `The two judge passes differed on ${disagreements.length} of ${GRADE_ASPECTS.length} compared field(s); the ${oppositeOrder(secondaryOrder)} pass is the report and the differences are listed here, so the affected grades are known to be order-sensitive.`,
   };
 }
 
-/** Reconciliation that did not happen, with the reason a reader can act on. */
-export function reconciliationNotPerformed(reason: string): JudgeReconciliation {
+/**
+ * Reconciliation that did not happen, with the reason a reader can act on.
+ * `failed` (the default) is a mirrored request that ran and gave no comparable
+ * output; `skipped` is a mirror deliberately not run, so the lead-in must not
+ * say the request produced anything.
+ */
+export function reconciliationNotPerformed(reason: string, kind: "failed" | "skipped" = "failed"): JudgeReconciliation {
   return {
     performed: false,
     secondaryOrder: null,
     agreed: false,
     comparedFields: reconciliationFields(),
     disagreements: [],
-    note: `The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: ${reason}`,
+    note: kind === "skipped"
+      ? `No order-sensitivity check was made: ${reason}`
+      : `The mirrored judge pass did not produce a comparable output, so no order-sensitivity check was made: ${reason}`,
   };
 }
 

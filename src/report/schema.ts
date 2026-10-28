@@ -690,14 +690,19 @@ export const JudgeOrderDisagreementSchema = z
 /**
  * `THESIS_JUDGE_ORDER=both` reconciliation. RECONCILIATION MEANS: the two judge
  * passes (identical inputs, swapped case order) must agree on every A-F section
- * grade and on each scenario probability to two decimals. Those are the fields
- * a reader acts on and the ones position bias would move. When they disagree,
+ * grade. Scenario probabilities are not compared: the judge's probabilities are
+ * not published (D-52), so a comparison would report agreement on a field it
+ * no longer writes. Grades are the fields a reader acts on and the ones
+ * position bias would move. When they disagree,
  * the PRIMARY pass (the seeded order) is the report — the secondary is never
  * silently averaged in — and every disagreeing field is listed here and in the
  * missing-data manifest, so an order-sensitive grade is disclosed rather than
  * hidden. Prose, reasoning and disagreement lists are NOT compared: two runs of
  * a language model never produce identical prose and demanding it would report
  * a failure on every run.
+ *
+ * `agreed` is meaningful only when `performed` is true; a reconciliation that
+ * was not performed always stores `agreed: false`.
  */
 export const JudgeReconciliationSchema = z
   .object({

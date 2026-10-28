@@ -3917,6 +3917,10 @@ describe("mock-driven bull/bear/judge passes", () => {
       (entry) => entry.field === "llm.judge.order-reconciliation",
     );
     expect(disclosure?.reason).toMatch(/single .* pass/);
+    // AI-108: a deliberate non-run is a skip, not a mirror that "did not produce" an output.
+    expect(report.meta.judgeProtocol?.reconciliation?.note).not.toContain("did not produce");
+    expect(report.meta.judgeProtocol?.reconciliation?.note).toMatch(/^No order-sensitivity check was made: /);
+    expect(disclosure?.reason).not.toContain("did not produce");
   });
 
   it("retries the judge on a zod-invalid output, feeding the error back, then succeeds", async () => {
