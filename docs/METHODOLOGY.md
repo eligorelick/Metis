@@ -3813,6 +3813,8 @@ dated the release, which would have raised a false notice. This is only the part
 notice needs; ordering releases that state no period is left for a later
 batch.
 
+**8-K event excerpts (D-next).** An Item's operative passages keep its dated lead, the parties it names and its amounts and share awards; a passage that refers to a person by honorific and surname, or by a leading pronoun, is kept only together with the sentence that introduces that person (coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`).
+
 **A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
 reaches the analysis passes as a 12,000-character selection read for
 financial families. Southern Co.'s 10-K excerpt stated large-load contracts of
