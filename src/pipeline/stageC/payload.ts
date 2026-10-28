@@ -73,7 +73,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { admittedGeography, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -2014,6 +2014,9 @@ function shortInterestSection(bundle: DataBundle): PayloadSection {
 
 function segmentsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
+  // AI-509 (OD-4): provider geography the issuer's own XBRL contradicts is withheld, with the fixed reason.
+  const geographic = admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
+  const providerKeyNotes: string[] = [];
   const build = (
     res: DataBundle["segmentation"]["product"],
     kind: string,
@@ -2024,6 +2027,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
     const currency = isoCurrency(latest?.reportedCurrency);
     const data = latest?.data;
     if (data && typeof data === "object") {
+      const before = figures.length;
       // Deterministic ordering: sort segment keys alphabetically.
       for (const key of Object.keys(data).sort()) {
         figures.push({
@@ -2036,14 +2040,22 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
           ...(kind === "geographic" && selectedGeographyNotes(res).length > 0 ? { period: asOf } : {}),
         });
       }
+      // Fixed text: no provider key reaches a note.
+      if (figures.length > before && !(res.ok && res.value.source === "edgar")) {
+        providerKeyNotes.push(`${kind === "product" ? "Product" : "Geographic"} keys are FMP's normalised names, not read from the filing's XBRL; FMP's assignment of revenue to them is not checked against the filing.`);
+      }
     }
   };
   build(bundle.segmentation.product, "product");
-  build(bundle.segmentation.geographic, "geographic");
+  build(geographic, "geographic");
   return payloadSection({
-    title: "Revenue segmentation (as-reported keys — never hard-coded)",
+    title: "Revenue segmentation (keys as each source names them — never hard-coded)",
     figures,
-    notes: selectedGeographyNotes(bundle.segmentation.geographic),
+    notes: [
+      ...selectedGeographyNotes(geographic),
+      ...providerKeyNotes,
+      ...(bundle.segmentation.geographic.ok && !geographic.ok ? [geographic.gap.reason] : []),
+    ],
   });
 }
 

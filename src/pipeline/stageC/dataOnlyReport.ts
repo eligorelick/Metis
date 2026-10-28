@@ -52,6 +52,7 @@ import { establishedCurrency } from "@/report/format";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { admittedGeography } from "@/edgar/segmentFacts";
 import {
   applyDcfDisplay,
   applyFairValue,
@@ -782,7 +783,7 @@ function businessSection(stub: Report["business"], bundle: DataBundle): Report["
     ...stub,
     segments: {
       product: segmentRows(bundle.segmentation.product, "fmp:revenue-product-segmentation"),
-      geographic: segmentRows(bundle.segmentation.geographic, "fmp:revenue-geographic-segmentation"),
+      geographic: segmentRows(admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments), "fmp:revenue-geographic-segmentation"),
     },
   };
 }

@@ -3309,6 +3309,19 @@ sales were shown as parts of service sales. Members renamed between filings are
 still not joined (D-63), so an annual-only member can leave a fourth-quarter
 cell blank.
 
+**Provider geography (audit 2026-10-27 AI-509, D-next).** FMP's annual
+"geographic" rows are company geography only when the issuer's own XBRL in the
+same run does not contradict them. They are withheld when a key names one of the
+issuer's reportable business segments (segment revenue is not entity-wide
+geographic revenue, ASC 280-10-55-21). They are also withheld when the issuer
+tags its own geographic revenue and a provider region name is not one of the
+issuer's geographic labels; the quarterly segment section then carries the
+issuer's geography under its own labels. Otherwise they are shown as FMP's
+normalised names, not checked against the filing, and the section is titled
+"keys as each source names them", not "as-reported". The reason is a data gap in
+the report (`validation.providerGeography`). SEC-parsed geography (D-80) is
+unchanged.
+
 Segment growth uses the same windows as the consolidated trend: quarter over
 quarter only against the quarter ending 80-100 days earlier, year over year
 only against the one ending 350-380 days earlier (a 14-week quarter and a

@@ -21,6 +21,9 @@
  * Pure: no network, no clock.
  */
 
+import type { FetchResult } from "@/types/core";
+import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
+
 export const SEGMENT_AXES: Readonly<Record<string, string>> = {
   "srt:ProductOrServiceAxis": "Product / market platform",
   "us-gaap:StatementBusinessSegmentsAxis": "Reportable segment",
@@ -326,6 +329,50 @@ export interface QuarterlySegmentRevenue {
   notes: string[];
   /** Filings read, newest first. */
   filings: { accession: string; form: string; filingDate: string; concept: string | null }[];
+}
+
+/**
+ * AI-509 (OD-4, D-80): provider "geographic" rows are company geography only
+ * when the issuer's own XBRL in the same bundle does not contradict them.
+ * Type-only imports above: this module stays free of runtime imports so Stage A
+ * and the stored-report view can use it.
+ */
+export type GeographyContradiction = "business-segments" | "issuer-geography";
+export interface SegmentAxisEvidence { axis: string; rows: readonly { label: string; member?: string }[] }
+
+export const PROVIDER_GEOGRAPHY_REASONS: Readonly<Record<GeographyContradiction, string>> = {
+  "business-segments": "Provider (FMP) geographic rows withheld as company geography: they name the issuer's reportable business segments (XBRL us-gaap:StatementBusinessSegmentsAxis), and segment revenue is not entity-wide geographic revenue (D-80).",
+  "issuer-geography": "Provider (FMP) geographic rows withheld as company geography: the issuer tags its own geographic revenue (XBRL srt:StatementGeographicalAxis), and at least one provider region name is not one of the issuer's geographic labels; the issuer's rows are in \"Segment revenue by quarter (10-Q/10-K XBRL)\" under its own labels (D-80).",
+};
+
+const norm = (s: string): string => s.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/segments?$/, "");
+const memberName = (m: string): string => (m.split(":").at(-1) ?? m).replace(/Member$/, "");
+const RESIDUAL = /^(?:other|others|allother|othercountries|corporate|corporateandother|elimination|eliminations|unallocated|total)$/;
+const names = (a: SegmentAxisEvidence): string[] =>
+  a.rows.flatMap((r) => [norm(r.label), ...(r.member ? [norm(memberName(r.member))] : [])]).filter((n) => n !== "");
+
+export function providerGeographyContradiction(keys: readonly string[], axes: readonly SegmentAxisEvidence[]): GeographyContradiction | null {
+  const segments = new Set(axes.filter((a) => a.axis === "us-gaap:StatementBusinessSegmentsAxis").flatMap(names).filter((n) => !RESIDUAL.test(n)));
+  if (keys.some((k) => { const n = norm(k); return n !== "" && !RESIDUAL.test(n) && segments.has(n); })) return "business-segments";
+  const geographic = axes.filter((a) => a.axis === "srt:StatementGeographicalAxis" && a.rows.length > 0);
+  if (geographic.length > 0) {
+    const issuer = new Set(geographic.flatMap(names));                 // exact normalised names; no gazetteer (OD-4 (d))
+    if (keys.some((k) => !issuer.has(norm(k)))) return "issuer-geography";   // one name the issuer does not use withholds the set
+  }
+  return null;
+}
+
+/** The provider's geographic rows, or the gap that withholds them (SEC-parsed rows, source "edgar", are never withheld). */
+export function admittedGeography(
+  geographic: FetchResult<FmpPayload<FmpSegmentationRow>>,
+  quarterlySegments?: FetchResult<QuarterlySegmentRevenue>,
+): FetchResult<FmpPayload<FmpSegmentationRow>> {
+  if (!geographic.ok || geographic.value.source === "edgar") return geographic;
+  const data = geographic.value.data.rows[0]?.data;
+  const keys = data !== undefined && data !== null && typeof data === "object" ? Object.keys(data) : [];
+  const why = providerGeographyContradiction(keys, quarterlySegments?.ok ? quarterlySegments.value.data.axes : []);
+  return why === null ? geographic
+    : { ok: false, gap: { field: "segmentation.geographic", reason: PROVIDER_GEOGRAPHY_REASONS[why], severity: "info" } };
 }
 
 /**

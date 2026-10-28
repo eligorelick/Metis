@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { PROVIDER_GEOGRAPHY_REASONS } from "@/edgar/segmentFacts";
 import {
   IDENTITY_TOLERANCE_PCT,
   IMPLAUSIBLE_ZERO_FIELDS,
@@ -1068,5 +1069,20 @@ describe("staleness — foreign private issuers file 20-F/6-K, not 10-Q (audit 2
     expect(report.checks.find((x) => x.id === "staleness.fundamentals")?.status).toBe("fail");
     expect(report.flags.some((f) => /semi-annual filing cycle/.test(f))).toBe(true);
     expect(report.gaps.some((g) => g.field === "validation.staleness.fundamentals")).toBe(true);
+  });
+});
+
+describe("provider geography scope gap (AI-509)", () => {
+  it("records an info gap when provider geography names the issuer's reportable segments (AI-509)", () => {
+    const base = makeBundle();
+    const geographic = ok({ rows: [{ date: "2025-12-31", reportedCurrency: "USD", data: { "North Region Segment": 6e9, "Rest of World Segment": 3e9 } }], raw: [] }, "2025-12-31", { source: "fmp" });
+    const quarterlySegments = ok({ quarters: [{ start: "2025-10-01", end: "2025-12-31" }], total: [2e9], currency: "USD", notes: [], filings: [],
+      axes: [{ axis: "us-gaap:StatementBusinessSegmentsAxis", axisLabel: "Reportable segment", currency: "USD", quarters: [{ start: "2025-10-01", end: "2025-12-31" }],
+        rows: [{ member: "x:NorthRegionSegmentMember", label: "North Region", values: [1e9], childOf: null }, { member: "x:RestOfWorldSegmentMember", label: "Rest of World", values: [1e9], childOf: null }],
+        total: [2e9], priorPresentation: [], derivedCells: 0, residualCells: 0 }] }, "2025-12-31", { source: "edgar" });
+    const withGeo = validateBundle({ ...base, segmentation: { geographic }, edgar: { ...base.edgar, quarterlySegments } } as ValidatableBundle, { now: NOW });
+    expect(withGeo.gaps).toContainEqual(expect.objectContaining({ field: "validation.providerGeography", severity: "info", reason: PROVIDER_GEOGRAPHY_REASONS["business-segments"] }));
+    expect(withGeo.checks).toEqual(validateBundle(base, { now: NOW }).checks);                                   // a gap, never a new check
+    expect(validateBundle(base, { now: NOW }).gaps.some((g) => g.field === "validation.providerGeography")).toBe(false);   // control
   });
 });

@@ -715,7 +715,15 @@ describe("payload determinism + provenance", () => {
       ["fcf-conversion-latest-fiscal-year-before-sbc", "fcf-conversion-latest-before-sbc-the-graded-ratio"],
     ];
     const restoreB3Text = (text: string): string => b3Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported, and two fixed notes say
+    // whose names they are. This fixture's product and geographic rows are FMP rows with no XBRL axis to contradict them.
+    const b8dRestorations: [string, string][] = [
+      ["Revenue segmentation (keys as each source names them — never hard-coded)", "Revenue segmentation (as-reported keys — never hard-coded)"],
+    ];
+    const restoreB8dText = (text: string): string => b8dRestorations.reduce((out, [now, before]) => out.split(now).join(before), text);
+    const isProviderKeyNote = (item: unknown): boolean => typeof item === "string" && / keys are FMP's normalised names, not read from the filing's XBRL; /.test(item);
     const registryJson = JSON.stringify(payload.provenanceRegistry ?? []);
+    expect(b8dRestorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([0]);
     expect(b3Restorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([1, 1]);
     expect([registryJson.split(b4Restorations[0]![0]).length - 1, registryJson.split(b4Restorations[1]![0]).length - 1]).toEqual([1, 1]);
     const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB3Text(restoreB4Text(registryJson)).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(record => {
@@ -761,11 +769,14 @@ describe("payload determinism + provenance", () => {
     // The label: the figure, its provenance record (the payload embeds its registry) and the graded-window note that quotes it
     // (dropped below, so it is never restored). The slug: the figure's and the record's id.
     expect(b3Restorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([3, 2]);
+    // The title is printed once (the segments section); the two provider-key notes (product, geographic) are dropped below.
+    expect(b8dRestorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([1]);
+    expect(payloadJson.split(" keys are FMP's normalised names, not read from the filing's XBRL; ").length - 1).toBe(2);
     // Two each: the figure itself and its provenance record (the payload embeds its registry).
     expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item))
-        : typeof leaf === "string" ? restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/"))) : leaf)) as typeof payload;
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item))
+        : typeof leaf === "string" ? restoreB8dText(restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")))) : leaf)) as typeof payload;
     // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
     // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
     expect(precedingPayload.peers.figures.map((figure) => [figure.label, figure.currency])).toEqual([["MSFT — Microsoft", null], ["GOOGL — Alphabet", null]]);
@@ -1167,8 +1178,13 @@ describe("payload determinism + provenance", () => {
       // (provenanceHash, provenanceIdsHash, computedFigureLabelHash); the fixture's balance-sheet aspect grades
       // fcfConversionBeforeSbc, so the section gains one note (+249 bytes with the shorter label). Count,
       // citations and financeHash do not move. Restored by b3Restorations in the preceding-pin chain above.
-      fingerprint: "1.48.0:eabc7261",
-      promptBytes: 143_527,
+      // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported. The section
+      // title reads "keys as each source names them" and two fixed notes (product, geographic) say the keys are
+      // FMP's normalised names (+340 bytes). The fixture's rows are FMP rows with no XBRL axis to contradict them,
+      // so nothing is withheld; no record, count, citation or finance leaf moves, only fingerprint and promptBytes.
+      // Restored by b8dRestorations and isProviderKeyNote in the preceding-pin chain above.
+      fingerprint: "1.48.0:78ca6362",
+      promptBytes: 143_867,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
