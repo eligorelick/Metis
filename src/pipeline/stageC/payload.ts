@@ -2211,10 +2211,32 @@ export function riskFactorBudget(sourceChars: number): number {
     Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
 }
 
+/** Printed in place of a release's fiscal label that the run's statement rows contradict. It holds no digit and no "year" or "quarter" word, so no title reader takes a period or window from it. */
+const FISCAL_LABEL_WITHHELD = " [issuer fiscal label withheld: the release and the statement rows disagree]";
+
+/**
+ * AI-512: an annual or quarterly income-statement row ending within three days
+ * of `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
+ * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
+ * quarter. An annual row's "FY2025" agrees with a release's "Q4 FY2025".
+ */
+function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
+  const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
+  const day = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
+  for (const row of [...rowsOf(bundle.statements.incomeAnnual), ...rowsOf(bundle.statements.incomeQuarterly)]) {
+    const end = isoDay(row.date);
+    const own = issuerFiscalLabel(row);
+    if (end === null || !isIsoDate(end) || own === null || Math.abs(day(end) - day(periodEnd)) > 3 * 86_400_000) continue;
+    if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
+  }
+  return false;
+}
+
 /**
  * D-66: the fiscal label an earnings release gives the quarter ending on (or
  * within three days of) `periodEnd`; an annual filing takes that quarter's
  * fiscal year. Null when no release reports that period.
+ * Audit 2026-10-27 AI-512: a release label the run's own statement rows contradict is withheld, not replaced; a stale label in a stored parse made by an earlier parser is caught here, where it is read.
  */
 function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): string | null {
   const res = bundle.edgar?.currentReports;
@@ -2223,7 +2245,7 @@ function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): str
   const release = res.value.data.releases.find((r) => r.reported.periodEnd !== null && isIsoDate(r.reported.periodEnd) &&
     Math.abs(day(r.reported.periodEnd) - day(periodEnd)) <= 3 * 86_400_000 && r.reported.fiscal !== null);
   const label = release?.reported.fiscal?.label ?? null;
-  if (label === null) return null;
+  if (label === null || (release !== undefined && releaseFiscalLabelContradicted(bundle, label, release.reported.periodEnd as string))) return null;
   if (form === "10-K" || form === "20-F") return /^Q4\s+(FY\d{4})$/.exec(label)?.[1] ?? null;
   return /^Q[1-3]\s+FY\d{4}$/.test(label) ? label : null;
 }
@@ -2393,9 +2415,13 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   if (latest !== undefined) {
     // D-63: the quarter end is stated too, so a figure the narrative gives
     // without restating its period is read as that quarter's (claimEvidence).
-    const fiscal = latest.reported.fiscal?.label ?? null;
+    const stated = latest.reported.fiscal?.label ?? null;
     const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
-    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
+    // AI-512: a label the statement rows for that quarter end contradict is withheld from the title.
+    const withheld = stated !== null && periodEnd !== null && releaseFiscalLabelContradicted(bundle, stated, periodEnd);
+    const fiscal = withheld ? null : stated;
+    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}`
+      : withheld ? `quarter ended ${periodEnd}${FISCAL_LABEL_WITHHELD}` : fiscal ?? periodEnd ?? "latest quarter";
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
     const primaryRelease = latest.releaseExhibit === null && latest.releaseUrl !== null;
     narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);

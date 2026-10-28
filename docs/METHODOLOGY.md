@@ -3884,6 +3884,8 @@ with their filings and dates.
 
 **An older 10-Q (audit 2026-10-27 AI-507, D-next).** Between an issuer's 10-K and its next 10-Q, the newest 10-Q reports an earlier period than the 10-K. The 10-Q MD&A, notes and Item 5 (other information) excerpts are then titled "[older than the 10-K for the period ended <date>]" (the Item 4 controls and signatures excerpts carry no such marker), and the analysis rules prefer whichever notes excerpt reports the later period, not the 10-Q by default. The marker compares reporting periods, never filing dates, and an equal period end is not older. The 10-K's own Item 9B is not read, so the 10-Q's Item 5 stays the dated source for trading arrangements.
 
+**A release's fiscal label (audit 2026-10-27 AI-512, D-next).** An excerpt title takes a quarter's fiscal label from the earnings release only when no income-statement row the run holds for the same quarter end (within three days) gives that date another fiscal year or quarter. Otherwise the title states the quarter-end date and that the label was withheld. A claim naming the label then stays unchecked, while a figure stated with no period still takes the date (D-63). The same check applies when a stored run input is replayed, so a stale label in a release parse made by an earlier parser is withheld too. The guidance rows' own fiscal labels are not checked this way yet.
+
 ### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
 
 The independent audit of 2026-10-22 found figures withheld although the filed
