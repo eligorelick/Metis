@@ -490,6 +490,8 @@ export type ChainSpec =
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
+        /** Filed for the period but not usable on this row (another currency or period), with why (B13 final review M-3). */
+        unusable: { label: string; problem: string }[];
         alreadyInside: string[];
         /** Skipped because the base tag that served excludes them by definition. */
         notInBase: string[];
@@ -878,6 +880,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
 function describeDerivedEbit(ctx: {
   subtracted: string[];
   unavailable: string[];
+  unusable: { label: string; problem: string }[];
   alreadyInside: string[];
   notInBase: string[];
   parts: { label: string; tags: string[] }[];
@@ -890,9 +893,11 @@ function describeDerivedEbit(ctx: {
   const head = `EBIT derived as ${named}: the filer reports no OperatingIncomeLoss line`;
   const parts: string[] = [];
   const withAmount = (label: string): string => (ctx.amounts[label] === undefined ? label : `${label} (${ctx.amounts[label]})`);
-  // Components of the aggregate the filer tags stand in for it when it is not filed (audit 2026-10-27 FIN-509).
+  // Components of the aggregate the filer tags stand in for it when it is not filed, or is filed on another basis
+  // than the row (audit 2026-10-27 FIN-509; B13 final review M-3).
   const aggregate = "NonoperatingIncomeExpense";
-  const standInComponents = ctx.unavailable.includes(aggregate)
+  const aggregateProblem = ctx.unusable.find((u) => u.label === aggregate)?.problem;
+  const standInComponents = ctx.unavailable.includes(aggregate) || aggregateProblem !== undefined
     ? ctx.subtracted.filter((label) => EBIT_NON_OPERATING_ADJUSTMENTS.some((a) => a.label === label && a.componentOf === aggregate))
     : [];
   if (ctx.subtracted.length > 0) {
@@ -900,7 +905,7 @@ function describeDerivedEbit(ctx: {
   }
   if (standInComponents.length > 0) {
     parts.push(
-      `the ${aggregate} aggregate is not filed; its components the filer tags were subtracted instead (${standInComponents.map(withAmount).join(", ")}); any untagged non-operating item stays inside the figure`,
+      `the ${aggregate} aggregate ${aggregateProblem === undefined ? "is not filed" : `${aggregateProblem}, so it is not used`}; its components the filer tags were subtracted instead (${standInComponents.map(withAmount).join(", ")}); any untagged non-operating item stays inside the figure`,
     );
   }
   if (ctx.alreadyInside.length > 0) {
@@ -934,7 +939,11 @@ function describeDerivedEbit(ctx: {
     parts.push(
       `error band — the filer tags none of ${errorBand.join(", ")} for this period, so any such item stays inside the figure`,
     );
-  } else if (ctx.subtracted.length === 0) {
+  }
+  // A filed item that cannot be used on this row is named with why: it is not subtracted, so it stays inside (M-3).
+  const unusableBand = standInComponents.length > 0 ? ctx.unusable.filter((u) => u.label !== aggregate) : ctx.unusable;
+  for (const u of unusableBand) parts.push(`error band — ${u.label} ${u.problem}, so it is not subtracted and stays inside the figure`);
+  if (errorBand.length === 0 && unusableBand.length === 0 && ctx.subtracted.length === 0) {
     parts.push("no non-operating tag was filed for this period, so any such item stays inside the figure");
   }
   return `${head}; ${parts.join("; ")}`;
@@ -1864,23 +1873,62 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "sumAll": {
       const present: Resolved[] = [];
       const partTags: { label: string; tags: string[] }[] = [];
-      // A part that may be absent, with the mismatch (currency, period) that made it unusable when it IS filed.
-      const deferred: { part: (typeof spec.parts)[number]; problem?: { text: string; kind: "currency" | "period" | "unit" } }[] = [];
+      // A part that may be absent, with the mismatch (currency, period) that made it unusable when it IS filed, or
+      // the nesting disclosure of a refused part the derivation leaves out (`nested`, B13 final review I-1).
+      const deferred: { part: (typeof spec.parts)[number]; problem?: { text: string; kind: "currency" | "period" | "unit" }; nested?: string }[] = [];
       const field = at?.field ?? label;
       const triedTags = (part: ChainSpec): string => {
         const tried = new Set<string>();
         collectTags(part, tried);
         return [...tried].join(", ");
       };
+      /** A probe that writes nothing and leaves no presentation refusal behind; `refused` says whether it ran into one. */
+      const probe = (tag: string, magnitudeOnly?: true): { r: Resolved | null; refused: boolean } => {
+        const before = notes.presentationRefusals.length;
+        const r = notes.quietly(() => resolve(tag, spec.unit, undefined, magnitudeOnly));
+        const refused = r === null && notes.presentationRefusals.length > before;
+        notes.presentationRefusals.length = before;
+        return { r, refused };
+      };
+      /**
+       * A refused optional part that the B-39/FIN-508 nesting leaves out of the sum is no operand of the derivation:
+       * the aggregate serves, and the refused tag is the nesting tag or another filing tags the period's interest as it.
+       * Returns the nesting disclosure in that case, else null (the refusal then refuses the field, ruling F1).
+       */
+      const nestedInsideServedAggregate = (part: (typeof spec.parts)[number], refusedTags: readonly string[]): string | null => {
+        const aggregateTag = part.optionalWhenAdjustment?.adjustmentTag;
+        const rule = (spec.notAddedWhen ?? []).find((n) => n.partLabel === part.label && n.adjustmentTag === aggregateTag);
+        const aggregate = spec.minusAny?.find((a) => aggregateTag !== undefined && a.tags.includes(aggregateTag));
+        if (rule === undefined || aggregate === undefined || present.length === 0) return null;
+        // The same test as the adjustment pass below, run ahead of it and quietly, so a refusal that stands keeps its
+        // F1 reason and notes exactly.
+        const served = aggregate.tags.some((tag) => {
+          const { r } = probe(tag);
+          return r !== null && r.unit === present[0]!.unit && r.tags.includes(rule.adjustmentTag);
+        });
+        if (!served) return null;
+        if (refusedTags.includes(rule.partTag)) return rule.disclose;
+        if (rule.discloseRefiled === undefined) return null;
+        const { r: child } = probe(rule.partTag, true); // magnitude-only, as the FIN-508 probe below (F2)
+        return child !== null && child.unit === present[0]!.unit ? rule.discloseRefiled : null;
+      };
       for (const part of spec.parts) {
         const refusalsBefore = notes.refusals.length;
         const attemptsBefore = notes.withholdAttempts.length;
         const presentationBefore = notes.presentationRefusals.length;
         // An optional part is probed quietly first: if it turns out unusable and the aggregate serves, the
-        // mismatch withholding it would have written must not stand beside the published value.
+        // mismatch withholding it would have written must not stand beside the published value. The probe also
+        // records which tags it found withheld for presentation.
         const optional = part.optionalWhenAdjustment !== undefined;
+        const refusedTags: string[] = [];
+        const tracking: TagResolver = (tag, kind, currency, magnitudeArg) => {
+          const before = notes.presentationRefusals.length;
+          const found = resolve(tag, kind, currency, magnitudeArg);
+          if (found === null && notes.presentationRefusals.length > before) refusedTags.push(tag);
+          return found;
+        };
         let r = optional
-          ? notes.quietly(() => resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`))
+          ? notes.quietly(() => resolveSpec(part.spec, tracking, notes, `${label} (${part.label})`))
           : resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
         if (optional && r !== null && (present.length === 0 || present[0]!.unit === r.unit)) {
           r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`); // served: its notes belong to the field
@@ -1895,11 +1943,18 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         }
         if (r === null) {
           if (optional && notes.presentationRefusals.length > presentationBefore) {
+            const refusal = notes.presentationRefusals[notes.presentationRefusals.length - 1];
+            // Interest the derivation would not add back anyway (B-39/FIN-508) is no operand: its refusal does not
+            // refuse the field, and the nesting disclosure says why it is left out (B13 final review I-1).
+            const nested = nestedInsideServedAggregate(part, refusedTags);
+            if (nested !== null) {
+              notes.presentationRefusals.length = presentationBefore;
+              deferred.push({ part, nested });
+              continue;
+            }
             // A refused optional part is not an absent one: dropping it would publish a figure that still holds
             // it, with a disclosure that says the filer files none (FIN-511 F1).
-            notes.refusePresentation(
-              `${field} not derived: ${part.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
-            );
+            notes.refusePresentation(`${field} not derived: ${part.label} for the period is withheld (${refusal})`);
             return null;
           }
           const mismatch = notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t));
@@ -1931,18 +1986,59 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       // named as the error band on the result.
       const subtracted: string[] = [];
       const unavailable: string[] = [];
+      const unusable: { label: string; problem: string }[] = [];
       const alreadyInside: string[] = [];
       const notInBase: string[] = [];
       const notAdded: string[] = [];
       const amounts: Record<string, number> = {};
       if (spec.minusAny !== undefined) {
         const resolvedByLabel = new Map<string, Resolved>();
+        // Adjustments filed for the period that cannot be used on this row: beside the reason they are left out
+        // whatever they hold (`filedUnused`), or, for one that would be subtracted, the mismatch the error band names.
+        const filedUnused = new Set<string>();
+        const unusableByLabel = new Map<string, string>();
+        // An adjustment the derivation never subtracts, whatever it holds: it sits inside an aggregate that served for
+        // the period, or the base tag that served excludes it by definition (B13 final review I-1). The aggregate is
+        // listed before its components (EBIT_NON_OPERATING_ADJUSTMENTS), so it has been resolved by then.
+        const unusedBecause = (adjustment: (typeof spec.minusAny)[number]): "inside" | "notInBase" | null =>
+          adjustment.componentOf !== undefined && resolvedByLabel.has(adjustment.componentOf)
+            ? "inside"
+            : adjustment.notWhenBaseTag?.some((tag) => servedByPart.has(tag)) === true
+              ? "notInBase"
+              : null;
         for (const adjustment of spec.minusAny) {
+          const unused = unusedBecause(adjustment) !== null;
           // Resolve LAZILY: a TagResolver has note side effects (a derived
           // quarter that cannot be built adds a "not derived" note), so
           // resolving every synonym of an adjustment and then discarding all
           // but the first hit put notes on the row about tags nothing used.
           for (const tag of adjustment.tags) {
+            const attemptsBefore = notes.withholdAttempts.length;
+            // Probed quietly first: a currency or period mismatch never becomes a withholding beside a derived
+            // figure, and an unused adjustment is resolved for its disclosure only (B13 final review I-1, M-3).
+            const { r: found, refused } = probe(tag);
+            const mismatch = found === null ? notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t)) : undefined;
+            const usable = found !== null && found.unit === present[0]!.unit;
+            if (unused) {
+              // Resolved for its disclosure only: nothing it ran into (a presentation refusal, a mismatch) refuses or
+              // withholds the field.
+              if (usable) resolvedByLabel.set(adjustment.label, found);
+              else if (found === null && !refused && mismatch === undefined) continue; // not filed: the next tag
+              else filedUnused.add(adjustment.label);
+              break;
+            }
+            if (mismatch !== undefined && !refused) {
+              // Filed in another currency or for another period than the row: not subtracted, and the error band
+              // says why, where an unmuted resolution would have withheld a component of a published figure (M-3).
+              unusableByLabel.set(
+                adjustment.label,
+                mismatch.startsWith("mixed_unit")
+                  ? "is filed in another currency than the row's reporting currency (no conversion is made)"
+                  : "is filed for a different period than the row",
+              );
+              break;
+            }
+            // Otherwise resolved unmuted, as before the probe: its notes and refusal belong to the field.
             const presentationBefore = notes.presentationRefusals.length;
             const r = resolve(tag, spec.unit);
             if (r === null && notes.presentationRefusals.length > presentationBefore) {
@@ -1962,7 +2058,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         // A part that may be absent beside a filed aggregate (audit 2026-10-27
         // FIN-507): skipped and disclosed when that aggregate served, else the
         // derivation is refused with the missing operand named.
-        for (const { part, problem } of deferred) {
+        for (const { part, problem, nested } of deferred) {
+          if (nested !== undefined) {
+            notAdded.push(nested); // a refused part the nesting leaves out (I-1); the aggregate served
+            continue;
+          }
           const rule = part.optionalWhenAdjustment!;
           if ([...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag))) {
             notAdded.push(
@@ -2016,16 +2116,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         });
         for (const adjustment of spec.minusAny) {
           const hit = resolvedByLabel.get(adjustment.label);
+          const unused = unusedBecause(adjustment);
+          // An unused adjustment the filer files (served, refused or mismatched) is named for why it is left out.
+          if (unused !== null && (hit !== undefined || filedUnused.has(adjustment.label))) {
+            (unused === "inside" ? alreadyInside : notInBase).push(adjustment.label);
+            continue;
+          }
           if (hit === undefined) {
-            unavailable.push(adjustment.label);
-            continue;
-          }
-          if (adjustment.componentOf !== undefined && resolvedByLabel.has(adjustment.componentOf)) {
-            alreadyInside.push(adjustment.label);
-            continue;
-          }
-          if (adjustment.notWhenBaseTag?.some((tag) => servedByPart.has(tag)) === true) {
-            notInBase.push(adjustment.label);
+            const problem = unusableByLabel.get(adjustment.label);
+            if (problem === undefined) unavailable.push(adjustment.label);
+            else unusable.push({ label: adjustment.label, problem });
             continue;
           }
           total -= hit.value;
@@ -2036,7 +2136,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       }
       const combined = combine(tidy(total, MONEY_DECIMALS), present);
       if (spec.discloseAdjusted !== undefined) {
-        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded, amounts });
+        const text = spec.discloseAdjusted({ subtracted, unavailable, unusable, alreadyInside, notInBase, parts: partTags, notAdded, amounts });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
         return combined;

@@ -825,6 +825,141 @@ describe("fix round 2 F5: a withheld anchor row omission says why", () => {
 // ---------------------------------------------------------------------------
 // B13 final review (whole-branch review of d6f4300): I-1, M-3, M-4, M-5, M-6.
 // ---------------------------------------------------------------------------
+const FV = {
+  k24: { filed: "2025-02-12", form: "10-K", fp: "FY", fy: 2024, accn: "0000000006-25-000001" } as Filing,
+  q125: { filed: "2025-05-01", form: "10-Q", fp: "Q1", fy: 2025, accn: "0000000006-25-000011" } as Filing,
+  q225: { filed: "2025-08-01", form: "10-Q", fp: "Q2", fy: 2025, accn: "0000000006-25-000012" } as Filing,
+  q325: { filed: "2025-10-30", form: "10-Q", fp: "Q3", fy: 2025, accn: "0000000006-25-000013" } as Filing,
+  k25: { filed: "2026-02-12", form: "10-K", fp: "FY", fy: 2025, accn: "0000000006-26-000001" } as Filing,
+};
+const FV_QUARTERS: [Filing, string, string][] = [[FV.q125, "2025-01-01", "2025-03-31"], [FV.q225, "2025-04-01", "2025-06-30"], [FV.q325, "2025-07-01", "2025-09-30"]];
+/**
+ * A flow of `q` a quarter in 2025. FY2024 is first reported as `fy24` and re-filed by the FY2025 10-K as `fy24Refiled`:
+ * a re-filing beyond 1% means that 10-K re-presented the concept and the Q3 10-Q did not, so rule (b) withholds Q4 2025.
+ */
+const fvFlow = (q: number, fy24: number, fy24Refiled = fy24): unknown[] => [
+  pt(FV.k24, ...FY24, fy24), pt(FV.k25, ...FY24, fy24Refiled), pt(FV.k25, "2025-01-01", "2025-12-31", 4 * q),
+  ...FV_QUARTERS.map(([f, s, e]) => pt(f, s, e, q)),
+  pt(FV.q225, "2025-01-01", "2025-06-30", 2 * q), pt(FV.q325, "2025-01-01", "2025-09-30", 3 * q),
+];
+/** No OperatingIncomeLoss; pretax 150 a quarter and (with `aggregate`) NonoperatingIncomeExpense -20, both clean. */
+const unusedOperandFacts = (extra: Record<string, unknown[]>, aggregate = true, pretaxTag = PRETAX): Record<string, unknown[]> => ({
+  Revenues: fvFlow(1_000 * M, 3_800 * M),
+  NetIncomeLoss: fvFlow(100 * M, 380 * M),
+  [pretaxTag]: fvFlow(150 * M, 560 * M),
+  ...(aggregate ? { NonoperatingIncomeExpense: fvFlow(-20 * M, -80 * M) } : {}),
+  Assets: [...FV_QUARTERS.map(([f, , e]) => inst(f, e, 9_000 * M)), inst(FV.k25, "2025-12-31", 9_000 * M), inst(FV.k24, "2024-12-31", 9_000 * M)],
+  ...extra,
+});
+/** Builds with every tag in USD except those listed in `eur`. */
+const fvBuild = (usGaap: Record<string, unknown[]>, eur: readonly string[] = []) =>
+  buildStatementsFromCompanyFacts(
+    {
+      cik: 99,
+      entityName: "Synthetic Co",
+      facts: { "us-gaap": Object.fromEntries(Object.entries(usGaap).map(([t, p]) => [t, { label: t, units: eur.includes(t) ? { EUR: p } : { USD: p } }])), dei: {} },
+    } as never,
+    { symbol: "SYN", cik: "0000000099", annualPeriods: 4, quarterlyPeriods: 8, asOf: "2026-03-01", factsObservedAt: "2026-03-01T00:00:00.000Z", vendorSplits: SPLITS as never },
+  );
+const Q4_25 = "2025-12-31";
+const FV_QUARTER_ENDS = ["2025-03-31", "2025-06-30", "2025-09-30", Q4_25];
+const fvRow = (b: ReturnType<typeof fvBuild>) => b.incomeQuarterly.rows.find((r) => r.date === Q4_25);
+const ebitWithheld = (b: ReturnType<typeof fvBuild>, period = Q4_25) =>
+  b.incomeQuarterly.withheld.filter((w) => (w.field === "operatingIncome" || w.field === "ebit") && w.periods.includes(period));
+const ebitText = (b: ReturnType<typeof fvBuild>) =>
+  b.incomeQuarterly.substitutions.filter((s) => s.field === "operatingIncome" && s.periods.includes(Q4_25)).map((s) => s.text).join(" ");
+const EQUITY_METHOD = "IncomeLossFromEquityMethodInvestments";
+const PRETAX_BEFORE_EQUITY = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments";
+
+describe("B13 final review I-1: an operand the derived EBIT does not use never withholds it", () => {
+  it("a re-presented OtherNonoperatingIncomeExpense inside a served aggregate: EBIT 170M, published", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M, -40 * M) }));
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 170 * M, ebit: 170 * M }); // d6f4300: null, "OtherNonoperatingIncomeExpense for the period is withheld"
+    expect(ebitWithheld(b)).toEqual([]);
+    expect(ebitText(b)).toMatch(/already contains them: [^;]*OtherNonoperatingIncomeExpense/);
+    expect(ebitText(b)).not.toMatch(/tags none of [^;]*OtherNonoperatingIncomeExpense/);
+  });
+  it("a re-presented InvestmentIncomeInterest inside a served aggregate: EBIT 170M, published", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), InvestmentIncomeInterest: fvFlow(6 * M, 24 * M, 30 * M) }));
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 170 * M, ebit: 170 * M }); // d6f4300: null
+    expect(ebitWithheld(b)).toEqual([]);
+    expect(ebitText(b)).toMatch(/already contains them: [^;]*InvestmentIncomeInterest/);
+  });
+  it("a re-presented InterestExpenseNonoperating, the only interest element, beside a served aggregate: EBIT 170M", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M, 25 * M) }));
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 170 * M, ebit: 170 * M }); // d6f4300: null, "interest expense for the period is withheld"
+    expect(ebitWithheld(b)).toEqual([]);
+    expect(ebitText(b)).toMatch(/interest expense \(InterestExpenseNonoperating\) is not added back/);
+  });
+  it("a re-presented InterestExpense whose period the filer also tags as InterestExpenseNonoperating: the FIN-508 probe drops it (EBIT 90)", () => {
+    const b = frBuild(ebitInterestFacts({ aggregate: true, refiled: true, nesting: "refused" }));
+    expect(frRow(b)?.operatingIncome).toBe(90 * M); // d6f4300: null (F1); pretax 100 less the aggregate 10
+    expect(ebitWithheld(b, "2024-12-31")).toEqual([]);
+    expect(b.incomeQuarterly.substitutions.some((s) => s.field === "operatingIncome" && /also tags this period's interest as InterestExpenseNonoperating/.test(s.text))).toBe(true);
+  });
+  it("a re-presented equity-method result beside a pretax element measured before it is not subtracted, so it does not withhold", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), [EQUITY_METHOD]: fvFlow(30 * M, 120 * M, 140 * M) }, true, PRETAX_BEFORE_EQUITY));
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 170 * M, ebit: 170 * M }); // d6f4300: null
+    expect(ebitWithheld(b)).toEqual([]);
+    expect(ebitText(b)).toMatch(/NOT subtracted because the pretax element that served is measured before them: IncomeLossFromEquityMethodInvestments/);
+  });
+  it("control: with no aggregate, a re-presented OtherNonoperatingIncomeExpense that would be subtracted still withholds the EBIT (I4)", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M, -40 * M) }, false));
+    expect(fvRow(b)?.operatingIncome ?? null).toBeNull();
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "operatingIncome", text: expect.stringMatching(/^operatingIncome not derived: OtherNonoperatingIncomeExpense for the period is withheld \(OtherNonoperatingIncomeExpense 2025-12-31: /) }),
+    );
+  });
+  it("control: beside a served aggregate, a re-presented equity-method result that IS subtracted still withholds the EBIT (I4)", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), [EQUITY_METHOD]: fvFlow(30 * M, 120 * M, 140 * M) }));
+    expect(fvRow(b)?.operatingIncome ?? null).toBeNull();
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "operatingIncome", text: expect.stringMatching(/^operatingIncome not derived: IncomeLossFromEquityMethodInvestments for the period is withheld \(/) }),
+    );
+  });
+  it("control: a re-presented InterestExpense with no nesting beside the aggregate still withholds the EBIT (F1)", () => {
+    const b = frBuild(ebitInterestFacts({ aggregate: true, refiled: true }));
+    expect(frRow(b)?.operatingIncome ?? null).toBeNull();
+    expect(b.incomeQuarterly.withheld.find((w) => w.field === "operatingIncome")?.text).toMatch(/^operatingIncome not derived: interest expense for the period is withheld \(InterestExpense 2024-12-31: /);
+  });
+});
+
+describe("B13 final review M-3: no operand mismatch is a withholding beside a published derived EBIT", () => {
+  it("beside a served aggregate, an other line filed in another currency writes no withholding; EBIT 170M", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M) }), ["OtherNonoperatingIncomeExpense"]);
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 170 * M, ebit: 170 * M });
+    // d6f4300: a "mixed_unit: OtherNonoperatingIncomeExpense uses EUR ... withheld" entry on all four quarters.
+    expect(FV_QUARTER_ENDS.flatMap((p) => ebitWithheld(b, p))).toEqual([]);
+    expect(ebitText(b)).toMatch(/already contains them: [^;]*OtherNonoperatingIncomeExpense/);
+  });
+  it("with no aggregate, a component filed in another currency is not subtracted: main's EBIT (155M) and an error band naming it and why", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M) }, false), ["OtherNonoperatingIncomeExpense"]);
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 155 * M, ebit: 155 * M }); // pretax 150 + interest 5, as main
+    expect(FV_QUARTER_ENDS.flatMap((p) => ebitWithheld(b, p))).toEqual([]); // d6f4300: mixed_unit on four quarters
+    expect(ebitText(b)).toMatch(/error band — OtherNonoperatingIncomeExpense is filed in another currency than the row's reporting currency \(no conversion is made\), so it is not subtracted and stays inside the figure/);
+    expect(ebitText(b)).not.toMatch(/tags none of [^;]*OtherNonoperatingIncomeExpense/);
+  });
+  it("with no aggregate, a component in another currency beside a subtracted one: the stand-in sentence and the error band name each", () => {
+    const b = fvBuild(
+      unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), InvestmentIncomeInterest: fvFlow(6 * M, 24 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M) }, false),
+      ["OtherNonoperatingIncomeExpense"],
+    );
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 149 * M, ebit: 149 * M }); // 150 + 5 - 6
+    expect(FV_QUARTER_ENDS.flatMap((p) => ebitWithheld(b, p))).toEqual([]); // d6f4300: mixed_unit on four quarters
+    expect(ebitText(b)).toMatch(/the NonoperatingIncomeExpense aggregate is not filed; its components the filer tags were subtracted instead \(InvestmentIncomeInterest \(6000000\)\)/);
+    expect(ebitText(b)).toMatch(/error band — OtherNonoperatingIncomeExpense is filed in another currency than the row's reporting currency \(no conversion is made\), so it is not subtracted/);
+  });
+  it("an aggregate filed in another currency is not used: the components the filer tags stand in for it, and the disclosure says why", () => {
+    const b = fvBuild(unusedOperandFacts({ InterestExpenseNonoperating: fvFlow(5 * M, 20 * M), OtherNonoperatingIncomeExpense: fvFlow(-8 * M, -32 * M) }), ["NonoperatingIncomeExpense"]);
+    expect(fvRow(b)).toMatchObject({ operatingIncome: 163 * M, ebit: 163 * M }); // 150 + 5 + 8: the aggregate is not used, so the interest is added back
+    expect(FV_QUARTER_ENDS.flatMap((p) => ebitWithheld(b, p))).toEqual([]); // d6f4300: a mixed_unit withholding for the aggregate
+    expect(ebitText(b)).toMatch(
+      /the NonoperatingIncomeExpense aggregate is filed in another currency than the row's reporting currency \(no conversion is made\), so it is not used; its components the filer tags were subtracted instead \(OtherNonoperatingIncomeExpense \(-8000000\)\)/,
+    );
+    expect(ebitText(b)).not.toMatch(/error band — NonoperatingIncomeExpense/);
+  });
+});
+
 describe("B13 final review M-4: a presentation refusal ends its synonym step even inside notes.quietly", () => {
   const tags = ["InterestExpense", "InterestExpenseNonoperating"];
   it("muted: the refused synonym ends the step, so the narrower one does not serve", () => {

@@ -732,7 +732,13 @@ tags (`InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`), plus
 equity-method results; each subtracted item is named in the disclosure with its
 amount (audit 2026-10-27 FIN-509, D-134). A component is never subtracted
 beside a filed aggregate, which already holds it, and when the aggregate is not
-filed the disclosure says so and lists the components taken instead. Johnson &
+filed the disclosure says so and lists the components taken instead. An
+adjustment the filer files for the period in another currency or for another
+period than the row is never a withholding beside the published figure (B13
+final review M-3): beside the aggregate a component is named as already inside
+it, and an item that would be subtracted is not subtracted and is named in the
+error band with why, so the figure is the one published before this batch plus
+that disclosure. Johnson &
 Johnson's quarter ended 2026-09-27 files pretax income of 34 million,
 `InterestExpenseNonoperating` of 217, `InvestmentIncomeInterest` of 186 and
 `OtherNonoperatingIncomeExpense` of -5,780 (litigation charges and reversals),
@@ -4563,13 +4569,24 @@ figure it leaves unverified is disclosed (see the A-11 paragraphs):
   expense), not a derivation (consolidated profit for profit attributable to the
   parent, derived EBIT for a filed operating income). The withheld field quotes
   the refusal.
-- A derived EBIT whose equity-method, investment-income or other non-operating
-  adjustment, or its optional interest part, is withheld for presentation is
-  itself withheld, quoting that reason (never read as "not filed"); an
-  adjustment or interest part that is simply not filed keeps the "filer tags
-  none" and the FIN-507 disclosures. The FIN-508 nesting test asks only whether
-  the filer tags the period's interest as `InterestExpenseNonoperating`, so a
-  quarter of that tag withheld for presentation still counts as tagged.
+- A derived EBIT whose adjustment or optional interest part is withheld for
+  presentation is itself withheld, quoting that reason (never read as "not
+  filed"), when the derivation uses that operand. An operand the derivation does
+  not use never refuses the EBIT (B13 final review I-1). Three kinds of operand
+  are not used: a component inside a `NonoperatingIncomeExpense` aggregate that
+  served for the period (`InvestmentIncomeInterest`,
+  `OtherNonoperatingIncomeExpense`); an equity-method result beside a pretax
+  element measured before it; and, beside a served aggregate, interest the
+  B-39/FIN-508 nesting leaves out (the withheld tag is
+  `InterestExpenseNonoperating`, or another filing tags the period's interest
+  that way). Such an operand is resolved quietly, only for its "already contains
+  them", "measured before them" or nesting disclosure, and writes no withholding,
+  so where only an unused operand was re-presented the EBIT is published as it
+  was before this batch. An adjustment or interest part that is simply not
+  filed keeps the "filer tags none" and the FIN-507 disclosures. The FIN-508
+  nesting test asks only whether the filer tags the period's interest as
+  `InterestExpenseNonoperating`, so a quarter of that tag withheld for
+  presentation still counts as tagged.
 - A combined-total floor tag (for example `Depreciation` under a combined D&A
   tag) that is withheld for presentation still bounds the floored tag: the
   decision is made from filed copies on one basis, never from the refused

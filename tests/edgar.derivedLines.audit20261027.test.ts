@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildStatementsFromCompanyFacts, lowerBoundDAndACaveat, type StatementBuildOptions } from "@/edgar/statements";
+import { EBIT_NON_OPERATING_ADJUSTMENTS } from "@/edgar/tagSynonyms";
 
 /**
  * Derived operating lines from filed tags (audit 2026-10-27, batch B13). Fixtures are inline
@@ -381,6 +382,12 @@ describe("other non-operating result", () => {
     // The aggregate and the component that was subtracted leave the error band; the untagged ones stay in it.
     expect(text).toMatch(/error band — the filer tags none of InvestmentIncomeInterest, IncomeLossFromEquityMethodInvestments for this period/);
     expect(text).not.toMatch(/none of NonoperatingIncomeExpense/);
+  });
+  it("every adjustment's aggregate is listed before it, so the derivation knows it served before reaching the component", () => {
+    // B13 final review I-1: a component inside a served aggregate is resolved quietly, for its disclosure only.
+    EBIT_NON_OPERATING_ADJUSTMENTS.forEach((a, i) => {
+      if (a.componentOf !== undefined) expect(EBIT_NON_OPERATING_ADJUSTMENTS.slice(0, i).map((b) => b.label)).toContain(a.componentOf);
+    });
   });
   it("control: without the other line the disclosure carries no OtherNonoperatingIncomeExpense caveat", () => {
     const noOther = without(jnj, "OtherNonoperatingIncomeExpense");
