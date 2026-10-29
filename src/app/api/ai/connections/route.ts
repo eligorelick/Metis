@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
-import { connectionsView, selectConnection } from "@/ai/connections";
+import { connectionsView, describeAnalysisRoute, selectConnection } from "@/ai/connections";
 import { beginChatGpt, disconnectChatGpt } from "@/ai/chatgpt";
 import { beginGemini, disconnectGemini } from "@/ai/gemini";
 import { listChatGptModels } from "@/ai/transport";
@@ -9,6 +9,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 function response(body: unknown, status = 200) { return NextResponse.json(body, { status, headers }); }
+/** The route reports will run on; omitted (not fatal) when the saved settings cannot be read. */
+function withRoute<T extends object>(view: T): T & { route?: ReturnType<typeof describeAnalysisRoute> } {
+  try { return { ...view, route: describeAnalysisRoute() }; } catch { return view; }
+}
 function guard(request: Request) {
   const denied = assertSameOrigin(request);
   if (denied) return denied;
@@ -21,7 +25,7 @@ function guard(request: Request) {
 
 export async function GET(request: Request) {
   const denied = guard(request); if (denied) return denied;
-  try { return response(connectionsView()); }
+  try { return response(withRoute(connectionsView())); }
   catch { return response({ error: "AI connection storage is unavailable. Existing credentials were not replaced." }, 500); }
 }
 
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
       case "select": await selectConnection(body.selection); break;
       default: return response({ error: "Unknown connection action" }, 400);
     }
-    return response({ ...connectionsView(), ...(message ? { message } : {}) });
+    return response(withRoute({ ...connectionsView(), ...(message ? { message } : {}) }));
   } catch (error) {
     const message = error instanceof Error && /^(Choose |Connect |Install |Unknown ChatGPT|ChatGPT |Gemini |AI credentials|AI connections|Too many|Invalid AI)/.test(error.message)
       ? error.message : "The connection action could not be completed. No paid request was sent.";

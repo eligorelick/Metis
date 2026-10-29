@@ -33,6 +33,14 @@ connection selection is authoritative, including AI off. Creating the store
 during account setup can therefore require explicitly selecting Claude again.
 Claude's analysis model/effort settings are separate from this connection store.
 
+The saved connection selection outranks the Claude model setting. The home page
+("Reports run on"), the company page ("Runs on", beside the generate control)
+and Settings all show the route the next report will use, for example
+`ChatGPT plan · gpt-6.1-sol · max effort` or `Claude API · Opus 5.5 · max effort`,
+with `sign-in needed` or `key needed` when it is not connected. When the
+selection is not Claude, the Settings Claude model and effort panels say
+"Not in use". The label never includes an account email, token or key.
+
 The selection is captured when a job executes. Subscription account, model,
 effort and speed form part of the partial-work fingerprint; incompatible saved
 work cannot be reused. Changing Settings does not rewrite saved reports.

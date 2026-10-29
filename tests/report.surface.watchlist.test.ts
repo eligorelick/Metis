@@ -15,6 +15,7 @@ vi.mock("@/config/env", () => ({
     hasAnthropicKey: false,
   }),
 }));
+vi.mock("@/ai/connections", () => ({ describeAnalysisRoute: () => ({ provider: "none", model: null, effort: null, ready: false, label: "AI off (data-only reports)" }) }));
 vi.mock("@/components/watchlist/AddTicker", () => ({ AddTicker: () => null }));
 vi.mock("@/components/watchlist/RemoveButton", () => ({ RemoveButton: () => null }));
 vi.mock("@/components/watchlist/RunsDisclosure", () => ({ RunsDisclosure: () => null }));
