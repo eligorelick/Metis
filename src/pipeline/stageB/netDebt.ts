@@ -17,31 +17,78 @@ export interface LeaseDebtInputs {
   capitalLeaseObligations?: number | null;
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
+  /**
+   * Wording only (audit 2026-10-29, AMZN #51 VAL-4): the vendor's own current
+   * and noncurrent split of its lease line, and each field's filed tags, let
+   * the refusal state every operand's scope. They never change the decision.
+   */
+  capitalLeaseObligationsCurrent?: number | null;
+  capitalLeaseObligationsNonCurrent?: number | null;
+  fieldProvenance?: Readonly<Record<string, { readonly tags: readonly string[] } | undefined>>;
 }
 
-/** Missing splits retain the reported basis; contradictory supplied totals do not. */
+/** An amount in millions with grouped digits ("96,320M"); the refusal names the values it compared. */
+function millions(value: number): string {
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(value / 1e6)}M`;
+}
+
+/** "(current + noncurrent)", "(noncurrent only)" or "(current only)" from a lease field's filed tags; "" when they do not say. */
+function filedScope(tags: readonly string[] | undefined, prefix: "Operating" | "Finance"): string {
+  if (tags === undefined) return "";
+  if (tags.includes(`us-gaap/${prefix}LeaseLiability`)) return " (current + noncurrent)";
+  const current = tags.includes(`us-gaap/${prefix}LeaseLiabilityCurrent`), noncurrent = tags.includes(`us-gaap/${prefix}LeaseLiabilityNoncurrent`);
+  return current && noncurrent ? " (current + noncurrent)" : noncurrent ? " (noncurrent only)" : current ? " (current only)" : "";
+}
+
+/** The lease line as its source states it: a filed total, or the vendor's line with the split the vendor itself reports. */
+function leaseLineText(inputs: LeaseDebtInputs, total: number): string {
+  const tags = inputs.fieldProvenance?.capitalLeaseObligations?.tags;
+  if (tags !== undefined) {
+    const scopes = new Set([filedScope(tags, "Operating"), filedScope(tags, "Finance")].filter(scope => scope !== ""));
+    return `the filed lease-liability total ${millions(total)}${scopes.size === 1 ? [...scopes][0] : ""}`;
+  }
+  const current = finite(inputs.capitalLeaseObligationsCurrent), noncurrent = finite(inputs.capitalLeaseObligationsNonCurrent);
+  const tolerance = Math.max(1, Math.abs(total) * 1e-6);
+  const scope = (current === null || current === 0) && noncurrent !== null && Math.abs(noncurrent - total) <= tolerance ? " (noncurrent only)"
+    : current !== null && current > 0 && noncurrent !== null && Math.abs(current + noncurrent - total) <= tolerance ? " (current + noncurrent)" : "";
+  return `the vendor lease line ${millions(total)}${scope}`;
+}
+
+/**
+ * Missing splits retain the reported basis; contradictory supplied totals do
+ * not. The reason names the amounts compared and, where the inputs state it,
+ * each operand's current/noncurrent scope, so it describes the inputs and never
+ * reads as a fault of the issuer's own balance sheet (audit 2026-10-29, AMZN
+ * #51 VAL-4). The tests and their order are unchanged.
+ */
 export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
   const debt = finite(inputs.totalDebt);
   const total = finite(inputs.capitalLeaseObligations);
   const operating = finite(inputs.operatingLeaseLiability);
   const finance = finite(inputs.financeLeaseLiability);
-  if ([debt, total, operating, finance].some(value => value !== null && value < 0)) {
-    return "negative debt or lease liability - invalid debt/lease composition";
+  const operatingText = (value: number) => `operating-lease liability ${millions(value)}${filedScope(inputs.fieldProvenance?.operatingLeaseLiability?.tags, "Operating")}`;
+  const financeText = (value: number) => `finance-lease liability ${millions(value)}${filedScope(inputs.fieldProvenance?.financeLeaseLiability?.tags, "Finance")}`;
+  const negative = ([["total debt", debt], ["lease line", total], ["operating-lease liability", operating], ["finance-lease liability", finance]] as const)
+    .filter(([, value]) => value !== null && value < 0);
+  if (negative.length > 0) {
+    return `negative debt or lease input (${negative.map(([label, value]) => `${label} ${millions(value!)}`).join(", ")}) - invalid debt/lease input`;
   }
   const exceeds = (part: number | null, whole: number | null): boolean =>
     part !== null && whole !== null && part > whole + Math.max(1, Math.abs(whole) * 1e-6);
-  if (exceeds(total, debt) || exceeds(operating, debt) || exceeds(finance, debt)) {
-    return "lease liability exceeds total debt - incompatible debt/lease composition";
+  const overDebt = exceeds(total, debt) ? leaseLineText(inputs, total!) : exceeds(operating, debt) ? operatingText(operating!) : exceeds(finance, debt) ? financeText(finance!) : null;
+  if (overDebt !== null) {
+    return `${overDebt} exceeds total debt ${millions(debt!)} - the debt and lease inputs do not reconcile`;
   }
   if (operating !== null && finance !== null && exceeds(operating + finance, debt)) {
-    return "operating and finance lease liabilities together exceed total debt";
+    return `${operatingText(operating)} and ${financeText(finance)} together exceed total debt ${millions(debt!)}`;
   }
-  if (exceeds(operating, total) || exceeds(finance, total)) {
-    return "lease component exceeds total lease liabilities - incompatible debt/lease composition";
+  const overLine = exceeds(operating, total) ? operatingText(operating!) : exceeds(finance, total) ? financeText(finance!) : null;
+  if (overLine !== null) {
+    return `${overLine} exceeds ${leaseLineText(inputs, total!)} - the lease inputs are on different scopes and do not reconcile`;
   }
   if (total !== null && operating !== null && finance !== null &&
       Math.abs(operating + finance - total) > Math.max(1, Math.abs(total) * 1e-6)) {
-    return "operating and finance leases do not reconcile to total lease liabilities";
+    return `${operatingText(operating)} plus ${financeText(finance)} (${millions(operating + finance)}) do not reconcile to ${leaseLineText(inputs, total)}`;
   }
   return null;
 }

@@ -1724,6 +1724,8 @@ function totalDebtSnapshot(
   latestBasis?: string;
   /** Audit 2026-10-22 C-1: why no average was established, naming the balance date. */
   unavailable?: string;
+  /** Audit 2026-10-29 (AMZN #51, VAL-4): `unavailable` is a refusal of debt the balance carries, not an absent balance. */
+  refused?: true;
 } {
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
@@ -1791,12 +1793,12 @@ function totalDebtSnapshot(
   const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
   if (refused !== undefined) {
     const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true };
   }
   const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
   if (scopeRefused) {
     const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
-    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}` };
+    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true };
   }
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
@@ -1806,7 +1808,7 @@ function totalDebtSnapshot(
   const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
   if (conflicted !== undefined) {
     const leaseConflict = leaseDebtConflict(conflicted)!;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}` };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true };
   }
   if (a.value === null && b.value === null) {
     const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
@@ -3017,6 +3019,7 @@ function computeReturns(
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
     totalDebtUnavailable: debtSnapshot.unavailable ?? null,
+    totalDebtRefused: debtSnapshot.refused === true,
     totalDebtLatest: debtSnapshot.latest ?? null,
     totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,

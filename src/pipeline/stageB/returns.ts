@@ -209,6 +209,12 @@ export interface WaccInputs {
   totalDebtLatest?: number | null;
   /** Audit 2026-10-22 C-1: why the average is unavailable, for the critical gap. */
   totalDebtUnavailable?: string | null;
+  /**
+   * Audit 2026-10-29 (AMZN #51, VAL-4): `totalDebtUnavailable` names a refusal
+   * of debt the balance sheet carries. The gap then states the refusal, never
+   * "missing" or the debt-free caveat, which is only for a balance with no debt.
+   */
+  totalDebtRefused?: boolean;
   totalDebtLatestBasis?: string | null;
   /** Current market cap (currency units) — market-value equity weight. */
   marketCap: number | null;
@@ -619,10 +625,12 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       weightDebt: null,
     };
   } else if (debtAvg === null) {
-    notes.push("totalDebtAvg missing — debt/equity weights and WACC are unavailable");
+    const refusal = inputs.totalDebtRefused === true && inputs.totalDebtUnavailable ? inputs.totalDebtUnavailable : null;
+    notes.push(refusal !== null ? `totalDebtAvg withheld (${refusal}) — debt/equity weights and WACC are unavailable` : "totalDebtAvg missing — debt/equity weights and WACC are unavailable");
     gaps.push({
       field: "returns.wacc.weights",
-      reason: `average total debt missing — cannot distinguish debt-free from unknown leverage${inputs.totalDebtUnavailable ? `: ${inputs.totalDebtUnavailable}` : ""}`,
+      reason: refusal !== null ? `average total debt withheld: ${refusal}`
+        : `average total debt missing — cannot distinguish debt-free from unknown leverage${inputs.totalDebtUnavailable ? `: ${inputs.totalDebtUnavailable}` : ""}`,
       severity: "critical",
     });
     return {
