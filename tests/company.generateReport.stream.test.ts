@@ -663,6 +663,6 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
       join(process.cwd(), "src", "app", "company", "[symbol]", "page.tsx"),
       "utf8",
     );
-    expect(page).toContain('<GenerateReport key={bundle.symbol} symbol={bundle.symbol} />');
+    expect(page).toContain('<GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />');
   });
 });

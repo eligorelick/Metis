@@ -29,6 +29,7 @@ export const SHARED_RESOLVE_ALIAS = {
  * an audited source is a reviewable coverage-policy change.
  */
 export const RISK_SOURCE_MANIFEST = [
+  "src/ai/analysisRoute.ts",
   "src/ai/browser.ts",
   "src/ai/chatgpt.ts",
   "src/ai/connections.ts",

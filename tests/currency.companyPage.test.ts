@@ -24,6 +24,7 @@ vi.mock("@/pipeline/stageA/validate", () => ({
   validateBundle: vi.fn(() => ({ checks: [], flags: [], gaps: [] })),
 }));
 vi.mock("@/report/query", () => ({ getLatestDoneReport: vi.fn(() => null) }));
+vi.mock("@/ai/connections", () => ({ describeAnalysisRoute: () => ({ provider: "none", model: null, effort: null, ready: false, label: "AI off (data-only reports)" }) }));
 vi.mock("@/app/company/[symbol]/GenerateReport", () => ({ GenerateReport: () => null }));
 vi.mock("@/components/watchlist/Sidebar", () => ({ WatchlistSidebar: () => null }));
 vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: vi.fn(() => null) }));

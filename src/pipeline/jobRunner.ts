@@ -31,7 +31,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
-import { parseSubscriptionModel, subscriptionModel, type AiSelection } from "@/ai/contracts";
+import { requestedAnalysisModel } from "@/ai/analysisRoute";
+import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
@@ -3148,8 +3149,8 @@ export async function runJob<TPayload = unknown>(
       try {
         const analysisResolved = await awaitJobStage(
           "connectionId" in aiSelection
-            ? Promise.resolve({ model: subscriptionModel(aiSelection.provider, aiSelection.model) })
-            : resolveModel(capturedSettings.state.analysisModel),
+            ? Promise.resolve({ model: requestedAnalysisModel(aiSelection, capturedSettings.state.analysisModel) })
+            : resolveModel(requestedAnalysisModel(aiSelection, capturedSettings.state.analysisModel)),
           jobSignal,
           jobController,
           "model resolution",

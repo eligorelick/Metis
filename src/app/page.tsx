@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MetisLogo } from "@/brand/MetisLogo";
 import { getConfig } from "@/config/env";
+import { describeAnalysisRoute } from "@/ai/connections";
 import { hasConfiguredEdgarIdentity } from "@/providers/edgar";
 import { AppShell } from "@/components/shell";
 import { Badge, GradeChip, Panel } from "@/components/ui";
@@ -174,8 +175,20 @@ async function HomeWatchlistPanel({ fixtureMode, dossier = false }: { fixtureMod
   );
 }
 
+/** The route a report would run on; null when the connection store cannot be read. */
+function readAnalysisRoute(): { label: string; ready: boolean } | null {
+  try {
+    const { label, ready } = describeAnalysisRoute();
+    return { label, ready };
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
   const config = getConfig();
+  const route = readAnalysisRoute();
+  const routeText = route ? route.label : "unavailable (open Settings to check the AI connection)";
   const hasEdgarContact = hasConfiguredEdgarIdentity();
 
   return (
@@ -214,7 +227,7 @@ export default async function Home() {
 
         <HomeWatchlistPanel fixtureMode={config.fixtureMode} dossier={config.uiRedesign} />
 
-        {config.uiRedesign && <div className="desk-status">FMP: {config.hasFmpKey ? "configured" : "not configured"} · SEC contact: {hasEdgarContact ? "configured" : "not configured"} · Environment model default: <span className="mono">{config.analysisModel}</span>. <Link href="/settings" className="text-accent underline">Configure research</Link></div>}
+        {config.uiRedesign && <div className="desk-status">FMP: {config.hasFmpKey ? "configured" : "not configured"} · SEC contact: {hasEdgarContact ? "configured" : "not configured"} · Reports run on: <span className="mono">{routeText}</span>. <Link href="/settings" className="text-accent underline">Configure research</Link></div>}
 
         <details className={config.uiRedesign ? "connection-details" : "contents"} open={!config.uiRedesign}>
           <summary className={config.uiRedesign ? undefined : "hidden"}>Connections, keyless sources &amp; model details</summary>
@@ -271,7 +284,11 @@ export default async function Home() {
         <Panel title="models">
           <div className="flex flex-col gap-1 text-[12px]">
             <div className="flex items-center justify-between">
-              <span className="text-muted">analysis model (env default)</span>
+              <span className="text-muted">Reports run on</span>
+              <span className={`mono ${route && !route.ready ? "text-warn" : ""}`}>{routeText}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted">Claude model default (env, used only on a Claude route)</span>
               <span className="mono">{config.analysisModel}</span>
             </div>
             <div className="flex items-center justify-between">

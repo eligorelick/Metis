@@ -652,12 +652,29 @@ function asGrade(g: string | null): Grade | null {
  * Component
  * ------------------------------------------------------------------------ */
 
-export function GenerateReport({ symbol, initialJobId = null }: { symbol: string; initialJobId?: string | null }) {
-  const initial = decodeAcceptedJobId({ jobId: initialJobId });
-  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} />;
+/** The AI route a report will run on, computed on the server (never a secret). */
+export interface RunRoute { label: string; ready: boolean }
+
+/** "Runs on: <route>" with a link to Settings; says plainly when the route is not ready. */
+export function RunsOn({ route }: { route?: RunRoute | null }) {
+  if (!route) return null;
+  return (
+    <span className="text-[12px] text-muted">
+      Runs on: <span className={`mono ${route.ready ? "" : "text-warn"}`}>{route.label}</span>
+      {" · "}
+      <Link href="/settings" className="text-accent hover:underline">
+        Settings
+      </Link>
+    </span>
+  );
 }
 
-function GenerateReportController({ symbol, initialJobId }: { symbol: string; initialJobId: string | null }) {
+export function GenerateReport({ symbol, initialJobId = null, route = null }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null }) {
+  const initial = decodeAcceptedJobId({ jobId: initialJobId });
+  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} />;
+}
+
+function GenerateReportController({ symbol, initialJobId, route }: { symbol: string; initialJobId: string | null; route: RunRoute | null }) {
   const router = useRouter();
   const dossier = useUiDesign().layout === "dossier";
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
@@ -882,6 +899,7 @@ function GenerateReportController({ symbol, initialJobId }: { symbol: string; in
   return (
     <div className={`flex flex-col gap-3 ${dossier ? "research-run" : ""}`} data-run-phase={phase}>
       <div className="research-run-actions flex flex-wrap items-center justify-end gap-3">
+        <RunsOn route={route} />
         {busy ? (
           <span role="status" className="text-[12px] text-muted">
             {dossier ? (acceptedStatus === "queued" ? "Queued" : acceptedStatus === "running" ? "Running" : jobId ? "Connecting to existing run" : "Requesting report") : "running"}
