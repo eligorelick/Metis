@@ -931,7 +931,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
           // FIN-511-V2: a quarter derived from two filings is called derived.
           const versus = sec.operands
             ? `vendor ${millions(vendor)} versus derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
-            : `${vendor} versus ${sec.value} ${currency}`;
+            : `${millions(vendor)} versus ${millions(sec.value)} ${currency}`;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${versus}; vendor observation preserved and field unavailable for reconciliation`;
           out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });

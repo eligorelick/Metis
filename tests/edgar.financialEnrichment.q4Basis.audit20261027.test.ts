@@ -313,6 +313,12 @@ describe("FIN-511-V2 fix round 1: reason amounts in millions on both branches", 
         "vendor observation preserved and field unavailable for reconciliation",
     );
   });
+  it("C3: a directly filed principal conflict prints both amounts in millions", () => {
+    const out = enrichOut(recastFacts("FinanceLeasePrincipalPayments", [quarter(7 * M)]), vendorQ4({ financeLeasePrincipalPayments: 9 * M }));
+    expect(reasons(out.gaps)).toContain(
+      "vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: 9M versus 7M USD; vendor observation preserved and field unavailable for reconciliation",
+    );
+  });
   it("C3: a directly filed CFO conflict prints the filed amount in millions", () => {
     const out = enrichOut(recastFacts("NetCashProvidedByUsedInOperatingActivities", [quarter(1_727.1 * M)]), vendorQ4({ operatingCashFlow: 1_900 * M }));
     expect(reasons(out.gaps)).toContain("vendor/SEC operating cash-flow conflict at 2024-12-31: filed 1,727.1M USD for 2024-10-01 through 2024-12-31;");

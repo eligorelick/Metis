@@ -4213,10 +4213,9 @@ millions, the note prints none). A first-reported pair reads "(the
 first-reported fiscal year or year to date less the prior year to date, from
 the ... and the ...; re-filed later in the 10-K of ...)". None says "filed"
 or an "exact quarter period". A directly filed figure keeps its "filed" or
-"exact" wording, with the amounts of the cash-flow and investment reasons also
-in millions; the lease-liability and principal conflict of a directly filed
-figure still prints both figures in full ("vendor/SEC conflict for <field> at
-<date>: <vendor> versus <filed> <currency>").
+"exact" wording, with its amounts also in millions (the lease-liability and
+principal conflict reads "vendor/SEC conflict for <field> at <date>: <vendor>
+versus <filed> <currency>", both in millions).
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
