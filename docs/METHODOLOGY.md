@@ -4642,4 +4642,5 @@ snapshots (all built from SEC statements) no figure moves; only refusal
 wording does. On NVIDIA's provider runs #48 to #50 the July and October 2022
 quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
-short-term debt is its current operating lease liability.
+short-term debt does not reconcile with the 10-Q's only current-debt tag,
+`CommercialPaper` 0, and equals its current operating lease liability.

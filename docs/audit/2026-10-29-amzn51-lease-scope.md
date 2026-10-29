@@ -34,6 +34,20 @@ The whole-branch review upheld every figure, grade and census result and the sto
 
 The payload golden does not move in this round. m1 and m4 move no replayed row: no census or run row has the Duke shape, and the only provider row the zero-current check withholds, Amazon's 2017-12-31, keeps its withholding because its provider long-term debt is the 10-K's noncurrent $24,743M alone, without the $100M of `LongTermDebtCurrent`.
 
+### Review fix round 2
+
+The scoped re-review confirmed round 1 and found two Important items and two Minors. Each code item's test failed first (except its controls).
+
+| Item | Change | Commit | Tests |
+|---|---|---|---|
+| I-1 | A kept provider short-term debt is checked against `ShortTermBorrowings` plus `CommercialPaper` (a 0 included) when the filing tags neither `LongTermDebtCurrent` nor `DebtCurrent`, and refused on disagreement. The reviewer's probe (Amazon's shape without those two tags, a provider 15,758M holding 325M of borrowings and 15,433M of current leases) had published 254,423M. Every refusal and keep text names the tags and amounts it checked. | `e65b6a3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
+| I-2a | The m4 fold-in admits `DebtCurrent` only when absent or equal to `LongTermDebtCurrent`; a 0 beside positive current maturities withholds. | `f8e8cb4` | `tests/stageB.incompleteDebtTotal.amzn51.test.ts` |
+| I-2b | METHODOLOGY and D-132 say the m1 guard's noncurrent debt may hold the finance leases, and that the guard also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt. The code is unchanged. | `1c119c3` | |
+| M3 | The net-debt reason names the row's cash-only net debt only when the row carries one. | `a4c2b8a` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
+| M4 | The multiples' market-cap entry says "market cap withheld — most multiples not computable: <reason>" for a market cap withheld on share scope. | `7974723` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
+
+No figure, grade, band or critical count moves against round 1, and report #51's replay output is byte-identical to round 1's. Wording movers: NVIDIA runs #48 to #50 (below); CVX and PG (M3: the net-debt reason, net debt/EBITDA note, EV basis and EV entry drop "vendor cash-only net debt rejected"); CMCSA, MA, V, BRK.B and META (M4: the market-cap entry says withheld; BRK.B and META also have an unresolved share scope; round 1's WACC wording did not reach them because BRK.B, on the insurer route, has no WACC weights entry and META's names its debt refusal).
+
 ## The rule that was not applied
 
 The brief asked the tagged-total backstop (`uncomposedDebtReason`, audit 2026-10-22 B-14) to compare a debt-only aggregate (`LongTermDebt`, `LongTermDebtNoncurrent`, `LongTermNotesAndLoans`, `DebtLongtermAndShorttermCombinedAmount`) with the financing debt alone, counting finance leases only against an aggregate whose name holds them. Against the filed data that is wrong for Alphabet, which files its finance leases inside `LongTermDebt`: at 2019-12-31 `LongTermDebt` is 4,685M against `LongTermDebtNoncurrent` 3,958M plus `FinanceLeaseLiability` 711M, and its 2020 to 2022 keyless long-term debt (13,932M, 14,817M, 14,701M) sits below `LongTermDebt` (15,319M, 15,440M, 15,312M) by about its finance leases. With the rule the census replay withheld Alphabet's 2019 to 2022 and 2025 debt: net debt null, DCF 215.43 to 203.91, composite 61.36 to 54.28, and its latest ROIC (2025-12-31, 36.73%) withheld. It also moved the keyless AMZN census snapshot and run #43. No alternative rule was guessed; the backstop is unchanged and pinned as it stands, and the Amazon shape is caught by the current-debt check.
@@ -70,7 +84,7 @@ Every figure equals the audit's counterfactual with the composition and the stak
 - CVX, MCD, META, ORCL and PLD: the WACC gap says "withheld:" with the admission's refusal instead of "missing — cannot distinguish ...", the bridge note names the refusal, and net debt and EV say "total debt withheld (...)". META and PLD gain a warning `returns.roic` entry for the years their debt refusals withhold; it is a warning because each latest fiscal year's ROIC is computed (META 29.96% and PLD 4.58% at 2025-12-31).
 - CSCO and NFLX: a warning `returns.roic` entry for years withheld on a cash-component conflict; for CSCO the EV and net debt/EBITDA name that conflict.
 - GOOGL: a warning `returns.roic` entry for 2023-12-31, whose debt the B-14 backstop already withheld.
-- CMCSA, MA, V, T and PG: the EV entry names its gate (the share scope, the lease-scope refusal or the cash components). For CMCSA, MA and V the WACC weights entry, and with it the DCF and fair-value lines, says the market cap is withheld on the share scope, with that reason, instead of missing.
+- CMCSA, MA, V, T and PG: the EV entry names its gate (the share scope, the lease-scope refusal or the cash components). For CMCSA, MA and V the WACC weights entry, and with it the DCF and fair-value lines, says the market cap is withheld on the share scope, with that reason, instead of missing. For CMCSA, MA, V, BRK.B and META the multiples' market-cap entry says the same.
 - DIS, LLY and TSM: the DCF gap quotes the WACC reason.
 - The fair-value line quotes the DCF or bridge gap instead of the generic list of possible causes for 14 issuers: CMCSA, CSCO, CVX, DIS, LLY, MA, MCD, META, ORCL, PG, T, TSM, V and XOM (for XOM, its diluted-share gap).
 - Net debt/EBITDA: CSCO and ORCL say "net debt withheld:" with the refusal; CVX and PG give the resolver's reason (no combined cash-and-short-term-investments, a cash component missing) instead of "missing net debt input" alone.
@@ -82,7 +96,7 @@ The AMZN census snapshot, run #43 (AMZN, SEC statements) and run #46 (MU) do not
 
 - 2022-07-31 completes from 10-Q 0001045810-22-000147: leases 888M (`OperatingLeaseLiability`), the provider's 1,249M short-term debt kept (it equals `LongTermDebtCurrent` and `DebtCurrent`), total 1,249 + 9,700 + 888 = 11,837M (provider 11,692M).
 - 2022-10-30 completes from 10-Q 0001045810-22-000166: 1,249 + 9,701 + 954 = 11,904M (provider 11,748M).
-- 2022-05-01 stays refused, with a new reason: the provider's 147M short-term debt equals that 10-Q's `OperatingLeaseLiabilityCurrent` and the filing tags no current debt, so it cannot be kept beside the completed lease total.
+- 2022-05-01 stays refused, with a new reason: the 10-Q's only current-debt tag is `CommercialPaper` 0, and the provider's 147M short-term debt does not reconcile with it; it equals the 10-Q's `OperatingLeaseLiabilityCurrent`, which the completed lease total already holds. The completion entry's latest date, 2022-10-30, now describes its kept short-term debt as equal to the filed current debt, `LongTermDebtCurrent` 1,249M + `CommercialPaper` 0.
 
 The two completed quarters add two EV own-history observations (18 to 20) to EV/EBITDA and EV/sales. At 2022-10-30 and 2022-07-31 they read 45.22 and 48.67 (EV/EBITDA) and 11.66 and 15.27 (EV/sales), on the provider's market capitalization and the completed debt, and the current percentile ranks move from 2.17 to 1.94 and from 4.87 to 14.88. NVIDIA's graded valuation signals are the DCF upside, the reverse DCF and the P/E rank, so no score moves.
 
