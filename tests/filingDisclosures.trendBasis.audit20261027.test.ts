@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -86,7 +87,7 @@ const t = (d: string) => trend(edgarBundle, d);
 describe("quarterly growth on one presentation (FIN-511-V1)", () => {
   it("a QoQ against a later-re-presented quarter uses that quarter's first-reported copy", () => {
     expect(t("2025-09-30").revenueQoqPct).toBeCloseTo(6.1406, 3);
-    expect(t("2025-09-30").revenueGrowthNotes?.join(" ")).toMatch(/first-reported revenue 26463000000 \(10-Q 2025-07-31\).*2026-07-31/);
+    expect(t("2025-09-30").revenueGrowthNotes?.join(" ")).toMatch(/first-reported revenue \$26\.46B \(10-Q 2025-07-31\).*2026-07-31/);
   });
   it("a YoY whose own quarter was re-presented, with no re-presented comparison, is a dash with a note", () => {
     expect(t("2025-06-30").revenueYoyPct).toBeNull();
@@ -128,5 +129,120 @@ describe("quarterly growth on one presentation (FIN-511-V1)", () => {
     q2.original = { revenue: { value: "x", filed: 1 } };
     q2.restatement = [{ field: "revenue", restatedFiling: { filed: 5 } }];
     expect(trend(b, "2025-09-30").revenueQoqPct).toBeCloseTo(2.3503, 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 1: M1 (untested branches), I1 (a presentation first filed in the printed quarter's own filing).
+// ---------------------------------------------------------------------------
+
+type R = Record<string, unknown> & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+function handBundle(rows: R[]): DataBundle {
+  const bundle = completeCurrencyBundle({}) as DataBundle;
+  (bundle.statements.incomeQuarterly as R).value.source = "edgar";
+  (bundle.statements.incomeQuarterly as R).value.data.rows = rows;
+  return { ...bundle, builtAt: "2026-10-22T00:00:00.000Z" };
+}
+const prov = (date: string, f: Ref) => ({ revenue: { source: "edgar", unit: "USD", periodStart: null, periodEnd: date, observedAt: "2026-10-22T00:00:00.000Z", tags: ["us-gaap/Revenues"], filings: [f] } });
+/** Q3 FY2025 (10-Q 2025-10-31) against a Q2 FY2025 re-presented in the 10-Q of 2026-07-31, with the given first-reported copy. */
+function reprRows(firstFiled: string, firstValue: number): R[] {
+  return [
+    { date: "2025-09-30", fiscalYear: "2025", period: "Q3", reportedCurrency: "USD", revenue: 28_088 * M, fieldProvenance: prov("2025-09-30", ref("10-Q", "2025-10-31")) },
+    { date: "2025-06-30", fiscalYear: "2025", period: "Q2", reportedCurrency: "USD", revenue: 27_443 * M, fieldProvenance: prov("2025-06-30", ref("10-Q", "2026-07-31")),
+      original: { revenue: { ...ref("10-Q", firstFiled), value: firstValue * M } },
+      restatement: [{ date: "2025-06-30", field: "revenue", original: firstValue * M, restated: 27_443 * M, changePct: 3.7, originalFiling: ref("10-Q", firstFiled), restatedFiling: ref("10-Q", "2026-07-31") }] },
+  ];
+}
+const q3 = (b: DataBundle) => trend(b, "2025-09-30");
+
+describe("growth basis: the first-reported copy paths (M1)", () => {
+  it("a first-reported copy filed after the printed quarter's filing gives a dash and a not-shown note", () => {
+    const row = q3(handBundle(reprRows("2025-11-05", 26_463)));
+    expect(row.revenueQoqPct).toBeNull();
+    expect(row.revenueGrowthNotes?.join(" ")).toMatch(/QoQ not shown: 2025-06-30 was re-presented in 10-Q 2026-07-31 and has no copy on 2025-09-30's presentation/);
+  });
+  it("a first-reported copy of zero gives a dash whose note says the cell is not shown", () => {
+    const row = q3(handBundle(reprRows("2025-07-31", 0)));
+    expect(row.revenueQoqPct).toBeNull();
+    expect(row.revenueGrowthNotes?.join(" ")).toMatch(/QoQ not shown: 2025-06-30's first-reported revenue \(10-Q 2025-07-31\) is not positive, and the 10-Q of 2026-07-31 re-presented it\./);
+    expect(row.revenueGrowthNotes?.join(" ")).not.toMatch(/uses/);
+  });
+});
+
+const F = (filed: string, form: string, fp: string, fy: number) => ({ filed, form, fp, fy, accn: `0000000099-${filed.slice(2, 4)}-${filed.slice(5, 7)}${filed.slice(8)}` });
+const SPLITS = { status: "retrieved", source: "test", events: [], coverage: [{ from: "2000-01-01", to: "2026-12-31" }] };
+const pt = (f: ReturnType<typeof F>, start: string | undefined, end: string, val: number) => ({ ...f, ...(start ? { start } : {}), end, val });
+function builtTrend(usGaap: Record<string, unknown[]>) {
+  const facts = { cik: 99, entityName: "Synthetic Co", facts: { "us-gaap": Object.fromEntries(Object.entries(usGaap).map(([k, v]) => [k, { label: k, units: { USD: v } }])), dei: {} } };
+  const built = buildStatementsFromCompanyFacts(facts as never, { symbol: "SYN", cik: "0000000099", annualPeriods: 4, quarterlyPeriods: 8, asOf: "2026-10-22",
+    factsObservedAt: "2026-10-22T00:00:00.000Z", vendorSplits: SPLITS as never });
+  const rows = built.incomeQuarterly.rows as unknown as R[];
+  return { rows, trend: buildFilingDisclosures(handBundle(JSON.parse(JSON.stringify(rows))))!.quarterlyTrend };
+}
+const cell = (rows: { periodEnd: string }[], d: string) => rows.find((r) => r.periodEnd === d) as ReturnType<typeof trend>;
+
+describe("growth basis: a presentation first filed in the printed quarter's own 10-Q (I1)", () => {
+  const q125 = F("2025-05-01", "10-Q", "Q1", 2025), q225 = F("2025-08-01", "10-Q", "Q2", 2025), q325 = F("2025-11-01", "10-Q", "Q3", 2025);
+  const k25 = F("2026-02-20", "10-K", "FY", 2025), q126 = F("2026-05-01", "10-Q", "Q1", 2026), q226 = F("2026-07-31", "10-Q", "Q2", 2026);
+  const assets = [pt(q125, undefined, "2025-03-31", 1), pt(q225, undefined, "2025-06-30", 1), pt(q325, undefined, "2025-09-30", 1), pt(k25, undefined, "2025-12-31", 1), pt(q126, undefined, "2026-03-31", 1), pt(q226, undefined, "2026-06-30", 1)];
+  const base2025 = [
+    pt(q125, "2025-01-01", "2025-03-31", 100), pt(q225, "2025-04-01", "2025-06-30", 100), pt(q225, "2025-01-01", "2025-06-30", 200),
+    pt(q325, "2025-07-01", "2025-09-30", 100), pt(q325, "2025-01-01", "2025-09-30", 300), pt(k25, "2025-01-01", "2025-12-31", 400),
+  ];
+
+  it("S4: the first post-event 10-Q re-presents Q2 2025 and Q1 2026 stays on the old basis, so Q2 2026 QoQ is not shown", () => {
+    const { rows, trend: tr } = builtTrend({
+      Revenues: [...base2025, pt(q126, "2026-01-01", "2026-03-31", 110), pt(q126, "2025-01-01", "2025-03-31", 100),
+        pt(q226, "2026-04-01", "2026-06-30", 90), pt(q226, "2026-01-01", "2026-06-30", 178), pt(q226, "2025-04-01", "2025-06-30", 80), pt(q226, "2025-01-01", "2025-06-30", 160)],
+      Assets: assets,
+    });
+    expect(rows.find((r) => r.date === "2026-06-30")!.revenuePresentation).toMatchObject({ form: "10-Q", filed: "2026-07-31", represented: true });
+    expect(rows.find((r) => r.date === "2026-03-31")!.revenuePresentation).toMatchObject({ form: "10-Q", filed: "2026-05-01", represented: false });
+    const q2 = cell(tr, "2026-06-30");
+    expect(q2.revenueQoqPct).toBeNull();
+    expect(q2.revenueGrowthNotes?.join(" ")).toContain(
+      "QoQ not shown: the 10-Q of 2026-07-31 that supplies 2026-06-30 re-presented earlier periods' revenue and the 10-Q of 2026-05-01 that supplies 2026-03-31 did not, so the two quarters are on different presentations.");
+    expect(q2.revenueYoyPct).toBeCloseTo(12.5, 3);
+  });
+  it("control (BAC shape): the change began in the earlier 10-Q, so both quarters re-presented and the QoQ keeps its rate", () => {
+    const { rows, trend: tr } = builtTrend({
+      Revenues: [...base2025, pt(q126, "2026-01-01", "2026-03-31", 88), pt(q126, "2025-01-01", "2025-03-31", 80),
+        pt(q226, "2026-04-01", "2026-06-30", 90), pt(q226, "2026-01-01", "2026-06-30", 178), pt(q226, "2025-04-01", "2025-06-30", 80), pt(q226, "2025-01-01", "2025-06-30", 160)],
+      Assets: assets,
+    });
+    expect(rows.find((r) => r.date === "2026-03-31")!.revenuePresentation.represented).toBe(true);
+    expect(cell(tr, "2026-06-30").revenueQoqPct).toBeCloseTo((90 / 88 - 1) * 100, 2);
+    expect(cell(tr, "2026-06-30").revenueGrowthNotes).toBeUndefined();
+  });
+  it("control (AMT shape): a 10-K that only repeats a recast an earlier 10-K made does not count as re-presenting", () => {
+    const k23 = F("2024-02-20", "10-K", "FY", 2023), k24 = F("2025-02-25", "10-K", "FY", 2024), k25b = F("2026-02-24", "10-K", "FY", 2025);
+    const q324 = F("2024-11-01", "10-Q", "Q3", 2024), q125b = F("2025-05-01", "10-Q", "Q1", 2025), q225b = F("2025-08-01", "10-Q", "Q2", 2025), q325b = F("2025-11-01", "10-Q", "Q3", 2025);
+    const { rows, trend: tr } = builtTrend({
+      Revenues: [
+        pt(k23, "2023-01-01", "2023-12-31", 1000), pt(k24, "2023-01-01", "2023-12-31", 800), pt(k25b, "2023-01-01", "2023-12-31", 800),
+        pt(k24, "2024-01-01", "2024-12-31", 900), pt(k25b, "2024-01-01", "2024-12-31", 900),
+        pt(q125b, "2025-01-01", "2025-03-31", 100), pt(q225b, "2025-04-01", "2025-06-30", 100), pt(q225b, "2025-01-01", "2025-06-30", 200),
+        pt(q325b, "2025-07-01", "2025-09-30", 100), pt(q325b, "2025-01-01", "2025-09-30", 300), pt(k25b, "2025-01-01", "2025-12-31", 420),
+      ],
+      Assets: [pt(q324, undefined, "2024-09-30", 1), pt(k24, undefined, "2024-12-31", 1), pt(q125b, undefined, "2025-03-31", 1), pt(q225b, undefined, "2025-06-30", 1), pt(q325b, undefined, "2025-09-30", 1), pt(k25b, undefined, "2025-12-31", 1)],
+    });
+    const q4 = rows.find((r) => r.date === "2025-12-31")!;
+    expect(q4.revenue).toBe(120);
+    expect(q4.revenuePresentation).toMatchObject({ form: "10-K", filed: "2026-02-24", represented: false });
+    expect(cell(tr, "2025-12-31").revenueQoqPct).toBeCloseTo(20, 3);
+    expect(cell(tr, "2025-12-31").revenueGrowthNotes).toBeUndefined();
+  });
+  it("control: rows without the marker, or with a malformed one, keep plain arithmetic; a well-formed one fires", () => {
+    const rows = (marker: unknown): R[] => [
+      { date: "2026-06-30", fiscalYear: "2026", period: "Q2", reportedCurrency: "USD", revenue: 90 * M, fieldProvenance: prov("2026-06-30", ref("10-Q", "2026-07-31")), ...(marker === undefined ? {} : { revenuePresentation: { accn: "a", form: "10-Q", filed: "2026-07-31", represented: true } }) },
+      { date: "2026-03-31", fiscalYear: "2026", period: "Q1", reportedCurrency: "USD", revenue: 110 * M, fieldProvenance: prov("2026-03-31", ref("10-Q", "2026-05-01")), ...(marker === undefined ? {} : { revenuePresentation: marker }) },
+    ];
+    for (const marker of [undefined, { accn: "b", form: "10-Q", filed: 20260501, represented: false }, { form: "10-Q", filed: "2026-05-01", represented: "no" }, "x"]) {
+      const row = trend(handBundle(rows(marker)), "2026-06-30");
+      expect(row.revenueQoqPct).toBeCloseTo((90 / 110 - 1) * 100, 2);
+      expect(row.revenueGrowthNotes).toBeUndefined();
+    }
+    const flagged = trend(handBundle(rows({ accn: "b", form: "10-Q", filed: "2026-05-01", represented: false })), "2026-06-30");
+    expect(flagged.revenueQoqPct).toBeNull();
   });
 });

@@ -4222,32 +4222,51 @@ so the pair is also checked, in the statement builder, by one pure helper
 (Revises D-13, "one filing lineage": it now means one presentation; D-next.)
 
 **Quarterly trend growth on one presentation (audit 2026-10-27 FIN-511-V1).**
-Each year-over-year and quarter-over-quarter cell of the quarterly trend
-divides two quarters that sit on one filed presentation, judged from the
-revenue provenance and re-presentation flags the SEC statement rows carry (rows
-from the FMP route carry neither and keep plain arithmetic). Three cases:
+Where the filings show a re-presentation, each year-over-year and
+quarter-over-quarter cell of the quarterly trend divides two quarters on one
+presentation, or is not shown with a note. The test reads what the SEC
+statement rows carry: the revenue provenance, the re-presentation flag and
+first-reported copy, and a marker naming the filing that supplies the
+quarter's revenue and whether that filing re-presented earlier periods of the
+concept (`revenuePresentation`, the test the derived-quarter rule above
+applies to a minuend). Rows from the FMP route carry none of these and keep
+plain arithmetic. Three cases:
 
 - The comparison quarter was re-presented by a filing newer than the printed
   quarter's own supplying filing, and the printed quarter was not: the cell
   divides by the comparison's first-reported copy when that copy was filed on or
   before the printed quarter's filing, which puts both on the earlier
-  presentation, and a note names the copy and both filings (Bank of America
-  Q3 2025 against Q2 2025: 28,088 / 26,463 = +6.1%, not +2.4% against the
-  re-presented 27,443). When no first-reported copy of the comparison predates
-  the printed quarter's filing, the cell is a dash with a note.
+  presentation. The note names that copy (amount and filing) and the filing
+  that re-presented it (Bank of America Q3 2025 against Q2 2025: 28,088 /
+  26,463 = +6.1%, not +2.4% against the re-presented 27,443). When no
+  first-reported copy was filed on or before the printed quarter's filing, or
+  the first-reported copy is not positive, the cell is not shown, with a note.
 - The printed quarter was re-presented by a filing newer than the comparison's
-  supplying filing, and nothing re-presents the comparison: the cell is a dash
-  with a note, because any rate would sit beside a level on a different
+  supplying filing, and nothing re-presents the comparison: the cell is not
+  shown, with a note, because any rate would sit beside a level on a different
   presentation (Bank of America Q1 and Q2 2025 year over year, +9.4% and +8.1%
   before).
-- Both quarters re-presented, neither re-presented, or no provenance: the cell
-  is unchanged.
+- The printed quarter's own filing is the first to re-present earlier periods
+  and the earlier filing that supplies the comparison did not (the rule
+  applied to the pair that the derived-quarter rule applies to a minuend and a
+  subtrahend): the cell is not shown, with a note. A synthetic case: a 10-Q
+  files a quarter of 90 and re-presents the prior-year quarter, while the prior
+  quarter, from the earlier 10-Q, is 110 on the old basis; 90 / 110 = -18.2%
+  would net two bases (on one basis it would be 90 / 88 = +2.3%), and the
+  year-over-year cell, both quarters from that 10-Q, is kept. When both
+  filings re-presented, neither did, or they are the same date, the cell is
+  unchanged.
 
-The notes follow the table in the classic report and the quarterly-trend
-section of the payload, where a dashed cell registers no figure. A growth cell
-against a withheld quarter stays a dash, as before. This follows the
-presentation rule above and SEC Financial Reporting Manual 13110.4, under
-which a later 10-Q re-presents only the periods it shows (D-next).
+Limits. A quarter whose revenue is a sum of several tags, or a row without the
+marker (the FMP route, stored rows), keeps plain arithmetic. A comparison whose
+own filing re-presented for an earlier, separate change counts as on the newer
+basis. The re-presenting filing named in a note is the one that supplies the
+newest copy of the comparison, which can be later than the filing that first
+changed it. The notes follow the table in the classic report and the
+quarterly-trend section of the payload, where a dashed cell registers no
+figure. A growth cell against a withheld quarter stays a dash, as before. This
+follows the presentation rule above and SEC Financial Reporting Manual 13110.4,
+under which a later 10-Q re-presents only the periods it shows (D-next).
 
 **Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
 capital although the filing establishes the figure.

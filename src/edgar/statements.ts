@@ -63,7 +63,9 @@ import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarr
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import {
   describeChangePct,
+  filingRepresented,
   firstReportedOrder,
+  isAmendment,
   oneBasisPair,
   representationLabelled,
   type LabelCopy,
@@ -3041,6 +3043,8 @@ interface PeriodSlot {
   date: string;
   resolve: TagResolver;
   quarter: QuarterContext | null;
+  /** Every deduped-away and winning companyfacts copy of `tag` in `unit` (quarterly slots only). */
+  copiesOf?: (tag: string, unit: string) => readonly FactPoint[] | null;
 }
 
 interface BuildState {
@@ -3400,6 +3404,21 @@ function buildStatementRows<TRow>(
       });
     }
     if (Object.keys(original).length > 0) row.original = original;
+    // FIN-511-V1: the filing that supplies a quarter's revenue and whether it re-presented earlier periods of that
+    // concept (the test `presentationMixed` applies to a minuend), so a growth cell can tell two bases apart. Additive:
+    // omitted unless one tag and unit supplied the figure and its copies can be identified.
+    if (def.statement === "income" && slot.quarter !== null) {
+      const revenue = resolutions.get("revenue");
+      const copies = revenue !== undefined && revenue.tags.length === 1 ? slot.copiesOf?.(revenue.tags[0]!, revenue.unit) ?? null : null;
+      if (revenue !== undefined && copies !== null && copies.some((c) => c.accn === revenue.point.accn)) {
+        row.revenuePresentation = {
+          accn: revenue.point.accn,
+          form: revenue.point.form,
+          filed: revenue.point.filed,
+          represented: filingRepresented(copies, revenue.point.accn, RESTATEMENT_THRESHOLD_PCT, isAmendment(revenue.point) ? revenue.point : undefined),
+        };
+      }
+    }
     if (rowFlags.length > 0) {
       row.restatement = rowFlags;
       restatements.push(...rowFlags);
@@ -3890,6 +3909,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
       date: ctx.end,
       resolve: quarterResolver(index, ctx, quarterEnds, ytdOnly, notes),
       quarter: ctx,
+      copiesOf: (tag, unit) => index.get(tag)?.find((e) => e.unit === unit)?.all ?? null,
     }));
   const balanceQuarterSlots = (): PeriodSlot[] =>
     quarterSlotContexts.map((ctx) => ({ date: ctx.end, resolve: instantResolver(index, ctx.end), quarter: ctx }));

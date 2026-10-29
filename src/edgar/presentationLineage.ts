@@ -43,7 +43,7 @@ export function describeChangePct(changePct: number | null, decimals = 2): strin
     : `${changePct > 0 ? "+" : ""}${changePct.toFixed(decimals)}%`;
 }
 
-const isAmendment = (c: LineageCopy): boolean => c.form.trim().endsWith("/A");
+export const isAmendment = (c: LineageCopy): boolean => c.form.trim().endsWith("/A");
 const samePeriod = (a: LineageCopy, b: LineageCopy): boolean => a.end === b.end && (a.start ?? "") === (b.start ?? "");
 
 /** Earliest filed first; on a same-day tie the original before an amendment, then the lower accession (buildReporters' order). */
