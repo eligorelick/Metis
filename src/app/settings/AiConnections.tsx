@@ -2,11 +2,15 @@
 import { PROVIDER_CREDENTIALS_CHANGED } from "@/settings/credentialContracts";
 import { useCallback, useEffect, useState } from "react";
 import { Panel } from "@/components/ui";
+import type { AnalysisRoute } from "@/ai/analysisRoute";
 import { CHATGPT_EFFORTS, CHATGPT_MANAGE_USAGE_URL, chatGptFastOffered, type ChatGptEffort, type ChatGptModelChoice, type AiConnectionsView } from "@/ai/contracts";
 
 const button = "border border-edge px-3 py-1.5 text-sm hover:border-accent disabled:opacity-40";
-export function AiConnections() {
-  const [view, setView] = useState<AiConnectionsView | null>(null);
+type ViewWithRoute = AiConnectionsView & { route?: AnalysisRoute };
+export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | null) => void } = {}) {
+  const [view, setView] = useState<ViewWithRoute | null>(null);
+  const routeFromView = (view as ViewWithRoute | null)?.route ?? null;
+  useEffect(() => { onRoute?.(routeFromView); }, [onRoute, routeFromView]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [chosen, setChosen] = useState("none");

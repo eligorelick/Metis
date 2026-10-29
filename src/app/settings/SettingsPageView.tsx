@@ -15,6 +15,7 @@ import {
   type SettingsPageControllerState,
 } from "@/settings/writeQueue";
 import { ResumeQueueControl } from "./ResumeQueueControl";
+import type { AnalysisRoute } from "@/ai/analysisRoute";
 import { AiConnections } from "./AiConnections";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { ProviderCredentials } from "./ProviderCredentials";
@@ -44,13 +45,23 @@ export interface SettingsPageViewProps {
   state: SettingsPageControllerState;
   onAnalysisModel(value: AnalysisModelOption): void;
   onAnalysisEffort(value: EffortLevel): void;
+  /** The route reports run on now; the Claude panels say so when it is not Claude. */
+  activeRoute?: Pick<AnalysisRoute, "provider" | "label" | "ready"> | null;
+  onRoute?(route: AnalysisRoute | null): void;
 }
 
 export function SettingsPageView({
   state,
   onAnalysisModel,
   onAnalysisEffort,
+  activeRoute = null,
+  onRoute,
 }: SettingsPageViewProps) {
+  const claudeNotInUse = activeRoute !== null && activeRoute.provider !== "anthropic" ? (
+    <p className="mb-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-[12px] text-warn">
+      Not in use: reports currently run on {activeRoute.label}. Choose Claude API above to use these settings.
+    </p>
+  ) : null;
   const settings = state.payload;
   const status = state.writer?.status ?? "idle";
   const saveBadge = status === "saving" ? (
@@ -94,8 +105,9 @@ export function SettingsPageView({
 
         <AppearanceSettings />
         <ProviderCredentials capabilities={settings?.capabilities} />
-        <AiConnections />
+        <AiConnections onRoute={onRoute} />
         <Panel title="Claude API model (used only when selected above)" right={saveBadge}>
+          {claudeNotInUse}
           {settings === null && state.status === "loading" ? (
             <div className="py-2 text-[11px] text-faint">loading…</div>
           ) : settings !== null ? (
@@ -142,6 +154,7 @@ export function SettingsPageView({
         </Panel>
 
         <Panel title="Claude API effort" right={saveBadge}>
+          {claudeNotInUse}
           {settings === null && state.status === "loading" ? (
             <div className="py-2 text-[11px] text-faint">loading…</div>
           ) : settings !== null ? (
