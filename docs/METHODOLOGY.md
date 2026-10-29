@@ -4569,12 +4569,23 @@ figure it leaves unverified is disclosed (see the A-11 paragraphs):
   expense), not a derivation (consolidated profit for profit attributable to the
   parent, derived EBIT for a filed operating income). The withheld field quotes
   the refusal. The one exception is a synonym the component floor would skip
-  anyway: a combined synonym whose quarter is withheld, but whose as-filed
-  derived quarter sits below a floor tag (decided as for a withheld floor tag,
-  below), is skipped as a subset line and the next synonym is tried, so a
-  McDonald's-shaped `DepreciationDepletionAndAmortization` gives way to the total
-  `DepreciationAndAmortization`. A withheld synonym at or above its floors still
-  ends the field (B13 final review M-6).
+  anyway: a combined synonym whose quarter is withheld is judged against each
+  floor tag as for a withheld floor tag (below). Where a filing carries both
+  tags for the periods the quarter nets, those filings decide: the synonym is
+  skipped as a subset line, and the next synonym is tried, if it sits below the
+  floor tag beyond the allowance in such a filing. Only against a floor tag no
+  filing carries beside it does its as-filed derived quarter decide. So a
+  McDonald's-shaped `DepreciationDepletionAndAmortization`, below `Depreciation`
+  in the 10-Q that carries both, gives way to the total
+  `DepreciationAndAmortization`. Home Depot's quarter ended 2023-01-29 stays
+  withheld: its `DepreciationDepletionAndAmortization` is the larger tag in
+  every filing that carries both (FY2022 2,975 million against 2,455 million,
+  2,796 million against 2,455 million in the 10-K that split 179 million of
+  intangible amortization out of the year; nine months 2,216 million against
+  1,830 million), although its as-filed quarter (580 million, the re-filed year
+  less the original nine months) is below `DepreciationAndAmortization`'s 625
+  million. A withheld synonym at or above its floors still ends the field (B13
+  final review M-6, final re-review N-1).
 - A derived EBIT whose adjustment or optional interest part is withheld for
   presentation is itself withheld, quoting that reason (never read as "not
   filed"), when the derivation uses that operand. An operand the derivation does

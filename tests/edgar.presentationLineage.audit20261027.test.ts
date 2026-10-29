@@ -961,24 +961,75 @@ describe("B13 final review M-3: no operand mismatch is a withholding beside a pu
 });
 
 describe("B13 final review M-6: a refused D&A candidate the floor would skip does not end the D&A field", () => {
-  const daFacts = (dda: readonly [number, number, number]): Record<string, unknown[]> => ({
-    // DDA's FY2024 is re-filed by the FY2025 10-K beyond 1% with no label, so its Q4 2024 is withheld (C-9).
-    DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, dda[0] * M), pt(FR.k24, ...FY24, dda[1] * M), pt(FR.k25, ...FY24, dda[2] * M)],
-    Depreciation: [pt(FR.q324, ...NINE24, 1200 * M), pt(FR.k24, ...FY24, 1600 * M)],
-    DepreciationAndAmortization: [pt(FR.q324, ...NINE24, 1650 * M), pt(FR.k24, ...FY24, 2199 * M)],
-    Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
-    Assets: frAssets(),
-  });
-  it("MCD shape: a refused DDA whose as-filed quarter sits below Depreciation is skipped, and D&A is the total DepreciationAndAmortization", () => {
+  type Pair = readonly [nine: number, fy: number];
+  /** Filings that carry the floor tags only, so no filing carries a floor tag and DDA together. */
+  const FLOOR_ONLY = {
+    q324: { filed: "2024-11-05", form: "10-Q", fp: "Q3", fy: 2024, accn: "0000000007-24-000013" } as Filing,
+    k24: { filed: "2025-02-12", form: "10-K", fp: "FY", fy: 2024, accn: "0000000007-25-000011" } as Filing,
+  };
+  const daFacts = (
+    dda: readonly [number, number, number],
+    { da = [1650, 2199] as Pair, depreciation = [1200, 1600] as Pair | null, daRefiled = false, floorsApart = false } = {},
+  ): Record<string, unknown[]> => {
+    const [q, k] = floorsApart ? [FLOOR_ONLY.q324, FLOOR_ONLY.k24] : [FR.q324, FR.k24];
+    return {
+      // DDA's FY2024 is re-filed by the FY2025 10-K beyond 1% with no label, so its Q4 2024 is withheld (C-9).
+      DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, dda[0] * M), pt(FR.k24, ...FY24, dda[1] * M), pt(FR.k25, ...FY24, dda[2] * M)],
+      ...(depreciation === null ? {} : { Depreciation: [pt(q, ...NINE24, depreciation[0] * M), pt(k, ...FY24, depreciation[1] * M)] }),
+      DepreciationAndAmortization: [pt(q, ...NINE24, da[0] * M), pt(k, ...FY24, da[1] * M), ...(daRefiled ? [pt(FR.k25, ...FY24, da[1] * M)] : [])],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    };
+  };
+  const daWithheld = (b: ReturnType<typeof frBuild>) => b.incomeQuarterly.withheld.filter((w) => w.field === "depreciationAndAmortization");
+  it("MCD shape: a refused DDA below Depreciation in the filings that carry both is skipped, and D&A is the total DepreciationAndAmortization", () => {
     const b = frBuild(daFacts([340, 457, 500]));
     expect(frRow(b)?.depreciationAndAmortization).toBe(549 * M); // d6f4300: null (the DDA refusal ended the field)
-    expect(b.incomeQuarterly.withheld.filter((w) => w.field === "depreciationAndAmortization")).toEqual([]);
-    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 160000000 not used — below the same period's Depreciation 400000000, so it is not the total \(its quarter is withheld for presentation/.test(n))).toBe(true);
+    expect(daWithheld(b)).toEqual([]);
+    // Re-pinned for B13 final re-review N-1: the filings that carry both tags decide, not the mixed quarter (668c294:
+    // "DepreciationDepletionAndAmortization 160000000 not used — below the same period's Depreciation 400000000").
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 160000000 not used — its filed 2024-01-01\.\.2024-12-31 457000000 is below DepreciationAndAmortization 2199000000 in the same filing \(10-K 2025-02-12, 0000000007-25-000001\), so it is not the total \(its quarter is withheld for presentation, so the filings that carry both tags decide/.test(n))).toBe(true);
   });
-  it("control: a refused combined tag at or above its components still ends the step (C1)", () => {
-    const b = frBuild(daFacts([1300, 1800, 1900]));
+  it("control: a refused combined tag at or above every floor in the filings that carry both still ends the step (C1)", () => {
+    // Re-pinned for B13 final re-review N-1: DepreciationAndAmortization is now below DDA (1,250 and 1,700 against 1,300 and
+    // 1,800), as the control's title says. 668c294's fixture (1,650 and 2,199) put DDA below it in both filings, which the
+    // same-filing verdict reads as a sub-line: that shape is pinned on its own below.
+    const b = frBuild(daFacts([1300, 1800, 1900], { da: [1250, 1700] }));
     expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull();
-    expect(b.incomeQuarterly.withheld).toContainEqual(
+    expect(daWithheld(b)).toContainEqual(
+      expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/DepreciationDepletionAndAmortization 2024-12-31:.*first reported as 1800000000/) }),
+    );
+  });
+  it("HD shape (N-1): a refused DDA that is the larger tag in every filing carrying both is not skipped on its mixed quarter, so D&A is withheld", () => {
+    // HD's Q4 FY2022 in millions: DDA FY 2,975 first reported and re-filed at 2,796 (the 2025 10-K split 179 of amortization
+    // out, unlabelled), nine months 2,216; DepreciationAndAmortization 2,455 and 1,830 in every filing. The mixed quarter
+    // (580) sits below the narrower synonym's quarter (625), the one-basis quarter (759) above it.
+    const b = frBuild(daFacts([2216, 2975, 2796], { da: [1830, 2455], depreciation: null, daRefiled: true }));
+    expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull(); // 668c294: 625M from DepreciationAndAmortization
+    expect(daWithheld(b)).toContainEqual(
+      expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/DepreciationDepletionAndAmortization 2024-12-31:.*first reported as 2975000000/) }),
+    );
+    expect(b.incomeQuarterly.notes.some((n) => /not the total/.test(n))).toBe(false);
+  });
+  it("a refused DDA at or above Depreciation but below DepreciationAndAmortization in the filings that carry both is a sub-line: skipped", () => {
+    // 668c294's control fixture. Its mixed quarter (600) is above both floors' quarters (400, 549), but DDA is below
+    // DepreciationAndAmortization in both filings (1,800 against 2,199; 1,300 against 1,650), as an unrefused DDA would be skipped.
+    const b = frBuild(daFacts([1300, 1800, 1900]));
+    expect(frRow(b)?.depreciationAndAmortization).toBe(549 * M); // 668c294: null
+    expect(daWithheld(b)).toEqual([]);
+    // The FY2024 row skips DDA by the same floor (1,900 against 2,199), so the quarter and its year use one tag.
+    expect(b.incomeAnnual.rows.find((r) => r.date === "2024-12-31")?.depreciationAndAmortization).toBe(2199 * M);
+  });
+  it("with no filing carrying both tags, the as-filed quarter decides: below a floor, the candidate is skipped", () => {
+    const b = frBuild(daFacts([340, 457, 500], { floorsApart: true }));
+    expect(frRow(b)?.depreciationAndAmortization).toBe(549 * M);
+    expect(daWithheld(b)).toEqual([]);
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 160000000 not used — below the same period's Depreciation 400000000, so it is not the total \(its quarter is withheld for presentation and no filing carries both tags, so its as-filed value is compared\)/.test(n))).toBe(true);
+  });
+  it("with no filing carrying both tags, the as-filed quarter decides: at or above every floor, the refusal ends the step (C1)", () => {
+    const b = frBuild(daFacts([1300, 1800, 1900], { floorsApart: true }));
+    expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull();
+    expect(daWithheld(b)).toContainEqual(
       expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/DepreciationDepletionAndAmortization 2024-12-31:.*first reported as 1800000000/) }),
     );
   });

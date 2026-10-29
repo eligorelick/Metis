@@ -1807,8 +1807,13 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     }
     case "first": {
       const skipped: string[] = [];
-      /** Why the candidate `r` of `tag` is a subset line below a component the line item contains, or null. */
-      const belowItsFloor = (tag: string, r: Resolved): string | null => {
+      /**
+       * Why the candidate `r` of `tag` is a subset line below a component the line item contains, or null. A candidate
+       * whose own quarter is withheld for presentation (`r` is then its as-filed value) is judged against each floor tag
+       * by the filings that carry both, as a withheld floor tag is; only a floor tag no filing carries beside it is
+       * compared with the as-filed value (B13 final re-review N-1).
+       */
+      const belowItsFloor = (tag: string, r: Resolved, candidateWithheld = false): string | null => {
         if (spec.unlessBelow === undefined) return null;
         const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
         // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
@@ -1817,6 +1822,14 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         for (const floorTag of floorTags) {
           if (floorTag === tag) continue;
           const presentationBefore = notes.presentationRefusals.length;
+          if (candidateWithheld) {
+            const verdict = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }))?.sameFiling;
+            notes.presentationRefusals.length = presentationBefore;
+            if (verdict !== undefined) {
+              if (verdict.below) sameFilingHit = `${tag} ${r.value} not used — ${verdict.detail}, so it is not the total`;
+              continue;
+            }
+          }
           let f = notes.quietly(() => resolve(floorTag, spec.unit));
           const floorRefused = f === null && notes.presentationRefusals.length > presentationBefore;
           // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
@@ -1834,7 +1847,12 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
         }
         const hit = belowComponentFloor(r.value, components);
-        return sameFilingHit ?? (hit === null ? null : `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`);
+        if (sameFilingHit !== null) {
+          return candidateWithheld ? `${sameFilingHit} (its quarter is withheld for presentation, so the filings that carry both tags decide, as for a withheld floor tag)` : sameFilingHit;
+        }
+        if (hit === null) return null;
+        const text = `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
+        return candidateWithheld ? `${text} (its quarter is withheld for presentation and no filing carries both tags, so its as-filed value is compared)` : text;
       };
       for (const tag of spec.tags) {
         const refusalsBefore = notes.refusals.length;
@@ -1843,18 +1861,18 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511). The
         // check reads `presentationRefusals`, which a muted probe fills too (B13 final review M-4).
         if (r === null && notes.presentationRefusals.length > presentationBefore) {
-          // Unless the floor would skip the candidate as a subset line anyway: its floor is decided from its as-filed
-          // value, as for a refused floor tag (M5, F3), and the next synonym is tried (B13 final review M-6).
+          // Unless the floor would skip the candidate as a subset line anyway (B13 final review M-6): the filings that
+          // carry it beside a floor tag decide, as for a refused floor tag (M5, F3), and the as-filed value only where no
+          // filing does (final re-review N-1). Then the next synonym is tried.
           const refusedAt = notes.presentationRefusals.length;
           const asFiled = spec.unlessBelow === undefined ? null : notes.quietly(() => resolve(tag, spec.unit, undefined, true));
           notes.presentationRefusals.length = refusedAt;
-          const subset = asFiled === null ? null : belowItsFloor(tag, asFiled);
+          const subset = asFiled === null ? null : belowItsFloor(tag, asFiled, true);
           if (subset === null) return null;
           notes.presentationRefusals.length = presentationBefore;
           notes.refusals.length = refusalsBefore;
-          const text = `${subset} (its quarter is withheld for presentation, so its as-filed value is compared, as for a withheld floor tag)`;
-          notes.add(`${label}: ${text}`);
-          skipped.push(text);
+          notes.add(`${label}: ${subset}`);
+          skipped.push(subset);
           continue;
         }
         if (r === null) continue;
