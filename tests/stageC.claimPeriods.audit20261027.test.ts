@@ -825,3 +825,143 @@ describe("final review: a claim's prior fiscal year-end is established only by t
     }
   });
 });
+
+// Final review, Concern 1 second fix (2026-10-28, AI-303-V3 / AI-402): a property table for the year-end instants. An instant stated
+// after a comparison cue is the comparison's base, and one after "from" or "since" is a start; neither is the other figure's own
+// period. Each row states the truth from what the source says: a false claim is never validated, a true claim is never
+// contradicted, and a row whose truth depends on how the spelling reads against the title (or that the source does not state at all)
+// may only be unchecked.
+describe("final review: a year-end instant after a comparison cue or a start is never the other figure's period (property table)", () => {
+  type Truth = { truth: "true"; uncheckedOk: boolean } | { truth: "false" } | { truth: "ambiguous" } | { truth: "unstated" };
+  const allowed = (row: Truth): string[] => row.truth === "true" ? (row.uncheckedOk ? ["validated", "unchecked"] : ["validated"])
+    : row.truth === "false" ? ["unchecked", "contradicted"] : ["unchecked"];
+  const TITLES = {
+    "10-Q": { title: "10-Q Part I Item 2 — MD&A (reporting period ended 2026-07-26 (Q2 FY2027))", source: "edgar:10-Q item2", asOf: "2026-07-26" },
+    FY: { title: "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026))", source: "edgar:10-K item7", asOf: "2026-01-25" },
+    Q4: { title: "8-K EX-99.1 - earnings release, Q4 FY2026, quarter ended 2026-01-25 (8-K; filed 2026-02-25)", source: "edgar:8-K EX-99.1", asOf: "2026-01-25" },
+  } as const;
+  type Title = keyof typeof TITLES;
+  const SOURCES = {
+    S1: "Inventory was $31.6 billion at the end of the prior fiscal year.",
+    S2: "Inventory was $31.6 billion, up from $25.8 billion at the end of the prior fiscal year.",
+    S3: "Inventory was $31.6 billion, compared with $25.8 billion at the prior fiscal year-end.",
+    S4: "Inventory was $31.6 billion, compared with $25.8 billion as of the prior year-end.",
+    S5: "Inventory increased to $31.6 billion from $25.8 billion at the end of the prior year.",
+    S6: "Inventory increased from $25.8 billion at the end of the prior fiscal year to $31.6 billion.",
+    S7: "Compared with the end of the prior fiscal year, inventory was $31.6 billion.",
+    S8: "From the end of the prior fiscal year, inventory increased by $5.8 billion.",
+    S9: "Since the end of the prior fiscal year, inventory increased by $5.8 billion.",
+    S10: "Inventory was $31.6 billion, compared with $25.8 billion at fiscal year-end.",
+  } as const;
+  type Source = keyof typeof SOURCES;
+  const SAME_PHRASE = "at the end of the prior fiscal year";
+  const SPELLINGS = [SAME_PHRASE, "at the prior fiscal year-end", "at the end of last fiscal year", "at the previous fiscal year-end",
+    "as of the prior year-end", "at fiscal year-end"] as const;
+  const CLAIMS = {
+    L31: (at: string) => `Inventory was USD 31.6 billion ${at}.`,
+    L25: (at: string) => `Inventory was USD 25.8 billion ${at}.`,
+    C58since: (at: string) => `Inventory increased by USD 5.8 billion ${at.replace(/^(?:at|as of)\s+/, "since ")}.`,
+    C58at: (at: string) => `Inventory increased by USD 5.8 billion ${at}.`,
+  } as const;
+  type Claim = keyof typeof CLAIMS;
+  const T = (uncheckedOk = true): Truth => ({ truth: "true", uncheckedOk });
+  const F: Truth = { truth: "false" };
+  const AMBIGUOUS: Truth = { truth: "ambiguous" };
+  const UNSTATED: Truth = { truth: "unstated" };
+  /**
+   * The truth of each row, from what the source states. "At fiscal year-end" under the 10-Q title (Q2 FY2027) may be the last
+   * completed year-end or the current year's, so it is ambiguous there; under the FY and Q4 titles it is 2026-01-25, the date of the
+   * current figure, and the prior fiscal year-end is the year before. A change "at" an instant has no single reading unless the
+   * instant is one the change cannot be at (the prior year-end the change runs from).
+   */
+  const truth = (source: Source, title: Title, claim: Claim, at: string): Truth => {
+    const fye = at === "at fiscal year-end";
+    const annual = title !== "10-Q";
+    switch (source) {
+      case "S1": // $31.6 billion at the prior fiscal year-end; nothing else.
+        if (claim === "L31") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T(at !== SAME_PHRASE);
+        if (claim === "L25") return fye ? (annual ? UNSTATED : AMBIGUOUS) : F;
+        return UNSTATED;
+      case "S2": case "S3": case "S4": case "S5": case "S6": // $31.6 billion now; $25.8 billion at the prior fiscal year-end.
+        if (claim === "L31") return fye ? (annual ? T() : AMBIGUOUS) : F;
+        if (claim === "L25") return fye ? (annual ? F : AMBIGUOUS) : T();
+        if (claim === "C58since") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T();
+        return fye ? AMBIGUOUS : F;
+      case "S7": // $31.6 billion now, compared with the prior fiscal year-end; no figure at that year-end.
+        if (claim === "L31") return fye ? (annual ? T() : AMBIGUOUS) : F;
+        if (claim === "L25") return fye ? (annual ? F : AMBIGUOUS) : UNSTATED;
+        return UNSTATED;
+      case "S8": case "S9": // a change of $5.8 billion since the prior fiscal year-end; no level.
+        if (claim === "C58since") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T();
+        if (claim === "C58at") return fye ? AMBIGUOUS : F;
+        return UNSTATED;
+      case "S10": // 10-Q only: $31.6 billion now; $25.8 billion at fiscal year-end (the last completed one, so maybe the prior).
+        if (claim === "L31") return F;
+        if (claim === "L25") return fye ? T() : AMBIGUOUS;
+        if (claim === "C58since") return fye ? T() : AMBIGUOUS;
+        return AMBIGUOUS;
+    }
+  };
+  const run = (source: Source, title: Title, claimText: string) => {
+    const { title: name, source: id, asOf } = TITLES[title];
+    const text = SOURCES[source];
+    const excerpt: TextExcerpt = { title: name, text, source: id, asOf, truncated: false, originalChars: text.length };
+    return validateClaimNumericSupport({ label: "FACT", text: claimText, source: id, asOf }, { excerpts: [excerpt], sourceId: id, reportingCurrency: "USD" });
+  };
+  const ROWS = (Object.keys(SOURCES) as Source[]).flatMap((source) => (source === "S10" ? ["10-Q"] as Title[] : Object.keys(TITLES) as Title[])
+    .flatMap((title) => (Object.keys(CLAIMS) as Claim[]).flatMap((claim) => SPELLINGS.map((at) => [source, title, claim, at] as const))));
+  it("covers every source, title, claim and spelling (S10 under the 10-Q title only)", () => {
+    expect(ROWS).toHaveLength(9 * 3 * 4 * 6 + 4 * 6);
+  });
+  it.each(ROWS)("%s under the %s title: %s %s", (source, title, claim, at) => {
+    const claimText = CLAIMS[claim](at);
+    const expected = truth(source, title, claim, at);
+    const { status, reason } = run(source, title, claimText);
+    expect(allowed(expected), `${claimText} against "${SOURCES[source]}" (${title}): ${status}/${reason}, truth ${JSON.stringify(expected)}`).toContain(status);
+  });
+  // Where the reason matters.
+  it.each(Object.keys(TITLES) as Title[])("R1: the level figure does not take the base's prior year-end, so the claim is unchecked for its period (%s)", (title) => {
+    for (const source of ["S2", "S3", "S4", "S5", "S6"] as const) {
+      for (const at of SPELLINGS.slice(0, 5)) {
+        expect(run(source, title, CLAIMS.L31(at)), `${source} ${at}`).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+      }
+    }
+  });
+  it.each(Object.keys(TITLES) as Title[])("R2: a fronted cue or start is never the figure's own instant (%s)", (title) => {
+    expect(run("S7", title, CLAIMS.L31(SAME_PHRASE)).status).toBe("unchecked");
+    expect(run("S8", title, CLAIMS.C58at(SAME_PHRASE)).status).toBe("unchecked");
+    expect(run("S9", title, CLAIMS.C58at(SAME_PHRASE)).status).toBe("unchecked");
+  });
+  it("r8: under a 10-Q title the current figure is not the fiscal year-end base", () => {
+    expect(run("S10", "10-Q", CLAIMS.L31("at fiscal year-end")).status).toBe("unchecked");
+  });
+  it("R1: an instant after an amount and \"at\" or \"as of\" follows the comparison cue", () => {
+    const at = (text: string, phrase: string) => comparisonCueEnd(text, text.indexOf(phrase));
+    expect(at(SOURCES.S2, "end of the prior")).toBe(SOURCES.S2.indexOf("up from") + "up from".length);
+    expect(at(SOURCES.S4, "prior year-end")).toBe(SOURCES.S4.indexOf("compared with") + "compared with".length);
+    expect(at(SOURCES.S10, "fiscal year-end")).not.toBeNull();
+    expect(at("Revenue was $10.2 billion, compared with $8.1 billion as of January 26, 2025.", "January 26, 2025")).not.toBeNull();
+    // Control: with no cue the instant is the figure's own.
+    expect(at(SOURCES.S1, "end of the prior")).toBeNull();
+    expect(at("Inventory was $31.6 billion at fiscal year-end.", "fiscal year-end")).toBeNull();
+  });
+  it("R1: a date after an amount and \"as of\" is the base's too, so the level figure does not take it", () => {
+    const text = "Revenue was $10.2 billion, compared with $8.1 billion as of January 26, 2025.";
+    const excerpt: TextExcerpt = { title: TITLES["10-Q"].title, text, source: TITLES["10-Q"].source, asOf: TITLES["10-Q"].asOf, truncated: false, originalChars: text.length };
+    const on = (claim: string) => validateClaimNumericSupport({ label: "FACT", text: claim, source: excerpt.source, asOf: excerpt.asOf },
+      { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }).status;
+    expect(on("Revenue was USD 10.2 billion as of January 26, 2025.")).toBe("unchecked");
+    expect(on("Revenue was USD 8.1 billion as of January 26, 2025.")).not.toBe("contradicted");
+  });
+  it("control: a start the claim and the source state alike is compared as a base and still validates", () => {
+    for (const text of ["Inventory increased by $5.8 billion since fiscal year-end.", "Since fiscal year-end, inventory increased by $5.8 billion."]) {
+      const excerpt: TextExcerpt = { title: TITLES["10-Q"].title, text, source: TITLES["10-Q"].source, asOf: TITLES["10-Q"].asOf, truncated: false, originalChars: text.length };
+      expect(validateClaimNumericSupport({ label: "FACT", text: "Inventory increased by USD 5.8 billion since fiscal year-end.", source: excerpt.source, asOf: excerpt.asOf },
+        { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }).status, text).toBe("validated");
+    }
+    expect(run("S8", "10-Q", "Inventory increased by USD 5.8 billion since fiscal year-end.").status).toBe("unchecked");
+  });
+  it("control: the figure's own prior year-end, in its own clause with no cue, still validates the same phrase under every title", () => {
+    for (const title of Object.keys(TITLES) as Title[]) expect(run("S1", title, CLAIMS.L31(SAME_PHRASE)).status, title).toBe("validated");
+  });
+});

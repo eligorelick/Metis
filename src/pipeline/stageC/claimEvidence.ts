@@ -290,6 +290,10 @@ export function windowsNamed(text: string): string[] {
   return periodLabels(text, { loose: true }).filter((period) => period.kind === "window").map((period) => period.key);
 }
 const HARD_BOUNDARY = /;|\n|•|[.!?](?=\s+[A-Z“"(])/g;
+/** The windows that are instants: the fiscal year-end and the prior fiscal year-end. */
+const INSTANT_WINDOWS: ReadonlySet<string> = new Set(["FYE", PRIOR_FISCAL_YEAR_END]);
+/** "from" or "since" directly before an instant makes it a change's start (final review, Concern 1, second fix). */
+const START_LEAD = /\b(?:from|since)\s+(?:the\s+|its\s+|our\s+)?$/i;
 /**
  * AI-404: the periods and comparison bases `span` of `text` states for `quantity`.
  * Every quantity inside the span is blanked first (a figure's digits are never a
@@ -310,7 +314,11 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
   }
   const stated = periodLabels(blanked, { loose, yearEnd });
   const isBase = (period: PeriodReference): boolean => {
-    if (period.kind === "window") return false;
+    // Final review (Concern 1, second fix): a year-end is an instant, so it is read as a date is; any other window is a span and is
+    // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
+    // inventory increased by $5.8 billion"), never the figure's own instant.
+    if (period.kind === "window" && !INSTANT_WINDOWS.has(period.key)) return false;
+    if (period.kind === "window" && START_LEAD.test(ownText.slice(Math.max(0, period.start - 24), period.start))) return true;
     const cue = comparisonCueEnd(ownText, period.start);
     return cue !== null && !(cue <= quantity.start - span.start && quantity.end - span.start <= period.start);
   };
@@ -481,13 +489,16 @@ const OWN_CONTEXT_WORDS = new Set([
   // point abbreviations a previous table cell leaves in a row lead
   "pt", "pts",
 ]);
+/** A comparison cue or a start, either of which makes a later prior fiscal year-end something other than the figure's own instant. */
+const OWN_PERIOD_CUE = /\b(?:compared\s+(?:with|to)|versus|vs\.?|relative\s+to|against|than|from|since)(?![A-Za-z])/i;
 /** The content words of a figure's own description: ordinal period phrases and comparison bases are blanked, context words dropped. */
 function ownDescriptionTokens(text: string, ignore: readonly string[]): string[] {
   const blanked = text
     .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
     .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
-    // A prior fiscal year-end is compared as a period, as the claim's is (final review, AI-303-V3).
-    .replace(PRIOR_YEAR_END, " ")
+    // A prior fiscal year-end is compared as a period, as the claim's is (final review, AI-303-V3), but only when no comparison cue or
+    // start precedes it: after one it is a base or a start, and the figure must not be described by it (Concern 1, second fix).
+    .replace(PRIOR_YEAR_END, (match: string, offset: number, whole: string) => OWN_PERIOD_CUE.test(whole.slice(0, offset)) ? match : " ")
     // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
     .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
   // A window is compared as a period (AI-303 / C-6), not as a metric word, exactly as the claim's own window tokens are.
@@ -1151,8 +1162,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
-    // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word.
-    const ownWindowTokens = new Set(own.periods.filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
+    // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word; a year-end base or start the claim
+    // names is compared as a base (Concern 1, second fix).
+    const ownWindowTokens = new Set([...own.periods, ...own.bases].filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
     const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
     // AI-305: the claim names a word of the source figure's own description when the claim's description holds it. The claim's
     // clause ends at "and"/"but"; a connector with no figure after it continues the description, as it does in a source sentence
