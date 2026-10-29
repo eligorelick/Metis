@@ -575,7 +575,15 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   // Fix round 5, A: the combined current tag holds the current finance leases, which the completed lease total adds
   // again; as the only current-debt evidence it is checked less FinanceLeaseLiabilityCurrent (resolveDebtOverlaps
   // case 4b), as itself when no finance lease is filed, and not at all (a refusal) when that slice is not tagged.
-  const combined = filedCurrent === null && debtCurrent === null && borrowings.length === 0 ? inFiling(COMBINED_CURRENT_DEBT_TAG) : null;
+  // Fix round 6: without LongTermDebtCurrent, a combined figure beside other current-debt evidence holds current
+  // maturities that no checked tag names; the row is refused, never composed.
+  const combinedTagged = filedCurrent === null ? inFiling(COMBINED_CURRENT_DEBT_TAG) : null;
+  if (combinedTagged !== null && (debtCurrent !== null || borrowings.length > 0)) {
+    const beside = [...(typeof debtCurrent === "number" ? [`DebtCurrent ${millions(debtCurrent)}`] : []), ...(borrowings.length > 0 ? [named(borrowings) + paperNote] : [])].join(" and ");
+    return refuse(`the filing's ${COMBINED_CURRENT_DEBT_TAG} ${typeof combinedTagged === "number" ? millions(combinedTagged) : "(in another filing)"} holds current maturities ` +
+      `that no LongTermDebtCurrent names, beside ${beside}`);
+  }
+  const combined = filedCurrent === null && debtCurrent === null && borrowings.length === 0 ? combinedTagged : null;
   const financeCurrent = inFiling("FinanceLeaseLiabilityCurrent");
   const checkedCurrent: { value: number; tags: string } | null = filedCurrent !== null ? { value: filedCurrent, tags: named(currentParts) + paperNote }
     : typeof debtCurrent === "number" ? { value: debtCurrent, tags: `DebtCurrent ${millions(debtCurrent)}` }

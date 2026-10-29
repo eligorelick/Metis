@@ -4575,7 +4575,12 @@ part of it is filed there for the same date:
   `FinanceLeaseLiabilityCurrent` (the statements builder's case 4b), or the
   figure itself when no finance lease is filed; when finance leases are filed
   without `FinanceLeaseLiabilityCurrent` the row is refused, since the
-  embedded portion cannot be established. When the filing tags none of these
+  embedded portion cannot be established. When the combined tag is filed
+  without `LongTermDebtCurrent` beside `DebtCurrent`, `ShortTermBorrowings` or
+  `CommercialPaper`, it holds current maturities no checked tag names, so the
+  row is refused with those tags and amounts, whatever the vendor's short-term
+  debt; the maturities are not composed. Beside `LongTermDebtCurrent` the
+  combined tag is set aside, as in the builder's case 4a. When the filing tags none of these
   five, the vendor figure must not equal a current lease amount the completed
   line already holds;
 - total debt is short-term debt plus the vendor's long-term debt (which must

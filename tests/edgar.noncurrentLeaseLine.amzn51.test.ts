@@ -290,6 +290,29 @@ describe("the combined current tag and the legacy finance-lease tag (fix round 5
   it("control: with no finance-lease tag of any kind, the operating-only completion stands", () => {
     expect(admitDebtFields(providerRow(0, 80), facts({ LongTermDebtCurrent: 3 }), "USD", OBSERVED).row.totalDebt).toBe((3 + 120 + 90) * M);
   });
+
+  // Fix round 6: the combined current tag beside other current-debt evidence and no LongTermDebtCurrent.
+  // Finance leases 22 (10 current, 12 noncurrent), so the provider line is 80 + 12 = 92.
+  const FINANCE_10 = { FinanceLeaseLiability: 22, FinanceLeaseLiabilityCurrent: 10, FinanceLeaseLiabilityNoncurrent: 12 };
+
+  it("refuses when the combined 50M sits beside ShortTermBorrowings 100M with no LongTermDebtCurrent (its 40M of maturities would be lost)", () => {
+    const { row: out } = admitDebtFields(providerRow(100, 92), facts({ ...FINANCE_10, ShortTermBorrowings: 100, LongTermDebtAndCapitalLeaseObligationsCurrent: 50 }), "USD", OBSERVED);
+    expect(out.totalDebt).toBeNull();
+    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/, but the filing's LongTermDebtAndCapitalLeaseObligationsCurrent 50M holds current maturities that no LongTermDebtCurrent names, beside ShortTermBorrowings 100M; the row is not completed from that filing/);
+  });
+
+  it("refuses beside DebtCurrent too, and for a provider zero", () => {
+    const beside = facts({ ...FINANCE_10, DebtCurrent: 60, LongTermDebtAndCapitalLeaseObligationsCurrent: 50 });
+    expect(admitDebtFields(providerRow(60, 92), beside, "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason)
+      .toMatch(/LongTermDebtAndCapitalLeaseObligationsCurrent 50M holds current maturities that no LongTermDebtCurrent names, beside DebtCurrent 60M/);
+    expect(admitDebtFields(providerRow(0, 92), beside, "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason)
+      .toMatch(/holds current maturities that no LongTermDebtCurrent names/);
+  });
+
+  it("control: with LongTermDebtCurrent 40 tagged the combined tag is set aside (case 4a) and the row completes", () => {
+    const { row: out } = admitDebtFields(providerRow(0, 92), facts({ ...FINANCE_10, LongTermDebtCurrent: 40, ShortTermBorrowings: 100, LongTermDebtAndCapitalLeaseObligationsCurrent: 50 }), "USD", OBSERVED);
+    expect(out.totalDebt).toBe((40 + 100 + 120 + 90 + 22) * M);
+  });
 });
 
 describe("commercial paper beside short-term borrowings is counted once (fix round 4, Codex)", () => {
