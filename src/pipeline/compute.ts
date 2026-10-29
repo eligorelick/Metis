@@ -529,6 +529,7 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
+    ...(r.fieldConflicts !== undefined ? { fieldConflicts: r.fieldConflicts } : {}),
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     fieldProvenance: r.fieldProvenance,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
@@ -3091,7 +3092,9 @@ function computeReturns(
   const roic: RoicResult = isFinancial
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
-    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country) });
+    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        // KNW-03: a refused debt or capital input withholds ROIC as visibly as it withholds WACC.
+        refusalSeverity: wacc.gaps.find((g) => g.field === "returns.wacc.weights")?.severity ?? "warn" });
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
@@ -3655,6 +3658,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
         financeLeaseLiability: num(balPoint.financeLeaseLiability),
         fieldProvenance: balPoint.fieldProvenance,
+        ...(balPoint.fieldConflicts !== undefined ? { fieldConflicts: balPoint.fieldConflicts } : {}),
         shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
       }
     : null;
@@ -3895,6 +3899,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
+    // VAL-10: the DCF gap quotes why the WACC is unavailable.
+    waccUnavailableReason: wacc.waccPct !== null ? null
+      : (wacc.gaps.find((g) => g.severity === "critical") ?? wacc.gaps.find((g) => g.severity === "warn"))?.reason ?? null,
     netDebt: netDebtDerived,
     dilutedShares: valuationDilutedShares,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
@@ -4043,6 +4050,7 @@ function netDebtFromBalance(
     cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
     marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
     vendorNetDebt: bal ? num(bal.netDebt) : null,
+    fieldConflicts: bal?.fieldConflicts,
   });
 }
 

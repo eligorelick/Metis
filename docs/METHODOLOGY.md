@@ -365,7 +365,12 @@ DCF's projected loss-carryforward logic.
 When short-term investments are genuinely unreported, returns can instead net
 cash alone and disclose that narrower invested-capital basis. Conflicting
 combined cash/component values do not qualify for this fallback; they withhold
-the affected invested capital and return.
+the affected invested capital and return. A year withheld because a debt or
+capital input was refused (a total debt the admission refused, a lease
+conflict or lease-scope refusal, a negative total debt, or conflicting cash
+components) is listed in one `returns.roic` manifest entry that gives each
+year's refusal. It takes the severity of the WACC weights entry when the run
+has one, and is a warning otherwise (audit 2026-10-29, KNW-03).
 
 ROTE is income available to common / average tangible common equity, with
 preferred allocations required when preferred equity is outstanding. Tangible
@@ -1186,7 +1191,21 @@ An operating lease enriched from SEC onto a provider row whose total is
 borrowings only is not removed. Net debt and EV are then used as reported, and a
 warning-level `valuation.dcf.netDebt.leaseScope` entry says so (audit
 2026-10-19, CODE-1). The same proof applies to the WACC debt leg and to the key
-data net debt excluding operating leases.
+data net debt excluding operating leases. The entry names what it compared: no
+total lease liability, or one smaller than the operating slice, and borrowings
+that are not disclosed or do not reconcile.
+
+**A withheld value states its refusal (audit 2026-10-29, VAL-4, VAL-10,
+KNW-04).** When enterprise value cannot be built, its basis and the
+`valuation.multiples.enterpriseValue` entry read "EV withheld:" with the actual
+reason (the net-debt refusal, the market-cap or share-scope gate, unresolved
+NCI, or the lease-scope refusal). They never say EV is reported as-is or that
+its components are missing. A total debt the admission refused is named as
+withheld, with the refusal, in net debt, invested capital and net debt/EBITDA;
+"missing" is kept for a value that is absent. A DCF withheld for want of a
+WACC says why the WACC is unavailable, and a suppressed fair value quotes the
+DCF gap, or the bridge gap and the net-debt refusal behind it. The generic
+reason remains only when no gap says.
 
 Both enterprise values — as reported, and less the operating-lease liability —
 are computed, together with the total lease liability and its finance slice.

@@ -1260,6 +1260,8 @@ export interface ReturnsIncomeRow extends Omit<CommonIncomeInputs, "netIncome"> 
 
 export interface ReturnsBalanceRow {
   commonEquityPeriodEnd?: string | null;
+  /** The admission's refusals, so a refused total debt is named (KNW-03/KNW-04). */
+  fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -1410,10 +1412,12 @@ function investedCapital(
   b: ReturnsBalanceRow,
   notes: string[],
   includeOperatingLeases: boolean,
+  /** KNW-03: the refusal of a debt or capital input that exists, for the manifest. */
+  refusals: string[] = [],
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
   const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
-  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); return null; }
+  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); refusals.push(scopeRefusal); return null; }
   if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
@@ -1421,16 +1425,23 @@ function investedCapital(
     return null;
   }
   if (!isFiniteNumber(b.totalDebt)) {
-    notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
+    const refused = b.fieldConflicts?.totalDebt;
+    if (refused?.usable === false) {
+      const reason = `total debt withheld (${refused.reason ?? "refused at admission"})`;
+      notes.push(`${b.date}: ${reason} — invested capital uncomputable`);
+      refusals.push(reason);
+    } else notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
     return null;
   }
   if (b.totalDebt < 0) {
     notes.push(`totalDebt is negative on ${b.date} — invested capital uncomputable`);
+    refusals.push(`total debt is negative (${fmt(b.totalDebt)}), invalid data`);
     return null;
   }
   const leaseConflict = leaseDebtConflict(b);
   if (leaseConflict !== null) {
     notes.push(`${b.date}: ${leaseConflict} - invested capital uncomputable`);
+    refusals.push(leaseConflict);
     return null;
   }
 
@@ -1479,6 +1490,7 @@ function investedCapital(
     notes.push(
       `${b.date}: ${resolution.reason ?? "cash components conflict"} — invested capital uncomputable (no trustworthy cash basis)`,
     );
+    refusals.push(resolution.reason ?? "cash components conflict");
     return null;
   }
 
@@ -1538,6 +1550,13 @@ export interface RoicOptions {
    * removed where the balance sheet discloses it.
    */
   includeOperatingLeases?: boolean;
+  /**
+   * KNW-03 (audit 2026-10-29, AMZN #51): the severity of the manifest entry
+   * for years withheld because a debt or capital input was refused. The
+   * caller passes the WACC weights gap's severity, so a refusal that withholds
+   * both is as visible in ROIC as in WACC; a warning otherwise.
+   */
+  refusalSeverity?: ManifestEntry["severity"];
   /**
    * Issuer domicile (ISO 3166 alpha-2) for the D-58 marginal-rate floor that
    * taxes a pre-tax-loss year's positive operating income (AMZN audit
@@ -1724,6 +1743,7 @@ export function computeRoic(
   }
 
   const series: RoicYear[] = [];
+  const refusedYears: { date: string; reason: string }[] = [];
   const take = Math.min(ROIC_SERIES_MAX_YEARS, inc.length);
   for (let i = take - 1; i >= 0; i -= 1) {
     const row = inc[i];
@@ -1782,8 +1802,12 @@ export function computeRoic(
       yearNotes.push(`no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS}d of ${row.date}`);
       continue;
     }
-    const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases);
-    if (icNow === null) continue;
+    const refusals: string[] = [];
+    const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases, refusals);
+    if (icNow === null) {
+      if (refusals.length > 0) refusedYears.push({ date: row.date, reason: refusals[0]! });
+      continue;
+    }
 
     // Average only against an adjacent annual balance; missing years use the disclosed single-period fallback.
     const prevIncomeDate = i + 1 < inc.length ? inc[i + 1].date : null;
@@ -1791,7 +1815,11 @@ export function computeRoic(
     let icAvg: number;
     if (balPrev !== null && balPrev !== balNow) {
       const priorScopeRefusal = leaseDebtScopeRefusal(balPrev, includeOperatingLeases);
-      if (priorScopeRefusal) { yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`); continue; }
+      if (priorScopeRefusal) {
+        yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`);
+        refusedYears.push({ date: row.date, reason: `the prior balance ${balPrev.date}: ${priorScopeRefusal}` });
+        continue;
+      }
       const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases);
       if (icPrev !== null) {
         icAvg = (icNow + icPrev) / 2;
@@ -1815,6 +1843,15 @@ export function computeRoic(
     entry.roicPct = (nopat / icAvg) * 100;
   }
 
+  if (refusedYears.length > 0) {
+    const newestFirst = [...refusedYears].sort((a, b) => b.date.localeCompare(a.date));
+    gaps.push({
+      field: "returns.roic",
+      reason: `ROIC withheld for ${newestFirst.length} fiscal year${newestFirst.length === 1 ? "" : "s"} whose debt or capital input was refused: ` +
+        newestFirst.map(({ date, reason }) => `${date}: ${reason}`).join("; "),
+      severity: options.refusalSeverity ?? "warn",
+    });
+  }
   const latest = series.length > 0 ? series[series.length - 1] : null;
   return {
     series,

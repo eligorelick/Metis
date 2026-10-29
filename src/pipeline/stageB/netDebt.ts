@@ -118,10 +118,15 @@ export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDe
   const total = finite(row.capitalLeaseObligations);
   if (total !== null && total >= operating - tolerance(operating)) return null;
   const debt = finite(row.totalDebt), short = finite(row.shortTermDebt), long = finite(row.longTermDebt);
-  if (debt !== null && short !== null && long !== null &&
-      Math.abs(short + long + operating + (finite(row.financeLeaseLiability) ?? 0) - debt) <= tolerance(debt)) return null;
+  const composed = short !== null && long !== null ? short + long + operating + (finite(row.financeLeaseLiability) ?? 0) : null;
+  if (debt !== null && composed !== null && Math.abs(composed - debt) <= tolerance(debt)) return null;
+  // KNW-04 (audit 2026-10-29, AMZN #51): each half names what it compared; a smaller total that exists is not denied.
+  const cover = total === null ? "no total lease liability is disclosed" : `the total lease liability ${total} is smaller than it`;
+  const reconcile = debt === null ? "total debt is unavailable"
+    : composed === null ? "current and noncurrent borrowings are not both disclosed to reconcile it"
+      : `borrowings plus leases ${composed} do not reconcile to the total`;
   return `operating-lease scope unproven: the operating-lease liability ${operating} is not shown to be inside total debt ${debt ?? "unavailable"} ` +
-    "(no total lease liability covers it and borrowings plus leases do not reconcile to the total), so it is not removed; net debt is used as reported";
+    `(${cover}, and ${reconcile}), so it is not removed; net debt is used as reported`;
 }
 
 export interface NetDebtInputs extends LeaseDebtInputs {
@@ -138,6 +143,8 @@ export interface NetDebtInputs extends LeaseDebtInputs {
   marketableEquitySecurities?: number | null;
   /** Accepted only for diagnostics; its cash-only convention is never used. */
   vendorNetDebt?: number | null;
+  /** The admission's refusals: a total debt refused there is named as refused, not missing (KNW-04). */
+  fieldConflicts?: Readonly<Record<string, { readonly usable?: boolean; readonly reason?: string } | undefined>>;
 }
 
 export interface NetDebtResolution {
@@ -204,11 +211,14 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
   };
 
   if (totalDebt === null) {
+    const refused = inputs.fieldConflicts?.totalDebt;
     return {
       ...base,
       value: null,
       cashBasis: null,
-      reason: "total debt missing — house net debt unavailable",
+      reason: refused?.usable === false
+        ? `total debt withheld (${refused.reason ?? "refused at admission"}) — house net debt unavailable`
+        : "total debt missing — house net debt unavailable",
     };
   }
 

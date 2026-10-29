@@ -702,6 +702,7 @@ export function computeCapital(
       cashAndShortTermInvestments: latestBal?.cashAndShortTermInvestments,
       marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
+      fieldConflicts: latestBal?.fieldConflicts,
     });
     // Audit 2026-10-19 FCX-1: with only an operating-lease maturity missing
     // and the financing components proven, net debt is stated excluding
@@ -765,9 +766,12 @@ export function computeCapital(
         value = netDebt / ebitda;
       }
     } else if (bal.length > 0 || inc.length > 0) {
+      // KNW-04 (audit 2026-10-29, AMZN #51): a net debt refused is named with its refusal, never as a missing input.
+      const refusal = netDebt !== null ? null : debtScopeRefusal ?? (resolution.conflict === true || latestBal?.fieldConflicts?.totalDebt?.usable === false ? resolution.reason : null);
       gaps.push({
         field: "capital.netDebtToEbitda",
-        reason: `missing ${netDebt === null ? "net debt" : "EBITDA"} input`,
+        reason: refusal !== null ? `net debt withheld: ${refusal}`
+          : netDebt === null ? `missing net debt input: ${resolution.reason}` : "missing EBITDA input",
         severity: "info",
       });
     }

@@ -50,6 +50,21 @@ const isNum = (v: number | null | undefined): v is number =>
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
+/**
+ * VAL-10 (audit 2026-10-29, AMZN #51): the gap that withheld a DCF per-share,
+ * quoted with the upstream reason it rests on. A critical DCF gap first (the
+ * model was not built, and why), then the equity bridge's own gap with the net
+ * debt refusal behind it. Null when no gap says.
+ */
+function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
+  const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
+  if (critical !== undefined) return critical.reason;
+  const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");
+  if (bridge === undefined) return null;
+  const upstream = bridge.field === "valuation.dcf.netDebt" ? gaps.find((g) => g.field === "valuation.netDebt")?.reason : undefined;
+  return upstream === undefined ? bridge.reason : `${bridge.reason}: ${upstream}`;
+}
+
 function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
   return {
     status: "suppressed",
@@ -182,7 +197,8 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
           ? "pre-revenue company — no meaningful intrinsic per-share model in v1"
           : valuation.kind === "dcf-suppressed"
             ? "intrinsic per-share DCF suppressed for this route/overlay (e.g. structurally negative free cash flow) — see missing-data"
-            : "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
+            : (valuation.kind === "dcf" ? dcfWithheldReason(valuation.gaps) : null) ??
+              "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
     // Not-applicable routes are info; a suppressed bridge on a modellable route is a warn.
     const severity: ManifestEntry["severity"] =
       valuation.kind === "reit" || valuation.kind === "pre-revenue" ? "info" : "warn";

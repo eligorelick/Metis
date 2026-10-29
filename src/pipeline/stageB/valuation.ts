@@ -3390,6 +3390,8 @@ export interface MultiplesBalance {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   fieldProvenance?: Record<string, { tags: string[] }>;
+  /** The admission's refusals, so a refused total debt is named (KNW-04). */
+  fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   date: string;
   /**
    * Which statement period the row came from: "quarter" (latest quarterly
@@ -4195,7 +4197,17 @@ export function multiplesFramework(
         ? rawEvIncludingLeases
         : rawEvIncludingLeases - leaseLiability;
   const ev = includeLeases ? evIncludingLeases : evExcludingLeases;
-  const evBridgeBasis =
+  // VAL-4/KNW-04 (audit 2026-10-29, AMZN #51): a withheld EV states the actual
+  // refusal; it is never described as reported as-is or as missing components.
+  const evWithheldReason = financialsRoute || ev !== null ? null
+    : !bal ? "no balance sheet is available"
+      : netDebt.value === null ? netDebt.reason
+        : !marketCapSecurityKnown ? equityScope.basis
+          : !priceCurrency.comparable ? priceCurrency.reason
+            : mcap === null ? "market cap missing"
+              : unknownNciAllocation ? unknownNciReason
+                : (includeLeases ? inclusiveRefusal : excludedRefusal) || "the enterprise value bridge did not resolve";
+  const evBridgeBasis = evWithheldReason !== null ? `EV withheld: ${evWithheldReason}.` :
     ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
     (incompleteLeases !== null
       ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
@@ -4244,9 +4256,10 @@ export function multiplesFramework(
     includeLeases,
     basis: financialsRoute ? "Enterprise value is not applicable to financial companies; funding liabilities are operating inputs." : evBridgeBasis,
   };
-  if (!financialsRoute) notes.push(evBridgeBasis);
+  // A withheld net debt already noted "EV withheld: <reason>" above.
+  if (!financialsRoute && !(evWithheldReason !== null && netDebt.value === null)) notes.push(evBridgeBasis);
   if (!financialsRoute && ev === null) {
-    gaps.push(gapEntry("valuation.multiples.enterpriseValue", "EV components missing (marketCap/totalDebt/cash) — EV multiples n/m", "info"));
+    gaps.push(gapEntry("valuation.multiples.enterpriseValue", `EV withheld: ${evWithheldReason} — EV multiples n/m`, "info"));
   } else if (!financialsRoute && leaseLiability === null) {
     gaps.push(
       gapEntry(
@@ -5633,6 +5646,8 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
 export interface ValuationBundleInputs {
   currentPrice: number | null;
   waccPct: number | null;
+  /** Why `waccPct` is null (the WACC's own gap), quoted by the DCF gap (VAL-10). */
+  waccUnavailableReason?: string | null;
   netDebt: number | null;
   dilutedShares: number | null;
   /** Required for an ADR per-share bridge, along with dated ADS evidence. */
@@ -6103,7 +6118,8 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     );
   } else if (dcfIn === null || !isNum(inputs.waccPct)) {
     gaps.push(
-      gapEntry("valuation.dcf", dcfIn === null ? dcfWithheldCause ?? "DCF inputs not provided by caller" : "WACC unavailable — DCF suppressed", "critical"),
+      gapEntry("valuation.dcf", dcfIn === null ? dcfWithheldCause ?? "DCF inputs not provided by caller"
+        : `WACC unavailable — DCF suppressed${inputs.waccUnavailableReason ? `: ${inputs.waccUnavailableReason}` : ""}`, "critical"),
     );
   } else {
     const built = buildDcfAssumptions(dcfIn);

@@ -18,13 +18,10 @@ import { describe, expect, it } from "vitest";
 
 import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { runStageB } from "@/pipeline/compute";
-import type { DataBundle } from "@/pipeline/types";
 import { leaseDebtConflict } from "@/pipeline/stageB/netDebt";
 import { computeWacc } from "@/pipeline/stageB/returns";
-import type { FmpBalanceSheetRow } from "@/providers/fmp";
 
-import { ACCN, FILED, FILED_FACTS, FY, M, OBSERVED, Q2, companyFacts, enriched, vendorRow, without, type Points } from "./helpers/amzn51LeaseShape";
-import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { ACCN, FILED, FILED_FACTS, FY, M, OBSERVED, Q2, SHAPE, companyFacts, leaseShapeStageBBundle, vendorRow, without } from "./helpers/amzn51LeaseShape";
 
 describe("a noncurrent-only vendor lease line is completed from its filing (VAL-1)", () => {
   it("completes the 2026-06-30 AMZN shape to the filed composition, 242,320M", () => {
@@ -161,43 +158,9 @@ describe("the refusal names the values and the scope, not the issuer (VAL-4)", (
   });
 });
 
-/** Round synthetic numbers (millions) on every balance date of the Stage B fixture, filed before its build date. */
-const STAGE_B_FILED = "2026-05-01";
-const SHAPE = { opCurrent: 10, opNoncurrent: 80, finCurrent: 2, finNoncurrent: 12, ltdNoncurrent: 120, ltdCurrent: 3, shortBorrowings: 1 };
-
-function stageBBundle(): DataBundle {
-  const bundle = completeCurrencyBundle({ symbol: "LEASECO", debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
-  const points: Points = {};
-  const s = SHAPE;
-  for (const family of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
-    if (!family.ok) throw new Error("fixture missing");
-    for (const row of family.value.data.rows as FmpBalanceSheetRow[]) {
-      const end = row.date!;
-      points[end] = {
-        OperatingLeaseLiability: s.opCurrent + s.opNoncurrent, OperatingLeaseLiabilityCurrent: s.opCurrent, OperatingLeaseLiabilityNoncurrent: s.opNoncurrent,
-        FinanceLeaseLiability: s.finCurrent + s.finNoncurrent, FinanceLeaseLiabilityCurrent: s.finCurrent, FinanceLeaseLiabilityNoncurrent: s.finNoncurrent,
-        LongTermDebtNoncurrent: s.ltdNoncurrent, LongTermDebtCurrent: s.ltdCurrent, ShortTermBorrowings: s.shortBorrowings,
-      };
-      const line = s.opNoncurrent + s.finNoncurrent;
-      Object.assign(row, {
-        shortTermDebt: 0, longTermDebt: s.ltdNoncurrent * M, capitalLeaseObligations: line * M, capitalLeaseObligationsCurrent: 0,
-        capitalLeaseObligationsNonCurrent: line * M, totalDebt: (s.ltdNoncurrent + line) * M,
-        operatingLeaseLiability: (s.opCurrent + s.opNoncurrent) * M, financeLeaseLiability: (s.finCurrent + s.finNoncurrent) * M,
-        fieldProvenance: { operatingLeaseLiability: enriched(end, "OperatingLeaseLiability", STAGE_B_FILED), financeLeaseLiability: enriched(end, "FinanceLeaseLiability", STAGE_B_FILED) },
-      });
-    }
-  }
-  bundle.edgar = { ...bundle.edgar,
-    cik: { ok: true, value: { source: "edgar", endpoint: "test mapping", asOf: "2026-07-01", fetchedAt: bundle.builtAt,
-      data: { cik: 42, cik10: "0000000042", ticker: "LEASECO", title: "Synthetic Lease Co" } } },
-    companyFacts: { ok: true, value: { source: "edgar", endpoint: "test facts", asOf: "2026-07-01", fetchedAt: bundle.builtAt, data: companyFacts(points, STAGE_B_FILED) } },
-  } as DataBundle["edgar"];
-  return bundle;
-}
-
 describe("Stage B on the completed rows: WACC and net debt become available (GRD-01)", () => {
   it("builds the WACC, net debt and the debt bridge on the filed composition", () => {
-    const computed = runStageB(stageBBundle());
+    const computed = runStageB(leaseShapeStageBBundle());
     const composed = (SHAPE.ltdCurrent + SHAPE.shortBorrowings + SHAPE.ltdNoncurrent + SHAPE.opCurrent + SHAPE.opNoncurrent + SHAPE.finCurrent + SHAPE.finNoncurrent) * M;
     expect(computed.returns.wacc.waccPct).not.toBeNull();
     expect(computed.returns.wacc.gaps.some((g) => g.field === "returns.wacc.weights")).toBe(false);
