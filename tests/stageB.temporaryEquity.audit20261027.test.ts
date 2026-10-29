@@ -3,7 +3,7 @@
  * preferred and redeemable noncontrolling interests are carried in temporary
  * equity, outside every equity field the bridge reads, so the DCF bridge and
  * every enterprise value left them out. They are claims senior to common
- * (ASC 480-10-S99; decisions D-next, OD-1): the bridge deducts them beside
+ * (ASC 480-10-S99; decisions D-135, OD-1): the bridge deducts them beside
  * preferred and book NCI, the market and own-history EVs add them, and the
  * same claims reach every guard that asks whether preferred or NCI exists.
  *

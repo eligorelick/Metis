@@ -2,7 +2,7 @@
  * Audit 2026-10-27 FIN-119-V1: invested capital (ROIC, the DCF's sales-to-capital
  * and the filed A-2 history) is debt + consolidated equity - cash. A claim carried
  * in temporary (mezzanine) equity is financing capital exactly like permanent
- * preferred (decisions D-next, OD-1): when the issuer raises X and holds it as
+ * preferred (decisions D-135, OD-1): when the issuer raises X and holds it as
  * cash, the caption must not move ROIC, sales-to-capital or the DCF enterprise
  * value. Seed: FIN-119-V1.probe.ts (logic only; synthetic fixture, no snapshot read).
  */

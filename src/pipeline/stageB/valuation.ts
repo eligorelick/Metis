@@ -2272,7 +2272,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
   const exceedsBasis = holdingExceedsCapital
-    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-next, FIN-304)`
+    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-135, FIN-304)`
     : null;
   const exceedsHoldingClause = `the holding meets or exceeds operating invested capital, so sales-to-capital takes the house cap ${S2C_CLAMP[1]} and the holding is added back here`;
   const emptiedHoldingClause = "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt";
@@ -6207,7 +6207,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       ...(temporaryAdmitted.unsplit !== 0 ? [`temporary equity of ${millions(temporaryAdmitted.unsplit)} with no filed parent/NCI split, deducted beside preferred`] : []),
       ...(redeemableNoncontrolling !== 0 ? [`redeemable noncontrolling interests of ${millions(redeemableNoncontrolling)}, added to the book noncontrolling interest as the floor of the larger-of test (E-5), never deducted twice`] : []),
     ];
-    temporaryEquityNote = `DCF equity bridge deducts ${parts.join(" and ")}: filed in temporary equity outside every equity field, they are claims senior to common (${temporaryAdmitted.basis}; house rule, decisions D-next OD-1).` +
+    temporaryEquityNote = `DCF equity bridge deducts ${parts.join(" and ")}: filed in temporary equity outside every equity field, they are claims senior to common (${temporaryAdmitted.basis}; house rule, decisions D-135 OD-1).` +
       (parentLike !== 0
         ? " This caption can also hold redeemable common shares (for example shares subject to possible redemption or an ESOP put), which may already be in the diluted share count; " +
           "the filed facts do not separate them from redeemable preferred, so such shares would be counted both as a claim and in the divisor."

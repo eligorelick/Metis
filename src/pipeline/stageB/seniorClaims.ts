@@ -1,6 +1,6 @@
 /**
  * One house definition of the claims senior to common that sit outside
- * permanent equity (audit 2026-10-27 FIN-119, FIN-119-V2; decisions D-next,
+ * permanent equity (audit 2026-10-27 FIN-119, FIN-119-V2; decisions D-135,
  * OD-1): redeemable preferred and redeemable noncontrolling interests, carried
  * in temporary equity (ASC 480-10-S99) at their redemption claim.
  *

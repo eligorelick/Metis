@@ -1206,7 +1206,7 @@ Book NCI alone is not presented as the outside holders' claim. The market EV and
 the EV multiples still use book NCI.
 
 **Debt-like obligations in the DCF bridge (audit 2026-10-22 E-7, extended by
-audit 2026-10-27 FIN-305, D-next).** A mine, a power plant or a well must be retired, and a
+audit 2026-10-27 FIN-305, D-135).** A mine, a power plant or a well must be retired, and a
 polluted site cleaned up. The filed liabilities for those costs are claims on
 the enterprise, but the FCFF path projects operating cash flow and capital
 spending only, so it never pays them. FCX's companyfacts carry a $3.84B
@@ -1275,7 +1275,7 @@ earn-outs and E-7 lines are deducted as for any filer. Residual, routed to the
 free-data-source batch: net the deficit against the pension regulatory asset
 once dimensional XBRL is available.
 
-**A successor registrant (audit 2026-10-27 FIN-403, D-next).** A holding company
+**A successor registrant (audit 2026-10-27 FIN-403, D-135).** A holding company
 that succeeded an operating registrant in a reorganisation (ExxonMobil Holdings
 Corp, CIK 2115436, for Exxon Mobil Corporation, CIK 34088) has a companyfacts
 payload that begins at the reorganisation, so until its own first annual report
@@ -2561,7 +2561,7 @@ withholds the DCF with a `valuation.dcf.salesToCapital` gap at warn severity,
 never critical (the claim exists, only its amount is disputed), rather than
 being zero-filled, and the basis names the added amount. When removing
 them would leave no operating capital (a holding at or above invested capital, FIN-304,
-house rule D-next), the operating ratio is unbounded and takes the house cap 5.0, the
+house rule D-135), the operating ratio is unbounded and takes the house cap 5.0, the
 basis says why and names the cap as the limit the ratio approaches from below, and
 the bridge still adds the holding back at its carrying value less the investment tax
 (the line keeps its filed provenance and says the holding meets or exceeds operating
