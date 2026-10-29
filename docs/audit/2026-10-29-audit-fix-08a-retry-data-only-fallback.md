@@ -8,7 +8,9 @@ This change made no model calls and no paid provider calls. The tests build thei
 
 | Finding | Disposition | Commit | Tests |
 |---|---|---|---|
-| DB-001 Retry after a data-only report closes the job as done without running, and Retry keeps coming back | Fixed. A queued retry is closed before dispatch only when the linked report blocks a resume. A data-only link falls through to dispatch, which runs the judge and verify on the settled analyst passes. A second failure links a new data-only report. A dispatch failure ends `error` with its fixed message and keeps the fallback linked. | `b8d8e26`, `b2d6254`, `7064f71` | `tests/jobRunner.test.ts` (DB-001 describe), `tests/jobScheduler.test.ts` |
+| DB-001 Retry after a data-only report closes the job as done without running, and Retry keeps coming back | Fixed. A queued retry is closed before dispatch only when the linked report blocks a resume. A data-only link falls through to dispatch, which runs the judge and verify on the settled analyst passes. A second failure links a new data-only report. A dispatch failure ends `error` with a fixed, sanitized message (for example "scheduler pass resolution failed before execution"), keeps the fallback linked, and a later Retry is admitted. `recordQueuedResumeDispatchFailure` is a test seam with no production caller. | `b8d8e26`, `b2d6254`, `7064f71` | `tests/jobRunner.test.ts` (DB-001 describe), `tests/jobScheduler.test.ts` |
+
+The DB-001 tests failed before the fix (4 of 5; the precondition test is a control); the re-admission pin and the production dispatch-failure test pass at base and pin current behaviour.
 
 The review minors are closed: the done-settle branch no longer parses the linked report a second time (no behaviour change), and one assertion pins that a later Retry from `error` is admitted after a data-only dispatch failure (it passes at base).
 
@@ -16,7 +18,7 @@ The review minors are closed: the done-settle branch no longer parses the linked
 
 | Row | Input | Before | After |
 |---|---|---|---|
-| DB-001 | DB-001 test ledger (synthetic: bull $0.90, bear $0.47, judge $0.40, verify $0.20) | Retry closes as done and nothing runs | Only the judge and verify are billed ($0.60); the analyst passes are reused; a full report is linked |
+| DB-001 | DB-001 test ledger (synthetic: bull $0.90, bear $0.47, judge $0.40, verify $0.20) | Retry closes as done and nothing runs | Only the judge is billed again (the verify pass makes no model call); the analyst passes are reused; a full report is linked. The synthetic ledger's mock bills the judge $0.40 and verify $0.20 ($0.60), while in production verify costs $0, so a Retry adds about the judge's cost only |
 
 ## Residuals
 
