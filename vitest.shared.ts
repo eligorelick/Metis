@@ -121,6 +121,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",
   "src/report/legacyPayloadRecordSafety.ts",
+  "src/report/legacyEdgarDerivedLines.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",

@@ -3065,6 +3065,34 @@ a kept amount may belong to a person the cut excerpt did not name (audit
 2026-10-27 AI-101). The stored report does not keep the excerpt, so this cannot
 be found or corrected at display; such figures are shown as stored.
 
+**Legacy reports built from SEC statements (audit 2026-10-27 B13, D-67).** A report
+saved before report spec 1.48.0 whose missing-data manifest holds a
+`keyless.incomeAnnual` or `keyless.incomeQuarterly` entry (or one starting with
+either followed by `.`) took its statements from SEC filings. It is shown, on the
+page and in the Markdown, print and audit exports, through
+`withLegacyEdgarDerivedLines` (`src/report/legacyEdgarDerivedLines.ts`), which
+follows the payload-record view above. It adds three fixed-string notes and
+changes no figure; the stored report and its bytes are never rewritten. The
+since-version is a frozen constant (`EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`), never
+the current `REPORT_SPEC_VERSION`, compared numerically through
+`specVersionBefore`. (a) When the fair value is available, one line is added to its
+basis: the statement lines were built before the derived operating income stopped
+dropping a period that files the non-operating aggregate without an interest
+element, removed a filer-tagged other non-operating result and stopped adding back
+interest the filer placed inside the aggregate, before D&A and R&D stopped taking a
+synonym below their own filed component, and before derived quarters and growth
+cells netted figures on one presentation only. (b) When the manifest holds a
+`keyless.incomeQuarterly.restatements` or `keyless.incomeAnnual.restatements` entry
+whose reason names a revenue re-presentation, the first quarterly-trend row's
+growth notes say the YoY/QoQ cells and derived fourth quarters were computed
+without checking whether the two quarters sit on one filed presentation. (c) The
+quality notes always say the one-time-items screen was skipped without notice where
+the filer tags no NonoperatingIncomeExpense aggregate (so "no flags were raised" may
+mean it was not evaluated), and that D&A could be a sub-line below the filer's own
+Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A. (c) does not wait
+for an available fair value, because (a) does. A report at or after the since-version,
+or one built on the FMP route, is returned as the identical object.
+
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
