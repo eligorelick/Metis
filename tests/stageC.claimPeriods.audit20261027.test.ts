@@ -769,6 +769,26 @@ describe("final review: the comparison-cue reader stays fast on comma-grouped ro
   });
 });
 
+// Final re-review (2026-10-28, AI-303-V3): the parentheticals of a clause are read once, not once per figure. Read per figure, this
+// clause of 200 figures and 8,000 empty parentheticals took about 1.6 s to verify at the branch head; read once, about 0.17 s.
+describe("final re-review: the parenthetical reader runs once per clause (AI-303-V3)", () => {
+  const timed = <T>(fn: () => T): { value: T; ms: number } => {
+    const t0 = performance.now();
+    const value = fn();
+    return { value, ms: performance.now() - t0 };
+  };
+  it("verifies a clause of 200 figures and 8,000 parentheticals in under 800 ms", () => {
+    const gap = "() ".repeat(40);
+    const text = "Inventory was $1 billion " + gap + Array.from({ length: 199 }, (_, i) => `$${i + 2} billion ${gap}`).join("") + ".";
+    const excerpt: TextExcerpt = { title: "10-Q (reporting period ended 2026-07-26)", text, source: "edgar:10-Q notes", asOf: "2026-07-26",
+      truncated: false, originalChars: text.length };
+    const { value, ms } = timed(() => validateClaimNumericSupport({ label: "FACT", text: "Inventory was USD 1 billion.", source: excerpt.source, asOf: excerpt.asOf },
+      { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }));
+    expect(value.status).toBe("unchecked");
+    expect(ms).toBeLessThan(800);
+  });
+});
+
 // Final review (2026-10-28, AI-303-V3): a claim's prior fiscal year-end ("at the end of the prior year", "at the end of last
 // fiscal year", "at the previous fiscal year-end") is its own instant, not the excerpt's or record's fiscal year-end. Only the same
 // relative phrase in the cited figure's own clause establishes it; a title, a header, an inherited window or the current fiscal
@@ -855,16 +875,26 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     // The parenthetical holds the other figure, and its year-end is that figure's (final re-review, AI-303-V3).
     S11: "Inventory was $31.6 billion (at the end of the prior fiscal year, $25.8 billion).",
     S12: "Inventory was $31.6 billion (prior fiscal year-end: $25.8 billion).",
+    // A comparison cue inside the parenthetical, and nested parentheses (matched by depth).
+    S13: "Inventory was $31.6 billion (compared with $25.8 billion at the end of the prior fiscal year).",
+    S14: "Inventory was $31.6 billion (up from $25.8 billion at the prior fiscal year-end).",
+    S15: "Inventory was $31.6 billion (at the end of the prior fiscal year (unaudited), $25.8 billion).",
+    S16: "Inventory was $31.6 billion (at the end of the prior fiscal year (restated), $25.8 billion).",
+    // N1: the outer figure's own year-end sits in a parenthetical that also holds a base; no figure is stated for the current period.
+    S17: "Inventory was $25.8 billion (at the end of the prior fiscal year, up from $20.0 billion a year earlier).",
   } as const;
   type Source = keyof typeof SOURCES;
   const SAME_PHRASE = "at the end of the prior fiscal year";
   const SPELLINGS = [SAME_PHRASE, "at the prior fiscal year-end", "at the end of last fiscal year", "at the previous fiscal year-end",
     "as of the prior year-end", "at fiscal year-end"] as const;
+  // Claims at the excerpt's own period (final re-review, N1): the 10-Q's quarter, "this quarter", and no period at all.
+  const OWN_PERIODS = ["in Q2 FY2027", "this quarter", ""] as const;
+  const sp = (at: string): string => (at === "" ? "" : ` ${at}`);
   const CLAIMS = {
-    L31: (at: string) => `Inventory was USD 31.6 billion ${at}.`,
-    L25: (at: string) => `Inventory was USD 25.8 billion ${at}.`,
-    C58since: (at: string) => `Inventory increased by USD 5.8 billion ${at.replace(/^(?:at|as of)\s+/, "since ")}.`,
-    C58at: (at: string) => `Inventory increased by USD 5.8 billion ${at}.`,
+    L31: (at: string) => `Inventory was USD 31.6 billion${sp(at)}.`,
+    L25: (at: string) => `Inventory was USD 25.8 billion${sp(at)}.`,
+    C58since: (at: string) => `Inventory increased by USD 5.8 billion${sp(at.replace(/^(?:at|as of)\s+/, "since "))}.`,
+    C58at: (at: string) => `Inventory increased by USD 5.8 billion${sp(at)}.`,
   } as const;
   type Claim = keyof typeof CLAIMS;
   const T = (uncheckedOk = true): Truth => ({ truth: "true", uncheckedOk });
@@ -877,7 +907,23 @@ describe("final review: a year-end instant after a comparison cue or a start is 
    * current figure, and the prior fiscal year-end is the year before. A change "at" an instant has no single reading unless the
    * instant is one the change cannot be at (the prior year-end the change runs from).
    */
+  /** The sources that state $31.6 billion as the current figure, and those whose figures imply a $5.8 billion change since a year-end. */
+  const CURRENT_31: ReadonlySet<Source> = new Set(["S2", "S3", "S4", "S5", "S6", "S7", "S10", "S11", "S12", "S13", "S14", "S15", "S16"]);
+  const CHANGE_58: ReadonlySet<Source> = new Set(["S2", "S3", "S4", "S5", "S6", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16"]);
+  /**
+   * A claim at the excerpt's own period. "In Q2 FY2027" is the 10-Q's own quarter and a later period under the FY and Q4 titles;
+   * "this quarter" is the 10-Q's or the Q4 release's quarter and names no period of a 10-K; no period at all is the excerpt's own.
+   * A change "in" or "this" quarter is not the change since a year-end that the sources state.
+   */
+  const ownPeriodTruth = (source: Source, title: Title, claim: Claim, at: string): Truth => {
+    if (at === "this quarter" && title === "FY") return AMBIGUOUS;
+    if (at === "in Q2 FY2027" && title !== "10-Q") return UNSTATED;
+    if (claim === "L31") return CURRENT_31.has(source) ? T() : UNSTATED;
+    if (claim === "L25") return CURRENT_31.has(source) ? F : UNSTATED;
+    return at === "" && CHANGE_58.has(source) ? T() : AMBIGUOUS;
+  };
   const truth = (source: Source, title: Title, claim: Claim, at: string): Truth => {
+    if ((OWN_PERIODS as readonly string[]).includes(at)) return ownPeriodTruth(source, title, claim, at);
     const fye = at === "at fiscal year-end";
     const annual = title !== "10-Q";
     switch (source) {
@@ -885,7 +931,8 @@ describe("final review: a year-end instant after a comparison cue or a start is 
         if (claim === "L31") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T(at !== SAME_PHRASE);
         if (claim === "L25") return fye ? (annual ? UNSTATED : AMBIGUOUS) : F;
         return UNSTATED;
-      case "S2": case "S3": case "S4": case "S5": case "S6": case "S11": case "S12": // $31.6 billion now; $25.8 billion at the prior fiscal year-end.
+      case "S2": case "S3": case "S4": case "S5": case "S6": case "S11": case "S12": case "S13": case "S14": case "S15": case "S16":
+        // $31.6 billion now; $25.8 billion at the prior fiscal year-end.
         if (claim === "L31") return fye ? (annual ? T() : AMBIGUOUS) : F;
         if (claim === "L25") return fye ? (annual ? F : AMBIGUOUS) : T();
         if (claim === "C58since") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T();
@@ -903,6 +950,10 @@ describe("final review: a year-end instant after a comparison cue or a start is 
         if (claim === "L25") return fye ? T() : AMBIGUOUS;
         if (claim === "C58since") return fye ? T() : AMBIGUOUS;
         return AMBIGUOUS;
+      case "S17": // $25.8 billion at the prior fiscal year-end, up from $20.0 billion a year earlier; nothing now.
+        if (claim === "L25") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T();
+        if (claim === "L31") return fye ? (annual ? UNSTATED : AMBIGUOUS) : F;
+        return claim === "C58since" && !fye ? UNSTATED : AMBIGUOUS;
     }
   };
   const run = (source: Source, title: Title, claimText: string) => {
@@ -912,9 +963,10 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     return validateClaimNumericSupport({ label: "FACT", text: claimText, source: id, asOf }, { excerpts: [excerpt], sourceId: id, reportingCurrency: "USD" });
   };
   const ROWS = (Object.keys(SOURCES) as Source[]).flatMap((source) => (source === "S10" ? ["10-Q"] as Title[] : Object.keys(TITLES) as Title[])
-    .flatMap((title) => (Object.keys(CLAIMS) as Claim[]).flatMap((claim) => SPELLINGS.map((at) => [source, title, claim, at] as const))));
+    .flatMap((title) => [...(Object.keys(CLAIMS) as Claim[]).flatMap((claim) => SPELLINGS.map((at) => [source, title, claim, at] as const)),
+      ...(["L31", "L25", "C58at"] as const).flatMap((claim) => OWN_PERIODS.map((at) => [source, title, claim, at] as const))]));
   it("covers every source, title, claim and spelling (S10 under the 10-Q title only)", () => {
-    expect(ROWS).toHaveLength(11 * 3 * 4 * 6 + 4 * 6);
+    expect(ROWS).toHaveLength((16 * 3 + 1) * (4 * 6 + 3 * 3));
   });
   it.each(ROWS)("%s under the %s title: %s %s", (source, title, claim, at) => {
     const claimText = CLAIMS[claim](at);
@@ -970,6 +1022,18 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     expect(run("S12", title, CLAIMS.L31("at the prior fiscal year-end"))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
     expect(run("S12", title, CLAIMS.L25("at the prior fiscal year-end")).status).not.toBe("contradicted");
   });
+  it.each(Object.keys(TITLES) as Title[])("AI-303-V3: a figure that loses a period to a parenthetical with another figure inherits none (%s)", (title) => {
+    expect(run("S17", title, CLAIMS.L25("in Q2 FY2027")).status).not.toBe("validated");
+    expect(run("S17", title, CLAIMS.L25("this quarter")).status).not.toBe("validated");
+    expect(run("S17", title, CLAIMS.L25(SAME_PHRASE)).status).not.toBe("contradicted");
+    for (const at of OWN_PERIODS) expect(run("S17", title, CLAIMS.L25(at)), at).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+  });
+  it.each(Object.keys(TITLES) as Title[])("AI-303-V3: a nested parenthetical ends at its own closing parenthesis (%s)", (title) => {
+    for (const source of ["S15", "S16"] as const) {
+      expect(run(source, title, CLAIMS.L31(SAME_PHRASE)).status, source).not.toBe("validated");
+      expect(run(source, title, CLAIMS.L25(SAME_PHRASE)).status, source).not.toBe("contradicted");
+    }
+  });
   it.each(Object.keys(TITLES) as Title[])("control: a parenthetical comparison stays the base's, and one with no figure stays the outer figure's (%s)", (title) => {
     const on = (text: string, claim: string) => {
       const { title: name, source: id, asOf } = TITLES[title];
@@ -980,6 +1044,8 @@ describe("final review: a year-end instant after a comparison cue or a start is 
       expect(on(`Inventory was $31.6 billion (${inner} at the end of the prior fiscal year).`, CLAIMS.L31(SAME_PHRASE)), inner).toBe("unchecked");
     }
     expect(on("Inventory was $31.6 billion (at the end of the prior fiscal year).", CLAIMS.L31(SAME_PHRASE))).toBe("validated");
+    // A parenthetical inside one with no figure of its own: still the outer figure's period.
+    expect(on("Inventory was $31.6 billion (at the end of the prior fiscal year (unaudited)).", CLAIMS.L31(SAME_PHRASE))).toBe("validated");
     expect(on("Inventory was $31.6 billion (January 26, 2025: $25.8 billion).", "Inventory was USD 31.6 billion as of January 26, 2025.")).not.toBe("validated");
     expect(on("Inventory was $31.6 billion (January 26, 2025: $25.8 billion).", "Inventory was USD 25.8 billion as of January 26, 2025.")).not.toBe("contradicted");
   });

@@ -146,7 +146,9 @@ interface PeriodReference { key: string; label: string; raw: string; kind: "date
  * the comparison bases it names ("compared with $10.2 billion in second quarter
  * 2025"), which belong to the amount the comparison word introduces, not to a figure before it.
  */
-interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null; base: boolean }
+interface Context { start: number; end: number; text: string; label: string; own: string; ownAfter: string; periods: PeriodReference[]; bases: PeriodReference[];
+  /** Final re-review (AI-303-V3): a period of this figure's clause sat in a parenthetical holding another figure, so its periods cannot be read. */
+  held: boolean; ambiguous: boolean; direction: QuantityDirection | null; base: boolean }
 interface SourceBinding {
   quantity: Quantity; context: Context; span: ClaimSourceSpan;
   /**
@@ -305,7 +307,7 @@ const START_LEAD = /\b(?:from|since)\s+(?:the\s+|its\s+|our\s+)?$/i;
  * Offsets in the result are relative to `span.start`.
  */
 function framePeriods(text: string, span: { start: number; end: number }, quantity: Quantity, all: readonly Quantity[], loose: boolean,
-  yearEnd = false): { periods: PeriodReference[]; bases: PeriodReference[] } {
+  yearEnd = false): { periods: PeriodReference[]; bases: PeriodReference[]; held: boolean } {
   const ownText = text.slice(span.start, span.end);
   let blanked = ownText;
   for (const other of all) {
@@ -315,18 +317,13 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
   }
   // Final re-review (AI-303-V3): a period inside a parenthetical that holds another figure is that figure's ("$31.6 billion (at the end
   // of the prior fiscal year, $25.8 billion)", "(prior fiscal year-end: $25.8 billion)"), never a figure's outside it; a parenthetical
-  // with no figure of its own stays the clause's. This is the reverse of the apposition rule for direction words (AI-401-V1). A
-  // parenthetical runs from "(" to the first ")" after it, or to the span's end.
-  const heldElsewhere: [number, number][] = [];
-  for (const open of ownText.matchAll(/\(/g)) {
-    const close = ownText.indexOf(")", open.index + 1);
-    const end = close < 0 ? ownText.length : close;
-    const inside = (other: Quantity): boolean => other.start - span.start > open.index && other.end - span.start <= end;
-    if (!inside(quantity) && all.some((other) => other.start !== quantity.start && other.start >= span.start && other.end <= span.end && inside(other))) {
-      heldElsewhere.push([open.index, end]);
-    }
-  }
-  const stated = periodLabels(blanked, { loose, yearEnd }).filter((period) => !heldElsewhere.some(([open, end]) => period.start > open && period.start < end));
+  // with no figure of its own stays the clause's. This is the reverse of the apposition rule for direction words (AI-401-V1). Such a
+  // parenthetical can also state the outside figure's own period ("$25.8 billion (at the end of the prior fiscal year, up from $20.0
+  // billion a year earlier)"), so a figure that loses a period to one has periods that cannot be read (`held`), never none.
+  const inside = (other: Quantity, [open, end]: readonly [number, number]): boolean => other.start - span.start > open && other.end - span.start <= end;
+  const held = mergedSpans(figureParentheticals(ownText, span, all).filter((parenthetical) => !inside(quantity, parenthetical)));
+  const read = periodLabels(blanked, { loose, yearEnd });
+  const stated = read.filter((period) => !withinSpans(held, period.start));
   const isBase = (period: PeriodReference): boolean => {
     // Final re-review (AI-303-V3 / AI-402): a year-end is an instant, so it is read as a date is; any other window is a span and is
     // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
@@ -336,7 +333,55 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
     const cue = comparisonCueEnd(ownText, period.start);
     return cue !== null && !(cue <= quantity.start - span.start && quantity.end - span.start <= period.start);
   };
-  return { periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase) };
+  return { periods: stated.filter((period) => !isBase(period)), bases: stated.filter(isBase), held: stated.length !== read.length };
+}
+/**
+ * The parentheticals of a clause that hold at least one of its figures, sorted by their "(". Each runs from "(" to the ")" that closes
+ * it, found by counting depth, or to the clause end when none does. They are read once per clause and figure list (final re-review:
+ * reading them for every figure cost a factor of figures times parentheses), and the cache entry is keyed by the clause text too.
+ */
+const PARENTHETICALS = new WeakMap<readonly Quantity[], Map<string, { text: string; spans: readonly (readonly [number, number])[] }>>();
+function figureParentheticals(ownText: string, span: { start: number; end: number }, all: readonly Quantity[]): readonly (readonly [number, number])[] {
+  const key = `${span.start}:${span.end}`;
+  const cached = PARENTHETICALS.get(all)?.get(key);
+  if (cached !== undefined && cached.text === ownText) return cached.spans;
+  const spans: [number, number][] = [];
+  const open: number[] = [];
+  for (let i = 0; i < ownText.length; i++) {
+    const char = ownText.charCodeAt(i);
+    if (char === 40) open.push(i);
+    else if (char === 41 && open.length > 0) spans.push([open.pop()!, i]);
+  }
+  for (const start of open) spans.push([start, ownText.length]);
+  const figures = all.filter((other) => other.start >= span.start && other.end <= span.end).map((other) => [other.start - span.start, other.end - span.start] as const);
+  const holding = spans.filter(([start, end]) => figures.some(([a, b]) => a > start && b <= end)).sort((x, y) => x[0] - y[0]);
+  const byClause = PARENTHETICALS.get(all) ?? new Map<string, { text: string; spans: readonly (readonly [number, number])[] }>();
+  byClause.set(key, { text: ownText, spans: holding });
+  PARENTHETICALS.set(all, byClause);
+  return holding;
+}
+/** Spans sorted by start, merged where they overlap (parentheticals nest or are disjoint). */
+function mergedSpans(spans: readonly (readonly [number, number])[]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [start, end] of spans) {
+    const last = out.at(-1);
+    if (last !== undefined && start <= last[1]) last[1] = Math.max(last[1], end);
+    else out.push([start, end]);
+  }
+  return out;
+}
+/** Whether `at` lies strictly inside one of the sorted, disjoint spans. */
+function withinSpans(spans: readonly (readonly [number, number])[], at: number): boolean {
+  let low = 0;
+  let high = spans.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const [start, end] = spans[mid]!;
+    if (at <= start) high = mid - 1;
+    else if (at >= end) low = mid + 1;
+    else return true;
+  }
+  return false;
 }
 // OD-3: management's expectation, outlook or guidance is not a reported result (accounting-standard "guidance" is not matched).
 const FORWARD_LOOKING = /\b(?:(?:is|are|was|were|be|been|being|remains?|remained)\s+(?:now\s+|currently\s+|still\s+|also\s+)?(?:expected|projected|forecast(?:ed)?|anticipated|estimated|guided)\s+to|expects?|expecting|anticipates?|anticipating|forecasts?|outlook|guidance\s+(?:for|of|range|calls?\s+for|is|was|issued)|(?:our|its|management['’]s|the\s+company['’]s)\s+(?:[a-z-]+\s+){0,3}guidance)\b/i;
@@ -416,11 +461,11 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // A lock-up restriction names an asset constraint, not an upward change.
   // Keep offsets and every actual change/negation word for direction binding.
   const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
-  const { periods, bases } = framePeriods(text, { start, end }, quantity, all, !source, source);
+  const { periods, bases, held } = framePeriods(text, { start, end }, quantity, all, !source, source);
   // AI-503: a figure the text introduces with "from", "compared with/to", "versus", "vs." or "against" is a comparison base. The raw text
   // before the figure is read, not the clause: a clause can start at a "versus" connector and leave the figure nothing before it.
   const base = COMPARISON_BASE_LEAD.test(text.slice(Math.max(0, quantity.start - 24), quantity.start));
-  return { start, end, text: ownText, label, own, ownAfter, periods, bases, base,
+  return { start, end, text: ownText, label, own, ownAfter, periods, bases, held, base,
     direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
@@ -955,7 +1000,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], ambiguous: false, direction: null, base: false };
+        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], held: false, ambiguous: false, direction: null, base: false };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -1177,6 +1222,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
+    if (own.held) return support("unchecked", "period-mismatch", "a period of the prose figure's clause is stated inside a parenthetical that holds another figure", spans);
     // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word; a year-end base or start the claim
     // names is compared as a base (final re-review).
     const ownWindowTokens = new Set([...own.periods, ...own.bases].filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
@@ -1208,6 +1254,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const judge = (pool: SourceBinding[]): ClaimNumericSupport | { span: ClaimSourceSpan } => {
       if (pool.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
         return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", pool.slice(0, 3).map((candidate) => candidate.span));
+      }
+      // Final re-review (AI-303-V3): a figure that lost a period to a parenthetical holding another figure has periods that cannot be
+      // read. It inherits no period, header or window, and any claim it could bind is unchecked, as for an invalid date above.
+      if (pool.some((candidate) => candidate.context.held)) {
+        return support("unchecked", "period-mismatch", "a source figure's period is stated inside a parenthetical that holds another figure, so the figure's period cannot be read",
+          pool.filter((candidate) => candidate.context.held).slice(0, 3).map((candidate) => candidate.span));
       }
       // A clause that names no period is read under the excerpt's own (D-63);
       // one that names a period must name exactly the stated one, as before.
