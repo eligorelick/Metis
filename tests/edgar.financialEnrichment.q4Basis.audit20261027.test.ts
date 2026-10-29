@@ -334,3 +334,21 @@ describe("FIN-511-V2 fix round 1: reason amounts in millions on both branches", 
     );
   });
 });
+
+/**
+ * Fix round 1, M7: the sign rule applies to the chosen pair, not to the newest copy. A year to date re-filed as a
+ * negative figure that its filing labels as a re-presentation takes the first-reported pair (C-9 rule 3b), so the older
+ * positive pair fills the principal; unlabelled, the re-filing withholds it and the older copy never serves.
+ */
+describe("FIN-511-V2 fix round 1: a negative re-filed year to date", () => {
+  it("labelled, it sends the unsigned principal to the older positive pair (40 - 30 = 10), named first-reported", () => {
+    const { row, gaps } = enrichOut(withDiscontinuedLabel(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, -5))), vendorQ4({}));
+    expect(row.financeLeasePrincipalPayments).toBe(10);
+    expect(row.fieldProvenance?.financeLeasePrincipalPayments).toMatchObject({ filings: [{ accn: F.k24!.accn }, { accn: F.q324!.accn }] });
+    expect(gaps.find((g) => /financeLeasePrincipalPayments enriched from SEC/.test(g.reason))!.reason).toMatch(/the first-reported fiscal year or year to date/);
+  });
+  it("control: unlabelled, the re-filing withholds it and nothing is filled", () => {
+    const row = enrich(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, -5)), vendorQ4({}));
+    expect(row.financeLeasePrincipalPayments ?? null).toBeNull();
+  });
+});
