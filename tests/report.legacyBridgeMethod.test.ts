@@ -15,7 +15,7 @@ vi.mock("server-only", () => ({}));
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
-import { BRIDGE_METHOD_SINCE_SPEC_VERSION, withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
+import { BRIDGE_METHOD_SINCE_SPEC_VERSION, LEGACY_BRIDGE_CLAUSES, withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import type { Report } from "@/report/schema";
 
@@ -164,15 +164,15 @@ describe("legacy equity-bridge method note", () => {
     const included = leaseLeftOut("1.44.0");
     included.valuation.multiplesBasis = included.valuation.multiplesBasis!.replace("EXCLUDES", "INCLUDES").replace(", less an OPERATING", ", keeping an OPERATING");
     expect(JSON.stringify(withLegacyBridgeMethod(included))).not.toMatch(/sales-to-capital kept/);
-    // The loss-quarter clause is asserted only where a stored byte shows the loss period.
+    // The loss-quarter clause is always the conditional wording, even when a stored basis names a loss period.
     const loss = base("1.44.0");
     loss.valuation.dcf.assumptions = [
       ...loss.valuation.dcf.assumptions,
       { name: "diluted shares", value: "100", basis: "The 2026-06-30 period is a loss, so its filed diluted count equals its basic count (antidilutive, ASC 260-10-45-17..20)" },
     ];
     const lossView = JSON.stringify(withLegacyBridgeMethod(loss));
-    expect(lossView).toMatch(/the divisor period was a loss quarter, so its divisor carried no award dilution/);
-    expect(lossView).not.toMatch(DIVISOR_IF);
+    expect(lossView).toMatch(DIVISOR_IF);
+    expect(lossView).not.toMatch(/the divisor period was a loss quarter, so/);
     // Claims clause never asserts that a claim existed.
     expect(plain).not.toMatch(/the issuer filed (a|the) /);
     // An excess-return report carries only the loss-quarter clause.
@@ -191,6 +191,35 @@ describe("legacy equity-bridge method note", () => {
     const outside = base("1.44.0");
     outside.fairValue = { ...outside.fairValue!, status: "outside-domain" };
     expect(withLegacyBridgeMethod(outside)).toBe(outside);
+  });
+
+  it("each clause checks its own cutoff: a later part's clause still reaches a report at this part's cutoff (G1)", () => {
+    const marker = (r: Report): Report => ({ ...r, quality: { ...r.quality, notes: [...(r.quality.notes ?? []), "LATER-PART-CLAUSE"] } });
+    LEGACY_BRIDGE_CLAUSES.push({ since: "1.51.0", apply: marker });
+    try {
+      const atCutoff = base(BRIDGE_METHOD_SINCE_SPEC_VERSION);
+      const view = withLegacyBridgeMethod(atCutoff);
+      expect(view.quality.notes).toContain("LATER-PART-CLAUSE");
+      // This part's clauses add nothing at its own cutoff.
+      expect(view.fairValue).toEqual(atCutoff.fairValue);
+      // A report at or after the later clause's cutoff gets neither.
+      const later = base("1.51.0");
+      expect(withLegacyBridgeMethod(later)).toBe(later);
+    } finally {
+      LEGACY_BRIDGE_CLAUSES.pop();
+    }
+  });
+
+  it("the lease 'removed' test needs an affirmative statement, across decimals and negation (G3)", () => {
+    const withBasis = (tail: string): Report => {
+      const r = leaseLeftOut("1.44.0");
+      r.valuation.dcf.assumptions = r.valuation.dcf.assumptions.map((a) => (a.name === "sales-to-capital" ? { ...a, basis: `${a.basis}${tail}` } : a));
+      return r;
+    };
+    // A decimal amount before "removed" still counts as removed: no clause.
+    expect(JSON.stringify(withLegacyBridgeMethod(withBasis(" The operating-lease liability 5,494.5M removed: its cost is inside the EBIT.")))).not.toMatch(/sales-to-capital kept/);
+    // "is not removed" does not count as removed: the clause fires.
+    expect(JSON.stringify(withLegacyBridgeMethod(withBasis(" The operating lease is not removed from invested capital: scope unproven; total debt is used as reported.")))).toMatch(LEASE);
   });
 
   it("stored bytes are never rewritten", () => {

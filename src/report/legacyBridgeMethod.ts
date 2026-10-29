@@ -23,8 +23,8 @@ import type { Report } from "@/report/schema";
  * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
  * itself, because later batches move that constant. Every note is a fixed string
  * plus amounts read from stored numbers: no provider, filing or model text reaches
- * it. Each clause compares the report's spec with its own part's cutoff, so there
- * is no module-wide early return for a later part's clauses to hide behind.
+ * it. Each clause compares the report's spec with its own part's cutoff
+ * (`LEGACY_BRIDGE_CLAUSES`); there is no module-wide early return.
  */
 export const BRIDGE_METHOD_SINCE_SPEC_VERSION = "1.50.0";
 
@@ -38,7 +38,6 @@ const CLAIMS_CLAUSE =
 const E7_CLAUSE =
   "it deducted the filed retirement and environmental obligations shown in its bridge at their full amount, before the tax relief a settlement earns";
 const DIVISOR_CONDITIONAL = "if the divisor period was a loss quarter, its divisor carried no award dilution";
-const DIVISOR_DETECTED = "the divisor period was a loss quarter, so its divisor carried no award dilution";
 
 const AMOUNT = "([\\d,]+(?:\\.\\d+)?)";
 const OLD_FINANCE_ONLY = new RegExp(`a total lease liability of ${AMOUNT} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`);
@@ -65,16 +64,17 @@ function storedLeaseLeftOut(report: Report): number | null {
   return null;
 }
 
-/** A stored sales-to-capital basis exists, and it does not say the operating lease was removed, kept by switch or refused. */
+/**
+ * The wording of the live sales-to-capital basis (valuation.ts): "The operating-lease liability {amount} removed: ..." or
+ * "The operating lease {amount} is kept in invested capital: ...". Affirmative only: the match runs to the colon (a decimal
+ * point does not end it) and refuses any "not" in between, so "is not removed" never counts.
+ */
+const LEASE_STATED_RE = /operating[- ]lease (?:liability )?(?:(?!\bnot\b)[^:])*?\b(?:removed|kept in invested capital):/i;
+
+/** A stored sales-to-capital basis exists, and it does not affirmatively state the operating lease was removed or kept by switch. */
 function storedSalesToCapitalIgnoresLease(report: Report): boolean {
   const row = report.valuation.dcf.assumptions.find((a) => a.name.startsWith("sales-to-capital"));
-  return row !== undefined && !/operating[- ]lease[^.]*(?:removed|kept in invested capital)/i.test(row.basis);
-}
-
-/** A stored divisor note or assumption basis says the divisor period was a loss whose filed diluted count carries no award dilution. */
-function storedDivisorIsLossPeriod(report: Report): boolean {
-  const texts = [...report.valuation.dcf.assumptions.map((a) => a.basis), ...(report.valuation.dcf.sensitivityNotes ?? [])];
-  return texts.some((text) => /is a loss, so its filed diluted count (?:equals its basic count|carries none)/.test(text));
+  return row !== undefined && !LEASE_STATED_RE.test(row.basis);
 }
 
 function storedLeaseNumber(report: Report, kind: "finance" | "operating"): number | null {
@@ -124,35 +124,49 @@ function correctFinanceLeaseSentence(report: Report): Report {
   return next;
 }
 
-export function withLegacyBridgeMethod(report: Report): Report {
-  // B4a's clauses: this part's cutoff. A later part's clauses (Task 15b) compare with their own, below this check.
-  if (!specVersionBefore(report.meta.specVersion, SINCE)) return report;
-  let next = report;
-
-  const fairValue = next.fairValue;
+function addMethodNote(report: Report): Report {
+  const fairValue = report.fairValue;
   if (
-    fairValue !== undefined &&
-    fairValue.status === "available" &&
-    (fairValue.method === "fcff-dcf" || fairValue.method === "excess-return") &&
-    !fairValue.basis.some((line) => line.startsWith(NOTE_PREFIX))
-  ) {
-    const clauses: string[] = [];
-    if (fairValue.method === "fcff-dcf") {
-      clauses.push(CLAIMS_CLAUSE);
-      if ((next.valuation.dcf.bridge?.nonOperatingComponents ?? []).some((c) => c.label.includes("(filed, before tax"))) clauses.push(E7_CLAUSE);
-      const leased = storedLeaseLeftOut(next);
-      if (leased !== null && storedSalesToCapitalIgnoresLease(next)) {
-        clauses.push(`sales-to-capital kept the ${millions(leased)} operating lease the EV left out in invested capital`);
-      }
+    fairValue === undefined ||
+    fairValue.status !== "available" ||
+    (fairValue.method !== "fcff-dcf" && fairValue.method !== "excess-return") ||
+    fairValue.basis.some((line) => line.startsWith(NOTE_PREFIX))
+  ) return report;
+  const clauses: string[] = [];
+  if (fairValue.method === "fcff-dcf") {
+    clauses.push(CLAIMS_CLAUSE);
+    if ((report.valuation.dcf.bridge?.nonOperatingComponents ?? []).some((c) => c.label.includes("(filed, before tax"))) clauses.push(E7_CLAUSE);
+    const leased = storedLeaseLeftOut(report);
+    if (leased !== null && storedSalesToCapitalIgnoresLease(report)) {
+      clauses.push(`sales-to-capital kept the ${millions(leased)} operating lease the EV left out in invested capital`);
     }
-    clauses.push(storedDivisorIsLossPeriod(next) ? DIVISOR_DETECTED : DIVISOR_CONDITIONAL);
-    next = { ...next, fairValue: { ...fairValue, basis: [...fairValue.basis, `${NOTE_PREFIX}${SINCE}: ${clauses.join("; ")}. Re-run the report for the current method.`] } };
   }
+  // No stored byte shows the divisor period's loss status on a report this old, so the clause is always a condition.
+  clauses.push(DIVISOR_CONDITIONAL);
+  return { ...report, fairValue: { ...fairValue, basis: [...fairValue.basis, `${NOTE_PREFIX}${SINCE}: ${clauses.join("; ")}. Re-run the report for the current method.`] } };
+}
 
-  const routeMetrics = next.routeMetrics;
-  if (routeMetrics !== undefined && routeMetrics.route === "reit" && !routeMetrics.notes.some((line) => line.startsWith(REIT_NOTE_PREFIX))) {
-    next = { ...next, routeMetrics: { ...routeMetrics, notes: [...routeMetrics.notes, REIT_NOTE] } };
+function addReitNote(report: Report): Report {
+  const routeMetrics = report.routeMetrics;
+  if (routeMetrics === undefined || routeMetrics.route !== "reit" || routeMetrics.notes.some((line) => line.startsWith(REIT_NOTE_PREFIX))) return report;
+  return { ...report, routeMetrics: { ...routeMetrics, notes: [...routeMetrics.notes, REIT_NOTE] } };
+}
+
+/**
+ * The clauses, each with its own part's cutoff. `withLegacyBridgeMethod` checks every clause's `since` on its own and has
+ * no module-wide early return, so a later part's clauses (Task 15b, under their own frozen since-version) still reach a
+ * report built between the two merges. Exported only so a test can add a clause with a later cutoff.
+ */
+export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Report) => Report }> = [
+  { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: addMethodNote },
+  { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: addReitNote },
+  { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: correctFinanceLeaseSentence },
+];
+
+export function withLegacyBridgeMethod(report: Report): Report {
+  let next = report;
+  for (const clause of LEGACY_BRIDGE_CLAUSES) {
+    if (specVersionBefore(next.meta.specVersion, clause.since)) next = clause.apply(next);
   }
-
-  return correctFinanceLeaseSentence(next);
+  return next;
 }
