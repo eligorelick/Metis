@@ -2859,6 +2859,8 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   const notes = [
     "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
   ];
+  // FIN-511-V1: the basis note of every growth cell that uses a first-reported copy or is dashed.
+  for (const note of new Set(disclosures.quarterlyTrend.flatMap((row) => row.revenueGrowthNotes ?? []))) notes.push(note);
   // D-63: the company's guidance track record, one citable figure per metric:
   // the share of the guided quarters whose result landed above (below) the
   // range the preceding release gave. The CEO and CFO issue that outlook, so

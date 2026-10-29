@@ -2293,6 +2293,8 @@ export const FilingDisclosuresSchema = z
           revenue: z.number().nullable(),
           revenueYoyPct: z.number().nullable(),
           revenueQoqPct: z.number().nullable(),
+          /** FIN-511-V1: why a growth cell uses a first-reported copy or is a dash. Optional: absent on older reports. */
+          revenueGrowthNotes: z.array(z.string()).optional(),
           grossMarginPct: z.number().nullable(),
           operatingExpenses: z.number().nullable(),
           operatingMarginPct: z.number().nullable(),

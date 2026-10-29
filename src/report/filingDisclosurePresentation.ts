@@ -118,9 +118,10 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).
     const trendNotes = [
-      "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.",
+      "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter; each growth cell divides two quarters on one filed presentation, and a dash means no such pair is on file. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.",
       d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
+      ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
     ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (last eight quarters)",
