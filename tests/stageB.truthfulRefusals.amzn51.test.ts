@@ -228,3 +228,15 @@ describe("quoted wording is true where it lands (review m5)", () => {
     expect(reasonOf(debtless("fmp").valuation.gaps, "valuation.netDebt")).toMatch(/valuation equity bridge suppressed rather than using FMP's incompatible cash-only netDebt field$/);
   });
 });
+
+describe("a cash-only net debt is named only where the row carries one (fix round 2, M3)", () => {
+  const MISSING = "combined cash-and-short-term-investments unavailable and one or more cash components missing";
+  it("a row with a cash-only net debt says it is not used", () => {
+    expect(resolveNetDebt({ date: "2026-06-30", totalDebt: 100, cashAndCashEquivalents: 50, vendorNetDebt: 50 }).reason)
+      .toBe(`${MISSING}; the row's cash-only net debt is not used`);
+  });
+  it("a row without one (the keyless CVX and PG shape) names none", () => {
+    expect(resolveNetDebt({ date: "2026-06-30", totalDebt: 100, cashAndCashEquivalents: 50 }).reason).toBe(MISSING);
+    expect(resolveNetDebt({ date: "2026-06-30", totalDebt: 100, cashAndCashEquivalents: 50, vendorNetDebt: null }).reason).toBe(MISSING);
+  });
+});

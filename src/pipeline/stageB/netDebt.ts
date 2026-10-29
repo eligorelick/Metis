@@ -293,7 +293,8 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     ...base,
     value: null,
     cashBasis: null,
-    reason:
-      "combined cash-and-short-term-investments unavailable and one or more cash components missing; vendor cash-only net debt rejected",
+    // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
+    reason: "combined cash-and-short-term-investments unavailable and one or more cash components missing" +
+      (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }

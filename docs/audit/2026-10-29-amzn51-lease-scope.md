@@ -73,7 +73,7 @@ Every figure equals the audit's counterfactual with the composition and the stak
 - CMCSA, MA, V, T and PG: the EV entry names its gate (the share scope, the lease-scope refusal or the cash components). For CMCSA, MA and V the WACC weights entry, and with it the DCF and fair-value lines, says the market cap is withheld on the share scope, with that reason, instead of missing.
 - DIS, LLY and TSM: the DCF gap quotes the WACC reason.
 - The fair-value line quotes the DCF or bridge gap instead of the generic list of possible causes for 14 issuers: CMCSA, CSCO, CVX, DIS, LLY, MA, MCD, META, ORCL, PG, T, TSM, V and XOM (for XOM, its diluted-share gap).
-- Net debt/EBITDA: CSCO and ORCL say "net debt withheld:" with the refusal; CVX and PG give the resolver's reason (no combined cash-and-short-term-investments, a cash component missing, the cash-only net debt rejected) instead of "missing net debt input" alone.
+- Net debt/EBITDA: CSCO and ORCL say "net debt withheld:" with the refusal; CVX and PG give the resolver's reason (no combined cash-and-short-term-investments, a cash component missing) instead of "missing net debt input" alone.
 - CSCO, CVX, MCD, META, ORCL, PG and PLD: the net-debt entry no longer says the bridge passed over "FMP's incompatible cash-only netDebt field", which a keyless report does not have.
 
 The AMZN census snapshot, run #43 (AMZN, SEC statements) and run #46 (MU) do not change at all.
