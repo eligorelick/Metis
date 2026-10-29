@@ -1,6 +1,6 @@
 # Audit batch B1: the claim verifier compares periods and windows (2026-10-28)
 
-Base: `6542531` (main, after pull request #67) for the plan; the branch was then merged with main at `a636315` (after B3, payload records, and B7, paid-spend accounting; merge commit `eb52c4f`), so B3's fiscal labels (Tasks 8E and 8F) are on the base. Scope: batch B1 of the independent audit of 2026-10-27, the findings where the Stage C verify pass marks a factual claim `[validated]` without comparing the period, window, comparison base or recency it states: AI-106, AI-302, AI-302-V1, AI-303, AI-303-V1, AI-303-V3, AI-303-V4, AI-402, AI-402-V1, AI-402-V2, AI-404 and AI-405. The decision is `D-next` in [DECISIONS](DECISIONS.md) (renumbered at merge; the audited-fixture record carries the provisional number D-128).
+Base: `6542531` (main, after pull request #67) for the plan; the branch was then merged with main at `a636315` (after B3, payload records, and B7, paid-spend accounting; merge commit `eb52c4f`), so B3's fiscal labels (Tasks 8E and 8F) are on the base. Scope: batch B1 of the independent audit of 2026-10-27, the findings where the Stage C verify pass marks a factual claim `[validated]` without comparing the period, window, comparison base or recency it states: AI-106, AI-302, AI-302-V1, AI-303, AI-303-V1, AI-303-V3, AI-303-V4, AI-402, AI-402-V1, AI-402-V2, AI-404 and AI-405. The decision is D-128 in [DECISIONS](DECISIONS.md).
 
 This change made no model calls and no paid provider calls. Every test builds synthetic records shaped like the registry rows of the stored runs, with values from committed SEC text or round numbers; no live network is reached and no provider row (FMP or other) is committed. The replay over stored run inputs read them only and called no provider or model.
 
@@ -21,13 +21,13 @@ All twelve findings were re-read against the base and still read true; none is s
 | AI-405: the consistency period check was stricter than the citation check | Fixed (C-5). A spelled fiscal period is compared through the issuer's fiscal label before calendar years; a 52/53-week year is read by `periodsAgree`. | `6baf29f` | the AI-405 tests |
 | Composition with B3 Task 8E (C-11): a latest-year row carries the fiscal label that the period rule reads | Test only. The label establishes FY2025 and the annual window and nothing else; the test fails when the labels are removed. | `5a96043` | `tests/stageC.latestFiscalLabels.test.ts` |
 | Review minors of Task 9: the OD-3 pin comment and the consistency module doc | Fixed in comments only. | `af8998a` | none (comments) |
-| Stamps and the audited fixture comparison | Report 1.46.0 and pipeline stage-c-1.6.12; the one moved leaf (`report.meta.specVersion`) was recorded in its own group, which B2 absorbed into `claim-verifier-numbers-20261027` (provisional decision ids D-128 and D-129) because B1 and B2 ship as one pull request. | `ff4a3fb`, `36e3ed0` | `tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` |
+| Stamps and the audited fixture comparison | Report 1.46.0 and pipeline stage-c-1.6.12; the one moved leaf (`report.meta.specVersion`) was recorded in its own group, which B2 absorbed into `claim-verifier-numbers-20261027` (decision ids D-128, D-129 and D-130) because B1 and B2 ship as one pull request. | `ff4a3fb`, `36e3ed0` | `tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` |
 
 Re-pins: each carries a dated comment naming its finding. Two Task 6 pins moved with AI-405 (a right spelled-fiscal base now validates; a wrong spelled base stays unverified and its reason changes from `period-mismatch` to `period-word-mismatch`), and the stamp pins moved with the stamps. The payload golden did not move.
 
 ## Owner decisions
 
-The owner delegated these calls (research-backed). Each is recorded with its sources in D-next.
+The owner delegated these calls (research-backed). Each is recorded with its sources in D-128.
 
 - **OD-1.** A period-less record establishes only what it carries. Measured cost with B3 Task 8E on `main`: none on a stored claim (see the C-11 block below).
 - **OD-2.** A trailing window's start date counts only inside the complete interval.

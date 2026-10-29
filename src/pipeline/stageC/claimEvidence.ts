@@ -718,11 +718,11 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * path keeps exact symmetry; an excerpt clause also carries its verb and its
  * context ("Inventory was $31.6 billion, up from $25.8 billion sequentially, as we prepare for …": an explanation after a comma),
  * which demanding in the claim failed every figure a filing states in a sentence.
- * AI-305 / D-next (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
+ * AI-305 / D-129 (OD-1) revises the clause-wide half: the clause still carries the verb and the context, but the words the
  * sentence gives to the figure itself (its own description, Context.own) must be named by the claim too, so a figure the
  * sentence gives to another noun ("a record of nearly $26.0 billion to shareholders") no longer binds a free-cash-flow claim.
  * The two tests are conjoined, so this never admits a candidate the clause test rejected.
- * AI-503 / D-next: a comparison base binds only a comparison base, and a move's end takes the move's head (`Context.base`, `moveHead`).
+ * AI-503 / D-130: a comparison base binds only a comparison base, and a move's end takes the move's head (`Context.base`, `moveHead`).
  */
 const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",

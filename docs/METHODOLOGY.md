@@ -2770,7 +2770,7 @@ string figures and insider notes carry no text to read and stay
 `text-source`.
 
 A figure is read with its own description (audit 2026-10-27 AI-305 and
-AI-305-V1; D-next, OD-1). The clause rule above still holds (every word of the
+AI-305-V1; D-129, OD-1). The clause rule above still holds (every word of the
 claim is stated in the clause, and a definition-changing modifier the clause
 states is in the claim), and the claim must now also name every content word of
 the figure's own description. Before the figure, that is the text from the
@@ -2829,7 +2829,7 @@ must put it after a comma).
 
 A figure the source introduces with "from", "compared with", "compared to",
 "versus", "vs." or "against" is a comparison base (audit 2026-10-27 AI-503,
-AI-503-V1 and AI-503-V2; D-next): it supports only a claim figure introduced the
+AI-503-V1 and AI-503-V2; D-130): it supports only a claim figure introduced the
 same way (a claim figure after these words binds only a source base), and it
 does not take the excerpt's reporting period. In "<metric> increased from $A ...
 to $B" the metric and the direction belong to $B, so "commitments increased to
