@@ -1,7 +1,7 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { DEBT_AGGREGATE_TAGS, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason } from "@/edgar/debtCompleteness";
+import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -348,7 +348,10 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
   const inclusiveTotal = splitOnly ? instant(facts, "LongTermDebt", currency, row.date, observedAt)?.value ?? null : null;
   const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null, vendorAgreesWithFiled);
-  const reason = componentReason ?? leaseLineReason ?? presentationReason ?? convertibleReason ??
+  // A vendor short-term debt of 0 beside a filed current debt (D-132); a field the SEC statements built carries its tags.
+  const zeroCurrentReason = out.fieldProvenance?.shortTermDebt !== undefined ? null
+    : zeroCurrentDebtReason(out.shortTermDebt, CURRENT_DEBT_TAGS.map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null })));
+  const reason = componentReason ?? leaseLineReason ?? presentationReason ?? convertibleReason ?? zeroCurrentReason ??
     (scopeReason !== null && !splitOnly ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason(splitOnly ? { shortTermDebt: 0,
       longTermDebt: inclusiveTotal, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }
       : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null)) ??

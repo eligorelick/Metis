@@ -600,6 +600,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
     capitalLeaseObligations: num(r.capitalLeaseObligations),
+    ...(num(r.capitalLeaseObligationsCurrent) !== null ? { capitalLeaseObligationsCurrent: num(r.capitalLeaseObligationsCurrent) } : {}),
+    ...(num(r.capitalLeaseObligationsNonCurrent) !== null ? { capitalLeaseObligationsNonCurrent: num(r.capitalLeaseObligationsNonCurrent) } : {}),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
     netDebt: num(r.netDebt),

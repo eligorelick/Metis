@@ -28,8 +28,17 @@ export interface LeaseDebtInputs {
 }
 
 /** An amount in millions with grouped digits ("96,320M"); the refusal names the values it compared. */
-function millions(value: number): string {
+export function millions(value: number): string {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(value / 1e6)}M`;
+}
+
+/**
+ * What a vendor total completed from its filing (D-132) had left out, read
+ * from the completed total's tags: the filed current debt is among them only
+ * when it replaced a zero or absent vendor short-term debt.
+ */
+export function completedTotalOmission(tags: readonly string[]): string {
+  return tags.some((tag) => /(^|\/)LongTermDebtCurrent$/.test(tag)) ? "current debt and current lease liabilities" : "current lease liabilities";
 }
 
 /** "(current + noncurrent)", "(noncurrent only)" or "(current only)" from a lease field's filed tags; "" when they do not say. */

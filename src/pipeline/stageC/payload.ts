@@ -1036,6 +1036,7 @@ function computedSections(
           : '"FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" is the fiscal-year ratio, reported beside it and not graded.'}`]
         : []),
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
+      ...(currentCapital.debtBridge.compositionNote ? [currentCapital.debtBridge.compositionNote] : []),
       ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
     ] }));
   }

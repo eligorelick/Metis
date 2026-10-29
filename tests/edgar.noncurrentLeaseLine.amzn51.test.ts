@@ -93,7 +93,8 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
   });
 
   it("control: a genuine contradiction (neither the noncurrent sum nor the total) is still refused", () => {
-    const row = vendorRow(Q2, { capitalLeaseObligations: 100_000 });
+    // The filed current debt is on the row, so only the lease contradiction speaks (a vendor zero beside it is withheld, D-132).
+    const row = vendorRow(Q2, { shortTermDebt: 3_655, capitalLeaseObligations: 100_000 });
     const { row: out } = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(out.capitalLeaseObligations).toBe(100_000 * M);
     expect(out.totalDebt).toBe(row.totalDebt);

@@ -67,6 +67,22 @@ export function uncomposedDebtReason(row: {
       `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
 }
 
+/** The current-debt tags a vendor short-term debt of 0 is checked against. */
+export const CURRENT_DEBT_TAGS: readonly string[] = ["DebtCurrent", "LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
+
+/**
+ * A vendor short-term debt of 0 is not complete when the same-period filing
+ * tags a positive current debt (audit 2026-10-29, AMZN #51 VAL-2): the vendor
+ * row left the current debt out of its total.
+ */
+export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { tag: string; value: number | null }[]): string | null {
+  if (shortTermDebt !== 0) return null;
+  const tagged = filed.filter(({ value }) => value !== null && Number.isFinite(value) && value > 0);
+  return tagged.length === 0 ? null
+    : `incomplete debt carrying value: the vendor short-term debt is 0 but the same-period filing tags current debt (${tagged.map(({ tag, value }) => `${tag} ${value}`).join(", ")}); ` +
+      "total debt and net debt are withheld rather than published without it";
+}
+
 /**
  * A tagged remainder-of-fiscal-year bucket, zero included, shows the schedule
  * runs by fiscal year, so the next-twelve-months figure beside it can be the
