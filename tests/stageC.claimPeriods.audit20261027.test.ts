@@ -770,22 +770,43 @@ describe("final review: the comparison-cue reader stays fast on comma-grouped ro
 });
 
 // Final re-review (2026-10-28, AI-303-V3): the parentheticals of a clause are read once, not once per figure. Read per figure, this
-// clause of 200 figures and 8,000 empty parentheticals took about 1.6 s to verify at the branch head; read once, about 0.17 s.
+// clause of 200 figures and 8,000 empty parentheticals took about ten times as long to verify as the same clause with brackets (about
+// 1.6 s against 0.17 s idle at the branch head); read once, the two take about the same time. A wall-clock bound flaked under load, so
+// the pin compares the two shapes on the same machine at the same moment: the minimum of three interleaved runs of each.
 describe("final re-review: the parenthetical reader runs once per clause (AI-303-V3)", () => {
   const timed = <T>(fn: () => T): { value: T; ms: number } => {
     const t0 = performance.now();
     const value = fn();
     return { value, ms: performance.now() - t0 };
   };
-  it("verifies a clause of 200 figures and 8,000 parentheticals in under 800 ms", () => {
-    const gap = "() ".repeat(40);
-    const text = "Inventory was $1 billion " + gap + Array.from({ length: 199 }, (_, i) => `$${i + 2} billion ${gap}`).join("") + ".";
+  const clause = (pair: string): string => {
+    const gap = `${pair} `.repeat(40);
+    return "Inventory was $1 billion " + gap + Array.from({ length: 199 }, (_, i) => `$${i + 2} billion ${gap}`).join("") + ".";
+  };
+  const verify = (text: string) => {
     const excerpt: TextExcerpt = { title: "10-Q (reporting period ended 2026-07-26)", text, source: "edgar:10-Q notes", asOf: "2026-07-26",
       truncated: false, originalChars: text.length };
-    const { value, ms } = timed(() => validateClaimNumericSupport({ label: "FACT", text: "Inventory was USD 1 billion.", source: excerpt.source, asOf: excerpt.asOf },
+    return timed(() => validateClaimNumericSupport({ label: "FACT", text: "Inventory was USD 1 billion.", source: excerpt.source, asOf: excerpt.asOf },
       { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }));
-    expect(value.status).toBe("unchecked");
-    expect(ms).toBeLessThan(800);
+  };
+  it("verifies 200 figures among 8,000 parentheticals in under 3 times the same clause with brackets", { timeout: 60_000 }, () => {
+    const parentheses = clause("()");
+    const brackets = clause("[]");
+    expect(brackets.length).toBe(parentheses.length);
+    const times = { parentheses: [] as number[], brackets: [] as number[] };
+    for (let run = 0; run < 3; run++) {
+      const withParentheses = verify(parentheses);
+      const withBrackets = verify(brackets);
+      expect(withParentheses.value.status).toBe("unchecked");
+      expect(withBrackets.value.status).toBe("unchecked");
+      times.parentheses.push(withParentheses.ms);
+      times.brackets.push(withBrackets.ms);
+    }
+    const fastest = { parentheses: Math.min(...times.parentheses), brackets: Math.min(...times.brackets) };
+    const ratio = `${fastest.parentheses.toFixed(0)} ms against ${fastest.brackets.toFixed(0)} ms (ratio ${(fastest.parentheses / fastest.brackets).toFixed(2)})`;
+    expect(fastest.parentheses, ratio).toBeLessThan(3 * fastest.brackets);
+    // A loose guard against a catastrophic slowdown of both shapes alike.
+    expect(fastest.parentheses, ratio).toBeLessThan(5_000);
   });
 });
 
@@ -1033,6 +1054,26 @@ describe("final review: a year-end instant after a comparison cue or a start is 
       expect(run(source, title, CLAIMS.L31(SAME_PHRASE)).status, source).not.toBe("validated");
       expect(run(source, title, CLAIMS.L25(SAME_PHRASE)).status, source).not.toBe("contradicted");
     }
+  });
+  // Third re-review (2026-10-28): the depth count's edge shapes and a note reference read as a figure, under the 10-Q title. Main and
+  // d58b6c9 validated each false depth row and contradicted each true one; the branch head before the per-clause read (db812bc)
+  // validated the note-reference row.
+  it("AI-303-V3: a stray \")\", a doubled \"(\" or an unclosed inner \"(\" never validates a false claim or contradicts a true one", () => {
+    const { title: name, source: id, asOf } = TITLES["10-Q"];
+    const on = (text: string, claim: string) => {
+      const excerpt: TextExcerpt = { title: name, text, source: id, asOf, truncated: false, originalChars: text.length };
+      return validateClaimNumericSupport({ label: "FACT", text: claim, source: id, asOf }, { excerpts: [excerpt], sourceId: id, reportingCurrency: "USD" }).status;
+    };
+    for (const source of [
+      "Inventory was $31.6 billion) (at the end of the prior fiscal year, $25.8 billion).", // D1, a stray ")" before "("
+      "Inventory was $31.6 billion ((at the end of the prior fiscal year, $25.8 billion).", // D2, "(("
+      "Inventory was $31.6 billion (at the end of the prior fiscal year (unaudited, $25.8 billion).", // D3, an unclosed inner "("
+    ]) {
+      expect(on(source, CLAIMS.L31(SAME_PHRASE)), source).not.toBe("validated");
+      expect(on(source, CLAIMS.L25(SAME_PHRASE)), source).not.toBe("contradicted");
+    }
+    // The note number is a figure in the parenthetical, so $90.0 billion's "fiscal 2026" is held and the quarter is not inherited.
+    expect(on("Revenue was $90.0 billion (fiscal 2026, see Note 3).", "Revenue was USD 90.0 billion in Q2 FY2027.")).not.toBe("validated");
   });
   it.each(Object.keys(TITLES) as Title[])("control: a parenthetical comparison stays the base's, and one with no figure stays the outer figure's (%s)", (title) => {
     const on = (text: string, claim: string) => {
