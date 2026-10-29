@@ -11,7 +11,10 @@ import type { Report } from "@/report/schema";
  * BACKFILL (only older periods came from SEC filings: a `statements.backfill.income*`
  * entry, an appended `edgar.predecessor` entry, or a scoped `keyless.income*.backfill.*`
  * or `.predecessor.*` entry), whose two notes are scoped to those older periods. FULL
- * wins when both are present. A report at or after the since-version, or in neither
+ * wins when both are present. An appended `edgar.predecessor` entry covers all six statement
+ * members, so a predecessor history without income periods also carries the BACKFILL notes, and a
+ * member served wholly by predecessor rows carries the BACKFILL wording: both are conservative
+ * over-inclusions. A report at or after the since-version, or in neither
  * class (an FMP-route report, whose `.shareBasis` entries describe vendor rows), is
  * returned as the identical object (Task 10b, R1 pre-flight I3).
  *

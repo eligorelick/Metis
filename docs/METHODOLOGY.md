@@ -3109,7 +3109,10 @@ says older periods "were taken from the predecessor's filings" (the "no
 pre-reorganization periods were appended" form does not count), or a scoped
 `keyless.incomeAnnual.backfill.*`, `keyless.incomeQuarterly.backfill.*`,
 `keyless.incomeAnnual.predecessor.*` or `keyless.incomeQuarterly.predecessor.*` entry.
-FULL wins when both are present. A `keyless.<member>.shareBasis` entry never marks a
+FULL wins when both are present. An appended `edgar.predecessor` entry covers all six
+statement members, so a predecessor history without income periods also carries the
+BACKFILL notes, and a member served wholly by predecessor rows carries the BACKFILL
+wording; both are conservative over-inclusions. A `keyless.<member>.shareBasis` entry never marks a
 report: `keyless.ts` files it only when the member holds vendor rows, the opposite
 of an SEC-built statement. The report is shown, on the page and in the Markdown,
 print and audit exports, through

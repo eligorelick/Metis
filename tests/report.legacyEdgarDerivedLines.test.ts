@@ -19,6 +19,7 @@ import {
   LEGACY_EDGAR_BACKFILL_QUALITY_NOTE,
   withLegacyEdgarDerivedLines,
 } from "@/report/legacyEdgarDerivedLines";
+import { predecessorManifestEntry, type PredecessorFacts } from "@/edgar/successor";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
@@ -33,6 +34,8 @@ const B_SCREENS = /on this report(?:'|&#x27;|&#39;)s older periods backfilled fr
 
 const RESTATEMENT_REASON =
   "1 material line(s) restated or re-presented by more than 1% in a later filing; this statement carries the LAST-FILED value and keeps the superseded one as `original`: 2024-12-31 revenue 101887000000 → 105856000000 (+3.90%, first 10-K 0000000099-25-000001 filed 2025-02-25, restated in 10-K 0000000099-26-000001 filed 2026-02-25).";
+
+type Entry = { field: string; reason: string; severity: "info" | "warn" | "critical"; expected?: boolean };
 
 // Real shapes copied from stored reports (audit 2026-10-27 data/reports 46 and AMZN #51).
 const FULL_ENTRY = {
@@ -52,20 +55,23 @@ const BACKFILL_ENTRY = {
   reason: "FMP served 5 period(s) back to 2021-12-31; SEC EDGAR companyfacts supplied 5 older period(s), 2016-12-31 to 2020-12-31, each row carrying source \"edgar\" (companyfacts→income-statement(annual)).",
   severity: "info" as const,
 };
-const PREDECESSOR_APPENDED_ENTRY = {
-  field: "edgar.predecessor",
-  reason: "this registrant (CIK 0000000001) is a SUCCESSOR issuer. 4 older period(s), 2020-12-31 to 2023-12-31, were taken from the predecessor's filings and each row is tagged `predecessor: true` with that CIK.",
-  severity: "info" as const,
-  expected: true,
-};
+// Built by the real producer, so a wording change in predecessorManifestEntry fails here (Task 10b fix round 1).
+const PREDECESSOR_APPENDED_ENTRY: Entry = (() => {
+  const { field, reason, severity } = predecessorManifestEntry(
+    {
+      cik10: "0000000001", name: "Example Predecessor Corp.", facts: {} as never, endpoint: "companyfacts CIK0000000001", fetchedAt: "2026-10-28T00:00:00Z",
+      via: { accession: "0000000001-24-000001", form: "10-K", filed: "2024-02-20", successorFormAccession: "0000000001-24-000002" },
+    } as PredecessorFacts,
+    "0000000002", 4, "2020-12-31", "2023-12-31",
+  );
+  return { field, reason, severity };
+})();
 const PREDECESSOR_NOT_APPENDED_ENTRY = {
   field: "edgar.predecessor",
   reason: "the registrant is a successor issuer whose predecessor (CIK 0000000002) has filed history of its own, but THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only, so no pre-reorganization periods were appended",
   severity: "info" as const,
   expected: true,
 };
-
-type Entry = { field: string; reason: string; severity: "info" | "warn"; expected?: boolean };
 
 /** A report whose only income manifest entries are `entries` (Task 10b, R1 pre-flight I3). */
 function withEntries(specVersion: string, entries: Entry[]): Report {

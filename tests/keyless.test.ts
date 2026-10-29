@@ -454,6 +454,7 @@ describe("applyKeylessFallbacks", () => {
     const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
     expect(rows[0]).toEqual({ date: "2025-09-27", revenue: 1 });
     expect(rows.slice(1).every((row) => row.source === "edgar")).toBe(true);
+    // The legacy-report view (src/report/legacyEdgarDerivedLines.ts, Task 10b) keys its BACKFILL class on this exact field.
     expect(out.gaps.filter((g) => g.field === "statements.backfill.incomeAnnual")).toHaveLength(1);
     // WS4: scoped to the member-replacement gaps `keyless.<member>`, which are
     // the ones whose expectedness depends on whether the plan is keyless. The
