@@ -45,7 +45,7 @@ import {
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
-import { debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { balanceAdmissionEntries, debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { resolveAcquisitionGaps } from "@/report/gapResolution";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
@@ -2373,7 +2373,9 @@ export async function buildDataBundle(
     const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt);
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
       incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
-    keylessGaps.push(...annual.gaps, ...quarterly.gaps, ...annualIncome.gaps, ...quarterlyIncome.gaps);
+    // Review m6: one completion and one stakes entry for both families, each listing its dates.
+    keylessGaps.push(...annual.gaps, ...quarterly.gaps, ...balanceAdmissionEntries([...annual.admissions, ...quarterly.admissions]),
+      ...annualIncome.gaps, ...quarterlyIncome.gaps);
   }
   const website = profile.ok && typeof profile.value.data.rows[0]?.website === "string" ? profile.value.data.rows[0].website : null;
   const announcementIssuer = edgarConfirmedIssuer && edgarBundle.registrant?.name

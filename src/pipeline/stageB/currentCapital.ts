@@ -1,6 +1,6 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
-import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
+import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
@@ -11,6 +11,13 @@ export interface CashFlowBridge {
 }
 export interface DebtBridge {
   leaseScopeNote?: string;
+  /**
+   * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): why the lease-inclusive total is
+   * withheld (the lease guard's conflict, or the admission's refusal), or that
+   * it was composed from a filing because the vendor's own total was partial.
+   * Absent for a total that reconciles as served.
+   */
+  compositionNote?: string;
   debtIncludingDisclosedLeasePortion?: number | null;
   operatingLeasesNoncurrent?: number | null; operatingLeasesCurrent?: number | null;
   financeLeasesNoncurrent?: number | null; financeLeasesCurrent?: number | null;
@@ -38,6 +45,8 @@ export interface CurrentCapitalSnapshot {
 }
 const finite = (v: unknown): number | null => typeof v === "number" && Number.isFinite(v) ? v : null;
 const sub = (a: number | null, b: number | null): number | null => a !== null && b !== null ? a - b : null;
+/** Review m3 (2026-10-29): close a quoted reason with one period, never two. */
+const closeSentence = (text: string): string => text.endsWith(".") ? text : `${text}.`;
 export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const operatingCashFlow = finite(row?.operatingCashFlow), capex = finite(row?.capitalExpenditure);
   const standardizedFcf = deriveFcf(operatingCashFlow, capex);
@@ -58,6 +67,20 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const resolution = resolveNetDebt(row ?? {});
   const net = resolution.value;
   const equity = resolution.nonOperatingEquitySecurities;
+  // FIG-2: a total the lease guard or the admission refused is never published as "including leases".
+  const conflict = leaseDebtConflict(row ?? {});
+  const refusal = debt === null && row?.fieldConflicts?.totalDebt?.usable === false ? row.fieldConflicts.totalDebt.reason : null;
+  if (conflict !== null || refusal !== null) return {
+    totalDebtIncludingLeases: null, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
+    ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
+    netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
+    compositionNote: closeSentence(`Total debt including leases withheld at ${row?.date ?? "the balance date"}: ${refusal ?? conflict}`),
+  };
+  const composed = row?.fieldProvenance?.totalDebt?.calculation === "noncurrent-lease-line-completed" ? row.fieldProvenance.totalDebt : undefined;
+  const compositionNote = composed === undefined || debt === null ? undefined
+    : `Total debt including leases ${millions(debt)} is composed from the ${composed.filings?.map((f) => `${f.form} ${f.accn}`).join(", ") ?? "same"} filing ` +
+      `(${composed.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(" + ")}): the vendor's own total held only the noncurrent lease liabilities, ` +
+      `leaving out ${completedTotalOmission(composed.tags)}. It is a composed figure, not a vendor-reported total.`;
   const incomplete = incompleteLeaseCoverage(row);
   if (incomplete !== null) return {
     totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,
@@ -72,7 +95,8 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   };
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
-    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null && operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null };
+    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null,
+    ...(compositionNote !== undefined ? { compositionNote } : {}) };
 }
 function periodEndTime(value: string | null | undefined): number | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
