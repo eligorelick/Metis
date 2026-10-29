@@ -2666,7 +2666,7 @@ function settleQueuedResumeWithoutExecution(
             totalCostUsd: round4(ledger.length > 0
               ? ledger.reduce((total, cost) => total + cost.costUsd, 0)
               : (linkedReport.costUsd ?? 0)),
-            dataOnly: reportJsonIsDataOnly(linkedReport.reportJson),
+            dataOnly: false, // this branch is taken only for a linked report that is not data-only
             revision: update.revision,
           }
         : { kind: "unchanged" };
