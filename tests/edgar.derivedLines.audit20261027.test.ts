@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildStatementsFromCompanyFacts, lowerBoundDAndACaveat, type StatementBuildOptions } from "@/edgar/statements";
+import { belowComponentFloor } from "@/edgar/synonymFloor";
 import { EBIT_NON_OPERATING_ADJUSTMENTS } from "@/edgar/tagSynonyms";
 
 /**
@@ -167,6 +168,33 @@ describe("component floors", () => {
     });
     it("control: a filer with only DDA keeps DDA", () => {
       expect(quarter({ DepreciationDepletionAndAmortization: q(111 * M) }).depreciationAndAmortization).toBe(111 * M);
+    });
+  });
+
+  // The predicate itself (B13 final review, coverage gate): only a non-negative candidate and a positive component compare.
+  describe("belowComponentFloor", () => {
+    const floor = (value: number) => ({ tag: "Depreciation", value });
+    it("returns the first component the candidate sits below beyond the allowance", () => {
+      expect(belowComponentFloor(100 * M, [floor(50 * M), floor(400 * M)])).toEqual(floor(400 * M));
+    });
+    it("keeps a candidate within max(0.5% of the component, 2,000,000) of it", () => {
+      expect(belowComponentFloor(398.5 * M, [floor(400 * M)])).toBeNull(); // 1.5M below: inside the 2M absolute term
+      expect(belowComponentFloor(995 * M, [floor(1_000 * M)])).toBeNull(); // 5M below: inside 0.5% of 1,000M
+      expect(belowComponentFloor(994 * M, [floor(1_000 * M)])).toEqual(floor(1_000 * M));
+    });
+    it("never compares a negative or non-numeric candidate", () => {
+      expect(belowComponentFloor(-5 * M, [floor(400 * M)])).toBeNull();
+      expect(belowComponentFloor(Number.NaN, [floor(400 * M)])).toBeNull();
+    });
+    it("skips a zero or negative component and compares the next one", () => {
+      expect(belowComponentFloor(100 * M, [floor(0), floor(-400 * M)])).toBeNull();
+      expect(belowComponentFloor(100 * M, [floor(-400 * M), floor(300 * M)])).toEqual(floor(300 * M));
+    });
+    it("a candidate of zero is still compared", () => {
+      expect(belowComponentFloor(0, [floor(400 * M)])).toEqual(floor(400 * M));
+    });
+    it("no components, no floor", () => {
+      expect(belowComponentFloor(100 * M, [])).toBeNull();
     });
   });
 });
