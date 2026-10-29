@@ -1918,6 +1918,9 @@ inventory, receivables and a working-capital cycle.
 - the numerator is NI − CFO − operating CFI, where operating CFI is investing
   cash flow without purchases and sales/maturities of investments;
 - net operating assets exclude cash, short-term **and** long-term investments.
+  When long-term investments are 0 on both balance sheets nothing is removed,
+  and the note says so instead of claiming the exclusion (audit 2026-10-29,
+  FIG-4).
 
 Capex, acquisitions and investing flows the statement leaves unclassified
 remain operating investment. If the statements do not report the investment
@@ -3372,6 +3375,19 @@ For Amazon at June 30, 2026 the line is $122.7B: $122.3B of non-marketable
 equity and $0.4B of equity-method investments. Its $97.9B of Anthropic
 convertible notes are tagged only with that undivided total, so they stay out.
 This is a known understatement, not an estimate.
+
+**The same stakes on the provider path (D-132).** A provider balance row
+carries its own `longTermInvestments`, and for Amazon it was 0 with no source,
+so report #51 (audit 2026-10-29, VAL-3 and FIG-4) added no stake to the equity
+bridge and kept them inside net operating assets. A provider row whose
+`longTermInvestments` is 0 or absent is now read as undisclosed when the
+same-period filing shows noncurrent investments, and is filled with the chain
+above: the same tags, period and currency, the filing as the field's
+provenance, and an info entry in the manifest that names each piece and any
+absent one. The enrichment fills it when the bundle is built, and Stage B's
+balance admission fills a provider row frozen before that. A nonzero provider
+value, a refused one and one the SEC statements built are left as they are.
+The Amazon line above is therefore the same on both paths.
 
 The bridge then subtracts one more line: **estimated tax on non-operating
 investments**. A stake reaches shareholders when it is sold, and the gain is

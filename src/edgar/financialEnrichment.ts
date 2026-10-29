@@ -9,6 +9,7 @@ import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporar
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
+import { tagsFor } from "@/edgar/tagSynonyms";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -616,6 +617,68 @@ function admitEquityStatementNci<T extends FmpStatementRow>(row: T, filings: rea
 }
 
 /** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
+/** The first tag of an ordered list with an instant at `end` (a `first` step of the statements chain). */
+function firstInstant(facts: CompanyFacts, tags: readonly string[], unit: string, end: string, observedAt: string): Resolved | null {
+  for (const tag of tags) {
+    const hit = instant(facts, tag, unit, end, observedAt);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-132): a vendor long-term
+ * investments of 0 or absent is undisclosed, not zero, when the same-period
+ * filing shows noncurrent investments. Amazon carries its non-marketable and
+ * equity-method stakes inside "Other assets"; the provider row read 0, so no
+ * stake reached the DCF bridge and net operating assets kept them.
+ *
+ * The fill is the D-98 chain `longTermInvestments` in statements.ts, with the
+ * same tag lists (tagSynonyms): the filed `LongTermInvestments` total, else
+ * the non-current debt securities plus the other long-term investments (a
+ * filed `OtherLongTermInvestments` line, else non-marketable equity securities
+ * plus equity-method investments). An absent piece is named, never zero. Only
+ * a vendor value is filled: one the SEC statements built carries provenance,
+ * and a nonzero vendor value or a refused one is left as it is.
+ */
+export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const vendor = row.longTermInvestments;
+  if (!validDay(row.date) || currency === null || row.fieldProvenance?.longTermInvestments !== undefined || row.fieldConflicts?.longTermInvestments !== undefined
+    || (vendor != null && vendor !== 0)) return { row, gaps: [] };
+  const date = row.date;
+  const at = (tags: readonly string[]) => firstInstant(facts, tags, currency, date, observedAt);
+  const present: { label: string; r: Resolved }[] = [];
+  const absent: string[] = [];
+  const total = at(tagsFor("longTermInvestments"));
+  if (total) present.push({ label: "long-term investments", r: total });
+  else {
+    const debtSecurities = at(tagsFor("noncurrentDebtSecurities"));
+    if (debtSecurities) present.push({ label: "non-current debt securities", r: debtSecurities });
+    else absent.push("non-current debt securities");
+    const other = at(tagsFor("otherLongTermInvestments"));
+    if (other) present.push({ label: "other long-term investments", r: other });
+    else {
+      const pieces = ([["non-marketable equity securities", at(tagsFor("nonMarketableEquitySecurities"))], ["equity-method investments", at(tagsFor("equityMethodInvestments"))]] as const);
+      if (pieces.every(([, r]) => r === null)) absent.push("other long-term investments");
+      for (const [label, r] of pieces) {
+        if (r) present.push({ label, r });
+        else if (pieces.some(([, hit]) => hit !== null)) absent.push(label);
+      }
+    }
+  }
+  const value = present.reduce((sum, { r }) => sum + r.value, 0);
+  if (present.length === 0 || !(value > 0)) return { row, gaps: [] };
+  const filings = present.flatMap(({ r }) => r.evidence.filings).filter((filing, i, all) => all.findIndex((f) => f.accn === filing.accn) === i);
+  const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: date, observedAt,
+    tags: present.flatMap(({ r }) => r.evidence.tags), filings };
+  const out = { ...row, longTermInvestments: value, fieldProvenance: { ...row.fieldProvenance, longTermInvestments: evidence } } as T;
+  const parts = present.map(({ label, r }) => `${label} ${r.value} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
+  return { row: out, gaps: [{ field: `statements.balance.${date}.longTermInvestments`, severity: "info", expected: true,
+    reason: `vendor longTermInvestments ${vendor ?? "absent"} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
+      `${parts} = ${value} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
+    attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };
+}
+
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = [], equityStatementNci: readonly FilingEquityStatementNci[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
@@ -680,6 +743,12 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);
+        // D-132: a provider row only; the SEC statements already ran the chain.
+        if (input.value.source !== "edgar") {
+          const stakes = admitVendorLongTermInvestments(out, facts, currency, observedAt);
+          out = stakes.row;
+          gaps.push(...stakes.gaps);
+        }
         const nci = admitEquityStatementNci(out, equityStatementNci, facts.cik, currency, observedAt);
         out = nci.row;
         gaps.push(...nci.gaps);

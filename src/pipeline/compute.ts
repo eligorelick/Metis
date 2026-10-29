@@ -139,7 +139,7 @@ import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipel
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
-import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { admitDebtFields, admitVendorLongTermInvestments, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
@@ -2029,15 +2029,21 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
-  const admitBalance = (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+  const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
     if (companyFacts === null) return row;
-    const admitted = admitDebtFields(row, companyFacts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar));
+    const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
+    const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
     ttmGaps.push(...admitted.gaps);
-    return admitted.row;
+    if (!vendorFamily) return admitted.row;
+    // D-132: a provider row's undisclosed stakes, so a bundle frozen before the enrichment filled them reads them too.
+    const stakes = admitVendorLongTermInvestments(admitted.row, companyFacts, currency, bundle.builtAt);
+    ttmGaps.push(...stakes.gaps);
+    return stakes.row;
   };
-  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance);
+  const vendorFamily = (family: DataBundle["statements"]["balanceAnnual"]): boolean => family.ok && family.value.source !== "edgar";
+  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance(vendorFamily(bundle.statements.balanceAnnual)));
   const cashflowAnnual = compatible.cashflowAnnual.rows;
-  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance);
+  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance(vendorFamily(bundle.statements.balanceQuarterly)));
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
