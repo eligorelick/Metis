@@ -28,6 +28,7 @@ import type {
   FmpRawRow,
   FmpStatementRow,
 } from "@/providers/fmp";
+import { parseSicCode, RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -4022,6 +4023,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     debtLikeObligations: bridgePoint === null ? null : debtLikeObligationsAt(
       bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
       isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
+    // FIN-305 (pre-flight I7): a rate-regulated utility's pension deficit is disclosed, not deducted; an unknown SIC is
+    // not a utility. The established code also names the utility note.
+    ...(() => {
+      const sicCode = parseSicCode(bundle.edgar?.sic);
+      return { sicEstablished: sicCode !== null, sicCode, rateRegulatedUtility: sicCode !== null && RATE_REGULATED_UTILITY_SIC.has(sicCode) };
+    })(),
     dcfInputs,
     multiples,
     excessReturn,

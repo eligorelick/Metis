@@ -168,10 +168,10 @@ export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: numb
   if (bridge.nonOperatingAssets === undefined) return "";
   const components = bridge.nonOperatingComponents ?? [];
   if (components.length === 0) return `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`;
-  // E-7: an obligation from an earlier filing keeps its balance date.
+  // E-7: an obligation from an earlier filing keeps its balance date; FIN-305: a line deducted after tax keeps saying so.
   const name = (label: string) => {
     const at = /; balance at (\d{4}-\d{2}-\d{2})/.exec(label);
-    return label.replace(/ \(.*\)$/, "") + (at === null ? "" : ` (balance at ${at[1]})`);
+    return label.replace(/ \(.*\)$/, "") + (/\(filed, after tax at /.test(label) ? " after tax" : "") + (at === null ? "" : ` (balance at ${at[1]})`);
   };
   const added = components.filter((c) => c.value >= 0).map((c) => `${name(c.label)} ${display(c.value)}`);
   return (added.length > 0 ? `, plus non-operating ${added.join(" and ")}` : "") +

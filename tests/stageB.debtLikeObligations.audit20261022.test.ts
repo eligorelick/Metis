@@ -211,15 +211,17 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     assetRetirement: filed(384, "AssetRetirementObligation"), environmental: filed(202, "AccrualForEnvironmentalLossContingencies"), settlementAssets: null,
   } });
 
-  it("lowers equity value by the filed amounts, before tax, and says so", () => {
+  it("lowers equity value by the filed amounts after the marginal-rate tax relief, and says so", () => {
     expect(withObligations.dcf!.enterpriseValue).toBeCloseTo(base.dcf!.enterpriseValue, 9);
-    expect(withObligations.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-586, 6);
-    expect(withObligations.dcf!.perShare! - base.dcf!.perShare!).toBeCloseTo(-5.86, 6);
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(withObligations.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-498.1, 6); // 586 x 0.85, was -586
+    expect(withObligations.dcf!.perShare! - base.dcf!.perShare!).toBeCloseTo(-4.981, 6); // was -5.86
     const notes = withObligations.notes.join(" ");
     expect(notes).toMatch(/subtracts asset-retirement obligations of 384/);
     expect(notes).toMatch(/subtracts environmental remediation accruals of 202/);
     expect(notes).toMatch(/FCFF path does not project their settlement/);
     expect(notes).toMatch(/accretion, which filers charge to operating income/);
+    expect(notes).toMatch(/net of the tax relief a settlement would earn, at the 15% marginal-rate floor/);
   });
 
   it("shows each deduction as its own bridge line on every surface", () => {
@@ -237,20 +239,24 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     } });
     const display = computeDcfDisplay(earlier, "USD");
     const labels = valuationAuditTables({ ...display!, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0]);
-    expect(labels).toContain("Less asset-retirement obligations (filed, before tax; balance at 2025-09-30, the latest filed)");
-    expect(labels).toContain("Less environmental remediation accruals (filed, before tax)");
-    expect(fixedBridgeNonOperatingText(earlier.dcf!.bridge, (v) => v.toFixed(2))).toBe(", less asset-retirement obligations (balance at 2025-09-30) 384.00, less environmental remediation accruals 202.00");
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(labels).toContain("Less asset-retirement obligations (filed, after tax at 15%; balance at 2025-09-30, the latest filed)"); // was "before tax"
+    expect(labels).toContain("Less environmental remediation accruals (filed, after tax at 15%)");
+    // 384 x 0.85 = 326.4; 202 x 0.85 = 171.7; was 384.00 and 202.00 with no "after tax"
+    expect(fixedBridgeNonOperatingText(earlier.dcf!.bridge, (v) => v.toFixed(2))).toBe(", less asset-retirement obligations after tax (balance at 2025-09-30) 326.40, less environmental remediation accruals after tax 171.70");
   });
 
   it("carries the same bridge into the sensitivity grid and the reverse DCF", () => {
     const centre = withObligations.sensitivity!.perShare[Math.floor(withObligations.sensitivity!.perShare.length / 2)];
     expect(centre[Math.floor(centre.length / 2)]).toBeCloseTo(withObligations.dcf!.perShare!, 6);
-    expect(withObligations.dcf!.bridge.nonOperatingAssets).toBeCloseTo(-586, 9);
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(withObligations.dcf!.bridge.nonOperatingAssets).toBeCloseTo(-498.1, 9); // was -586
   });
 
   it("states the deductions in the scenario paths' fixed bridge, with no empty 'plus' clause", () => {
     const text = fixedBridgeNonOperatingText(withObligations.dcf!.bridge, (v) => v.toFixed(2));
-    expect(text).toBe(", less asset-retirement obligations 384.00, less environmental remediation accruals 202.00");
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(text).toBe(", less asset-retirement obligations after tax 326.40, less environmental remediation accruals after tax 171.70");
   });
 
   it("changes nothing when no obligation is tagged", () => {
@@ -264,7 +270,8 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
       assetRetirement: filed(961, "AssetRetirementObligationsNoncurrent"), environmental: filed(9.5, "AccrualForEnvironmentalLossContingencies"),
       settlementAssets: filed(1264, "DecommissioningFundInvestments"),
     } });
-    expect(trust.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-9.5, 6);
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(trust.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-8.075, 6); // the 961 ARO is fully offset; 9.5 x 0.85, was -9.5
     expect(trust.notes.join(" ")).toMatch(/legally restricted to settle them .*1264/);
   });
 
@@ -272,8 +279,11 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     const securities = { value: 100, basis: "us-gaap/EquitySecuritiesFvNi 100 at 2025-12-31" };
     const withSecurities = dcfOf({ nonOperatingAssets: securities });
     const v = dcfOf({ nonOperatingAssets: securities, debtLikeObligations: { assetRetirement: filed(300, "AssetRetirementObligation"), environmental: null, settlementAssets: filed(200, "DecommissioningFundInvestments") } });
-    // 300 − (200 − 100) = 200 is deducted.
-    expect(v.dcf!.equityValue! - withSecurities.dcf!.equityValue!).toBeCloseTo(-200, 6);
+    // 300 − (200 − 100) = 200 is deducted, 170 after the 15% relief
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(v.dcf!.equityValue! - withSecurities.dcf!.equityValue!).toBeCloseTo(-170, 6); // was -200
+    // The relief is applied to the amount left after the offset, never to the offset (Review Focus 6).
+    expect(v.notes.join(" ")).toMatch(/so 200 is deducted \(170 after the 15% tax relief\)/);
   });
 
   it("does not say an obligation the fund fully offsets is deducted", () => {
@@ -289,7 +299,8 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     const lti = { ...steady, balance: { ...steady.balance!, longTermInvestments: 50 } };
     const withLti = dcfOf({ dcfInputs: lti });
     const v = dcfOf({ dcfInputs: lti, debtLikeObligations: { assetRetirement: filed(300, "AssetRetirementObligation"), environmental: null, settlementAssets: filed(200, "DecommissioningFundInvestments") } });
-    // 300 − (200 − 50) = 150 is deducted.
-    expect(v.dcf!.equityValue! - withLti.dcf!.equityValue!).toBeCloseTo(-150, 6);
+    // 300 − (200 − 50) = 150 is deducted, 127.5 after the 15% relief
+    // decisions spec 4.3 (B4): E-7 lines are deducted after tax at the D-98 marginal rate (15% in this fixture: no domicile, so the global minimum); was before tax
+    expect(v.dcf!.equityValue! - withLti.dcf!.equityValue!).toBeCloseTo(-127.5, 6); // was -150
   });
 });

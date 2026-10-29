@@ -2491,7 +2491,10 @@ export interface TemporaryEquityDisclosure {
  * D-65: one non-operating asset the equity bridge adds, at its filed carrying
  * or fair value. The "investment-tax" line is negative: the tax a sale of the
  * others would owe (AMZN audit 2026-10-20). So is a "debt-like-obligation":
- * a filed asset-retirement or environmental liability (audit 2026-10-22 E-7).
+ * a filed asset-retirement, environmental, pension and OPEB, loss-contingency
+ * or contingent-consideration liability (audit 2026-10-22 E-7, audit 2026-10-27
+ * FIN-305), whose value is the AFTER-TAX claim: the filed amount times one
+ * minus the D-98 marginal rate.
  */
 export interface NonOperatingAssetComponent {
   kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
@@ -6002,6 +6005,16 @@ export interface ValuationBundleInputs {
    * settle the former. The DCF bridge deducts them. Null ⇒ none tagged.
    */
   debtLikeObligations?: DebtLikeObligations | null;
+  /**
+   * Audit 2026-10-27 FIN-305 (pre-flight I7): the filer's SIC is one of the six regulated or diversified utility codes
+   * (`RATE_REGULATED_UTILITY_SIC`), so its pension and OPEB deficit is assumed recoverable through rates (ASC 980) and
+   * is disclosed, not deducted. Absent is false.
+   */
+  rateRegulatedUtility?: boolean;
+  /** FIN-305: the filer's SIC code is established. Absent is false: a deducted pension line then raises the `sicUnknown` info gap. */
+  sicEstablished?: boolean;
+  /** FIN-305: the established SIC code, named in the utility note. */
+  sicCode?: number | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -6584,15 +6597,21 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         components.push({ kind: "investment-tax", label, value, basis });
         notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
       }
-      // Audit 2026-10-22 E-7: filed retirement and environmental obligations
-      // are claims the FCFF path never pays, so the bridge deducts them, before
-      // tax. Funds legally restricted to retirement settle those first, less
-      // any long-term investments already added above.
+      // Audit 2026-10-22 E-7, extended by audit 2026-10-27 FIN-305 (decisions spec 4.3): filed retirement,
+      // environmental, pension and OPEB, loss-contingency and contingent-consideration obligations are claims the FCFF
+      // path never pays, so the bridge deducts them, AFTER tax at the D-98 marginal rate the bridge already uses for
+      // the investments it adds. Funds legally restricted to retirement settle those first, less any long-term
+      // investments already added above; the relief is applied to the amount deducted, never to the offset.
       const obligations = isNum(netDebtForBridge) ? inputs.debtLikeObligations ?? null : null;
+      const taxRatePct = assumptions.investmentTax?.ratePct ?? 0;
+      const afterTax = taxRatePct > 0;
+      const keep = afterTax ? 1 - taxRatePct / 100 : 1;
       // A balance from an earlier filing is dated on its line; the bridge's
       // own balance-sheet date would otherwise be read as its date.
       const obligationLabel = (name: string, o: { asOf?: string }) =>
-        `${name} (filed, before tax${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
+        `${name} (filed, ${afterTax ? `after tax at ${fmtNum(taxRatePct)}%` : "before tax"}${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
+      const relief = (net: number) => (afterTax && net > 0 ? ` (${fmtNum(net * keep)} after the ${fmtNum(taxRatePct)}% tax relief)` : "");
+      let retirementDeducted = false;
       if (obligations !== null) {
         const aro = obligations.assetRetirement;
         if (aro !== null && aro.value > 0) {
@@ -6607,21 +6626,51 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               (assetsAdded > 0 ? ` beyond the investments of ${fmtNum(assetsAdded)} the bridge already adds` : "") +
               `: an offset of ${fmtNum(offset)}`;
           if (aro.value - offset > 0) {
-            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
+            retirementDeducted = true;
+            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -((aro.value - offset) * keep), basis: `${aro.basis}${fundNote}` });
           }
           notes.push(fund === null
-            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}.`
-            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted.`);
+            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}${relief(aro.value)}: ${aro.basis}.`
+            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted${relief(aro.value - offset)}.`);
         }
-        const env = obligations.environmental;
-        if (env !== null && env.value > 0) {
-          components.push({ kind: "debt-like-obligation", label: obligationLabel("environmental remediation accruals", env), value: -env.value, basis: env.basis });
-          notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
+        const deduct = (name: string, o: { value: number; basis: string; asOf?: string } | null | undefined) => {
+          if (o === null || o === undefined || !(o.value > 0)) return;
+          components.push({ kind: "debt-like-obligation", label: obligationLabel(name, o), value: -(o.value * keep), basis: o.basis });
+          notes.push(`DCF equity bridge subtracts ${name} of ${fmtNum(o.value)}${relief(o.value)}: ${o.basis}.`);
+        };
+        deduct("environmental remediation accruals", obligations.environmental);
+        const pension = obligations.pension ?? null;
+        if (pension !== null && pension.value > 0) {
+          if (inputs.rateRegulatedUtility === true) {
+            // FIN-305 (pre-flight I7): a rate-regulated utility recovers the cost through rates (ASC 980); the
+            // offsetting regulatory asset is dimensional XBRL, which companyfacts does not carry.
+            const sic = isNum(inputs.sicCode) ? ` (SIC ${inputs.sicCode})` : "";
+            notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}) are not deducted: a rate-regulated utility${sic} is assumed to recover them through rates (ASC 980); ` +
+              "the offsetting regulatory asset is reported only in dimensional XBRL, which the SEC companyfacts the bridge reads does not carry.");
+            gaps.push(gapEntry("valuation.dcf.debtLikeObligations.rateRegulated",
+              `The filer is a rate-regulated utility${sic}: its pension and OPEB deficit of ${millions(pension.value)} is assumed recoverable through rates (ASC 980) and is disclosed, not deducted.`, "info"));
+          } else {
+            deduct("pension and other postretirement benefit deficits", pension);
+            if (inputs.sicEstablished !== true) {
+              gaps.push(gapEntry("valuation.dcf.debtLikeObligations.sicUnknown",
+                "The filer's SIC code is not established, so it is read as not a rate-regulated utility and its pension and OPEB deficit is deducted.", "info"));
+            }
+          }
         }
+        deduct("loss-contingency accruals", obligations.lossContingencies);
+        deduct("business-combination contingent consideration", obligations.contingentConsideration);
         if (components.some((c) => c.kind === "debt-like-obligation")) {
           notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
-            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
-            "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either.");
+            (afterTax
+              ? `Each is deducted net of the tax relief a settlement would earn, at the ${fmtNum(taxRatePct)}% marginal-rate floor (${assumptions.investmentTax!.basis}; D-98, D-58). ` +
+                "The relief is approximate: the rate omits state and local taxes and assumes the deduction is taken against taxable income in the year the claim is paid, " +
+                "and a payment that is not deductible (a government fine or penalty, 26 U.S.C. §162(f)) or that only adds to tax basis (contingent consideration, which adds to the basis of the acquired assets or shares) " +
+                `is credited a relief it will not earn, or not for years, understating that claim by up to ${fmtNum(taxRatePct)}% of it.` +
+                (retirementDeducted ? " The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for it." : "")
+              : "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
+                "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either."));
+          // FIN-305 (OD-4): none of these joins the market EV; say so where the EV is stated.
+          multiples.enterpriseValue.basis += " The debt-like obligations the DCF equity bridge deducts (retirement, environmental, pension and OPEB, loss-contingency and contingent-consideration) are not added to the market EV.";
         }
       }
       if (temporaryEquityNote !== null) notes.push(temporaryEquityNote);

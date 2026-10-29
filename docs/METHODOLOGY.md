@@ -1066,7 +1066,9 @@ value = EV − net debt − minority interest − preferred equity (each includi
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
 on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
-asset-retirement and environmental obligations (audit 2026-10-22 E-7, below). Minority interest
+asset-retirement, environmental, pension and OPEB, loss-contingency and
+contingent-consideration obligations, each after tax at the marginal rate (audit
+2026-10-22 E-7 and audit 2026-10-27 FIN-305, below). Minority interest
 enters the market EV at its book carrying amount, not a market or earnings-share
 value. The market EV uses the balance anchor (the newest balance sheet that carries
 total debt, parent equity and cash and short-term investments), and the DCF's
@@ -1197,26 +1199,99 @@ per-share value, that reason leads and the NCI warning only joins the manifest.
 Book NCI alone is not presented as the outside holders' claim. The market EV and
 the EV multiples still use book NCI.
 
-**Asset-retirement and environmental obligations in the DCF bridge (audit
-2026-10-22 E-7).** A mine, a power plant or a well must be retired, and a
+**Debt-like obligations in the DCF bridge (audit 2026-10-22 E-7, extended by
+audit 2026-10-27 FIN-305, D-next).** A mine, a power plant or a well must be retired, and a
 polluted site cleaned up. The filed liabilities for those costs are claims on
 the enterprise, but the FCFF path projects operating cash flow and capital
 spending only, so it never pays them. FCX's companyfacts carry a $3.84B
 asset-retirement obligation and $2.02B of environmental accruals at 2025-12-31,
-and the bridge had no line for either. The bridge now subtracts them when the
+and the bridge had no line for either. Audit 2026-10-27 FIN-305 added three more
+families of recognised liabilities that the FCFF path never pays (below).
+The bridge subtracts them when the
 issuer tags them: `AssetRetirementObligation`,
 else `AssetRetirementObligationsNoncurrent` plus `AssetRetirementObligationCurrent`;
 `AccrualForEnvironmentalLossContingencies`, else
 `AccruedEnvironmentalLossContingenciesNoncurrent` plus
 `AccruedEnvironmentalLossContingenciesCurrent`. The undiscounted
 `AccrualForEnvironmentalLossContingenciesGross` is not the recognised liability
-and is not read. Only facts filed by the run date count. When neither
-obligation is tagged, nothing changes. This is an owner decision.
+and is not read. Only facts filed by the run date count. When none of the
+obligations is tagged, nothing changes. This is an owner decision.
+
+Three families join them (audit 2026-10-27 FIN-305, an owner decision delegated
+to research, decisions spec 4.3). **Pension and OPEB deficits** are the filer's
+broadest recognised liability family at the date, never summed across families,
+in this order: (a) `PensionAndOtherPostretirementAndPostemploymentBenefitPlansLiabilities`
+(`Noncurrent` plus `Current`), (b)
+`PensionAndOtherPostretirementDefinedBenefitPlansLiabilities` (`Noncurrent` plus
+`Current`), (c) `DefinedBenefitPensionPlanLiabilities` plus
+`OtherPostretirementDefinedBenefitPlanLiabilities`, each noncurrent plus current.
+Postemployment benefits (ASC 712) count only when family (a) includes them, and
+are never read on their own. The look-back is date first: the bridge date, then
+each earlier balance within E-7's look-back, newest first, and at each date the
+families are tried in the order (a), (b), (c); the first date at which any family
+is filed gives the reading, and a family filed as zero at that date ends the
+look-back. Overfunded plans are not credited: a surplus is not equity value
+one-for-one (a US employer reversion pays a 20% excise tax, 50% unless a
+replacement plan or benefit increase applies, IRC 4980), and practitioners
+ignore it. **Loss-contingency accruals** are `LossContingencyAccrualAtCarryingValue`,
+else `LossContingencyAccrualCarryingValueNoncurrent` plus `...Current`; only the
+amount above any same-date `AccrualForEnvironmentalLossContingencies` is
+deducted, so an environmental accrual inside the total is never counted twice.
+**Contingent consideration** is `BusinessCombinationContingentConsiderationLiability`,
+else its `Noncurrent` plus `Current` parts. For these two families a current
+portion filed alone counts as the whole balance: litigation accruals and earn-outs
+are commonly all current, and a current part alone can only understate the claim
+(for retirement, environmental and pension readings a current portion alone is
+still not the obligation). None of these obligations joins the market EV (nor
+did the retirement and environmental ones); the EV basis says so in one sentence
+whenever the bridge deducts one.
+
+**Rate-regulated utilities.** For a filer whose SIC code (the EDGAR submissions
+`sic`) is one of 4911, 4923, 4924, 4931, 4932 or 4941, the pension and OPEB
+deficit is disclosed, not deducted: a rate-regulated utility is assumed to
+recover it through rates (ASC 980), and the offsetting regulatory asset is
+reported only in dimensional XBRL, which the SEC companyfacts the bridge reads
+does not carry (`valuation.dcf.debtLikeObligations.rateRegulated`, info). These
+are exactly the codes the repository's SIC map sends to a regulated electric,
+gas or water utility or a diversified utility (`RATE_REGULATED_UTILITY_SIC`,
+`src/edgar/sic.ts`). 4922 (pipelines), 4953, 4955 and 4959 (waste) and 4991
+(cogeneration) are not among them, because those filers do not recover costs
+through rates, and the group-49 fallback (4900, 4950, 4961) does not count. A
+filer whose SIC is not established is read as not rate-regulated; when, and only
+when, a pension line is then deducted, the info gap
+`valuation.dcf.debtLikeObligations.sicUnknown` says so. Its loss contingencies,
+earn-outs and E-7 lines are deducted as for any filer. Residual, routed to the
+free-data-source batch: net the deficit against the pension regulatory asset
+once dimensional XBRL is available.
+
+**After tax (decisions spec 4.3).** Every debt-like line, the two E-7 families
+included, is deducted after tax: `net × (1 − rate)`, where `net` is the amount
+deducted (an asset-retirement obligation after its settlement-fund offset; the
+relief is applied to the amount deducted, never to the offset) and `rate` is the
+marginal-rate floor the bridge already uses to tax the investments it adds
+(`investmentTax`, D-58 and D-98: 21% for a US domicile, the 26 U.S.C. §11(b)
+federal rate with state taxes excluded; 15%, the global minimum, elsewhere). It
+is not the filer's deferred-tax asset, which is not tagged per obligation. This
+revises E-7's original before-tax convention (D-104) and resolves known issue
+B2b-1. For a pension deficit it is the after-tax cost of funding the deficit at
+once: the deficit is discounted at a pretax high-quality bond rate (ASC 715), the
+contribution is deductible (26 U.S.C. §404), and the fund then earns that rate
+untaxed (Feldstein, "Private Pensions as Corporate Debt", NBER 1982, pp. 75-90:
+not re-checked, the page images were lost on 2026-10-28; FE Training and IB
+Interview Questions carry the same convention). A deficit funded later costs more
+in present value; the bridge does not model the funding schedule. The relief is
+approximate and the notes say so: the rate omits state and local taxes and assumes
+the deduction is taken against taxable income in the year the claim is paid (26
+U.S.C. §461(h)); a payment that is not deductible (a government fine or penalty,
+§162(f)) or that only adds to tax basis (contingent consideration) is credited a
+relief it will not earn, or not for years, so that claim is understated by up to
+the rate times the amount. If no marginal rate is resolved, a line is deducted at
+its full amount and labelled "before tax".
 
 Three house conventions sit beside it; they are project choices, not owner
 decisions. First, each obligation is read at the bridge's own balance date,
 else at the latest date in the year before it that tags it, and the bridge
-names that date: its line reads "(filed, before tax; balance at 2025-12-31, the
+names that date: its line reads "(filed, after tax at 21%; balance at 2025-12-31, the
 latest filed)" in the bridge table, "(balance at 2025-12-31)" in the scenario
 paths' fixed bridge, and the notes add "the latest filed balance, as the
 2026-06-30 balance sheet does not tag it". Many filers tag these only in the
@@ -1228,9 +1303,11 @@ it as their comparative column) that does not tag an obligation means the
 obligation is gone (settled or sold): when the bridge's own balance sheet is
 one, no earlier balance is read, and otherwise the look-back stops at the
 latest one before the bridge's date. A balance filed as zero (the total, or
-the noncurrent part with no current part) also means it is gone. A quarter
+the noncurrent part with no current part; for loss contingencies and contingent
+consideration a current part alone) also means it is gone. A quarter
 that omits it cannot be told apart from one where it was settled, so a
-settlement within the year is caught at the next annual report. When the parts are summed, the noncurrent part must be
+settlement within the year is caught at the next annual report. When the parts of a
+retirement, environmental or pension reading are summed, the noncurrent part must be
 among them: a current portion alone is not the obligation, and the look-back
 continues to the full balance.
 Second, assets the issuer tags as legally restricted to settle the retirement obligations
@@ -1244,18 +1321,23 @@ credited, so a trust is never counted twice. That is conservative when those
 investments are unrelated to the trust: the fund is then under-credited. The
 offset never goes below zero; a surplus fund adds nothing, and when the fund
 covers the whole obligation the notes say nothing is deducted. Third, the
-obligations are deducted at their recognised amount before tax. Settling them
-earns a tax deduction, so this overstates the claim a little. Filers also
+obligations are deducted after tax, as above, so the bridge adjusts for the tax
+relief a settlement earns. Filers also
 charge the retirement obligations' accretion to operating income, so the
 projected NOPAT already bears their time value, and deducting the obligation
-counts that time value twice. The bridge states both and adjusts for neither.
+counts that time value twice. The bridge states the accretion, which it does not
+adjust for.
 
 The deduction sits inside the non-operating total, so the sensitivity grid,
 the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
 key all use the same bridge. The bridge table prints each line as "Less
-asset-retirement obligations (filed, before tax)" or "Less environmental
-remediation accruals (filed, before tax)", and the DCF notes give the tags,
-amounts and filing. When net debt itself does not bridge, no obligation is
+asset-retirement obligations (filed, after tax at 21%)", "Less environmental
+remediation accruals (filed, after tax at 21%)", "Less pension and other
+postretirement benefit deficits (filed, after tax at 21%)", "Less loss-contingency
+accruals (filed, after tax at 21%)" or "Less business-combination contingent
+consideration (filed, after tax at 21%)", and the DCF notes give the tags,
+the filed amount, the amount after tax and the filing. The scenario paths' fixed
+bridge keeps the words "after tax" on each line. When net debt itself does not bridge, no obligation is
 deducted.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
