@@ -126,14 +126,15 @@ describe("legacy EDGAR-derived-lines view", () => {
   });
 
   it("composes with B3's wrapper", () => {
+    // B3's peer-currency rule: a foreign peer's cap reads "currency unknown" on a report before spec 1.45.0.
     const report = base("1.44.0");
-    report.leadership.graded.keyNumbers.push({
-      value: 0, unit: "shares", sourceId: "payload.insiders.insider-total-sales", source: "payload.insiders.insider-total-sales",
-      asOf: "2026-10-26", verified: true,
-    });
+    report.competitive.peerTable = [{
+      name: "Example Tokyo Corp.", symbol: "9999.T",
+      metrics: [{ value: 21.5e12, unit: "currency", currency: "USD", sourceId: "payload.peers.9999-t-example-tokyo-corp", source: "payload.peers.9999-t-example-tokyo-corp", asOf: "2026-10-25", verified: true }],
+    }];
     for (const surface of surfaces(report)) {
       expect(count(surface, DERIVATION)).toBe(1);
-      expect(count(surface, /insider transaction counts|display correction/)).toBeGreaterThanOrEqual(1);
+      expect(count(surface, /currency unknown/)).toBeGreaterThanOrEqual(1);
     }
   });
 
