@@ -45,6 +45,8 @@ export interface CurrentCapitalSnapshot {
 }
 const finite = (v: unknown): number | null => typeof v === "number" && Number.isFinite(v) ? v : null;
 const sub = (a: number | null, b: number | null): number | null => a !== null && b !== null ? a - b : null;
+/** Review m3 (2026-10-29): close a quoted reason with one period, never two. */
+const closeSentence = (text: string): string => text.endsWith(".") ? text : `${text}.`;
 export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const operatingCashFlow = finite(row?.operatingCashFlow), capex = finite(row?.capitalExpenditure);
   const standardizedFcf = deriveFcf(operatingCashFlow, capex);
@@ -72,7 +74,7 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
     totalDebtIncludingLeases: null, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
-    compositionNote: `Total debt including leases withheld at ${row?.date ?? "the balance date"}: ${refusal ?? conflict}.`,
+    compositionNote: closeSentence(`Total debt including leases withheld at ${row?.date ?? "the balance date"}: ${refusal ?? conflict}`),
   };
   const composed = row?.fieldProvenance?.totalDebt?.calculation === "noncurrent-lease-line-completed" ? row.fieldProvenance.totalDebt : undefined;
   const compositionNote = composed === undefined || debt === null ? undefined

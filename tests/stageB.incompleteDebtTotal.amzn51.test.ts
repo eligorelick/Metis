@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 import { uncomposedDebtReason, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
 import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { buildMarketData } from "@/pipeline/marketData";
+import { runStageB } from "@/pipeline/compute";
 import { debtBridge } from "@/pipeline/stageB/currentCapital";
 import type { DataBundle } from "@/pipeline/types";
 import type { FmpBalanceSheetRow } from "@/providers/fmp";
@@ -134,5 +135,28 @@ describe("the provider EV is withheld at a date whose debt the run refused or re
     const md = buildMarketData(bundleWith(completed, 242_320 * M))!;
     expect(md.enterpriseValue?.value).toBe(2_700_000 * M);
     expect(md.enterpriseValueNote).toBeUndefined();
+  });
+});
+
+describe("a withheld total or EV ends its reason with one period (review m3)", () => {
+  it("the bridge note does not double the period of a reason that ends a sentence", () => {
+    const bridge = debtBridge({ date: Q2, totalDebt: null, cashAndCashEquivalents: 10, operatingLeaseLiability: 2,
+      fieldConflicts: { totalDebt: { vendorValue: 30, secValue: null, usable: false, reason: "total debt and net debt are withheld until reconciled." } } } as Parameters<typeof debtBridge>[0]);
+    expect(bridge.compositionNote).toBe("Total debt including leases withheld at 2026-06-30: total debt and net debt are withheld until reconciled.");
+  });
+
+  it("the bridge note still closes a reason that has no period", () => {
+    const bridge = debtBridge({ date: Q2, totalDebt: null, cashAndCashEquivalents: 10,
+      fieldConflicts: { totalDebt: { vendorValue: 30, secValue: null, usable: false, reason: "total debt withheld" } } } as Parameters<typeof debtBridge>[0]);
+    expect(bridge.compositionNote).toBe("Total debt including leases withheld at 2026-06-30: total debt withheld.");
+  });
+
+  it("the EV basis does not double the period of the share-scope reason", () => {
+    const bundle = completeCurrencyBundle({});
+    bundle.edgar.tenQNotes = { ok: true, value: { data: { sectionName: "tenQNotes", text: "Capital stock", statementsText: "Common stock, issued and outstanding: 114,473 shares. Class B common stock, issued and outstanding: 5,523 shares.", method: "header-regex", chars: 13, accession: "filing", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: bundle.builtAt } };
+    const ev = runStageB(bundle).valuation.multiples!.enterpriseValue;
+    expect(ev.value).toBeNull();
+    expect(ev.basis).toMatch(/^EV withheld: Issuer-common economic share scope unresolved: .*equivalent rights\.$/);
+    expect(ev.basis).not.toMatch(/\.\.$/);
   });
 });

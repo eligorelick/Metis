@@ -4207,7 +4207,8 @@ export function multiplesFramework(
             : mcap === null ? "market cap missing"
               : unknownNciAllocation ? unknownNciReason
                 : (includeLeases ? inclusiveRefusal : excludedRefusal) || "the enterprise value bridge did not resolve";
-  const evBridgeBasis = evWithheldReason !== null ? `EV withheld: ${evWithheldReason}.` :
+  // Review m3: a reason that already ends a sentence keeps its one period.
+  const evBridgeBasis = evWithheldReason !== null ? (evWithheldReason.endsWith(".") ? `EV withheld: ${evWithheldReason}` : `EV withheld: ${evWithheldReason}.`) :
     ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
     (incompleteLeases !== null
       ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
