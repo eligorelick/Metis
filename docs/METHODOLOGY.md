@@ -4246,23 +4246,27 @@ plain arithmetic. Three cases:
   shown, with a note, because any rate would sit beside a level on a different
   presentation (Bank of America Q1 and Q2 2025 year over year, +9.4% and +8.1%
   before).
-- The printed quarter's own filing is the first to re-present earlier periods
-  and the earlier filing that supplies the comparison did not (the rule
+- The printed quarter's own filing re-presented earlier periods and the
+  earlier filing that supplies the comparison did not (the rule
   applied to the pair that the derived-quarter rule applies to a minuend and a
   subtrahend): the cell is not shown, with a note. A synthetic case: a 10-Q
   files a quarter of 90 and re-presents the prior-year quarter, while the prior
   quarter, from the earlier 10-Q, is 110 on the old basis; 90 / 110 = -18.2%
   would net two bases (on one basis it would be 90 / 88 = +2.3%), and the
-  year-over-year cell, both quarters from that 10-Q, is kept. When both
-  filings re-presented, neither did, or they are the same date, the cell is
+  year-over-year cell, both quarters from that 10-Q, is kept. In every other
+  case (both filings re-presented, neither did, only the comparison's did, the
+  two share a date, or the comparison's filing is the later one) the cell is
   unchanged.
 
 Limits. A quarter whose revenue is a sum of several tags, or a row without the
 marker (the FMP route, stored rows), keeps plain arithmetic. A comparison whose
 own filing re-presented for an earlier, separate change counts as on the newer
 basis. The re-presenting filing named in a note is the one that supplies the
-newest copy of the comparison, which can be later than the filing that first
-changed it. The notes follow the table in the classic report and the
+newest copy of the re-presented quarter, which can be later than the filing
+that first changed it. Re-presentation is judged for the whole filing, not for
+each period, as in the derived-quarter rule: a quarter re-filed unchanged by a
+filing that moved other periods counts as on that filing's presentation, so
+its cell can be withheld although its figure is the same on both. The notes follow the table in the classic report and the
 quarterly-trend section of the payload, where a dashed cell registers no
 figure. A growth cell against a withheld quarter stays a dash, as before. This
 follows the presentation rule above and SEC Financial Reporting Manual 13110.4,

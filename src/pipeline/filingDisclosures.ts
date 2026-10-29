@@ -527,7 +527,9 @@ function revenueBasis(row: FmpIncomeStatementRow | undefined): { restated: Reven
  * quarter's own supplying filing, the cell divides by its first-reported copy
  * when that copy is on the printed quarter's basis; where the printed quarter
  * was re-presented after the comparison's supplying filing, and nothing
- * re-presents the comparison, there is no rate. Rows without provenance or
+ * re-presents the comparison, there is no rate; where the printed quarter's
+ * filing re-presented earlier periods and the comparison's earlier filing did
+ * not (Task 7's rule (b)), there is no rate either. Rows without provenance or
  * flags (the FMP route) take plain arithmetic.
  */
 function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ", currency: string): { pct: number | null; note: string | null } {
