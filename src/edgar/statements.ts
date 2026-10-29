@@ -1799,10 +1799,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "first": {
       const skipped: string[] = [];
       for (const tag of spec.tags) {
-        const refusalsBefore = notes.refusals.length;
+        const presentationAtTag = notes.presentationRefusals.length;
         const r = resolve(tag, spec.unit);
-        // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511).
-        if (r === null && notes.refusals.length > refusalsBefore) return null;
+        // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511). The
+        // check reads `presentationRefusals`, which a muted probe fills too (B13 final review M-4).
+        if (r === null && notes.presentationRefusals.length > presentationAtTag) return null;
         if (r === null) continue;
         if (spec.unlessBelow !== undefined) {
           const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
@@ -2090,6 +2091,32 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       return disclosed(combine(tidy(plus.value - minus.value, MONEY_DECIMALS), [plus, minus]));
     }
   }
+}
+
+/**
+ * Test seam (B13 final review M-4), not used by the builder: resolves a `first` step over `tags` with a fresh note
+ * sink, inside `notes.quietly` when `quiet`. The resolver refuses each tag in `refused` for presentation and serves
+ * each tag in `values` at its value; any other tag is not filed.
+ */
+export function resolveFirstStepForTests(
+  tags: readonly string[],
+  refused: readonly string[],
+  values: Readonly<Record<string, number>>,
+  quiet: boolean,
+): number | null {
+  const notes = createNoteSink();
+  const resolve: TagResolver = (tag) => {
+    if (refused.includes(tag)) {
+      notes.refusePresentation(`${tag}: withheld for presentation`);
+      return null;
+    }
+    const value = values[tag];
+    if (value === undefined) return null;
+    const point: FactPoint = { end: "2025-12-31", val: value, accn: "test", form: "10-K", filed: "2026-02-01" };
+    return { value, point, reporter: point, unit: "USD", tags: [tag] };
+  };
+  const run = (): Resolved | null => resolveSpec({ kind: "first", tags: [...tags], unit: "money" }, resolve, notes, "test");
+  return (quiet ? notes.quietly(run) : run())?.value ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -2586,9 +2613,10 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);
     } else if (v.ebit === null && route === "general" && v.incomeBeforeTax != null) {
-      // Never silent (audit 2026-10-27 FIN-507): the operatingIncome withholding names the operand it lacks.
+      // Never silent (audit 2026-10-27 FIN-507): the operatingIncome withholding names the operand it lacks, or the
+      // presentation refusal of a filed operating income, where nothing was derived (B13 final review M-5).
       const text =
-        "ebit WITHHELD: operating income could not be derived for this period (see the operatingIncome withholding); " +
+        "ebit WITHHELD: operating income is withheld or could not be derived for this period (see the operatingIncome withholding); " +
         "pretax income plus interest expense alone is not EBIT";
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);

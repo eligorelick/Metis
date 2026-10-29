@@ -28,7 +28,7 @@ export const EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION = "1.49.0";
 const SINCE = EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION;
 
 export const LEGACY_EDGAR_FAIR_VALUE_NOTE =
-  `Statement lines on this report were built from SEC filings before report spec ${SINCE}. Since then, a derived operating income: no longer drops a period that files the non-operating aggregate without an interest element; removes a filer-tagged other non-operating result; does not add back interest the filer itself placed inside the aggregate. D&A and R&D are never a synonym below their own filed component, and derived quarters and growth cells net figures on one presentation only. Figures shown are as stored; re-run the report for the current derivation.`;
+  `Statement lines on this report were built from SEC filings before report spec ${SINCE}. Since then, a derived operating income: no longer drops a period that files the non-operating aggregate without an interest element; removes a filer-tagged other non-operating result; does not add back interest the filer itself placed inside the aggregate. D&A and R&D are never a synonym below their own filed component, and derived quarters and growth cells are checked for one presentation where the filings show a re-presentation, or withheld. Figures shown are as stored; re-run the report for the current derivation.`;
 
 export const LEGACY_EDGAR_TREND_NOTE =
   `YoY/QoQ cells and derived fourth quarters on this report were computed before report spec ${SINCE} without checking whether the two quarters sit on one filed presentation (see the restatements entry in the missing-data manifest); re-run for one-basis growth.`;

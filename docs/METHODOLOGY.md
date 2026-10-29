@@ -3127,7 +3127,8 @@ dropping a period that files the non-operating aggregate without an interest
 element, removed a filer-tagged other non-operating result and stopped adding back
 interest the filer placed inside the aggregate, before D&A and R&D stopped taking a
 synonym below their own filed component, and before derived quarters and growth
-cells netted figures on one presentation only. For the BACKFILL class, line (a)
+cells were checked for one presentation where the filings show a re-presentation,
+or withheld. For the BACKFILL class, line (a)
 opens "The older statement periods on this report that were backfilled from SEC
 filings were built before report spec 1.49.0." instead (`LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE`),
 and the rest is unchanged. (b) When the manifest holds an

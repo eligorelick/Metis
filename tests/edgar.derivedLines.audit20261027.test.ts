@@ -218,7 +218,9 @@ describe("derived EBIT operands", () => {
     expect(q.rows.find((r) => r.date === "2026-06-30")!.operatingIncome).toBeNull();
     expect(q.withheld).toContainEqual(expect.objectContaining({ field: "operatingIncome", text: expect.stringMatching(/interest expense .*not filed .*no NonoperatingIncomeExpense aggregate/) }));
     const ebitHeld = q.withheld.filter((w) => w.field === "ebit").map((w) => w.text).join(" ");
-    expect(ebitHeld).toMatch(/operating income could not be derived/);
+    // Re-pinned by B13 final review M-5 (was /operating income could not be derived/): the same text also covers a filed
+    // OperatingIncomeLoss withheld for presentation, where nothing was derived.
+    expect(ebitHeld).toMatch(/operating income is withheld or could not be derived for this period/);
     expect(ebitHeld).not.toMatch(/bank-style filer/);
   });
   it("control: a filed interest element beside the aggregate keeps today's derivation and caveat", () => {

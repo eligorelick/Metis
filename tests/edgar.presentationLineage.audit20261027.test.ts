@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ttmIncome } from "@/pipeline/compute";
-import { buildStatementsFromCompanyFacts, DISCONTINUED_LABEL_TAGS, type StatementBuildOptions } from "@/edgar/statements";
+import { buildStatementsFromCompanyFacts, DISCONTINUED_LABEL_TAGS, resolveFirstStepForTests, type StatementBuildOptions } from "@/edgar/statements";
 import {
   describeChangePct,
   filingRepresented,
@@ -819,5 +819,33 @@ describe("fix round 2 F5: a withheld anchor row omission says why", () => {
     expect(b.cashflowQuarterly.rows.find((r) => r.date === "2024-12-31")).toBeUndefined();
     expect(b.cashflowQuarterly.notes.some((n) => /2024-12-31: operatingCashFlow is withheld for presentation \(.*first reported as 1000000000.*\); row omitted/.test(n))).toBe(true);
     expect(b.cashflowQuarterly.notes.some((n) => /2024-12-31: no operatingCashFlow fact resolved/.test(n))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B13 final review (whole-branch review of d6f4300): I-1, M-3, M-4, M-5, M-6.
+// ---------------------------------------------------------------------------
+describe("B13 final review M-4: a presentation refusal ends its synonym step even inside notes.quietly", () => {
+  const tags = ["InterestExpense", "InterestExpenseNonoperating"];
+  it("muted: the refused synonym ends the step, so the narrower one does not serve", () => {
+    expect(resolveFirstStepForTests(tags, ["InterestExpense"], { InterestExpenseNonoperating: 5 }, true)).toBeNull(); // d6f4300: 5
+  });
+  it("control: unmuted, the refused synonym ends the step as before", () => {
+    expect(resolveFirstStepForTests(tags, ["InterestExpense"], { InterestExpenseNonoperating: 5 }, false)).toBeNull();
+  });
+  it("control: with no refusal the first filed synonym serves, muted or not", () => {
+    expect(resolveFirstStepForTests(tags, [], { InterestExpenseNonoperating: 5 }, true)).toBe(5);
+    expect(resolveFirstStepForTests(tags, [], { InterestExpenseNonoperating: 5 }, false)).toBe(5);
+  });
+});
+
+describe("B13 final review M-5: the general-route ebit withholding covers a withheld filed operating income", () => {
+  it("a filed OperatingIncomeLoss withheld for presentation: the ebit withholding says withheld or not derived", () => {
+    const q = build(reclassifiedOperatingIncomeFacts(), { ...OPTS3 }).incomeQuarterly;
+    const ebit = q.withheld.filter((w) => w.field === "ebit" && w.periods.includes("2025-12-31")).map((w) => w.text);
+    // d6f4300: "operating income could not be derived for this period", where nothing was derived.
+    expect(ebit).toEqual([
+      "ebit WITHHELD: operating income is withheld or could not be derived for this period (see the operatingIncome withholding); pretax income plus interest expense alone is not EBIT",
+    ]);
   });
 });

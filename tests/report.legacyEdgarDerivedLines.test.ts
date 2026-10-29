@@ -17,6 +17,7 @@ import {
   EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION as SINCE,
   LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE,
   LEGACY_EDGAR_BACKFILL_QUALITY_NOTE,
+  LEGACY_EDGAR_FAIR_VALUE_NOTE,
   withLegacyEdgarDerivedLines,
 } from "@/report/legacyEdgarDerivedLines";
 import { predecessorManifestEntry, type PredecessorFacts } from "@/edgar/successor";
@@ -26,10 +27,13 @@ import type { Report } from "@/report/schema";
 
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
-const DERIVATION = /built from SEC filings before report spec .*re-run the report for the current derivation/;
+// Re-pinned by B13 final review M-2: both fair-value notes now hedge the derived-quarter clause ("are checked for one
+// presentation where the filings show a re-presentation, or withheld"); it said they "net figures on one presentation only".
+const ONE_PRESENTATION = "derived quarters and growth cells are checked for one presentation where the filings show a re-presentation, or withheld\\. ";
+const DERIVATION = new RegExp(`built from SEC filings before report spec .*${ONE_PRESENTATION}.*re-run the report for the current derivation`);
 const TREND = /computed before report spec .* without checking whether the two quarters sit on one filed presentation/;
 const SCREENS = /one-time-items screen was skipped without notice/;
-const B_DERIVATION = /older statement periods on this report that were backfilled from SEC filings were built before report spec .*re-run the report for the current derivation/;
+const B_DERIVATION = new RegExp(`older statement periods on this report that were backfilled from SEC filings were built before report spec .*${ONE_PRESENTATION}.*re-run the report for the current derivation`);
 const B_SCREENS = /on this report(?:'|&#x27;|&#39;)s older periods backfilled from SEC filings were computed before report spec .*one-time-items screen was skipped without notice/;
 
 const RESTATEMENT_REASON =
@@ -275,6 +279,15 @@ describe("legacy EDGAR-derived-lines view", () => {
       // Idempotent, and the stored bytes are untouched.
       expect(withLegacyEdgarDerivedLines(view)).toEqual(view);
       expect(JSON.stringify(report)).toBe(before);
+    }
+  });
+
+  it("neither fair-value note claims that every derived quarter nets one presentation (B13 final review M-2)", () => {
+    for (const note of [LEGACY_EDGAR_FAIR_VALUE_NOTE, LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE]) {
+      expect(note).toContain(
+        "D&A and R&D are never a synonym below their own filed component, and derived quarters and growth cells are checked for one presentation where the filings show a re-presentation, or withheld. Figures shown are as stored;",
+      );
+      expect(note).not.toContain("on one presentation only");
     }
   });
 
