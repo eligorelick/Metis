@@ -856,15 +856,16 @@ function rowLead(label: string): string {
 function perShareInWords(quantity: Quantity, label: string): boolean {
   return quantity.unit === "currency" && /\bper\s+share\b/i.test(label);
 }
+/** A table row label that names a per-share basis: "per share", "per diluted share", "per basic share", "EPS". */
+const PER_SHARE_ROW = /\bper[\s-]+(?:(?:basic|diluted)[\s-]+)?share\b|\beps\b/i;
 /**
- * AI-403 / D-45: under "except per share data" a decimal cell is the per-share
- * line when the declared scale is thousands or millions (statement amounts are
- * whole numbers there) or when its own row names a per-share basis (under
- * "($ in billions)" amounts such as "Revenue $ 216.0" are decimals too).
+ * AI-403 / D-45: under "except per share data" a decimal cell is the per-share line only when its own row names a per-share basis
+ * ("Net income per share: Basic", "Diluted EPS"). Decimal precision alone never makes a cell per share, whatever the declared
+ * scale: "Revenue $ 5.0" under "($ in millions, except per share data)" is $5.0 million (PR #71 Codex review).
  */
 function isPerShareCell(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): boolean {
   if (column === undefined || !column.exceptPerShare || quantity.step >= 1) return false;
-  return column.scale === 1e3 || column.scale === 1e6 || /\bper[\s-]+share\b|\beps\b/i.test(rowLead(column.label));
+  return PER_SHARE_ROW.test(rowLead(column.label));
 }
 /**
  * AI-403: a table's "(In millions)" scales its amounts and share counts only, never a percent, a ratio, a day count
@@ -1352,7 +1353,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       // cell whose own row lead names a per-share basis takes it: a table declaration ("except per share data") is a scale rule,
       // never the row's description, and a decimal cell it relabels per-share is not thereby a per-share row.
       const claimed = candidate.quantity.unit === "currency-per-share" && candidate.column !== undefined &&
-        /\bper[\s-]+share\b|\beps\b/i.test(rowLead(candidate.column.label)) && perShareInWords(quantity, own.label)
+        PER_SHARE_ROW.test(rowLead(candidate.column.label)) && perShareInWords(quantity, own.label)
         ? { ...quantity, unit: "currency-per-share" as const } : quantity;
       if (candidate.quantity.unit !== claimed.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
       if (claimed.unit === "currency" || claimed.unit === "currency-per-share") {

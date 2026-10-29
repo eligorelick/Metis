@@ -2736,12 +2736,15 @@ as-of), without the truncation marker — in
   scales a table the same way: a table's "(In millions)" scales its money
   amounts, its share counts and its cells with no stated unit (the last
   cannot validate: their unit is not established); a percent, ratio or day
-  count is never scaled. Under
-  "(In thousands|millions, except per share data)" a decimal amount is a
-  per-share figure; under "(In billions, except per share data)" only a
-  decimal in a row that names a per-share basis (per share, EPS) is, because
-  the same table prints amounts such as "Revenue $ 216.0" as decimals. A
-  per-share cell is read as dollars per share. A claim that names the
+  count is never scaled. Under an "except per share data" declaration, at
+  any scale, a decimal cell is a per-share figure only when its own row names
+  a per-share basis ("per share", "per basic share", "per diluted share" or
+  "EPS": "Net income per share: Basic", "Diluted EPS"); decimal precision
+  alone never makes it one, so "Revenue $ 5.0" under "($ in millions, except
+  per share data)" is $5.0 million (PR #71 review). A row whose own label
+  names no basis keeps the table's money scale, even inside a per-share
+  block (NVIDIA's Note 3 "Diluted (2)" row follows "Net income per share:
+  Basic"). A per-share cell is read as dollars per share. A claim that names the
   per-share basis in its words ("per share") is compared with it only when the
   cell's own row names a per-share basis (the declaration is a scale rule, not
   the row's description); "EPS" alone is not read as that basis in a claim

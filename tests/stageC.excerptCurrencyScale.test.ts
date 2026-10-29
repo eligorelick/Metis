@@ -285,6 +285,24 @@ describe("AI-403 table scale applies to amounts only", () => {
     });
   });
 
+  // PR #71 Codex review (AI-403): under "except per share data" a decimal cell is per share only when its own row names a per-share
+  // basis. Decimal precision alone (a "(In millions)" or "(In thousands)" table) made "Revenue $ 5.0" a per-share figure, so the false
+  // per-share claim validated and the true million claim was unchecked; main read both the other way.
+  describe("only a per-share row is per share (PR #71 review)", () => {
+    const Q = ["10-Q Part I Item 2 — MD&A (reporting period ended 2026-07-26 (Q2 FY2027))", "edgar:10-Q item2", "2026-07-26"] as const;
+    const table = (row: string) => `Jul 26, 2026 Jul 27, 2025 ($ in millions, except per share data) ${row}`;
+    it("a decimal amount row keeps the table's money scale", async () => {
+      expect(await synthetic(table("Revenue $ 5.0 $ 4.0"), "Revenue as of 2026-07-26 was USD 5.0 per share.", ...Q)).not.toBe("validated");
+      expect(await synthetic(table("Revenue $ 5.0 $ 4.0"), "Revenue as of 2026-07-26 was USD 5.0 million.", ...Q)).toBe("validated");
+    });
+    it("a row that names its per-share basis is still per share", async () => {
+      expect(await synthetic(table("Diluted net income per share $ 5.0 $ 4.0"), "Diluted net income per share as of 2026-07-26 was USD 5.0.", ...Q)).toBe("validated");
+      // "Per diluted share" names the basis too, so its cell is never read as millions.
+      expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0 million.", ...Q)).not.toBe("validated");
+      expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0.", ...Q)).not.toBe("contradicted");
+    });
+  });
+
   describe("controls that hold before and after", () => {
     it("no declaration", async () => {
       expect(await synthetic(TAX(""), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
