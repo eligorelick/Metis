@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
+import { TEMPORARY_EQUITY_REFUSAL_LEAD } from "@/pipeline/stageB/seniorClaims";
 import { computeRoic, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
 import { buildDcfAssumptions, type DcfAssumptionInputs } from "@/pipeline/stageB/valuation";
 
@@ -149,7 +150,7 @@ describe("FIN-119-V1: the DCF's sales-to-capital and its filed history", () => {
     expect(base.assumptions!.salesToCapital.basis).not.toMatch(/temporaryEquity/);
   });
 
-  it("a refused operand on the current balance withholds the DCF with a critical gap", () => {
+  it("a refused operand on the current balance withholds the DCF with a warn gap", () => {
     const built = buildDcfAssumptions(inputs(row("2025-12-31", 700, refused), []));
     expect(built.assumptions).toBeNull();
     // Controller ruling, Task 3, 2026-10-29: a temporary-equity refusal is never critical (the claim exists, only its amount is disputed).
@@ -187,5 +188,77 @@ describe("FIN-119-V1: the DCF's sales-to-capital and its filed history", () => {
     expect(basisOf(skipped)).toMatch(/FY2024-12-31 left out: a temporary-equity operand was refused/);
     expect(basisOf(skipped)).not.toMatch(/FY2024-12-31 0\./);
     expect(basisOf(skipped)).toMatch(/median 0\.4000x over 3 fiscal years/);
+  });
+  it("the existing critical checks run first: a row that is missing a field or has no capital keeps main's critical gap beside a refused claim", () => {
+    const critical = (balance: ReturnType<typeof row>) => buildDcfAssumptions(inputs(balance, [])).gaps.find((g) => g.field === "valuation.dcf.salesToCapital");
+    // Missing equity, missing cash, and invested capital <= 0 (no lease removed), each with the refused claim beside it.
+    expect(critical(row("2025-12-31", 700, { ...refused, totalStockholdersEquity: null }))).toMatchObject({ severity: "critical", reason: expect.stringMatching(/^balance-sheet fields missing for invested capital/) });
+    expect(critical(row("2025-12-31", 700, { ...refused, cashAndShortTermInvestments: null }))).toMatchObject({ severity: "critical", reason: expect.stringMatching(/^balance-sheet fields missing for invested capital/) });
+    expect(critical(row("2025-12-31", -50, refused))).toMatchObject({ severity: "critical", reason: expect.stringMatching(/^invested capital <= 0/) });
+    // Control: with equity and capital present the refusal alone is the warn.
+    expect(critical(row("2025-12-31", 700, refused))).toMatchObject({ severity: "warn" });
+  });
+});
+
+describe("FIN-119-V1: the headline names the refused claim", () => {
+  function bundleWith(mutate: (row: Record<string, unknown>) => void, incomeMutate?: (row: Record<string, unknown>) => void) {
+    const bundle = completeCurrencyBundle({ debt: 300 });
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture has balances");
+      for (const r of member.value.data.rows) mutate(r as Record<string, unknown>);
+    }
+    if (incomeMutate) for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture has income");
+      for (const r of member.value.data.rows) incomeMutate(r as Record<string, unknown>);
+    }
+    return bundle;
+  }
+  const refuseRows = (r: Record<string, unknown>) => Object.assign(r, { temporaryEquity: 5 * M, fieldConflicts: { temporaryEquity: { usable: false, reason: "two filings disagree" } } });
+
+  it("the fair value and the scenario targets state the refused operand and its date", () => {
+    const out = runStageB(bundleWith(refuseRows));
+    expect(out.fairValue.status).toBe("suppressed");
+    const reason = out.fairValue.reasons[0]!.reason;
+    expect(reason.startsWith(TEMPORARY_EQUITY_REFUSAL_LEAD)).toBe(true);
+    expect(reason).toMatch(/temporary-equity operand refused/);
+    expect(reason).toMatch(/\(balance \d{4}-\d{2}-\d{2}\)/);
+    expect(JSON.stringify(out.scenarioTargets)).toContain(TEMPORARY_EQUITY_REFUSAL_LEAD);
+  });
+
+  it("control: a run withheld by diluted shares keeps its own reason", () => {
+    const out = runStageB(bundleWith(() => undefined, (r) => { r.weightedAverageShsOutDil = null; r.weightedAverageShsOut = null; }));
+    expect(out.fairValue.status).toBe("suppressed");
+    expect(out.fairValue.reasons[0]!.reason).not.toContain(TEMPORARY_EQUITY_REFUSAL_LEAD);
+  });
+});
+
+describe("FIN-119-V1: prior-balance refusal and the projections guard", () => {
+  const income = ["2025-12-31", "2024-12-31"].map((date) => ({ date, operatingIncome: 50 * M, incomeBeforeTax: 45 * M, incomeTaxExpense: 9 * M }));
+  const bal = (date: string, extra: Partial<ReturnsBalanceRow> = {}): ReturnsBalanceRow =>
+    ({ date, totalDebt: 200 * M, totalEquity: 500 * M, cashAndShortTermInvestments: 100 * M, cashAndCashEquivalents: 60 * M, ...extra });
+  const refusedPrior: Partial<ReturnsBalanceRow> = { temporaryEquity: 5 * M, fieldConflicts: { temporaryEquity: { usable: false, reason: "test refusal" } } };
+
+  it("a refused prior balance does not write 'ROIC withheld' into a published year", () => {
+    const result = computeRoic(income, [bal("2025-12-31"), bal("2024-12-31", refusedPrior)]);
+    const latest = result.series.at(-1)!;
+    expect(latest.roicPct).not.toBeNull(); // single-period capital, as for any uncomputable prior
+    expect(latest.notes.join(" ")).not.toMatch(/ROIC withheld/);
+    expect(latest.notes.join(" ")).toMatch(/prior balance's temporary-equity operand was refused/);
+  });
+
+  it("an admitted claim beside a published DCF withholds forecast EPS with the ownership disclosure", () => {
+    const bundle = completeCurrencyBundle({ debt: 100, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture has balances");
+      for (const r of member.value.data.rows) r.temporaryEquityAttributableToParent = 50 * M;
+    }
+    const out = runStageB(bundle);
+    expect(out.valuation.kind === "dcf" && out.valuation.dcf?.perShare).toBeTruthy(); // the DCF publishes
+    const eps = out.projections.series.find((s) => s.metric === "epsDiluted")!;
+    expect(eps.base).toEqual([]);
+    expect(eps.disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
   });
 });

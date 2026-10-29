@@ -1094,8 +1094,21 @@ withheld (`valuation.dcf.temporaryEquityAllocation`), because the unsplit amount
 may be NCI the key already counts. The market EV and the own-history EV add the
 same claims. An operand Stage A refuses (a conflict between sources, a
 non-finite value, a total that contradicts its parts) withholds what it touches:
-the DCF per-share value and the EV multiples
+the DCF and the EV multiples
 (`valuation.multiples.enterpriseValue.temporaryEquity`). It is never zero-filled.
+On the DCF bridge row the refusal withholds the whole DCF, not only the per-share
+value: sales-to-capital (invested capital) cannot be established without the
+claim's amount, so the `valuation.dcf.salesToCapital` gap is raised at warn
+severity, never critical, and the fair value and scenario targets quote it with
+the refused operand and its balance date. The same refused operand withholds
+that fiscal year's ROIC, also at warn. These checks run after the existing
+critical ones: a row that is missing equity, debt or cash, or whose invested
+capital is not positive, keeps its critical gap. The vendor's balance sheet is
+not a second route to a double count of redeemable NCI: the SEC enrichment
+admits a temporary-equity field only when the vendor's `minorityInterest` equals
+SEC's `MinorityInterest` for the same filing, which excludes redeemable NCI, so
+a vendor NCI that already included it fails the match and the claim is treated
+as unknown (no claim added).
 The unsplit rule holds wherever the NCI deduction is decided: any sensitivity
 cell, growth/margin cell, reverse-DCF step or scenario path whose deduction is on
 the earnings share while an unsplit total is deducted is withheld, and cells on
@@ -1105,12 +1118,14 @@ so in their own note when they withheld a cell or path this way, and one
 preferred or NCI exists. The P/FCF cash-ownership guard and the three
 own-history common-allocation checks count an admitted claim and a refused one (a
 refused operand is a filed claim of unknown amount). Forecast operating EPS is
-withheld, with the disclosure `projections.eps.ownershipScope`, when the
-operating forecast anchor's balance has a refused temporary-equity operand or an
-admitted claim above zero, and also through the deducted preferred and book NCI
-fields as for permanent preferred. The first condition is what covers a
-redeemable NCI beside a null book NCI, whose bridge fields stay null; at main the
-null-book case is withheld only when the period's NCI income is non-zero.
+withheld, with the disclosure `projections.eps.ownershipScope`, when the DCF
+publishes beside an admitted temporary-equity claim above zero, and also through
+the deducted preferred and book NCI fields as for permanent preferred. A
+redeemable NCI beside a null book NCI, whose bridge fields stay null, is covered
+by the claim itself; at main the null-book case is withheld only when the
+period's NCI income is non-zero. When the DCF is withheld (a refused operand on
+the bridge row, above), no projection series is built at all, so there is no EPS
+series to carry the disclosure.
 
 When an issuer has tagged temporary equity in some period but the SEC enrichment
 for a balance date was withheld, the claim at that date is unknown, not absent:
@@ -2345,7 +2360,7 @@ total debt + temporary equity + equity − cash and short-term investments −
 long-term investments, whose income is below the EBIT the DCF projects. The
 temporary equity is the redeemable preferred and redeemable non-controlling
 interests the bridge deducts, which are financing capital whichever caption
-holds them (the cash they raised is already netted); a refused operand
+holds them; a refused operand
 withholds the DCF with a `valuation.dcf.salesToCapital` gap at warn severity,
 never critical (the claim exists, only its amount is disputed), rather than
 being zero-filled, and the basis names the added amount. When removing

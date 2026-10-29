@@ -26,7 +26,7 @@ import type { ManifestEntry } from "@/types/core";
 import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtConflict, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
@@ -1417,7 +1417,7 @@ function yearTaxRate(row: ReturnsIncomeRow, notes: string[]): number | null {
 /**
  * Invested capital = totalDebt + temporary equity + consolidated equity - cash, which is
  * exactly `netDebt + consolidated equity + temporary equity` (FIN-119-V1: redeemable
- * preferred and redeemable NCI are financing capital, the cash they raised is netted). It therefore routes through the house net-debt
+ * preferred and redeemable NCI are financing capital, the cash is netted). It therefore routes through the house net-debt
  * resolver rather than open-coding a cash convention: netting
  * cashAndCashEquivalents ALONE (the old behaviour) overstated invested capital
  * by the short-term-investment balance for any issuer holding liquidity in
@@ -1431,6 +1431,8 @@ function investedCapital(
   includeOperatingLeases: boolean,
   /** KNW-03: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
   refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [],
+  /** What a temporary-equity refusal means for the caller's year (the withheld year, or a prior balance feeding an average). */
+  temporaryEquityConsequence = "ROIC withheld.",
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
   const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
@@ -1465,13 +1467,13 @@ function investedCapital(
   // The kind is not "debt", so it never turns the WACC-balance critical rule on.
   const temporary = temporaryEquityClaims(b);
   if (temporary !== null && temporary.refusal !== null) {
-    notes.push(`${b.date}: ${temporary.refusal} - invested capital uncomputable, ROIC withheld.`);
+    notes.push(`${b.date}: ${temporary.refusal} - invested capital uncomputable, ${temporaryEquityConsequence}`);
     refusals.push({ reason: temporary.refusal, kind: "temporary-equity" });
     return null;
   }
   const temporaryTotal = temporary === null ? 0 : temporary.total;
   if (temporary !== null) {
-    notes.push(`${b.date}: temporary equity ${fmt(temporary.total)} (${temporary.basis}) added to invested capital as financing capital (redeemable preferred and redeemable noncontrolling interests are claims outside the equity fields; the cash they raised is netted)`);
+    notes.push(`${b.date}: temporary equity ${millions(temporary.total)} (${temporary.basis}) added to invested capital as financing capital (redeemable preferred and redeemable noncontrolling interests are claims outside the equity fields)`);
   }
 
   // Lease basis. Under ASC 842 operating-lease cost stays in operating
@@ -1865,7 +1867,7 @@ export function computeRoic(
         if (i === 0) latestRefusal = { balanceDate: balPrev.date.slice(0, 10), kind: "debt" };
         continue;
       }
-      const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases);
+      const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases, undefined, "the prior balance's temporary-equity operand was refused, so this year's average falls back to single-period capital.");
       if (icPrev !== null) {
         icAvg = (icNow + icPrev) / 2;
       } else {

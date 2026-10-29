@@ -39,7 +39,7 @@ import {
 } from "@/pipeline/stageB/projections";
 import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
-import { perShareUnit } from "@/pipeline/stageB/fairValue";
+import { perShareUnit, temporaryEquityRefusalGap } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
 import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/schema";
 
@@ -153,12 +153,15 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
+    // FIN-119-V1: a refused temporary-equity operand that withheld the DCF is named, as in the fair value.
+    const refusedClaim = temporaryEquityRefusalGap(valuation.gaps);
     return suppressed(
       [
         {
           field: "valuation.scenarioTargets",
-          reason:
-            "base DCF per-share unavailable (assumptions/DCF not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge) — scenario targets suppressed rather than fabricated",
+          reason: refusedClaim !== undefined
+            ? `base DCF per-share unavailable: ${refusedClaim.reason} — scenario targets suppressed rather than fabricated`
+            : "base DCF per-share unavailable (assumptions/DCF not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge) — scenario targets suppressed rather than fabricated",
           severity: "warn",
         },
       ],

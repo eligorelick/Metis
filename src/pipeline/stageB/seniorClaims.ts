@@ -35,6 +35,9 @@ export interface TemporaryEquityClaims {
   refusal: string | null;
 }
 
+/** The lead of the `valuation.dcf.salesToCapital` reason when a refused temporary-equity operand withholds the DCF (FIN-119-V1); the fair value and scenario targets quote a warn gap that starts with it. */
+export const TEMPORARY_EQUITY_REFUSAL_LEAD = "Temporary equity refused for invested capital: ";
+
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 /**

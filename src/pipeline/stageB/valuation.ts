@@ -27,7 +27,7 @@ import { describeFinancialValuation, type FinancialValuationAssumptions } from "
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
-import { temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
+import { TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
@@ -2149,11 +2149,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
   const temporary = temporaryEquityClaims(bal);
-  if (temporary !== null && temporary.refusal !== null) {
-    // Warn, never critical (controller ruling, Task 3, 2026-10-29): the claim exists, only its amount is disputed, and a critical gap would block the report.
-    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${temporary.refusal} (balance ${bal!.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
-    return { assumptions: null, notes, gaps };
-  }
   const temporaryText = temporary !== null && temporary.total !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.total)} [${temporary.basis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
@@ -2167,6 +2162,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         "critical",
       ),
     );
+    return { assumptions: null, notes, gaps };
+  }
+  // Only after main's critical checks (a refused claim is zero in `ic` above, so those read as at main): a refused
+  // temporary-equity operand withholds the DCF at warn, never critical (controller ruling, Task 3, 2026-10-29): the
+  // claim exists, only its amount is disputed, and a critical gap would block the report.
+  if (temporary !== null && temporary.refusal !== null) {
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
     return { assumptions: null, notes, gaps };
   }
   // D-60: long-term investments (strategic and non-marketable stakes, long

@@ -27,6 +27,7 @@ import {
   type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
 } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
+import { TEMPORARY_EQUITY_REFUSAL_LEAD } from "@/pipeline/stageB/seniorClaims";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
 import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
@@ -56,9 +57,16 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  * model was not built, and why), then the equity bridge's own gap with the net
  * debt refusal behind it. Null when no gap says.
  */
+/** The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1); every other warn gap stays unquoted. */
+export function temporaryEquityRefusalGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
+  return gaps.find((g) => g.severity === "warn" && g.field === "valuation.dcf.salesToCapital" && g.reason.startsWith(TEMPORARY_EQUITY_REFUSAL_LEAD));
+}
+
 function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
   if (critical !== undefined) return critical.reason;
+  const refusedClaim = temporaryEquityRefusalGap(gaps);
+  if (refusedClaim !== undefined) return refusedClaim.reason;
   const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");
   if (bridge === undefined) return null;
   const upstream = bridge.field === "valuation.dcf.netDebt" ? gaps.find((g) => g.field === "valuation.netDebt")?.reason : undefined;
