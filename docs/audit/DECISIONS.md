@@ -2692,6 +2692,19 @@ Audit 2026-10-27, batch B2 (main-session resolution, decisions spec 4.3, B2). Th
 - **Preservation.** Stored bytes unchanged.
 - **Validation.** The post-fix audit (verification plan Task V7) is given every residual above as a named probe target, with its input; a confirmed defect becomes a follow-up finding.
 
+## D-132 - Audit batch 8a: an accepted Retry of a data-only fallback runs (DB-001) (2026-10-29)
+
+Audit 2026-10-27, batch B8, finding DB-001 (High), owner decision OD-5. The owner ruled on 2026-10-28 that this finding ships first as batch 8a; the rest of batch 8 follows as B8b.
+
+- **Evidence.** A job whose judge failed ends `done` with a data-only fallback report linked. Retry is offered and the route admits it, because admission reads `linkedReportBlocksResume` (a data-only link does not block a resume). Dispatch then recovered the linked report before running and closed the queued retry as `done` with that same data-only report, so nothing ran, nothing was billed, and Retry came back unchanged.
+- **Choice.** A queued retry is closed before dispatch only when `linkedReportBlocksResume` says the linked report blocks a resume. A data-only link falls through to dispatch. The retry then runs the judge and verify on the settled analyst passes (verify makes no model call, so only the judge is billed again). If it fails again, the runner writes its own data-only report and links it; the first stays in the history. If the dispatch itself fails, the job ends in `error` with a fixed, sanitized message (for example "scheduler pass resolution failed before execution"), keeps the fallback linked, and a later Retry from `error` is admitted. `recordQueuedResumeDispatchFailure` is a test seam with no production caller; the scheduler terminalizes its own claims.
+- **Why.** Admission and dispatch now read one rule, so a Retry that is offered is a Retry that runs.
+- **Not changed.** The payload fingerprint guard; the revision fence; D-67 (stored reports are never rewritten: a new attempt gets a new row); the recovery of a full linked report before dispatch (a full report still closes the queued retry as `done` with "covered by linked persisted report recovered before dispatch").
+- **Versions.** Pipeline stage-c-1.6.13. Report spec, payload and Stage B are unchanged.
+- **Preservation.** Stored reports keep their bytes.
+- **Validation.** The DB-001 tests in `tests/jobRunner.test.ts`, with the `'{}'` control in `tests/jobScheduler.test.ts`; `tests/stageC.payload.passes.test.ts`, `tests/audit.fixtureComparison.test.ts` and `tests/audit.issuerFixtures.test.ts` pass unchanged, and `npm run audit:deltas` (dry run) shows no change.
+- **Residuals.** A double-click on Retry, or a Retry while the job is active, is covered by the existing `claimPreparedJobResume` and `prepareJobResume` fences and is not separately tested. The rest of batch 8 follows as B8b.
+
 ## D-133 - A noncurrent-only vendor lease line is completed from its filing; stakes are filled on the vendor path (2026-10-29)
 
 Audit of AMZN report #51 (2026-10-29): VAL-1 to VAL-4, VAL-10, FIG-1, FIG-2, FIG-4, GRD-01, KNW-03 and KNW-04. Extends D-98 (the stakes chain) to the provider path. The [disposition record](2026-10-29-amzn51-lease-scope.md) lists each finding, its commit and the replay.

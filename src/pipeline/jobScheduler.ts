@@ -21,7 +21,6 @@ import {
   jobLlmLeases,
   jobPassArtifacts,
   jobs,
-  reports,
 } from "@/db/schema";
 import {
   costRowBelongsToAttempt,
@@ -44,6 +43,7 @@ import {
   normalizeLinkedReportRecoverySteps,
   parseCanonicalJobSteps,
 } from "@/pipeline/jobSteps";
+import { linkedReportBlocksResume } from "@/pipeline/jobStore";
 import {
   prepareQueuedJobResumeInTransaction,
   queuedResumeSourceMatchesInTransaction,
@@ -891,10 +891,9 @@ function claimQueuedJobInternal(
     for (const row of candidates) {
       let preparedResume: PreparedJobResume | null = null;
       if (row.runGeneration > 0) {
-        const linked = row.reportId === null
-          ? undefined
-          : tx.select({ id: reports.id }).from(reports).where(eq(reports.id, row.reportId)).get();
-        if (linked !== undefined) {
+        // The admission rule: only a full linked report closes a queued retry
+        // before dispatch (a data-only retry is never closed as done before dispatch). A data-only fallback stays linked while the retry runs.
+        if (row.reportId !== null && linkedReportBlocksResume(tx, row.reportId)) {
           const stepsJson = normalizeLinkedReportRecoverySteps(
             row.stepsJson,
             nowIso,
@@ -908,7 +907,7 @@ function claimQueuedJobInternal(
               status: "queued",
               runGeneration: row.runGeneration,
             },
-            mutate: (current) => current.reportId === linked.id ? ({
+            mutate: (current) => current.reportId === row.reportId ? ({
               status: "done",
               error: null,
               stepsJson,
