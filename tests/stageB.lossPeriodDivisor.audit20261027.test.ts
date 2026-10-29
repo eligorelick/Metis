@@ -11,7 +11,8 @@
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
-import { awardDilutedDivisor } from "@/pipeline/stageB/dilutedDivisor";
+import type { CompanyFacts } from "@/edgar/xbrl";
+import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled } from "@/pipeline/stageB/dilutedDivisor";
 import type { DataBundle } from "@/pipeline/types";
 import { currencyBundle, M } from "./helpers/currencyBundle";
 
@@ -30,6 +31,20 @@ function withLossQuarter(opts: Parameters<typeof currencyBundle>[0] = {}, loss =
     q.weightedAverageShsOut = 98.5 * M;
     q.weightedAverageShsOutDil = 98.5 * M;
   }
+  return b;
+}
+
+const point = (end: string, val: number, extra: Record<string, unknown> = {}) =>
+  ({ end, val, accn: "0000000000-26-000001", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-13", ...extra });
+const factsOf = (tags: Record<string, { unit: string; points: ReturnType<typeof point>[] }>): CompanyFacts =>
+  ({ cik: 1, entityName: "TEST", facts: { "us-gaap": Object.fromEntries(Object.entries(tags).map(([t, v]) => [t, { units: { [v.unit]: v.points } }])) } }) as unknown as CompanyFacts;
+/** The donor quarter 2025-12-31 files this conversion increment (when given) and a convertible carrying value. */
+const convertibleFacts = (increment: number | null): CompanyFacts => factsOf({
+  ...(increment === null ? {} : { IncrementalCommonSharesAttributableToConversionOfDebtSecurities: { unit: "shares", points: [point("2025-12-31", increment, { start: "2025-10-01" })] } }),
+  ConvertibleNotesPayable: { unit: "USD", points: [point("2025-12-31", 500 * M)] },
+});
+function withFacts(b: DataBundle, data: CompanyFacts): DataBundle {
+  (b.edgar as unknown as Record<string, unknown>).companyFacts = { ok: true, value: { data } };
   return b;
 }
 
@@ -86,9 +101,9 @@ describe("FIN-404: the per-share routes", () => {
     expect(gap?.severity).toBe("info");
     expect(gap?.reason).toMatch(/2025-12-31/);
     const note = [...out.valuation.notes, ...(out.valuation.dcf?.notes ?? [])].find((n) => /Per-share values divide by/.test(n));
-    // The divisor note may only claim option and RSU dilution while it names the substitution that put it there.
     expect(note).toBeDefined();
-    if (/The gap is option and RSU dilution/.test(note!)) expect(note).toMatch(/basic count plus the award dilution of the profitable period ending 2025-12-31/);
+    // The note names the substitution that put the dilution there, whatever its tail says.
+    expect(note).toMatch(/basic count plus the award dilution of the profitable period \((quarter|fiscal year) 2025-12-31\)/);
   });
 
   it("the excess-return route uses the same divisor", () => {
@@ -106,5 +121,92 @@ describe("FIN-404: the per-share routes", () => {
     if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
     expect(out.valuation.dcf?.bridge.dilutedShares).toBe(100 * M);
     expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
+  });
+});
+
+describe("FIN-404 fix round 1: conversion shares are not award dilution (I-1)", () => {
+  const row = { date: "2026-03-31", basic: 98.5e6, diluted: 98.5e6, netIncome: -40e6 };
+  const donor = { date: "2025-12-31", basic: 90e6, diluted: 100e6, netIncome: 45e6, period: "quarter" as const };
+
+  it("a donor increment of 10 with a filed conversion increment of 4 restores 6", () => {
+    const out = awardDilutedDivisor(row, [{ ...donor, conversionShares: 4e6 }], { convertiblesFiled: true });
+    expect(out).toMatchObject({ shares: 104.5e6, basis: "loss-period-substituted", donorDate: "2025-12-31", donorPeriod: "quarter" });
+    expect(out.note).toMatch(/after taking out 4M shares of its filed conversion shares/);
+  });
+
+  it("a conversion increment at least the whole increment restores nothing and the donor is skipped (floor at 0)", () => {
+    expect(awardDilutedDivisor(row, [{ ...donor, conversionShares: 12e6 }]).basis).toBe("loss-period-basic");
+  });
+
+  it("a filed convertible with no donor conversion increment keeps the filed count and says why", () => {
+    const out = awardDilutedDivisor(row, [donor], { convertiblesFiled: true });
+    expect(out).toMatchObject({ shares: 98.5e6, basis: "loss-period-withheld" });
+    expect(out.note).toMatch(/Award dilution not restored: the issuer files convertible instruments and the donor period's .* conversion shares are not filed, so the restored increment could hold conversion shares the bridge already deducts/);
+  });
+
+  it("no convertible restores the whole increment", () => {
+    expect(awardDilutedDivisor(row, [donor], { convertiblesFiled: false })).toMatchObject({ shares: 108.5e6, basis: "loss-period-substituted" });
+  });
+
+  it("the fact readers: the donor quarter's increment, a convertible within 366 days, and the controls", () => {
+    expect(conversionSharesFiled(convertibleFacts(4e6), "2025-12-31", "quarter")).toBe(4e6);
+    expect(conversionSharesFiled(convertibleFacts(4e6), "2025-12-31", "fiscal year")).toBeNull();
+    expect(conversionSharesFiled(convertibleFacts(null), "2025-12-31", "quarter")).toBeNull();
+    expect(convertibleFiledNear(convertibleFacts(null), "2026-03-31")).toBe(true);
+    expect(convertibleFiledNear(convertibleFacts(null), "2027-03-31")).toBe(false);
+    expect(convertibleFiledNear(null, "2026-03-31")).toBe(false);
+  });
+
+  it("runStageB: the filed increment is taken out of the restored dilution; a convertible with none keeps main's count", () => {
+    const run = (data: CompanyFacts) => {
+      const b = withLossQuarter({}, true);
+      return runStageB(withFacts(b, data));
+    };
+    const taken = run(convertibleFacts(0.4 * M));
+    const none = run(convertibleFacts(null));
+    if (taken.valuation.kind !== "dcf" || none.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    // 98.5 M basic + (1 M increment - 0.4 M conversion shares).
+    expect(taken.valuation.dcf?.bridge.dilutedShares).toBeCloseTo(99.1 * M, 0);
+    // Convertible filed, no donor increment: main's count (the loss quarter's filed 98.5 M), and the note.
+    expect(none.valuation.dcf?.bridge.dilutedShares).toBe(98.5 * M);
+    expect(none.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor")?.reason).toMatch(/Award dilution not restored/);
+  });
+});
+
+describe("FIN-404 fix round 1: scope and sentinel", () => {
+  it("an unprofitable run with no DCF has neither the note nor the gap; a profitable-TTM loss quarter with a DCF has both", () => {
+    const burning = runStageB(withLossQuarter({ burning: true }));
+    expect(burning.valuation.kind).toBe("dcf-suppressed");
+    expect(burning.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
+    expect(burning.valuation.notes.some((n) => /is a loss, so its filed diluted count/.test(n))).toBe(false);
+    const dcf = runStageB(withLossQuarter());
+    expect(dcf.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(true);
+    expect(dcf.valuation.notes.some((n) => /basic count plus the award dilution/.test(n))).toBe(true);
+  });
+
+  it("the excess-return route carries the gap", () => {
+    const out = runStageB(withLossQuarter({ bank: true }));
+    expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(true);
+  });
+
+  it("FMP's 0 on a loss quarter is missing, not filed: main's annual fallback count and note stand", () => {
+    const b = withLossQuarter();
+    rowsOf(b, "incomeQuarterly")[0]!.weightedAverageShsOutDil = 0;
+    const out = runStageB(b);
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    expect(out.valuation.dcf?.bridge.dilutedShares).toBe(100 * M);
+    expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
+    expect(out.valuation.notes.some((n) => /diluted share count from the latest ANNUAL statement/.test(n))).toBe(true);
+  });
+
+  it("the no-donor case prints the basic count and says what was searched", () => {
+    const b = withLossQuarter();
+    for (const r of rowsOf(b, "incomeQuarterly").slice(1)) r.weightedAverageShsOutDil = r.weightedAverageShsOut;
+    for (const r of rowsOf(b, "incomeAnnual")) r.weightedAverageShsOutDil = r.weightedAverageShsOut;
+    const out = runStageB(b);
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    expect(out.valuation.dcf?.bridge.dilutedShares).toBe(98.5 * M);
+    expect(out.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor")?.reason)
+      .toMatch(/no profitable period among the last four quarters or the latest fiscal year shows award dilution/);
   });
 });

@@ -132,7 +132,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
-import { awardDilutedDivisor, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
+import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -2538,7 +2538,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
-  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj);
+  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null);
   const sharesQProj = projDivisors.quarter.shares;
   const sharesAProj = projDivisors.annual.shares;
   const dilutedSharesProj =
@@ -3320,20 +3320,35 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
 function incomeDivisors(
   incomeQuarterly: readonly FmpIncomeStatementRow[],
   inc0: FmpIncomeStatementRow | undefined,
+  facts: CompanyFacts | null,
 ): { quarter: DivisorResult; annual: DivisorResult } {
-  const divisorRow = (r: FmpIncomeStatementRow): DivisorRow => ({
-    date: typeof r.date === "string" ? r.date : "",
-    basic: num(r.weightedAverageShsOut), diluted: num(r.weightedAverageShsOutDil),
-    netIncome: num(r.netIncome), continuingIncome: num(r.netIncomeFromContinuingOperations),
-  });
-  const pool = [...incomeQuarterly.slice(0, 4), ...(inc0 === undefined ? [] : [inc0])];
-  const one = (row: FmpIncomeStatementRow | undefined): DivisorResult => {
-    const result = row === undefined
-      ? { shares: null, basis: "filed" as const, donorDate: null, note: null }
-      : awardDilutedDivisor(divisorRow(row), pool.filter((r) => r !== row).map(divisorRow));
-    return result.shares !== null && result.shares > 0 ? result : { ...result, shares: null };
+  // FMP's 0 is its zero-for-undisclosed sentinel, never a filed count: a non-positive count is missing.
+  const pos = (v: unknown): number | null => { const n = num(v); return n !== null && n > 0 ? n : null; };
+  const divisorRow = (r: FmpIncomeStatementRow, period: "quarter" | "fiscal year"): DivisorRow => {
+    const date = typeof r.date === "string" ? r.date : "";
+    // The filed if-converted increment for this exact period is not award dilution (FIN-404; the bridge deducts the instrument).
+    const conversionShares = date === "" ? null : conversionSharesFiled(facts, date, period);
+    return {
+      date, period, basic: pos(r.weightedAverageShsOut), diluted: pos(r.weightedAverageShsOutDil),
+      netIncome: num(r.netIncome), continuingIncome: num(r.netIncomeFromContinuingOperations),
+      ...(conversionShares === null ? {} : { conversionShares }),
+    };
   };
-  return { quarter: one(incomeQuarterly[0]), annual: one(inc0) };
+  const rows = [...incomeQuarterly.slice(0, 4).map((r) => ({ r, period: "quarter" as const })), ...(inc0 === undefined ? [] : [{ r: inc0, period: "fiscal year" as const }])];
+  const anchor = typeof incomeQuarterly[0]?.date === "string" ? incomeQuarterly[0].date : typeof inc0?.date === "string" ? inc0.date : "";
+  const options = { convertiblesFiled: convertibleFiledNear(facts, anchor) };
+  const one = (row: FmpIncomeStatementRow | undefined, period: "quarter" | "fiscal year"): DivisorResult => {
+    if (row === undefined) return { shares: null, basis: "filed", donorDate: null, donorPeriod: null, note: null };
+    return awardDilutedDivisor(divisorRow(row, period), rows.filter((x) => x.r !== row).map((x) => divisorRow(x.r, x.period)), options);
+  };
+  return { quarter: one(incomeQuarterly[0], "quarter"), annual: one(inc0, "fiscal year") };
+}
+
+/** The valuation input that discloses a non-filed divisor (FIN-404); callers pass only a result whose basis is not "filed". */
+function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs["dilutedShareDivisor"]> {
+  const note = d.note ?? "";
+  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note };
+  return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
@@ -3366,7 +3381,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // zero-for-undisclosed sentinel, not a real count (missing ≠ zero).
   const posShares = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
   // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
-  const divisors = incomeDivisors(incomeQuarterly, inc0);
+  const divisors = incomeDivisors(incomeQuarterly, inc0, bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null);
   const sharesQuarterly = divisors.quarter.shares;
   const sharesAnnual = divisors.annual.shares;
   const quarterlySharesFresh = rowDate(incomeQuarterly[0]) >= rowDate(inc0);
@@ -4011,7 +4026,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
-    ...(dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" ? { dilutedShareDivisor: { basis: dilutedShareDivisor.basis, donorDate: dilutedShareDivisor.donorDate, note: dilutedShareDivisor.note } } : {}),
+    ...(dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(dilutedShareDivisor) } : {}),
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,

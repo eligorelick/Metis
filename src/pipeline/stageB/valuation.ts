@@ -5943,7 +5943,9 @@ export interface ValuationBundleInputs {
    * FIN-404: set only when the divisor row is a loss period, whose filed diluted
    * count equals its basic count; `dilutedShares` already carries the substitution.
    */
-  dilutedShareDivisor?: { basis: "loss-period-substituted" | "loss-period-basic"; donorDate: string | null; note: string | null };
+  dilutedShareDivisor?:
+    | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string }
+    | { basis: "loss-period-basic" | "loss-period-withheld"; note: string };
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
   /**
@@ -6269,10 +6271,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     notes.push(inputs.dilutedShareEconomicBasis);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
-  if (inputs.dilutedShareDivisor?.note && isNum(inputs.dilutedShares) && inputs.dilutedShares > 0) {
-    notes.push(inputs.dilutedShareDivisor.note);
+  // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF and the excess-return route).
+  const divisorDisclosure = (perShare: number | null | undefined): void => {
+    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(inputs.dilutedShares) || inputs.dilutedShares <= 0) return;
     gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
-  }
+    if (inputs.dilutedShareDivisor.basis !== "loss-period-substituted" || !notes.some((n) => n.startsWith("Per-share values divide by the latest period's basic count plus"))) {
+      notes.push(inputs.dilutedShareDivisor.note);
+    }
+  };
   if (economicScope.status !== "unverified-vendor-scope") inputs = { ...inputs,
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
 
@@ -6402,6 +6408,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     // gaps.push(...built.gaps) — otherwise a suppressed model is invisible in
     // the report appendix.
     gaps.push(...er.gaps);
+    divisorDisclosure(er.perShare);
     return { kind: "excess-return", route: route.base, excessReturn: er, multiples, notes, gaps };
   }
 
@@ -6790,16 +6797,20 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
-          // FIN-404: the wording follows how the count was formed (filed, a loss period's basic count plus a profitable period's award dilution, or a loss period's basic count alone).
-          const divisorBasis = inputs.dilutedShareDivisor?.basis ?? "filed";
-          const head = divisorBasis === "filed"
-            ? `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`
-            : divisorBasis === "loss-period-substituted"
-              ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period ending ${inputs.dilutedShareDivisor?.donorDate ?? "?"} (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
-              : `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period in the filed history shows any)`;
-          const tail = divisorBasis === "loss-period-basic"
+          // FIN-404: the wording follows how the count was formed (filed or withheld: the filed count; a loss period's basic count plus a profitable period's award dilution; a loss period's basic count alone).
+          const divisor = inputs.dilutedShareDivisor;
+          const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
+          const basicOnly = divisor?.basis === "loss-period-basic";
+          const head = substituted !== null
+            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
+            : basicOnly
+              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
+              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`;
+          const tail = basicOnly
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
-            : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
+            : substituted !== null
+              ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
+              : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
           notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. ${tail}`);
         }
       }
@@ -6829,5 +6840,6 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       }
     }
   }
+  divisorDisclosure(dcf?.perShare);
   return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, growthMarginGrid: growthMargin, reverseDcf: reverse, multiples, notes, gaps };
 }

@@ -951,6 +951,7 @@ label and adds no note.
 Per-share values use the weighted-average diluted count from the newer of the
 latest quarterly and latest annual income statement; when only the annual count
 is available, the report says the figure may lag recent buybacks or issuance.
+A loss period's count is replaced as "Share basis (D-65)" describes.
 
 ---
 
@@ -1401,7 +1402,7 @@ a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
 public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
-diluted count, which carries option and RSU dilution; the bridge table also
+diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides.
 
@@ -1409,16 +1410,33 @@ which one divides.
 a diluted count equal to its basic count, because every potential share is
 antidilutive (ASC 260-10-45-17..20); that count is right for the period's EPS
 and carries no award dilution as a divisor. When the divisor row is such a
-period (`diluted <= basic + 1` and continuing-operations income, else net
-income, below zero), the divisor is that row's basic count plus the award
-dilution (diluted minus basic, less any filed conversion shares) of the newest
-profitable period among the four latest quarters and the latest year that shows
-one; the donor's date is named. With no such period the basic count divides, and
-the note says it carries no option or RSU dilution. The info gap
-`valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's wording)
-states which of the three cases holds. The DCF, the excess-return route, the
-REIT block and the scenario paths read the same divisor; forecast EPS keeps its
-own. A profitable divisor row is unchanged.
+period (`diluted <= basic + 1`, both counts positive, and continuing-operations
+income, else net income, below zero), the divisor is that row's basic count plus
+the award dilution of the newest profitable period among the four latest
+quarters and the latest fiscal year that shows one; the note names the donor as
+a quarter or a fiscal year with its date. Award dilution is the donor's diluted
+minus basic count, less the if-converted shares the filer reports for that exact
+period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+floored at 0, because the equity bridge already deducts those convertible
+instruments as claims; the note names the amount taken out. When the issuer
+files a convertible carrying value (the families `ConvertibleNotesPayable`,
+`ConvertibleDebtNoncurrent`, `ConvertibleLongTermNotesPayable`,
+`ConvertibleDebtCurrent`, `ConvertibleNotesPayableCurrent`, `ConvertibleDebt`
+or the convertible-preferred option value) with a nonzero balance within 366
+days before the latest quarter, but no conversion increment is filed for the
+donor period, nothing is restored: the filed count divides and the note says the
+restored increment could hold conversion shares the bridge already deducts. With
+no such donor the basic count divides, and the note says it carries no option or
+RSU dilution. A zero or missing count (FMP's undisclosed sentinel) is missing,
+not filed, so the annual-statement fallback and its note apply as before. The
+info gap `valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's
+wording on the DCF route) is raised only when a DCF or excess-return per share
+that divides by the count is published, in the substituted, basic and
+not-restored cases; an unprofitable report with no DCF gains neither. The DCF,
+the excess-return route, the REIT block, the scenario paths and forecast EPS
+(`dilutedSharesProj`, on its pre-B-37 count) read the same substituted divisor.
+A profitable divisor row is unchanged.
 
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
 the combined cash-and-short-term-investments field, or minus both separately
