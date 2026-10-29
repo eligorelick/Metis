@@ -176,7 +176,7 @@ describe("FIN-304: precedence with the lease-emptied branch (Task 4, I6)", () =>
     expect(a.salesToCapital.value).not.toBe(S2C_CLAMP[1]);
     expect(a.salesToCapital.basis).toMatch(/not positive once the operating lease .* leaves debt/);
     expect(a.salesToCapital.basis).not.toMatch(/not positive once long-term investments/);
-    expect(a.nonOperatingInvestments).toEqual({ value: 30e6, balanceDate: "2026-03-31" });
+    expect(a.nonOperatingInvestments).toEqual({ value: 30e6, balanceDate: "2026-03-31", basis: "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt" });
   });
 
   function valued2(dcfInputs: DcfAssumptionInputs) {
@@ -210,6 +210,30 @@ describe("FIN-304 fix round 1: the filed provenance of the holding survives the 
     expect(basis).toContain("stays in operating capital");
     expect(basis).not.toContain(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE);
     expect(basis).toMatch(/meets or exceeds operating invested capital, so sales-to-capital takes the house cap/);
+  });
+
+  it("the lease-emptied path keeps the filing date and the citation, drops the untrue clause and says what sales-to-capital takes (FIN-304 follow-up)", () => {
+    const lessee = (over: Partial<DcfBalanceRow> = {}): DcfBalanceRow => ({
+      date: "2026-03-31", basis: "quarter", totalDebt: 300e6, shortTermDebt: 10e6, longTermDebt: 40e6,
+      operatingLeaseLiability: 250e6, capitalLeaseObligations: 250e6, financeLeaseLiability: 0,
+      totalStockholdersEquity: 500e6, cashAndShortTermInvestments: 100e6, ...over,
+    });
+    const income = [2021, 2022, 2023, 2024, 2025].map((y, i) => ({ date: `${y}-12-31`, revenue: (600 + 100 * i) * 1e6, operatingIncome: 100e6, incomeBeforeTax: 90e6, incomeTaxExpense: 18e6 }));
+    const capitalHistory = [2023, 2024, 2025].map((y): DcfBalanceRow => ({ ...lessee(), date: `${y}-12-31`, basis: "annual" }));
+    const dcfInputs: DcfAssumptionInputs = {
+      revenueCagr3yPct: 8, revenueCagr5yPct: 8, analystEstimates: null, waccPct: 10, riskFreePct: 4, marketCap: 20e9,
+      incomeTtm: { date: "2026-03-31", revenue: 1000e6, operatingIncome: 200e6, incomeBeforeTax: 180e6, incomeTaxExpense: 36e6 },
+      incomeHistory: income, capitalHistory,
+      balance: lessee({ totalStockholdersEquity: -100e6, cashAndShortTermInvestments: 50e6, longTermInvestments: 30e6 }),
+    };
+    const v = valueCompany(route, { currentPrice: 100, waccPct: 10, netDebt: 150e6, dilutedShares: 100e6, multiples, excessReturn: null, reit: null, dcfInputs, longTermInvestmentsBasis: provenance });
+    if (v.kind !== "dcf" || v.dcf === null) throw new Error("expected the DCF route");
+    const basis = v.dcf.bridge!.nonOperatingComponents!.find((c) => c.kind === "long-term-investments")!.basis;
+    expect(basis).toContain("(filed 2026-02-12)");
+    expect(basis).toContain("EquitySecuritiesWithoutReadilyDeterminableFairValueAmount");
+    expect(basis).toContain("stays in operating capital");
+    expect(basis).not.toContain(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE);
+    expect(basis).toContain("sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt");
   });
 
   it("the normal case is unchanged", () => {

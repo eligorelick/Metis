@@ -1261,9 +1261,9 @@ export interface DcfAssumptions {
    * left to remove from operating capital and sales-to-capital takes the house
    * cap (the bridge still adds the holding back); it replaces, in the bridge
    * line's provenance, the clause saying the denominator removes the amount.
-   * Not set on the lease-emptied
-   * path (capital already non-positive), where the issuer's own history sets
-   * the ratio.
+   * On the lease-emptied
+   * path (capital already non-positive) it says the issuer's own history sets
+   * the ratio instead.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
   /**
@@ -2257,6 +2257,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-next, FIN-304)`
     : null;
   const exceedsHoldingClause = `the holding meets or exceeds operating invested capital, so sales-to-capital takes the house cap ${S2C_CLAMP[1]} and the holding is added back here`;
+  const emptiedHoldingClause = "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt";
   const capitalDefinition = `invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
@@ -2426,7 +2427,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsHoldingClause } : {}) } } : {}),
+    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsHoldingClause } : emptiedHistory !== null ? { basis: emptiedHoldingClause } : {}) } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
