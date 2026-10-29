@@ -376,7 +376,7 @@ withheld by the same balance's debt refusal that withholds the WACC (the
 balance the WACC names, refused for its debt rather than its cash), and a
 warning otherwise, including a latest year withheld while the WACC exists
 (audit 2026-10-29, KNW-03; review fix I-1). A year withheld for a refused
-temporary-equity operand is never critical, since the WACC does not read it.
+temporary-equity operand is a warning, never critical, since the WACC does not read it.
 Where a balance date's temporary-equity enrichment was withheld (the SEC
 fill-in was refused or unavailable, so the claim is unknown rather than
 absent), the year keeps its invested capital without the claim and the ROIC
@@ -2346,8 +2346,9 @@ long-term investments, whose income is below the EBIT the DCF projects. The
 temporary equity is the redeemable preferred and redeemable non-controlling
 interests the bridge deducts, which are financing capital whichever caption
 holds them (the cash they raised is already netted); a refused operand
-withholds the DCF with a critical `valuation.dcf.salesToCapital` gap rather
-than being zero-filled, and the basis names the added amount. When removing
+withholds the DCF with a `valuation.dcf.salesToCapital` gap at warn severity,
+never critical (the claim exists, only its amount is disputed), rather than
+being zero-filled, and the basis names the added amount. When removing
 them would leave no operating capital the D-58 basis stands and says why.
 
 **The issuer's own sales-to-capital (audit 2026-10-22 A-2).** The 0.5 floor is

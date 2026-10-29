@@ -152,7 +152,25 @@ describe("FIN-119-V1: the DCF's sales-to-capital and its filed history", () => {
   it("a refused operand on the current balance withholds the DCF with a critical gap", () => {
     const built = buildDcfAssumptions(inputs(row("2025-12-31", 700, refused), []));
     expect(built.assumptions).toBeNull();
-    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", reason: expect.stringMatching(/temporary-equity operand refused/) }));
+    // Controller ruling, Task 3, 2026-10-29: a temporary-equity refusal is never critical (the claim exists, only its amount is disputed).
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "warn", reason: expect.stringMatching(/temporary-equity operand refused.*2025-12-31.*cannot be built without the claim's amount/) }));
+    // Control: missing equity keeps its critical severity, as at main.
+    const missing = buildDcfAssumptions(inputs(row("2025-12-31", 700, { totalStockholdersEquity: null }), []));
+    expect(missing.assumptions).toBeNull();
+    expect(missing.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical" }));
+  });
+
+  it("a refused bridge-row operand adds no critical gap to the run", () => {
+    const criticals = (refuse: boolean) => {
+      const bundle = completeCurrencyBundle({ debt: 300 });
+      for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+        const member = bundle.statements[key];
+        if (!member.ok) throw new Error("fixture has balances");
+        if (refuse) for (const r of member.value.data.rows) Object.assign(r, { temporaryEquity: 5 * M, fieldConflicts: { temporaryEquity: { usable: false, reason: "two filings disagree" } } });
+      }
+      return runStageB(bundle).gaps.filter((g) => g.severity === "critical").length;
+    };
+    expect(criticals(true)).toBe(criticals(false));
   });
 
   it("the filed history takes each year's claim, and a refused year is left out with a note", () => {

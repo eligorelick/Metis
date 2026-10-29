@@ -442,9 +442,9 @@ describe("FIN-119: runStageB wiring", () => {
     it("a refused temporary-equity operand withholds forecast EPS", () => {
       const out = stageB({ temporaryEquity: 1000 * M, fieldConflicts: { temporaryEquity: { vendorValue: 1000 * M, secValue: 900 * M, usable: false, reason: "two filings disagree" } } as never });
       // Re-pinned for FIN-119-V1 (Task 3): the same refusal now also leaves the bridge row's invested capital unknown, so the DCF
-      // itself is withheld by a critical sales-to-capital gap and no forecast EPS series is built at all (it was a withheld series).
+      // itself is withheld by a warn sales-to-capital gap (controller ruling, Task 3, 2026-10-29) and no forecast EPS series is built at all (it was a withheld series).
       expect(out.projections.series.find((s) => s.metric === "epsDiluted")).toBeUndefined();
-      expect(out.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", reason: expect.stringMatching(/temporary-equity operand refused/) }));
+      expect(out.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "warn", reason: expect.stringMatching(/temporary-equity operand refused/) }));
     });
     it("controls: no temporary equity publishes forecast EPS, and a withheld enrichment withholds nothing", () => {
       expect(eps(stageB()).base.length).toBeGreaterThan(0);

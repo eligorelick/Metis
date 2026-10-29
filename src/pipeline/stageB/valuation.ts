@@ -2150,7 +2150,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
   const temporary = temporaryEquityClaims(bal);
   if (temporary !== null && temporary.refusal !== null) {
-    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${temporary.refusal} - invested capital for sales-to-capital cannot be established, so the DCF is withheld instead of zero-filling the claim`, "critical"));
+    // Warn, never critical (controller ruling, Task 3, 2026-10-29): the claim exists, only its amount is disputed, and a critical gap would block the report.
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${temporary.refusal} (balance ${bal!.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
     return { assumptions: null, notes, gaps };
   }
   const temporaryText = temporary !== null && temporary.total !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.total)} [${temporary.basis}]` : "";
