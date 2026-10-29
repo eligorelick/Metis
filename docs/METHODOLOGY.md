@@ -4565,9 +4565,14 @@ part of it is filed there for the same date:
   and net debt is recomputed from it;
 - the completion is refused when that filing's `LongTermDebtNoncurrent`
   equals its `LongTermDebtAndCapitalLeaseObligations` while it tags noncurrent
-  finance leases: the noncurrent debt then already holds them (Duke Energy's
-  2019 to 2021 10-Ks are filed this way), and adding the finance-lease total
-  would count them twice.
+  finance leases: the noncurrent debt then may already hold them (Duke
+  Energy's 2019 to 2021 10-Ks are filed this way), and adding the
+  finance-lease total could count them twice. The guard also refuses
+  Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, which carry the
+  finance leases outside noncurrent debt (the FY2023 10-K tagged
+  `LongTermDebtAndCapitalLeaseObligations` 13,253M = 11,870M + 1,383M), so it
+  can withhold a correct completion. It is fail-closed, reaches only past
+  balances, and the withheld row is a warning.
 
 The filings that carry the date are tried newest first, so a comparative that
 only a later 10-Q tags still completes. The completed fields carry the filing

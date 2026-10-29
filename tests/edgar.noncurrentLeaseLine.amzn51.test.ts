@@ -165,9 +165,9 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
   });
 });
 
-describe("a noncurrent debt that already holds the finance leases is not completed (review m1, Duke shape)", () => {
+describe("a noncurrent debt that may already hold the finance leases is not completed (review m1, Duke shape)", () => {
   // Duke Energy's 10-K at 2021-12-31 (SEC-filed, millions): LongTermDebtNoncurrent equals
-  // LongTermDebtAndCapitalLeaseObligations, so its noncurrent debt carries the noncurrent finance leases.
+  // LongTermDebtAndCapitalLeaseObligations, so its noncurrent debt may carry the noncurrent finance leases.
   const DUKE_FY = "2021-12-31";
   const duke = (aclo: number | null) => companyFacts({ [DUKE_FY]: {
     LongTermDebtNoncurrent: 60_448, LongTermDebtCurrent: 3_387, ShortTermBorrowings: 3_304,
