@@ -4598,9 +4598,10 @@ the current maturities into its long-term debt: that long-term debt equals the
 same filing's `LongTermDebtNoncurrent` plus `LongTermDebtCurrent` (within the
 larger of 1 and one part in a million), and the filing tags no other current
 debt (`ShortTermBorrowings` and `CommercialPaper` absent or 0, `DebtCurrent`
-absent or equal to `LongTermDebtCurrent`). A `DebtCurrent` above the current
-maturities may hold borrowings or current finance leases the check cannot
-place, so it still withholds the row. A short-term debt the SEC statements
+absent or equal to `LongTermDebtCurrent` within that tolerance). A
+`DebtCurrent` of 0 beside positive current maturities contradicts the filing,
+and one above them may hold borrowings or current finance leases the check
+cannot place; either still withholds the row. A short-term debt the SEC statements
 built is not checked this way. On Amazon's provider rows this withholds the
 2017 year end, whose 10-K tags $100M of current long-term debt beside
 $24,743M of noncurrent debt; the provider's long-term debt is the noncurrent

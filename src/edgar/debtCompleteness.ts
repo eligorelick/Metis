@@ -93,9 +93,9 @@ export interface FiledInstant { value: number; accn: string | undefined }
  * LongTermDebtNoncurrent + LongTermDebtCurrent (within max(1, |x|·1e-6)), and
  * the filing tags no other current debt: ShortTermBorrowings and
  * CommercialPaper absent or 0, and DebtCurrent absent or equal to
- * LongTermDebtCurrent. A DebtCurrent above the current maturities may hold
- * borrowings or current finance leases the check cannot place, so it still
- * withholds (fail-closed).
+ * LongTermDebtCurrent within that tolerance. A DebtCurrent of 0 beside them
+ * contradicts the filing; one above them may hold borrowings or current
+ * finance leases the check cannot place. Either still withholds (fail-closed).
  */
 export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Readonly<Record<string, FiledInstant | null>>): boolean {
   const noncurrent = filed.LongTermDebtNoncurrent ?? null, current = filed.LongTermDebtCurrent ?? null;
@@ -104,7 +104,8 @@ export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Re
   const near = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
   if (!near(vendorLongTermDebt, noncurrent.value + current.value)) return false;
   const debtCurrent = filed.DebtCurrent ?? null;
-  if (debtCurrent !== null && debtCurrent.value !== 0 && !near(debtCurrent.value, current.value)) return false;
+  // Fix round 2, I-2a: a DebtCurrent of 0 beside positive current maturities contradicts the filing.
+  if (debtCurrent !== null && !near(debtCurrent.value, current.value)) return false;
   return ["ShortTermBorrowings", "CommercialPaper"].every((tag) => (filed[tag]?.value ?? 0) === 0);
 }
 

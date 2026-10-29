@@ -193,6 +193,12 @@ describe("a vendor long-term debt that already holds the current maturities is c
     expect(admitDebtFields(foldRow(1_100), companyFacts(withTags({ DebtCurrent: 100 })), "USD", OBSERVED).row.totalDebt).toBe(1_100 * M);
   });
 
+  it("a DebtCurrent of 0 beside current maturities of 100 contradicts the filing and withholds (fix round 2, I-2a)", () => {
+    const { row } = admitDebtFields(foldRow(1_100), companyFacts(withTags({ DebtCurrent: 0 })), "USD", OBSERVED);
+    expect(row.totalDebt).toBeNull();
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100000000\)/);
+  });
+
   it("does not add current maturities from another filing to the noncurrent debt", () => {
     const facts = companyFacts(FOLD);
     (facts.facts["us-gaap"] as Record<string, { units: { USD: { accn: string }[] } }>).LongTermDebtCurrent!.units.USD[0]!.accn = "0000000042-26-000099";
