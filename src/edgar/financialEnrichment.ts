@@ -264,8 +264,8 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     if (agreesWithSec(vendor, value, [sec])) continue;
     // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
     const reason = sec.operands
-      ? `vendor/SEC ${field} conflict: derived ${millions(value)} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}; raw vendor ${millions(vendor)}; field unavailable until reconciled`
-      : `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
+      ? `vendor/SEC ${field} conflict: derived ${millions(value)} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}; vendor ${millions(vendor)}; field unavailable until reconciled`
+      : `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; vendor ${millions(vendor)}, filed ${millions(value)}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
     const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"]
@@ -296,7 +296,7 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
-    : `filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
+    : `filed ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
   const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
   for (const field of [...fields, "freeCashFlow"]) {
@@ -337,7 +337,7 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
   const amounts = purchase!.operands
     ? `derived ${millions(-purchase!.value)} short-term purchases and ${millions(sale!.value + maturity!.value)} sales/maturities ${currency} ` +
       `for ${evidence.periodStart} through ${evidence.periodEnd} ${derivedFrom(purchase!)}`
-    : `same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency}`;
+    : `same-period filed short-term purchases ${millions(-purchase!.value)} and sales/maturities ${millions(sale!.value + maturity!.value)} ${currency}`;
   const reason = `financial-investment classification unreconciled at ${row.date}: ${amounts} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
   const fieldConflicts = { ...row.fieldConflicts };
   const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
@@ -928,7 +928,11 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const vendor = row[field];
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
           if (agreesWithSec(vendor, sec.value, [sec])) continue;
-          const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${vendor} versus ${sec.value} ${currency}; vendor observation preserved and field unavailable for reconciliation`;
+          // FIN-511-V2: a quarter derived from two filings is called derived.
+          const versus = sec.operands
+            ? `vendor ${millions(vendor)} versus derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
+            : `${vendor} versus ${sec.value} ${currency}`;
+          const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${versus}; vendor observation preserved and field unavailable for reconciliation`;
           out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });
           continue;

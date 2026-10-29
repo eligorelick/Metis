@@ -203,7 +203,7 @@ describe("FIN-511-V2 ruling: the cash-flow and investment conflict reasons say a
     const out = enrichOut(buybacks(), vendorQ4({ commonStockRepurchased: -120 * M }));
     expect(out.row.commonStockRepurchased).toBeNull();
     expect(reasons(out.gaps)).toContain(
-      `vendor/SEC commonStockRepurchased conflict: derived -99.9M USD for 2024-10-01 through 2024-12-31 ${FROM}; raw vendor -120M; field unavailable until reconciled`,
+      `vendor/SEC commonStockRepurchased conflict: derived -99.9M USD for 2024-10-01 through 2024-12-31 ${FROM}; vendor -120M; field unavailable until reconciled`,
     );
     expect(reasons(out.gaps)).not.toMatch(/commonStockRepurchased conflict: exact/);
   });
@@ -224,7 +224,7 @@ describe("FIN-511-V2 ruling: the cash-flow and investment conflict reasons say a
     expect(out.row.netChangeInCash).toBeNull();
     expect(out.row.fieldConflicts?.netChangeInCash).toMatchObject({ secValue: 20 * M, usable: false });
     expect(reasons(out.gaps)).toContain(
-      `vendor/SEC netChangeInCash conflict: derived 20M USD for 2024-10-01 through 2024-12-31 ${FROM}; raw vendor 25M; field unavailable until reconciled`,
+      `vendor/SEC netChangeInCash conflict: derived 20M USD for 2024-10-01 through 2024-12-31 ${FROM}; vendor 25M; field unavailable until reconciled`,
     );
   });
   it("admitInvestmentFlows: a derived classification conflict reads derived, with the period and both filings", () => {
@@ -296,6 +296,41 @@ describe("FIN-511-V2 fix round 1: unverified vendor figures and first-reported p
       "derived 1,727.4M USD for 2024-10-01 through 2024-12-31 (the first-reported fiscal year or year to date less the prior year to date, " +
         "from the 10-K of 2025-02-13 (0000000049-25-000001) and the 10-Q of 2024-11-06 (0000000049-24-000003); " +
         "re-filed later in the 10-K of 2026-02-12 (0000000049-26-000001))",
+    );
+  });
+});
+
+/** Fix round 1, C2/C3/M6: the principal conflict says derived; the direct "filed" branches print millions. */
+describe("FIN-511-V2 fix round 1: reason amounts in millions on both branches", () => {
+  const FROM = "(fiscal year or year to date less the prior year to date, from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004))";
+  const reasons = (gaps: Gap[]) => gaps.map((g) => g.reason).join(" | ");
+  const quarter = (val: number) => pt(F.k24!, "2024-10-01", "2024-12-31", val);
+  it("C2: a derived finance-lease principal conflict says derived, with the period and both filings", () => {
+    const facts = recastFacts("FinanceLeasePrincipalPayments", [pt(F.q324!, "2024-01-01", "2024-09-30", 3 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 10 * M)]);
+    const out = enrichOut(facts, vendorQ4({ financeLeasePrincipalPayments: 9 * M }));
+    expect(reasons(out.gaps)).toContain(
+      `vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: vendor 9M versus derived 7M USD for 2024-10-01 through 2024-12-31 ${FROM}; ` +
+        "vendor observation preserved and field unavailable for reconciliation",
+    );
+  });
+  it("C3: a directly filed CFO conflict prints the filed amount in millions", () => {
+    const out = enrichOut(recastFacts("NetCashProvidedByUsedInOperatingActivities", [quarter(1_727.1 * M)]), vendorQ4({ operatingCashFlow: 1_900 * M }));
+    expect(reasons(out.gaps)).toContain("vendor/SEC operating cash-flow conflict at 2024-12-31: filed 1,727.1M USD for 2024-10-01 through 2024-12-31;");
+  });
+  it("C3/M6: a directly filed buyback conflict prints both amounts in millions, without \"raw\"", () => {
+    const out = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(99.9 * M)]), vendorQ4({ commonStockRepurchased: -120 * M }));
+    expect(reasons(out.gaps)).toContain(
+      "vendor/SEC commonStockRepurchased conflict: exact 2024-10-01 through 2024-12-31 USD; vendor -120M, filed -99.9M; field unavailable until reconciled",
+    );
+  });
+  it("C3: a directly filed investment classification conflict prints the filed buckets in millions", () => {
+    const facts: Facts = { cik: 9, entityName: "Probe Co", facts: { "us-gaap": Object.fromEntries(([
+      ["PaymentsToAcquireShortTermInvestments", 299.9 * M], ["ProceedsFromSaleOfShortTermInvestments", 149.8 * M],
+      ["ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments", 99.7 * M],
+    ] as const).map(([tag, val]) => [tag, { label: tag, units: { USD: [quarter(val)] } }])) } };
+    const out = enrichOut(facts, vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 260 * M }));
+    expect(reasons(out.gaps)).toContain(
+      "financial-investment classification unreconciled at 2024-12-31: same-period filed short-term purchases -299.9M and sales/maturities 249.5M USD differ from generic vendor buckets.",
     );
   });
 });

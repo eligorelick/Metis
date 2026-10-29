@@ -4203,8 +4203,9 @@ like AEP's, a vendor fourth-quarter revenue on the first-reported pair can
 still be refused by a few tenths of a million (a recorded residual of audit
 2026-10-27 FIN-511-V2). The conflict reasons of the enrichment's checks
 (operating cash flow; buybacks, the investing and financing totals and the
-cash movement; the short-term investment buckets) and the enrichment note of a
-filled field call a derived value derived, with its period and its two filings
+cash movement; the short-term investment buckets; a finance-lease principal)
+and the enrichment note of a filled field call a derived value derived, with
+its period and its two filings
 ("derived 100M USD for 2024-10-01 through 2024-12-31 (fiscal year or year to
 date less the prior year to date, from the 10-K of 2025-02-12 (accession) and
 the 10-Q of 2024-11-01 (accession))"; the reasons print the amounts in
@@ -4212,7 +4213,10 @@ millions, the note prints none). A first-reported pair reads "(the
 first-reported fiscal year or year to date less the prior year to date, from
 the ... and the ...; re-filed later in the 10-K of ...)". None says "filed"
 or an "exact quarter period". A directly filed figure keeps its "filed" or
-"exact" wording.
+"exact" wording, with the amounts of the cash-flow and investment reasons also
+in millions; the lease-liability and principal conflict of a directly filed
+figure still prints both figures in full ("vendor/SEC conflict for <field> at
+<date>: <vendor> versus <filed> <currency>").
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
