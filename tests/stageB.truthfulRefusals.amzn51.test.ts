@@ -18,7 +18,7 @@ import { runStageB } from "@/pipeline/compute";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { computeRoic, computeWacc } from "@/pipeline/stageB/returns";
-import type { ValuationResult } from "@/pipeline/stageB/valuation";
+import { multiplesFramework, type MultiplesFrameworkInputs, type ValuationResult } from "@/pipeline/stageB/valuation";
 
 import { leaseShapeStageBBundle, without } from "./helpers/amzn51LeaseShape";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -238,5 +238,35 @@ describe("a cash-only net debt is named only where the row carries one (fix roun
   it("a row without one (the keyless CVX and PG shape) names none", () => {
     expect(resolveNetDebt({ date: "2026-06-30", totalDebt: 100, cashAndCashEquivalents: 50 }).reason).toBe(MISSING);
     expect(resolveNetDebt({ date: "2026-06-30", totalDebt: 100, cashAndCashEquivalents: 50, vendorNetDebt: null }).reason).toBe(MISSING);
+  });
+});
+
+describe("a market cap withheld on share scope is not called missing in the multiples (fix round 2, M4)", () => {
+  const inputs = (quote: Partial<MultiplesFrameworkInputs["quote"]>): MultiplesFrameworkInputs => ({
+    quote: { price: 288.95, priceAsOf: "2026-10-14", marketCap: 114_473_000 * 288.95, currency: "USD", ...quote }, reportedCurrency: "USD",
+    incomeTtm: { date: "2026-06-30", revenue: 10e9, operatingIncome: 2e9, depreciationAndAmortization: 1e9, netIncome: 1e9, epsDiluted: 10 },
+    cashFlowTtm: { date: "2026-06-30", operatingCashFlow: 2e9, capitalExpenditure: -1e9 },
+    balance: { date: "2026-06-30", totalDebt: 5e9, cashAndShortTermInvestments: 4e9, totalStockholdersEquity: 2e9, minorityInterest: 0, preferredStock: 0, goodwill: 0, intangibleAssets: 0 },
+    securityBasisAsOf: "2026-10-15",
+  });
+  const marketCapGap = (result: ReturnType<typeof multiplesFramework>) => result.gaps.find((g) => g.field === "valuation.multiples.marketCap")?.reason;
+
+  it("says withheld, with the share-scope reason", () => {
+    const withheld = multiplesFramework("general", inputs({ marketCapSecurityBasis: "unresolved",
+      marketCapScopeEvidence: { reason: "Filing enumerates multiple outstanding common classes.", sourceIds: ["filing:cover"] } }));
+    expect(marketCapGap(withheld)).toBe("market cap withheld — most multiples not computable: Issuer-common economic share scope unresolved: complete class coverage, " +
+      "outstanding counts and economic rights on the quoted security basis are required; aggregate equity and EV multiples withheld. Filing enumerates multiple outstanding common classes");
+  });
+
+  it("control: a quote with no market cap is still called missing", () => {
+    expect(marketCapGap(multiplesFramework("general", inputs({ marketCap: null })))).toBe("market cap missing — most multiples not computable");
+  });
+
+  it("Stage B: the share-scope bundle's valuation gap says withheld", () => {
+    const bundle = completeCurrencyBundle({ debt: 300 });
+    bundle.edgar.tenQNotes = { ok: true, value: { data: { sectionName: "tenQNotes", text: "Capital stock", statementsText: "Common stock, issued and outstanding: 114,473 shares. Class B common stock, issued and outstanding: 5,523 shares.", method: "header-regex", chars: 13, accession: "filing", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: bundle.builtAt } };
+    const reason = reasonOf(runStageB(bundle).valuation.gaps, "valuation.multiples.marketCap");
+    expect(reason).toMatch(/^market cap withheld — most multiples not computable: Issuer-common economic share scope unresolved: /);
+    expect(reason).not.toMatch(/missing/);
   });
 });

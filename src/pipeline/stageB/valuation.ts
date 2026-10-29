@@ -4086,7 +4086,10 @@ export function multiplesFramework(
       ),
     );
   } else if (mcap === null) {
-    gaps.push(gapEntry("valuation.multiples.marketCap", "market cap missing — most multiples not computable", "warn"));
+    // Fix round 2, M4: a cap withheld on share scope is named as withheld, with the scope's reason; "missing" only when absent.
+    gaps.push(gapEntry("valuation.multiples.marketCap", !marketCapSecurityKnown
+      ? `market cap withheld — most multiples not computable: ${equityScope.basis.replace(/\.$/, "")}`
+      : "market cap missing — most multiples not computable", "warn"));
   }
 
   // --- Raw building blocks (zero-for-undisclosed handled where implausible) --

@@ -1210,8 +1210,9 @@ WACC says why the WACC is unavailable, and a suppressed fair value quotes the
 DCF gap, or the bridge gap and the net-debt refusal behind it. The generic
 reason remains only when no gap says. A market cap withheld because the
 issuer's share scope is unresolved is called withheld, with that reason, in
-the WACC weights entry and so in the DCF and fair-value lines ("market cap
-missing" is kept for a quote that has none). The net-debt entry says the
+the WACC weights entry and so in the DCF and fair-value lines, and in the
+multiples' market-cap entry ("market cap withheld — most multiples not
+computable: ..."); "market cap missing" is kept for a quote that has none. The net-debt entry says the
 equity bridge passed over FMP's cash-only `netDebt` field only when the
 balance came from FMP; a keyless report has no such field. A quoted reason
 that already ends a sentence is not given a second period.
