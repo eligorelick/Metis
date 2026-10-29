@@ -4555,9 +4555,11 @@ part of it is filed there for the same date:
   tagged, cross-checked against `DebtCurrent`. A nonzero vendor short-term debt
   is kept, never added to. When the filing tags a current debt
   (`LongTermDebtCurrent`, with `ShortTermBorrowings` and `CommercialPaper`
-  where tagged, else `DebtCurrent`), the vendor figure must agree with it. When
-  the filing tags none, the vendor figure must not equal a current lease amount
-  the completed line already holds;
+  where tagged; else `DebtCurrent`; else `ShortTermBorrowings` plus
+  `CommercialPaper`, a 0 included), the vendor figure must agree with it, and
+  the refusal or the kept figure names those tags and amounts. When the filing
+  tags none of the four, the vendor figure must not equal a current lease
+  amount the completed line already holds;
 - total debt is short-term debt plus the vendor's long-term debt (which must
   agree with the filing's `LongTermDebtNoncurrent`) plus the completed leases,
   and net debt is recomputed from it;

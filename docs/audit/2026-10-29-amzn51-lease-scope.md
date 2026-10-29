@@ -88,7 +88,7 @@ The two completed quarters add two EV own-history observations (18 to 20) to EV/
 
 ## Residuals
 
-- The completion keeps a nonzero provider short-term debt that the filing has no current debt to check against, provided it is not a current lease amount.
+- The completion keeps a nonzero provider short-term debt that it cannot check, when the filing tags none of `LongTermDebtCurrent`, `DebtCurrent`, `ShortTermBorrowings` or `CommercialPaper`, provided it is not a current lease amount.
 - A filer that tags only `DebtCurrent` (no `LongTermDebtCurrent`) is refused by the completion rather than completed.
 - The zero-current-debt check keeps a provider row that folds its current maturities into long-term debt only when the filing tags no other current debt (review m4). A `DebtCurrent` above `LongTermDebtCurrent` may hold current finance leases rather than more debt; the check cannot tell, so it withholds such a row (fail-closed) with a reason naming the filed tags.
 - The provider EV check reads the bundle's rows: in a report rebuilt from a bundle frozen before the completion, it names the lease refusal rather than the composed total; both withhold.
