@@ -1426,13 +1426,15 @@ files a convertible carrying value (the families `ConvertibleNotesPayable`,
 or the convertible-preferred option value) with a nonzero balance within 366
 days before the latest quarter, but no conversion increment is filed for the
 donor period, nothing is restored: the filed count divides and the note says the
-restored increment could hold conversion shares the bridge already deducts. With
-no such donor the basic count divides, and the note says it carries no option or
+restored increment could hold conversion shares the bridge already deducts; a
+loss period's filed count equals its basic count, so that kept count carries no
+award dilution either, and the D-60 note's tail says so (as it does for the
+basic case). With no such donor the basic count divides, and the note says it carries no option or
 RSU dilution. A zero or missing count (FMP's undisclosed sentinel) is missing,
 not filed, so the annual-statement fallback and its note apply as before. The
 info gap `valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's
-wording on the DCF route) is raised only when a DCF or excess-return per share
-that divides by the count is published, in the substituted, basic and
+wording on the DCF route) is raised only where a DCF, excess-return or REIT
+FFO/AFFO per share that divides by the count is published, in the substituted, basic and
 not-restored cases; an unprofitable report with no DCF gains neither. The DCF,
 the excess-return route, the REIT block, the scenario paths and forecast EPS
 (`dilutedSharesProj`, on its pre-B-37 count) read the same substituted divisor.
@@ -4745,7 +4747,10 @@ and within half the smallest class's share of that total, so a count that
 leaves out a class cannot pass; and that row ends within 120 days of the
 inventory date. The diluted count is then restated in quoted-share units (a
 count filed in Class A equivalents is multiplied by the Class A units per
-quoted share) and the basis is disclosed as an info entry. Otherwise the
+quoted share) and the basis is disclosed as an info entry. When that count was
+substituted or is a loss period's basic count (FIN-404, "Share basis (D-65)"),
+the entry calls it "the diluted count", not "the filed diluted count"; every
+other filer's text is unchanged. Otherwise the
 per-share value stays withheld, and the warning names the test that failed.
 ADRs are out of scope: their per-share bridge needs a depositary ratio and
 dated security evidence that no data path supplies yet.

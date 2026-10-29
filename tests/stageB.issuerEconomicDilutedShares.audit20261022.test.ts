@@ -97,3 +97,50 @@ describe("issuerEconomicDilutedShares", () => {
     expect(issuerEconomicDilutedShares({ ...scope(3000 * M), status: "unresolved" }, weighted, { basic: 2 * M, diluted: 2.01 * M, periodEnd: "2026-06-30" })).toBeNull();
   });
 });
+
+describe("B-37 wording when the count was not filed (FIN-404 carried minor)", () => {
+  const scope: EconomicEquityScope = {
+    status: "resolved", marketCap: 3000 * M * 100, economicShares: 3000 * M, approximate: true, basis: "", sourceIds: ["filed:capital"],
+    sourceHashes: ["hash"], shareCountAsOf: "2026-06-30", priceAsOf: "2026-07-10",
+  };
+  const evidence: EconomicShareEvidence[] = [{
+    issuerId: "i", securityId: "B", asOf: "2026-06-30", filed: "2026-07-30", effectiveFrom: "2026-06-30", effectiveTo: null,
+    complete: true, sourceHash: "hash", sourceIds: ["filed:capital"], classes: [
+      { classId: "A", shares: 1 * M, countBasis: "outstanding", economicUnitsPerQuotedShare: 1500, priceBasis: "economic-equivalence-proxy" },
+      { classId: "B", shares: 1500 * M, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "quoted-market-price" },
+    ],
+  }];
+  const counts = { basic: 2990 * M, diluted: 3010 * M, periodEnd: "2026-06-30" };
+  const text = (r: ReturnType<typeof issuerEconomicDilutedShares>): string => (r && r.shares !== null ? r.basis : "");
+
+  it("a substituted or loss-period count is called the diluted count, not the filed one", () => {
+    const filed = text(issuerEconomicDilutedShares(scope, evidence, counts));
+    const substituted = text(issuerEconomicDilutedShares(scope, evidence, counts, { countNotFiled: true }));
+    expect(filed).toContain("so the filed diluted count 3,010,000,000 spans every class");
+    expect(substituted).toContain("so the diluted count 3,010,000,000 spans every class");
+    expect(substituted).not.toContain("filed diluted count");
+  });
+
+  it("control: every other filer's text is byte for byte unchanged", () => {
+    expect(text(issuerEconomicDilutedShares(scope, evidence, counts, { countNotFiled: false }))).toBe(text(issuerEconomicDilutedShares(scope, evidence, counts)));
+  });
+
+  it("runStageB: a loss quarter's substituted count is not called filed", () => {
+    const b = multiClassBundle(99.5 * M);
+    const q = (b.statements.incomeQuarterly as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows[0]!;
+    q.netIncome = -40 * M;
+    q.epsDiluted = -0.4;
+    q.weightedAverageShsOutDil = 99.5 * M;
+    const out = runStageB(b);
+    if (out.valuation.kind !== "dcf") throw new Error("fixture route");
+    const reason = out.valuation.gaps.find(g => g.field === "valuation.perShare.economicClassBasis")?.reason ?? "";
+    expect(reason).toContain("spans every class");
+    expect(reason).not.toContain("filed diluted count");
+  });
+
+  it("runStageB control: a profitable quarter keeps the filed wording", () => {
+    const out = runStageB(multiClassBundle(99.5 * M));
+    if (out.valuation.kind !== "dcf") throw new Error("fixture route");
+    expect(out.valuation.gaps.find(g => g.field === "valuation.perShare.economicClassBasis")?.reason).toContain("the filed diluted count");
+  });
+});

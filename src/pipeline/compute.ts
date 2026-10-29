@@ -3909,6 +3909,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
+    // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count.
+    { countNotFiled: dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
 

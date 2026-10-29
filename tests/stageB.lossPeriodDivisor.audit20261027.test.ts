@@ -210,3 +210,39 @@ describe("FIN-404 fix round 1: scope and sentinel", () => {
       .toMatch(/no profitable period among the last four quarters or the latest fiscal year shows award dilution/);
   });
 });
+
+describe("FIN-404 carried minors (Task 9 review)", () => {
+  it("the REIT block raises the divisor gap and note where its FFO per share divides by the substituted count", () => {
+    const b = withLossQuarter({ reit: true });
+    const out = runStageB(b);
+    if (out.valuation.kind !== "reit") throw new Error("expected the REIT route");
+    expect(out.valuation.reit.ffoPerShare).not.toBeNull();
+    const gap = out.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor");
+    expect(gap?.severity).toBe("info");
+    expect(gap?.reason).toMatch(/2025-12-31/);
+  });
+
+  it("control: a profitable REIT quarter raises no divisor gap", () => {
+    const out = runStageB(withLossQuarter({ reit: true }, false));
+    if (out.valuation.kind !== "reit") throw new Error("expected the REIT route");
+    expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
+  });
+
+  it("the not-restored case does not claim the kept count carries the dilution", () => {
+    const out = runStageB(withFacts(withLossQuarter({}, true), convertibleFacts(null)));
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    const note = [...out.valuation.notes, ...(out.valuation.dcf?.notes ?? [])].find((n) => /^Per-share values divide by/.test(n));
+    expect(note).toMatch(/^Per-share values divide by the latest weighted-average diluted share count, /);
+    expect(note).not.toMatch(/the diluted count is kept so the per-share value carries the dilution/);
+    expect(note).toMatch(/does not carry the option and RSU dilution the market cap omits \(D-60 disclosure\)\.$/);
+  });
+
+  it("control: a profitable quarter keeps the diluted-count tail", () => {
+    const b = withLossQuarter({}, false);
+    for (const r of rowsOf(b, "incomeQuarterly")) r.weightedAverageShsOutDil = 105 * M;
+    const out = runStageB(b);
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    const note = [...out.valuation.notes, ...(out.valuation.dcf?.notes ?? [])].find((n) => /^Per-share values divide by/.test(n));
+    expect(note).toMatch(/the diluted count is kept so the per-share value carries the dilution the market cap omits/);
+  });
+});

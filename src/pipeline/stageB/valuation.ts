@@ -6447,6 +6447,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       gaps.push(gapEntry("valuation.reit", "REIT inputs not provided by caller", "critical"));
     }
     gaps.push(...reit.gaps);
+    // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
+    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
   }
 
@@ -6806,7 +6808,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             : basicOnly
               ? `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
               : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`;
-          const tail = basicOnly
+          // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
+          const tail = basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
             : substituted !== null
               ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
