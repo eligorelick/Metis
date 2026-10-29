@@ -147,11 +147,15 @@ Rules:
    earlier periods beside a subtrahend filing that did not, withholds the
    quarter naming both filings, and no stand-in, derivation or other tag
    serves the field afterwards. A re-filing within 1% derives the quarter from
-   the first-reported pair; a re-rounding to whole millions (half a million or
-   less) is not a re-filing. See `docs/METHODOLOGY.md` "Derived quarters on one
-   presentation".
+   the first-reported pair, and the quarter is withheld when that first-reported
+   copy has no subtrahend filed on or before it; a re-rounding to whole millions
+   (half a million or less) is not a re-filing. See `docs/METHODOLOGY.md`
+   "Derived quarters on one presentation".
 4. Quarterly cash-flow rows: cash-flow facts are year-to-date in 10-Qs, so
-   every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`.
+   every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`. The
+   one-presentation rule of item 3 applies to these differences too (a
+   withheld operating cash flow, the row's anchor, omits the row and the note
+   quotes the reason).
 5. Balance-sheet rows: instant facts at each 10-Q/10-K period end.
 6. Per-share figures (EPS) are never derived by subtraction across periods.
    A fourth quarter with no tagged EPS gets Q4 net income ÷ a Q4 weighted

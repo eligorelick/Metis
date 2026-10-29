@@ -4136,8 +4136,9 @@ filed and that an interest line outside the aggregate would leave the figure
 understating EBIT by that interest. The nesting is read from the period: when the
 filer tags the period's interest as `InterestExpenseNonoperating` in any
 filing (Eli Lilly re-filed FY2022 and FY2023 that way in its FY2024 10-K; the tag is accepted from any filing for the period, not only a later one), the
-interest is not added back, whichever interest element serves the row (audit
-2026-10-27 FIN-508). A period with neither the interest nor the
+interest is not added back, whichever interest element serves the row, even
+when that tag's quarter is itself withheld for presentation (audit 2026-10-27
+FIN-508, FIN-511). A period with neither the interest nor the
 aggregate is withheld, with the missing operand and the missing aggregate named
 (Eli Lilly's 2026 quarters, with the aggregate and no interest element, moved
 from no EBIT to 8,915 and 8,978 million).
@@ -4154,7 +4155,11 @@ so the pair is also checked, in the statement builder, by one pure helper
 - A copy that only re-rounds is not a move: when the later copy is a whole
   multiple of 1,000,000 in a money unit and differs from the earlier copy by no
   more than 500,000 (half the million rounding unit; SEC filers present in
-  thousands or millions), no test below treats the period as re-filed.
+  thousands or millions), no test below treats the period as re-filed. A
+  quarter derived on a re-rounded line can therefore differ from the
+  first-reported quarter by up to 0.5 million (small lines: AEP's
+  equity-method income Q4 2023 is -1.9 against -2.4 first reported, its NCI 2.1
+  against 1.6).
 - A year (or year to date) that a later filing re-filed, whose subtrahend did
   not move with it, is derived from its first-reported copy only when the
   re-filing changed it by no more than 1% (the note says "a change within 1%",
@@ -4183,23 +4188,31 @@ so the pair is also checked, in the statement builder, by one pure helper
   filed just before it and the filing that supplies the subtrahend did not (a
   10-K may carry a year on a new basis while the 10-Q nine months filed before
   it stay on the old one, FRM 13110.3). A filing that only repeats a recast an
-  earlier filing already made re-presented nothing, and only an amendment
-  (`10-K/A`) is excused for moving its own year.
+  earlier filing already made re-presented nothing, and only an amendment (any
+  form ending in `/A`) is excused for moving its own year.
 - A presentation withholding ends the field. No later step of any chain serves
   it: not a narrower synonym, not a stand-in (cash interest paid for interest
   expense), not a derivation (consolidated profit for profit attributable to the
   parent, derived EBIT for a filed operating income). The withheld field quotes
   the refusal.
 - A derived EBIT whose equity-method, investment-income or other non-operating
-  adjustment is withheld for presentation is itself withheld, quoting that
-  reason; an adjustment that is simply not filed keeps the "filer tags none"
-  disclosure.
+  adjustment, or its optional interest part, is withheld for presentation is
+  itself withheld, quoting that reason (never read as "not filed"); an
+  adjustment or interest part that is simply not filed keeps the "filer tags
+  none" and the FIN-507 disclosures. The FIN-508 nesting test asks only whether
+  the filer tags the period's interest as `InterestExpenseNonoperating`, so a
+  quarter of that tag withheld for presentation still counts as tagged.
 - A combined-total floor tag (for example `Depreciation` under a combined D&A
   tag) that is withheld for presentation still bounds the floored tag: the
-  comparison uses the floor tag's as-filed derived quarter (the newest copies
-  filed by its own filing, a magnitude check that is never published), so a
-  subset line is not published because its floor was refused. A floor tag that
-  is not filed at all leaves no floor.
+  decision is made from filed copies on one basis, never from the refused
+  quarter: the candidate's copy of each period it nets (the year and the year to
+  date) is compared with the floor tag's copy of the same period in the same
+  filing, and the candidate is skipped only if it sits below the floor beyond
+  the 0.5% / 2 million allowance in such a filing. If no filing carries both
+  tags for those periods, the floor tag's as-filed derived quarter (the newest
+  copies filed no later than its own minuend's filing) decides. The floor is a
+  magnitude check that is never published. A floor tag that is not filed at all
+  leaves no floor.
 - A withheld revenue quarter suppresses the TTM window, which then falls back to
   the annual statement.
 
