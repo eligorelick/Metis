@@ -1,5 +1,5 @@
 /**
- * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-132): a vendor
+ * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-133): a vendor
  * balance row whose lease line is the filing's NONCURRENT lease liabilities.
  *
  * The provider's `capitalLeaseObligations` was "Long-term lease liabilities"
@@ -121,7 +121,7 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
   });
 
   it("control: a genuine contradiction (neither the noncurrent sum nor the total) is still refused", () => {
-    // The filed current debt is on the row, so only the lease contradiction speaks (a vendor zero beside it is withheld, D-132).
+    // The filed current debt is on the row, so only the lease contradiction speaks (a vendor zero beside it is withheld, D-133).
     const row = vendorRow(Q2, { shortTermDebt: 3_655, capitalLeaseObligations: 100_000 });
     const { row: out } = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(out.capitalLeaseObligations).toBe(100_000 * M);

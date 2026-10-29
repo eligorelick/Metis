@@ -17,7 +17,7 @@
  * move the claim verifier's period rules; payload 1.49.0 and Stage B ..._28 do not.
  * Report 1.47.0 (audit 2026-10-27 B2) moves the claim verifier's number readings;
  * pipeline stage-c-1.6.12, payload 1.49.0 and Stage B ..._28 do not.
- * Report 1.48.0, payload 1.50.0 and Stage B ..._29 (D-132, audit 2026-10-29 of
+ * Report 1.48.0, payload 1.50.0 and Stage B ..._29 (D-133, audit 2026-10-29 of
  * AMZN #51) move the lease-line completion, the vendor path's stakes and the
  * refusal-naming diagnostics; a pass stored under 1.49.0 is never resumed.
  * Pipeline stage-c-1.6.12 does not move.

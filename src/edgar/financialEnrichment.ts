@@ -284,7 +284,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     .find((field) => row.fieldConflicts?.[field]?.usable === false && !(splitOnly && splitRefusal(field)));
   const componentReason = refusedComponent === undefined ? null
     : `incomplete debt carrying value: ${refusedComponent} is unavailable (${row.fieldConflicts![refusedComponent]!.reason})`;
-  // D-132: a noncurrent-only vendor lease line is completed from its filing, or total debt is withheld.
+  // D-133: a noncurrent-only vendor lease line is completed from its filing, or total debt is withheld.
   let leaseLineReason: string | null = null;
   if (componentReason === null && row.fieldConflicts?.totalDebt?.usable !== false) {
     const completion = completeNoncurrentLeaseLine(out, facts, currency, observedAt);
@@ -351,7 +351,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
   const inclusiveTotal = splitOnly ? instant(facts, "LongTermDebt", currency, row.date, observedAt)?.value ?? null : null;
   const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null, vendorAgreesWithFiled);
-  // A vendor short-term debt of 0 beside a filed current debt (D-132); a field the SEC statements built carries its tags.
+  // A vendor short-term debt of 0 beside a filed current debt (D-133); a field the SEC statements built carries its tags.
   // Review m4: a vendor long-term debt that already holds the same filing's current maturities left nothing out.
   const filedCurrent = Object.fromEntries([...CURRENT_DEBT_TAGS, "LongTermDebtNoncurrent"].map((tag) => {
     const fact = instant(facts, tag, currency, row.date!, observedAt);
@@ -421,7 +421,7 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
 type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; admission: BalanceAdmission } | { status: "refused"; reason: string };
 
 /**
- * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-132). A vendor
+ * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-133). A vendor
  * lease line can be the balance sheet's NONCURRENT lease liabilities ("Long-term
  * lease liabilities"), with the current lease portion and the current debt left
  * out of the vendor's total debt. SEC enrichment then puts the TOTAL lease
@@ -698,7 +698,7 @@ function firstInstant(facts: CompanyFacts, tags: readonly string[], unit: string
 }
 
 /**
- * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-132): a vendor long-term
+ * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-133): a vendor long-term
  * investments of 0 or absent is undisclosed, not zero, when the same-period
  * filing shows noncurrent investments. Amazon carries its non-marketable and
  * equity-method stakes inside "Other assets"; the provider row read 0, so no
@@ -817,7 +817,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = admitted.row;
         gaps.push(...admitted.gaps);
         admissions.push(...admitted.admissions);
-        // D-132: a provider row only; the SEC statements already ran the chain.
+        // D-133: a provider row only; the SEC statements already ran the chain.
         if (input.value.source !== "edgar") {
           const stakes = admitVendorLongTermInvestments(out, facts, currency, observedAt);
           out = stakes.row;

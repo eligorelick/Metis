@@ -2043,7 +2043,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ttmGaps.push(...admitted.gaps);
     balanceAdmissions.push(...admitted.admissions);
     if (!vendorFamily) return admitted.row;
-    // D-132: a provider row's undisclosed stakes, so a bundle frozen before the enrichment filled them reads them too.
+    // D-133: a provider row's undisclosed stakes, so a bundle frozen before the enrichment filled them reads them too.
     const stakes = admitVendorLongTermInvestments(admitted.row, companyFacts, currency, bundle.builtAt);
     balanceAdmissions.push(...stakes.admissions);
     return stakes.row;

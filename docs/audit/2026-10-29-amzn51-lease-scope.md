@@ -1,6 +1,6 @@
 # AMZN report #51: the noncurrent-only lease line, current debt and stakes (2026-10-29)
 
-Base: `6b97298` (main, after pull request #71). Scope: the audit of AMZN report #51 of 2026-10-29, findings VAL-1, VAL-2, VAL-3, VAL-4 and VAL-10, FIG-1, FIG-2 and FIG-4, GRD-01, and from the fifth audit KNW-03 and KNW-04. Decision: D-132 in [DECISIONS](DECISIONS.md). Stamps: report 1.48.0, payload 1.50.0 and Stage B ACCOUNTING_EVIDENCE_29, each the next after those of D-129 to D-131 and D-124 to D-127; pipeline stage-c-1.6.12 is unchanged. The audit evidence folders stay out of the repository.
+Base: `6b97298` (main, after pull request #71). Scope: the audit of AMZN report #51 of 2026-10-29, findings VAL-1, VAL-2, VAL-3, VAL-4 and VAL-10, FIG-1, FIG-2 and FIG-4, GRD-01, and from the fifth audit KNW-03 and KNW-04. Decision: D-133 in [DECISIONS](DECISIONS.md). Stamps: report 1.48.0, payload 1.50.0 and Stage B ACCOUNTING_EVIDENCE_29, each the next after those of D-129 to D-131 and D-124 to D-127; pipeline stage-c-1.6.12 is unchanged. The audit evidence folders stay out of the repository.
 
 This change made no model calls, no provider calls and no network requests. The tests build their inputs inline: the Amazon cases use SEC-filed amounts from Amazon's Q2 2026 10-Q and its 2025-12-31 comparatives under a synthetic issuer, CIK and accession, and the Stage B fixtures use round synthetic numbers. No provider row (FMP or other) is committed.
 
@@ -30,7 +30,7 @@ The whole-branch review upheld every figure, grade and census result and the sto
 | m4 | A provider short-term debt of 0 is kept when its long-term debt equals the same filing's `LongTermDebtNoncurrent` plus `LongTermDebtCurrent` and the filing tags no other current debt. | `d49883e` | `tests/stageB.incompleteDebtTotal.amzn51.test.ts` |
 | m6 | One manifest entry per kind lists the completed and the filled dates (report #51: 51 entries and 24,779 reason characters become 2 entries and 3,486). | `9512e6f` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts`, `tests/edgar.vendorStakes.amzn51.test.ts` |
 | m8 | The vendor-convention diagnostic keeps the provider's own net debt (66,177M on report #51, as at base). | `bcca403` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
-| m7 | METHODOLOGY, D-132, CHANGELOG, this record and a test comment made to match the code. | the records commit | |
+| m7 | METHODOLOGY, D-133, CHANGELOG, this record and a test comment made to match the code. | the records commit | |
 
 The payload golden does not move in this round. m1 and m4 move no replayed row: no census or run row has the Duke shape, and the only provider row the zero-current check withholds, Amazon's 2017-12-31, keeps its withholding because its provider long-term debt is the 10-K's noncurrent $24,743M alone, without the $100M of `LongTermDebtCurrent`.
 
@@ -42,7 +42,7 @@ The scoped re-review confirmed round 1 and found two Important items and two Min
 |---|---|---|---|
 | I-1 | A kept provider short-term debt is checked against `ShortTermBorrowings` plus `CommercialPaper` (a 0 included) when the filing tags neither `LongTermDebtCurrent` nor `DebtCurrent`, and refused on disagreement. The reviewer's probe (Amazon's shape without those two tags, a provider 15,758M holding 325M of borrowings and 15,433M of current leases) had published 254,423M. Every refusal and keep text names the tags and amounts it checked. | `e65b6a3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
 | I-2a | The m4 fold-in admits `DebtCurrent` only when absent or equal to `LongTermDebtCurrent`; a 0 beside positive current maturities withholds. | `f8e8cb4` | `tests/stageB.incompleteDebtTotal.amzn51.test.ts` |
-| I-2b | METHODOLOGY and D-132 say the m1 guard's noncurrent debt may hold the finance leases, and that the guard also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt. The code is unchanged. | `1c119c3` | |
+| I-2b | METHODOLOGY and D-133 say the m1 guard's noncurrent debt may hold the finance leases, and that the guard also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt. The code is unchanged. | `1c119c3` | |
 | M3 | The net-debt reason names the row's cash-only net debt only when the row carries one. | `a4c2b8a` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
 | M4 | The multiples' market-cap entry says "market cap withheld — most multiples not computable: <reason>" for a market cap withheld on share scope. | `7974723` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
 

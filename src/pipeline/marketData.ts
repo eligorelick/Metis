@@ -59,7 +59,7 @@ function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: stri
 const DEBT_FIELDS = ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"] as const;
 
 /**
- * Audit 2026-10-29, AMZN #51 (FIG-2; D-132): a provider EV is that date's
+ * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): a provider EV is that date's
  * market cap + the vendor's total debt − cash. It is withheld when the
  * same-date balance's debt was refused (its operand cannot be checked) or was
  * composed from the filing because the vendor's own total was partial and the

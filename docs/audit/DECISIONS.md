@@ -2692,7 +2692,7 @@ Audit 2026-10-27, batch B2 (main-session resolution, decisions spec 4.3, B2). Th
 - **Preservation.** Stored bytes unchanged.
 - **Validation.** The post-fix audit (verification plan Task V7) is given every residual above as a named probe target, with its input; a confirmed defect becomes a follow-up finding.
 
-## D-132 - A noncurrent-only vendor lease line is completed from its filing; stakes are filled on the vendor path (2026-10-29)
+## D-133 - A noncurrent-only vendor lease line is completed from its filing; stakes are filled on the vendor path (2026-10-29)
 
 Audit of AMZN report #51 (2026-10-29): VAL-1 to VAL-4, VAL-10, FIG-1, FIG-2, FIG-4, GRD-01, KNW-03 and KNW-04. Extends D-98 (the stakes chain) to the provider path. The [disposition record](2026-10-29-amzn51-lease-scope.md) lists each finding, its commit and the replay.
 

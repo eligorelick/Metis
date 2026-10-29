@@ -162,7 +162,7 @@ export interface StatementFieldProvenance {
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
-    /** D-132: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
+    /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
     | "noncurrent-lease-line-completed";
 }
 
@@ -268,7 +268,7 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalDebt?: number;
   netDebt?: number;
   /**
-   * Review m8 (2026-10-29): the vendor's own netDebt, kept when the D-132
+   * Review m8 (2026-10-29): the vendor's own netDebt, kept when the D-133
    * completion recomposes netDebt from the filing. Only the vendor-convention
    * diagnostic reads it; the house net debt never does.
    */

@@ -3405,7 +3405,7 @@ equity and $0.4B of equity-method investments. Its $97.9B of Anthropic
 convertible notes are tagged only with that undivided total, so they stay out.
 This is a known understatement, not an estimate.
 
-**The same stakes on the provider path (D-132).** A provider balance row
+**The same stakes on the provider path (D-133).** A provider balance row
 carries its own `longTermInvestments`, and for Amazon it was 0 with no source,
 so report #51 (audit 2026-10-29, VAL-3 and FIG-4) added no stake to the equity
 bridge and kept them inside net operating assets. A provider row whose
@@ -4528,7 +4528,7 @@ registrant's own CIK.
 ### AMZN report #51: the noncurrent-only lease line (October 29, 2026)
 
 Report #51 ran on provider (FMP) statements and lost its WACC, DCF, fair value
-and scenario targets, and three grades fell. Decision: D-132.
+and scenario targets, and three grades fell. Decision: D-133.
 
 **A lease line that holds only the noncurrent lease liabilities.** The
 provider's `capitalLeaseObligations` for Amazon at June 30, 2026 was $94.3B:

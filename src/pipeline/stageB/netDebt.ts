@@ -33,7 +33,7 @@ export function millions(value: number): string {
 }
 
 /**
- * What a vendor total completed from its filing (D-132) had left out, read
+ * What a vendor total completed from its filing (D-133) had left out, read
  * from the completed total's tags: the filed current debt is among them only
  * when it replaced a zero or absent vendor short-term debt.
  */

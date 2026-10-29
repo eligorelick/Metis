@@ -12,7 +12,7 @@ export interface CashFlowBridge {
 export interface DebtBridge {
   leaseScopeNote?: string;
   /**
-   * Audit 2026-10-29, AMZN #51 (FIG-2; D-132): why the lease-inclusive total is
+   * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): why the lease-inclusive total is
    * withheld (the lease guard's conflict, or the admission's refusal), or that
    * it was composed from a filing because the vendor's own total was partial.
    * Absent for a total that reconciles as served.

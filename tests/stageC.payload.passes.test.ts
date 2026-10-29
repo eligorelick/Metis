@@ -1213,7 +1213,7 @@ describe("payload determinism + provenance", () => {
       // preceding-pin chain above.
       // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
       // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
-      // Audit 2026-10-29 of AMZN #51 (D-132, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
+      // Audit 2026-10-29 of AMZN #51 (D-133, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
       // no noncurrent-only lease line, no zero short-term debt beside filed current debt, no vendor stakes and no
       // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
       fingerprint: "1.50.0:25742c4f",

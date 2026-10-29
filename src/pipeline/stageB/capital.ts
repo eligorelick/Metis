@@ -79,7 +79,7 @@ export interface CapitalBalanceRow {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   fieldProvenance?: Record<string, { tags: string[]; calculation?: string; filings?: { accn: string; form: string }[] }>;
-  /** Wording only: the vendor's own split of its lease line, which the lease guard's reason names (D-132). */
+  /** Wording only: the vendor's own split of its lease line, which the lease guard's reason names (D-133). */
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
   /** Fiscal period end, ISO yyyy-mm-dd. */

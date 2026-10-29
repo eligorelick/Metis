@@ -10266,9 +10266,9 @@
     {
       "name": "amzn51-lease-scope-20261029",
       "decisions": [
-        "D-132"
+        "D-133"
       ],
-      "reason": "Audit 2026-10-29 of AMZN report #51 (D-132), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.48.0 (a noncurrent-only vendor lease line completed from its filing, the vendor path's undisclosed stakes filled with the D-98 chain, and refusals named instead of called missing). The DEMO rows carry none of those shapes, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of claim-verifier-numbers-20261027, which took it to 1.47.0; that group's record stands in D-128 to D-130.",
+      "reason": "Audit 2026-10-29 of AMZN report #51 (D-133), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.48.0 (a noncurrent-only vendor lease line completed from its filing, the vendor path's undisclosed stakes filled with the D-98 chain, and refusals named instead of called missing). The DEMO rows carry none of those shapes, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of claim-verifier-numbers-20261027, which took it to 1.47.0; that group's record stands in D-128 to D-130.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
