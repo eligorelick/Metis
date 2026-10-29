@@ -4049,12 +4049,30 @@ function hasTemporaryEquityClaim(row: Parameters<typeof temporaryEquityClaims>[0
   return claims !== null && (claims.refusal !== null || claims.total !== 0);
 }
 
+/**
+ * FIN-119: temporary equity in the P/FCF cash-ownership guard. A refused operand, a redeemable
+ * preferred and an unsplit amount block with no floor, as permanent preferred does. A redeemable
+ * NCI is the same claim as book NCI, so it blocks unless the COMBINED NCI (book plus redeemable,
+ * each by magnitude) and the NCI income both pass the book-NCI materiality floor.
+ */
+function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEquityClaims>[0] & { totalEquity?: number | null; minorityInterest?: number | null; noncontrollingIncome?: number | null }): boolean {
+  const claims = temporaryEquityClaims(row);
+  if (claims === null) return false;
+  if (claims.refusal !== null || claims.redeemablePreferred !== 0 || claims.unsplit !== 0) return true;
+  if (claims.redeemableNoncontrolling === 0) return false;
+  if (!isNum(row?.minorityInterest)) return true;
+  return !immaterialNoncontrollingInterest(
+    { totalEquity: row?.totalEquity, minorityInterest: Math.abs(row.minorityInterest) + Math.abs(claims.redeemableNoncontrolling) },
+    row?.noncontrollingIncome,
+  );
+}
+
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
   const nciImmaterial = immaterialNoncontrollingInterest(row, row?.noncontrollingIncome);
   return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
-    hasTemporaryEquityClaim(row) ||
+    temporaryEquityBlocksCashOwnership(row) ||
     (isNum(row?.preferredDividendsPaid) && row.preferredDividendsPaid !== 0);
 }
 
