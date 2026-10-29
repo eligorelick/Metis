@@ -65,6 +65,8 @@ export const RISK_SOURCE_MANIFEST = [
   // guard that keeps a demo report from reaching a provider at all. All three
   // need the same coverage floor as the module they were carved from.
   "src/edgar/tagSynonyms.ts",
+  "src/edgar/synonymFloor.ts",
+  "src/edgar/presentationLineage.ts",
   "src/edgar/successor.ts",
   "src/providers/reservedSymbols.ts",
   "src/edgar/splits.ts",
@@ -120,6 +122,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",
   "src/report/legacyPayloadRecordSafety.ts",
+  "src/report/legacyEdgarDerivedLines.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",

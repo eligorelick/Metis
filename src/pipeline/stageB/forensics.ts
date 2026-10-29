@@ -2425,6 +2425,17 @@ export function computeSupportFlags(
         asOf: incT?.date ? [incT.date] : [],
       });
     }
+  } else if (lookback.some((row) => row !== null)) {
+    // FIN-509-V1: a rule that could not run says so (module convention above);
+    // no stand-in for the missing operand (docs/RESEARCH.md "5.3 One-time items").
+    // The route is unknown here, so the wording names the SEC route neutrally.
+    gaps.push(
+      gapEntry(
+        "forensics.flags.oneTimeItems",
+        `net other income/expense (totalOtherIncomeExpensesNet) is missing, or operating income is zero or missing, in every fiscal year of the lookback — one-time-items rule not evaluated (on SEC-built statements the field is the NonoperatingIncomeExpense aggregate only; a narrower OtherNonoperatingIncomeExpense is not used as a stand-in, RESEARCH 5.3)`,
+        "info",
+      ),
+    );
   }
 
   // --- Discontinued operations recurring (research §5.4 companion rule) ---

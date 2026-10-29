@@ -261,14 +261,20 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
     // and it is null rather than zero.
     expect(q2.revenue).toBeNull();
     expect(q2.netIncome).toBe(25);
-    expect(built.incomeQuarterly.withheld).toEqual([
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    const revenueHeld = built.incomeQuarterly.withheld.filter((w) => w.field === "revenue");
+    expect(revenueHeld).toEqual([
       {
         field: "revenue",
         periods: ["2025-03-29"],
         text: expect.stringMatching(/^revenue WITHHELD for this quarter: the YTD difference derivation produced -20/),
       },
     ]);
-    const [held] = built.incomeQuarterly.withheld;
+    const operatingHeld = built.incomeQuarterly.withheld.filter((w) => w.field === "operatingIncome");
+    expect(operatingHeld.length).toBeGreaterThan(0);
+    expect(operatingHeld.every((w) => /pretax income is not filed/.test(w.text))).toBe(true);
+    const [held] = revenueHeld;
     expect(held!.text).toMatch(/2025-03-29 MINUS .*2024-12-28/);
     expect(built.incomeQuarterly.notes.some((n) => /revenue WITHHELD for this quarter/.test(n))).toBe(true);
   });
@@ -277,7 +283,9 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
     const built = buildStatementsFromCompanyFacts(shrinkingYtd(), OPTS);
     const q3 = built.incomeQuarterly.rows.find((r) => r.date === "2025-06-28")!;
     expect(q3).toMatchObject({ revenue: 200, derivation: "ytd-difference" }); // 300 − 100
-    expect(built.incomeQuarterly.withheld.map((w) => w.periods).flat()).toEqual(["2025-03-29"]);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    expect(built.incomeQuarterly.withheld.filter((w) => w.field === "revenue").map((w) => w.periods).flat()).toEqual(["2025-03-29"]);
   });
 
   it("leaves a negative ANNUAL revenue alone — it was filed, not derived", () => {
@@ -289,7 +297,9 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
       }),
       OPTS,
     );
-    expect(built.incomeAnnual.withheld).toEqual([]);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a withholding naming the missing operand. The pin is about revenue only.
+    expect(built.incomeAnnual.withheld.filter((w) => w.field === "revenue")).toEqual([]);
   });
 });
 
@@ -1389,14 +1399,15 @@ describe("buildStatementsFromCompanyFacts — bank interest tags", () => {
     });
   });
 
-  it("keeps the non-operating tag when a filer reports both", () => {
+  it("on a bank-routed filer resolves to total interest income when the non-operating tag is also filed", () => {
     const built = buildStatementsFromCompanyFacts(
       bankInterest({ InterestExpense: annual(4_100), InvestmentIncomeInterest: annual(900) }),
       { ...OPTS, symbol: "JPM" },
     );
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       interestExpense: 4_100,
-      interestIncome: 900,
+      // audit 2026-10-27 FIN-510-V1: on a bank-routed filer InvestmentIncomeInterest is securities interest inside total interest income; the non-bank order is pinned in tests/edgar.derivedLines.audit20261027.test.ts
+      interestIncome: 193_300,
     });
   });
 
@@ -2189,7 +2200,8 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     // reads.
     expect(built.rows[0]!.ebit).toBe(8_991);
     expect(built.substitutions[0]!.text).toMatch(
-      /non-operating items subtracted from the derivation: NonoperatingIncomeExpense, IncomeLossFromEquityMethodInvestments/,
+      // Re-pinned for audit 2026-10-27 FIN-509: each subtracted item now carries its amount.
+      /non-operating items subtracted from the derivation: NonoperatingIncomeExpense \(900\), IncomeLossFromEquityMethodInvestments \(300\)/,
     );
   });
 
@@ -2210,7 +2222,8 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     const built = ebit(pretax({}));
     expect(built.rows[0]!.operatingIncome).toBe(10_191);
     expect(built.substitutions[0]!.text).toMatch(
-      /error band — the filer tags none of NonoperatingIncomeExpense, InvestmentIncomeInterest, IncomeLossFromEquityMethodInvestments/,
+      // Re-pinned for audit 2026-10-27 FIN-509: the error band also names OtherNonoperatingIncomeExpense.
+      /error band — the filer tags none of NonoperatingIncomeExpense, InvestmentIncomeInterest, OtherNonoperatingIncomeExpense, IncomeLossFromEquityMethodInvestments/,
     );
   });
 
@@ -2488,11 +2501,14 @@ describe("buildStatementsFromCompanyFacts — one filing lineage per derived qua
     expect(q4Revenue(lineage({ originalYtd: true, laterYtd: false })).value).toBe(100); // 400 - 300
   });
 
-  it("keeps using that copy when a LATER filing restated the year-to-date figure", () => {
+  it("withholds the quarter when a LATER filing restated the year-to-date figure and labels no re-presentation", () => {
     // The dedup winner for the year-to-date period is the 2026-05-01 copy (280),
     // but it belongs to a filing the 10-K could not have known about: netting it
     // against the 10-K FY figure would publish a quarter neither filing reported.
-    expect(q4Revenue(lineage({ originalYtd: true, laterYtd: true })).value).toBe(100);
+    // C-9 (decisions spec 4.3), subtrahend side: the later copy is still never netted, and a 6.67% re-filing with no label supersedes the copy the 10-K's lineage saw, so the quarter is withheld (OD-5 (a2'); was 400 - 300 = 100)
+    const out = q4Revenue(lineage({ originalYtd: true, laterYtd: true }));
+    expect(out.value).toBeNull();
+    expect(out.notes.some((n) => /Revenues 2025-12-31: FY − YTD not derived — .*netted as 300 \(10-Q 2025-10-30.*re-filed as 280 \(-6\.67%\) in 10-Q 2026-05-01/.test(n))).toBe(true);
   });
 
   it("refuses the derivation, and says why, when every year-to-date copy is younger than the annual fact", () => {

@@ -48,8 +48,17 @@ describe("filed quarter duration contract uses end minus actual start", () => {
     expect(admit(ps).fieldConflicts?.operatingCashFlow).toBeUndefined();
   });
   it("refuses negative latest cumulative principal while preserving signed CFO", () => {
-    const ps = [point(50, "2025-12-01", { filed: "2026-07-01", accn: "old" }), point(-5, "2025-12-01"), point(30, "2025-12-01", { end: "2026-03-31", filed: "2026-04-30", accn: "prior" })];
+    const ps = [point(-5, "2025-12-01"), point(30, "2025-12-01", { end: "2026-03-31", filed: "2026-04-30", accn: "prior" })];
     expect(admit(ps).financeLeasePrincipalPayments).toBeUndefined();
     expect(admit(ps).fieldConflicts?.operatingCashFlow?.secValue).toBe(-35);
+  });
+  it("a year to date re-filed from 50 to -5 is neither netted nor replaced by the older copy", () => {
+    // Re-pinned (audit 2026-10-27 FIN-511-V2, decision C-9): this fixture carried the case above with the year to
+    // date also filed as 50 by an earlier filing, and the CFO compared -5 - 30 = -35. The later filing moved the year
+    // to date by -110% and labels no re-presentation, so no one-basis pair is on file: no SEC value, no conflict, and
+    // the principal is still never filled from the older 50.
+    const ps = [point(50, "2025-12-01", { filed: "2026-07-01", accn: "old" }), point(-5, "2025-12-01"), point(30, "2025-12-01", { end: "2026-03-31", filed: "2026-04-30", accn: "prior" })];
+    expect(admit(ps).financeLeasePrincipalPayments).toBeUndefined();
+    expect(admit(ps).fieldConflicts?.operatingCashFlow).toBeUndefined();
   });
 });

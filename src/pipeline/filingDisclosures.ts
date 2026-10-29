@@ -24,6 +24,8 @@ import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
 import { materialCreditSupportClauses, moneyMentions, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
+import { formatFinancialValue } from "@/report/format";
+import type { FilingRef as EdgarFilingRef, OriginalValue } from "@/edgar/statements";
 import { parseSegmentPerformance } from "@/edgar/segmentPerformance";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { financialCompositionFacts } from "@/pipeline/financialComposition";
@@ -489,7 +491,86 @@ function distinctDisclosureObservations<T extends { source: FilingRef }>(facts: 
   });
 }
 
-function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[]): FilingDisclosures["quarterlyTrend"] {
+type RevenueRestatement = { restatedFiling: Pick<EdgarFilingRef, "form" | "filed"> };
+type RevenueOriginal = Pick<OriginalValue, "value" | "form" | "filed">;
+type RevenuePresentation = Pick<EdgarFilingRef, "form" | "filed"> & { represented: boolean };
+
+/**
+ * The revenue re-presentation flag and first-reported copy a builder row carries
+ * (`restatement` and `original` are extra row keys, not declared on the FMP row
+ * type). Anything not shaped as the builder writes it counts as absent, so a
+ * malformed stored row falls back to plain arithmetic.
+ */
+function revenueBasis(row: FmpIncomeStatementRow | undefined): { restated: RevenueRestatement | null; original: RevenueOriginal | null; supplied: string | null; presentation: RevenuePresentation | null } {
+  const extra = row as unknown as { restatement?: unknown; original?: unknown; revenuePresentation?: unknown } | undefined;
+  const isStr = (v: unknown): v is string => typeof v === "string" && v !== "";
+  const flag = Array.isArray(extra?.restatement)
+    ? (extra.restatement as unknown[]).find((x): x is { field: "revenue"; restatedFiling: { form: string; filed: string } } => {
+      const o = x as { field?: unknown; restatedFiling?: { form?: unknown; filed?: unknown } } | null;
+      return o !== null && typeof o === "object" && o.field === "revenue" && isStr(o.restatedFiling?.filed) && isStr(o.restatedFiling?.form);
+    })
+    : undefined;
+  const o = (extra?.original as { revenue?: { value?: unknown; filed?: unknown; form?: unknown } } | undefined)?.revenue;
+  const original = o !== undefined && o !== null && typeof o.value === "number" && Number.isFinite(o.value) && isStr(o.filed) && isStr(o.form)
+    ? { value: o.value, form: o.form, filed: o.filed } : null;
+  const p = extra?.revenuePresentation as { form?: unknown; filed?: unknown; represented?: unknown } | null | undefined;
+  const presentation = p !== null && typeof p === "object" && isStr(p.form) && isStr(p.filed) && typeof p.represented === "boolean"
+    ? { form: p.form.trim(), filed: p.filed, represented: p.represented } : null;
+  const filings = row?.fieldProvenance?.revenue?.filings;
+  const filed = Array.isArray(filings) ? filings.map((f) => f?.filed).filter(isStr).sort() : [];
+  return { restated: flag ? { restatedFiling: flag.restatedFiling } : null, original, supplied: filed.length === 0 ? null : filed[filed.length - 1]!, presentation };
+}
+
+/**
+ * FIN-511-V1 (OD-6): a growth cell divides two quarters on one filed
+ * presentation. Where the comparison quarter was re-presented after the printed
+ * quarter's own supplying filing, the cell divides by its first-reported copy
+ * when that copy is on the printed quarter's basis; where the printed quarter
+ * was re-presented after the comparison's supplying filing, and nothing
+ * re-presents the comparison, there is no rate; where the printed quarter's
+ * filing re-presented earlier periods and the comparison's earlier filing did
+ * not (Task 7's rule (b)), there is no rate either. Rows without provenance or
+ * flags (the FMP route) take plain arithmetic.
+ */
+function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ", currency: string): { pct: number | null; note: string | null } {
+  const revenue = num(row.revenue);
+  const base = num(prior?.revenue);
+  const plain = { pct: revenue === null || base === null || base <= 0 ? null : round((revenue / base - 1) * 100), note: null };
+  if (revenue === null || base === null || prior === undefined) return plain;
+  const a = revenueBasis(row);
+  const b = revenueBasis(prior);
+  const aEnd = day(row.date) ?? String(row.date);
+  const bEnd = day(prior.date) ?? String(prior.date);
+  if (b.restated !== null && a.restated === null && a.supplied !== null && b.restated.restatedFiling.filed > a.supplied) {
+    const re = b.restated.restatedFiling;
+    if (b.original !== null && b.original.filed <= a.supplied) {
+      const o = b.original;
+      if (o.value <= 0) return { pct: null, note: `${label} not shown: ${bEnd}'s first-reported revenue (${o.form} ${o.filed}) is not positive, and the ${re.form} of ${re.filed} re-presented it.` };
+      return {
+        pct: round((revenue / o.value - 1) * 100),
+        note: `${label} uses ${bEnd}'s first-reported revenue ${formatFinancialValue(o.value, "currency", currency)} (${o.form} ${o.filed}): the ${re.form} of ${re.filed} re-presented it and ${aEnd} is still on the earlier presentation.`,
+      };
+    }
+    return { pct: null, note: `${label} not shown: ${bEnd} was re-presented in ${re.form} ${re.filed} and has no copy on ${aEnd}'s presentation.` };
+  }
+  if (a.restated !== null && b.restated === null && b.supplied !== null && a.restated.restatedFiling.filed > b.supplied) {
+    const re = a.restated.restatedFiling;
+    return { pct: null, note: `${label} not shown: ${aEnd} was re-presented in ${re.form} ${re.filed} and no filing re-presents ${bEnd}, so the two quarters are on different presentations.` };
+  }
+  // Task 7's rule (b) applied to the pair: the printed quarter's filing re-presented earlier periods of the concept
+  // and the earlier filing that supplies the comparison did not, so the two quarters sit on different presentations.
+  // Equal dates, both re-presenting, or neither leave the cell alone. A row without the marker keeps plain arithmetic.
+  if (a.presentation !== null && b.presentation !== null && b.presentation.filed < a.presentation.filed && a.presentation.represented && !b.presentation.represented) {
+    return {
+      pct: null,
+      note: `${label} not shown: the ${a.presentation.form} of ${a.presentation.filed} that supplies ${aEnd} re-presented earlier periods' revenue and the ${b.presentation.form} of ${b.presentation.filed} that supplies ${bEnd} did not, so the two quarters are on different presentations.`,
+    };
+  }
+  return plain;
+}
+
+/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
+function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
   for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {
@@ -528,14 +609,17 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     const d = dates.find((x) => x < target && daysApart(x, target) >= lo && daysApart(x, target) <= hi);
     return d === undefined ? undefined : income.get(d);
   };
+  flags.presentationChecked = dates.slice(0, TREND_QUARTERS).some((d) => revenueBasis(income.get(d)).presentation !== null);
   return dates.slice(0, TREND_QUARTERS).map((d) => {
     const r = income.get(d)!;
     const c = cash.get(d);
     const revenue = num(r.revenue);
     const pct = (part: number | null): number | null => (part === null || revenue === null || revenue === 0 ? null : round((part / revenue) * 100));
-    const growth = (prior: FmpIncomeStatementRow | undefined): number | null => {
-      const base = num(prior?.revenue);
-      return revenue === null || base === null || base <= 0 ? null : round((revenue / base - 1) * 100);
+    const growthNotes: string[] = [];
+    const growth = (prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ"): number | null => {
+      const g = oneBasisGrowth(r, prior, label, currency);
+      if (g.note !== null) growthNotes.push(g.note);
+      return g.pct;
     };
     const ocf = num(c?.operatingCashFlow) ?? num(c?.netCashProvidedByOperatingActivities);
     const capex = num(c?.capitalExpenditure);
@@ -556,8 +640,9 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       periodEnd: d,
       fiscalLabel: typeof year === "string" && /^\d{4}$/.test(year) && period !== null && /^Q[1-4]$/.test(period) ? `${period} FY${year}` : null,
       revenue,
-      revenueYoyPct: growth(near(d, 350, 380)),
-      revenueQoqPct: growth(near(d, 80, 100)),
+      revenueYoyPct: growth(near(d, 350, 380), "YoY"),
+      revenueQoqPct: growth(near(d, 80, 100), "QoQ"),
+      ...(growthNotes.length === 0 ? {} : { revenueGrowthNotes: growthNotes }),
       grossMarginPct: pct(num(r.grossProfit)),
       operatingExpenses,
       operatingMarginPct: pct(num(r.operatingIncome)),
@@ -587,7 +672,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const currency = statementReportingCurrency(bundle);
   const releases = orderedEarningsReleases(reports?.releases ?? []);
   const notes: string[] = selectedGeographyNotes(bundle.segmentation?.geographic);
-  const trend = quarterlyTrend(bundle, releases, currency, notes);
+  const trendFlags = { presentationChecked: false };
+  const trend = quarterlyTrend(bundle, releases, currency, notes, trendFlags);
   const interim = segmentPrimarySection(bundle);
   const segmentCurrency = interim === null ? null : periodReportingCurrency(bundle, day(interim.data.reportDate));
   const segmentPerformance = interim !== null && segmentCurrency === currency
@@ -909,6 +995,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(companyStatements.length === 0 ? {} : { companyStatements }),
     segments: segmentTables,
     ...(segmentPerformance.length === 0 ? {} : { segmentPerformance }),
+    ...(trendFlags.presentationChecked ? { quarterlyTrendPresentationChecked: true as const } : {}),
     quarterlyTrend: trend,
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),

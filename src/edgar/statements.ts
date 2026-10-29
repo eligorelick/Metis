@@ -26,18 +26,31 @@
  *     `original`, and a material line that moved by more than 1% raises a
  *     `restatement` flag (see `Restatement`).
  *
- *  3. ONE FILING LINEAGE PER DERIVATION. A derived quarter (YTD difference,
+ *  3. ONE PRESENTATION PER DERIVATION. A derived quarter (YTD difference,
  *     FY − YTD, FY − Q1 − Q2 − Q3) subtracts the newest copy of each operand
  *     that was filed NO LATER than the minuend's own filing, so a restated
- *     minuend is never netted against a subtrahend restated AFTER it. The
- *     minuend is always the dedup winner (the last-filed copy); a subtrahend
- *     restated in a later filing than that is ignored in favour of the copy
- *     the minuend's own filing saw — a later restatement of the subtrahend
- *     alone cannot be netted against an older minuend without mixing
- *     lineages, so the quarter is then derived from the older pair (see
- *     `lineagePoints`). When no copy of the subtrahend was filed on or before
- *     the minuend's filing at all, the quarter is left null and the notes say
- *     why.
+ *     minuend is never netted against a subtrahend restated AFTER it. That
+ *     filing-date lineage is the minimum (D-13); `oneBasisPair`
+ *     (src/edgar/presentationLineage.ts) decides the rest, since a lineage by
+ *     date is not a lineage by presentation (audit 2026-10-27 FIN-511):
+ *       - a minuend re-filed by a later filing whose subtrahend did not move
+ *         with it uses its FIRST-REPORTED copy only when the re-filing moved
+ *         it by no more than RESTATEMENT_THRESHOLD_PCT (a re-rounding to
+ *         whole millions is no move at all) or labels the period a re-presentation with a new or
+ *         changed discontinued-operations line (ASC 205-20-45-3);
+ *       - a material change the re-filing does not label withholds the
+ *         quarter naming both filings, because a corrected figure replaces the
+ *         original (ASC 250-10-45-23) and companyfacts cannot tell a
+ *         correction from an unlabelled re-presentation (C-9);
+ *       - a pair that moved together, and an amended 10-K's corrected figure,
+ *         keep the later copies;
+ *       - a subtrahend a later filing re-filed by more than the threshold with
+ *         no label withholds the quarter too, and that later copy is still
+ *         never netted against the older minuend;
+ *       - a minuend filing that re-presented the concept beside a subtrahend
+ *         filing that did not withholds the quarter.
+ *     When no copy of the subtrahend was filed on or before the minuend's
+ *     filing at all, the quarter is left null and the notes say why.
  *
  * Tag lists come from src/edgar/tagSynonyms.ts (stamped with the taxonomy
  * year they were reviewed against). The module is pure: no network, no clock,
@@ -48,24 +61,38 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, Stateme
 import type { ManifestEntry } from "@/types/core";
 import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
+import {
+  describeChangePct,
+  filingRepresented,
+  firstReportedOrder,
+  isAmendment,
+  oneBasisPair,
+  representationLabelled,
+  type LabelCopy,
+  type PairChoice,
+} from "@/edgar/presentationLineage";
 import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
   COMBINED_CURRENT_DEBT_TAG,
   EBIT_AGGREGATE_MAY_HOLD_INTEREST,
+  EBIT_OTHER_MAY_HOLD_INTEREST,
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
-  DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS,
+  DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS, EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
   GROSS_PROFIT_COST_TAGS,
+  floorsFor,
+  tagFloorsFor,
   standInsFor,
   tagsFor,
   type TagStandIn,
 } from "@/edgar/tagSynonyms";
+import { belowComponentFloor } from "@/edgar/synonymFloor";
 import {
   CORE_FACT_FORMS,
   QUARTER_DURATION_DAYS,
@@ -191,12 +218,8 @@ export interface Restatement {
   restatedFiling: FilingRef;
 }
 
-/** A signed percentage, or the reason there is none. */
-export function describeChangePct(changePct: number | null, decimals = 2): string {
-  return changePct === null
-    ? "from zero — no percentage is defined against an original of 0"
-    : `${changePct > 0 ? "+" : ""}${changePct.toFixed(decimals)}%`;
-}
+/** A signed percentage, or the reason there is none (defined with the pairing rules that also print it). */
+export { describeChangePct };
 
 /** A material line moving by more than this share of its prior value is a restatement flag. */
 export const RESTATEMENT_THRESHOLD_PCT = 1;
@@ -400,7 +423,16 @@ type UnitKind = "money" | "perShare" | "shares";
  * the absent-component note, exactly as tag names do for `sumAny`.
  */
 export type ChainSpec =
-  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string }
+  /**
+   * `unlessBelow` lists component tags the figure contains (audit 2026-10-27
+   * FIN-510): a synonym whose value is below the same period's value of any
+   * of them is a subset line, so it is skipped with a note and the next
+   * synonym is tried. If every present synonym is skipped, the step returns
+   * null and records a refusal; the chain falls to its next step.
+   */
+  | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[];
+      /** Extra floors for one synonym only (a component that contains that synonym but not the others). */
+      unlessBelowTag?: Readonly<Record<string, readonly string[]>> }
   | { kind: "sum"; tags: string[]; unit: "money"; disclose?: string }
   | { kind: "sumAny"; tags: string[]; unit: "money" }
   | { kind: "sumAnyOf"; parts: { label: string; spec: ChainSpec }[]; unit: "money" }
@@ -413,9 +445,26 @@ export type ChainSpec =
    */
   | {
       kind: "sumAll";
-      parts: { label: string; spec: ChainSpec }[];
+      parts: {
+        label: string;
+        spec: ChainSpec;
+        /**
+         * The part may be absent when the `adjustmentTag` aggregate is among the
+         * subtrahends that served: the part is skipped and `disclose` is added
+         * to the derivation's disclosure (audit 2026-10-27 FIN-507). Otherwise
+         * the derivation is refused with the missing part named.
+         */
+        optionalWhenAdjustment?: { adjustmentTag: string; disclose: string; discloseUnusable: (problem: string) => string };
+      }[];
       unit: "money";
       disclose?: string;
+      /**
+       * A required part that does not resolve (or resolves in another unit) is
+       * recorded as a refusal naming it, so the field ends as a disclosed
+       * withholding and not a silent null (audit 2026-10-27 FIN-507). Set on the
+       * derived EBIT only; the other `sumAll` chains keep returning null quietly.
+       */
+      refuseWhenIncomplete?: boolean;
       minusAny?: {
         label: string;
         tags: readonly string[];
@@ -431,12 +480,18 @@ export type ChainSpec =
        * Tag pairs the taxonomy nests: when `partTag` served a part AND
        * `adjustmentTag` resolved as an adjustment, the first is already inside
        * the second, so that part is not added (audit 2026-10-22 B-39; it was
-       * withheld) and `disclose` says so.
+       * withheld) and `disclose` says so. When no part was served by
+       * `partTag`, the aggregate resolved and the part labelled `partLabel` was
+       * served by another tag, `partTag` is probed for the same period (any
+       * filing): found, the part is left out too and `discloseRefiled` is
+       * pushed (audit 2026-10-27 FIN-508).
        */
-      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
+      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string; partLabel?: string; discloseRefiled?: string }[];
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
+        /** Filed for the period but not usable on this row (another currency or period), with why (B13 final review M-3). */
+        unusable: { label: string; problem: string }[];
         alreadyInside: string[];
         /** Skipped because the base tag that served excludes them by definition. */
         notInBase: string[];
@@ -444,10 +499,22 @@ export type ChainSpec =
         parts: { label: string; tags: string[] }[];
         /** The `notAddedWhen` disclosures for parts left out of the sum. */
         notAdded: string[];
+        /** The resolved value of each served part and each subtracted adjustment, by label (audit 2026-10-27 FIN-509). */
+        amounts: Record<string, number>;
       }) => string;
     }
   | { kind: "diff"; plus: string; minus: string; unit: "money"; disclose?: string }
-  | { kind: "chain"; steps: ChainSpec[]; unit: UnitKind };
+  | {
+      kind: "chain";
+      steps: ChainSpec[];
+      unit: UnitKind;
+      /**
+       * A step whose resolution recorded a refusal ends the chain with null instead of falling to the next step
+       * (audit 2026-10-27 FIN-511). Set on the filed-then-derived operating income only: a filed line withheld for
+       * presentation must not be re-derived from operands a reclassification moved.
+       */
+      stopOnRefusal?: true;
+    };
 
 /** One `first` step per stand-in so each tag carries its own disclosure wording. */
 function standInSteps(standIns: readonly TagStandIn[], unit: UnitKind): ChainSpec[] {
@@ -502,7 +569,10 @@ const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
 /** A line item's own tags first, then its stand-ins one at a time. */
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
   const standIns = standInsFor(item);
-  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit };
+  const floors = floorsFor(item);
+  const tagFloors = tagFloorsFor(item);
+  const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }),
+    ...(Object.keys(tagFloors).length === 0 ? {} : { unlessBelowTag: tagFloors }) };
   return standIns.length === 0 ? own : { kind: "chain", unit, steps: [own, ...standInSteps(standIns, unit)] };
 }
 
@@ -612,6 +682,9 @@ const BANK_REVENUE_SPEC: ChainSpec = {
   ],
 };
 
+/** A bank's interest income is its operating total (audit 2026-10-27 FIN-510-V1); see `bankInterestIncome`. */
+const BANK_INTEREST_INCOME_SPEC: ChainSpec = lineItemChain("bankInterestIncome", "money");
+
 /**
  * A bank's interest expense is its cost of funds, so "pretax income + interest
  * expense" is no EBIT there (JPMorgan FY2025: 72B pretax against 97.9B of
@@ -631,7 +704,8 @@ const DEPRECIATION_SPEC: ChainSpec = {
   kind: "chain",
   unit: "money",
   steps: [
-    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money" },
+    // A combined tag below the same period's Depreciation or amortization is a subset line (FIN-510).
+    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money", unlessBelow: [...DEPRECIATION_COMPONENT_TAGS], unlessBelowTag: tagFloorsFor("depreciationAndAmortization") },
     {
       kind: "sum",
       tags: [...DEPRECIATION_COMPONENT_TAGS],
@@ -683,7 +757,36 @@ const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[]
   ...tagsFor("epsDiscontinuedOperations").map((tag) => ({ tag, unit: "perShare" as const })),
   ...tagsFor("discontinuedOperationsIncome").map((tag) => ({ tag, unit: "money" as const })),
 ].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
+/**
+ * The discontinued-operations elements a re-filing carries for a period it re-presents (ASC 205-20-45-3,
+ * 45-3A): their presence, new or moved, is the one label companyfacts can show (decision C-9, `representationLabelled`).
+ */
+export const DISCONTINUED_LABEL_TAGS: readonly string[] = [
+  ...tagsFor("netIncomeFromDiscontinuedOperations"),
+  ...tagsFor("discontinuedOperationsIncome"),
+  ...tagsFor("epsDiscontinuedOperations"),
+];
 const CONTINUING_EPS_WORKING_FIELDS: ReadonlySet<string> = new Set([...Object.values(CONTINUING_EPS_FIELDS), ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)]);
+
+/**
+ * Pretax income: the total, else the B-32 domestic + foreign composition. The
+ * `incomeBeforeTax` field and the derived EBIT's pretax operand read this one
+ * spec (audit 2026-10-27 FIN-507-V1).
+ */
+const INCOME_BEFORE_TAX_SPEC: ChainSpec = {
+  kind: "chain",
+  unit: "money",
+  steps: [
+    { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
+    {
+      kind: "sum",
+      tags: [...INCOME_BEFORE_TAX_COMPONENT_TAGS],
+      unit: "money",
+      disclose:
+        "no pretax-income total is tagged for the period; pretax income is composed as the filer's domestic + foreign pretax income (the total's two children in the taxonomy calculation)",
+    },
+  ],
+};
 
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
@@ -710,22 +813,25 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
    *
    * Pretax income also contains the OTHER non-operating items, so the
    * derivation subtracts each one the filer tags — the `NonoperatingIncomeExpense`
-   * aggregate, `InvestmentIncomeInterest` when that aggregate is absent (the
-   * taxonomy makes it a component of it, so subtracting both would double-count),
+   * aggregate, `InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`
+   * when that aggregate is absent (the taxonomy makes them components of it, so
+   * subtracting both would double-count; audit 2026-10-27 FIN-509, D-134 OD-2),
    * and equity-method results. Whatever could not be subtracted is named in the
-   * disclosure as the error band on the figure.
+   * disclosure as the error band on the figure. The interest part is optional
+   * beside a filed aggregate (FIN-507, D-134 OD-1).
    */
   operatingIncome: {
     kind: "chain",
     unit: "money",
+    stopOnRefusal: true,
     steps: [
       { kind: "first", tags: tagsFor("operatingIncome"), unit: "money" },
       {
         kind: "sumAll",
         unit: "money",
         parts: [
-          { label: "pretax income", spec: { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" } },
-          { label: "interest expense", spec: INTEREST_EXPENSE_SPEC },
+          { label: "pretax income", spec: INCOME_BEFORE_TAX_SPEC },
+          { label: "interest expense", spec: INTEREST_EXPENSE_SPEC, optionalWhenAdjustment: EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE },
         ],
         minusAny: EBIT_NON_OPERATING_ADJUSTMENTS.map((a) => ({
           label: a.label,
@@ -734,6 +840,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
           ...(a.notWhenBaseTag === undefined ? {} : { notWhenBaseTag: a.notWhenBaseTag }),
         })),
         notAddedWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
+        refuseWhenIncomplete: true,
         discloseAdjusted: describeDerivedEbit,
       },
     ],
@@ -743,20 +850,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   netInterestIncome: lineItemChain("netInterestIncome", "money"),
   // Audit 2026-10-22 B-32: a filer that tags only the two components (Oracle
   // FY2026) had no pretax income, so no annual effective tax rate either.
-  incomeBeforeTax: {
-    kind: "chain",
-    unit: "money",
-    steps: [
-      { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
-      {
-        kind: "sum",
-        tags: [...INCOME_BEFORE_TAX_COMPONENT_TAGS],
-        unit: "money",
-        disclose:
-          "no pretax-income total is tagged for the period; pretax income is composed as the filer's domestic + foreign pretax income (the total's two children in the taxonomy calculation)",
-      },
-    ],
-  },
+  incomeBeforeTax: INCOME_BEFORE_TAX_SPEC,
   incomeTaxExpense: lineItemChain("incomeTaxExpense", "money"),
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
@@ -786,18 +880,33 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
 function describeDerivedEbit(ctx: {
   subtracted: string[];
   unavailable: string[];
+  unusable: { label: string; problem: string }[];
   alreadyInside: string[];
   notInBase: string[];
   parts: { label: string; tags: string[] }[];
   notAdded: string[];
+  amounts: Record<string, number>;
 }): string {
   // WHICH pretax element served decides whether the equity-method subtraction
   // is right, so the derivation names it rather than saying "pretax income".
   const named = ctx.parts.map((p) => `${p.label} (${p.tags.join(" + ")})`).join(" + ");
   const head = `EBIT derived as ${named}: the filer reports no OperatingIncomeLoss line`;
   const parts: string[] = [];
+  const withAmount = (label: string): string => (ctx.amounts[label] === undefined ? label : `${label} (${ctx.amounts[label]})`);
+  // Components of the aggregate the filer tags stand in for it when it is not filed, or is filed on another basis
+  // than the row (audit 2026-10-27 FIN-509; B13 final review M-3).
+  const aggregate = "NonoperatingIncomeExpense";
+  const aggregateProblem = ctx.unusable.find((u) => u.label === aggregate)?.problem;
+  const standInComponents = ctx.unavailable.includes(aggregate) || aggregateProblem !== undefined
+    ? ctx.subtracted.filter((label) => EBIT_NON_OPERATING_ADJUSTMENTS.some((a) => a.label === label && a.componentOf === aggregate))
+    : [];
   if (ctx.subtracted.length > 0) {
-    parts.push(`non-operating items subtracted from the derivation: ${ctx.subtracted.join(", ")}`);
+    parts.push(`non-operating items subtracted from the derivation: ${ctx.subtracted.map(withAmount).join(", ")}`);
+  }
+  if (standInComponents.length > 0) {
+    parts.push(
+      `the ${aggregate} aggregate ${aggregateProblem === undefined ? "is not filed" : `${aggregateProblem}, so it is not used`}; its components the filer tags were subtracted instead (${standInComponents.map(withAmount).join(", ")}); any untagged non-operating item stays inside the figure`,
+    );
   }
   if (ctx.alreadyInside.length > 0) {
     parts.push(
@@ -810,14 +919,31 @@ function describeDerivedEbit(ctx: {
     );
   }
   parts.push(...ctx.notAdded);
+  const pretax = ctx.parts.find((p) => p.label === "pretax income");
+  if (pretax !== undefined && INCOME_BEFORE_TAX_COMPONENT_TAGS.every((tag) => pretax.tags.some((t) => t === tag || t.endsWith(`/${tag}`)))) {
+    parts.push(
+      "the domestic + foreign composition is taken as the full pretax total, so equity-method results are subtracted as for that total",
+    );
+  }
   if (ctx.subtracted.includes("NonoperatingIncomeExpense") && ctx.notAdded.length === 0) {
     parts.push(EBIT_AGGREGATE_MAY_HOLD_INTEREST);
   }
-  if (ctx.unavailable.length > 0) {
+  const errorBand = standInComponents.length > 0
+    ? ctx.unavailable.filter((label) => label !== aggregate)
+    : ctx.unavailable;
+  if (ctx.subtracted.includes("OtherNonoperatingIncomeExpense") && ctx.amounts["interest expense"] !== undefined) {
+    // Net interest added back: the interest expense less the investment income subtracted beside it.
+    parts.push(EBIT_OTHER_MAY_HOLD_INTEREST(ctx.amounts["interest expense"] - (ctx.amounts["InvestmentIncomeInterest"] ?? 0)));
+  }
+  if (errorBand.length > 0) {
     parts.push(
-      `error band — the filer tags none of ${ctx.unavailable.join(", ")} for this period, so any such item stays inside the figure`,
+      `error band — the filer tags none of ${errorBand.join(", ")} for this period, so any such item stays inside the figure`,
     );
-  } else if (ctx.subtracted.length === 0) {
+  }
+  // A filed item that cannot be used on this row is named with why: it is not subtracted, so it stays inside (M-3).
+  const unusableBand = standInComponents.length > 0 ? ctx.unusable.filter((u) => u.label !== aggregate) : ctx.unusable;
+  for (const u of unusableBand) parts.push(`error band — ${u.label} ${u.problem}, so it is not subtracted and stays inside the figure`);
+  if (errorBand.length === 0 && unusableBand.length === 0 && ctx.subtracted.length === 0) {
     parts.push("no non-operating tag was filed for this period, so any such item stays inside the figure");
   }
   return `${head}; ${parts.join("; ")}`;
@@ -1213,7 +1339,9 @@ type FactIndex = Map<string, UnitPoints[]>;
  * core copy filed no later than that, reduced to one per period by the same
  * last-filed rule. Subtracting a YTD fact restated AFTER the annual fact it is
  * netted against would mix two lineages and produce a quarter neither filing
- * ever reported.
+ * ever reported. A year to date restated after the annual fact is still never
+ * netted against it, and since C-9 a material, unlabelled restatement of it
+ * withholds the quarter instead (`oneBasisPair`, audit 2026-10-27 FIN-511).
  */
 function lineagePoints(up: UnitPoints, filedCutoff: string): FactPoint[] {
   return dedupByPeriod(up.all.filter((p) => p.filed <= filedCutoff));
@@ -1235,15 +1363,7 @@ function buildReporters(corePoints: FactPoint[]): Map<string, FactPoint> {
   for (const p of corePoints) {
     const key = periodKey(p);
     const cur = reporters.get(key);
-    if (cur === undefined || p.filed < cur.filed) {
-      reporters.set(key, p);
-      continue;
-    }
-    if (p.filed > cur.filed) continue;
-    const pAmend = p.form.trim().endsWith("/A");
-    const curAmend = cur.form.trim().endsWith("/A");
-    if (curAmend && !pAmend) reporters.set(key, p);
-    else if (pAmend === curAmend && p.accn < cur.accn) reporters.set(key, p);
+    if (cur === undefined || firstReportedOrder(p, cur) < 0) reporters.set(key, p);
   }
   return reporters;
 }
@@ -1268,6 +1388,8 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
     return;
   }
   for (const tag of spec.tags) into.add(tag);
+  // A floor tag is only ever resolved by tag, so it has to be parsed into the index.
+  if (spec.kind === "first") for (const tag of [...(spec.unlessBelow ?? []), ...Object.values(spec.unlessBelowTag ?? {}).flat()]) into.add(tag);
 }
 
 /** Every us-gaap tag any chain or anchor can ask for; nothing else is parsed. */
@@ -1280,6 +1402,7 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
     for (const spec of Object.values(table)) collectTags(spec, tags);
   }
   collectTags(BANK_REVENUE_SPEC, tags);
+  collectTags(BANK_INTEREST_INCOME_SPEC, tags);
   // Completeness/scope evidence only, never carrying-value stand-ins.
   tags.add("DebtInstrumentCarryingAmount");
   tags.add("ConvertibleLongTermNotesPayable");
@@ -1480,6 +1603,11 @@ interface Resolved {
    */
   original?: OriginalValue;
   evidencePoints?: FactPoint[];
+  /**
+   * Set only on a floor probe (`magnitudeOnly: { against }`): whether, in a filing that carries both tags for a
+   * period the candidate nets, the candidate sits below this floor tag. Undefined when no filing carries both.
+   */
+  sameFiling?: { below: boolean; detail: string };
   /** Actual resolved flow start, rather than a YTD/FY minuend's start. */
   periodStart?: string;
 }
@@ -1502,7 +1630,13 @@ function resolvedPoint(tag: string, up: UnitPoints, point: FactPoint, value: num
   return out;
 }
 
-type TagResolver = (tag: string, kind: UnitKind, currency?: string) => Resolved | null;
+/**
+ * `magnitudeOnly` asks a derived quarter for its AS-FILED pair, ignoring the one-presentation rule. Only a floor
+ * comparison and the nesting probe use it (a magnitude or existence check, never published): a floor tag withheld
+ * for presentation still bounds the figure it floors (audit 2026-10-27 FIN-511 M5). `{ against }` names the
+ * floored candidate and also asks for a same-filing verdict on it (`Resolved.sameFiling`, F3).
+ */
+type TagResolver = (tag: string, kind: UnitKind, currency?: string, magnitudeOnly?: boolean | { against: string }) => Resolved | null;
 
 interface NoteSink {
   readonly notes: string[];
@@ -1513,6 +1647,34 @@ interface NoteSink {
   substitute(field: string, period: string, text: string): void;
   /** Record that `field` at row `period` was left null on purpose, for the reason `text`. */
   withhold(field: string, period: string, text: string): void;
+  /**
+   * Refusals recorded during resolution (a `first` step that skipped every
+   * synonym). `buildStatementRows` turns the last new one into a withholding
+   * only when the field ends null; a later step that serves leaves it a note.
+   */
+  readonly refusals: string[];
+  refuse(text: string): void;
+  /**
+   * A refusal recorded by the one-presentation rule (audit 2026-10-27 FIN-511). Unlike the other refusals it ends
+   * the field: no later step of any chain (stand-in, derivation, other tag list) may serve it. It is listed even
+   * while a probe is muted (`quietly`), though only an unmuted one becomes a `refusals` entry.
+   */
+  readonly presentationRefusals: string[];
+  refusePresentation(text: string): void;
+
+  /**
+   * Every `withhold` text a resolution tried to record, in order, whether or not
+   * it was muted. A caller compares lengths to learn whether a resolution ran
+   * into a currency or period mismatch (`sameRowEvidence` withholds then).
+   */
+  readonly withholdAttempts: string[];
+  /**
+   * Run a probe with `add`, `substitute`, `withhold` and `refuse` turned into
+   * no-ops (nested calls work) and return its result. A probe resolves a tag
+   * only to look at its value; the resolver's side effects belong to the field
+   * being resolved, not to the probe.
+   */
+  quietly<T>(fn: () => T): T;
 }
 
 function createNoteSink(): NoteSink {
@@ -1520,6 +1682,10 @@ function createNoteSink(): NoteSink {
   const notes: string[] = [];
   const substitutions: Substitution[] = [];
   const withheld: Withholding[] = [];
+  const refusals: string[] = [];
+  const presentationRefusals: string[] = [];
+  const withholdAttempts: string[] = [];
+  let muted = 0;
   const record = (into: { field: string; text: string; periods: string[] }[], field: string, period: string, text: string): void => {
     const existing = into.find((s) => s.field === field && s.text === text);
     if (existing === undefined) into.push({ field, text, periods: [period] });
@@ -1529,16 +1695,37 @@ function createNoteSink(): NoteSink {
     notes,
     substitutions,
     withheld,
+    refusals,
+    presentationRefusals,
+    withholdAttempts,
     add(note: string): void {
-      if (seen.has(note)) return;
+      if (muted > 0 || seen.has(note)) return;
       seen.add(note);
       notes.push(note);
     },
     substitute(field: string, period: string, text: string): void {
-      record(substitutions, field, period, text);
+      if (muted === 0) record(substitutions, field, period, text);
     },
     withhold(field: string, period: string, text: string): void {
-      record(withheld, field, period, text);
+      withholdAttempts.push(text);
+      if (muted === 0) record(withheld, field, period, text);
+    },
+    refuse(text: string): void {
+      if (muted === 0) refusals.push(text);
+    },
+    refusePresentation(text: string): void {
+      // Recorded even while muted, as `withholdAttempts` is: a probe that ran into a presentation refusal has
+      // not found "nothing filed", and the checks that read this list must see it (FIN-511 F1).
+      presentationRefusals.push(text);
+      if (muted === 0) refusals.push(text);
+    },
+    quietly<T>(fn: () => T): T {
+      muted += 1;
+      try {
+        return fn();
+      } finally {
+        muted -= 1;
+      }
     },
   };
 }
@@ -1607,15 +1794,94 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
   switch (spec.kind) {
     case "chain": {
       for (const step of spec.steps) {
+        const refusalsBefore = notes.refusals.length;
+        const presentationBefore = notes.presentationRefusals.length;
         const r = resolveSpec(step, resolve, notes, label, at);
         if (r !== null) return r;
+        // A presentation refusal ends the field in every chain: no stand-in, derivation or other tag list may serve
+        // it (FIN-511 C1). Other refusal kinds end only the chains that ask (`stopOnRefusal`).
+        if (notes.presentationRefusals.length > presentationBefore) return null;
+        if (spec.stopOnRefusal === true && notes.refusals.length > refusalsBefore) return null;
       }
       return null;
     }
     case "first": {
+      const skipped: string[] = [];
+      /**
+       * Why the candidate `r` of `tag` is a subset line below a component the line item contains, or null. A candidate
+       * whose own quarter is withheld for presentation (`r` is then its as-filed value) is judged against each floor tag
+       * by the filings that carry both, as a withheld floor tag is; only a floor tag no filing carries beside it is
+       * compared with the as-filed value (B13 final re-review N-1).
+       */
+      const belowItsFloor = (tag: string, r: Resolved, candidateWithheld = false): string | null => {
+        if (spec.unlessBelow === undefined) return null;
+        const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
+        // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
+        const components: { tag: string; value: number }[] = [];
+        let sameFilingHit: string | null = null;
+        for (const floorTag of floorTags) {
+          if (floorTag === tag) continue;
+          const presentationBefore = notes.presentationRefusals.length;
+          if (candidateWithheld) {
+            const verdict = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }))?.sameFiling;
+            notes.presentationRefusals.length = presentationBefore;
+            if (verdict !== undefined) {
+              if (verdict.below) sameFilingHit = `${tag} ${r.value} not used — ${verdict.detail}, so it is not the total`;
+              continue;
+            }
+          }
+          let f = notes.quietly(() => resolve(floorTag, spec.unit));
+          const floorRefused = f === null && notes.presentationRefusals.length > presentationBefore;
+          // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
+          notes.presentationRefusals.length = presentationBefore;
+          if (floorRefused) {
+            // The floor tag's quarter is withheld for presentation. The floor is a magnitude check that is never
+            // published, so it is decided from filed copies on one basis: the candidate against the floor tag in
+            // each filing that carries both. With no such filing, the as-filed magnitude decides (FIN-511 M5, F3).
+            f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }));
+            if (f?.sameFiling !== undefined) {
+              if (f.sameFiling.below) sameFilingHit = `${tag} ${r.value} not used — ${f.sameFiling.detail}, so it is not the total`;
+              continue;
+            }
+          }
+          if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
+        }
+        const hit = belowComponentFloor(r.value, components);
+        if (sameFilingHit !== null) {
+          return candidateWithheld ? `${sameFilingHit} (its quarter is withheld for presentation, so the filings that carry both tags decide, as for a withheld floor tag)` : sameFilingHit;
+        }
+        if (hit === null) return null;
+        const text = `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
+        return candidateWithheld ? `${text} (its quarter is withheld for presentation and no filing carries both tags, so its as-filed value is compared)` : text;
+      };
       for (const tag of spec.tags) {
+        const refusalsBefore = notes.refusals.length;
+        const presentationBefore = notes.presentationRefusals.length;
         const r = resolve(tag, spec.unit);
+        // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511). The
+        // check reads `presentationRefusals`, which a muted probe fills too (B13 final review M-4).
+        if (r === null && notes.presentationRefusals.length > presentationBefore) {
+          // Unless the floor would skip the candidate as a subset line anyway (B13 final review M-6): the filings that
+          // carry it beside a floor tag decide, as for a refused floor tag (M5, F3), and the as-filed value only where no
+          // filing does (final re-review N-1). Then the next synonym is tried.
+          const refusedAt = notes.presentationRefusals.length;
+          const asFiled = spec.unlessBelow === undefined ? null : notes.quietly(() => resolve(tag, spec.unit, undefined, true));
+          notes.presentationRefusals.length = refusedAt;
+          const subset = asFiled === null ? null : belowItsFloor(tag, asFiled, true);
+          if (subset === null) return null;
+          notes.presentationRefusals.length = presentationBefore;
+          notes.refusals.length = refusalsBefore;
+          notes.add(`${label}: ${subset}`);
+          skipped.push(subset);
+          continue;
+        }
         if (r === null) continue;
+        const subset = belowItsFloor(tag, r);
+        if (subset !== null) {
+          notes.add(`${label}: ${subset}`);
+          skipped.push(subset);
+          continue;
+        }
         if (spec.sign === undefined) return disclosed(r);
         const decimals = spec.unit === "perShare" ? PER_SHARE_DECIMALS : MONEY_DECIMALS;
         const signed: Resolved = { ...r, value: tidy(r.value * spec.sign, decimals) };
@@ -1626,6 +1892,11 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           signed.original = { ...r.original, value: tidy(r.original.value * spec.sign, decimals) };
         }
         return disclosed(signed);
+      }
+      if (skipped.length > 0) {
+        notes.refuse(
+          `${at?.field ?? label} withheld: every combined synonym filed for the period is below a component it includes (${skipped.join("; ")}), and no composition of its components is filed`,
+        );
       }
       return null;
     }
@@ -1638,9 +1909,106 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "sumAll": {
       const present: Resolved[] = [];
       const partTags: { label: string; tags: string[] }[] = [];
+      // A part that may be absent, with the mismatch (currency, period) that made it unusable when it IS filed, or
+      // the nesting disclosure of a refused part the derivation leaves out (`nested`, B13 final review I-1).
+      const deferred: { part: (typeof spec.parts)[number]; problem?: { text: string; kind: "currency" | "period" | "unit" }; nested?: string }[] = [];
+      const field = at?.field ?? label;
+      const triedTags = (part: ChainSpec): string => {
+        const tried = new Set<string>();
+        collectTags(part, tried);
+        return [...tried].join(", ");
+      };
+      /** A probe that writes nothing and leaves no presentation refusal behind; `refused` says whether it ran into one. */
+      const probe = (tag: string, magnitudeOnly?: true): { r: Resolved | null; refused: boolean } => {
+        const before = notes.presentationRefusals.length;
+        const r = notes.quietly(() => resolve(tag, spec.unit, undefined, magnitudeOnly));
+        const refused = r === null && notes.presentationRefusals.length > before;
+        notes.presentationRefusals.length = before;
+        return { r, refused };
+      };
+      /**
+       * A refused optional part that the B-39/FIN-508 nesting leaves out of the sum is no operand of the derivation:
+       * the aggregate serves, and the refused tag is the nesting tag or another filing tags the period's interest as it.
+       * Returns the nesting disclosure in that case, else null (the refusal then refuses the field, ruling F1).
+       */
+      const nestedInsideServedAggregate = (part: (typeof spec.parts)[number], refusedTags: readonly string[]): string | null => {
+        const aggregateTag = part.optionalWhenAdjustment?.adjustmentTag;
+        const rule = (spec.notAddedWhen ?? []).find((n) => n.partLabel === part.label && n.adjustmentTag === aggregateTag);
+        const aggregate = spec.minusAny?.find((a) => aggregateTag !== undefined && a.tags.includes(aggregateTag));
+        if (rule === undefined || aggregate === undefined || present.length === 0) return null;
+        // The same test as the adjustment pass below, run ahead of it and quietly, so a refusal that stands keeps its
+        // F1 reason and notes exactly.
+        const served = aggregate.tags.some((tag) => {
+          const { r } = probe(tag);
+          return r !== null && r.unit === present[0]!.unit && r.tags.includes(rule.adjustmentTag);
+        });
+        if (!served) return null;
+        if (refusedTags.includes(rule.partTag)) return rule.disclose;
+        if (rule.discloseRefiled === undefined) return null;
+        const { r: child } = probe(rule.partTag, true); // magnitude-only, as the FIN-508 probe below (F2)
+        return child !== null && child.unit === present[0]!.unit ? rule.discloseRefiled : null;
+      };
       for (const part of spec.parts) {
-        const r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
-        if (r === null || (present.length > 0 && present[0]!.unit !== r.unit)) return null;
+        const refusalsBefore = notes.refusals.length;
+        const attemptsBefore = notes.withholdAttempts.length;
+        const presentationBefore = notes.presentationRefusals.length;
+        // An optional part is probed quietly first: if it turns out unusable and the aggregate serves, the
+        // mismatch withholding it would have written must not stand beside the published value. The probe also
+        // records which tags it found withheld for presentation.
+        const optional = part.optionalWhenAdjustment !== undefined;
+        const refusedTags: string[] = [];
+        const tracking: TagResolver = (tag, kind, currency, magnitudeArg) => {
+          const before = notes.presentationRefusals.length;
+          const found = resolve(tag, kind, currency, magnitudeArg);
+          if (found === null && notes.presentationRefusals.length > before) refusedTags.push(tag);
+          return found;
+        };
+        let r = optional
+          ? notes.quietly(() => resolveSpec(part.spec, tracking, notes, `${label} (${part.label})`))
+          : resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`);
+        if (optional && r !== null && (present.length === 0 || present[0]!.unit === r.unit)) {
+          r = resolveSpec(part.spec, resolve, notes, `${label} (${part.label})`); // served: its notes belong to the field
+        }
+        if (r !== null && present.length > 0 && present[0]!.unit !== r.unit) {
+          if (optional) {
+            deferred.push({ part, problem: { text: `${field} not derived: ${part.label} is filed in ${r.unit}, not ${present[0]!.unit}`, kind: "unit" } });
+            continue;
+          }
+          if (spec.refuseWhenIncomplete === true) notes.refuse(`${field} not derived: ${part.label} is filed in ${r.unit}, not ${present[0]!.unit}`);
+          return null;
+        }
+        if (r === null) {
+          if (optional && notes.presentationRefusals.length > presentationBefore) {
+            const refusal = notes.presentationRefusals[notes.presentationRefusals.length - 1];
+            // Interest the derivation would not add back anyway (B-39/FIN-508) is no operand: its refusal does not
+            // refuse the field, and the nesting disclosure says why it is left out (B13 final review I-1).
+            const nested = nestedInsideServedAggregate(part, refusedTags);
+            if (nested !== null) {
+              notes.presentationRefusals.length = presentationBefore;
+              deferred.push({ part, nested });
+              continue;
+            }
+            // A refused optional part is not an absent one: dropping it would publish a figure that still holds
+            // it, with a disclosure that says the filer files none (FIN-511 F1).
+            notes.refusePresentation(`${field} not derived: ${part.label} for the period is withheld (${refusal})`);
+            return null;
+          }
+          const mismatch = notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t));
+          if (optional) {
+            deferred.push({ part, ...(mismatch === undefined ? {} : { problem: { text: mismatch, kind: mismatch.startsWith("mixed_unit") ? "currency" : "period" } }) });
+            continue;
+          }
+          // A part that ran into a currency or period mismatch already carries its own withholding (the
+          // mismatch text): "not filed" would be false and would stack a second reason on it.
+          if (spec.refuseWhenIncomplete === true && mismatch === undefined) {
+            notes.refuse(
+              notes.refusals.length > refusalsBefore
+                ? `${field} not derived: ${part.label} for the period is withheld (${notes.refusals[notes.refusals.length - 1]})`
+                : `${field} not derived: ${part.label} is not filed for the period (tags tried: ${triedTags(part.spec)})`,
+            );
+          }
+          return null;
+        }
         present.push(r);
         partTags.push({ label: part.label, tags: r.tags });
       }
@@ -1654,57 +2022,157 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       // named as the error band on the result.
       const subtracted: string[] = [];
       const unavailable: string[] = [];
+      const unusable: { label: string; problem: string }[] = [];
       const alreadyInside: string[] = [];
       const notInBase: string[] = [];
       const notAdded: string[] = [];
+      const amounts: Record<string, number> = {};
       if (spec.minusAny !== undefined) {
         const resolvedByLabel = new Map<string, Resolved>();
+        // Adjustments filed for the period that cannot be used on this row: beside the reason they are left out
+        // whatever they hold (`filedUnused`), or, for one that would be subtracted, the mismatch the error band names.
+        const filedUnused = new Set<string>();
+        const unusableByLabel = new Map<string, string>();
+        // An adjustment the derivation never subtracts, whatever it holds: it sits inside an aggregate that served for
+        // the period, or the base tag that served excludes it by definition (B13 final review I-1). The aggregate is
+        // listed before its components (EBIT_NON_OPERATING_ADJUSTMENTS), so it has been resolved by then.
+        const unusedBecause = (adjustment: (typeof spec.minusAny)[number]): "inside" | "notInBase" | null =>
+          adjustment.componentOf !== undefined && resolvedByLabel.has(adjustment.componentOf)
+            ? "inside"
+            : adjustment.notWhenBaseTag?.some((tag) => servedByPart.has(tag)) === true
+              ? "notInBase"
+              : null;
         for (const adjustment of spec.minusAny) {
+          const unused = unusedBecause(adjustment) !== null;
           // Resolve LAZILY: a TagResolver has note side effects (a derived
           // quarter that cannot be built adds a "not derived" note), so
           // resolving every synonym of an adjustment and then discarding all
           // but the first hit put notes on the row about tags nothing used.
           for (const tag of adjustment.tags) {
+            const attemptsBefore = notes.withholdAttempts.length;
+            // Probed quietly first: a currency or period mismatch never becomes a withholding beside a derived
+            // figure, and an unused adjustment is resolved for its disclosure only (B13 final review I-1, M-3).
+            const { r: found, refused } = probe(tag);
+            const mismatch = found === null ? notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t)) : undefined;
+            const usable = found !== null && found.unit === present[0]!.unit;
+            if (unused) {
+              // Resolved for its disclosure only: nothing it ran into (a presentation refusal, a mismatch) refuses or
+              // withholds the field.
+              if (usable) resolvedByLabel.set(adjustment.label, found);
+              else if (found === null && !refused && mismatch === undefined) continue; // not filed: the next tag
+              else filedUnused.add(adjustment.label);
+              break;
+            }
+            if (mismatch !== undefined && !refused) {
+              // Filed in another currency or for another period than the row: not subtracted, and the error band
+              // says why, where an unmuted resolution would have withheld a component of a published figure (M-3).
+              unusableByLabel.set(
+                adjustment.label,
+                mismatch.startsWith("mixed_unit")
+                  ? "is filed in another currency than the row's reporting currency (no conversion is made)"
+                  : "is filed for a different period than the row",
+              );
+              break;
+            }
+            // Otherwise resolved unmuted, as before the probe: its notes and refusal belong to the field.
+            const presentationBefore = notes.presentationRefusals.length;
             const r = resolve(tag, spec.unit);
+            if (r === null && notes.presentationRefusals.length > presentationBefore) {
+              // A refused adjustment is not an untagged one: dropping it would publish a figure that still holds
+              // the item, with a disclosure that says the filer tags none (FIN-511 I4).
+              notes.refusePresentation(
+                `${field} not derived: ${adjustment.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
+              );
+              return null;
+            }
             if (r !== null && r.unit === present[0]!.unit) {
               resolvedByLabel.set(adjustment.label, r);
               break;
             }
           }
         }
+        // A part that may be absent beside a filed aggregate (audit 2026-10-27
+        // FIN-507): skipped and disclosed when that aggregate served, else the
+        // derivation is refused with the missing operand named.
+        for (const { part, problem, nested } of deferred) {
+          if (nested !== undefined) {
+            notAdded.push(nested); // a refused part the nesting leaves out (I-1); the aggregate served
+            continue;
+          }
+          const rule = part.optionalWhenAdjustment!;
+          if ([...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag))) {
+            notAdded.push(
+              problem === undefined
+                ? rule.disclose
+                : rule.discloseUnusable(
+                    problem.kind === "period"
+                      ? `is filed for a different period than the row`
+                      : `is filed in another currency than the row's reporting currency (no conversion is made)`,
+                  ),
+            );
+            continue;
+          }
+          if (problem !== undefined) {
+            notes.refuse(problem.text); // the part's own reason, the same text the mismatch withholding carries
+            return null;
+          }
+          notes.refuse(
+            `${field} not derived: ${part.label} is not filed for the period (tags tried: ${triedTags(part.spec)}), and no ${rule.adjustmentTag} aggregate is filed that would make it unnecessary`,
+          );
+          return null;
+        }
         // A part the taxonomy nests inside a subtracted aggregate is already
         // in it, so it is not added back (audit 2026-10-22 B-39).
         for (const rule of spec.notAddedWhen ?? []) {
           const inside = [...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag));
           const index = present.findIndex((r) => r.tags.includes(rule.partTag));
+          if (index < 0 && inside && rule.partLabel !== undefined && rule.discloseRefiled !== undefined) {
+            // Resolved only in this case (lazy resolution) and quietly: a probe that cannot resolve writes no
+            // period_mismatch, mixed_unit or "not derived" entry against the field.
+            const served = partTags.findIndex((p) => p.label === rule.partLabel);
+            // Magnitude-only: the probe asks whether the filer tags this period's interest as the nesting tag, so a
+            // quarter refused for presentation still answers yes (FIN-511 F2).
+            const child = served < 0 ? null : notes.quietly(() => resolve(rule.partTag, spec.unit, undefined, true));
+            if (child !== null && child.unit === present[0]!.unit) {
+              total -= present[served]!.value;
+              present.splice(served, 1);
+              partTags.splice(served, 1);
+              notAdded.push(rule.discloseRefiled);
+            }
+            continue;
+          }
           if (index < 0 || !inside) continue;
           total -= present[index]!.value;
           present.splice(index, 1);
           partTags.splice(index, 1);
           notAdded.push(rule.disclose);
         }
+        partTags.forEach((p, i) => {
+          amounts[p.label] = present[i]!.value; // present and partTags stay in step until the adjustments are appended
+        });
         for (const adjustment of spec.minusAny) {
           const hit = resolvedByLabel.get(adjustment.label);
+          const unused = unusedBecause(adjustment);
+          // An unused adjustment the filer files (served, refused or mismatched) is named for why it is left out.
+          if (unused !== null && (hit !== undefined || filedUnused.has(adjustment.label))) {
+            (unused === "inside" ? alreadyInside : notInBase).push(adjustment.label);
+            continue;
+          }
           if (hit === undefined) {
-            unavailable.push(adjustment.label);
-            continue;
-          }
-          if (adjustment.componentOf !== undefined && resolvedByLabel.has(adjustment.componentOf)) {
-            alreadyInside.push(adjustment.label);
-            continue;
-          }
-          if (adjustment.notWhenBaseTag?.some((tag) => servedByPart.has(tag)) === true) {
-            notInBase.push(adjustment.label);
+            const problem = unusableByLabel.get(adjustment.label);
+            if (problem === undefined) unavailable.push(adjustment.label);
+            else unusable.push({ label: adjustment.label, problem });
             continue;
           }
           total -= hit.value;
           subtracted.push(adjustment.label);
+          amounts[adjustment.label] = hit.value;
           present.push(hit);
         }
       }
       const combined = combine(tidy(total, MONEY_DECIMALS), present);
       if (spec.discloseAdjusted !== undefined) {
-        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded });
+        const text = spec.discloseAdjusted({ subtracted, unavailable, unusable, alreadyInside, notInBase, parts: partTags, notAdded, amounts });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
         return combined;
@@ -1759,6 +2227,32 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       return disclosed(combine(tidy(plus.value - minus.value, MONEY_DECIMALS), [plus, minus]));
     }
   }
+}
+
+/**
+ * Test seam (B13 final review M-4), not used by the builder: resolves a `first` step over `tags` with a fresh note
+ * sink, inside `notes.quietly` when `quiet`. The resolver refuses each tag in `refused` for presentation and serves
+ * each tag in `values` at its value; any other tag is not filed.
+ */
+export function resolveFirstStepForTests(
+  tags: readonly string[],
+  refused: readonly string[],
+  values: Readonly<Record<string, number>>,
+  quiet: boolean,
+): number | null {
+  const notes = createNoteSink();
+  const resolve: TagResolver = (tag) => {
+    if (refused.includes(tag)) {
+      notes.refusePresentation(`${tag}: withheld for presentation`);
+      return null;
+    }
+    const value = values[tag];
+    if (value === undefined) return null;
+    const point: FactPoint = { end: "2025-12-31", val: value, accn: "test", form: "10-K", filed: "2026-02-01" };
+    return { value, point, reporter: point, unit: "USD", tags: [tag] };
+  };
+  const run = (): Resolved | null => resolveSpec({ kind: "first", tags: [...tags], unit: "money" }, resolve, notes, "test");
+  return (quiet ? notes.quietly(run) : run())?.value ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1974,7 +2468,8 @@ function quarterResolver(
   ytdOnly: boolean,
   notes: NoteSink,
 ): TagResolver {
-  return (tag, kind, currency) => {
+  const resolveQuarter: TagResolver = (tag, kind, currency, magnitudeArg) => {
+    const magnitudeOnly = magnitudeArg !== undefined && magnitudeArg !== false;
     const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const pts = up.points;
@@ -1996,6 +2491,34 @@ function quarterResolver(
       );
       return null;
     };
+    // Audit 2026-10-27 FIN-511 (C-9): the pair is chosen by `oneBasisPair`, which keeps a pair on one presentation or
+    // says why it cannot. A withholding is a note and a recorded refusal (the field ends a disclosed withholding).
+    const labelCopies = labelCopiesOf(index);
+    const labelled = (m: FactPoint): boolean => representationLabelled(labelCopies, m, RESTATEMENT_THRESHOLD_PCT);
+    const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> => {
+      if (magnitudeOnly) {
+        const subs = subtrahendsFor(winner);
+        return subs === null ? { kind: "none" } : { kind: "pair", minuend: winner, subtrahends: subs, basis: "as-filed", refiledBy: null, refiledAs: null };
+      }
+      return oneBasisPair(up.all, winner, subtrahendsFor, RESTATEMENT_THRESHOLD_PCT, labelled);
+    };
+    const withheldNote = (choice: Extract<PairChoice<FactPoint>, { kind: "withheld" }>, what: string): null => {
+      notes.add(`${tag} ${ctx.end}: ${what} not derived — ${choice.reason}`);
+      notes.refusePresentation(`${tag} ${ctx.end}: ${choice.reason}`);
+      return null;
+    };
+    const firstReportedNote = (choice: Extract<PairChoice<FactPoint>, { kind: "pair" }>, noun: string, subtrahend: string): void => {
+      if (choice.basis !== "first-reported" || choice.refiledBy === null) return;
+      const by = choice.refiledBy;
+      const movedPct = choice.minuend.val === 0 ? null : ((by.val - choice.minuend.val) / Math.abs(choice.minuend.val)) * 100;
+      const how =
+        choice.refiledAs === "labelled-representation"
+          ? "as a re-presentation it labels with a discontinued-operations line"
+          : `by a change within 1% (${describeChangePct(movedPct, 4)})`;
+      notes.add(
+        `${tag} ${ctx.end}: derived from the first-reported ${noun} (${choice.minuend.form.trim()} ${choice.minuend.filed}), because ${by.form.trim()} ${by.filed} re-filed it ${how} and the ${subtrahend} it would be netted against was not re-filed with it`,
+      );
+    };
 
     if (ctx.isFiscalYearEnd) {
       const fy =
@@ -2006,36 +2529,38 @@ function quarterResolver(
       // fourth quarter's EPS is rebuilt from its net income and a share count
       // backed out of the day-weighted identity (deriveFourthQuarterPerShare).
       if (kind === "perShare") return null;
-      const sameLineage = lineage(fy);
-      if (ctx.previousEnd !== null) {
-        const ytdPrev = findDurationExact(sameLineage, fy.start, ctx.previousEnd);
-        if (ytdPrev !== null) {
-          return {
-            ...resolvedPoint(tag, up, fy, tidy(fy.val - ytdPrev.val, decimals)),
-            derivation: "fy-minus-ytd",
-            derivedFrom: [describePoint(tag, fy), describePoint(tag, ytdPrev)],
-            evidencePoints: [fy, ytdPrev],
-            periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
-          };
-        }
-        // A year-to-date fact exists but only in a filing made AFTER the annual
-        // one this row's value came from: that is the case the lineage rule is
-        // for, and it is disclosed rather than silently mixed.
-        if (findDurationExact(pts, fy.start, ctx.previousEnd) !== null) return refuse(fy, "FY − YTD");
+      // A year-to-date fact through the previous quarter exists in some filing: the difference is FY − YTD, and
+      // a copy that only a later filing carries is disclosed rather than silently mixed.
+      if (ctx.previousEnd !== null && findDurationExact(pts, fy.start, ctx.previousEnd) !== null) {
+        const choice = choose(fy, (m) => {
+          const y = findDurationExact(lineage(m), m.start!, ctx.previousEnd!);
+          return y === null ? null : [y];
+        });
+        if (choice.kind === "none") return refuse(fy, "FY − YTD");
+        if (choice.kind === "withheld") return withheldNote(choice, "FY − YTD");
+        firstReportedNote(choice, "FY", "year to date");
+        const ytdPrev = choice.subtrahends[0]!;
+        return {
+          ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - ytdPrev.val, decimals)),
+          derivation: "fy-minus-ytd",
+          derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, ytdPrev)],
+          evidencePoints: [choice.minuend, ytdPrev],
+          periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
+        };
       }
-      const quarters = precedingQuarterPoints(sameLineage, ctx, quarterEnds);
-      if (quarters === null) {
-        return precedingQuarterPoints(pts, ctx, quarterEnds) === null
-          ? null
-          : refuse(fy, "FY − (Q1+Q2+Q3)");
+      const choice = choose(fy, (m) => precedingQuarterPoints(lineage(m), ctx, quarterEnds));
+      if (choice.kind === "none") {
+        return precedingQuarterPoints(pts, ctx, quarterEnds) === null ? null : refuse(fy, "FY − (Q1+Q2+Q3)");
       }
-      const sum = quarters.reduce((s, p) => s + p.val, 0);
+      if (choice.kind === "withheld") return withheldNote(choice, "FY − (Q1+Q2+Q3)");
+      firstReportedNote(choice, "FY", "quarters");
+      const sum = choice.subtrahends.reduce((total, p) => total + p.val, 0);
       return {
-        ...resolvedPoint(tag, up, fy, tidy(fy.val - sum, decimals)),
+        ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - sum, decimals)),
         derivation: "fy-minus-quarters",
-        derivedFrom: [describePoint(tag, fy), ...quarters.map((p) => describePoint(tag, p))],
-        evidencePoints: [fy, ...quarters],
-        periodStart: new Date(dateMs(quarters[0]!.end) + DAY_MS).toISOString().slice(0, 10),
+        derivedFrom: [describePoint(tag, choice.minuend), ...choice.subtrahends.map((p) => describePoint(tag, p))],
+        evidencePoints: [choice.minuend, ...choice.subtrahends],
+        periodStart: new Date(dateMs(choice.subtrahends[0]!.end) + DAY_MS).toISOString().slice(0, 10),
       };
     }
 
@@ -2045,18 +2570,89 @@ function quarterResolver(
     // First quarter of the fiscal year: the year-to-date fact IS the quarter.
     if (daysBetween(ctx.fyStart, ctx.end) <= QUARTER_MAX_DAYS) return resolvedPoint(tag, up, ytd, ytd.val);
     if (ctx.previousEnd === null) return null;
-    const prior = findDurationExact(lineage(ytd), ytd.start, ctx.previousEnd);
-    if (prior === null) {
-      return findDurationExact(pts, ytd.start, ctx.previousEnd) === null ? null : refuse(ytd, "YTD difference");
-    }
+    if (findDurationExact(pts, ytd.start, ctx.previousEnd) === null) return null;
+    const choice = choose(ytd, (m) => {
+      const y = findDurationExact(lineage(m), m.start!, ctx.previousEnd!);
+      return y === null ? null : [y];
+    });
+    if (choice.kind === "none") return refuse(ytd, "YTD difference");
+    if (choice.kind === "withheld") return withheldNote(choice, "YTD difference");
+    firstReportedNote(choice, "year to date", "prior year to date");
+    const prior = choice.subtrahends[0]!;
     return {
-      ...resolvedPoint(tag, up, ytd, tidy(ytd.val - prior.val, decimals)),
+      ...resolvedPoint(tag, up, choice.minuend, tidy(choice.minuend.val - prior.val, decimals)),
       derivation: "ytd-difference",
-      derivedFrom: [describePoint(tag, ytd), describePoint(tag, prior)],
-      evidencePoints: [ytd, prior],
+      derivedFrom: [describePoint(tag, choice.minuend), describePoint(tag, prior)],
+      evidencePoints: [choice.minuend, prior],
       periodStart: new Date(dateMs(prior.end) + DAY_MS).toISOString().slice(0, 10),
     };
   };
+
+  // A floor probe that names its candidate also gets a same-filing verdict (audit 2026-10-27 FIN-511 F3).
+  return (tag, kind, currency, magnitudeArg) => {
+    const r = resolveQuarter(tag, kind, currency, magnitudeArg);
+    if (r === null || typeof magnitudeArg !== "object") return r;
+    const verdict = sameFilingVerdict(index, ctx, tag, magnitudeArg.against, kind, currency);
+    return verdict === null ? r : { ...r, sameFiling: verdict };
+  };
+}
+
+/**
+ * Whether the candidate tag sits below the floor tag in a filing that carries both for a period the quarter nets
+ * (the fiscal year and the year to date through the previous quarter, or the year to date and the one before it).
+ * Each period is compared copy for copy inside one filing, so no mixed presentation enters the comparison. Null
+ * when no filing carries both tags for any such period.
+ */
+function sameFilingVerdict(
+  index: FactIndex,
+  ctx: QuarterContext,
+  floorTag: string,
+  candidateTag: string,
+  kind: UnitKind,
+  currency: string | undefined,
+): { below: boolean; detail: string } | null {
+  const floor = pickUnitPoints(index, floorTag, kind, currency);
+  const candidate = pickUnitPoints(index, candidateTag, kind, currency);
+  if (floor === null || candidate === null || floor.unit !== candidate.unit) return null;
+  const periods: [string, string][] = [];
+  if (ctx.isFiscalYearEnd) {
+    const fy = (ctx.fyStart !== null ? findDurationExact(floor.points, ctx.fyStart, ctx.end) : null) ?? findAnnualDuration(floor.points, ctx.end);
+    if (fy?.start !== undefined) {
+      periods.push([fy.start, fy.end]);
+      if (ctx.previousEnd !== null) periods.push([fy.start, ctx.previousEnd]);
+    }
+  } else if (ctx.fyStart !== null) {
+    periods.push([ctx.fyStart, ctx.end]);
+    if (ctx.previousEnd !== null) periods.push([ctx.fyStart, ctx.previousEnd]);
+  }
+  let decided = false;
+  for (const [start, end] of periods) {
+    const copies = (up: UnitPoints): FactPoint[] =>
+      up.all.filter((p) => p.start !== undefined && withinDays(p.start, start, TOLERANCE_DAYS) && withinDays(p.end, end, TOLERANCE_DAYS));
+    const floorCopies = copies(floor);
+    for (const c of copies(candidate)) {
+      const f = floorCopies.find((x) => x.accn === c.accn);
+      if (f === undefined) continue;
+      decided = true;
+      if (belowComponentFloor(c.val, [{ tag: floorTag, value: f.val }]) !== null) {
+        return {
+          below: true,
+          detail: `its filed ${start}..${end} ${c.val} is below ${floorTag} ${f.val} in the same filing (${c.form.trim()} ${c.filed}, ${c.accn})`,
+        };
+      }
+    }
+  }
+  return decided ? { below: false, detail: "" } : null;
+}
+
+/** Every core copy of every discontinued-operations element in the index, once per index (decision C-9 labels). */
+const LABEL_COPIES = new WeakMap<FactIndex, LabelCopy[]>();
+function labelCopiesOf(index: FactIndex): LabelCopy[] {
+  const memo = LABEL_COPIES.get(index);
+  if (memo !== undefined) return memo;
+  const out = DISCONTINUED_LABEL_TAGS.flatMap((t) => (index.get(t) ?? []).flatMap((u) => u.all.map((p) => ({ ...p, tag: t, unit: u.unit }))));
+  LABEL_COPIES.set(index, out);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -2101,8 +2697,11 @@ interface ComputeContext {
   replace?(field: string, resolved: Resolved | null): void;
 }
 
-function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
-  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null) {
+function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext, route: "bank" | "general"): void {
+  // A gross profit withheld for presentation is not filled as revenue less cost: no derivation follows a
+  // presentation withholding (audit 2026-10-27 FIN-511 F4).
+  const grossProfitRefused = notes.withheld.some((w) => w.field === "grossProfit" && w.periods.includes(ctx) && notes.presentationRefusals.includes(w.text));
+  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null && !grossProfitRefused) {
     const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
     const filings = (resolved: Resolved) => JSON.stringify([...new Set((resolved.evidencePoints ?? [resolved.point]).map(p => `${p.accn}|${p.filed}|${p.form}`))].sort());
     const full = revenue && cost && revenue.tags.some(tag => GROSS_PROFIT_REVENUE_TAGS.includes(tag)) && cost.tags.some(tag => GROSS_PROFIT_COST_TAGS.includes(tag)) &&
@@ -2141,12 +2740,20 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
   if (v.ebit === null || v.ebit === undefined) {
     const strictSum = add(v.incomeBeforeTax ?? null, v.interestExpense ?? null);
     v.ebit = v.operatingIncome ?? null;
-    if (v.ebit === null && strictSum !== null) {
+    if (v.ebit === null && route === "bank" && strictSum !== null) {
       const text =
         `ebit WITHHELD: pre-tax income plus interest expense is available, but that sum is EBIT only where operating ` +
         `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost. ` +
         `Publishing the sum would ` +
         `restate under a second name the figure the operating-income derivation refused.`;
+      notes.add(`income ${ctx}: ${text}`);
+      notes.withhold("ebit", ctx, text);
+    } else if (v.ebit === null && route === "general" && v.incomeBeforeTax != null) {
+      // Never silent (audit 2026-10-27 FIN-507): the operatingIncome withholding names the operand it lacks, or the
+      // presentation refusal of a filed operating income, where nothing was derived (B13 final review M-5).
+      const text =
+        "ebit WITHHELD: operating income is withheld or could not be derived for this period (see the operatingIncome withholding); " +
+        "pretax income plus interest expense alone is not EBIT";
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);
     }
@@ -2602,6 +3209,8 @@ interface PeriodSlot {
   date: string;
   resolve: TagResolver;
   quarter: QuarterContext | null;
+  /** Every deduped-away and winning companyfacts copy of `tag` in `unit` (quarterly slots only). */
+  copiesOf?: (tag: string, unit: string) => readonly FactPoint[] | null;
 }
 
 interface BuildState {
@@ -2772,15 +3381,15 @@ function buildStatementRows<TRow>(
       return r === null ? [] : [r];
     })[0];
     let resolvingField = "";
-    const sameRowEvidence: TagResolver = (tag, kind) => {
+    const sameRowEvidence: TagResolver = (tag, kind, _currency, magnitudeOnly) => {
       const refusal = state.balanceRefusals.get(`${tag}|${rowAnchor?.unit ?? ""}|${slot.date}`);
       if (def.statement === "balance" && refusal !== undefined) {
         notes.withhold(resolvingField, slot.date, refusal);
         notes.add(`${resolvingField} ${ctxLabel}: ${refusal}`);
         return null;
       }
-      if (rowAnchor === undefined) return slot.resolve(tag, kind);
-      const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit);
+      if (rowAnchor === undefined) return slot.resolve(tag, kind, undefined, magnitudeOnly);
+      const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit, magnitudeOnly);
       if (r === null) {
         const raw = slot.resolve(tag, kind);
         if (raw !== null) {
@@ -2802,9 +3411,12 @@ function buildStatementRows<TRow>(
     };
     for (const [field, spec] of Object.entries(def.chains)) {
       resolvingField = field;
+      const refusalsBefore = notes.refusals.length;
       const r = resolveSpec(spec, sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
       values[field] = r === null ? null : tidy(r.value, decimalsFor(spec.unit));
       if (r !== null) resolutions.set(field, r);
+      // A refusal becomes a withholding only when the field ends null; if a later chain step served, it stays a note.
+      else if (notes.refusals.length > refusalsBefore) notes.withhold(field, slot.date, notes.refusals[notes.refusals.length - 1]!);
     }
     // A quarter derived by SUBTRACTING year-to-date figures can come out
     // negative when the two operands do not describe the same thing — a
@@ -2842,7 +3454,13 @@ function buildStatementRows<TRow>(
 
     const anchorField = def.anchors.find((f) => resolutions.has(f));
     if (anchorField === undefined) {
-      notes.add(`${def.statement} ${ctxLabel}: no ${def.anchors.join(" or ")} fact resolved; row omitted`);
+      // Say the true cause: an anchor that was filed and withheld for presentation is not a missing fact (FIN-511 F5).
+      const refused = notes.withheld.find((w) => def.anchors.includes(w.field) && w.periods.includes(slot.date) && notes.presentationRefusals.includes(w.text));
+      notes.add(
+        refused === undefined
+          ? `${def.statement} ${ctxLabel}: no ${def.anchors.join(" or ")} fact resolved; row omitted`
+          : `${def.statement} ${ctxLabel}: ${refused.field} is withheld for presentation (${refused.text}); row omitted`,
+      );
       continue;
     }
     const anchor = resolutions.get(anchorField) as Resolved;
@@ -2952,6 +3570,21 @@ function buildStatementRows<TRow>(
       });
     }
     if (Object.keys(original).length > 0) row.original = original;
+    // FIN-511-V1: the filing that supplies a quarter's revenue and whether it re-presented earlier periods of that
+    // concept (the test `presentationMixed` applies to a minuend), so a growth cell can tell two bases apart. Additive:
+    // omitted unless one tag and unit supplied the figure and its copies can be identified.
+    if (def.statement === "income" && slot.quarter !== null) {
+      const revenue = resolutions.get("revenue");
+      const copies = revenue !== undefined && revenue.tags.length === 1 ? slot.copiesOf?.(revenue.tags[0]!, revenue.unit) ?? null : null;
+      if (revenue !== undefined && copies !== null && copies.some((c) => c.accn === revenue.point.accn)) {
+        row.revenuePresentation = {
+          accn: revenue.point.accn,
+          form: revenue.point.form,
+          filed: revenue.point.filed,
+          represented: filingRepresented(copies, revenue.point.accn, RESTATEMENT_THRESHOLD_PCT, isAmendment(revenue.point) ? revenue.point : undefined),
+        };
+      }
+    }
     if (rowFlags.length > 0) {
       row.restatement = rowFlags;
       restatements.push(...rowFlags);
@@ -3187,13 +3820,18 @@ function latestCoverShareCount(index: FactIndex): SharesOutstandingPoint | null 
 const INCOME_DEF = (bankRevenue: boolean): StatementDef => ({
   statement: "income",
   chains: bankRevenue
-    ? { ...INCOME_CHAINS, revenue: BANK_REVENUE_SPEC, operatingIncome: BANK_OPERATING_INCOME_SPEC }
+    ? {
+        ...INCOME_CHAINS,
+        revenue: BANK_REVENUE_SPEC,
+        operatingIncome: BANK_OPERATING_INCOME_SPEC,
+        interestIncome: BANK_INTEREST_INCOME_SPEC,
+      }
     : INCOME_CHAINS,
   anchors: ["revenue", "netIncome"],
   aliases: {},
   unsourced: INCOME_UNSOURCED,
   computed: ["grossProfit", "ebitda", "ebit"],
-  compute: computeIncome,
+  compute: (v, n, c, cc) => computeIncome(v, n, c, cc, bankRevenue ? "bank" : "general"),
 });
 
 const BALANCE_DEF: StatementDef = {
@@ -3437,6 +4075,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
       date: ctx.end,
       resolve: quarterResolver(index, ctx, quarterEnds, ytdOnly, notes),
       quarter: ctx,
+      copiesOf: (tag, unit) => index.get(tag)?.find((e) => e.unit === unit)?.all ?? null,
     }));
   const balanceQuarterSlots = (): PeriodSlot[] =>
     quarterSlotContexts.map((ctx) => ({ date: ctx.end, resolve: instantResolver(index, ctx.end), quarter: ctx }));

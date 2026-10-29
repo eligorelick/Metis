@@ -67,15 +67,17 @@ describe("tag synonyms — interest expense", () => {
 });
 
 describe("tag synonyms — derived-EBIT adjustments and the debt-maturity stand-in", () => {
-  it("names the three non-operating items, with investment income marked a component of the aggregate", () => {
+  it("names the four non-operating items, with investment income and the other line marked components of the aggregate", () => {
+    // Re-pinned for audit 2026-10-27 FIN-509: OtherNonoperatingIncomeExpense joins the list (OD-2).
     expect(EBIT_NON_OPERATING_ADJUSTMENTS.map((a) => a.label)).toEqual([
       "NonoperatingIncomeExpense",
       "InvestmentIncomeInterest",
+      "OtherNonoperatingIncomeExpense",
       "IncomeLossFromEquityMethodInvestments",
     ]);
-    expect(EBIT_NON_OPERATING_ADJUSTMENTS.find((a) => a.label === "InvestmentIncomeInterest")?.componentOf).toBe(
-      "NonoperatingIncomeExpense",
-    );
+    for (const label of ["InvestmentIncomeInterest", "OtherNonoperatingIncomeExpense"]) {
+      expect(EBIT_NON_OPERATING_ADJUSTMENTS.find((a) => a.label === label)?.componentOf).toBe("NonoperatingIncomeExpense");
+    }
   });
 
   it("checks the four balance-sheet current-debt tags before the maturity schedule", () => {

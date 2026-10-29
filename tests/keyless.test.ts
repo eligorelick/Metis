@@ -454,6 +454,7 @@ describe("applyKeylessFallbacks", () => {
     const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
     expect(rows[0]).toEqual({ date: "2025-09-27", revenue: 1 });
     expect(rows.slice(1).every((row) => row.source === "edgar")).toBe(true);
+    // The legacy-report view (src/report/legacyEdgarDerivedLines.ts, Task 10b) keys its BACKFILL class on this exact field.
     expect(out.gaps.filter((g) => g.field === "statements.backfill.incomeAnnual")).toHaveLength(1);
     // WS4: scoped to the member-replacement gaps `keyless.<member>`, which are
     // the ones whose expectedness depends on whether the plan is keyless. The
@@ -1396,7 +1397,9 @@ describe("applyKeylessFallbacks — concept substitution disclosure", () => {
 
   it("adds no substitution entry when every concept resolved from its own tag", async () => {
     const out = await run(appleFacts());
-    expect(out.gaps.some((g) => /^keyless\.(income|balance|cashflow)(Annual|Quarterly)\./.test(g.field))).toBe(false);
+    // Re-pinned (audit 2026-10-27 FIN-507): this fixture files neither OperatingIncomeLoss nor pretax income, so the
+    // derived EBIT is now refused with a named withholding. The pin is about substitutions, which stay absent.
+    expect(out.gaps.some((g) => /^keyless\.(income|balance|cashflow)(Annual|Quarterly)\./.test(g.field) && g.field !== "keyless.incomeAnnual.withheld.operatingIncome" && g.field !== "keyless.incomeQuarterly.withheld.operatingIncome")).toBe(false);
   });
 });
 

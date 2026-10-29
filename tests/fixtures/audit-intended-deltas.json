@@ -10264,16 +10264,16 @@
       ]
     },
     {
-      "name": "amzn51-lease-scope-20261029",
+      "name": "b13-edgar-derived-lines-20261029",
       "decisions": [
-        "D-133"
+        "D-134"
       ],
-      "reason": "Audit 2026-10-29 of AMZN report #51 (D-133), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.48.0 (a noncurrent-only vendor lease line completed from its filing, the vendor path's undisclosed stakes filled with the D-98 chain, and refusals named instead of called missing). The DEMO rows carry none of those shapes, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of claim-verifier-numbers-20261027, which took it to 1.47.0; that group's record stands in D-128 to D-130.",
+      "reason": "Audit 2026-10-27 batch 13 (EDGAR-derived operating lines on the filer's total and one presentation), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.49.0 (Task 11): derived EBIT, D&A, R&D, a bank's interest income, derived fourth quarters and year-to-date differences, the growth cells and the FFO and one-time-items rules now mean the filer's total on one presentation, or a disclosed withholding. DEMO is FMP-shaped with no EDGAR synonym resolution, no derived quarter and a filed totalOtherIncomeExpensesNet, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of amzn51-lease-scope-20261029, which took it to 1.48.0 (D-133); that group held only this leaf, so its record stands in DECISIONS and the CHANGELOG.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.48.0"
+          "after": "1.49.0"
         }
       ]
     }

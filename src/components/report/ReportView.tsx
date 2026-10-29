@@ -31,6 +31,7 @@
 import { MetisLogo } from "@/brand/MetisLogo";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { indexVerificationMarks } from "@/report/verificationMarks";
 import type { ReactNode } from "react";
@@ -181,7 +182,7 @@ export function ReportView({
   layout?: "classic" | "dossier";
   selectedReportId?: number;
 }) {
-  const report = withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)));
+  const report = withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))));
   // F-21: the claim chips below read each claim's verification status.
   indexVerificationMarks(report);
   const reportId = presentationReportId(report,{selectedReportId});

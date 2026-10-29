@@ -429,7 +429,8 @@ export interface ContextPayload {
 // 1.48.0 (D-112): newer 10-Q facts, the newer-filing notice, each multiple's period and fiscal period, the P/E formula that ran, the withheld non-bracketing scenario fan, continuing-operations EPS and a TTM across a re-presented reorganisation alter admitted context.
 // 1.49.0 (D-124 to D-127, audit 2026-10-27 B3): stock-peer caps only in an established currency, insider statistics as counts and share volumes over a named window, the share-count span, segment growth by date, FRED transform and basis wording, 8-K referents and the peer-screen envelope alter admitted context. Statement blocks collapse restated periods as Stage B does; a 10-Q older than the 10-K is marked; provider geography the issuer's XBRL contradicts is withheld and provider keys are no longer called as-reported; the fiscal-year FCF conversion is no longer called the graded ratio. Computed rows taken from one fiscal year's statement rows carry the issuer's fiscal label and period end of that year. A release fiscal label is printed in an excerpt title only when the statement rows confirm it (AI-512): a labelled income row within 3 days agrees (an annual row ending there agrees only with a Q4 label), or it is the successor of the newest labelled quarter (release end 80-100 days later), or, with only labelled annual rows, it is the next fiscal year after the newest one and its quarter number fits the days since that year's end (91n-11 to 91n+9 days, at most 366); otherwise it is withheld, and only a bundle with no labelled income row keeps it unchecked.
 // 1.50.0 (D-133, audit 2026-10-29 AMZN #51): the current-capital composition note (a lease-inclusive total withheld with its refusal, or composed from a filing), the withheld provider EV note, the vendor path's filled stakes and the refusal wording of net debt, EV, the DCF gap, fair value and ROIC alter admitted context.
-export const PAYLOAD_VERSION = "1.50.0" as const;
+// 1.51.0 (D-134, audit 2026-10-27 B13): derived EBIT, D&A, R&D and bank interest income come from the filer's total on one presentation or are withheld with the reason named; derived and first-reported quarters, the quarterly-trend growth cells and their basis notes (`revenueGrowthNotes`), the vendor enrichment's one-presentation pairing and the forensic one-time-items gap alter admitted context.
+export const PAYLOAD_VERSION = "1.51.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2861,6 +2862,8 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   const notes = [
     "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
   ];
+  // FIN-511-V1: the basis note of every growth cell that uses a first-reported copy or is dashed.
+  for (const note of new Set(disclosures.quarterlyTrend.flatMap((row) => row.revenueGrowthNotes ?? []))) notes.push(note);
   // D-63: the company's guidance track record, one citable figure per metric:
   // the share of the guided quarters whose result landed above (below) the
   // range the preceding release gave. The CEO and CFO issue that outlook, so

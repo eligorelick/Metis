@@ -788,6 +788,10 @@ describe("payload determinism + provenance", () => {
     expect(JSON.stringify(payload).split("The balance-sheet score grades ").length - 1).toBe(1);
     expect(JSON.stringify(payload).split("Diluted share-count change: ").length - 1).toBe(1);
     const payloadJson = JSON.stringify(payload);
+    // Audit 2026-10-27 B13 Task 6 (FIN-509-V1): when no lookback year can be evaluated the one-time-items rule adds an
+    // info entry to the missing-data manifest. The preceding version had none; the entry is dropped and its count asserted.
+    const isOneTimeGap = (item: unknown): boolean => typeof item === "object" && item !== null && (item as { field?: unknown }).field === "forensics.flags.oneTimeItems";
+    expect(JSON.stringify(payload).split("one-time-items rule not evaluated").length - 1).toBe(1);
     // The label: the figure, its provenance record (the payload embeds its registry) and the graded-window note that quotes it
     // (dropped below, so it is never restored). The slug: the figure's and the record's id.
     expect(b3Restorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([3, 2]);
@@ -797,7 +801,7 @@ describe("payload determinism + provenance", () => {
     // Two each: the figure itself and its provenance record (the payload embeds its registry).
     expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item))
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item) && !isOneTimeGap(item))
         : typeof leaf === "string" ? restoreB8dText(restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")))) : leaf)) as typeof payload;
     // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
     // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
@@ -1213,11 +1217,27 @@ describe("payload determinism + provenance", () => {
       // preceding-pin chain above.
       // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
       // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
+      // Audit 2026-10-27 B13 Task 6 (FIN-509-V1), 2026-10-28: the fixture's income rows carry no totalOtherIncomeExpensesNet, so
+      // the one-time-items rule adds one info entry (forensics.flags.oneTimeItems) to the missing-data manifest (+432 bytes) and
+      // one citation for it. Fingerprint 1.49.0:c74b6cd9 -> 1.49.0:f42dbc29, promptBytes 143_867 -> 144_299, citationCount 75 -> 76,
+      // citationHash 423bbedf -> 77d52670. provenanceHash, provenanceIdsHash and financeHash do not move. The preceding-pin chain
+      // drops the entry (isOneTimeGap, count asserted) and its 1.36.0 pins are unchanged.
+      // Audit 2026-10-27 B13 Task 6 review, 2026-10-28 (FIN-509-V1): the gap reason reads "in every fiscal year of the
+      // lookback" in place of "in every one of the last 5 fiscal years" (-3 bytes). Fingerprint 1.49.0:f42dbc29 ->
+      // 1.49.0:2cdc3384, promptBytes 144_299 -> 144_296; no count, citation or finance leaf moves.
       // Audit 2026-10-29 of AMZN #51 (D-133, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
       // no noncurrent-only lease line, no zero short-term debt beside filed current debt, no vendor stakes and no
       // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
-      fingerprint: "1.50.0:25742c4f",
-      promptBytes: 143_867,
+      // Merge of main into B13, 2026-10-29: both changes together, payload 1.50.0 (D-133's header) with B13's +429 bytes
+      // (Task 6 and its review). promptBytes 144_296 as B13; every other leaf as on both sides; fingerprint 1.50.0:6f42a9e6.
+      // 2026-10-29 B13 (D-134): payload 1.51.0. The only changed line of the serialized payload is the versioned header
+      // ("payloadVersion 1.50.0" -> "1.51.0", same byte length; Task 11's stamp). The fixture is FMP-shaped DEMO data
+      // with a filed-shaped income block, no EDGAR provenance, no re-presentation flag on its quarterly rows (Task 9)
+      // and no derived EBIT, D&A or R&D (Tasks 1-5, 7, 8), so no other line moves: the old prompt with its header
+      // restored hashes to the preceding 6f42a9e6. promptBytes 144_296, the 531 records, the 76 citations and every
+      // other leaf are unchanged; only the fingerprint moves, 1.50.0:6f42a9e6 -> 1.51.0:9120109f.
+      fingerprint: "1.51.0:9120109f",
+      promptBytes: 144_296,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
@@ -1225,8 +1245,8 @@ describe("payload determinism + provenance", () => {
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
       provenanceHash: "3fc51d0c",
       provenanceIdsHash: "fe7c2621",
-      citationCount: 75,
-      citationHash: "423bbedf",
+      citationCount: 76,
+      citationHash: "77d52670",
       computedFigureLabelHash: "ec8c7355",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
@@ -1387,7 +1407,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.50.0");
+    expect(first.payloadVersion).toBe("1.51.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2916,7 +2936,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.48.0");
+    expect(report.meta.specVersion).toBe("1.49.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

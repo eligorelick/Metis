@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.48.0 / payload 1.50.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_29 (2026-10-29). Its bounded evidence fixes
+The current source declares report 1.49.0 / payload 1.51.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_30 (2026-10-29). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -303,7 +303,7 @@ rate)` row) and in the report's computed-returns notes.
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
-| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed. No universal statutory rate is assumed. |
+| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
@@ -714,6 +714,59 @@ outright — a bank, where interest is an operating cost — EBIT is withheld an
 named in the missing-data manifest rather than published under a second name.
 Interest the taxonomy nests inside the non-operating aggregate the filer
 tagged is not added back (audit 2026-10-22 B-39, below).
+
+The derivation's pre-tax operand is the same evidence as the pre-tax field: the
+filed total, else the B-32 domestic + foreign composition (audit 2026-10-27
+FIN-507-V1, D-134), and the disclosure says when the composition was taken as
+the full total. The interest operand is not required beside a filed
+`NonoperatingIncomeExpense` aggregate. An interest element that is filed but
+unusable on the row (another currency, another period) is likewise skipped
+beside the aggregate and the disclosure says so, with no mismatch withholding
+left beside the published value; without the aggregate the part's own mismatch
+reason is the withholding. Where the derivation is refused, the
+operand it lacks is named in the `operatingIncome` withholding, and `ebit` is
+withheld with it, so a missing operand is never a silent gap.
+
+What the derivation removes is the aggregate, else its components the filer
+tags (`InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`), plus
+equity-method results; each subtracted item is named in the disclosure with its
+amount (audit 2026-10-27 FIN-509, D-134). A component is never subtracted
+beside a filed aggregate, which already holds it, and when the aggregate is not
+filed the disclosure says so and lists the components taken instead. An
+adjustment the filer files for the period in another currency or for another
+period than the row is never a withholding beside the published figure (B13
+final review M-3): beside the aggregate a component is named as already inside
+it, and an item that would be subtracted is not subtracted and is named in the
+error band with why, so the figure is computed as it would be without that
+item, plus that disclosure. When that item is the `NonoperatingIncomeExpense`
+aggregate itself, it is not used: the components the filer tags stand in for
+it, as where no aggregate is filed, and the disclosure says why, so the figure
+can differ from the one published before this batch. Johnson &
+Johnson's quarter ended 2026-09-27 files pretax income of 34 million,
+`InterestExpenseNonoperating` of 217, `InvestmentIncomeInterest` of 186 and
+`OtherNonoperatingIncomeExpense` of -5,780 (litigation charges and reversals),
+and no aggregate or operating income: its EBIT is 5,845 million, not 65. The
+"other" element is by definition the line beside separately tagged interest
+(Regulation S-X Rule 5-03, caption 7(d), and the interest of caption 8 are
+separate captions; XBRL US rule DQC_0181 gives interest its own element under
+the aggregate). In the planner's offline scan of the 50 retained filers, every
+filer that files an operating income, pretax income, the "other" element and
+interest ties out with the "other" line excluding interest. A filer can still
+tag an interest-inclusive total under it (NNN 2025; eBay's 2014 10-K), and
+companyfacts carries no calculation linkbase to tell. So when the "other" line
+is subtracted and an interest expense was added back, the disclosure states the
+net interest added back (interest expense less any investment income
+subtracted) as the amount by which EBIT is overstated if the "other" line
+already holds that interest.
+
+A bank-routed filer's `interestIncome` is its operating total: the resolver
+tries `InterestIncomeOperating`, `InterestAndDividendIncomeOperating`,
+`InvestmentIncomeInterestAndDividend` and `InvestmentIncomeInterest` in that
+order (audit 2026-10-27 FIN-510-V1), because at a bank the investment-income
+element is only the securities interest inside the total. A non-bank keeps the
+investment-income elements first. The mortgage-REIT spread reads the statement
+`interestIncome` only as a fallback when no operating tag is filed, so its value
+does not change for a filer that tags an operating total.
 
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below
@@ -1867,6 +1920,11 @@ individually increase the reconstruction:
 - Where **real-estate** depreciation is not tagged separately, total
   depreciation and amortization is added back; NAREIT adds back only the
   real-estate portion.
+  That stand-in is the filer's total: a combined tag below the same period's
+  `Depreciation` or `AmortizationOfIntangibleAssets` is skipped by the same
+  floor and allowance as the statement builder's D&A (see "D&A from separate
+  lines (B-7)"), so a subset line is never added back as the total (audit
+  2026-10-27 FIN-510-V2).
 - Where the **real-estate impairment** element is not tagged, the generic
   `AssetImpairmentCharges` is added back; NAREIT adds back only impairments of
   depreciable real estate, so a goodwill write-down inside that charge does not
@@ -3048,6 +3106,60 @@ a kept amount may belong to a person the cut excerpt did not name (audit
 2026-10-27 AI-101). The stored report does not keep the excerpt, so this cannot
 be found or corrected at display; such figures are shown as stored.
 
+**Legacy reports built from SEC statements (audit 2026-10-27 B13, D-67).** A report
+saved before report spec 1.49.0 whose income statements came from SEC filings is
+marked in one of two classes. FULL: the manifest holds a `keyless.incomeAnnual` or
+`keyless.incomeQuarterly` entry (exactly that field) whose reason starts "served by
+edgar" (the wording of the `record()` entry in `src/pipeline/keyless.ts`, unchanged
+since 2026-09-01). BACKFILL, when no FULL entry exists: only older periods came from
+SEC filings, shown by a `statements.backfill.incomeAnnual` or
+`statements.backfill.incomeQuarterly` entry, an `edgar.predecessor` entry whose reason
+says older periods "were taken from the predecessor's filings" (the "no
+pre-reorganization periods were appended" form does not count), or a scoped
+`keyless.incomeAnnual.backfill.*`, `keyless.incomeQuarterly.backfill.*`,
+`keyless.incomeAnnual.predecessor.*` or `keyless.incomeQuarterly.predecessor.*` entry.
+FULL wins when both are present. An appended `edgar.predecessor` entry covers all six
+statement members, so a predecessor history without income periods also carries the
+BACKFILL notes, and a member served wholly by predecessor rows carries the BACKFILL
+wording; both are conservative over-inclusions. A `keyless.<member>.shareBasis` entry never marks a
+report: `keyless.ts` files it only when the member holds vendor rows, the opposite
+of an SEC-built statement. The report is shown, on the page and in the Markdown,
+print and audit exports, through
+`withLegacyEdgarDerivedLines` (`src/report/legacyEdgarDerivedLines.ts`), which
+follows the payload-record view above. It adds up to three fixed-string notes and
+changes no figure; the stored report and its bytes are never rewritten. The
+since-version is a frozen constant (`EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`), never
+the current `REPORT_SPEC_VERSION`, compared numerically through
+`specVersionBefore`. (a) When the fair value is available, one line is added to its
+basis: the statement lines were built before the derived operating income stopped
+dropping a period that files the non-operating aggregate without an interest
+element, removed a filer-tagged other non-operating result and stopped adding back
+interest the filer placed inside the aggregate, before D&A and R&D stopped taking a
+synonym below their own filed component, and before derived quarters and growth
+cells were checked for one presentation where the filings show a re-presentation,
+or withheld. For the BACKFILL class, line (a)
+opens "The older statement periods on this report that were backfilled from SEC
+filings were built before report spec 1.49.0." instead (`LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE`),
+and the rest is unchanged. (b) When the manifest holds an
+income restatements entry (`keyless.incomeQuarterly.restatements`,
+`keyless.incomeAnnual.restatements`, or a scoped one such as
+`keyless.incomeQuarterly.backfill.restatements`) whose reason names a revenue line
+or ends its list with "and N more" (a revenue line may sit past the six listed),
+the first quarterly-trend row's
+growth notes say the YoY/QoQ cells and derived fourth quarters were computed
+without checking whether the two quarters sit on one filed presentation. (c) The
+quality notes always say the one-time-items screen was skipped without notice where
+the filer tags no NonoperatingIncomeExpense aggregate (so "no flags were raised" may
+mean it was not evaluated), and that D&A could be a sub-line below the filer's own
+Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A; for the BACKFILL
+class the first clause reads "Statement-derived screens on this report's older
+periods backfilled from SEC filings were computed before report spec 1.49.0:"
+(`LEGACY_EDGAR_BACKFILL_QUALITY_NOTE`). (c) does not wait for an available fair
+value, because (a) does. The trend note (b) keeps its own trigger in both classes.
+A report carrying either class's text never gains the other's. A report at or after
+the since-version, or in neither class (an FMP-route report), is returned as the
+identical object.
+
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
@@ -4000,7 +4112,8 @@ existing 0–35% clamp still applies and is disclosed when it moves the rate.
 With neither a trailing nor an annual pair, the levered WACC is still
 withheld. Oracle tags no pre-tax total, only its domestic and foreign
 components, so on the SEC path pre-tax income is now their sum when no total
-is tagged, with the composition disclosed.
+is tagged, with the composition disclosed. The derived EBIT's pre-tax operand
+reads the same composition (audit 2026-10-27 FIN-507-V1).
 
 **Principal beside carrying debt (B-5).** When the current and noncurrent
 debt lines do not both resolve, the debt check compares the filed debt aggregate
@@ -4020,11 +4133,12 @@ and net debt are still withheld, with a gap naming both figures. A tagged carryi
 on the components' own basis, so only rounding can separate them. The band is
 a house convention.
 
-**Vendor figure against the filed figure (A-11).** On the provider path, a
-vendor statement figure is checked against the filed SEC figure for the same
-period: revenue, cost of revenue, gross profit and operating expenses; cash,
-cash-flow totals, operating cash flow and short-term investment flows; lease
-liabilities; debt lines against the same filing; and temporary-equity
+**Vendor figure against the filed figure (A-11).** Wherever EDGAR confirms the
+issuer, a statement figure the bundle holds (a provider's on the provider path;
+on the keyless route, the SEC-built row's own) is checked against the filed SEC
+figure for the same period: revenue, cost of revenue, gross profit and
+operating expenses; cash, cash-flow totals, operating cash flow and short-term
+investment flows; lease liabilities; debt lines against the same filing; and temporary-equity
 operands, including the recheck of operating cash flow against a filed
 cash-investment period. The check allowed one part in ten billion, so Meta's December 2025
 quarter (vendor revenue $59,894M, filed $59,893M) was refused as a conflict,
@@ -4044,6 +4158,78 @@ tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.
 
+In the SEC enrichment of the bundle's cash-flow and lease rows
+(`src/edgar/financialEnrichment.ts`), a quarterly flow that no three-month copy
+states (operating cash flow, buybacks, the investing and financing totals, the
+cash movement, the short-term investment flows, a finance-lease principal) is
+derived on the SEC side as the fiscal year or year to date less the prior year
+to date, and the pair is chosen by the statement builder's one-presentation
+helper ("Derived quarters on one presentation (audit 2026-10-27 FIN-511)"
+below; audit 2026-10-27 FIN-511-V2). Before, the newest year was netted against
+the nine months filed before it: a year a later 10-K re-presented, netted
+against nine months on the old basis, refused a vendor's one-basis operating
+cash flow (and nulled free cash flow) against a figure no filing reported, and
+the same mixed figure was written into a missing vendor finance-lease
+principal. A pair the helper withholds (two presentations, or a copy that a
+material re-filing labelling no re-presentation superseded) is no SEC value:
+nothing is compared, so no conflict is raised, and nothing is filled. A vendor
+figure left unverified that way is disclosed in one info entry per field that
+lists its dates ("vendor operatingCashFlow kept unverified for 2024-12-31,
+2023-12-31: the filing's year and year-to-date figures sit on different
+presentations, so no one-presentation SEC value exists to check it against");
+a field the vendor left empty gets no entry. A year
+re-filed within 1%, or labelled with a discontinued-operations line, while its
+year to date was not re-filed with it, is compared or filled on the
+first-reported pair; an amendment, a year whose year to date moved with it, and
+a copy that only re-rounds keep the as-filed pair (the bullets of "Derived
+quarters on one presentation" give every case).
+
+A vendor figure against a derived SEC value agrees within the larger of the
+tolerance above and the operands' rounding allowance, the latter capped at 1%
+of the larger figure. The rounding allowance is the sum, over the filed copies
+the compared figure nets (two, or four for short-term sales plus maturities),
+of half each copy's rounding unit: the largest power of ten up to a million
+that divides it exactly, 1 for a zero (a zero never widens it) and none for a
+figure with a fraction. Before the cap it reaches 1 million on a two-operand
+line whose operands are whole millions, and 2 million on sales plus
+maturities. The cap is A-11's own bound above, so for a derived value too 2
+million against 1 million is a conflict, a zero against a nonzero figure is a
+conflict, and so is a sign change: each gap is more than 1% of the larger
+figure, and A-11 alone already refuses it. A figure the filing states only to
+the million is itself uncertain by half a million, so a difference within the
+operands' stated precision is not a disagreement. AEP's FY2024 operating cash
+flow, re-rounded from 6,804.3 to 6,804.0 million in the next 10-K, less nine
+months of 5,076.9 million gives a fourth quarter of 1,727.1 million, the
+quarter the statement builder publishes; a vendor 1,727.4 million is within its
+0.55 million (0.5 + 0.05; the cap is 17.27 million) and is kept, and 1,728.0
+million is a conflict. A directly filed figure keeps the tolerance above
+alone. (Controller ruling of 2026-10-29, revising A-11 for derived values;
+D-134.) The rule applies to the enrichment's cash-flow and lease comparisons
+above only. The income-classification check (revenue, cost of revenue, gross profit and
+operating expenses, `src/edgar/incomeClassification.ts`) still compares a
+vendor figure with the statement builder's quarter, a derived fourth quarter
+included, under A-11 alone, and its reason says "filed": after a re-rounding
+like AEP's, a vendor fourth-quarter revenue on the first-reported pair can
+still be refused by a few tenths of a million (a recorded residual of audit
+2026-10-27 FIN-511-V2). The conflict reasons of the enrichment's checks
+(operating cash flow; buybacks, the investing and financing totals and the
+cash movement; the short-term investment buckets; a finance-lease principal)
+and the enrichment note of a filled field call a derived value derived, with
+its period and its two filings
+("derived 100M USD for 2024-10-01 through 2024-12-31 (fiscal year or year to
+date less the prior year to date, from the 10-K of 2025-02-12 (accession) and
+the 10-Q of 2024-11-01 (accession))"; the reasons print the amounts in
+millions, the note prints none). A first-reported pair reads "(the
+first-reported fiscal year or year to date less the prior year to date, from
+the ... and the ...; re-filed later in the 10-K of ...)". None says "filed"
+or an "exact quarter period". A directly filed figure keeps its "filed" or
+"exact" wording, with its amounts also in millions (the lease-liability and
+principal conflict reads "vendor/SEC conflict for <field> at <date>: <vendor>
+versus <filed> <currency>", both in millions). Where a reason sets a vendor
+amount beside the SEC amount and the two would read alike in millions while
+they differ, both print in full with grouped digits ("1,000,237 versus
+1,000,000 USD").
+
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
 `DepreciationAndAmortization`, `DepreciationAmortizationAndAccretionNet`).
@@ -4052,6 +4238,29 @@ periods, so they had no D&A and no EBITDA, and EV/EBITDA, net debt/EBITDA and
 the capex split were withheld. When no combined tag is filed for a period, D&A
 is now the filer's `Depreciation` + `AmortizationOfIntangibleAssets`; when no
 amortization is tagged for the period either, it is `Depreciation` alone.
+A combined tag is the D&A only when it is not below the same period's
+`Depreciation` or `AmortizationOfIntangibleAssets` (and, for
+`DepreciationDepletionAndAmortization` only, not below the same period's
+`DepreciationAndAmortization`: McDonald's quarterly $111M beside $565M). A floor
+applies only when its component is filed for the same period; a component filed
+for another period is not compared. The rounding allowance is
+the larger of 0.5% of the component and 2 million in the row's currency
+(a house constant). Total D&A contains total depreciation and the
+amortization of intangibles, so a combined tag below either is a subset line
+(McDonald's `DepreciationDepletionAndAmortization` of $457M beside its own
+`Depreciation` of $1,600M). us-gaap defines `Depreciation` as including
+production and non-production depreciation, while `DepreciationAndAmortization`
+is defined as the non-production charge. A combined tag below a component is
+skipped, with a note, and the next combined tag is tried, then the composition
+below. With no combined tag that passes and no `Depreciation` filed (Cisco's
+FY2026: $700M combined beside $916M of amortization), D&A is withheld with the
+reason, never published as a figure known to be partial. A non-production
+`DepreciationAndAmortization` at or above `Depreciation` cannot be told from a
+total in companyfacts and is kept. The same rule applies to R&D:
+`ResearchAndDevelopmentExpense` below the same period's
+`ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost` is not the total,
+because the first includes acquired in-process R&D and software and the second
+excludes them (audit 2026-10-27 FIN-510 and FIN-510-V1, D-134).
 Either is a stand-in for the period and is disclosed as a lower bound,
 because a combined cash-flow line can hold other amortization: Microsoft's
 "depreciation, amortization, and other" is larger than the two tagged lines.
@@ -4292,7 +4501,190 @@ not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
 26,302 million). Owner decision: the taxonomy nesting is taken as the filer's
 presentation, as the withholding rule already did; the disclosure says that
 where a filer's aggregate leaves its interest out, the figure understates
-EBIT by that interest.
+EBIT by that interest. A period that files the aggregate and no interest
+element at all is derived the same way (audit 2026-10-27 FIN-507, D-134):
+pretax income less the aggregate, with a disclosure that no interest element is
+filed and that an interest line outside the aggregate would leave the figure
+understating EBIT by that interest. The nesting is read from the period: when the
+filer tags the period's interest as `InterestExpenseNonoperating` in any
+filing (Eli Lilly re-filed FY2022 and FY2023 that way in its FY2024 10-K; the tag is accepted from any filing for the period, not only a later one), the
+interest is not added back, whichever interest element serves the row, even
+when that tag's quarter is itself withheld for presentation (audit 2026-10-27
+FIN-508, FIN-511). A period with neither the interest nor the
+aggregate is withheld, with the missing operand and the missing aggregate named
+(Eli Lilly's 2026 quarters, with the aggregate and no interest element, moved
+from no EBIT to 8,915 and 8,978 million).
+
+**Derived quarters on one presentation (audit 2026-10-27 FIN-511).** A
+quarter derived by subtraction (the fiscal year less the nine-month year to
+date, a year to date less the previous year to date, or the year less three
+quarters) nets two figures, and they must sit on one presentation. Filing-date
+lineage (D-13) is the minimum: each operand is the newest copy filed no later
+than the minuend's own filing. Lineage by date is not lineage by presentation,
+so the pair is also checked by one pure helper
+(`src/edgar/presentationLineage.ts`), in the statement builder and in the SEC
+enrichment of the bundle's cash-flow and lease rows, provider or keyless
+("Vendor figure against the filed figure (A-11)"). The notes, withholdings and
+quoted refusals the bullets name are the statement builder's; in the
+enrichment a withheld pair is no SEC value to compare or fill, and a vendor
+figure it leaves unverified is disclosed (see the A-11 paragraphs):
+
+- A copy that only re-rounds is not a move: when the later copy is a whole
+  multiple of 1,000,000 in a money unit and differs from the earlier copy by no
+  more than 500,000 (half the million rounding unit; SEC filers present in
+  thousands or millions), no test below treats the period as re-filed. A
+  quarter derived on a re-rounded line can therefore differ from the
+  first-reported quarter by up to 0.5 million (small lines: AEP's
+  equity-method income Q4 2023 is -1.9 against -2.4 first reported, its NCI 2.1
+  against 1.6).
+- A year (or year to date) that a later filing re-filed, whose subtrahend did
+  not move with it, is derived from its first-reported copy only when the
+  re-filing changed it by no more than 1% (the note says "a change within 1%",
+  with the percentage, because a small change that is not a re-rounding can be
+  a retrospective accounting change) or labels the period a re-presentation
+  with a new or changed non-zero discontinued-operations line for it
+  (ASC 205-20-45-3). When the first-reported copy has no subtrahend filed on or
+  before it, the quarter is withheld, with that reason. A larger move that
+  the re-filing does not label withholds the quarter, naming both filings,
+  because a corrected figure replaces the original (ASC 250-10-45-23) and
+  companyfacts cannot tell a correction from an unlabelled re-presentation
+  (decision C-9). Bank of America's FY2024 revenue, re-filed from 101,887 to
+  105,856 million (+3.90%) with no discontinued-operations line, leaves its
+  fourth quarters of 2024 and 2025 withheld (29,316 and 31,180 million before);
+  neither the mixed pair nor the first-reported quarter (25,347 million) is
+  published.
+- A pair that moved together (a re-presentation first filed in a 10-Q, then in
+  the 10-K, as SEC Financial Reporting Manual 13110.4 sequences it) keeps the
+  later copies, and an amended 10-K keeps its corrected figure.
+- The same test applies to the subtrahend: a year to date (or quarter) that a
+  later filing re-filed by more than 1%, with no discontinued-operations line
+  for it, withholds the quarter naming both filings, while the later copy itself
+  is never netted against the older 10-K (D-13).
+- The quarter is also withheld, naming both filings, when the minuend's filing
+  re-presented earlier periods of the concept by more than 1% against the copy
+  filed just before it and the filing that supplies the subtrahend did not (a
+  10-K may carry a year on a new basis while the 10-Q nine months filed before
+  it stay on the old one, FRM 13110.3). A filing that only repeats a recast an
+  earlier filing already made re-presented nothing, and only an amendment (any
+  form ending in `/A`) is excused for moving its own year.
+- A presentation withholding ends the field. No later step of any chain serves
+  it: not a narrower synonym, not a stand-in (cash interest paid for interest
+  expense), not a derivation (consolidated profit for profit attributable to the
+  parent, derived EBIT for a filed operating income). The withheld field quotes
+  the refusal. The one exception is a synonym the component floor would skip
+  anyway: a combined synonym whose quarter is withheld is judged against each
+  floor tag as for a withheld floor tag (below). Where a filing carries both
+  tags for the periods the quarter nets, those filings decide: the synonym is
+  skipped as a subset line, and the next synonym is tried, if it sits below the
+  floor tag beyond the allowance in such a filing. Only against a floor tag no
+  filing carries beside it does its as-filed derived quarter decide. So a
+  McDonald's-shaped `DepreciationDepletionAndAmortization`, below `Depreciation`
+  in the 10-Q that carries both, gives way to the total
+  `DepreciationAndAmortization`. Home Depot's quarter ended 2023-01-29 stays
+  withheld: its `DepreciationDepletionAndAmortization` is the larger tag in
+  every filing that carries both (FY2022 2,975 million against 2,455 million,
+  2,796 million against 2,455 million in the 10-K that split 179 million of
+  intangible amortization out of the year; nine months 2,216 million against
+  1,830 million), although its as-filed quarter (580 million, the re-filed year
+  less the original nine months) is below `DepreciationAndAmortization`'s 625
+  million. A withheld synonym at or above its floors still ends the field (B13
+  final review M-6, final re-review N-1).
+- A derived EBIT whose adjustment or optional interest part is withheld for
+  presentation is itself withheld, quoting that reason (never read as "not
+  filed"), when the derivation uses that operand. An operand the derivation does
+  not use never refuses the EBIT (B13 final review I-1). Three kinds of operand
+  are not used: a component inside a `NonoperatingIncomeExpense` aggregate that
+  served for the period (`InvestmentIncomeInterest`,
+  `OtherNonoperatingIncomeExpense`); an equity-method result beside a pretax
+  element measured before it; and, beside a served aggregate, interest the
+  B-39/FIN-508 nesting leaves out (the withheld tag is
+  `InterestExpenseNonoperating`, or another filing tags the period's interest
+  that way). Such an operand is resolved quietly, only for its "already contains
+  them", "measured before them" or nesting disclosure, and writes no withholding,
+  so where only an unused operand was re-presented the EBIT is published as it
+  was before this batch. An adjustment or interest part that is simply not
+  filed keeps the "filer tags none" and the FIN-507 disclosures. The FIN-508
+  nesting test asks only whether the filer tags the period's interest as
+  `InterestExpenseNonoperating`, so a quarter of that tag withheld for
+  presentation still counts as tagged.
+- A combined-total floor tag (for example `Depreciation` under a combined D&A
+  tag) that is withheld for presentation still bounds the floored tag: the
+  decision is made from filed copies on one basis, never from the refused
+  quarter: the candidate's copy of each period it nets is compared with the
+  floor tag's copy of the same period in the same filing (for a fourth quarter,
+  the fiscal year and the year to date through the previous quarter; for a
+  year-to-date difference, the year to date and the one before it), and the candidate is skipped only if it sits below the floor beyond
+  the 0.5% / 2 million allowance in such a filing. If no filing carries both
+  tags for those periods, the floor tag's as-filed derived quarter (the newest
+  copies filed no later than its own minuend's filing) decides. The floor is a
+  magnitude check that is never published. A floor tag that is not withheld is
+  compared by its one-basis quarter, not by the as-filed pair, so a real total is
+  published and not a lower bound (a synthetic case: 3,000 where the as-filed
+  pair gave 2,940). A floor tag that is not filed at all leaves no floor.
+- A withheld revenue quarter suppresses the TTM window, which then falls back to
+  the annual statement.
+
+(Revises D-13, "one filing lineage": it now means one presentation; D-134.)
+
+**Quarterly trend growth on one presentation (audit 2026-10-27 FIN-511-V1).**
+Where the filings show a re-presentation, each year-over-year and
+quarter-over-quarter cell of the quarterly trend divides two quarters on one
+presentation, or is not shown with a note. The test reads what the SEC
+statement rows carry: the revenue provenance, the re-presentation flag and
+first-reported copy, and a marker naming the filing that supplies the
+quarter's revenue and whether that filing re-presented earlier periods of the
+concept (`revenuePresentation`, the test the derived-quarter rule above
+applies to a minuend). Rows from the FMP route carry none of these and keep
+plain arithmetic. Three cases:
+
+- The comparison quarter was re-presented by a filing newer than the printed
+  quarter's own supplying filing, and the printed quarter was not: the cell
+  divides by the comparison's first-reported copy when that copy was filed on or
+  before the printed quarter's filing, which puts both on the earlier
+  presentation. The note names that copy (amount and filing) and the filing
+  that re-presented it (Bank of America Q3 2025 against Q2 2025: 28,088 /
+  26,463 = +6.1%, not +2.4% against the re-presented 27,443). When no
+  first-reported copy was filed on or before the printed quarter's filing, or
+  the first-reported copy is not positive, the cell is not shown, with a note.
+- The printed quarter was re-presented by a filing newer than the comparison's
+  supplying filing, and nothing re-presents the comparison: the cell is not
+  shown, with a note, because any rate would sit beside a level on a different
+  presentation (Bank of America Q1 and Q2 2025 year over year, +9.4% and +8.1%
+  before).
+- The printed quarter's own filing re-presented earlier periods and the
+  earlier filing that supplies the comparison did not (the rule
+  applied to the pair that the derived-quarter rule applies to a minuend and a
+  subtrahend): the cell is not shown, with a note. A synthetic case: a 10-Q
+  files a quarter of 90 and re-presents the prior-year quarter, while the prior
+  quarter, from the earlier 10-Q, is 110 on the old basis; 90 / 110 = -18.2%
+  would net two bases (on one basis it would be 90 / 88 = +2.3%), and the
+  year-over-year cell, both quarters from that 10-Q, is kept. In every other
+  case (both filings re-presented, neither did, only the comparison's did, the
+  two share a date, or the comparison's filing is the later one) the cell is
+  unchanged.
+
+Limits. A quarter whose revenue is a sum of several tags, or a row without the
+marker (the FMP route, stored rows), keeps plain arithmetic. A comparison whose
+own filing re-presented for an earlier, separate change counts as on the newer
+basis. The re-presenting filing named in a note is the one that supplies the
+newest copy of the re-presented quarter, which can be later than the filing
+that first changed it. Re-presentation is judged for the whole filing, not for
+each period, as in the derived-quarter rule: a quarter re-filed unchanged by a
+filing that moved other periods counts as on that filing's presentation, so
+its cell can be withheld although its figure is the same on both. The notes follow the table in the classic report and the
+quarterly-trend section of the payload, where a dashed cell registers no
+figure. A growth cell against a withheld quarter stays a dash, as before. This
+follows the presentation rule above and SEC Financial Reporting Manual 13110.4,
+under which a later 10-Q re-presents only the periods it shows (D-134).
+
+The quarterly-trend table note carries the sentence "where the filings show a
+re-presentation, each growth cell divides two quarters on one presentation or is
+not shown, with a note" only where that check ran: the stored filing disclosures
+carry `quarterlyTrendPresentationChecked: true`, which the builder sets only when
+a shown quarter's SEC-built row carries `revenuePresentation` (report spec 1.49.0
+on). Otherwise the field is omitted, and reports built before the check and
+provider-route (FMP) reports keep the earlier note, which says only how YoY and
+QoQ compare (Task 9b).
 
 **Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
 capital although the filing establishes the figure.

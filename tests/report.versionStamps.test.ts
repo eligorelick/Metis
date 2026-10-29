@@ -21,6 +21,19 @@
  * AMZN #51) move the lease-line completion, the vendor path's stakes and the
  * refusal-naming diagnostics; a pass stored under 1.49.0 is never resumed.
  * Pipeline stage-c-1.6.12 does not move.
+ * Report 1.49.0, payload 1.51.0 and Stage B ..._30 (D-134, audit 2026-10-27
+ * B13) move the EDGAR-derived operating lines. A report stored under 1.48.0
+ * cannot claim that a derived EBIT, D&A, R&D or bank interest income is the
+ * filer's total on one presentation, that a derived or year-to-date quarter
+ * and its growth cells sit on one filed presentation, or that the one-time-items
+ * screen was evaluated: it is shown through withLegacyEdgarDerivedLines, with
+ * its bytes kept. A payload stored under 1.50.0 never carries the
+ * one-presentation quarters, the growth-basis notes or the unevaluated-screen
+ * gap, so a pass stored under it is never resumed, and a Stage B snapshot under
+ * ..._29 is recomputed. Pipeline stage-c-1.6.13, the score bands and the
+ * method and resolver versions do not move: no Stage C pass, band table,
+ * valuation method, path construction or net-debt resolver changed, only the
+ * filed inputs they read.
  * Earlier stamps:
  *
  *  - REPORT_SPEC_VERSION 1.4.0: every share count and per-share figure is on
@@ -70,6 +83,8 @@ import { diffReports } from "@/report/diff";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { getLatestDoneReport } from "@/report/query";
+import { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/legacyEdgarDerivedLines";
+import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import { REPORT_SPEC_VERSION, ReportSchema, type Report } from "@/report/schema";
 
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -96,21 +111,26 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.48.0");
-    expect(PAYLOAD_VERSION).toBe("1.50.0");
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_29");
+    expect(REPORT_SPEC_VERSION).toBe("1.49.0");
+    expect(PAYLOAD_VERSION).toBe("1.51.0");
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_30");
+  });
+
+  it("freezes the EDGAR-derived-lines since-version at the report stamp that introduced it", () => {
+    expect(EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION).toBe("1.49.0");
+    expect(specVersionBefore(REPORT_SPEC_VERSION, EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION)).toBe(false);
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.48.0");
+    expect(newReport().meta.specVersion).toBe("1.49.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.50.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.50\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.50\.0\)/);
+    expect(payload.payloadVersion).toBe("1.51.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.51\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.51\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1", "1.35.0", "1.35.1", "1.36.0", "1.37.0", "1.38.0", "1.39.0", "1.40.0", "1.41.0", "1.42.0", "1.43.0", "1.44.0", "1.45.0", "1.46.0", "1.47.0", "1.48.0", "1.49.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1", "1.35.0", "1.35.1", "1.36.0", "1.37.0", "1.38.0", "1.39.0", "1.40.0", "1.41.0", "1.42.0", "1.43.0", "1.44.0", "1.45.0", "1.46.0", "1.47.0", "1.48.0", "1.49.0", "1.50.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });

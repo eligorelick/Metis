@@ -3,7 +3,12 @@
  *
  * Every concept chain in src/edgar/statements.ts reads its tag list from this
  * table, so a taxonomy review has one place to look and one stamp to update.
- * Order matters: within a line item the first tag present for the period wins.
+ * Order matters: within a line item the first tag present for the period wins,
+ * unless it is below a component the line item declares (`unlessBelow`, audit
+ * 2026-10-27 FIN-510): a synonym below its own filed component is a subset line,
+ * not the total, so the next synonym is tried. Floors compare the same period
+ * only. `DepreciationDepletionAndAmortization` is additionally floored by
+ * `DepreciationAndAmortization` (`unlessBelowTag`), never the reverse.
  *
  * Review stamp: the element names below were reviewed against the US-GAAP
  * 2025 taxonomy element list on 2026-09-02 (an offline review of names; no
@@ -38,10 +43,31 @@ export interface TagSynonymEntry {
   tags: readonly string[];
   /** Tried only after every `tags` entry misses, in order, each disclosed separately. */
   standIns?: readonly TagStandIn[];
+  /**
+   * Component tags the line item contains. A synonym whose value is below the
+   * same period's value of any of them (beyond `SYNONYM_FLOOR_TOLERANCE`) is a
+   * subset line and is skipped. Declared only where a us-gaap definition puts
+   * the component inside the figure the line item stands for.
+   */
+  unlessBelow?: readonly string[];
+  /**
+   * Floors that bind one synonym only: a component that contains that synonym
+   * but not every other synonym of the line item. Same per-period comparison.
+   */
+  unlessBelowTag?: Readonly<Record<string, readonly string[]>>;
 }
 
-const entry = (tags: readonly string[], standIns?: readonly TagStandIn[]): TagSynonymEntry =>
-  standIns === undefined ? { tags } : { tags, standIns };
+const entry = (
+  tags: readonly string[],
+  standIns?: readonly TagStandIn[],
+  unlessBelow?: readonly string[],
+  unlessBelowTag?: Readonly<Record<string, readonly string[]>>,
+): TagSynonymEntry => ({
+  tags,
+  ...(unlessBelowTag === undefined ? {} : { unlessBelowTag }),
+  ...(standIns === undefined ? {} : { standIns }),
+  ...(unlessBelow === undefined ? {} : { unlessBelow }),
+});
 
 /**
  * `Revenues` first: it is the taxonomy's total-revenue element, and the
@@ -139,7 +165,11 @@ export const INTEREST_EXPENSE_STAND_INS: readonly TagStandIn[] = [
  * `componentOf` names another adjustment that already contains this one in the
  * taxonomy's income-statement calculation: `InvestmentIncomeInterest` is a
  * child of `NonoperatingIncomeExpense`, so it is subtracted on its own only
- * when the aggregate is absent.
+ * when the aggregate is absent. `OtherNonoperatingIncomeExpense` is its sibling
+ * under the aggregate (the "other" line beside interest, DQC_0181; D-134 OD-2),
+ * so the same rule applies: with no aggregate filed, a filer that tags it has the
+ * result taken out of the derived EBIT, named with its amount (audit 2026-10-27
+ * FIN-509).
  *
  * `notWhenBaseTag` names base tags whose OWN DEFINITION excludes this item, so
  * subtracting it would remove money the base never held. Equity-method results
@@ -160,6 +190,7 @@ export interface EbitNonOperatingAdjustment {
 export const EBIT_NON_OPERATING_ADJUSTMENTS: readonly EbitNonOperatingAdjustment[] = [
   { label: "NonoperatingIncomeExpense", tags: ["NonoperatingIncomeExpense"] },
   { label: "InvestmentIncomeInterest", tags: ["InvestmentIncomeInterest"], componentOf: "NonoperatingIncomeExpense" },
+  { label: "OtherNonoperatingIncomeExpense", tags: ["OtherNonoperatingIncomeExpense"], componentOf: "NonoperatingIncomeExpense" },
   {
     label: "IncomeLossFromEquityMethodInvestments",
     tags: ["IncomeLossFromEquityMethodInvestments"],
@@ -187,6 +218,42 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
     "component of the NonoperatingIncomeExpense aggregate subtracted here, so pretax income less that aggregate " +
     "already excludes it; where the filer's aggregate leaves its interest out, the figure understates EBIT by that " +
     "interest",
+  /**
+   * The nesting is read from the PERIOD (audit 2026-10-27 FIN-508): the part
+   * labelled `partLabel` is left out too when another filing tags this period's
+   * interest as `partTag`, whichever interest element served the row.
+   */
+  partLabel: "interest expense",
+  discloseRefiled:
+    "interest expense is not added back: the filer also tags this period's interest as " +
+    `${INTEREST_INSIDE_NONOPERATING_TAG} in another filing, the us-gaap component of the NonoperatingIncomeExpense ` +
+    "aggregate subtracted here, so pretax income less that aggregate already excludes it; where the aggregate leaves " +
+    "its interest out, the figure understates EBIT by that interest",
+} as const;
+
+/**
+ * A period that files the `NonoperatingIncomeExpense` aggregate and no interest
+ * element at all (audit 2026-10-27 FIN-507; D-134 extends B-39 to it). The
+ * interest part of the derived EBIT is then not required: pretax income less
+ * the aggregate is the EBIT, and `disclose` says what that rests on.
+ */
+export const EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE = {
+  adjustmentTag: "NonoperatingIncomeExpense",
+  disclose:
+    "no interest-expense element (or cash-interest stand-in) is filed for the period; with the NonoperatingIncomeExpense " +
+    "aggregate filed, pretax income less that aggregate is the EBIT (the us-gaap calculation places nonoperating " +
+    "interest, InterestExpenseNonoperating, inside the aggregate); where the filer's interest sits outside the " +
+    "aggregate on an untagged line, the figure understates EBIT by that interest",
+  /**
+   * The same disclosure for an interest element that IS filed but cannot be used
+   * on this row (another currency, another period): it is not added back and
+   * not converted, and the disclosure says why instead of "not filed".
+   */
+  discloseUnusable: (problem: string): string =>
+    `interest expense ${problem}, so it is not added back; with the NonoperatingIncomeExpense aggregate filed, ` +
+    "pretax income less that aggregate is the EBIT (the us-gaap calculation places nonoperating interest, " +
+    "InterestExpenseNonoperating, inside the aggregate); where the filer's interest sits outside the aggregate, " +
+    "the figure understates EBIT by that interest",
 } as const;
 
 /**
@@ -200,6 +267,18 @@ export const EBIT_AGGREGATE_MAY_HOLD_INTEREST =
   "caveat — the NonoperatingIncomeExpense aggregate subtracted here is frequently presented as \"total other income " +
   "(expense), net\" and may ALREADY contain the interest expense added back; companyfacts carries no presentation " +
   "linkbase, so this cannot be checked, and where it does the figure overstates EBIT by that interest";
+
+/**
+ * The caveat a derived EBIT carries when `OtherNonoperatingIncomeExpense` was
+ * subtracted and an interest expense was added back (audit 2026-10-27 FIN-509,
+ * D-134 OD-2). The element is by definition the "other" line beside separately
+ * tagged interest, but companyfacts carries no calculation linkbase, so a filer
+ * that tags an interest-inclusive total under it cannot be told apart. The
+ * amount is stated because the error is exactly the net interest added back.
+ */
+export const EBIT_OTHER_MAY_HOLD_INTEREST = (netInterestAddedBack: number): string =>
+  "caveat — OtherNonoperatingIncomeExpense is by definition the 'other' line beside separately tagged interest; " +
+  `where a filer tags an interest-inclusive total under it, the figure overstates EBIT by the net interest added back (${netInterestAddedBack})`;
 
 /** The current portion of long-term debt AND finance leases, as retailers tag their current installments. */
 export const COMBINED_CURRENT_DEBT_TAG = "LongTermDebtAndCapitalLeaseObligationsCurrent";
@@ -226,10 +305,13 @@ export const LINE_ITEM_TAGS = {
   bankRevenueComponents: entry(["InterestIncomeExpenseNet", "NoninterestIncome"]),
   costOfRevenue: entry(["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold", "CostOfServices"]),
   grossProfit: entry(["GrossProfit"]),
-  researchAndDevelopmentExpenses: entry([
-    "ResearchAndDevelopmentExpense",
-    "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
-  ]),
+  // The aggregate includes acquired in-process R&D and software; the second
+  // element is the same scope excluding them, so a value below it is not the total.
+  researchAndDevelopmentExpenses: entry(
+    ["ResearchAndDevelopmentExpense", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
+    undefined,
+    ["ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
+  ),
   sellingGeneralAndAdministrativeExpenses: entry(["SellingGeneralAndAdministrativeExpense"]),
   sellingAndMarketingExpenses: entry(["SellingAndMarketingExpense"]),
   generalAndAdministrativeExpenses: entry(["GeneralAndAdministrativeExpense"]),
@@ -243,6 +325,15 @@ export const LINE_ITEM_TAGS = {
     // The bank twin of the tag above: JPM's total interest income.
     "InterestIncomeOperating",
   ]),
+  // A bank's interest income is its operating total, as the vendor field carries it (audit 2026-10-27
+  // FIN-510-V1): InvestmentIncomeInterest at a bank is securities interest inside that total, so the
+  // operating elements come first. The non-bank order above is unchanged.
+  bankInterestIncome: entry([
+    "InterestIncomeOperating",
+    "InterestAndDividendIncomeOperating",
+    "InvestmentIncomeInterestAndDividend",
+    "InvestmentIncomeInterest",
+  ]),
   netInterestIncome: entry(["InterestIncomeExpenseNet"]),
   incomeBeforeTax: entry(INCOME_BEFORE_TAX_TAGS),
   incomeTaxExpense: entry(["IncomeTaxExpenseBenefit"]),
@@ -255,11 +346,17 @@ export const LINE_ITEM_TAGS = {
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),
-  depreciationAndAmortization: entry([
-    "DepreciationDepletionAndAmortization",
-    "DepreciationAndAmortization",
-    "DepreciationAmortizationAndAccretionNet",
-  ]),
+  // Total D&A contains total depreciation and the amortization of intangibles,
+  // so a combined tag below either is a subset line (audit 2026-10-27 FIN-510).
+  depreciationAndAmortization: entry(
+    ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"],
+    undefined,
+    DEPRECIATION_COMPONENT_TAGS,
+    // DepreciationAndAmortization is the other combined D&A element: beside it, a
+    // DepreciationDepletionAndAmortization below it is the subset (MCD's quarters).
+    // Not the reverse, so there is no cycle.
+    { DepreciationDepletionAndAmortization: ["DepreciationAndAmortization"] },
+  ),
   // A filer with no dilutive securities can tag one figure for both bases with
   // the combined elements; each is the basic and the diluted figure at once
   // (audit 2026-10-22 B-35).
@@ -498,4 +595,16 @@ export function tagsFor(item: LineItem): string[] {
 /** The stand-ins of one line item, in order; empty when it has none. */
 export function standInsFor(item: LineItem): TagStandIn[] {
   return [...(LINE_ITEM_TAGS[item].standIns ?? [])];
+}
+
+/** The floors that bind one synonym only (a fresh object); empty when the line item declares none. */
+export function tagFloorsFor(item: LineItem): Record<string, string[]> {
+  const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
+  return Object.fromEntries(Object.entries(entryFor.unlessBelowTag ?? {}).map(([tag, floors]) => [tag, [...floors]]));
+}
+
+/** The component floors of one line item (a fresh array); empty when it declares none. */
+export function floorsFor(item: LineItem): string[] {
+  const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
+  return [...(entryFor.unlessBelow ?? [])];
 }

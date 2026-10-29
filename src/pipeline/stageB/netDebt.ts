@@ -33,6 +33,18 @@ export function millions(value: number): string {
 }
 
 /**
+ * Two amounts a refusal sets side by side: each in millions, or both in full with grouped digits ("1,000,237" and
+ * "1,000,000") when their millions would read alike while the values differ, so a refusal never shows two
+ * equal-looking amounts (audit 2026-10-27 FIN-511-V2 re-review N1).
+ */
+export function millionsPair(a: number, b: number): [string, string] {
+  const inMillions: [string, string] = [millions(a), millions(b)];
+  if (inMillions[0] !== inMillions[1] || a === b) return inMillions;
+  const full = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
+  return [full.format(a), full.format(b)];
+}
+
+/**
  * What a vendor total completed from its filing (D-133) had left out, read
  * from the completed total's tags: the filed current debt is among them only
  * when it replaced a zero or absent vendor short-term debt.
