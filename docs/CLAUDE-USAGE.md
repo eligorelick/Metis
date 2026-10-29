@@ -39,7 +39,9 @@ and Settings all show the route the next report will use, for example
 `ChatGPT plan · gpt-6.1-sol · max effort` or `Claude API · Opus 5.5 · max effort`,
 with `sign-in needed` or `key needed` when it is not connected. When the
 selection is not Claude, the Settings Claude model and effort panels say
-"Not in use". The label never includes an account email, token or key.
+"Not in use". The label never includes an account email, token or key. A
+resumed job that reuses its completed analysis keeps the model that analysis
+ran on, whatever the current label says.
 
 The selection is captured when a job executes. Subscription account, model,
 effort and speed form part of the partial-work fingerprint; incompatible saved

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiStore } from "@/ai/store";
 
@@ -85,5 +87,13 @@ describe("describeAnalysisRoute", () => {
     expect(requestedAnalysisModel({ provider: "gemini", connectionId: "g", model: "auto" }, settings.analysisModel)).toBe("gemini/auto");
     expect(requestedAnalysisModel({ provider: "anthropic" }, settings.analysisModel)).toBe("claude-opus-5-5");
     expect(describeAnalysisRoute().model).toBe("gpt-6.1-sol");
+  });
+  it("keeps the job runner on the shared model rule, so the label cannot drift from the route that runs", () => {
+    // Review of 398bb18: the agreement test above calls the shared helper on both sides, so it would still pass if the
+    // runner inlined its own copy of the rule. Pin the runner's source to the helper instead.
+    const runner = readFileSync(path.join(process.cwd(), "src/pipeline/jobRunner.ts"), "utf8");
+    expect(runner).toContain('import { requestedAnalysisModel } from "@/ai/analysisRoute";');
+    expect(runner.match(/requestedAnalysisModel\(aiSelection, capturedSettings\.state\.analysisModel\)/g)?.length).toBe(2);
+    expect(runner).not.toMatch(/subscriptionModel\(aiSelection\.provider, aiSelection\.model\)/);
   });
 });
