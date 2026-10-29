@@ -4151,11 +4151,18 @@ than the minuend's own filing. Lineage by date is not lineage by presentation,
 so the pair is also checked, in the statement builder, by one pure helper
 (`src/edgar/presentationLineage.ts`):
 
+- A copy that only re-rounds is not a move: when the later copy is a whole
+  multiple of 1,000,000 in a money unit and differs from the earlier copy by no
+  more than 500,000 (half the million rounding unit; SEC filers present in
+  thousands or millions), no test below treats the period as re-filed.
 - A year (or year to date) that a later filing re-filed, whose subtrahend did
   not move with it, is derived from its first-reported copy only when the
-  re-filing moved it by no more than 1% (a precision-only re-rounding) or
-  labels the period a re-presentation with a new or changed non-zero
-  discontinued-operations line for it (ASC 205-20-45-3). A larger move that
+  re-filing changed it by no more than 1% (the note says "a change within 1%",
+  with the percentage, because a small change that is not a re-rounding can be
+  a retrospective accounting change) or labels the period a re-presentation
+  with a new or changed non-zero discontinued-operations line for it
+  (ASC 205-20-45-3). When the first-reported copy has no subtrahend filed on or
+  before it, the quarter is withheld, with that reason. A larger move that
   the re-filing does not label withholds the quarter, naming both filings,
   because a corrected figure replaces the original (ASC 250-10-45-23) and
   companyfacts cannot tell a correction from an unlabelled re-presentation
@@ -4176,11 +4183,23 @@ so the pair is also checked, in the statement builder, by one pure helper
   filed just before it and the filing that supplies the subtrahend did not (a
   10-K may carry a year on a new basis while the 10-Q nine months filed before
   it stay on the old one, FRM 13110.3). A filing that only repeats a recast an
-  earlier filing already made re-presented nothing.
-- A line item whose first synonym is withheld for presentation does not fall
-  through to a narrower synonym, and a filed operating income withheld that way
-  is not replaced by a derived EBIT built from operands a reclassification may
-  have moved.
+  earlier filing already made re-presented nothing, and only an amendment
+  (`10-K/A`) is excused for moving its own year.
+- A presentation withholding ends the field. No later step of any chain serves
+  it: not a narrower synonym, not a stand-in (cash interest paid for interest
+  expense), not a derivation (consolidated profit for profit attributable to the
+  parent, derived EBIT for a filed operating income). The withheld field quotes
+  the refusal.
+- A derived EBIT whose equity-method, investment-income or other non-operating
+  adjustment is withheld for presentation is itself withheld, quoting that
+  reason; an adjustment that is simply not filed keeps the "filer tags none"
+  disclosure.
+- A combined-total floor tag (for example `Depreciation` under a combined D&A
+  tag) that is withheld for presentation still bounds the floored tag: the
+  comparison uses the floor tag's as-filed derived quarter (the newest copies
+  filed by its own filing, a magnitude check that is never published), so a
+  subset line is not published because its floor was refused. A floor tag that
+  is not filed at all leaves no floor.
 - A withheld revenue quarter suppresses the TTM window, which then falls back to
   the annual statement.
 

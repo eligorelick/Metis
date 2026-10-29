@@ -5,8 +5,9 @@
  * difference of two year-to-date figures, or the fiscal year less three
  * quarters) must net two figures that sit on one presentation. Filing-date
  * lineage (D-13) is the minimum; this module decides when it is not enough.
- * The statement builder and the vendor-enrichment derivation both call it, so
- * a derived value means the same thing in both. Pure: no I/O, no clock.
+ * The statement builder calls it; the vendor-enrichment derivation will call
+ * the same helpers (audit 2026-10-27 B13 Task 8), so a derived value means the
+ * same thing in both. Pure: no I/O, no clock.
  *
  * See docs/METHODOLOGY.md "Derived quarters on one presentation" for the
  * rules and their sources (ASC 250-10-45-23, ASC 205-20-45-3, SEC FRM 13110.4).
@@ -22,6 +23,8 @@ export interface LineageCopy {
   accn: string;
   filed: string;
   form: string;
+  /** The fact's unit ("USD", "shares", "USD/shares"); absent means money. Only money gets the rounding allowance. */
+  unit?: string;
 }
 
 /** A copy of a discontinued-operations element, with its tag and unit (C-9 labels). */
@@ -63,10 +66,26 @@ export function firstReportedCopy<T extends LineageCopy>(copies: readonly T[], p
 }
 
 /**
- * |later - first| > thresholdPct/100 x |first|, so a first-reported 0 that became non-zero counts. The one
- * materiality test of this module: `filingRepresented`, `representationLabelled` and rule 3 all call it.
+ * SEC filers present in thousands or millions, so a difference no larger than half a million against a copy that
+ * is a whole number of millions is below the re-filing's own stated precision: a re-rounding, not a move (audit
+ * 2026-10-27 FIN-511 I2). The allowance is strict on purpose: unlike a floor, looseness here would admit a mixed
+ * quarter.
+ */
+export const ROUNDING_UNIT = 1_000_000;
+export const ROUNDING_ALLOWANCE = 500_000;
+
+const isMoney = (c: LineageCopy): boolean => c.unit === undefined || /^[A-Za-z]{3}$/.test(c.unit);
+const onlyRerounded = (first: LineageCopy, later: LineageCopy): boolean =>
+  isMoney(first) && isMoney(later) && later.val % ROUNDING_UNIT === 0 && Math.abs(later.val - first.val) <= ROUNDING_ALLOWANCE;
+
+/**
+ * |later - first| > thresholdPct/100 x |first|, so a first-reported 0 that became non-zero counts, unless the later
+ * copy only re-rounds the first (see ROUNDING_UNIT). The one materiality test of this module, whatever the
+ * threshold (a threshold of 0 asks whether the copy changed at all): `filingRepresented`, `representationLabelled`,
+ * the re-filed and moved-together tests and rule 3 all call it.
  */
 export function movedBeyond(first: LineageCopy, later: LineageCopy, thresholdPct: number): boolean {
+  if (onlyRerounded(first, later)) return false;
   return Math.abs(later.val - first.val) > (thresholdPct / 100) * Math.abs(first.val);
 }
 
@@ -76,8 +95,9 @@ export function movedBeyond(first: LineageCopy, later: LineageCopy, thresholdPct
  * (a 10-K carrying a prior year the previous 10-K had already re-presented) re-presented nothing, so the
  * nine-month figures filed after that earlier recast are on its basis (measured against the first-reported copy,
  * every later 10-K would count: American Tower's FY2023 revenue, recast once in the 10-K of 2025-02-25).
- * `exceptPeriod` leaves out the period under derivation: a minuend's filing re-presented EARLIER periods (an
- * amendment that corrects its own year re-presents nothing).
+ * `exceptPeriod` leaves out the period under derivation; `presentationMixed` passes it only for an amendment
+ * minuend, because an amendment that corrects its own year re-presents nothing (any other filing that moves its
+ * own year has re-presented).
  */
 export function filingRepresented(copies: readonly LineageCopy[], accn: string, thresholdPct: number, exceptPeriod?: LineageCopy): boolean {
   for (const c of copies) {
@@ -118,7 +138,8 @@ export function presentationMixed(
   subtrahends: readonly LineageCopy[],
   thresholdPct: number,
 ): string | null {
-  if (!filingRepresented(copies, minuend.accn, thresholdPct, minuend)) return null;
+  // Only an amendment corrects its own year; any other filing that moves its own year has re-presented (I1).
+  if (!filingRepresented(copies, minuend.accn, thresholdPct, isAmendment(minuend) ? minuend : undefined)) return null;
   const other = subtrahends.find((s) => !filingRepresented(copies, s.accn, thresholdPct));
   if (other === undefined) return null;
   return (
@@ -162,7 +183,7 @@ export function oneBasisPair<T extends LineageCopy>(
   thresholdPct: number,
   labelled: (refiled: T) => boolean,
 ): PairChoice<T> {
-  const wasRefiled = (c: T): boolean => firstReportedCopy(copies, c).val !== c.val;
+  const wasRefiled = (c: T): boolean => movedBeyond(firstReportedCopy(copies, c), c, 0);
 
   // Rule 4 (C-9, subtrahend side): a later, material, unlabelled copy of a subtrahend supersedes the one netted.
   // The later copy is never netted (D-13); this only decides between the pair and a withholding.
@@ -194,7 +215,7 @@ export function oneBasisPair<T extends LineageCopy>(
   // Rule 1: the winner counts as re-filed only when it is not the first-reported copy, carries a different value
   // and is not an amendment (an amendment corrects its own report and stays in the lineage).
   const first = firstReportedCopy(copies, winner);
-  const refiled = first.val !== winner.val && !isAmendment(winner);
+  const refiled = movedBeyond(first, winner, 0) && !isAmendment(winner);
 
   // Rule 2: keep today's pair when the winner is not re-filed, or when the subtrahend its lineage saw moved with it.
   // A winner whose own lineage has no subtrahend at all has nothing to net on any basis (the first-reported copy's
@@ -214,10 +235,10 @@ export function oneBasisPair<T extends LineageCopy>(
         `${periodOf(winner)} first reported as ${first.val} in ${first.form.trim()} ${first.filed} (${first.accn}) was re-filed as ${winner.val} ` +
         `(${describeChangePct(pctMove(first, winner))}) in ${winner.form.trim()} ${winner.filed} (${winner.accn}), and that filing labels no re-presentation for the period ` +
         `(it files no new or changed discontinued-operations line for it): a corrected figure replaces the original (ASC 250-10-45-23), ` +
-        `so the first-reported copy cannot stand in, and no subtrahend is filed on the re-filed basis`,
+        `so the first-reported copy cannot stand in, and a subtrahend its filing lineage saw was not re-filed with it`,
     };
   }
-  // Rule 3b: a precision-only move or a labelled re-presentation; the quarter is the one first reported.
+  // Rule 3b: a change within the threshold or a labelled re-presentation; the quarter is the one first reported.
   const subsFirst = subtrahendsFor(first);
   if (subsFirst === null) {
     return {

@@ -179,7 +179,7 @@ function syntheticFactsWithSubsetTag(): Record<string, unknown[]> {
   };
 }
 
-function precisionFacts(): Record<string, unknown[]> {
+function precisionFacts(fy24Later = 6_804.0 * M): Record<string, unknown[]> {
   const q324: Filing = { filed: "2024-11-06", form: "10-Q", fp: "Q3", fy: 2024, accn: "0000000008-24-000003" };
   const k24: Filing = { filed: "2025-02-13", form: "10-K", fp: "FY", fy: 2024, accn: "0000000008-25-000001" };
   const q325: Filing = { filed: "2025-10-29", form: "10-Q", fp: "Q3", fy: 2025, accn: "0000000008-25-000003" };
@@ -189,7 +189,7 @@ function precisionFacts(): Record<string, unknown[]> {
       pt(q324, "2024-07-01", "2024-09-30", 1_700 * M), pt(q324, "2024-01-01", "2024-09-30", 5_076.9 * M),
       pt(k24, "2024-01-01", "2024-12-31", 6_804.3 * M),
       pt(q325, "2025-07-01", "2025-09-30", 1_750 * M), pt(q325, "2025-01-01", "2025-09-30", 5_300 * M), pt(q325, "2024-01-01", "2024-09-30", 5_076.9 * M),
-      pt(k25, "2025-01-01", "2025-12-31", 7_100 * M), pt(k25, "2024-01-01", "2024-12-31", 6_804.0 * M),
+      pt(k25, "2025-01-01", "2025-12-31", 7_100 * M), pt(k25, "2024-01-01", "2024-12-31", fy24Later),
     ],
     Assets: [inst(q324, "2024-09-30", 1000), inst(k24, "2024-12-31", 1000), inst(q325, "2025-09-30", 1000), inst(k25, "2025-12-31", 1000)],
   };
@@ -312,13 +312,21 @@ describe("FIN-511: a derived quarter nets two figures on one presentation, or is
     expect(q.withheld.filter((w) => w.field === "revenue" && (w.periods.includes("2025-12-31") || w.periods.includes("2024-12-31")))).toEqual([]);
   });
 
-  it("a precision-only re-filing switches to the first-reported pair and withholds nothing", () => {
+  it("a re-rounding to whole millions is not a move: the as-filed pair is derived and nothing is withheld (I2)", () => {
     const b = build(precisionFacts(), { annualPeriods: 3, quarterlyPeriods: 8 });
+    expect(b.incomeQuarterly.rows.find((r) => r.date === "2024-12-31")!.revenue).toBeCloseTo(1_727.1 * M, 0); // 6,804.0 - 5,076.9
+    expect(b.incomeQuarterly.rows.find((r) => r.date === "2025-12-31")!.revenue).toBe(1_800 * M);
+    expect(b.incomeQuarterly.withheld.filter((w) => w.field === "revenue")).toEqual([]);
+    expect(b.incomeAnnual.restatements).toEqual([]);
+  });
+
+  it("a change within 1% that is not a re-rounding switches to the first-reported pair, and the note says so (I5)", () => {
+    const b = build(precisionFacts(6_830.5 * M), { annualPeriods: 3, quarterlyPeriods: 8 });
     expect(b.incomeQuarterly.rows.find((r) => r.date === "2024-12-31")!.revenue).toBe(1_727.4 * M);
     expect(b.incomeQuarterly.rows.find((r) => r.date === "2025-12-31")!.revenue).toBe(1_800 * M);
     expect(b.incomeQuarterly.withheld.filter((w) => w.field === "revenue")).toEqual([]);
-    expect(b.incomeAnnual.restatements).toEqual([]); // 0.004% < 1%
-    expect(b.incomeQuarterly.notes.some((n) => /2024-12-31: derived from the first-reported FY \(10-K 2025-02-13\), because 10-K 2026-02-12 re-filed it by a precision-only change of -0\.0044%/.test(n))).toBe(true);
+    expect(b.incomeQuarterly.notes.some((n) => /2024-12-31: derived from the first-reported FY \(10-K 2025-02-13\), because 10-K 2026-02-12 re-filed it by a change within 1% \(\+0\.385\d%\)/.test(n))).toBe(true);
+    expect(b.incomeQuarterly.notes.some((n) => /precision-only/.test(n))).toBe(false);
   });
 
   it("an amended 10-K keeps its corrected FY as the minuend", () => {
@@ -531,5 +539,164 @@ describe("presentationLineage helpers", () => {
       const s = nine("2025-11-01", "q", 300);
       expect(oneBasisPair([first, w, s], w, () => [s], 1, never)).toEqual({ kind: "withheld", reason: expect.stringMatching(/first reported as 0 .*\(from zero/) });
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 1 (task review of 87738d9): C1, I1, I2, I4, M5.
+// ---------------------------------------------------------------------------
+const FR = {
+  q324: { filed: "2024-11-05", form: "10-Q", fp: "Q3", fy: 2024, accn: "0000000007-24-000003" } as Filing,
+  k24: { filed: "2025-02-12", form: "10-K", fp: "FY", fy: 2024, accn: "0000000007-25-000001" } as Filing,
+  q325: { filed: "2025-11-03", form: "10-Q", fp: "Q3", fy: 2025, accn: "0000000007-25-000004" } as Filing,
+  k25: { filed: "2026-02-12", form: "10-K", fp: "FY", fy: 2025, accn: "0000000007-26-000001" } as Filing,
+};
+const FY24 = ["2024-01-01", "2024-12-31"] as const;
+const NINE24 = ["2024-01-01", "2024-09-30"] as const;
+const frAssets = (): unknown[] => [inst(FR.q324, "2024-09-30", 1000 * M), inst(FR.k24, "2024-12-31", 1000 * M)];
+const frBuild = (usGaap: Record<string, unknown[]>) => build(usGaap, { annualPeriods: 3, quarterlyPeriods: 8, asOf: "2026-10-15" });
+const frRow = (b: ReturnType<typeof build>, date = "2024-12-31") => b.incomeQuarterly.rows.find((r) => r.date === date);
+
+/** ProfitLoss 400 less 300 = 100; the NCI FY copy is first reported as `first` and re-filed as `later` (9M NCI 3). */
+function nciFacts(first: number, later: number | null): Record<string, unknown[]> {
+  return {
+    ProfitLoss: [pt(FR.k24, ...FY24, 400 * M), pt(FR.q324, ...NINE24, 300 * M)],
+    NetIncomeLossAttributableToNoncontrollingInterest: [
+      pt(FR.q324, ...NINE24, 3 * M),
+      pt(FR.k24, ...FY24, first),
+      ...(later === null ? [] : [pt(FR.k25, ...FY24, later)]),
+    ],
+    Assets: frAssets(),
+  };
+}
+
+describe("fix round 1 C1: a presentation refusal ends the field in every chain", () => {
+  it("net income is withheld with the NCI refusal quoted, never consolidated ProfitLoss (FCX/AEP shape)", () => {
+    const b = frBuild(nciFacts(10 * M, 20 * M));
+    expect(frRow(b)?.netIncome ?? null).toBeNull(); // 87738d9: 100 (consolidated ProfitLoss)
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "netIncome", text: expect.stringMatching(/NetIncomeLossAttributableToNoncontrollingInterest.*first reported as 10000000/) }),
+    );
+  });
+
+  it("control: a filer with no refusal still gets ProfitLoss less NCI", () => {
+    const b = frBuild(nciFacts(10 * M, null));
+    expect(frRow(b)?.netIncome).toBe(93 * M); // 100 - (10 - 3)
+  });
+
+  it("interest expense is withheld when the accrual tag is refused, never the cash stand-in", () => {
+    const b = frBuild({
+      InterestExpenseNonoperating: [pt(FR.q324, ...NINE24, 70 * M), pt(FR.k24, ...FY24, 100 * M), pt(FR.k25, ...FY24, 200 * M)],
+      InterestPaidNet: [pt(FR.q324, ...NINE24, 65 * M), pt(FR.k24, ...FY24, 90 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.interestExpense ?? null).toBeNull(); // 87738d9: 25 (InterestPaidNet)
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "interestExpense", text: expect.stringMatching(/InterestExpenseNonoperating.*first reported as 100000000/) }),
+    );
+  });
+
+  it("control: a filer with no accrual interest tag at all still gets the disclosed cash stand-in", () => {
+    const b = frBuild({
+      InterestPaidNet: [pt(FR.q324, ...NINE24, 65 * M), pt(FR.k24, ...FY24, 90 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.interestExpense).toBe(25 * M);
+  });
+});
+
+describe("fix round 1 I1: exceptPeriod only for an amendment minuend", () => {
+  it("a 10-K that moves its own year +10% against a re-rounded nine months is withheld, not mixed", () => {
+    const b = frBuild({
+      Revenues: [pt(FR.q324, ...NINE24, 300 * M), pt(FR.k24, ...FY24, 400 * M), pt(FR.q325, ...NINE24, 300.2 * M), pt(FR.k25, ...FY24, 440 * M)],
+      Assets: [...frAssets(), inst(FR.q325, "2025-09-30", 1000 * M)],
+    });
+    expect(frRow(b)?.revenue ?? null).toBeNull(); // 87738d9: 440 - 300.2 = 139.8
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "revenue", text: expect.stringMatching(/presentation changed in 10-K 2026-02-12/) }),
+    );
+  });
+});
+
+describe("fix round 1 I2: a re-rounding to whole millions is not a move", () => {
+  it("AEP NCI 4.5M -> 5.0M: not a move; net income is ProfitLoss less NCI", () => {
+    const b = frBuild(nciFacts(4.5 * M, 5.0 * M));
+    expect(frRow(b)?.netIncome).toBe(98 * M); // 100 - (5.0 - 3.0)
+  });
+  it.each([
+    ["4.5M -> 5.1M", 4.5 * M, 5.1 * M],
+    ["4.4M -> 5.0M (a 600K difference)", 4.4 * M, 5.0 * M],
+    ["4.5M -> 4.9M (the later copy is not a whole million)", 4.5 * M, 4.9 * M],
+  ])("control: %s is still a move", (_name, first, later) => {
+    const b = frBuild(nciFacts(first, later));
+    expect(frRow(b)?.netIncome ?? null).toBeNull();
+  });
+  it("AEP interest FY 1,862.8M -> 1,863.0M with the nine months filed only later: the as-filed 463.0M is served", () => {
+    const b = frBuild({
+      InterestExpenseNonoperating: [pt(FR.k24, ...FY24, 1862.8 * M), pt(FR.q325, ...NINE24, 1400 * M), pt(FR.k25, ...FY24, 1863.0 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.interestExpense).toBe(463 * M);
+  });
+  it("movedBeyond: money only; a share-count unit with the same numbers is a move", () => {
+    const a = (unit: string, val: number): LineageCopy => ({ end: "2024-12-31", val, accn: "a", filed: "2025-01-01", form: "10-K", unit });
+    expect(movedBeyond(a("USD", 4.5 * M), a("USD", 5.0 * M), 1)).toBe(false);
+    expect(movedBeyond(a("USD", 4.5 * M), a("USD", 5.0 * M), 0)).toBe(false);
+    expect(movedBeyond(a("shares", 4.5 * M), a("shares", 5.0 * M), 1)).toBe(true);
+    expect(movedBeyond(a("USD/shares", 4.5 * M), a("USD/shares", 5.0 * M), 1)).toBe(true);
+    expect(movedBeyond(a("USD", 4.4 * M), a("USD", 5.0 * M), 1)).toBe(true);
+  });
+});
+
+describe("fix round 1 I4: a refused EBIT adjustment refuses the derived EBIT", () => {
+  const ebitFacts = (equity: "refused" | "absent"): Record<string, unknown[]> => ({
+    IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+    InterestExpense: [pt(FR.q324, ...NINE24, 35 * M), pt(FR.k24, ...FY24, 50 * M)],
+    ...(equity === "refused"
+      ? { IncomeLossFromEquityMethodInvestments: [pt(FR.q324, ...NINE24, 500 * M), pt(FR.k24, ...FY24, 726 * M), pt(FR.k25, ...FY24, 657 * M)] }
+      : {}),
+    Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+    Assets: frAssets(),
+  });
+  it("BRK shape: EBIT is withheld and the reason names the equity-method refusal", () => {
+    const b = frBuild(ebitFacts("refused"));
+    expect(frRow(b)?.operatingIncome ?? null).toBeNull();
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "operatingIncome", text: expect.stringMatching(/IncomeLossFromEquityMethodInvestments.*withheld.*first reported as 726000000/) }),
+    );
+    expect(frRow(b)?.ebit ?? null).toBeNull();
+  });
+  it("control: an adjustment that is simply not filed keeps today's behaviour and text", () => {
+    const b = frBuild(ebitFacts("absent"));
+    expect(frRow(b)?.operatingIncome).toBe(315 * M); // (1000 - 700) + (50 - 35)
+    expect(b.incomeQuarterly.substitutions.some((s) => s.field === "operatingIncome" && /tags none of/.test(s.text))).toBe(true);
+  });
+});
+
+describe("fix round 1 M5: a refused floor tag does not silently disable the floor", () => {
+  it("MCD shape: Depreciation refused for the quarter still floors by its as-filed value, so the subset DDA is not published", () => {
+    const b = frBuild({
+      DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, 340 * M), pt(FR.k24, ...FY24, 457 * M)],
+      Depreciation: [pt(FR.q324, ...NINE24, 1200 * M), pt(FR.k24, ...FY24, 1600 * M), pt(FR.k25, ...FY24, 1800 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull(); // 87738d9: 117
+    // The DDA tag is skipped against Depreciation's as-filed 600 (1800 - 1200), never published.
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 117000000 not used — below the same period's Depreciation 600000000/.test(n))).toBe(true);
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/Depreciation 2024-12-31:.*first reported as 1600000000/) }),
+    );
+  });
+  it("control: a floor tag that is not filed at all keeps today's behaviour (no floor)", () => {
+    const b = frBuild({
+      DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, 340 * M), pt(FR.k24, ...FY24, 457 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.depreciationAndAmortization).toBe(117 * M);
   });
 });

@@ -35,8 +35,8 @@
  *     date is not a lineage by presentation (audit 2026-10-27 FIN-511):
  *       - a minuend re-filed by a later filing whose subtrahend did not move
  *         with it uses its FIRST-REPORTED copy only when the re-filing moved
- *         it by no more than RESTATEMENT_THRESHOLD_PCT (a precision-only
- *         re-rounding) or labels the period a re-presentation with a new or
+ *         it by no more than RESTATEMENT_THRESHOLD_PCT (a re-rounding to
+ *         whole millions is no move at all) or labels the period a re-presentation with a new or
  *         changed discontinued-operations line (ASC 205-20-45-3);
  *       - a material change the re-filing does not label withholds the
  *         quarter naming both filings, because a corrected figure replaces the
@@ -1612,7 +1612,12 @@ function resolvedPoint(tag: string, up: UnitPoints, point: FactPoint, value: num
   return out;
 }
 
-type TagResolver = (tag: string, kind: UnitKind, currency?: string) => Resolved | null;
+/**
+ * `magnitudeOnly` asks a derived quarter for its AS-FILED pair, ignoring the one-presentation rule. Only a floor
+ * comparison uses it (a magnitude check, never published): a floor tag withheld for presentation still bounds
+ * the figure it floors (audit 2026-10-27 FIN-511 M5).
+ */
+type TagResolver = (tag: string, kind: UnitKind, currency?: string, magnitudeOnly?: boolean) => Resolved | null;
 
 interface NoteSink {
   readonly notes: string[];
@@ -1630,6 +1635,13 @@ interface NoteSink {
    */
   readonly refusals: string[];
   refuse(text: string): void;
+  /**
+   * A refusal recorded by the one-presentation rule (audit 2026-10-27 FIN-511). Unlike the other refusals it ends
+   * the field: no later step of any chain (stand-in, derivation, other tag list) may serve it.
+   */
+  readonly presentationRefusals: string[];
+  refusePresentation(text: string): void;
+
   /**
    * Every `withhold` text a resolution tried to record, in order, whether or not
    * it was muted. A caller compares lengths to learn whether a resolution ran
@@ -1651,6 +1663,7 @@ function createNoteSink(): NoteSink {
   const substitutions: Substitution[] = [];
   const withheld: Withholding[] = [];
   const refusals: string[] = [];
+  const presentationRefusals: string[] = [];
   const withholdAttempts: string[] = [];
   let muted = 0;
   const record = (into: { field: string; text: string; periods: string[] }[], field: string, period: string, text: string): void => {
@@ -1663,6 +1676,7 @@ function createNoteSink(): NoteSink {
     substitutions,
     withheld,
     refusals,
+    presentationRefusals,
     withholdAttempts,
     add(note: string): void {
       if (muted > 0 || seen.has(note)) return;
@@ -1678,6 +1692,12 @@ function createNoteSink(): NoteSink {
     },
     refuse(text: string): void {
       if (muted === 0) refusals.push(text);
+    },
+    refusePresentation(text: string): void {
+      if (muted === 0) {
+        refusals.push(text);
+        presentationRefusals.push(text);
+      }
     },
     quietly<T>(fn: () => T): T {
       muted += 1;
@@ -1755,8 +1775,12 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     case "chain": {
       for (const step of spec.steps) {
         const refusalsBefore = notes.refusals.length;
+        const presentationBefore = notes.presentationRefusals.length;
         const r = resolveSpec(step, resolve, notes, label, at);
         if (r !== null) return r;
+        // A presentation refusal ends the field in every chain: no stand-in, derivation or other tag list may serve
+        // it (FIN-511 C1). Other refusal kinds end only the chains that ask (`stopOnRefusal`).
+        if (notes.presentationRefusals.length > presentationBefore) return null;
         if (spec.stopOnRefusal === true && notes.refusals.length > refusalsBefore) return null;
       }
       return null;
@@ -1775,7 +1799,9 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           const components: { tag: string; value: number }[] = [];
           for (const floorTag of floorTags) {
             if (floorTag === tag) continue;
-            const f = notes.quietly(() => resolve(floorTag, spec.unit));
+            // The floor is a magnitude check that is never published: a floor tag withheld for presentation still
+            // bounds the candidate by its as-filed value (FIN-511 M5).
+            const f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, true));
             if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
           }
           const hit = belowComponentFloor(r.value, components);
@@ -1883,7 +1909,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           // resolving every synonym of an adjustment and then discarding all
           // but the first hit put notes on the row about tags nothing used.
           for (const tag of adjustment.tags) {
+            const presentationBefore = notes.presentationRefusals.length;
             const r = resolve(tag, spec.unit);
+            if (r === null && notes.presentationRefusals.length > presentationBefore) {
+              // A refused adjustment is not an untagged one: dropping it would publish a figure that still holds
+              // the item, with a disclosure that says the filer tags none (FIN-511 I4).
+              notes.refusePresentation(
+                `${field} not derived: ${adjustment.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
+              );
+              return null;
+            }
             if (r !== null && r.unit === present[0]!.unit) {
               resolvedByLabel.set(adjustment.label, r);
               break;
@@ -2235,7 +2270,7 @@ function quarterResolver(
   ytdOnly: boolean,
   notes: NoteSink,
 ): TagResolver {
-  return (tag, kind, currency) => {
+  return (tag, kind, currency, magnitudeOnly) => {
     const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const pts = up.points;
@@ -2261,11 +2296,16 @@ function quarterResolver(
     // says why it cannot. A withholding is a note and a recorded refusal (the field ends a disclosed withholding).
     const labelCopies = labelCopiesOf(index);
     const labelled = (m: FactPoint): boolean => representationLabelled(labelCopies, m, RESTATEMENT_THRESHOLD_PCT);
-    const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> =>
-      oneBasisPair(up.all, winner, subtrahendsFor, RESTATEMENT_THRESHOLD_PCT, labelled);
+    const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> => {
+      if (magnitudeOnly === true) {
+        const subs = subtrahendsFor(winner);
+        return subs === null ? { kind: "none" } : { kind: "pair", minuend: winner, subtrahends: subs, basis: "as-filed", refiledBy: null, refiledAs: null };
+      }
+      return oneBasisPair(up.all, winner, subtrahendsFor, RESTATEMENT_THRESHOLD_PCT, labelled);
+    };
     const withheldNote = (choice: Extract<PairChoice<FactPoint>, { kind: "withheld" }>, what: string): null => {
       notes.add(`${tag} ${ctx.end}: ${what} not derived — ${choice.reason}`);
-      notes.refuse(`${tag} ${ctx.end}: ${choice.reason}`);
+      notes.refusePresentation(`${tag} ${ctx.end}: ${choice.reason}`);
       return null;
     };
     const firstReportedNote = (choice: Extract<PairChoice<FactPoint>, { kind: "pair" }>, noun: string, subtrahend: string): void => {
@@ -2275,7 +2315,7 @@ function quarterResolver(
       const how =
         choice.refiledAs === "labelled-representation"
           ? "as a re-presentation it labels with a discontinued-operations line"
-          : `by a precision-only change of ${describeChangePct(movedPct, 4)}`;
+          : `by a change within 1% (${describeChangePct(movedPct, 4)})`;
       notes.add(
         `${tag} ${ctx.end}: derived from the first-reported ${noun} (${choice.minuend.form.trim()} ${choice.minuend.filed}), because ${by.form.trim()} ${by.filed} re-filed it ${how} and the ${subtrahend} it would be netted against was not re-filed with it`,
       );
@@ -3080,15 +3120,15 @@ function buildStatementRows<TRow>(
       return r === null ? [] : [r];
     })[0];
     let resolvingField = "";
-    const sameRowEvidence: TagResolver = (tag, kind) => {
+    const sameRowEvidence: TagResolver = (tag, kind, _currency, magnitudeOnly) => {
       const refusal = state.balanceRefusals.get(`${tag}|${rowAnchor?.unit ?? ""}|${slot.date}`);
       if (def.statement === "balance" && refusal !== undefined) {
         notes.withhold(resolvingField, slot.date, refusal);
         notes.add(`${resolvingField} ${ctxLabel}: ${refusal}`);
         return null;
       }
-      if (rowAnchor === undefined) return slot.resolve(tag, kind);
-      const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit);
+      if (rowAnchor === undefined) return slot.resolve(tag, kind, undefined, magnitudeOnly);
+      const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit, magnitudeOnly);
       if (r === null) {
         const raw = slot.resolve(tag, kind);
         if (raw !== null) {

@@ -139,7 +139,17 @@ Rules:
    `YTD_n − YTD_(n−1)` within the same fiscal year. The fourth quarter is
    derived as `FY − YTD_Q3` (or `FY − (Q1+Q2+Q3)`). Derived rows carry
    `derivation: "ytd-difference" | "fy-minus-ytd"` and a note; a derivation is
-   attempted only when every operand exists for the same concept.
+   attempted only when every operand exists for the same concept. The two
+   operands must also sit on one presentation (audit 2026-10-27 FIN-511,
+   `src/edgar/presentationLineage.ts`): a minuend a later filing re-filed
+   materially with no discontinued-operations line for the period, a
+   subtrahend a later filing re-filed so, or a minuend filing that re-presented
+   earlier periods beside a subtrahend filing that did not, withholds the
+   quarter naming both filings, and no stand-in, derivation or other tag
+   serves the field afterwards. A re-filing within 1% derives the quarter from
+   the first-reported pair; a re-rounding to whole millions (half a million or
+   less) is not a re-filing. See `docs/METHODOLOGY.md` "Derived quarters on one
+   presentation".
 4. Quarterly cash-flow rows: cash-flow facts are year-to-date in 10-Qs, so
    every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`.
 5. Balance-sheet rows: instant facts at each 10-Q/10-K period end.
