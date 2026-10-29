@@ -134,4 +134,15 @@ describe("a (latest) computed row carries the fiscal label of its year (residual
       expect(roic!.period).toBeNull();   // no label, no period: exactly the record when no label exists
     }
   });
+
+  it("with B1's period rule: the label establishes FY2025 and the annual window, nothing else (B1 OD-1)", async () => {
+    const p = build(completeCurrencyBundle({}));
+    const v = Number((rec(p, "computed.returns.roic-latest")!.value as number).toFixed(2));
+    for (const text of [`ROIC for FY2025 was ${v}%.`, `ROIC for the latest fiscal year was ${v}%.`])
+      expect((await verdict(p, "computed.returns.roic-latest", text)).validationStatus, text).toBe("validated");
+    for (const text of [`ROIC for FY2024 was ${v}%.`, `ROIC for the latest quarter was ${v}%.`])
+      expect((await verdict(p, "computed.returns.roic-latest", text)).validationStatus, text).not.toBe("validated");
+    const accrual = Number((rec(p, "computed.forensics.accrual-ratio-balance-sheet")!.value as number).toFixed(4));   // 0.1192
+    expect((await verdict(p, "computed.forensics.accrual-ratio-balance-sheet", `The balance-sheet accrual ratio for the same year was ${accrual}x.`)).validationStatus).toBe("validated");
+  });
 });

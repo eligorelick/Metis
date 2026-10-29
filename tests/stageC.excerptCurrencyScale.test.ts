@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
@@ -192,5 +193,135 @@ describe("explicit currency scale against numeric registry records", () => {
     const result = await registryNumber(197e9, "currency", null);
     expect(result.entry).toMatchObject({ outcome: "verified", traceKind: "payload-match" });
     expect(result.number).toMatchObject({ value: 197e9, currency: "USD", verified: true });
+  });
+});
+
+describe("AI-403 table scale applies to amounts only", () => {
+  const filing = "edgar:10-K item7";
+  /** One filing excerpt run through the verify pass; the judge is never called. */
+  async function synthetic(sourceText: string, claim: string, title = "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026); filed 2026-02-25)", registered = filing, asOfDate = "2026-01-25") {
+    const payload = {
+      companyName: "Example issuer", symbol: "EXAMPLE",
+      // One statements record gives the filing its reporting currency (USD).
+      provenanceRegistry: [{ id: "payload.statements.income.revenue", kind: "provider", value: 1, unit: "currency",
+        currency: "USD", period: asOfDate, asOf: asOfDate, origin: "edgar", formulaVersion: null, displayPrecision: 0 }],
+      citationRegistry: [{ id: registered, asOf: asOfDate, origin: registered, kind: "payload-text" }],
+      filings: [{ source: registered, asOf: asOfDate, text: sourceText, title, truncated: false, originalChars: sourceText.length }],
+    } as unknown as ContextPayload;
+    const result = await runVerifyPass({ runPass: () => { throw new Error("no judge in a verify test"); } } as unknown as PassDeps, payload,
+      { commentary: [{ label: "FACT", text: claim, source: registered, asOf: asOfDate }] });
+    return result.log[0]!.validationStatus;
+  }
+  const TAX = (decl: string) => `Year Ended Jan 25, 2026 Jan 26, 2025 ${decl}Income before income tax 140,000 85,000 Effective tax rate 15.1 % 13.3 % Other matters follow.`;
+
+  it.each(["(In millions) ", "($ in millions) ", "($ in millions, except per share data) "])("a percent row is not scaled under %j", async (decl) => {
+    expect(await synthetic(TAX(decl), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
+  });
+
+  it("does not contradict the NVDA summary gross-margin row", async () => {
+    const text = "Fiscal Year 2026 Summary Year Ended Jan 25, 2026 Jan 26, 2025 Change ($ in millions, except per share data) Revenue $ 215,938 $ 130,497 Up 65% Gross margin 71.1 % 75.0 % -3.9 pts Operating expenses $ 23,076 $ 16,405 Up 41% Other matters follow.";
+    expect(await synthetic(text, "Gross margin for FY2026 was 71.1%.")).not.toBe("contradicted");
+  });
+
+  describe("Note 3 per-share table", () => {
+    const full = readFileSync("fixtures/edgar/nvda-periodic-sections/nvda-10q-q2fy27-notes.txt", "utf8");
+    const from = full.indexOf("Note 3 - Net Income Per Share");
+    const endMark = "(2) Net income divided by diluted weighted average shares.";
+    const note = full.slice(from, full.indexOf(endMark) + endMark.length);
+    const run = (claim: string) => synthetic(note, claim, "10-Q notes", "edgar:10-Q notes", "2026-07-26");
+    it.each([
+      ["integer money cell is still scaled (control)", "Net income for the three months ended July 26, 2026 was USD 59,688 million.", "validated"],
+      ["the Basic per-share cell is not scaled", "Basic net income per share for the three months ended July 26, 2026 was USD 2.47.", "validated"],
+    ] as const)("%s", async (_name, claim, status) => {
+      expect(await run(claim)).toBe(status);
+    });
+    it.each([
+      "Basic net income per share for the three months ended July 26, 2026 was USD 2.47 million.",
+    ])("a per-share cell is never read as millions: %s", async (claim) => {
+      expect(await run(claim)).not.toBe("validated");
+    });
+    it.each([
+      "Diluted net income per share for the three months ended July 26, 2026 was USD 2.46.",
+      "Basic weighted average shares for the three months ended July 26, 2026 were 24,190 million shares.",
+    ])("control, not contradicted: %s", async (claim) => {
+      expect(await run(claim)).not.toBe("contradicted");
+    });
+  });
+
+  describe("billions declaration", () => {
+    const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in billions, except per share data) Revenue $ 216.0 $ 130.5 Diluted EPS $ 4.90 $ 2.94 Other matters follow.";
+    it("a decimal amount row is still scaled (control)", async () => {
+      expect(await synthetic(text, "Revenue as of 2026-01-25 was USD 216.0 billion.")).toBe("validated");
+    });
+    it.each([
+      ["Diluted EPS as of 2026-01-25 was USD 4.90 billion.", (s: string) => expect(s).not.toBe("validated")],
+      ["Diluted EPS as of 2026-01-25 was USD 4.90.", (s: string) => expect(s).not.toBe("contradicted")],
+    ] as const)("a per-share row keeps its dollars: %s", async (claim, check) => {
+      check((await synthetic(text, claim)) as string);
+    });
+  });
+
+  describe("a per-share claim never validates against a row that is not per-share (review round 1)", () => {
+    // Each row is the first row under the declaration, whose text must not supply metric words to it.
+    const under = (row: string) => `Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) ${row} Other matters follow.`;
+    it.each([
+      [under("Net income $ 59.7 $ 41.2"), "Net income per share as of 2026-01-25 was USD 59.7."],
+      [under("Revenue $ 1,234.5 $ 900.1"), "Revenue per share as of 2026-01-25 was USD 1,234.5."],
+      [under("Weighted average shares 1,234.5 1,200.4"), "Weighted average shares per share as of 2026-01-25 was USD 1,234.5."],
+    ])("not validated: %#", async (table, claim) => {
+      expect(await synthetic(table, claim)).not.toBe("validated");
+    });
+    // Share-named rows are not per-share rows: "Share-based" and "Shares" hold the word "share" without naming a per-share basis.
+    it.each([
+      [under("Share-based compensation $ 12.5 $ 11.0"), "Share-based compensation per share as of 2026-01-25 was USD 12.5."],
+      [under("Net income $ 59,688 $ 41,000 Share-based compensation $ 12.5 $ 11.0"), "Share-based compensation per share as of 2026-01-25 was USD 12.5."],
+      [under("Shares outstanding 1,234.5 1,200.4"), "Shares outstanding per share as of 2026-01-25 was USD 1,234.5."],
+    ])("a share-named row is not a per-share row: %#", async (table, claim) => {
+      expect(await synthetic(table, claim)).not.toBe("validated");
+    });
+    it("a row that names its own per-share basis still validates (control)", async () => {
+      const text = "Year Ended Jan 25, 2026 Jan 26, 2025 ($ in millions, except per share data) Net income $ 59,688 $ 41,000 Net income per share: Basic $ 2.47 $ 1.68 Other matters follow.";
+      expect(await synthetic(text, "Basic net income per share as of 2026-01-25 was USD 2.47.")).toBe("validated");
+    });
+  });
+
+  // PR #71 Codex review (AI-403): under "except per share data" a decimal cell is per share only when its own row names a per-share
+  // basis. Decimal precision alone (a "(In millions)" or "(In thousands)" table) made "Revenue $ 5.0" a per-share figure, so the false
+  // per-share claim validated and the true million claim was unchecked; main read both the other way.
+  describe("only a per-share row is per share (PR #71 review)", () => {
+    const Q = ["10-Q Part I Item 2 — MD&A (reporting period ended 2026-07-26 (Q2 FY2027))", "edgar:10-Q item2", "2026-07-26"] as const;
+    const table = (row: string) => `Jul 26, 2026 Jul 27, 2025 ($ in millions, except per share data) ${row}`;
+    it("a decimal amount row keeps the table's money scale", async () => {
+      expect(await synthetic(table("Revenue $ 5.0 $ 4.0"), "Revenue as of 2026-07-26 was USD 5.0 per share.", ...Q)).not.toBe("validated");
+      expect(await synthetic(table("Revenue $ 5.0 $ 4.0"), "Revenue as of 2026-07-26 was USD 5.0 million.", ...Q)).toBe("validated");
+    });
+    it("a row that names its per-share basis is still per share", async () => {
+      expect(await synthetic(table("Diluted net income per share $ 5.0 $ 4.0"), "Diluted net income per share as of 2026-07-26 was USD 5.0.", ...Q)).toBe("validated");
+      // "Per diluted share" names the basis too, so its cell is never read as millions.
+      expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0 million.", ...Q)).not.toBe("validated");
+      expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0.", ...Q)).not.toBe("contradicted");
+    });
+    // Codex fixes re-review (Y1): "per common share" names the basis as well, so these cells are never read as millions.
+    it.each([
+      ["Net income per common share: Basic $ 2.47 $ 1.10 Diluted $ 2.46 $ 1.08", "Basic net income per common share as of 2026-07-26 was USD 2.47"],
+      ["Diluted net income per common share $ 2.46 $ 1.08", "Diluted net income per common share as of 2026-07-26 was USD 2.46"],
+      ["Cash dividends declared per common share $ 0.25 $ 0.24", "Cash dividends declared per common share as of 2026-07-26 were USD 0.25"],
+    ])("a per-common-share row is per share: %s", async (row, claim) => {
+      expect(await synthetic(table(row), `${claim}.`, ...Q)).not.toBe("contradicted");
+      expect(await synthetic(table(row), `${claim} per share.`, ...Q)).toBe("validated");
+      expect(await synthetic(table(row), `${claim} million.`, ...Q)).not.toBe("validated");
+    });
+  });
+
+  describe("controls that hold before and after", () => {
+    it("no declaration", async () => {
+      expect(await synthetic(TAX(""), "Effective tax rate as of 2026-01-25 was 15.1%.")).toBe("validated");
+    });
+    it("an amount under (In millions) is scaled", async () => {
+      expect(await synthetic(TAX("($ in millions) "), "Income before income tax as of 2026-01-25 was USD 140.0 billion.")).toBe("validated");
+    });
+    it("a percent is not read as a scaled million", async () => {
+      expect(await synthetic(TAX("($ in millions) "), "Gross margin as of 2025-01-26 was 75,000,000%.")).not.toBe("validated");
+    });
   });
 });

@@ -443,7 +443,7 @@ function sameIdentity(a: PeriodIdentity, b: PeriodIdentity): boolean {
  * A 52/53-week calendar ends near, not on, the month end, so the end date is
  * read a week earlier: 2026-01-03 still closes December 2025.
  */
-function closesCalendarPeriod(endIso: string, period: { year: number; quarter: number | null }): boolean {
+export function closesCalendarPeriod(endIso: string, period: { year: number; quarter: number | null }): boolean {
   const end = Date.parse(`${endIso}T00:00:00Z`);
   if (!Number.isFinite(end)) return false;
   const shifted = new Date(end - 7 * 86_400_000);
