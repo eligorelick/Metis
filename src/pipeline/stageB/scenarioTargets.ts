@@ -236,6 +236,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     preferred: baseDcf.bridge.preferred,
     nonOperatingAssets: baseDcf.bridge.nonOperatingAssets ?? null,
     noncontrollingEarningsShare: baseDcf.bridge.noncontrollingEarningsShare ?? null,
+    temporaryEquity: baseDcf.bridge.temporaryEquity ?? null,
   };
 
   const tn = (name: ScenarioTarget["name"], value: number): TracedNumber => ({

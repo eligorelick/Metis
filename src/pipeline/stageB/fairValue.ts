@@ -188,9 +188,12 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     );
   }
   // FIN-119: withheld because a temporary-equity claim is refused or may overlap the NCI earnings key.
-  const temporaryEquityGap = valuation.kind === "dcf" ? valuation.gaps.find((g) => g.field === "valuation.dcf.temporaryEquityAllocation") : undefined;
-  if (temporaryEquityGap !== undefined) {
-    return suppressed([temporaryEquityGap], [`Intrinsic value per share unavailable: ${temporaryEquityGap.reason}`]);
+  const temporaryEquityReason = valuation.kind === "dcf" ? valuation.dcf?.temporaryEquityWithheld : undefined;
+  if (temporaryEquityReason !== undefined) {
+    return suppressed(
+      [{ field: "valuation.dcf.temporaryEquityAllocation", reason: temporaryEquityReason, severity: "warn" }],
+      [`Intrinsic value per share unavailable: ${temporaryEquityReason}`],
+    );
   }
 
   if (method === null || !isNum(perShareValue)) {

@@ -1088,16 +1088,38 @@ same claims. An operand Stage A refuses (a conflict between sources, a
 non-finite value, a total that contradicts its parts) withholds what it touches:
 the DCF per-share value and the EV multiples
 (`valuation.multiples.enterpriseValue.temporaryEquity`). It is never zero-filled.
-The same claims reach every guard that asks whether preferred or NCI exists:
-forecast operating EPS and the P/FCF cash-ownership guard are withheld as for
-permanent preferred, and so are the own-history common-allocation checks. When an
-issuer tags temporary equity but its SEC enrichment was withheld, the claim is
-unknown, not absent: the bridge and the EVs keep their figures and one warn gap
-(`valuation.temporaryEquity.unknown`) says a claim may be missing. A residual is
-disclosed in the report itself: the parent caption can also hold redeemable
-common shares (shares subject to possible redemption, an ESOP put) that the
-diluted share count may already include; companyfacts do not separate them, so
-such shares would be counted both as a claim and in the divisor.
+The unsplit rule holds wherever the NCI deduction is decided: any sensitivity
+cell, growth/margin cell, reverse-DCF step or scenario path whose deduction is on
+the earnings share while an unsplit total is deducted is withheld, and cells on
+book publish as before. The same claims reach every guard that asks whether
+preferred or NCI exists. The P/FCF cash-ownership guard and the three
+own-history common-allocation checks count an admitted claim and a refused one (a
+refused operand is a filed claim of unknown amount). Forecast operating EPS is
+withheld, with the disclosure `projections.eps.ownershipScope`, when the
+operating forecast anchor's balance has a refused temporary-equity operand or an
+admitted claim above zero, and also through the deducted preferred and book NCI
+fields as for permanent preferred. The first condition is what covers a
+redeemable NCI beside a null book NCI, whose bridge fields stay null; at main the
+null-book case is withheld only when the period's NCI income is non-zero.
+
+When an issuer has tagged temporary equity in some period but the SEC enrichment
+for a balance date was withheld, the claim at that date is unknown, not absent:
+the bridge and the EVs keep their figures and one warn gap
+(`valuation.temporaryEquity.unknown`) says the claim may be missing. The gap
+reads each consumer's own balance date: the DCF bridge's (the statement-date row)
+and the enterprise values' (the anchor row, which can be newer), and names only
+the consumer whose date matched. It names no DCF bridge when there is no
+published DCF (an equity REIT, a suppressed or withheld DCF), and is not raised on
+bank, insurer or mortgage-REIT routes, which have neither. It reads only the
+enrichment's own withheld reasons (no vendor CIK, no compatible SEC period, an
+unknown vendor permanent-equity scope, operands that do not match). The
+SEC-silent refusal ("temporary carrying amounts are absent or explicitly refused
+for this SEC period") is excluded: it means the SEC period holds none. A residual
+is disclosed in the report itself, in the DCF bridge note and in the EV basis: the
+parent caption can also hold redeemable common shares (shares subject to
+possible redemption, an ESOP put) that the diluted share count (and the quoted
+market cap) may already include; companyfacts do not separate them, so such
+shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
 values consolidated free cash flow, so its enterprise value includes the outside

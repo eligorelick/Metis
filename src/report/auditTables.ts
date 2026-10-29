@@ -97,8 +97,9 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
     result.push({heading:"Enterprise value to equity bridge",headers:["Component","Value"],rows:[
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
       ["Intrinsic enterprise value (DCF, operating assets)",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
-      [`${b.noncontrollingBasis === undefined ? "Less minority interest" : `Less minority interest (${b.noncontrollingBasis})`}${minorityNote}`,claim(b.minorityInterest)],
-      ...(b.noncontrollingBook === undefined ? [] : [["Minority interest at book value (not deducted)", money(b.noncontrollingBook)]]),
+      // On an earnings-share bridge the deduction is a profit share, not a sum holding the redeemable part; that part sits in the book row.
+      [`${b.noncontrollingBasis === undefined ? "Less minority interest" : `Less minority interest (${b.noncontrollingBasis})`}${b.noncontrollingBook === undefined ? minorityNote : ""}`,claim(b.minorityInterest)],
+      ...(b.noncontrollingBook === undefined ? [] : [[`Minority interest at book value (not deducted)${minorityNote}`, money(b.noncontrollingBook)]]),
       [`Less preferred equity${preferredNote}`,claim(b.preferredEquity)],
       ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],

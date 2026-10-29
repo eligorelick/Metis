@@ -9,6 +9,7 @@
  * none of them keeps its own reading of the three filed fields.
  */
 import { IDENTITY_TOLERANCE_PCT } from "@/pipeline/stageA/validate";
+import { millions } from "@/pipeline/stageB/netDebt";
 
 const FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
 type TemporaryEquityField = (typeof FIELDS)[number];
@@ -66,16 +67,16 @@ export function temporaryEquityClaims(row: TemporaryEquityRow | null | undefined
   if (finite(total)) {
     if (finite(parent) && finite(nci)) {
       if (!tolerated(total, parent + nci)) {
-        return withheld(`temporary-equity allocation conflict: reported total ${total} vs parent ${parent} + redeemable NCI ${nci} (tolerance ${IDENTITY_TOLERANCE_PCT}% of the larger total)`);
+        return withheld(`temporary-equity allocation conflict: reported total ${millions(total)} vs parent ${millions(parent)} + redeemable NCI ${millions(nci)} (tolerance ${IDENTITY_TOLERANCE_PCT}% of the larger total)`);
       }
       return make(parent, nci, 0, "temporaryEquity, split by its parent and redeemable NCI parts");
     }
     if (finite(parent)) {
-      if (parent > total && !tolerated(total, parent)) return withheld(`temporary-equity allocation conflict: parent part ${parent} exceeds the reported total ${total}`);
+      if (parent > total && !tolerated(total, parent)) return withheld(`temporary-equity allocation conflict: parent part ${millions(parent)} exceeds the reported total ${millions(total)}`);
       return make(parent, total - parent, 0, "temporaryEquity less the parent part (the remainder is redeemable NCI)");
     }
     if (finite(nci)) {
-      if (nci > total && !tolerated(total, nci)) return withheld(`temporary-equity allocation conflict: redeemable NCI ${nci} exceeds the reported total ${total}`);
+      if (nci > total && !tolerated(total, nci)) return withheld(`temporary-equity allocation conflict: redeemable NCI ${millions(nci)} exceeds the reported total ${millions(total)}`);
       return make(total - nci, nci, 0, "temporaryEquity less the redeemable NCI part (the remainder is parent temporary equity)");
     }
     return make(0, 0, total, "temporaryEquity, no parent/NCI split filed");

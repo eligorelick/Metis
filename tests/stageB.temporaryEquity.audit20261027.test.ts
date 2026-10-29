@@ -14,9 +14,9 @@
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
-import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
+import { computeDcfDisplay, computeFairValue } from "@/pipeline/stageB/fairValue";
 import { valuationAuditTables } from "@/report/auditTables";
-import { fixedBridgeNonOperatingText } from "@/report/scenarioPresentation";
+import { fixedBridgeClaimsText } from "@/report/scenarioPresentation";
 import { temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import {
   multiplesFramework, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type QuarterlyFundamentalsRow, type ValuationBundleInputs,
@@ -135,6 +135,10 @@ describe("FIN-119: the DCF bridge", () => {
     expect(bridge.minorityInterest).toBe(50);
     expect(bridge.noncontrollingDeducted).toBeCloseTo(Math.max(50, 0.3 * consolidatedEquity), 9);
     expect(v.dcf!.equityValue).toBeCloseTo(consolidatedEquity - bridge.noncontrollingDeducted!, 9);
+    // The floor binds when book + redeemable exceeds the profit share: the deduction is exactly that sum, on the book basis.
+    const bound = dcfOf({ minorityInterest: 10, temporaryEquity: claims({ redeemableNoncontrolling: 4000 }), noncontrollingEarnings: KEY });
+    expect(bound.dcf!.bridge.noncontrollingDeducted).toBe(4010);
+    expect(bound.dcf!.bridge.noncontrollingDeductionBasis).toBe("book");
     // Without the redeemable part the book floor is 10, and the deduction is the profit share alone.
     const without = dcfOf({ minorityInterest: 10, noncontrollingEarnings: KEY });
     expect(without.dcf!.bridge.noncontrollingDeducted).toBeCloseTo(0.3 * (without.dcf!.enterpriseValue - 200), 9);
@@ -190,22 +194,71 @@ describe("FIN-119: the bridge surfaces name the redeemable part", () => {
     const v = valueOf({ minorityInterest: 10, temporaryEquity: claims({ redeemablePreferred: 50, redeemableNoncontrolling: 40 }), noncontrollingEarnings: KEY });
     const display = computeDcfDisplay(v, "USD")!;
     expect(display.bridge!.temporaryEquity).toEqual({ redeemablePreferred: 50, redeemableNoncontrolling: 40, unsplit: 0 });
-    const labels = valuationAuditTables({ ...display, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0]);
+    const rows = (d: NonNullable<ReturnType<typeof computeDcfDisplay>>) =>
+      valuationAuditTables({ ...d, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0] as string);
+    const labels = rows(display);
+    expect(display.bridge!.noncontrollingBook).toBeDefined(); // the profit share binds: this is an earnings-share bridge
     expect(labels).toContainEqual(expect.stringMatching(/^Less preferred equity \(includes .* of redeemable preferred and other temporary equity\)$/));
-    expect(labels).toContainEqual(expect.stringMatching(/^Less minority interest .*\(includes .* of redeemable noncontrolling interests\)$/));
+    // F4: on an earnings-share bridge the redeemable part is named on the book row, not on the profit-share deduction.
+    expect(labels).toContainEqual(expect.stringMatching(/^Minority interest at book value \(not deducted\) \(includes .* of redeemable noncontrolling interests\)$/));
+    expect(labels.find((l) => l.startsWith("Less minority interest"))).not.toMatch(/redeemable/);
+    // When the book floor binds the deduction is a sum holding the redeemable part, so the deduction line names it.
+    const floor = computeDcfDisplay(valueOf({ minorityInterest: 10, temporaryEquity: claims({ redeemableNoncontrolling: 4000 }), noncontrollingEarnings: KEY }), "USD")!;
+    expect(floor.bridge!.noncontrollingBook).toBeUndefined();
+    expect(rows(floor).find((l) => l.startsWith("Less minority interest"))).toMatch(/\(includes .* of redeemable noncontrolling interests\)$/);
     // Control: a bridge with no temporary equity keeps the plain labels and carries no field.
     const plain = computeDcfDisplay(valueOf({ preferred: 50 }), "USD")!;
     expect(plain.bridge!.temporaryEquity).toBeUndefined();
-    expect(valuationAuditTables({ ...plain, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0]))
-      .toEqual(expect.arrayContaining(["Less preferred equity", "Less minority interest"]));
-    expect(fixedBridgeNonOperatingText(v.dcf!.bridge, (x) => x.toFixed(2))).toBe("");
+    expect(rows(plain)).toEqual(expect.arrayContaining(["Less preferred equity", "Less minority interest"]));
   });
 
-  it("a withheld claim suppresses the fair value with its own reason", () => {
-    const v = valueOf({ temporaryEquity: { ...claims({}), refusal: "temporary-equity operand refused: temporaryEquity (two filings disagree)" } });
-    const gap = v.gaps.find((g) => g.field === "valuation.dcf.temporaryEquityAllocation");
-    expect(gap).toBeDefined();
-    expect(v.dcf!.perShare).toBeNull();
+  it("the fixed-bridge scenario text names the redeemable parts", () => {
+    const v = valueOf({ minorityInterest: 10, temporaryEquity: claims({ redeemablePreferred: 50, redeemableNoncontrolling: 40 }), noncontrollingEarnings: KEY });
+    const claim = (x: number | null) => (x === null ? "not disclosed; model uses 0" : x.toFixed(2));
+    const text = fixedBridgeClaimsText(v.dcf!.bridge, claim, (x) => x.toFixed(2));
+    expect(text).toMatch(/minority interest .*\(including redeemable noncontrolling interests of 40\.00\), preferred equity 50\.00 \(including redeemable preferred and other temporary equity of 50\.00\)$/);
+    // Control: permanent preferred only.
+    expect(fixedBridgeClaimsText(valueOf({ preferred: 50 }).dcf!.bridge, claim, (x) => x.toFixed(2))).toBe("minority interest not disclosed; model uses 0, preferred equity 50.00");
+  });
+
+  it("a withheld claim suppresses the fair value with its own reason, and an earlier gate keeps its own", () => {
+    const fair = (v: ReturnType<typeof valueOf>) => computeFairValue({ valuation: v, currentPrice: 100, currency: "USD", asOf: "2026-10-29" });
+    const refused = valueOf({ temporaryEquity: { ...claims({}), refusal: "temporary-equity operand refused: temporaryEquity (two filings disagree)" } });
+    expect(refused.dcf!.perShare).toBeNull();
+    expect(fair(refused)).toMatchObject({ status: "suppressed" });
+    expect(fair(refused).reasons[0]).toMatchObject({ field: "valuation.dcf.temporaryEquityAllocation" });
+    expect(fair(refused).reasons[0]!.reason).toMatch(/two filings disagree/);
+    // The unsplit total beside an earnings key is withheld inside the DCF run itself and says the same.
+    const unsplit = valueOf({ minorityInterest: 10, temporaryEquity: claims({ unsplit: 40 }), noncontrollingEarnings: KEY });
+    expect(fair(unsplit).reasons[0]!.reason).toMatch(/no parent\/NCI split/);
+    // Diluted shares withhold first: the reason names the shares, not the claim.
+    const noShares = valueOf({ dilutedShares: null, temporaryEquity: { ...claims({}), refusal: "temporary-equity operand refused: temporaryEquity (two filings disagree)" } });
+    expect(noShares.dcf!.temporaryEquityWithheld).toBeUndefined();
+    expect(fair(noShares).reasons.map((r) => r.reason).join(" ")).toMatch(/diluted share count/);
+    expect(fair(noShares).reasons.map((r) => r.field)).not.toContain("valuation.dcf.temporaryEquityAllocation");
+  });
+});
+
+describe("FIN-119: the unsplit rule holds in every bridge re-run", () => {
+  it("a grid cell that flips to the earnings share is withheld; the base and the book cells are unchanged", () => {
+    const probe = dcfOf({ minorityInterest: 1, noncontrollingEarnings: KEY });
+    const equity0 = probe.dcf!.enterpriseValue - 200;
+    // Book sits just above the profit share at the base WACC, so a lower-WACC cell (higher EV) flips to the earnings share.
+    const book = 0.3 * equity0 * 1.02;
+    const v = dcfOf({ minorityInterest: book, temporaryEquity: claims({ unsplit: 40 }), noncontrollingEarnings: KEY });
+    expect(v.dcf!.bridge.noncontrollingDeductionBasis).toBe("book");
+    expect(v.dcf!.perShare).not.toBeNull();
+    const control = dcfOf({ minorityInterest: book, noncontrollingEarnings: KEY });
+    const grid = v.sensitivity!;
+    const controlGrid = control.sensitivity!;
+    const cells = grid.perShare.flatMap((row, i) => row.map((value, j) => ({ value, other: controlGrid.perShare[i]![j]!, wacc: grid.waccPcts[i]! })));
+    const withheld = cells.filter((c) => c.value === null && c.other !== null);
+    expect(withheld.length).toBeGreaterThan(0);
+    expect(withheld.every((c) => c.wacc < 9)).toBe(true); // only the cheaper-discounting cells flip
+    expect(cells.some((c) => c.value !== null)).toBe(true); // book cells publish
+    expect(grid.perShare[grid.waccPcts.indexOf(9)]![0]).not.toBeNull();
+    // Control without an unsplit total: every cell publishes.
+    expect(controlGrid.perShare.flat().every((c) => c !== null)).toBe(true);
   });
 });
 
@@ -221,7 +274,10 @@ describe("FIN-119: the enterprise values", () => {
     expect(temp.multiples!.enterpriseValue.value).toBe(pref.multiples!.enterpriseValue.value);
     const nci = evOf({ temporaryEquityAttributableToNoncontrollingInterest: 400, temporaryEquityAttributableToParent: 600, temporaryEquity: 1000 });
     expect(nci.multiples!.enterpriseValue.value).toBe(base.multiples!.enterpriseValue.value! + 1000);
-    expect(temp.multiples!.enterpriseValue.basis).toMatch(/redeemable preferred and redeemable noncontrolling interest \(temporary equity\)/);
+    expect(temp.multiples!.enterpriseValue.basis).toMatch(/\+ temporary equity attributable to the parent − cash/);
+    expect(temp.multiples!.enterpriseValue.basis).toMatch(/can also hold redeemable common shares/);
+    expect(nci.multiples!.enterpriseValue.basis).toMatch(/\+ temporary equity attributable to the parent \+ redeemable noncontrolling interest − cash/);
+    expect(evOf({ temporaryEquityAttributableToNoncontrollingInterest: 400 }).multiples!.enterpriseValue.basis).not.toMatch(/redeemable common shares/);
     expect(base.multiples!.enterpriseValue.basis).not.toMatch(/temporary equity/);
   });
 
@@ -252,6 +308,25 @@ describe("FIN-119: the enterprise values", () => {
       expect(evToSales(history({}))?.p50).toBeCloseTo(10.3, 9); // (1000 + 30) / 100
       expect(evToSales(history({ temporaryEquityAttributableToParent: 200 }))?.p50).toBeCloseTo(12.3, 9);
       expect(evToSales(history({ preferredStock: 200 }))?.p50).toBeCloseTo(12.3, 9); // control: permanent preferred
+    });
+
+    it("a refused temporary-equity operand counts as a claim in the own-history allocation flags", () => {
+      // No quarter carries preferredStock, so a claim on the current balance leaves the common-income history unestablished.
+      const quarters = (extra: Partial<QuarterlyFundamentalsRow>) => dates.map((date) => ({ date, revenue: 25, operatingIncome: 5, depreciationAndAmortization: 1, netIncome: 4,
+        operatingCashFlow: 6, capitalExpenditure: -1, totalStockholdersEquity: 100, totalDebt: 100, cashAndShortTermInvestments: 70, ...extra }) as QuarterlyFundamentalsRow);
+      const run = (balance: Record<string, unknown>) => multiplesFramework("general", {
+        quote: { price: 100, marketCap: 1000, currency: "USD" }, reportedCurrency: "USD",
+        incomeTtm: { date: dates[0], revenue: 100, operatingIncome: 20, depreciationAndAmortization: 4, netIncome: 16, epsDiluted: 4 },
+        cashFlowTtm: { date: dates[0], operatingCashFlow: 24, capitalExpenditure: -4, depreciationAndAmortization: 4 },
+        balance: { date: dates[0], totalDebt: 100, cashAndShortTermInvestments: 70, totalStockholdersEquity: 100, goodwill: 0, intangibleAssets: 0, minorityInterest: 0, preferredStock: 0, ...balance },
+        quarterlyFundamentals: quarters({}),
+        enterpriseValuesHistory: dates.map((date) => ({ date, marketCapitalization: 1000, enterpriseValue: 1100 })),
+      });
+      const peHistory = (r: ReturnType<typeof run>) => r.multiples.find((row) => row.key === "peTtm")?.ownHistory ?? null;
+      expect(peHistory(run({}))).not.toBeNull(); // control: no claim
+      const refused = run({ temporaryEquity: 30, fieldConflicts: { temporaryEquity: { usable: false, reason: "two filings disagree" } } });
+      expect(peHistory(refused)).toBeNull();
+      expect(refused.gaps.some((g) => /outside-claim allocation is unavailable/.test(g.reason))).toBe(true);
     });
 
     it("drops the EV multiples for a quarter whose temporary equity is refused, keeping the equity multiples", () => {
@@ -303,6 +378,59 @@ describe("FIN-119: runStageB wiring", () => {
       expect(eps(out).disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
       expect(cashGap(out)).toBe(true);
     }
+  });
+
+  describe("forecast EPS beside the claim states the bridge fields cannot show", () => {
+    const eps = (out: ReturnType<typeof stageB>) => out.projections.series.find((s) => s.metric === "epsDiluted")!;
+    it("a redeemable NCI beside a null book NCI with no NCI income withholds forecast EPS", () => {
+      const out = stageB({ temporaryEquityAttributableToNoncontrollingInterest: 1000 * M, minorityInterest: null as never }, 1000 * M);
+      expect(eps(out).base).toEqual([]);
+      expect(eps(out).disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
+    });
+    it("a refused temporary-equity operand withholds forecast EPS", () => {
+      const out = stageB({ temporaryEquity: 1000 * M, fieldConflicts: { temporaryEquity: { vendorValue: 1000 * M, secValue: 900 * M, usable: false, reason: "two filings disagree" } } as never });
+      expect(eps(out).base).toEqual([]);
+      expect(eps(out).disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
+    });
+    it("controls: no temporary equity publishes forecast EPS, and a withheld enrichment withholds nothing", () => {
+      expect(eps(stageB()).base.length).toBeGreaterThan(0);
+      const unknown = stageB({}, 0, [{ field: "statements.balance.2026-03-31.temporaryEquity", reason: "temporary-equity SEC enrichment withheld: vendor issuer CIK is unknown or differs from companyfacts", severity: "warn" }]);
+      expect(eps(unknown).base.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("the unknown gap names only the consumers whose own row's date matched", () => {
+    const UNKNOWN = "valuation.temporaryEquity.unknown";
+    const withheld = (date: string) => [{ field: `statements.balance.${date}.temporaryEquity`, severity: "warn" as const,
+      reason: "temporary-equity SEC enrichment withheld: vendor issuer CIK is unknown or differs from companyfacts" }];
+    /** FIN-103 date split: an annual-base DCF bridges on 2025-12-31 while the market EV keeps the newer 2026-03-31 quarter. */
+    function split(date: string) {
+      const b = completeCurrencyBundle({ debt: 100, siblingQuarterCurrencies: siblings });
+      const member = b.statements.incomeQuarterly;
+      if (member.ok) member.value.data.rows = member.value.data.rows.filter((r) => r.date !== "2025-09-30");
+      b.gaps = withheld(date);
+      return runStageB(b);
+    }
+    it("only the anchor date withheld names the enterprise values, not the DCF bridge", () => {
+      const reason = gapOf(dcf(split("2026-03-31")), UNKNOWN)?.reason ?? "";
+      expect(reason).toMatch(/for the 2026-03-31 balance/);
+      expect(reason).toMatch(/may be missing from the enterprise values/);
+      expect(reason).not.toMatch(/DCF bridge/);
+      expect(reason).not.toMatch(/issuer tags temporary equity at/);
+    });
+    it("only the bridge date withheld names the DCF bridge, not the enterprise values", () => {
+      const reason = gapOf(dcf(split("2025-12-31")), UNKNOWN)?.reason ?? "";
+      expect(reason).toMatch(/for the 2025-12-31 balance/);
+      expect(reason).toMatch(/may be missing from the DCF bridge, which keep/);
+      expect(reason).not.toMatch(/enterprise values/);
+    });
+    it("a REIT has no DCF bridge to name", () => {
+      const b = completeCurrencyBundle({ debt: 100, reit: true, siblingQuarterCurrencies: siblings });
+      b.gaps = withheld("2026-03-31");
+      const reason = gapOf(runStageB(b).valuation as never, UNKNOWN)?.reason ?? "";
+      expect(reason).toMatch(/may be missing from the enterprise values/);
+      expect(reason).not.toMatch(/DCF bridge/);
+    });
   });
 
   describe("a withheld temporary-equity enrichment is unknown, not absent", () => {

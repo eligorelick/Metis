@@ -2592,6 +2592,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const projectionOutsideOwnership = [num(projectionOwnershipBalance?.minorityInterest), num(projectionOwnershipIncome?.netIncomeAttributableToNoncontrollingInterest)]
     .some(value => value !== null && value !== 0);
+  // FIN-119 (OD-1, one definition of claims senior to common): a refused temporary-equity operand, or an
+  // admitted claim, also leaves a future common-earnings allocation unestablished. This covers a redeemable
+  // NCI beside a null book NCI, which the bridge fields cannot show. An unknown (withheld) enrichment withholds nothing.
+  const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims(temporaryEquityOperands(projectionOwnershipBalance));
+  const projectionTemporaryClaim = projectionTemporary !== null && (projectionTemporary.refusal !== null || projectionTemporary.total > 0);
   // A rejected TTM can leave an older annual DCF anchor. Its EPS must not
   // import a newer quarter, or interest in an unestablished/different currency.
   const projectionInterest = latestIncomeQuarter !== undefined && projectionQuarterDate !== null && projectionAnchorDate !== null
@@ -2609,7 +2614,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     valuation,
     waccPct: returns.wacc.waccPct,
     dilutedShares: dilutedSharesProj,
-    ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." } : {}),
+    ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." }
+      : projectionTemporaryClaim ? { forecastEpsWithheldReason: "Temporary equity (redeemable preferred or redeemable noncontrolling interests) is filed, or refused, at the operating forecast anchor, but a future common-earnings allocation is unestablished. Its carrying amount is not a dividend or earnings forecast and is not subtracted from forecast operating earnings." } : {}),
     incomeHistory: projectionIncomeHistory,
     fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
@@ -3946,7 +3952,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
     // FIN-119: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
     temporaryEquity: bridgePoint ? temporaryEquityClaims(temporaryEquityOperands(bridgePoint)) : null,
-    temporaryEquityUnknown: temporaryEquityUnknownAt(bridgePoint, bridgePoint ? isoDay(bridgePoint.date) : null, bundle.gaps),
+    // The DCF bridge reads the statement-date row and the enterprise values the anchor row, so each is matched on its own date.
+    temporaryEquityUnknown: (() => {
+      const unknownAt = (row: FmpBalanceSheetRow | null | undefined) => temporaryEquityUnknownAt(row ?? null, row ? isoDay(row.date) : null, bundle.gaps);
+      const bridge = unknownAt(bridgePoint), market = unknownAt(balPoint);
+      return bridge === null && market === null ? null : { bridge, market };
+    })(),
     // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
     // Consolidated profit is the filed ProfitLoss, else net income on a
     // consolidated basis, else parent plus NCI income (as forensics does).
