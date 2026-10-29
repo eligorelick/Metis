@@ -97,8 +97,8 @@ describe("FIN-303: sales-to-capital removes the operating lease the bridge remov
 describe("operatingLeaseOutOfDebt: the CODE-1 proven slice", () => {
   const proven = { totalDebt: 300, shortTermDebt: 20, longTermDebt: 80, operatingLeaseLiability: 200, capitalLeaseObligations: 200 };
   it("returns the slice on the default switch when the scope is proven, and nothing with the switch set", () => {
-    expect(operatingLeaseOutOfDebt(proven, false)).toEqual({ amount: 200, note: null });
-    expect(operatingLeaseOutOfDebt(proven, true)).toEqual({ amount: 0, note: null });
+    expect(operatingLeaseOutOfDebt(proven, false)).toEqual({ amount: 200, note: null, clause: null });
+    expect(operatingLeaseOutOfDebt(proven, true)).toEqual({ amount: 0, note: null, clause: null });
   });
   it("returns nothing and the unproven reason when total debt is not shown to hold the lease", () => {
     const row = { totalDebt: 300, shortTermDebt: 50, longTermDebt: 250, operatingLeaseLiability: 150, capitalLeaseObligations: null };
@@ -107,12 +107,31 @@ describe("operatingLeaseOutOfDebt: the CODE-1 proven slice", () => {
     expect(out.note).toBe(operatingLeaseScopeUnproven(row));
     expect(out.note).toMatch(/operating-lease scope unproven/);
   });
+  it("composes the reason and its clause: one exact string per predicate reason (fix round 1, M6)", () => {
+    const unprovenRow = { totalDebt: 300e6, shortTermDebt: 50e6, longTermDebt: 250e6, operatingLeaseLiability: 150e6, capitalLeaseObligations: null };
+    const unproven = operatingLeaseOutOfDebt(unprovenRow, false);
+    expect(unproven.clause).toBe("operating-lease scope unproven: the operating-lease liability 150M is not shown to be inside total debt 300M " +
+      "(no total lease liability is disclosed, and borrowings plus leases 450M do not reconcile to the total)");
+    expect(unproven.note).toBe(`${unproven.clause}, so it is not removed; net debt is used as reported`);
+    const over = operatingLeaseOutOfDebt({ totalDebt: 100e6, capitalLeaseObligations: 200e6, operatingLeaseLiability: 200e6 }, false);
+    expect(over.clause).toBe("the operating-lease liability 200M exceeds total debt 100M");
+    expect(over.note).toBe("the operating-lease liability 200M exceeds total debt 100M, so it is not removed; total debt is used as reported");
+    expect(operatingLeaseOutOfDebt({ totalDebt: 100e6, operatingLeaseLiability: 0 }, false).clause).toBeNull();
+  });
+
+  it("says total debt is not reported, not 'exceeds total debt unavailable' (fix round 1, M4)", () => {
+    const out = operatingLeaseOutOfDebt({ totalDebt: null, capitalLeaseObligations: 200e6, operatingLeaseLiability: 200e6 }, false);
+    expect(out.amount).toBe(0);
+    expect(out.clause).toBe("the operating-lease liability 200M cannot be removed: total debt is not reported");
+    expect(out.note).not.toMatch(/exceeds/);
+  });
+
   it("returns nothing, with a reason, for a slice larger than total debt, and nothing for a row without a lease", () => {
     const over = operatingLeaseOutOfDebt({ totalDebt: 100, capitalLeaseObligations: 200, operatingLeaseLiability: 200 }, false);
     expect(over.amount).toBe(0);
     expect(over.note).toMatch(/exceeds total debt/);
-    expect(operatingLeaseOutOfDebt({ totalDebt: 100, operatingLeaseLiability: null }, false)).toEqual({ amount: 0, note: null });
-    expect(operatingLeaseOutOfDebt({ totalDebt: 100, operatingLeaseLiability: 0 }, false)).toEqual({ amount: 0, note: null });
+    expect(operatingLeaseOutOfDebt({ totalDebt: 100, operatingLeaseLiability: null }, false)).toEqual({ amount: 0, note: null, clause: null });
+    expect(operatingLeaseOutOfDebt({ totalDebt: 100, operatingLeaseLiability: 0 }, false)).toEqual({ amount: 0, note: null, clause: null });
   });
 });
 
@@ -160,6 +179,16 @@ describe("the A-2 history is measured on one lease basis", () => {
     expect(mixedFree.ratio).toBeCloseTo(850 / 2200, 9);
     expect(mixedFree.basis).toContain("FY2024-12-31 0.4091x");
     expect(mixedFree.basis).not.toMatch(/left out/);
+  });
+
+  it("a duplicated date counts once and is never listed both used and left out (fix round 1, M5)", () => {
+    const inc = income([["2022", 700], ["2023", 800], ["2024", 900], ["2025", 1000]]);
+    const unprovenDup = row("2024", { capitalLeaseObligations: null, shortTermDebt: 50, longTermDebt: 250 });
+    const rows = [unprovenDup, row("2022"), row("2023"), row("2024"), row("2025")];
+    const got = establishedSalesToCapital(inc, rows, excluded);
+    expect(got.basis).toContain("FY2024-12-31 0.4500x");
+    expect(got.basis).not.toMatch(/FY2024-12-31 left out/);
+    expect(got.basis.match(/FY2024-12-31/g)).toHaveLength(1);
   });
 
   it("the FCX-1 mode still subtracts the disclosed operating portion and skips a year that has none", () => {
@@ -240,6 +269,31 @@ describe("lease-emptied capital (Review Focus 13)", () => {
     expect(included.assumptions!.salesToCapital.basis).toMatch(/1000000000 \/ 150000000|raw ratio 6\.6667x/);
   });
 
+  it("a history median above the house cap is held at it, and the basis says so (fix round 1, M7 ii)", () => {
+    const rich = [2021, 2022, 2023, 2024, 2025].map((y) => ({ date: `${y}-12-31`, revenue: 3000e6, operatingIncome: 100e6, incomeBeforeTax: 90e6, incomeTaxExpense: 18e6 }));
+    const capitalHistory = [2023, 2024, 2025].map(historyRow);
+    const history = establishedSalesToCapital(rich, capitalHistory, lease);
+    expect(history.ratio).toBeCloseTo(6, 9);
+    const built = buildDcfAssumptions({ ...base, incomeHistory: rich, balance: emptied(), capitalHistory });
+    expect(built.assumptions!.salesToCapital.value).toBe(5);
+    expect(built.assumptions!.salesToCapital.basis).toMatch(/held to the house cap 5/);
+    expect(built.notes.join(" ")).toMatch(/sales-to-capital clamped 6 -> 5/);
+  });
+
+  it("the basis names the fiscal-year median on its lease basis and keeps the long-term-investment sentence (fix round 1, M3)", () => {
+    const capitalHistory = [2023, 2024, 2025].map(historyRow);
+    const basis = buildDcfAssumptions({ ...base, incomeHistory: income, balance: emptied({ longTermInvestments: 30e6 }), capitalHistory }).assumptions!.salesToCapital.basis;
+    expect(basis).not.toMatch(/^TTM sales-to-capital/);
+    expect(basis).toMatch(/median of the issuer's own filed fiscal-year ratios on the lease-excluded basis/);
+    expect(basis).toMatch(/long-term investments .* are non-operating, house rule D-60, and the equity bridge adds them back/);
+  });
+
+  it("a capital that is non-positive even lease-inclusive keeps main's gap text (fix round 1, M7 iii)", () => {
+    const built = buildDcfAssumptions({ ...base, balance: emptied({ totalStockholdersEquity: -400e6 }), capitalHistory: [2023, 2024, 2025].map(historyRow), incomeHistory: income });
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps.find((g) => g.field === "valuation.dcf.salesToCapital")?.reason).toMatch(/^invested capital <= 0 - this sales-to-capital DCF is suppressed/);
+  });
+
   it("a non-positive capital with no lease removed keeps main's gap text", () => {
     const noLease = emptied({ totalDebt: 50e6, operatingLeaseLiability: null, capitalLeaseObligations: null });
     const built = buildDcfAssumptions({ ...base, balance: noLease });
@@ -309,5 +363,85 @@ describe("FIN-303-V1: ROIC removes the operating lease only when total debt is s
     // Control: a proven row removes the lease (700 - 150 = 550).
     const provenRows = [bal("2025-12-31", { capitalLeaseObligations: 150 }), bal("2024-12-31", { capitalLeaseObligations: 150 })];
     expect(latest(computeRoic(income, provenRows)).investedCapitalAvg).toBe(550);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 1: the no-lease current row, the switch words, the wiring, the controls
+// ---------------------------------------------------------------------------
+
+describe("fix round 1: the lease basis of the current row reaches the history and the basis", () => {
+  const hist = (y: number, over: Partial<DcfBalanceRow> = {}): DcfBalanceRow => ({
+    date: `${y}-12-31`, basis: "annual", totalDebt: 300e6, operatingLeaseLiability: 200e6, capitalLeaseObligations: 200e6,
+    totalStockholdersEquity: 2000e6, cashAndShortTermInvestments: 100e6, ...over,
+  });
+  const incomeHist = [[2023, 700e6], [2024, 800e6], [2025, 900e6]].map(([y, revenue]) => ({ date: `${y}-12-31`, revenue: revenue!, operatingIncome: 100e6, incomeBeforeTax: 90e6, incomeTaxExpense: 18e6 }));
+
+  it("a current row with no lease puts the history on the lease-excluded basis (currentRowExcludesLease is true)", () => {
+    // Current raw ratio 600 / 2000 = 0.3 sits below the history floor, which lifts it to the history median.
+    const current: DcfBalanceRow = { date: "2026-03-31", basis: "quarter", totalDebt: 100e6, totalStockholdersEquity: 2000e6, cashAndShortTermInvestments: 100e6 };
+    const input: DcfAssumptionInputs = { ...base, incomeTtm: { ...base.incomeTtm, revenue: 600e6 }, incomeHistory: incomeHist, balance: current, capitalHistory: [2023, 2024, 2025].map((y) => hist(y)) };
+    expect(buildDcfAssumptions(input).assumptions!.salesToCapital.value).toBeCloseTo(0.4, 9);
+    // Control: with the switch set the history keeps its lease (700, 800, 900 over 2,200).
+    expect(buildDcfAssumptions({ ...input, includeLeasesInEv: true }).assumptions!.salesToCapital.value).toBeCloseTo(800 / 2200, 9);
+  });
+
+  it("with the switch set the basis says the operating lease is kept in invested capital", () => {
+    const kept = buildDcfAssumptions(dcfInput(withLeaseBalance, { includeLeasesInEv: true })).assumptions!.salesToCapital.basis;
+    expect(kept).toMatch(/operating lease 200M is kept in invested capital: METIS_EV_INCLUDE_LEASES/);
+    expect(buildDcfAssumptions(dcfInput(withLeaseBalance)).assumptions!.salesToCapital.basis).not.toMatch(/kept in invested capital/);
+    expect(buildDcfAssumptions(dcfInput(noLeaseBalance, { includeLeasesInEv: true })).assumptions!.salesToCapital.basis).not.toMatch(/kept in invested capital/);
+  });
+
+});
+
+describe("fix round 1: the switch reaches sales-to-capital through runStageB (compute.ts wiring)", () => {
+  const provenFields = { totalDebt: 450 * M, shortTermDebt: 50 * M, longTermDebt: 250 * M, capitalLeaseObligations: 150 * M };
+  const dcfS2c = (include: boolean) => {
+    const out = runStageB(bundleWith(150 * M, provenFields), { evIncludeLeases: include });
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    return out.valuation.assumptions!.salesToCapital;
+  };
+  it("evIncludeLeases reaches dcfInputs.includeLeasesInEv", () => {
+    const excluded = dcfS2c(false), included = dcfS2c(true);
+    expect(excluded.basis).toMatch(/operating-lease liability 150M removed/);
+    expect(included.basis).toMatch(/operating lease 150M is kept in invested capital: METIS_EV_INCLUDE_LEASES/);
+    expect(excluded.value).not.toBeCloseTo(included.value, 6);
+  });
+});
+
+describe("fix round 1: stripping a proven lease leaves the bridge, the WACC and ROIC unchanged (Step 5 controls)", () => {
+  const out = (row: Record<string, unknown>, lease: number) => runStageB(bundleWith(lease, row), { evIncludeLeases: false });
+  const proven = out({ totalDebt: 450 * M, shortTermDebt: 50 * M, longTermDebt: 250 * M, capitalLeaseObligations: 150 * M }, 150 * M);
+  const stripped = out({ totalDebt: 300 * M, shortTermDebt: 50 * M, longTermDebt: 250 * M, capitalLeaseObligations: 0 }, 0);
+  it("bridge net debt, WACC and ROIC are identical", () => {
+    if (proven.valuation.kind !== "dcf" || stripped.valuation.kind !== "dcf" || proven.valuation.dcf === null || stripped.valuation.dcf === null) throw new Error("expected DCFs");
+    const netDebt = (o: typeof proven) => o.valuation.kind === "dcf" ? o.valuation.dcf!.enterpriseValue - (o.valuation.dcf!.equityValue as number) : NaN;
+    expect(netDebt(proven) / M).toBeCloseTo(netDebt(stripped) / M, 9);
+    expect(proven.returns.wacc.waccPct).toBeCloseTo(stripped.returns.wacc.waccPct as number, 9);
+    expect(proven.returns.roic.latestRoicPct).toBeCloseTo(stripped.returns.roic.latestRoicPct as number, 9);
+  });
+});
+
+describe("fix round 1: the WACC debt leg's lease rule equals the shared predicate (L4)", () => {
+  // The inline rule at compute.ts bookDebtOnLeaseBasis before this round, written out as it stood.
+  const legacy = (row: { totalDebt: number; operatingLeaseLiability?: number | null; capitalLeaseObligations?: number | null; shortTermDebt?: number | null; longTermDebt?: number | null; financeLeaseLiability?: number | null }): number => {
+    const op = row.operatingLeaseLiability ?? null;
+    return op !== null && op > 0 && op <= row.totalDebt && operatingLeaseScopeUnproven(row) === null ? op : 0;
+  };
+  const rows = [
+    { totalDebt: 300, operatingLeaseLiability: 200, capitalLeaseObligations: 200 },
+    { totalDebt: 450, operatingLeaseLiability: 150, shortTermDebt: 50, longTermDebt: 250 },
+    { totalDebt: 300, operatingLeaseLiability: 150, capitalLeaseObligations: null, shortTermDebt: 50, longTermDebt: 250 },
+    { totalDebt: 300, operatingLeaseLiability: 150 },
+    { totalDebt: 100, operatingLeaseLiability: 200, capitalLeaseObligations: 200 },
+    { totalDebt: 300, operatingLeaseLiability: 0, capitalLeaseObligations: 0 },
+    { totalDebt: 300, operatingLeaseLiability: null },
+    { totalDebt: 310, operatingLeaseLiability: 10, capitalLeaseObligations: 10, shortTermDebt: 60, longTermDebt: 240, financeLeaseLiability: 0 },
+  ];
+  it.each(rows.map((r, i) => [i, r] as const))("row %i: same amount, same verdict", (_, row) => {
+    const shared = operatingLeaseOutOfDebt(row, false);
+    expect(shared.amount).toBe(legacy(row));
+    expect(operatingLeaseOutOfDebt(row, true).amount).toBe(0);
   });
 });

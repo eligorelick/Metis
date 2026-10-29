@@ -26,7 +26,7 @@ import type { ManifestEntry } from "@/types/core";
 import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, leaseReasonClause, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
@@ -1492,8 +1492,8 @@ function investedCapital(
       notes.push(
         `${b.date}: ${b.leaseCoverageNote ? "disclosed operating-lease portion" : "operating-lease liability"} ${fmt(leaseOut.amount)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
       );
-    } else if (leaseOut.note !== null) {
-      notes.push(`${b.date}: ${leaseReasonClause(leaseOut.note)}; total debt is used as reported in invested capital, as in the EV bridge`);
+    } else if (leaseOut.clause !== null) {
+      notes.push(`${b.date}: ${leaseOut.clause}; total debt is used as reported in invested capital, as in the EV bridge`);
     }
   }
 

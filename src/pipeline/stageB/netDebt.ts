@@ -124,6 +124,16 @@ export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
  * removal is unproven, or null.
  */
 export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null }): string | null {
+  const clause = operatingLeaseScopeUnprovenClause(row);
+  return clause === null ? null : `${clause}, so it is not removed; net debt is used as reported`;
+}
+
+/**
+ * The reason `operatingLeaseScopeUnproven` gives, without its net-debt consequence, for a consumer that states its own
+ * (sales-to-capital, its A-2 history, ROIC). `operatingLeaseScopeUnproven` composes its text from this, so the two never
+ * drift (fix round 1, M6).
+ */
+function operatingLeaseScopeUnprovenClause(row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null }): string | null {
   const operating = finite(row.operatingLeaseLiability);
   if (operating === null || operating === 0) return null;
   const tolerance = (value: number): number => Math.max(1, Math.abs(value) * 1e-6);
@@ -139,12 +149,7 @@ export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDe
     : composed === null ? "current and noncurrent borrowings are not both disclosed to reconcile it"
       : `borrowings plus leases ${millions(composed)} do not reconcile to the total`;
   return `operating-lease scope unproven: the operating-lease liability ${millions(operating)} is not shown to be inside total debt ${debt === null ? "unavailable" : millions(debt)} ` +
-    `(${cover}, and ${reconcile}), so it is not removed; net debt is used as reported`;
-}
-
-/** The reason `operatingLeaseOutOfDebt` gives, without its net-debt tail, for a consumer that states its own consequence. */
-export function leaseReasonClause(note: string): string {
-  return note.replace(/, so it is not removed; (?:net|total) debt is used as reported$/, "");
+    `(${cover}, and ${reconcile})`;
 }
 
 /**
@@ -155,22 +160,30 @@ export function leaseReasonClause(note: string): string {
  * when it is positive, at most total debt, and the CODE-1 proof holds
  * (`operatingLeaseScopeUnproven` is null); otherwise 0 with the reason the slice
  * is not removed. With the lease-inclusive switch set, or with no operating
- * lease on the row, the amount is 0 and there is no note.
+ * lease on the row, the amount is 0 and there is neither note nor clause.
+ * `note` is the full sentence (it states net debt or total debt as reported);
+ * `clause` is the reason alone, for a consumer that states its own consequence.
  */
 export function operatingLeaseOutOfDebt(
   row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null },
   includeLeases: boolean,
-): { amount: number; note: string | null } {
-  if (includeLeases) return { amount: 0, note: null };
+): { amount: number; note: string | null; clause: string | null } {
+  const none = { amount: 0, note: null, clause: null };
+  if (includeLeases) return none;
   const operating = finite(row.operatingLeaseLiability);
-  if (operating === null || operating <= 0) return { amount: 0, note: null };
-  const unproven = operatingLeaseScopeUnproven(row);
-  if (unproven !== null) return { amount: 0, note: unproven };
+  if (operating === null || operating <= 0) return none;
+  const unproven = operatingLeaseScopeUnprovenClause(row);
+  if (unproven !== null) return { amount: 0, note: `${unproven}, so it is not removed; net debt is used as reported`, clause: unproven };
   const debt = finite(row.totalDebt);
-  if (debt === null || operating > debt) {
-    return { amount: 0, note: `the operating-lease liability ${millions(operating)} exceeds total debt ${debt === null ? "unavailable" : millions(debt)}, so it is not removed; total debt is used as reported` };
+  if (debt === null) {
+    const clause = `the operating-lease liability ${millions(operating)} cannot be removed: total debt is not reported`;
+    return { amount: 0, note: `${clause}; total debt is used as reported`, clause };
   }
-  return { amount: operating, note: null };
+  if (operating > debt) {
+    const clause = `the operating-lease liability ${millions(operating)} exceeds total debt ${millions(debt)}`;
+    return { amount: 0, note: `${clause}, so it is not removed; total debt is used as reported`, clause };
+  }
+  return { amount: operating, note: null, clause: null };
 }
 
 export interface NetDebtInputs extends LeaseDebtInputs {
