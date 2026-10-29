@@ -69,7 +69,7 @@ const surfaces = (report: Report): string[] => [
 
 describe("legacy EDGAR-derived-lines view", () => {
   it("the since-version is the batch's frozen value", () => {
-    expect(SINCE).toBe("1.48.0");
+    expect(SINCE).toBe("1.49.0");
   });
 
   it("a legacy EDGAR-built report carries the derivation note once on every surface", () => {

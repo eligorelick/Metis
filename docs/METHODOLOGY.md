@@ -3098,7 +3098,7 @@ a kept amount may belong to a person the cut excerpt did not name (audit
 be found or corrected at display; such figures are shown as stored.
 
 **Legacy reports built from SEC statements (audit 2026-10-27 B13, D-67).** A report
-saved before report spec 1.48.0 whose missing-data manifest holds a
+saved before report spec 1.49.0 whose missing-data manifest holds a
 `keyless.incomeAnnual` or `keyless.incomeQuarterly` entry (or one starting with
 either followed by `.`) took its statements from SEC filings. It is shown, on the
 page and in the Markdown, print and audit exports, through

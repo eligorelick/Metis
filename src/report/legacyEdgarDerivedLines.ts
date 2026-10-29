@@ -14,7 +14,7 @@ import type { Report } from "@/report/schema";
  * string: no provider, filing or model text reaches it, because those are
  * untrusted.
  */
-export const EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION = "1.48.0";
+export const EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION = "1.49.0";
 
 const SINCE = EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION;
 
