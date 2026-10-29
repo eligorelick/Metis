@@ -128,7 +128,7 @@ import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
-import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -1659,10 +1659,9 @@ function bookDebtOnLeaseBasis(
   if (total === null) return { value: null, leaseRemoved: false };
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
-  const operatingLease = row ? num(row.operatingLeaseLiability) : null;
-  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total && operatingLeaseScopeUnproven(row ?? {}) === null) {
-    return { value: total - operatingLease, leaseRemoved: true };
-  }
+  // FIN-303 (D-25, D-97 item 3): the shared predicate, the same proof sales-to-capital and ROIC apply.
+  const leaseOut = operatingLeaseOutOfDebt(row ?? {}, includeOperatingLeases);
+  if (leaseOut.amount > 0) return { value: total - leaseOut.amount, leaseRemoved: true };
   return { value: total, leaseRemoved: false };
 }
 
