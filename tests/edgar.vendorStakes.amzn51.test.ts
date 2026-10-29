@@ -49,9 +49,9 @@ describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)"
     });
     expect(admissions).toEqual([expect.objectContaining({ kind: "stakes", date: Q2, summary: "122,695M" })]);
     expect(admissions[0]!.detail).toBe(
-      "vendor longTermInvestments 0 at 2026-06-30 read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: " +
-      "non-marketable equity securities 122300000000 (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) + equity-method investments 395000000 (EquityMethodInvestments) " +
-      "= 122695000000 USD; absent and excluded: non-current debt securities; vendor value retained in the raw row");
+      "vendor longTermInvestments 0M at 2026-06-30 read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: " +
+      "non-marketable equity securities 122,300M (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) + equity-method investments 395M (EquityMethodInvestments) " +
+      "= 122,695M USD; absent and excluded: non-current debt securities; vendor value retained in the raw row");
   });
 
   it("fills an absent vendor value the same way", () => {
@@ -119,7 +119,7 @@ describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)"
     const annual = enrichFinancialFields(payload("fmp"), cashflow, facts, "annual", OBSERVED);
     const merged = balanceAdmissionEntries([...annual.admissions, ...vendor.admissions]);
     expect(merged).toEqual([expect.objectContaining({ field: "statements.balance.longTermInvestments", severity: "info", expected: true })]);
-    expect(merged[0]!.reason).toMatch(/^vendor longTermInvestments read as undisclosed at 1 balance date; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: 2026-06-30 122,695M\. Latest: vendor longTermInvestments 0 at 2026-06-30/);
+    expect(merged[0]!.reason).toMatch(/^vendor longTermInvestments read as undisclosed at 1 balance date; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: 2026-06-30 122,695M\. Latest: vendor longTermInvestments 0M at 2026-06-30/);
     const sec = enrichFinancialFields(payload("edgar"), cashflow, facts, "quarter", OBSERVED);
     expect(sec.balance.ok && sec.balance.value.data.rows[0]!.longTermInvestments).toBe(0);
     expect(sec.admissions).toEqual([]);

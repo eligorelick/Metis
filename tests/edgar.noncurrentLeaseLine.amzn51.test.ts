@@ -50,6 +50,12 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
     expect(admissions[0]!.detail).toMatch(/noncurrent lease liabilities/);
     expect(admissions[0]!.detail).toContain(ACCN);
     expect(admissions[0]!.detail).toContain("OperatingLeaseLiabilityNoncurrent");
+    // Fix round 3: every amount in the text reads in millions.
+    expect(admissions[0]!.detail).toBe(`the vendor lease line 94,338M USD is the 10-Q ${ACCN} filing's noncurrent lease liabilities ` +
+      "(OperatingLeaseLiabilityNoncurrent 82,575M + FinanceLeaseLiabilityNoncurrent 11,763M) at 2026-06-30, not total lease liabilities; completed from that filing: " +
+      "lease liabilities 109,771M (OperatingLeaseLiability 96,320M + FinanceLeaseLiability 13,451M), current debt 3,655M (LongTermDebtCurrent + ShortTermBorrowings), " +
+      "total debt 3,655M + noncurrent debt 128,894M + leases 109,771M = 242,320M USD; vendor total 223,232M retained in the raw row");
+    expect(admissions[0]!.detail.replace(ACCN, "")).not.toMatch(/\d{7,}/);
   });
 
   it("completes the 2025-12-31 shape the same way", () => {
@@ -183,7 +189,7 @@ describe("a noncurrent debt that may already hold the finance leases is not comp
   it("refuses the completion, naming the three facts, instead of counting the finance leases twice", () => {
     const { row: out } = admitDebtFields(row, duke(60_448), "USD", OBSERVED);
     expect(out.totalDebt).toBeNull();
-    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/the filing's LongTermDebtNoncurrent 60448000000 equals its LongTermDebtAndCapitalLeaseObligations 60448000000 while FinanceLeaseLiabilityNoncurrent is 764000000/);
+    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/the filing's LongTermDebtNoncurrent 60,448M equals its LongTermDebtAndCapitalLeaseObligations 60,448M while FinanceLeaseLiabilityNoncurrent is 764M/);
   });
 
   it("control: an aggregate that adds the finance leases to the noncurrent debt still completes", () => {
@@ -201,15 +207,15 @@ describe("a refused completion says only what it checked (review m2)", () => {
     const row = { date: end, reportedCurrency: "USD", cik: "0000000042", shortTermDebt: 147 * M, longTermDebt: 10_947 * M, capitalLeaseObligations: 752 * M,
       capitalLeaseObligationsCurrent: 0, capitalLeaseObligationsNonCurrent: 752 * M, totalDebt: 11_846 * M } as FmpBalanceSheetRow;
     const reason = admitDebtFields(row, facts, "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
-    expect(reason).toBe(`incomplete debt carrying value: the vendor lease line 752000000 USD is the 10-Q ${ACCN} filing's noncurrent lease liabilities ` +
-      "(OperatingLeaseLiabilityNoncurrent 752000000; no finance lease is filed) at 2022-05-01, but the vendor short-term debt 147000000 equals current lease liabilities " +
+    expect(reason).toBe(`incomplete debt carrying value: the vendor lease line 752M USD is the 10-Q ${ACCN} filing's noncurrent lease liabilities ` +
+      "(OperatingLeaseLiabilityNoncurrent 752M; no finance lease is filed) at 2022-05-01, but the vendor short-term debt 147M equals current lease liabilities " +
       "the completed lease total already holds; the filing tags none of LongTermDebtCurrent, DebtCurrent, ShortTermBorrowings or CommercialPaper to show it is debt, " +
       "so total debt and net debt are withheld rather than counting those leases twice");
   });
 
   it("a current debt the filing does not tag is named as unestablished", () => {
     const reason = admitDebtFields(vendorRow(Q2), companyFacts(without(FILED_FACTS, "LongTermDebtCurrent", "ShortTermBorrowings")), "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
-    expect(reason).toMatch(/, but the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-06-30 and the vendor short-term debt is 0; total debt and net debt are withheld rather than published with a current debt the filing does not establish$/);
+    expect(reason).toMatch(/, but the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-06-30 and the vendor short-term debt is 0M; total debt and net debt are withheld rather than published with a current debt the filing does not establish$/);
   });
 
   it("any other cause says only that the row is not completed", () => {
@@ -228,7 +234,7 @@ describe("a kept vendor short-term debt is checked against filed borrowings when
     expect(out.totalDebt).toBeNull();
     expect(admissions).toEqual([]);
     const reason = out.fieldConflicts?.totalDebt?.reason;
-    expect(reason).toMatch(/, but the vendor short-term debt 15758000000 does not reconcile with the filed current debt 325000000 \(ShortTermBorrowings 325000000\); the row is not completed from that filing, so total debt and net debt are withheld$/);
+    expect(reason).toMatch(/, but the vendor short-term debt 15,758M does not reconcile with the filed current debt 325M \(ShortTermBorrowings 325M\); the row is not completed from that filing, so total debt and net debt are withheld$/);
     expect(reason).not.toMatch(/tags no current debt/);
   });
 
@@ -239,13 +245,13 @@ describe("a kept vendor short-term debt is checked against filed borrowings when
   it("control: a vendor figure equal to ShortTermBorrowings plus CommercialPaper is kept, and the text names them", () => {
     const { row: out, admissions } = admitDebtFields(vendorRow(Q2, { shortTermDebt: 325 + 75 }), borrowingsOnly({ CommercialPaper: 75 }), "USD", OBSERVED);
     expect(out.totalDebt).toBe((400 + 128_894 + 109_771) * M);
-    expect(admissions[0]!.detail).toContain("current debt 400000000 (the vendor's short-term debt, kept; it equals the filed current debt (ShortTermBorrowings 325000000 + CommercialPaper 75000000))");
+    expect(admissions[0]!.detail).toContain("current debt 400M (the vendor's short-term debt, kept; it equals the filed current debt (ShortTermBorrowings 325M + CommercialPaper 75M))");
     expect(admissions[0]!.detail).not.toMatch(/tags no current debt/);
   });
 
   it("control: with current maturities tagged, the kept figure names the tags and amounts it equals", () => {
     const { admissions } = admitDebtFields(vendorRow(Q2, { shortTermDebt: 3_655 }), companyFacts(FILED_FACTS), "USD", OBSERVED);
-    expect(admissions[0]!.detail).toContain("it equals the filed current debt (LongTermDebtCurrent 3330000000 + ShortTermBorrowings 325000000)");
+    expect(admissions[0]!.detail).toContain("it equals the filed current debt (LongTermDebtCurrent 3,330M + ShortTermBorrowings 325M)");
   });
 
   it("control: with no current-debt tag at all, the kept figure says which tags are absent", () => {
@@ -262,7 +268,7 @@ describe("a kept vendor short-term debt is checked against filed borrowings when
       capitalLeaseObligationsCurrent: 0, capitalLeaseObligationsNonCurrent: 752 * M, totalDebt: 11_846 * M } as FmpBalanceSheetRow;
     const { row: out } = admitDebtFields(row, facts, "USD", OBSERVED);
     expect(out.totalDebt).toBeNull();
-    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/, but the vendor short-term debt 147000000 does not reconcile with the filed current debt 0 \(CommercialPaper 0\); it equals current lease liabilities the completed lease total already holds; the row is not completed from that filing, so total debt and net debt are withheld$/);
+    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/, but the vendor short-term debt 147M does not reconcile with the filed current debt 0M \(CommercialPaper 0M\); it equals current lease liabilities the completed lease total already holds; the row is not completed from that filing, so total debt and net debt are withheld$/);
   });
 });
 

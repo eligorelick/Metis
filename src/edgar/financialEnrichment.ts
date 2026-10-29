@@ -490,8 +490,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const noncurrent = operatingNoncurrent + (financeNoncurrent ?? 0);
   if (Math.abs(line - noncurrent) > tolerance(noncurrent)) return none;
   const ref = `${filing.form} ${filing.accn}`;
-  const lineText = `the vendor lease line ${line} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
-    `(OperatingLeaseLiabilityNoncurrent ${operatingNoncurrent}${financeNoncurrent === null ? "; no finance lease is filed" : ` + FinanceLeaseLiabilityNoncurrent ${financeNoncurrent}`}) at ${date}`;
+  // Fix round 3: every amount in these texts reads in millions ("94,338M"), as the rest of the report does.
+  const lineText = `the vendor lease line ${millions(line)} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
+    `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent === null ? "; no finance lease is filed" : ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`}) at ${date}`;
   // Review m2: the consequence states only what the check established; by default, that the row is not completed.
   const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld"): LeaseLineCompletion<T> => ({ status: "refused",
     reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}` });
@@ -501,7 +502,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     if (total === "elsewhere" || current === "elsewhere" || noncurrentPart === "elsewhere") return `the ${tag} amounts are not all in that filing`;
     if (total !== null) {
       if (current !== null && noncurrentPart !== null && Math.abs(current + noncurrentPart - total) > tolerance(total)) {
-        return `the filed ${tag} ${total} is not its current ${current} plus noncurrent ${noncurrentPart}`;
+        return `the filed ${tag} ${millions(total)} is not its current ${millions(current)} plus noncurrent ${millions(noncurrentPart)}`;
       }
       return { value: total, tags: [tag] };
     }
@@ -517,26 +518,26 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (Math.abs(line - leases) <= tolerance(leases)) return { status: "total" };
   for (const [field, filed] of [["operatingLeaseLiability", operating.value], ["financeLeaseLiability", finance.value]] as const) {
     const held = row[field];
-    if (finite(held) && Math.abs(held - filed) > tolerance(filed)) return refuse(`the row's ${field} ${held} does not reconcile with the filed ${filed}`);
+    if (finite(held) && Math.abs(held - filed) > tolerance(filed)) return refuse(`the row's ${field} ${millions(held)} does not reconcile with the filed ${millions(filed)}`);
   }
   const longTerm = row.longTermDebt;
   const filedNoncurrentDebt = inFiling("LongTermDebtNoncurrent");
   if (!finite(longTerm) || longTerm < 0) return refuse("the vendor long-term debt is unavailable");
   if (typeof filedNoncurrentDebt !== "number") return refuse("the vendor long-term debt cannot be matched to a LongTermDebtNoncurrent in that filing, so a current portion inside it cannot be ruled out");
-  if (!vendorAgreesWithFiled(longTerm, filedNoncurrentDebt)) return refuse(`the vendor long-term debt ${longTerm} does not reconcile with the filed LongTermDebtNoncurrent ${filedNoncurrentDebt}`);
-  // Review m1 (Duke shape): a filer whose noncurrent debt equals its debt-and-lease aggregate carries the
-  // noncurrent finance leases inside it, so adding the filed finance-lease total would count them twice.
+  if (!vendorAgreesWithFiled(longTerm, filedNoncurrentDebt)) return refuse(`the vendor long-term debt ${millions(longTerm)} does not reconcile with the filed LongTermDebtNoncurrent ${millions(filedNoncurrentDebt)}`);
+  // Review m1 (Duke shape): a filer whose noncurrent debt equals its debt-and-lease aggregate may carry the
+  // noncurrent finance leases inside it, so adding the filed finance-lease total could count them twice.
   const debtAndLeases = inFiling("LongTermDebtAndCapitalLeaseObligations");
   if (typeof debtAndLeases === "number" && typeof financeNoncurrent === "number" && financeNoncurrent > 0 &&
       Math.abs(debtAndLeases - filedNoncurrentDebt) <= tolerance(filedNoncurrentDebt)) {
-    return refuse(`the filing's LongTermDebtNoncurrent ${filedNoncurrentDebt} equals its LongTermDebtAndCapitalLeaseObligations ${debtAndLeases} ` +
-      `while FinanceLeaseLiabilityNoncurrent is ${financeNoncurrent}, so the noncurrent debt may already hold the finance leases`);
+    return refuse(`the filing's LongTermDebtNoncurrent ${millions(filedNoncurrentDebt)} equals its LongTermDebtAndCapitalLeaseObligations ${millions(debtAndLeases)} ` +
+      `while FinanceLeaseLiabilityNoncurrent is ${millions(financeNoncurrent)}, so the noncurrent debt may already hold the finance leases`);
   }
   const vendorTotal = row.totalDebt;
   const vendorShort = row.shortTermDebt;
   if (vendorShort != null && (!finite(vendorShort) || vendorShort < 0)) return refuse("the vendor short-term debt is not a valid amount");
   if (!finite(vendorTotal) || Math.abs(vendorTotal - ((vendorShort ?? 0) + longTerm + line)) > tolerance(vendorTotal)) {
-    return refuse(`the vendor total debt ${finite(vendorTotal) ? vendorTotal : "(unavailable)"} is not its short-term debt + long-term debt + lease line, so its composition is unknown`);
+    return refuse(`the vendor total debt ${finite(vendorTotal) ? millions(vendorTotal) : "(unavailable)"} is not its short-term debt + long-term debt + lease line, so its composition is unknown`);
   }
   const currentTags = ["LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
   const currentParts = currentTags.map((tag) => [tag, inFiling(tag)] as const);
@@ -545,16 +546,16 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const filedCurrent = currentParts[0]![1] === null ? null : currentParts.reduce((sum, [, value]) => sum + (typeof value === "number" ? value : 0), 0);
   const debtCurrent = inFiling("DebtCurrent");
   if (debtCurrent === "elsewhere" || (debtCurrent !== null && filedCurrent !== null && Math.abs(filedCurrent - debtCurrent) > tolerance(debtCurrent))) {
-    return refuse(`the composed current debt ${filedCurrent ?? "(unavailable)"} does not reconcile with the filing's DebtCurrent ${debtCurrent}`);
+    return refuse(`the composed current debt ${filedCurrent === null ? "(unavailable)" : millions(filedCurrent)} does not reconcile with the filing's DebtCurrent ${typeof debtCurrent === "number" ? millions(debtCurrent) : "(in another filing)"}`);
   }
   const keepVendorShort = finite(vendorShort) && vendorShort > 0;
   // Fix round 2, I-1: the filed current debt a kept vendor figure is checked against, named by its tags and amounts:
   // LongTermDebtCurrent (with ShortTermBorrowings and CommercialPaper where tagged), else DebtCurrent, else
   // ShortTermBorrowings plus CommercialPaper; null only when the filing tags none of the four.
-  const named = (parts: readonly (readonly [string, number | null | "elsewhere"])[]) => parts.filter(([, value]) => value !== null).map(([tag, value]) => `${tag} ${value}`).join(" + ");
+  const named = (parts: readonly (readonly [string, number | null | "elsewhere"])[]) => parts.filter(([, value]) => value !== null).map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : value}`).join(" + ");
   const borrowings = currentParts.slice(1).filter((part): part is readonly [string, number] => typeof part[1] === "number");
   const checkedCurrent: { value: number; tags: string } | null = filedCurrent !== null ? { value: filedCurrent, tags: named(currentParts) }
-    : typeof debtCurrent === "number" ? { value: debtCurrent, tags: `DebtCurrent ${debtCurrent}` }
+    : typeof debtCurrent === "number" ? { value: debtCurrent, tags: `DebtCurrent ${millions(debtCurrent)}` }
       : borrowings.length > 0 ? { value: borrowings.reduce((sum, [, value]) => sum + value, 0), tags: named(borrowings) } : null;
   const noCurrentTag = "the filing tags none of LongTermDebtCurrent, DebtCurrent, ShortTermBorrowings or CommercialPaper";
   if (keepVendorShort) {
@@ -562,15 +563,15 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     const currentLeases = [leases - line, operating.value - operatingNoncurrent, finance.value - (financeNoncurrent ?? 0)].filter((value) => value > 0);
     const isCurrentLease = currentLeases.some((value) => vendorAgreesWithFiled(vendorShort, value));
     if (checkedCurrent !== null && !vendorAgreesWithFiled(vendorShort, checkedCurrent.value)) {
-      return refuse(`the vendor short-term debt ${vendorShort} does not reconcile with the filed current debt ${checkedCurrent.value} (${checkedCurrent.tags})` +
+      return refuse(`the vendor short-term debt ${millions(vendorShort)} does not reconcile with the filed current debt ${millions(checkedCurrent.value)} (${checkedCurrent.tags})` +
         (isCurrentLease ? "; it equals current lease liabilities the completed lease total already holds" : ""));
     }
     if (checkedCurrent === null && isCurrentLease) {
-      return refuse(`the vendor short-term debt ${vendorShort} equals current lease liabilities the completed lease total already holds`,
+      return refuse(`the vendor short-term debt ${millions(vendorShort)} equals current lease liabilities the completed lease total already holds`,
         `${noCurrentTag} to show it is debt, so total debt and net debt are withheld rather than counting those leases twice`);
     }
   } else if (filedCurrent === null) {
-    return refuse(`the current debt cannot be established: the filing tags no LongTermDebtCurrent at ${date} and the vendor short-term debt is ${vendorShort ?? "absent"}`,
+    return refuse(`the current debt cannot be established: the filing tags no LongTermDebtCurrent at ${date} and the vendor short-term debt is ${finite(vendorShort) ? millions(vendorShort) : "absent"}`,
       "total debt and net debt are withheld rather than published with a current debt the filing does not establish");
   }
   const currentDebt = keepVendorShort ? vendorShort : filedCurrent!;
@@ -594,11 +595,12 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     fieldProvenance } as T;
   return { status: "completed", row: out, admission: { kind: "completion", date,
     summary: `${millions(totalDebt)} (vendor ${finite(vendorTotal) ? millions(vendorTotal) : "absent"}; ${ref})`,
-    detail: `${lineText}, not total lease liabilities; completed from that filing: lease liabilities ${leases} ` +
-      `(${operating.tags.join(" + ")} ${operating.value}${financeNoncurrent === null ? "" : ` + ${finance.tags.join(" + ")} ${finance.value}`}), ` +
-      `current debt ${currentDebt} (${keepVendorShort ? checkedCurrent === null ? `the vendor's short-term debt, kept; ${noCurrentTag} to check it against`
+    detail: `${lineText}, not total lease liabilities; completed from that filing: lease liabilities ${millions(leases)} ` +
+      `(${operating.tags.join(" + ")} ${millions(operating.value)}${financeNoncurrent === null ? "" : ` + ${finance.tags.join(" + ")} ${millions(finance.value)}`}), ` +
+      `current debt ${millions(currentDebt)} (${keepVendorShort ? checkedCurrent === null ? `the vendor's short-term debt, kept; ${noCurrentTag} to check it against`
         : `the vendor's short-term debt, kept; it equals the filed current debt (${checkedCurrent.tags})` : filedCurrentTags.join(" + ")}), ` +
-      `total debt ${currentDebt} + noncurrent debt ${longTerm} + leases ${leases} = ${totalDebt} ${currency}; vendor total ${vendorTotal} retained in the raw row` } };
+      `total debt ${millions(currentDebt)} + noncurrent debt ${millions(longTerm)} + leases ${millions(leases)} = ${millions(totalDebt)} ${currency}; ` +
+      `vendor total ${finite(vendorTotal) ? millions(vendorTotal) : "absent"} retained in the raw row` } };
 }
 
 /** A missing taxonomy class is recoverable; unrelated refusals remain authoritative. */
@@ -740,10 +742,10 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
   const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: date, observedAt,
     tags: present.flatMap(({ r }) => r.evidence.tags), filings };
   const out = { ...row, longTermInvestments: value, fieldProvenance: { ...row.fieldProvenance, longTermInvestments: evidence } } as T;
-  const parts = present.map(({ label, r }) => `${label} ${r.value} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
+  const parts = present.map(({ label, r }) => `${label} ${millions(r.value)} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
   return { row: out, admissions: [{ kind: "stakes", date, summary: `${millions(value)}${vendor == null ? " (vendor absent)" : ""}`,
-    detail: `vendor longTermInvestments ${vendor ?? "absent"} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
-      `${parts} = ${value} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
+    detail: `vendor longTermInvestments ${vendor == null ? "absent" : millions(vendor)} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
+      `${parts} = ${millions(value)} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
     attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };
 }
 

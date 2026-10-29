@@ -42,7 +42,7 @@ describe("a vendor total without its current debt is withheld (VAL-2)", () => {
 
   it("does not accept a vendor short-term debt of 0 beside a filed current debt", () => {
     expect(zeroCurrentDebtReason(0, [{ tag: "LongTermDebtCurrent", value: 3_330 * M }, { tag: "ShortTermBorrowings", value: 325 * M }]))
-      .toMatch(/short-term debt is 0.*LongTermDebtCurrent 3330000000.*ShortTermBorrowings 325000000/);
+      .toMatch(/short-term debt is 0.*LongTermDebtCurrent 3,330M.*ShortTermBorrowings 325M/);
     expect(zeroCurrentDebtReason(0, [{ tag: "LongTermDebtCurrent", value: null }])).toBeNull();
     expect(zeroCurrentDebtReason(0, [{ tag: "LongTermDebtCurrent", value: 0 }])).toBeNull();
     expect(zeroCurrentDebtReason(3_655 * M, [{ tag: "LongTermDebtCurrent", value: 3_330 * M }])).toBeNull();
@@ -179,13 +179,13 @@ describe("a vendor long-term debt that already holds the current maturities is c
   it("control: a long-term debt that leaves the current maturities out is still withheld", () => {
     const { row } = admitDebtFields(foldRow(1_000), companyFacts(FOLD), "USD", OBSERVED);
     expect(row.totalDebt).toBeNull();
-    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100000000\)/);
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100M\)/);
   });
 
   it("still withholds when the filing tags short-term borrowings the fold-in does not cover", () => {
     const { row } = admitDebtFields(foldRow(1_100), companyFacts(withTags({ ShortTermBorrowings: 20 })), "USD", OBSERVED);
     expect(row.totalDebt).toBeNull();
-    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/ShortTermBorrowings 20000000/);
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/ShortTermBorrowings 20M/);
   });
 
   it("residual, fail-closed: a DebtCurrent above the current maturities (it may hold current finance leases) still withholds", () => {
@@ -196,7 +196,7 @@ describe("a vendor long-term debt that already holds the current maturities is c
   it("a DebtCurrent of 0 beside current maturities of 100 contradicts the filing and withholds (fix round 2, I-2a)", () => {
     const { row } = admitDebtFields(foldRow(1_100), companyFacts(withTags({ DebtCurrent: 0 })), "USD", OBSERVED);
     expect(row.totalDebt).toBeNull();
-    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100000000\)/);
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100M\)/);
   });
 
   it("does not add current maturities from another filing to the noncurrent debt", () => {

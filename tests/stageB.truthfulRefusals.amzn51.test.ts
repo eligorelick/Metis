@@ -46,7 +46,7 @@ describe("a refused debt input is named, never called missing (VAL-4, KNW-04)", 
   it("an admission refusal is named in net debt, the EV and invested capital", () => {
     const computed = admissionRefused();
     const netDebtReason = reasonOf(computed.valuation.gaps, "valuation.multiples.netDebt");
-    expect(netDebtReason).toMatch(/^total debt withheld \(incomplete debt carrying value: the vendor lease line 92000000 USD .* the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-03-31 .*\) — house net debt unavailable$/); // the latest quarter's balance
+    expect(netDebtReason).toMatch(/^total debt withheld \(incomplete debt carrying value: the vendor lease line 92M USD .* the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-03-31 .*\) — house net debt unavailable$/); // the latest quarter's balance
     expect(netDebtReason).not.toMatch(/total debt missing/);
     expect(reasonOf(computed.valuation.gaps, "valuation.multiples.enterpriseValue")).toBe(`EV withheld: ${netDebtReason} — EV multiples n/m`);
     const latest = computed.returns.roic.series.find((year) => year.date === "2025-12-31")!;
@@ -70,15 +70,16 @@ describe("a refused debt input is named, never called missing (VAL-4, KNW-04)", 
   });
 
   it("the operating-lease scope note says what it compared, and never denies a smaller total that exists", () => {
-    const smaller = operatingLeaseScopeUnproven({ totalDebt: 500, operatingLeaseLiability: 100, capitalLeaseObligations: 60 })!;
-    expect(smaller).toBe("operating-lease scope unproven: the operating-lease liability 100 is not shown to be inside total debt 500 " +
-      "(the total lease liability 60 is smaller than it, and current and noncurrent borrowings are not both disclosed to reconcile it), so it is not removed; net debt is used as reported");
+    const M = 1_000_000;
+    const smaller = operatingLeaseScopeUnproven({ totalDebt: 500 * M, operatingLeaseLiability: 100 * M, capitalLeaseObligations: 60 * M })!;
+    expect(smaller).toBe("operating-lease scope unproven: the operating-lease liability 100M is not shown to be inside total debt 500M " +
+      "(the total lease liability 60M is smaller than it, and current and noncurrent borrowings are not both disclosed to reconcile it), so it is not removed; net debt is used as reported");
     expect(smaller).not.toMatch(/no total lease liability covers it/);
-    const absent = operatingLeaseScopeUnproven({ totalDebt: 500, operatingLeaseLiability: 100, shortTermDebt: 10, longTermDebt: 300 })!;
-    expect(absent).toBe("operating-lease scope unproven: the operating-lease liability 100 is not shown to be inside total debt 500 " +
-      "(no total lease liability is disclosed, and borrowings plus leases 410 do not reconcile to the total), so it is not removed; net debt is used as reported");
-    expect(operatingLeaseScopeUnproven({ operatingLeaseLiability: 100 })).toMatch(/inside total debt unavailable \(no total lease liability is disclosed, and total debt is unavailable\)/);
-    expect(operatingLeaseScopeUnproven({ totalDebt: 500, operatingLeaseLiability: 100, capitalLeaseObligations: 120 })).toBeNull();
+    const absent = operatingLeaseScopeUnproven({ totalDebt: 500 * M, operatingLeaseLiability: 100 * M, shortTermDebt: 10 * M, longTermDebt: 300 * M })!;
+    expect(absent).toBe("operating-lease scope unproven: the operating-lease liability 100M is not shown to be inside total debt 500M " +
+      "(no total lease liability is disclosed, and borrowings plus leases 410M do not reconcile to the total), so it is not removed; net debt is used as reported");
+    expect(operatingLeaseScopeUnproven({ operatingLeaseLiability: 100 * M })).toMatch(/inside total debt unavailable \(no total lease liability is disclosed, and total debt is unavailable\)/);
+    expect(operatingLeaseScopeUnproven({ totalDebt: 500 * M, operatingLeaseLiability: 100 * M, capitalLeaseObligations: 120 * M })).toBeNull();
   });
 });
 

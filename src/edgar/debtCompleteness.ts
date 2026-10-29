@@ -1,3 +1,5 @@
+import { millions } from "@/pipeline/stageB/netDebt";
+
 /** A noncurrent convertible carrying subtype is a lower bound on noncurrent
  * financing debt, never an automatic addition to an inclusive generic total.
  * `agrees` compares a vendor noncurrent figure with the filed subtype (A-11
@@ -79,7 +81,7 @@ export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { 
   if (shortTermDebt !== 0) return null;
   const tagged = filed.filter(({ value }) => value !== null && Number.isFinite(value) && value > 0);
   return tagged.length === 0 ? null
-    : `incomplete debt carrying value: the vendor short-term debt is 0 but the same-period filing tags current debt (${tagged.map(({ tag, value }) => `${tag} ${value}`).join(", ")}); ` +
+    : `incomplete debt carrying value: the vendor short-term debt is 0 but the same-period filing tags current debt (${tagged.map(({ tag, value }) => `${tag} ${millions(value!)}`).join(", ")}); ` +
       "total debt and net debt are withheld rather than published without it";
 }
 

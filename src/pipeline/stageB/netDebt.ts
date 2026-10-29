@@ -121,11 +121,12 @@ export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDe
   const composed = short !== null && long !== null ? short + long + operating + (finite(row.financeLeaseLiability) ?? 0) : null;
   if (debt !== null && composed !== null && Math.abs(composed - debt) <= tolerance(debt)) return null;
   // KNW-04 (audit 2026-10-29, AMZN #51): each half names what it compared; a smaller total that exists is not denied.
-  const cover = total === null ? "no total lease liability is disclosed" : `the total lease liability ${total} is smaller than it`;
+  // Fix round 3: amounts in millions, as every other refusal on this path.
+  const cover = total === null ? "no total lease liability is disclosed" : `the total lease liability ${millions(total)} is smaller than it`;
   const reconcile = debt === null ? "total debt is unavailable"
     : composed === null ? "current and noncurrent borrowings are not both disclosed to reconcile it"
-      : `borrowings plus leases ${composed} do not reconcile to the total`;
-  return `operating-lease scope unproven: the operating-lease liability ${operating} is not shown to be inside total debt ${debt ?? "unavailable"} ` +
+      : `borrowings plus leases ${millions(composed)} do not reconcile to the total`;
+  return `operating-lease scope unproven: the operating-lease liability ${millions(operating)} is not shown to be inside total debt ${debt === null ? "unavailable" : millions(debt)} ` +
     `(${cover}, and ${reconcile}), so it is not removed; net debt is used as reported`;
 }
 
