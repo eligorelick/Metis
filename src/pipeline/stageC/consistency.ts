@@ -52,6 +52,7 @@
 
 import {
   canonicalizeFetchedUrl,
+  closesCalendarPeriod,
   periodsAgree,
   type CanonicalUnit,
   type CitationProvenanceRecord,
@@ -933,12 +934,35 @@ export function comparisonBase(record: NumericProvenanceRecord): { end: string; 
   return { end, fiscal };
 }
 
-/** Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. */
+/**
+ * PR #71 Codex review (AI-402-V2): a base phrase that names something finer than a year: an exact date, a month, a quarter, a half,
+ * or a count of months or weeks. Such a base is never established by its year alone.
+ */
+const FINER_THAN_YEAR = new RegExp(String.raw`\b\d{4}-\d{2}-\d{2}\b|\b${MONTH_NAME}\b|\bquarters?\b|\bq[1-4]\b|\bhalf\b|\bh[12]\b|\bmonths?\b|\bweeks?\b`, "i");
+/** The calendar quarter a base phrase names on its own ("second quarter 2025", "the second quarter of 2025", "Q2 2025"); null otherwise. */
+function calendarQuarter(phrase: string): { year: number; quarter: number } | null {
+  const words = /^(?:the\s+)?(first|second|third|fourth)\s+quarter\s+(?:of\s+)?((?:19|20)\d{2})$/i.exec(phrase.trim());
+  if (words !== null) return { year: Number(words[2]), quarter: QUARTER_WORDS[words[1]!.toLowerCase()]! };
+  const token = /^q([1-4])\s*((?:19|20)\d{2})$/i.exec(phrase.trim());
+  return token === null ? null : { year: Number(token[2]), quarter: Number(token[1]) };
+}
+
+/**
+ * Whether a comparison-base phrase names the period a figure is measured against; null when that is not checkable. A phrase that
+ * names a year and nothing finer is compared by its year. A finer phrase must name the base itself: its exact date or fiscal label
+ * (`periodsAgree`), or the calendar quarter that closes on the base's end ("second quarter 2025" for 2025-06-30). An exact date,
+ * month or quarter of the right year but another period is not established (PR #71 Codex review).
+ */
 export function baseAgrees(phrase: string, base: { end: string; fiscal: string | null }): boolean | null {
   // An FY-labelled base (a spelled fiscal period is read as its FY label, AI-405) is compared by fiscal label only (by calendar year it would be the AI-405 error again).
   const labelled = fiscalPhrase(phrase) ?? phrase;
   if (/^Q[1-4]\s*(?:of\s+)?FY|^FY/i.test(labelled)) return base.fiscal === null ? null : periodsAgree(labelled, base.end, base.fiscal);
-  return (base.fiscal !== null && periodsAgree(phrase, base.end, base.fiscal)) || phraseNamesRecordYear(phrase, base.end);
+  if (periodsAgree(phrase, base.end, base.fiscal)) return true;
+  if (FINER_THAN_YEAR.test(phrase)) {
+    const quarter = calendarQuarter(phrase);
+    return quarter !== null && closesCalendarPeriod(base.end, quarter);
+  }
+  return phraseNamesRecordYear(phrase, base.end);
 }
 
 /* ------------------------------------------------------------------------ *

@@ -1111,3 +1111,33 @@ describe("final review: no record label or basis establishes a prior fiscal year
     expect(on("Total debt at fiscal year-end was USD 10.00 billion.", FY_DEBT).status).toBe("validated");
   });
 });
+
+// PR #71 Codex review (X1, AI-402-V2): a comparison base that names something finer than a year (an exact date, a month, a quarter)
+// is not established by its year alone. A year-over-year record ending 2026-06-30 is measured against 2025-06-30, so "compared with
+// 2025-01-01" is not its base; main left every such claim unchecked, and the year fallback had validated it.
+describe("Codex review: a comparison base finer than a year is not established by its year (AI-402-V2)", () => {
+  const SAY = (base: string) => `Revenue growth year over year for the quarter was 19.62%, compared with ${base}.`;
+  const direct = (text: string) => validateClaimNumericSupport({ label: "FACT", text, source: YOY_26.id, asOf: YOY_26.asOf },
+    { record: YOY_26, excerpts: [], sourceId: YOY_26.id, reportingCurrency: "USD" });
+  it("an exact comparison date other than the base is not validated, on the record path and in the period check", async () => {
+    const { entry, periodRow } = await cite([YOY_26, YOY_25], YOY_26.id, SAY("2025-01-01"));
+    expect(entry.validationStatus).toBe("unchecked");
+    expect(periodRow).toMatchObject({ reason: "period-word-mismatch" });
+    expect(direct(SAY("2025-01-01"))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+  });
+  it.each(["2025-12-31", "January 2025", "January 1, 2025", "first quarter 2025", "Q1 2025"])("a finer base of the right year but the wrong period is not validated: %s", (base) => {
+    expect(direct(SAY(base)).status).toBe("unchecked");
+  });
+  it("control: the exact base date and the base's calendar quarter still validate, with no period finding", async () => {
+    for (const base of ["2025-06-30", "second quarter 2025", "Q2 2025"]) {
+      const { entry, periodRow } = await cite([YOY_26, YOY_25], YOY_26.id, SAY(base));
+      expect(entry.validationStatus, base).toBe("validated");
+      expect(periodRow, base).toBeUndefined();
+    }
+  });
+  it("control: a base that names only the year keeps its result", async () => {
+    const { entry, periodRow } = await cite([YOY_26, YOY_25], YOY_26.id, SAY("2025"));
+    expect(entry.validationStatus).toBe("validated");
+    expect(periodRow).toBeUndefined();
+  });
+});

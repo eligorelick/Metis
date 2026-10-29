@@ -2912,8 +2912,15 @@ claim and in the source alike (audit 2026-10-27 final review). A base the claim 
 base the source names. A record citation establishes a base only when the record
 is a year-over-year or quarter-over-quarter figure, which is measured against a
 known base period: the base is compared with its fiscal label one year (or one
-quarter) earlier for an FY-labelled base, otherwise with that label or the
-calendar year of the shifted date. A base spelled with "fiscal" is read as its
+quarter) earlier for an FY-labelled base, otherwise with that label, the
+shifted date itself or, for a phrase that names a year and nothing finer, the
+calendar year of the shifted date. A phrase that names an exact date, a month,
+a quarter, a half, or a count of months or weeks is not established by its year:
+it must name the shifted date (or the fiscal label), or be a calendar quarter
+that closes on it ("second quarter 2025" or "Q2 2025" for 2025-06-30), so
+against a growth rate measured against 2025-06-30, "compared with 2025-01-01",
+"January 2025" or "first quarter 2025" leaves the claim unverified, on a cited
+record and in the period-word check alike (PR #71 review). A base spelled with "fiscal" is read as its
 fiscal label ("the second quarter of fiscal 2026" is Q2 FY2026) and compared
 with the shifted fiscal label only; "fiscal 2025" and "fiscal year 2025" are
 fiscal years, not the quarter a year-over-year figure is measured against, so
