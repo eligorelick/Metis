@@ -218,6 +218,23 @@ describe("a refused completion says only what it checked (review m2)", () => {
     expect(reason).toMatch(/, but the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-06-30 and the vendor short-term debt is 0M; total debt and net debt are withheld rather than published with a current debt the filing does not establish$/);
   });
 
+  it("a DebtCurrent not established in the completing filing is named so, and a contradicting one names both amounts", () => {
+    // Final review of 0d467bc (Minor 2): "(in another filing)" was printed for both shapes, and no comparison was made.
+    type Unit = { accn: string; val: number; end: string; filed: string; form: string };
+    const withDebtCurrent = (edit: (units: Unit[]) => void) => {
+      const facts = companyFacts({ [Q2]: { ...FILED_FACTS[Q2]!, DebtCurrent: 3_655 } });
+      edit((facts.facts["us-gaap"] as Record<string, { units: { USD: Unit[] } }>).DebtCurrent!.units.USD);
+      return admitDebtFields(vendorRow(Q2), facts, "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
+    };
+    for (const edit of [(u: Unit[]) => { u[0]!.accn = "0000000042-26-000099"; }, (u: Unit[]) => { u.push({ ...u[0]!, val: 3_700 * M }); }]) {
+      const reason = withDebtCurrent(edit);
+      expect(reason).toMatch(/the filing's DebtCurrent is not established in that one filing/);
+      expect(reason).not.toMatch(/in another filing/);
+    }
+    const contradicted = admitDebtFields(vendorRow(Q2), companyFacts({ [Q2]: { ...FILED_FACTS[Q2]!, DebtCurrent: 3_000 } }), "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
+    expect(contradicted).toMatch(/the composed current debt 3,655M does not reconcile with the filing's DebtCurrent 3,000M/);
+  });
+
   it("any other cause says only that the row is not completed", () => {
     const reason = admitDebtFields(vendorRow(Q2), companyFacts(without(FILED_FACTS, "LongTermDebtNoncurrent")), "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
     expect(reason).toMatch(/cannot be matched to a LongTermDebtNoncurrent in that filing, so a current portion inside it cannot be ruled out; the row is not completed from that filing, so total debt and net debt are withheld$/);

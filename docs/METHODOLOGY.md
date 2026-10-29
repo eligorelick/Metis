@@ -4572,8 +4572,10 @@ part of it is filed there for the same date:
   Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, which carry the
   finance leases outside noncurrent debt (the FY2023 10-K tagged
   `LongTermDebtAndCapitalLeaseObligations` 13,253M = 11,870M + 1,383M), so it
-  can withhold a correct completion. It is fail-closed, reaches only past
-  balances, and the withheld row is a warning.
+  can withhold a correct completion. It is fail-closed; for Alphabet, as
+  filed, it reaches only past balances and the withheld row is a warning. A
+  filer whose latest filing had this shape would lose its latest balance, and
+  with it the WACC.
 
 The filings that carry the date are tried newest first, so a comparative that
 only a later 10-Q tags still completes. The completed fields carry the filing

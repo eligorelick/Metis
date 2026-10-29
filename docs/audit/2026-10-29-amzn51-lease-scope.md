@@ -23,7 +23,7 @@ The whole-branch review upheld every figure, grade and census result and the sto
 | Item | Change | Commit | Tests |
 |---|---|---|---|
 | I-1 | The `returns.roic` entry is critical only when the latest fiscal year's ROIC is withheld by the same balance's debt refusal that withholds the WACC; a warning otherwise. META and PLD go back to their base critical counts. | `df11ba9` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
-| m1 | A filing whose `LongTermDebtNoncurrent` equals its `LongTermDebtAndCapitalLeaseObligations` while it tags noncurrent finance leases (Duke Energy's 2019 to 2021 10-Ks) is not used to complete a row, since its noncurrent debt may already hold them; the refusal names the three facts. It also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt, so it can withhold a correct completion (fail-closed, history-only, warn level). | `b47cca3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
+| m1 | A filing whose `LongTermDebtNoncurrent` equals its `LongTermDebtAndCapitalLeaseObligations` while it tags noncurrent finance leases (Duke Energy's 2019 to 2021 10-Ks) is not used to complete a row, since its noncurrent debt may already hold them; the refusal names the three facts. It also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt, so it can withhold a correct completion (fail-closed; for Alphabet, as filed, history-only at warn level). | `b47cca3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
 | m2 | A refused completion states only what was checked: a current debt the filing does not establish, a vendor short-term debt equal to the current leases with no filed current debt, or otherwise that the row is not completed. | `76eb15d` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
 | m3 | A quoted reason that ends a sentence is not given a second period in the EV basis or the bridge note. | `d49870f` | `tests/stageB.incompleteDebtTotal.amzn51.test.ts` |
 | m5 | A market cap withheld on share scope is called withheld, with its reason, in the WACC, DCF and fair-value lines; the net-debt entry cites FMP's cash-only `netDebt` field only on the FMP route. | `9a2bbda` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
@@ -50,7 +50,7 @@ No figure, grade, band or critical count moves against round 1, and report #51's
 
 ### Review fix round 3
 
-Every amount in a completion, refusal, keep or stakes text this branch added or changed reads in millions ("242,320M", a tagged zero "0M"), as the rest of the report does; the texts had printed raw amounts such as 242320000000. The zero-current-debt reason and the operating-lease scope note follow the same rule. Wording only: report #51 (its 2017-12-31 refusal and the two merged entries' latest explanations) and NVIDIA #48 to #50 (the 2022-05-01 refusal and the completion entry); no figure, grade, band or critical count moves, and no census snapshot changes.
+Every amount in a completion, refusal, keep or stakes text this branch added or changed reads in millions ("242,320M", a tagged zero "0M"); the texts had printed raw amounts such as 242320000000. The zero-current-debt reason and the operating-lease scope note follow the same rule. Wording only: report #51 (its 2017-12-31 refusal and the two merged entries' latest explanations) and NVIDIA #48 to #50 (the 2022-05-01 refusal and the completion entry); no figure, grade, band or critical count moves, and no census snapshot changes.
 
 ## The rule that was not applied
 
@@ -107,7 +107,7 @@ The two completed quarters add two EV own-history observations (18 to 20) to EV/
 ## Residuals
 
 - The completion keeps a nonzero provider short-term debt that it cannot check, when the filing tags none of `LongTermDebtCurrent`, `DebtCurrent`, `ShortTermBorrowings` or `CommercialPaper`, provided it is not a current lease amount.
-- A filer that tags only `DebtCurrent` (no `LongTermDebtCurrent`) is refused by the completion rather than completed.
+- A filer that tags no `LongTermDebtCurrent` is refused by the completion when the provider's short-term debt is 0 or absent, even if it tags `DebtCurrent`, `ShortTermBorrowings` or `CommercialPaper`; a nonzero provider figure is checked against those instead.
 - The zero-current-debt check keeps a provider row that folds its current maturities into long-term debt only when the filing tags no other current debt (review m4). A `DebtCurrent` above `LongTermDebtCurrent` may hold current finance leases rather than more debt; the check cannot tell, so it withholds such a row (fail-closed) with a reason naming the filed tags.
 - The provider EV check reads the bundle's rows: in a report rebuilt from a bundle frozen before the completion, it names the lease refusal rather than the composed total; both withhold.
 - Amazon's Anthropic convertible notes (tagged only with the undivided `AvailableForSaleSecuritiesDebtSecurities`) stay out of the stakes on both paths (D-98).

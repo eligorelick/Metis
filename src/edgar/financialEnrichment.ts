@@ -490,7 +490,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const noncurrent = operatingNoncurrent + (financeNoncurrent ?? 0);
   if (Math.abs(line - noncurrent) > tolerance(noncurrent)) return none;
   const ref = `${filing.form} ${filing.accn}`;
-  // Fix round 3: every amount in these texts reads in millions ("94,338M"), as the rest of the report does.
+  // Fix round 3: every amount in these texts reads in millions ("94,338M").
   const lineText = `the vendor lease line ${millions(line)} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
     `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent === null ? "; no finance lease is filed" : ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`}) at ${date}`;
   // Review m2: the consequence states only what the check established; by default, that the row is not completed.
@@ -545,8 +545,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const filedCurrentTags = currentParts.filter(([, value]) => value !== null).map(([tag]) => tag);
   const filedCurrent = currentParts[0]![1] === null ? null : currentParts.reduce((sum, [, value]) => sum + (typeof value === "number" ? value : 0), 0);
   const debtCurrent = inFiling("DebtCurrent");
-  if (debtCurrent === "elsewhere" || (debtCurrent !== null && filedCurrent !== null && Math.abs(filedCurrent - debtCurrent) > tolerance(debtCurrent))) {
-    return refuse(`the composed current debt ${filedCurrent === null ? "(unavailable)" : millions(filedCurrent)} does not reconcile with the filing's DebtCurrent ${typeof debtCurrent === "number" ? millions(debtCurrent) : "(in another filing)"}`);
+  if (debtCurrent === "elsewhere") return refuse("the filing's DebtCurrent is not established in that one filing");
+  if (debtCurrent !== null && filedCurrent !== null && Math.abs(filedCurrent - debtCurrent) > tolerance(debtCurrent)) {
+    return refuse(`the composed current debt ${millions(filedCurrent)} does not reconcile with the filing's DebtCurrent ${millions(debtCurrent)}`);
   }
   const keepVendorShort = finite(vendorShort) && vendorShort > 0;
   // Fix round 2, I-1: the filed current debt a kept vendor figure is checked against, named by its tags and amounts:
