@@ -15,11 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
 import { computeDcfDisplay, computeFairValue } from "@/pipeline/stageB/fairValue";
+import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { valuationAuditTables } from "@/report/auditTables";
 import { fixedBridgeClaimsText } from "@/report/scenarioPresentation";
 import { temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import {
-  multiplesFramework, reverseDcf, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type QuarterlyFundamentalsRow, type ValuationBundleInputs,
+  multiplesFramework, reverseDcf, UNSPLIT_CELLS_LEAD, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type QuarterlyFundamentalsRow, type ValuationBundleInputs,
 } from "@/pipeline/stageB/valuation";
 import type { CompanyRoute } from "@/types/core";
 
@@ -278,6 +279,38 @@ describe("FIN-119: the unsplit rule holds in every bridge re-run", () => {
     expect(reverse.gaps.filter((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toHaveLength(1);
     expect(reverse.notes.some((n) => sentence.test(n))).toBe(true);
     expect(reverseDcf(1000, v.assumptions!, { ...opts, temporaryEquity: undefined }).gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toBe(false);
+  });
+});
+
+describe("FIN-119: the unsplit rule holds on the scenario paths", () => {
+  const history = [
+    { date: "2021-12-31", revenue: 700, ebit: 196, netIncome: 140, epsDiluted: 1.3 },
+    { date: "2022-12-31", revenue: 780, ebit: 226, netIncome: 160, epsDiluted: 1.5 },
+    { date: "2023-12-31", revenue: 850, ebit: 251, netIncome: 178, epsDiluted: 1.7 },
+    { date: "2024-12-31", revenue: 920, ebit: 276, netIncome: 196, epsDiluted: 1.9 },
+    { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
+  ];
+  const targetsOf = (valuation: ReturnType<typeof dcfOf>) =>
+    computeScenarioTargets({ valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2025-12-31" });
+
+  it("a path that flips to the earnings share is withheld and says why; the base and a no-unsplit control are not", () => {
+    const probe = dcfOf({ minorityInterest: 1, noncontrollingEarnings: KEY });
+    const equity0 = probe.dcf!.enterpriseValue - 200;
+    const book = 0.3 * equity0 * 1.005; // book 0.5% above the profit share (1.02 is too far for the bull path to reach it)
+    const v = dcfOf({ minorityInterest: book, temporaryEquity: claims({ unsplit: 40 }), noncontrollingEarnings: KEY });
+    expect(v.dcf!.bridge.noncontrollingDeductionBasis).toBe("book");
+    const t = targetsOf(v);
+    expect(t.status).toBe("available");
+    const named = t.targets.filter((x) => x.name !== "base");
+    expect(named.some((x) => x.perShare === null)).toBe(true); // the withheld path's target is null
+    expect(t.targets.find((x) => x.name === "base")!.perShare).not.toBeNull();
+    expect(t.missingReasons.some((m) => m.field === "valuation.dcf.temporaryEquityAllocation")).toBe(true);
+    expect(t.basis.some((n) => n.startsWith(UNSPLIT_CELLS_LEAD))).toBe(true);
+    // Control: the same fixture with no unsplit total gives neither.
+    const control = targetsOf(dcfOf({ minorityInterest: book, noncontrollingEarnings: KEY }));
+    expect(control.targets.every((x) => x.perShare !== null)).toBe(true);
+    expect(control.missingReasons.some((m) => m.field === "valuation.dcf.temporaryEquityAllocation")).toBe(false);
+    expect(control.basis.some((n) => n.startsWith(UNSPLIT_CELLS_LEAD))).toBe(false);
   });
 });
 
