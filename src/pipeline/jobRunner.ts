@@ -2636,6 +2636,7 @@ function settleQueuedResumeWithoutExecution(
           .get();
     // A data-only fallback is not a finished run: it falls through to the
     // `error` mutation below and stays linked (the admission rule, DB-001).
+    // Mirrors linkedReportBlocksResume (jobStore), read inline on this test-seam path.
     if (linkedReport !== undefined && !reportJsonIsDataOnly(linkedReport.reportJson)) {
       const stepsJson = normalizeLinkedReportRecoverySteps(
         row.stepsJson,
@@ -2715,7 +2716,11 @@ function settleQueuedResumeWithoutExecution(
   return settled;
 }
 
-/** Route/scheduler safety net for failures before runJob owns a running row. */
+/**
+ * Test seam: settles a queued retry that failed before runJob owned a running
+ * row. Neither the route nor the scheduler calls it (the scheduler terminalizes
+ * its own claims); only tests do.
+ */
 export function recordQueuedResumeDispatchFailure(
   jobId: string,
   expectedGeneration: number,
@@ -2785,7 +2790,7 @@ export async function runJob<TPayload = unknown>(
     ) ?? undefined;
     if (schedulerClaim === undefined) {
       // Only reports a row another path already made terminal: a data-only
-      // fallback is never closed before dispatch (DB-001), so it is claimed above.
+      // fallback is never closed as done before dispatch (DB-001), so it is claimed above.
       const afterClaim = getJobSnapshot(jobId);
       const linkedReportExists = afterClaim?.reportId !== null && afterClaim?.reportId !== undefined &&
         getDb().select({ id: reports.id }).from(reports)

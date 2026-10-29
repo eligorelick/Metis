@@ -892,7 +892,7 @@ function claimQueuedJobInternal(
       let preparedResume: PreparedJobResume | null = null;
       if (row.runGeneration > 0) {
         // The admission rule: only a full linked report closes a queued retry
-        // before dispatch. A data-only fallback stays linked while the retry runs.
+        // before dispatch (a data-only retry is never closed as done before dispatch). A data-only fallback stays linked while the retry runs.
         if (row.reportId !== null && linkedReportBlocksResume(tx, row.reportId)) {
           const stepsJson = normalizeLinkedReportRecoverySteps(
             row.stepsJson,
