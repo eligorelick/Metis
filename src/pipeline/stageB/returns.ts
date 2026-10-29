@@ -1412,12 +1412,12 @@ function investedCapital(
   b: ReturnsBalanceRow,
   notes: string[],
   includeOperatingLeases: boolean,
-  /** KNW-03: the refusal of a debt or capital input that exists, for the manifest. */
-  refusals: string[] = [],
+  /** KNW-03: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
+  refusals: { reason: string; kind: "debt" | "cash" }[] = [],
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
   const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
-  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); refusals.push(scopeRefusal); return null; }
+  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); refusals.push({ reason: scopeRefusal, kind: "debt" }); return null; }
   if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
@@ -1429,19 +1429,19 @@ function investedCapital(
     if (refused?.usable === false) {
       const reason = `total debt withheld (${refused.reason ?? "refused at admission"})`;
       notes.push(`${b.date}: ${reason} — invested capital uncomputable`);
-      refusals.push(reason);
+      refusals.push({ reason, kind: "debt" });
     } else notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
     return null;
   }
   if (b.totalDebt < 0) {
     notes.push(`totalDebt is negative on ${b.date} — invested capital uncomputable`);
-    refusals.push(`total debt is negative (${fmt(b.totalDebt)}), invalid data`);
+    refusals.push({ reason: `total debt is negative (${fmt(b.totalDebt)}), invalid data`, kind: "debt" });
     return null;
   }
   const leaseConflict = leaseDebtConflict(b);
   if (leaseConflict !== null) {
     notes.push(`${b.date}: ${leaseConflict} - invested capital uncomputable`);
-    refusals.push(leaseConflict);
+    refusals.push({ reason: leaseConflict, kind: "debt" });
     return null;
   }
 
@@ -1490,7 +1490,7 @@ function investedCapital(
     notes.push(
       `${b.date}: ${resolution.reason ?? "cash components conflict"} — invested capital uncomputable (no trustworthy cash basis)`,
     );
-    refusals.push(resolution.reason ?? "cash components conflict");
+    refusals.push({ reason: resolution.reason ?? "cash components conflict", kind: "cash" });
     return null;
   }
 
@@ -1551,12 +1551,12 @@ export interface RoicOptions {
    */
   includeOperatingLeases?: boolean;
   /**
-   * KNW-03 (audit 2026-10-29, AMZN #51): the severity of the manifest entry
-   * for years withheld because a debt or capital input was refused. The
-   * caller passes the WACC weights gap's severity, so a refusal that withholds
-   * both is as visible in ROIC as in WACC; a warning otherwise.
+   * KNW-03 (audit 2026-10-29, AMZN #51; fix round 1, I-1): the balance whose
+   * debt refusal withheld the WACC, when one did. The manifest entry for
+   * years withheld by a refused input is critical only when that same balance
+   * refusal withholds the latest fiscal year's ROIC; a warning otherwise.
    */
-  refusalSeverity?: ManifestEntry["severity"];
+  waccRefusal?: { date: string } | null;
   /**
    * Issuer domicile (ISO 3166 alpha-2) for the D-58 marginal-rate floor that
    * taxes a pre-tax-loss year's positive operating income (AMZN audit
@@ -1744,6 +1744,8 @@ export function computeRoic(
 
   const series: RoicYear[] = [];
   const refusedYears: { date: string; reason: string }[] = [];
+  /** The latest fiscal year's refusal: the balance it read and whether it was that balance's debt. */
+  let latestRefusal: { balanceDate: string; kind: "debt" | "cash" } | null = null;
   const take = Math.min(ROIC_SERIES_MAX_YEARS, inc.length);
   for (let i = take - 1; i >= 0; i -= 1) {
     const row = inc[i];
@@ -1802,10 +1804,13 @@ export function computeRoic(
       yearNotes.push(`no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS}d of ${row.date}`);
       continue;
     }
-    const refusals: string[] = [];
+    const refusals: { reason: string; kind: "debt" | "cash" }[] = [];
     const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases, refusals);
     if (icNow === null) {
-      if (refusals.length > 0) refusedYears.push({ date: row.date, reason: refusals[0]! });
+      if (refusals.length > 0) {
+        refusedYears.push({ date: row.date, reason: refusals[0]!.reason });
+        if (i === 0) latestRefusal = { balanceDate: balNow.date.slice(0, 10), kind: refusals[0]!.kind };
+      }
       continue;
     }
 
@@ -1818,6 +1823,7 @@ export function computeRoic(
       if (priorScopeRefusal) {
         yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`);
         refusedYears.push({ date: row.date, reason: `the prior balance ${balPrev.date}: ${priorScopeRefusal}` });
+        if (i === 0) latestRefusal = { balanceDate: balPrev.date.slice(0, 10), kind: "debt" };
         continue;
       }
       const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases);
@@ -1849,7 +1855,9 @@ export function computeRoic(
       field: "returns.roic",
       reason: `ROIC withheld for ${newestFirst.length} fiscal year${newestFirst.length === 1 ? "" : "s"} whose debt or capital input was refused: ` +
         newestFirst.map(({ date, reason }) => `${date}: ${reason}`).join("; "),
-      severity: options.refusalSeverity ?? "warn",
+      // I-1: critical only when the latest year falls to the very balance refusal that withholds the WACC.
+      severity: latestRefusal !== null && latestRefusal.kind === "debt" && options.waccRefusal != null &&
+        latestRefusal.balanceDate === options.waccRefusal.date.slice(0, 10) ? "critical" : "warn",
     });
   }
   const latest = series.length > 0 ? series[series.length - 1] : null;

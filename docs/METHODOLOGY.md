@@ -369,8 +369,11 @@ the affected invested capital and return. A year withheld because a debt or
 capital input was refused (a total debt the admission refused, a lease
 conflict or lease-scope refusal, a negative total debt, or conflicting cash
 components) is listed in one `returns.roic` manifest entry that gives each
-year's refusal. It takes the severity of the WACC weights entry when the run
-has one, and is a warning otherwise (audit 2026-10-29, KNW-03).
+year's refusal. It is critical only when the latest fiscal year's ROIC is
+withheld by the same balance's debt refusal that withholds the WACC (the
+balance the WACC names, refused for its debt rather than its cash), and a
+warning otherwise, including a latest year withheld while the WACC exists
+(audit 2026-10-29, KNW-03; review fix I-1).
 
 ROTE is income available to common / average tangible common equity, with
 preferred allocations required when preferred equity is outstanding. Tangible

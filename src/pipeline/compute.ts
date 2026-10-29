@@ -1729,6 +1729,8 @@ function totalDebtSnapshot(
   unavailable?: string;
   /** Audit 2026-10-29 (AMZN #51, VAL-4): `unavailable` is a refusal of debt the balance carries, not an absent balance. */
   refused?: true;
+  /** The date of the balance whose debt refusal (or invalid negative debt) withheld the average (fix round 1, I-1). */
+  refusedBalanceDate?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
@@ -1796,22 +1798,23 @@ function totalDebtSnapshot(
   const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
   if (refused !== undefined) {
     const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true, refusedBalanceDate: isoDay(refused.date) ?? undefined };
   }
   const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
   if (scopeRefused) {
     const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
-    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true };
+    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true, refusedBalanceDate: isoDay(scopeRefused.date) ?? undefined };
   }
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
   // null the adjusted values, and reject contradictory lease compositions.
-  const negativeObservation = pair.map(row => num(row?.totalDebt)).find(value => value !== null && value < 0) ?? null;
-  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency };
+  const negativeRow = pair.find(row => { const value = num(row?.totalDebt); return value !== null && value < 0; });
+  const negativeObservation = negativeRow === undefined ? null : num(negativeRow.totalDebt);
+  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency, refusedBalanceDate: isoDay(negativeRow!.date) ?? undefined };
   const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
   if (conflicted !== undefined) {
     const leaseConflict = leaseDebtConflict(conflicted)!;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true, refusedBalanceDate: isoDay(conflicted.date) ?? undefined };
   }
   if (a.value === null && b.value === null) {
     const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
@@ -3093,8 +3096,9 @@ function computeReturns(
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
-        // KNW-03: a refused debt or capital input withholds ROIC as visibly as it withholds WACC.
-        refusalSeverity: wacc.gaps.find((g) => g.field === "returns.wacc.weights")?.severity ?? "warn" });
+        // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
+        // that same balance refusal withholds the latest fiscal year's ROIC.
+        waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);

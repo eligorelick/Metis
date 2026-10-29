@@ -110,26 +110,65 @@ describe("a withheld DCF says why (VAL-10)", () => {
 });
 
 describe("a ROIC withheld by a refused input is in the manifest (KNW-03)", () => {
-  it("records the refusal of each withheld year at the WACC gap's severity", () => {
+  it("is critical when the latest year falls to the same balance refusal that withholds the WACC", () => {
     const computed = leaseRefused();
     const wacc = computed.gaps.find((g) => g.field === "returns.wacc.weights")!;
     const roic = computed.gaps.find((g) => g.field === "returns.roic")!;
+    expect(wacc.reason).toMatch(/^average total debt withheld: 2025-12-31: /);
     expect(computed.returns.roic.series.every((year) => year.roicPct === null)).toBe(true);
-    expect(roic.severity).toBe(wacc.severity);
+    expect(roic.severity).toBe("critical");
     expect(roic.reason).toMatch(/^ROIC withheld for 2 fiscal years whose debt or capital input was refused: 2025-12-31: operating-lease liability 90M .* do not reconcile to the vendor lease line 92M; 2024-12-31: operating-lease liability 90M /);
   });
 
-  it("defaults to a warning, and stays silent for a computable year", () => {
-    const M = 1_000_000;
-    const balance = (date: string, extra: Record<string, number>) => ({ date, totalEquity: 500 * M, cashAndShortTermInvestments: 100 * M, cashAndCashEquivalents: 60 * M, ...extra });
-    const income = [{ date: "2025-12-31", operatingIncome: 50 * M, incomeBeforeTax: 45 * M, incomeTaxExpense: 9 * M },
-      { date: "2024-12-31", operatingIncome: 45 * M, incomeBeforeTax: 40 * M, incomeTaxExpense: 8 * M }];
-    const refused = computeRoic(income, [balance("2025-12-31", { totalDebt: 200 * M, capitalLeaseObligations: 92 * M, operatingLeaseLiability: 90 * M, financeLeaseLiability: 14 * M }),
-      balance("2024-12-31", { totalDebt: 200 * M })]);
-    expect(refused.gaps).toContainEqual(expect.objectContaining({ field: "returns.roic", severity: "warn",
-      reason: expect.stringMatching(/^ROIC withheld for 1 fiscal year whose debt or capital input was refused: 2025-12-31: operating-lease liability 90M plus finance-lease liability 14M/) }));
-    expect(computeRoic(income, [balance("2025-12-31", { totalDebt: 200 * M }), balance("2024-12-31", { totalDebt: 200 * M })], { refusalSeverity: "critical" }).gaps
-      .some((g) => g.field === "returns.roic")).toBe(false);
+  // Fix round 1, I-1 (controller ruling): critical only when the LATEST year is withheld by the balance refusal that withholds the WACC.
+  const M = 1_000_000;
+  const balance = (date: string, extra: Record<string, unknown> = {}) => ({ date, totalDebt: 200 * M, totalEquity: 500 * M, cashAndShortTermInvestments: 100 * M, cashAndCashEquivalents: 60 * M, ...extra });
+  const income = ["2025-12-31", "2024-12-31", "2023-12-31"].map((date) => ({ date, operatingIncome: 50 * M, incomeBeforeTax: 45 * M, incomeTaxExpense: 9 * M }));
+  const leaseConflict = { capitalLeaseObligations: 92 * M, operatingLeaseLiability: 90 * M, financeLeaseLiability: 14 * M };
+  const refusedDebt = { totalDebt: null, fieldConflicts: { totalDebt: { usable: false, reason: "incomplete debt carrying value: test refusal" } } };
+  const cashConflict = { cashAndShortTermInvestments: 100 * M, cashAndCashEquivalents: 60 * M, shortTermInvestments: 10 * M };
+  const roicGap = (result: ReturnType<typeof computeRoic>) => result.gaps.find((g) => g.field === "returns.roic");
+
+  it("PLD shape: a historical year alone is a warning, even beside a WACC refused at another balance", () => {
+    const result = computeRoic(income, [balance("2025-12-31"), balance("2024-12-31"), balance("2023-12-31", leaseConflict)], { waccRefusal: { date: "2026-03-31" } });
+    expect(result.latestRoicPct).not.toBeNull();
+    expect(roicGap(result)).toMatchObject({ severity: "warn", reason: expect.stringMatching(/^ROIC withheld for 1 fiscal year whose debt or capital input was refused: 2023-12-31: /) });
+  });
+
+  it("CSCO shape: the latest year withheld while the WACC exists is a warning", () => {
+    const result = computeRoic(income, [balance("2025-12-31", cashConflict), balance("2024-12-31", cashConflict), balance("2023-12-31")], { waccRefusal: null });
+    expect(result.latestRoicPct).toBeNull();
+    expect(roicGap(result)).toMatchObject({ severity: "warn", reason: expect.stringMatching(/^ROIC withheld for 2 fiscal years .*: 2025-12-31: combined cash-and-short-term-investments conflicts with reported components; 2024-12-31: /) });
+  });
+
+  it("META shape: the latest year withheld by the balance refusal that withholds the WACC is critical", () => {
+    const result = computeRoic(income, [balance("2025-12-31", refusedDebt), balance("2024-12-31"), balance("2023-12-31")], { waccRefusal: { date: "2025-12-31" } });
+    expect(roicGap(result)).toMatchObject({ severity: "critical", reason: expect.stringMatching(/2025-12-31: total debt withheld \(incomplete debt carrying value: test refusal\)/) });
+  });
+
+  it("the latest year withheld while the WACC is refused at another balance, or on a cash conflict, is a warning", () => {
+    expect(roicGap(computeRoic(income, [balance("2025-12-31", refusedDebt), balance("2024-12-31")], { waccRefusal: { date: "2024-12-31" } }))?.severity).toBe("warn");
+    expect(roicGap(computeRoic(income, [balance("2025-12-31", cashConflict), balance("2024-12-31")], { waccRefusal: { date: "2025-12-31" } }))?.severity).toBe("warn");
+    expect(roicGap(computeRoic(income, [balance("2025-12-31", refusedDebt), balance("2024-12-31")]))?.severity).toBe("warn");
+  });
+
+  it("PLD shape end to end: a WACC refused at the latest quarter does not make a historical year's ROIC refusal critical", () => {
+    // The latest quarter loses its current debt, so its completion is refused and the WACC with it; the 2024
+    // year end's cash components contradict its combined cash, which withholds that year's ROIC only.
+    const bundle = leaseShapeStageBBundle((points) => ({ ...points, "2026-03-31": without({ q: points["2026-03-31"]! }, "LongTermDebtCurrent", "ShortTermBorrowings").q! }));
+    if (!bundle.statements.balanceAnnual.ok) throw new Error("fixture missing");
+    const fy2024 = bundle.statements.balanceAnnual.value.data.rows.find((row) => row.date === "2024-12-31")!;
+    Object.assign(fy2024, { shortTermInvestments: (fy2024.cashAndShortTermInvestments as number) / 10 });
+    const computed = runStageB(bundle);
+    const wacc = computed.gaps.find((g) => g.field === "returns.wacc.weights")!;
+    expect(wacc).toMatchObject({ severity: "critical", reason: expect.stringMatching(/^average total debt withheld: 2026-03-31: /) });
+    expect(computed.returns.roic.latestRoicPct).not.toBeNull();
+    expect(computed.gaps.find((g) => g.field === "returns.roic")).toMatchObject({ severity: "warn",
+      reason: "ROIC withheld for 1 fiscal year whose debt or capital input was refused: 2024-12-31: combined cash-and-short-term-investments conflicts with reported components" });
+  });
+
+  it("stays silent for computable years", () => {
+    expect(roicGap(computeRoic(income, [balance("2025-12-31"), balance("2024-12-31"), balance("2023-12-31")], { waccRefusal: { date: "2025-12-31" } }))).toBeUndefined();
   });
 
   it("control: the completed rows publish ROIC with no refusal entry", () => {
