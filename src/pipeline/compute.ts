@@ -132,6 +132,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { awardDilutedDivisor, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -2536,9 +2537,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const inc0Proj = incomeAnnual[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
-  const posSharesProj = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
-  const sharesQProj = posSharesProj(num(incomeQuarterly[0]?.weightedAverageShsOutDil));
-  const sharesAProj = posSharesProj(num(inc0Proj?.weightedAverageShsOutDil));
+  // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
+  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj);
+  const sharesQProj = projDivisors.quarter.shares;
+  const sharesAProj = projDivisors.annual.shares;
   const dilutedSharesProj =
     projRowDate(incomeQuarterly[0]) >= projRowDate(inc0Proj) ? (sharesQProj ?? sharesAProj) : (sharesAProj ?? sharesQProj);
   // Collapse restated/duplicate fiscal years BEFORE the dispersion sees them.
@@ -3307,6 +3309,33 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
   };
 }
 
+/**
+ * FIN-404: the per-share divisor of the newest quarterly and the newest annual
+ * income row, each through `awardDilutedDivisor` (a loss period keeps the award
+ * dilution its filed count dropped). The four latest quarters and the latest
+ * year are the donor pool, so the DCF, the excess-return route, the REIT block
+ * and the scenario paths read one divisor. A literal 0 is FMP's
+ * zero-for-undisclosed sentinel, not a count (missing is not zero).
+ */
+function incomeDivisors(
+  incomeQuarterly: readonly FmpIncomeStatementRow[],
+  inc0: FmpIncomeStatementRow | undefined,
+): { quarter: DivisorResult; annual: DivisorResult } {
+  const divisorRow = (r: FmpIncomeStatementRow): DivisorRow => ({
+    date: typeof r.date === "string" ? r.date : "",
+    basic: num(r.weightedAverageShsOut), diluted: num(r.weightedAverageShsOutDil),
+    netIncome: num(r.netIncome), continuingIncome: num(r.netIncomeFromContinuingOperations),
+  });
+  const pool = [...incomeQuarterly.slice(0, 4), ...(inc0 === undefined ? [] : [inc0])];
+  const one = (row: FmpIncomeStatementRow | undefined): DivisorResult => {
+    const result = row === undefined
+      ? { shares: null, basis: "filed" as const, donorDate: null, note: null }
+      : awardDilutedDivisor(divisorRow(row), pool.filter((r) => r !== row).map(divisorRow));
+    return result.shares !== null && result.shares > 0 ? result : { ...result, shares: null };
+  };
+  return { quarter: one(incomeQuarterly[0]), annual: one(inc0) };
+}
+
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
@@ -3336,8 +3365,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // must not beat a fresher annual row. A literal 0 is FMP's
   // zero-for-undisclosed sentinel, not a real count (missing ≠ zero).
   const posShares = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
-  const sharesQuarterly = posShares(num(incomeQuarterly[0]?.weightedAverageShsOutDil));
-  const sharesAnnual = posShares(num(inc0?.weightedAverageShsOutDil));
+  // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
+  const divisors = incomeDivisors(incomeQuarterly, inc0);
+  const sharesQuarterly = divisors.quarter.shares;
+  const sharesAnnual = divisors.annual.shares;
   const quarterlySharesFresh = rowDate(incomeQuarterly[0]) >= rowDate(inc0);
   const dilutedShares = quarterlySharesFresh ? (sharesQuarterly ?? sharesAnnual) : (sharesAnnual ?? sharesQuarterly);
   const dilutedSharesBasis: "quarter" | "annual" | null =
@@ -3346,6 +3377,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       : (quarterlySharesFresh && sharesQuarterly !== null) || sharesAnnual === null
         ? "quarter"
         : "annual";
+  const dilutedShareDivisor = dilutedSharesBasis === "quarter" ? divisors.quarter : dilutedSharesBasis === "annual" ? divisors.annual : null;
 
   const netDebtInfo = netDebtFromBalance(balPoint);
   const netDebtDerived = netDebtInfo.value;
@@ -3978,6 +4010,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     dilutedShares: valuationDilutedShares,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
+    // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
+    ...(dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" ? { dilutedShareDivisor: { basis: dilutedShareDivisor.basis, donorDate: dilutedShareDivisor.donorDate, note: dilutedShareDivisor.note } } : {}),
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,

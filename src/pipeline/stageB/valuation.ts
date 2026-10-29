@@ -5939,6 +5939,11 @@ export interface ValuationBundleInputs {
    * issuer-economic count, or the reason it was refused.
    */
   dilutedShareEconomicBasis?: string | null;
+  /**
+   * FIN-404: set only when the divisor row is a loss period, whose filed diluted
+   * count equals its basic count; `dilutedShares` already carries the substitution.
+   */
+  dilutedShareDivisor?: { basis: "loss-period-substituted" | "loss-period-basic"; donorDate: string | null; note: string | null };
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
   /**
@@ -6263,6 +6268,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   } else if (multiclassEvidence && inputs.dilutedShareEconomicBasis) {
     notes.push(inputs.dilutedShareEconomicBasis);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
+  }
+  if (inputs.dilutedShareDivisor?.note && isNum(inputs.dilutedShares) && inputs.dilutedShares > 0) {
+    notes.push(inputs.dilutedShareDivisor.note);
+    gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
   }
   if (economicScope.status !== "unverified-vendor-scope") inputs = { ...inputs,
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
@@ -6781,11 +6790,17 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
-          notes.push(
-            `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}; the quoted market cap implies ${fmtMoney(implied)} shares ` +
-              `outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. The gap is option and RSU dilution plus repurchases or issuance since the quarter; ` +
-              "the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).",
-          );
+          // FIN-404: the wording follows how the count was formed (filed, a loss period's basic count plus a profitable period's award dilution, or a loss period's basic count alone).
+          const divisorBasis = inputs.dilutedShareDivisor?.basis ?? "filed";
+          const head = divisorBasis === "filed"
+            ? `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`
+            : divisorBasis === "loss-period-substituted"
+              ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period ending ${inputs.dilutedShareDivisor?.donorDate ?? "?"} (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
+              : `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period in the filed history shows any)`;
+          const tail = divisorBasis === "loss-period-basic"
+            ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
+            : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
+          notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. ${tail}`);
         }
       }
       // The reverse DCF solves for the growth the market cap implies, so it

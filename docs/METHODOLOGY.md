@@ -1405,6 +1405,21 @@ diluted count, which carries option and RSU dilution; the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides.
 
+*Loss periods (FIN-404).* A period with a loss from continuing operations files
+a diluted count equal to its basic count, because every potential share is
+antidilutive (ASC 260-10-45-17..20); that count is right for the period's EPS
+and carries no award dilution as a divisor. When the divisor row is such a
+period (`diluted <= basic + 1` and continuing-operations income, else net
+income, below zero), the divisor is that row's basic count plus the award
+dilution (diluted minus basic, less any filed conversion shares) of the newest
+profitable period among the four latest quarters and the latest year that shows
+one; the donor's date is named. With no such period the basic count divides, and
+the note says it carries no option or RSU dilution. The info gap
+`valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's wording)
+states which of the three cases holds. The DCF, the excess-return route, the
+REIT block and the scenario paths read the same divisor; forecast EPS keeps its
+own. A profitable divisor row is unchanged.
+
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
 the combined cash-and-short-term-investments field, or minus both separately
 disclosed cash components when the combined field is unavailable. Negative
