@@ -575,7 +575,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (!keepVendorShort) fieldProvenance.shortTermDebt = evidence(filedCurrentTags);
   if (row.operatingLeaseLiability == null) fieldProvenance.operatingLeaseLiability = evidence(operating.tags);
   if (financeNoncurrent !== null && row.financeLeaseLiability == null) fieldProvenance.financeLeaseLiability = evidence(finance.tags);
-  const out = { ...row, capitalLeaseObligations: leases, totalDebt, netDebt,
+  // Review m8: the vendor's own netDebt, captured before the rewrite, for the vendor-convention diagnostic.
+  const vendorNetDebt = row.vendorNetDebt !== undefined ? row.vendorNetDebt : finite(row.netDebt) ? row.netDebt : null;
+  const out = { ...row, capitalLeaseObligations: leases, totalDebt, netDebt, vendorNetDebt,
     ...(keepVendorShort ? {} : { shortTermDebt: currentDebt }),
     ...(row.operatingLeaseLiability == null ? { operatingLeaseLiability: operating.value } : {}),
     ...(financeNoncurrent !== null && row.financeLeaseLiability == null ? { financeLeaseLiability: finance.value } : {}),

@@ -247,3 +247,24 @@ describe("Stage B on the completed rows: WACC and net debt become available (GRD
     expect(computed.valuation.multiples?.enterpriseValue.value).not.toBeNull();
   });
 });
+
+describe("the vendor-convention diagnostic keeps the vendor's own net debt (review m8)", () => {
+  it("the completion keeps the vendor's net debt beside the recomposed one", () => {
+    const row = vendorRow(Q2);
+    const out = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED).row;
+    expect(out.netDebt).toBe((242_320 - 78_213) * M);
+    expect(out.vendorNetDebt).toBe((223_232 - 78_213) * M);
+    expect(row.vendorNetDebt).toBeUndefined();
+    // Re-admission leaves both as they are.
+    expect(admitDebtFields(out, companyFacts(FILED_FACTS), "USD", OBSERVED).row.vendorNetDebt).toBe((223_232 - 78_213) * M);
+  });
+
+  it("Stage B reports the vendor's figure, not the composed one, as the vendor net debt", () => {
+    const bundle = leaseShapeStageBBundle();
+    const vendorNet = new Map((bundle.statements.balanceAnnual.ok ? bundle.statements.balanceAnnual.value.data.rows : []).map((r) => [r.date, r.netDebt]));
+    const resolution = runStageB(bundle).capital.netDebtToEbitda.resolution!;
+    expect(resolution.value).not.toBeNull();
+    expect(resolution.components.vendorNetDebt).toBe(vendorNet.get(resolution.asOf!));
+    expect(resolution.components.vendorNetDebt).not.toBe(resolution.components.totalDebt! - resolution.components.cashAndCashEquivalents!);
+  });
+});

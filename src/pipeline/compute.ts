@@ -605,7 +605,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
     ...(num(r.capitalLeaseObligationsNonCurrent) !== null ? { capitalLeaseObligationsNonCurrent: num(r.capitalLeaseObligationsNonCurrent) } : {}),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
-    netDebt: num(r.netDebt),
+    // Review m8: the vendor's own figure when the completion recomposed netDebt (diagnostic only).
+    netDebt: num(r.vendorNetDebt !== undefined ? r.vendorNetDebt : r.netDebt),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
@@ -4063,7 +4064,7 @@ function netDebtFromBalance(
     shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
     cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
     marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
-    vendorNetDebt: bal ? num(bal.netDebt) : null,
+    vendorNetDebt: bal ? num(bal.vendorNetDebt !== undefined ? bal.vendorNetDebt : bal.netDebt) : null,
     fieldConflicts: bal?.fieldConflicts,
   });
 }

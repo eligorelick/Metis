@@ -268,6 +268,12 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalDebt?: number;
   netDebt?: number;
   /**
+   * Review m8 (2026-10-29): the vendor's own netDebt, kept when the D-132
+   * completion recomposes netDebt from the filing. Only the vendor-convention
+   * diagnostic reads it; the house net debt never does.
+   */
+  vendorNetDebt?: number | null;
+  /**
    * D-60: filed fair value of marketable equity securities INSIDE
    * cashAndShortTermInvestments. Never served by FMP; Stage B attaches it from
    * EDGAR companyfacts only when the filing's components reconcile to the total.
