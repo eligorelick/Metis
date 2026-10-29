@@ -826,7 +826,7 @@ describe("final review: a claim's prior fiscal year-end is established only by t
   });
 });
 
-// Final review, Concern 1 second fix (2026-10-28, AI-303-V3 / AI-402): a property table for the year-end instants. An instant stated
+// Final re-review (2026-10-28, AI-303-V3 / AI-402): a property table for the year-end instants. An instant stated
 // after a comparison cue is the comparison's base, and one after "from" or "since" is a start; neither is the other figure's own
 // period. Each row states the truth from what the source says: a false claim is never validated, a true claim is never
 // contradicted, and a row whose truth depends on how the spelling reads against the title (or that the source does not state at all)
@@ -920,14 +920,14 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     expect(allowed(expected), `${claimText} against "${SOURCES[source]}" (${title}): ${status}/${reason}, truth ${JSON.stringify(expected)}`).toContain(status);
   });
   // Where the reason matters.
-  it.each(Object.keys(TITLES) as Title[])("R1: the level figure does not take the base's prior year-end, so the claim is unchecked for its period (%s)", (title) => {
+  it.each(Object.keys(TITLES) as Title[])("AI-402: the level figure does not take the base's prior year-end, so the claim is unchecked for its period (%s)", (title) => {
     for (const source of ["S2", "S3", "S4", "S5", "S6"] as const) {
       for (const at of SPELLINGS.slice(0, 5)) {
         expect(run(source, title, CLAIMS.L31(at)), `${source} ${at}`).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
       }
     }
   });
-  it.each(Object.keys(TITLES) as Title[])("R2: a fronted cue or start is never the figure's own instant (%s)", (title) => {
+  it.each(Object.keys(TITLES) as Title[])("AI-303-V3: a fronted cue or start is never the figure's own instant (%s)", (title) => {
     expect(run("S7", title, CLAIMS.L31(SAME_PHRASE)).status).toBe("unchecked");
     expect(run("S8", title, CLAIMS.C58at(SAME_PHRASE)).status).toBe("unchecked");
     expect(run("S9", title, CLAIMS.C58at(SAME_PHRASE)).status).toBe("unchecked");
@@ -935,7 +935,7 @@ describe("final review: a year-end instant after a comparison cue or a start is 
   it("r8: under a 10-Q title the current figure is not the fiscal year-end base", () => {
     expect(run("S10", "10-Q", CLAIMS.L31("at fiscal year-end")).status).toBe("unchecked");
   });
-  it("R1: an instant after an amount and \"at\" or \"as of\" follows the comparison cue", () => {
+  it("AI-402: an instant after an amount and \"at\" or \"as of\" follows the comparison cue", () => {
     const at = (text: string, phrase: string) => comparisonCueEnd(text, text.indexOf(phrase));
     expect(at(SOURCES.S2, "end of the prior")).toBe(SOURCES.S2.indexOf("up from") + "up from".length);
     expect(at(SOURCES.S4, "prior year-end")).toBe(SOURCES.S4.indexOf("compared with") + "compared with".length);
@@ -945,7 +945,7 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     expect(at(SOURCES.S1, "end of the prior")).toBeNull();
     expect(at("Inventory was $31.6 billion at fiscal year-end.", "fiscal year-end")).toBeNull();
   });
-  it("R1: a date after an amount and \"as of\" is the base's too, so the level figure does not take it", () => {
+  it("AI-402: a date after an amount and \"as of\" is the base's too, so the level figure does not take it", () => {
     const text = "Revenue was $10.2 billion, compared with $8.1 billion as of January 26, 2025.";
     const excerpt: TextExcerpt = { title: TITLES["10-Q"].title, text, source: TITLES["10-Q"].source, asOf: TITLES["10-Q"].asOf, truncated: false, originalChars: text.length };
     const on = (claim: string) => validateClaimNumericSupport({ label: "FACT", text: claim, source: excerpt.source, asOf: excerpt.asOf },
@@ -963,5 +963,22 @@ describe("final review: a year-end instant after a comparison cue or a start is 
   });
   it("control: the figure's own prior year-end, in its own clause with no cue, still validates the same phrase under every title", () => {
     for (const title of Object.keys(TITLES) as Title[]) expect(run("S1", title, CLAIMS.L31(SAME_PHRASE)).status, title).toBe("validated");
+  });
+});
+
+// Final re-review (2026-10-28, AI-303-V3): no typed record establishes a prior fiscal year-end, by its label or by its basis, though
+// a record's label is read for its windows and "net debt at the prior fiscal year-end" reads as that window.
+describe("final review: no record label or basis establishes a prior fiscal year-end (AI-303-V3)", () => {
+  const LABELLED = rec({ id: "computed.net-debt-prior-fye", label: "net debt at the prior fiscal year-end", value: 8e9, period: "2026-01-25" });
+  const on = (claim: string, record: NumericProvenanceRecord) => validateClaimNumericSupport({ label: "FACT", text: claim, source: record.id, asOf: record.asOf },
+    { record, excerpts: [], sourceId: record.id, reportingCurrency: "USD" });
+  it("a record label that names the prior year-end does not establish the claim's", () => {
+    expect(on("Prior net debt at the prior fiscal year-end was USD 8.0 billion.", LABELLED)).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(on("Prior net debt at the prior fiscal year-end was USD 9.0 billion.", LABELLED)).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(on("Net debt at the prior fiscal year-end was USD 8.0 billion.", LABELLED).status).toBe("unchecked");
+  });
+  it("a fiscal-year record does not establish it either, and its own year-end still does", () => {
+    expect(on("Total debt at the end of the prior fiscal year was USD 10.00 billion.", FY_DEBT)).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(on("Total debt at fiscal year-end was USD 10.00 billion.", FY_DEBT).status).toBe("validated");
   });
 });

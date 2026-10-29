@@ -813,7 +813,7 @@ const BASE_CUE = String.raw`(?:(?:as\s+)?compared\s+(?:with|to)|versus|vs\.?|rel
 // A bare "from" governs a base only across at least one amount ("to $12.4 billion from
 // $10.1 billion in the second quarter of fiscal 2025"); a period right after it is an
 // interval or a start ("from 2025-07-27 to 2026-07-26", "from the third quarter 2026 onward").
-// Final review (Concern 1, second fix): the base's own instant may follow its amount after "at" or "as of" ("compared with $25.8
+// Final re-review (AI-402): the base's own instant may follow its amount after "at" or "as of" ("compared with $25.8
 // billion at the prior fiscal year-end", "as of the prior year-end"). Neither word is a filler word, so the filler is still read one way.
 const BASE_INSTANT = String.raw`(?:(?:at|as\s+of)\s+(?:${BASE_WORD})*)?`;
 const BASE_TAIL = new RegExp(String.raw`(?:\b(${BASE_CUE})\s+${BASE_FILLER}|\b(from)\s+(?:${BASE_WORD})*${BASE_AMOUNT}${BASE_FILLER})${BASE_INSTANT}$`, "i");

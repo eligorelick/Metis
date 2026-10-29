@@ -213,7 +213,8 @@ const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐
 /**
  * Final review (2026-10-28, AI-303-V3): a prior fiscal year-end ("the end of the prior year", "the end of last fiscal year", "the
  * previous fiscal year-end") is an instant of its own, read before FISCAL_YEAR_END. No title, header, inherited window or current
- * fiscal year-end establishes it; only the same relative phrase in a figure's own clause (or a record's own label) does.
+ * fiscal year-end establishes it, and no record does, by its label or its basis; only the same relative phrase in a filing figure's own
+ * clause does, stated as that figure's own instant (after a comparison word it is the base's, after "from" or "since" a start).
  */
 const PRIOR_YEAR_END = /\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:last|prior|previous)\s+(?:fiscal\s+)?year\b|\b(?:last|prior|previous)[\s‐‑–—-]+(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b/gi;
 const PRIOR_FISCAL_YEAR_END = "PRIORFYE";
@@ -292,7 +293,7 @@ export function windowsNamed(text: string): string[] {
 const HARD_BOUNDARY = /;|\n|•|[.!?](?=\s+[A-Z“"(])/g;
 /** The windows that are instants: the fiscal year-end and the prior fiscal year-end. */
 const INSTANT_WINDOWS: ReadonlySet<string> = new Set(["FYE", PRIOR_FISCAL_YEAR_END]);
-/** "from" or "since" directly before an instant makes it a change's start (final review, Concern 1, second fix). */
+/** "from" or "since" directly before an instant makes it a change's start (final re-review, AI-303-V3). */
 const START_LEAD = /\b(?:from|since)\s+(?:the\s+|its\s+|our\s+)?$/i;
 /**
  * AI-404: the periods and comparison bases `span` of `text` states for `quantity`.
@@ -314,7 +315,7 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
   }
   const stated = periodLabels(blanked, { loose, yearEnd });
   const isBase = (period: PeriodReference): boolean => {
-    // Final review (Concern 1, second fix): a year-end is an instant, so it is read as a date is; any other window is a span and is
+    // Final re-review (AI-303-V3 / AI-402): a year-end is an instant, so it is read as a date is; any other window is a span and is
     // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
     // inventory increased by $5.8 billion"), never the figure's own instant.
     if (period.kind === "window" && !INSTANT_WINDOWS.has(period.key)) return false;
@@ -497,7 +498,7 @@ function ownDescriptionTokens(text: string, ignore: readonly string[]): string[]
     .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
     .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
     // A prior fiscal year-end is compared as a period, as the claim's is (final review, AI-303-V3), but only when no comparison cue or
-    // start precedes it: after one it is a base or a start, and the figure must not be described by it (Concern 1, second fix).
+    // start precedes it: after one it is a base or a start, and the figure must not be described by it (final re-review).
     .replace(PRIOR_YEAR_END, (match: string, offset: number, whole: string) => OWN_PERIOD_CUE.test(whole.slice(0, offset)) ? match : " ")
     // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
     .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
@@ -1050,7 +1051,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
-    const established = new Set([...basisWindows(record), ...labelLooseWindows(record)]);
+    // Final re-review (AI-303-V3): no record label or basis establishes a prior fiscal year-end.
+    const established = new Set([...basisWindows(record), ...labelLooseWindows(record)].filter((key) => key !== PRIOR_FISCAL_YEAR_END));
     const ignore = options.ignoreWords ?? [];
     // D-66: a per-share record's "per share" is its unit, which the prose
     // states with the figure ("USD 0.25 per share"), not in its metric words;
@@ -1096,7 +1098,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       (period.kind === "date" && periodlessDates.has(period.key)) ||
       (fiscalPeriod !== undefined && FY_LABEL.test(period.label) && periodsAgree(period.label, fiscalPeriod, fiscalPeriod));
     const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
-      ? established.has(period.key) || labelled.has(period.key) || window?.key === period.key
+      ? period.key !== PRIOR_FISCAL_YEAR_END && (established.has(period.key) || labelled.has(period.key) || window?.key === period.key)
       : record.period === null ? periodlessEstablishes(period) : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
         // A lone date names the window's end; its start counts only inside the
         // complete stated interval (audit 2026-10-27 AI-302, D-82's interval proof).
@@ -1163,7 +1165,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     if (own.ambiguous || quantity.unit === null) return support("unchecked", "text-ambiguous", "multiple unbound quantities or a missing unit in the prose clause", spans);
     // AI-303 / C-6: a window the claim names is compared as a period (below), not as a metric word; a year-end base or start the claim
-    // names is compared as a base (Concern 1, second fix).
+    // names is compared as a base (final re-review).
     const ownWindowTokens = new Set([...own.periods, ...own.bases].filter((period) => period.kind === "window").map((period) => `window${period.key.toLowerCase()}`));
     const tokens = metricTokens(own.label, options.ignoreWords ?? [], { loose: true }).filter((word) => !ownWindowTokens.has(word));
     // AI-305: the claim names a word of the source figure's own description when the claim's description holds it. The claim's
