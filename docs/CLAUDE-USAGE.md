@@ -37,7 +37,9 @@ The saved connection selection outranks the Claude model setting. The home page
 ("Reports run on"), the company page ("Runs on", beside the generate control)
 and Settings all show the route the next report will use, for example
 `ChatGPT plan · gpt-6.1-sol · max effort` or `Claude API · Opus 5.5 · max effort`,
-with `sign-in needed` or `key needed` when it is not connected. When the
+with `sign-in needed` or `key needed` when it is not connected. A Claude model
+that does not accept an effort setting (Haiku 4.5) is shown without one, because
+the request does not send it. When the
 selection is not Claude, the Settings Claude model and effort panels say
 "Not in use". The label never includes an account email, token or key. A
 resumed job that reuses its completed analysis keeps the model that analysis

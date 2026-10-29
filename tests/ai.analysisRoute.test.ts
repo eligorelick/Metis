@@ -17,7 +17,9 @@ vi.mock("@/ai/gemini", () => ({ geminiExecutable: () => fake.cli, geminiPending:
 vi.mock("@/settings/settings", () => ({ getWritableSettingsAuthority: () => ({ state: fake.settings }) }));
 
 import { describeAnalysisRoute } from "@/ai/connections";
-import { requestedAnalysisModel } from "@/ai/analysisRoute";
+import { buildAnalysisRoute, requestedAnalysisModel } from "@/ai/analysisRoute";
+import { activeModels } from "@/models/registry";
+import { modelSupportsEffort } from "@/report/execution";
 
 const GRANT = ["chatgpt.tokens.use.direct"];
 function chatgptStore(connected: boolean, selection: AiStore["selection"]): AiStore {
@@ -40,6 +42,20 @@ describe("describeAnalysisRoute", () => {
       provider: "anthropic", model: "claude-opus-5-5", effort: "max", ready: true,
       label: "Claude API · Opus 5.5 · max effort",
     });
+  });
+  it("omits the effort for a Claude model that does not accept it, as the request builder does", () => {
+    // Codex review of 9676367 (PR #72): buildPassParams drops effort for Haiku 4.5, so the label must not promise it.
+    fake.key = true;
+    fake.settings = { analysisModel: "claude-haiku-4-5", analysisEffort: "max" };
+    expect(describeAnalysisRoute()).toEqual({
+      provider: "anthropic", model: "claude-haiku-4-5", effort: null, ready: true,
+      label: "Claude API · Haiku 4.5",
+    });
+    for (const model of activeModels()) {
+      const route = buildAnalysisRoute({ provider: "anthropic" }, true, { analysisModel: model.id, analysisEffort: "high" });
+      expect(route.effort).toBe(modelSupportsEffort(model.id) ? "high" : null);
+      expect(route.label.includes("effort")).toBe(modelSupportsEffort(model.id));
+    }
   });
   it("says a Claude route without a key is not ready", () => {
     chatgptStore(false, { provider: "anthropic" });

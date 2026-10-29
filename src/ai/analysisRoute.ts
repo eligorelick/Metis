@@ -38,8 +38,10 @@ export function buildAnalysisRoute(
   }
   if (selection.provider === "anthropic") {
     const model = requestedAnalysisModel(selection, settings.analysisModel);
-    const label = `Claude API · ${claudeName(model)} · ${settings.analysisEffort} effort`;
-    return { provider: "anthropic", model, effort: settings.analysisEffort, ready, label: ready ? label : `${label} · key needed` };
+    // The request builder sends effort only where the registry says the model accepts it (Haiku 4.5 does not).
+    const effort = resolveRegistryModel(model)?.entry.effort.supported === true ? settings.analysisEffort : null;
+    const label = effort === null ? `Claude API · ${claudeName(model)}` : `Claude API · ${claudeName(model)} · ${effort} effort`;
+    return { provider: "anthropic", model, effort, ready, label: ready ? label : `${label} · key needed` };
   }
   const name = selection.provider === "chatgpt" ? "ChatGPT plan" : "Gemini";
   const effort = selection.provider === "chatgpt" ? selection.effort ?? null : null;
