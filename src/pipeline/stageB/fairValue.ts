@@ -34,7 +34,8 @@ import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/prov
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D102" as const;
+// D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D135" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */

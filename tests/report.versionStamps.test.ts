@@ -34,6 +34,22 @@
  * method and resolver versions do not move: no Stage C pass, band table,
  * valuation method, path construction or net-debt resolver changed, only the
  * filed inputs they read.
+ * Report 1.50.0, payload 1.52.0, Stage B ..._31 and the fair-value and
+ * scenario-target stamps ..._D135 (D-135, audit 2026-10-27 B4a) move the
+ * equity bridge, the market EV and invested capital. A report stored under
+ * 1.49.0 cannot claim that redeemable equity, pension and OPEB deficits, loss
+ * contingencies or contingent consideration were deducted once, that the
+ * covered operating lease sat in sales-to-capital, or which divisor a loss
+ * period used: it is shown through withLegacyBridgeMethod, with its bytes kept.
+ * A payload stored under 1.51.0 carries the old DCF figures and EV-basis
+ * wording, so a pass stored under it is never resumed. A stored Stage B result
+ * also deducted its debt-like lines before tax and did not read temporary
+ * equity, pension and OPEB deficits, loss contingencies or contingent
+ * consideration, so a snapshot under ..._30 is recomputed, and a stored fair
+ * value or scenario target under ..._D102 was built on that bridge. Pipeline
+ * stage-c-1.6.13, the score bands, SCENARIO_PATHS_METHOD_VERSION and the net-debt
+ * resolver version do not move: no Stage C pass logic, band table, path
+ * construction or net-debt resolver changed.
  * Earlier stamps:
  *
  *  - REPORT_SPEC_VERSION 1.4.0: every share count and per-share figure is on
@@ -71,6 +87,8 @@ import { createDatabase, setDbForTests, type DatabaseHandle } from "@/db";
 import { reports } from "@/db/schema";
 import { runStageB } from "@/pipeline/compute";
 import { STAGE_B_IMPLEMENTATION_VERSION } from "@/pipeline/runInputSnapshot";
+import { FAIR_VALUE_METHOD_VERSION } from "@/pipeline/stageB/fairValue";
+import { SCENARIO_TARGET_METHOD_VERSION } from "@/pipeline/stageB/scenarioTargets";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import {
@@ -83,8 +101,9 @@ import { diffReports } from "@/report/diff";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { getLatestDoneReport } from "@/report/query";
+import { BRIDGE_METHOD_SINCE_SPEC_VERSION } from "@/report/legacyBridgeMethod";
 import { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/legacyEdgarDerivedLines";
-import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
+import { PAYLOAD_RECORD_CORRECTION_SPEC, specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import { REPORT_SPEC_VERSION, ReportSchema, type Report } from "@/report/schema";
 
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -111,9 +130,19 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.49.0");
-    expect(PAYLOAD_VERSION).toBe("1.51.0");
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_30");
+    expect(REPORT_SPEC_VERSION).toBe("1.50.0");
+    expect(PAYLOAD_VERSION).toBe("1.52.0");
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_31");
+    expect(FAIR_VALUE_METHOD_VERSION).toBe("FAIR_VALUE_2026_10_D135");
+    expect(SCENARIO_TARGET_METHOD_VERSION).toBe("SCENARIO_TARGETS_2026_10_D135");
+  });
+
+  it("freezes the bridge-method since-version at the report stamp that introduced it", () => {
+    expect(BRIDGE_METHOD_SINCE_SPEC_VERSION).toBe("1.50.0");
+    expect(specVersionBefore(REPORT_SPEC_VERSION, BRIDGE_METHOD_SINCE_SPEC_VERSION)).toBe(false);
+    // It sits above both earlier cutoffs, so each legacy view keeps its own range.
+    expect(specVersionBefore(PAYLOAD_RECORD_CORRECTION_SPEC, BRIDGE_METHOD_SINCE_SPEC_VERSION)).toBe(true);
+    expect(specVersionBefore(EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION, BRIDGE_METHOD_SINCE_SPEC_VERSION)).toBe(true);
   });
 
   it("freezes the EDGAR-derived-lines since-version at the report stamp that introduced it", () => {
@@ -122,12 +151,12 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.49.0");
+    expect(newReport().meta.specVersion).toBe("1.50.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.51.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.51\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.51\.0\)/);
+    expect(payload.payloadVersion).toBe("1.52.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.52\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.52\.0\)/);
   });
 
   it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1", "1.35.0", "1.35.1", "1.36.0", "1.37.0", "1.38.0", "1.39.0", "1.40.0", "1.41.0", "1.42.0", "1.43.0", "1.44.0", "1.45.0", "1.46.0", "1.47.0", "1.48.0", "1.49.0", "1.50.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
