@@ -1269,6 +1269,25 @@ earn-outs and E-7 lines are deducted as for any filer. Residual, routed to the
 free-data-source batch: net the deficit against the pension regulatory asset
 once dimensional XBRL is available.
 
+**A successor registrant (audit 2026-10-27 FIN-403, D-next).** A holding company
+that succeeded an operating registrant in a reorganisation (ExxonMobil Holdings
+Corp, CIK 2115436, for Exxon Mobil Corporation, CIK 34088) has a companyfacts
+payload that begins at the reorganisation, so until its own first annual report
+it tags none of these obligations and the bridge would deduct nothing for them.
+While the successor holds no 10-K, 20-F or 40-F balance sheet of its own dated on
+or before the bridge date, and only when its own filings re-present the
+predecessor's periods unchanged in net income and per-share basis (B-36, one
+reporting entity), each family it does not tag is read from the predecessor by the
+same rules, its basis prefixed "predecessor (CIK ..., one reporting entity under
+B-36)". The merge is per family: a family both registrants tag is read once, from
+the successor, never summed and never taken from the predecessor first; the
+settlement assets follow the retirement obligation they offset. The predecessor's
+non-marketable equity carrying value is cited the same way beside the long-term
+investments. Once the successor files an annual balance sheet of its own, the
+predecessor is no longer read. When a predecessor is present but continuity is not
+established, nothing is read from it and the info gap
+`valuation.dcf.debtLikeObligations.predecessor` says so.
+
 **After tax (decisions spec 4.3).** Every debt-like line, the two E-7 families
 included, is deducted after tax: `net × (1 − rate)`, where `net` is the amount
 deducted (an asset-retirement obligation after its settlement-fund offset; the

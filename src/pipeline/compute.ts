@@ -29,6 +29,7 @@ import type {
   FmpStatementRow,
 } from "@/providers/fmp";
 import { parseSicCode } from "@/edgar/sic";
+import { successorContinuity } from "@/edgar/successor";
 import { tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -132,7 +133,7 @@ import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
-import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
+import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
@@ -3956,6 +3957,22 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         }
       : null;
 
+  // FIN-403: a successor registrant with no annual report of its own bears its predecessor's filed obligations, when its
+  // filings re-present the predecessor's periods unchanged (B-36); without that continuity nothing is read from it.
+  const ownCompanyFacts = bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null;
+  const predecessorEntry = bundle.edgar?.predecessor ?? null;
+  const successorPredecessor = predecessorEntry === null || ownCompanyFacts === null ? null : {
+    facts: predecessorEntry.facts, cik10: predecessorEntry.cik10, continuity: successorContinuity(ownCompanyFacts, predecessorEntry.facts) !== null,
+  };
+  if (successorPredecessor !== null && !successorPredecessor.continuity) {
+    estimateGaps.push({
+      field: "valuation.dcf.debtLikeObligations.predecessor",
+      reason: `a predecessor registrant (CIK ${successorPredecessor.cik10}) is present, but the successor's own filings do not re-present its periods unchanged ` +
+        "(net income and per-share basis), so the two are not shown to be one reporting entity and the predecessor's filed retirement, " +
+        "environmental, pension, loss-contingency and contingent-consideration obligations are not read for the equity bridge",
+      severity: "info",
+    });
+  }
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
@@ -4012,8 +4029,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       const date = bridgePoint ? isoDay(bridgePoint.date) : null;
       if (lti === null || lti <= 0 || date === null) return null;
       const filed = isoDay(bridgePoint?.filingDate) ?? (typeof bridgePoint?.acceptedDate === "string" ? isoDay(bridgePoint.acceptedDate.slice(0, 10)) : null);
-      const privateStakes = nonMarketableEquityCarrying(bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
-        date, ctx.modelCurrency, bundle.builtAt);
+      // FIN-403: a successor with no annual report of its own cites its predecessor's filed stakes (same rule as the obligations).
+      const privateStakes = nonMarketableEquityCarrying(ownCompanyFacts, date, ctx.modelCurrency, bundle.builtAt) ??
+        nonMarketableEquityCarrying(predecessorFactsFor(ownCompanyFacts, successorPredecessor, date, ctx.modelCurrency, bundle.builtAt), date, ctx.modelCurrency, bundle.builtAt);
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
       return `long-term investments ${b(lti)} on the ${date} ${bridgePointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}` +
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
@@ -4021,9 +4039,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     })(),
     // Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the retirement, environmental, pension and OPEB, loss-contingency
     // and contingent-consideration obligations filed at the bridge's balance date, or in the year before it.
-    debtLikeObligations: bridgePoint === null ? null : debtLikeObligationsAt(
-      bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
-      isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
+    debtLikeObligations: bridgePoint === null ? null : successorObligationsAt(
+      ownCompanyFacts, successorPredecessor, isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
     // FIN-305 (pre-flight I7): the one SIC fact; valueCompany derives "rate-regulated utility" and "established" from it.
     sicCode: parseSicCode(bundle.edgar?.sic),
     dcfInputs,

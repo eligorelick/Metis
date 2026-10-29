@@ -7,7 +7,9 @@
  * left after them. The bridge deducts each after tax at the D-98 marginal rate
  * (`docs/METHODOLOGY.md` "EV bridge"); this module reads only the filed amounts, before tax.
  *
- * Only the issuer's own XBRL facts count: the filed total, else noncurrent plus current, at the
+ * Only the issuer's own XBRL facts count (`debtLikeObligationsAt`), except for a successor registrant
+ * with no annual report of its own yet: `successorObligationsAt` reads a family it does not tag from its
+ * predecessor when B-36 continuity holds (FIN-403). The filed total, else noncurrent plus current, at the
  * bridge's balance date, else at the latest date in the year before it (many filers, FCX among
  * them, tag these in the 10-K only), with that date disclosed. A current portion alone is not the
  * obligation for the retirement, environmental and pension readings; a loss-contingency accrual or
@@ -231,4 +233,52 @@ export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, da
     lossContingencies: lossNet,
     contingentConsideration: strip(consideration),
   };
+}
+
+/** A successor registrant's predecessor (`bundle.edgar.predecessor`), with whether B-36 continuity was established. */
+export interface SuccessorPredecessor {
+  facts: CompanyFacts;
+  cik10: string;
+  continuity: boolean;
+}
+
+/**
+ * FIN-403: the predecessor's facts, when they may stand in for a successor's own. Only while the successor has no
+ * annual report of its own (a 10-K, 20-F or 40-F `Assets` balance dated on or before `date`, filed by the run), and only
+ * when its filings re-present the predecessor's periods unchanged (`successorContinuity`, B-36), so the two are one
+ * reporting entity. Otherwise null, and nothing is read from the predecessor.
+ */
+export function predecessorFactsFor(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): CompanyFacts | null {
+  const observedDay = observedAt.slice(0, 10);
+  if (!own || predecessor === null || !predecessor.continuity) return null;
+  if (!validDay(date) || typeof unit !== "string" || !/^[A-Z]{3}$/.test(unit) || !validDay(observedDay)) return null;
+  return [...annualBalanceDates(own, unit, observedDay)].some((d) => d <= date) ? null : predecessor.facts;
+}
+
+/**
+ * FIN-403: a successor registrant's first periodic reports are 10-Qs, so its companyfacts hold no retirement obligation
+ * and the bridge deducted nothing for it. Per family (asset retirement, environmental, pension, loss contingencies,
+ * contingent consideration), the successor's own reading wins when it has one; a family it does not tag is read from the
+ * predecessor (`predecessorFactsFor`), its basis prefixed with the predecessor's CIK. A family is never summed across the
+ * two registrants. The settlement assets follow the retirement obligation they offset, from the same facts.
+ */
+export function successorObligationsAt(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
+  const mine = debtLikeObligationsAt(own, date, unit, observedAt);
+  const predecessorFacts = predecessorFactsFor(own, predecessor, date, unit, observedAt);
+  const theirs = predecessorFacts === null || predecessor === null ? null : debtLikeObligationsAt(predecessorFacts, date, unit, observedAt);
+  if (theirs === null) return mine;
+  const prefix = `predecessor (CIK ${predecessor!.cik10}, one reporting entity under B-36): `;
+  const adopt = (o: FiledObligation | null | undefined): FiledObligation | null => (o ? { ...o, basis: `${prefix}${o.basis}` } : null);
+  const pick = (a: FiledObligation | null | undefined, b: FiledObligation | null | undefined): FiledObligation | null => a ?? adopt(b);
+  const assetRetirement = pick(mine?.assetRetirement, theirs.assetRetirement);
+  const merged: DebtLikeObligations = {
+    assetRetirement,
+    environmental: pick(mine?.environmental, theirs.environmental),
+    // The fund offsets the obligation it was read beside: the predecessor's only when the obligation is the predecessor's.
+    settlementAssets: mine?.assetRetirement ? mine.settlementAssets : adopt(theirs.settlementAssets),
+    pension: pick(mine?.pension, theirs.pension),
+    lossContingencies: pick(mine?.lossContingencies, theirs.lossContingencies),
+    contingentConsideration: pick(mine?.contingentConsideration, theirs.contingentConsideration),
+  };
+  return Object.values(merged).every((o) => o === null) ? null : merged;
 }
