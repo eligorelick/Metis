@@ -1273,17 +1273,23 @@ once dimensional XBRL is available.
 that succeeded an operating registrant in a reorganisation (ExxonMobil Holdings
 Corp, CIK 2115436, for Exxon Mobil Corporation, CIK 34088) has a companyfacts
 payload that begins at the reorganisation, so until its own first annual report
-it tags none of these obligations and the bridge would deduct nothing for them.
+its 10-Qs may tag only some of these families (ExxonMobil Holdings tags its
+pension and OPEB deficit, which is deducted, but no asset-retirement obligation),
+and the bridge deducted nothing for a family it does not tag.
 While the successor holds no 10-K, 20-F or 40-F balance sheet of its own dated on
 or before the bridge date, and only when its own filings re-present the
 predecessor's periods unchanged in net income and per-share basis (B-36, one
-reporting entity), each family it does not tag is read from the predecessor by the
-same rules, its basis prefixed "predecessor (CIK ..., one reporting entity under
+reporting entity), each family it does not tag at all is read from the predecessor by the
+same rules (the predecessor supplies only the families the successor leaves
+untagged, the 12.518B asset-retirement obligation in the ExxonMobil case; a family
+the successor tags, a filed zero or an accrual that nets to nil included, is its
+statement and is never replaced), its basis prefixed "predecessor (CIK ..., one reporting entity under
 B-36)". The merge is per family: a family both registrants tag is read once, from
 the successor, never summed and never taken from the predecessor first; the
 settlement assets follow the retirement obligation they offset. The predecessor's
-non-marketable equity carrying value is cited the same way beside the long-term
-investments. Once the successor files an annual balance sheet of its own, the
+non-marketable equity carrying value is cited beside the long-term investments,
+under the same no-annual-report and continuity conditions but at the bridge date
+only (no look-back), with the predecessor's CIK named in the citation. Once the successor files an annual balance sheet of its own, the
 predecessor is no longer read. When a predecessor is present but continuity is not
 established, nothing is read from it and the info gap
 `valuation.dcf.debtLikeObligations.predecessor` says so.

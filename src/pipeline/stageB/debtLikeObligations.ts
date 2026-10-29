@@ -146,11 +146,13 @@ function filedZero(facts: CompanyFacts, choice: TagChoice, unit: string, date: s
 /** The balance read at one date, or `"zero"` when the filer states the obligation as zero there, else null. */
 type DateReading = FiledObligation | "zero" | null;
 
-function readLatestWith(candidates: string[], date: string, readAt: (at: string) => DateReading): (FiledObligation & { date: string }) | null {
+type Latest = (FiledObligation & { date: string }) | "zero" | null;
+
+function readLatestWith(candidates: string[], date: string, readAt: (at: string) => DateReading): Latest {
   for (const at of candidates) {
     const found = readAt(at);
     // A balance filed as zero is the filer's statement that nothing is owed, not an omission.
-    if (found === "zero") return null;
+    if (found === "zero") return "zero";
     if (found !== null) {
       return at === date ? { ...found, date: at }
         : { ...found, date: at, asOf: at, basis: `${found.basis}; the latest filed balance, as the ${date} balance sheet does not tag it` };
@@ -159,7 +161,7 @@ function readLatestWith(candidates: string[], date: string, readAt: (at: string)
   return null;
 }
 
-function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): (FiledObligation & { date: string }) | null {
+function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): Latest {
   return readLatestWith(candidateDates(facts, choice, unit, date, observedDay), date, (at) => {
     const found = read(facts, choice, unit, at, observedDay);
     return found === null && filedZero(facts, choice, unit, at, observedDay) ? "zero" : found;
@@ -203,7 +205,19 @@ function read(facts: CompanyFacts, choice: TagChoice, unit: string, date: string
   };
 }
 
-export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
+/** One family's reading: the obligation, `"zero"` when the filer tags it and states it as nil (or it nets to nil), null when it does not tag it. */
+type FamilyState = FiledObligation | "zero" | null;
+interface FamilyStates {
+  assetRetirement: FamilyState;
+  environmental: FamilyState;
+  pension: FamilyState;
+  lossContingencies: FamilyState;
+  contingentConsideration: FamilyState;
+  /** The fund read beside the retirement obligation's date. */
+  settlementAssets: FiledObligation | null;
+}
+
+function familyStatesAt(facts: CompanyFacts | null | undefined, date: string | null, unit: string | null, observedAt: string): FamilyStates | null {
   const observedDay = observedAt.slice(0, 10);
   if (!facts || !validDay(date) || typeof unit !== "string" || !/^[A-Z]{3}$/.test(unit) || !validDay(observedDay)) return null;
   const aro = readLatest(facts, ASSET_RETIREMENT, unit, date, observedDay);
@@ -212,27 +226,44 @@ export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, da
   const loss = readLatest(facts, LOSS_CONTINGENCIES, unit, date, observedDay);
   const consideration = readLatest(facts, CONTINGENT_CONSIDERATION, unit, date, observedDay);
   // Only the amount above any same-date environmental accrual: the environmental accrual may sit inside the total.
-  const lossNet = ((): FiledObligation | null => {
+  const lossNet = ((): FamilyState => {
     if (loss === null) return null;
+    // Tagged by the filer, so a zero or a netted-to-zero accrual is its statement, not an omission.
+    if (loss === "zero") return "zero";
     const inside = read(facts, ENVIRONMENTAL, unit, loss.date, observedDay);
     const asOf = loss.asOf === undefined ? {} : { asOf: loss.asOf };
     if (inside === null) return { value: loss.value, basis: loss.basis, ...asOf };
     const net = loss.value - inside.value;
     return net > 0
       ? { value: net, basis: `${loss.basis}, less the environmental accrual of ${billions(inside.value)} inside it (${inside.basis}), which is deducted on its own line`, ...asOf }
-      : null;
+      : "zero";
   })();
-  if (aro === null && env === null && pension === null && lossNet === null && consideration === null) return null;
-  const strip = (o: (FiledObligation & { date: string }) | null): FiledObligation | null =>
-    o === null ? null : { value: o.value, basis: o.basis, ...(o.asOf === undefined ? {} : { asOf: o.asOf }) };
+  const strip = (o: Latest): FamilyState =>
+    o === null || o === "zero" ? o : { value: o.value, basis: o.basis, ...(o.asOf === undefined ? {} : { asOf: o.asOf }) };
   return {
     assetRetirement: strip(aro),
     environmental: strip(env),
-    settlementAssets: aro === null ? null : read(facts, SETTLEMENT_ASSETS, unit, aro.date, observedDay),
     pension: strip(pension),
     lossContingencies: lossNet,
     contingentConsideration: strip(consideration),
+    settlementAssets: aro === null || aro === "zero" ? null : read(facts, SETTLEMENT_ASSETS, unit, aro.date, observedDay),
   };
+}
+
+const obligation = (state: FamilyState): FiledObligation | null => (state === "zero" ? null : state);
+
+export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
+  const states = familyStatesAt(facts, date, unit, observedAt);
+  if (states === null) return null;
+  const reading: DebtLikeObligations = {
+    assetRetirement: obligation(states.assetRetirement),
+    environmental: obligation(states.environmental),
+    settlementAssets: states.settlementAssets,
+    pension: obligation(states.pension),
+    lossContingencies: obligation(states.lossContingencies),
+    contingentConsideration: obligation(states.contingentConsideration),
+  };
+  return Object.values(reading).every((o) => o === null) ? null : reading;
 }
 
 /** A successor registrant's predecessor (`bundle.edgar.predecessor`), with whether B-36 continuity was established. */
@@ -263,19 +294,20 @@ export function predecessorFactsFor(own: CompanyFacts | null | undefined, predec
  * two registrants. The settlement assets follow the retirement obligation they offset, from the same facts.
  */
 export function successorObligationsAt(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
-  const mine = debtLikeObligationsAt(own, date, unit, observedAt);
+  const mine = familyStatesAt(own, date, unit, observedAt);
   const predecessorFacts = predecessorFactsFor(own, predecessor, date, unit, observedAt);
-  const theirs = predecessorFacts === null || predecessor === null ? null : debtLikeObligationsAt(predecessorFacts, date, unit, observedAt);
-  if (theirs === null) return mine;
-  const prefix = `predecessor (CIK ${predecessor!.cik10}, one reporting entity under B-36): `;
-  const adopt = (o: FiledObligation | null | undefined): FiledObligation | null => (o ? { ...o, basis: `${prefix}${o.basis}` } : null);
-  const pick = (a: FiledObligation | null | undefined, b: FiledObligation | null | undefined): FiledObligation | null => a ?? adopt(b);
-  const assetRetirement = pick(mine?.assetRetirement, theirs.assetRetirement);
+  const theirs = predecessorFacts === null ? null : familyStatesAt(predecessorFacts, date, unit, observedAt);
+  if (theirs === null || predecessor === null) return debtLikeObligationsAt(own, date, unit, observedAt);
+  const prefix = `predecessor (CIK ${predecessor.cik10}, one reporting entity under B-36): `;
+  const adopt = (o: FiledObligation | null): FiledObligation | null => (o ? { ...o, basis: `${prefix}${o.basis}` } : null);
+  // The successor's own state wins whenever it tagged the family, a filed zero (or an accrual that nets to nil) included.
+  const pick = (a: FamilyState | undefined, b: FamilyState): FiledObligation | null => (a === undefined || a === null ? adopt(obligation(b)) : obligation(a));
+  const ownAro = mine?.assetRetirement ?? null;
   const merged: DebtLikeObligations = {
-    assetRetirement,
+    assetRetirement: pick(mine?.assetRetirement, theirs.assetRetirement),
     environmental: pick(mine?.environmental, theirs.environmental),
     // The fund offsets the obligation it was read beside: the predecessor's only when the obligation is the predecessor's.
-    settlementAssets: mine?.assetRetirement ? mine.settlementAssets : adopt(theirs.settlementAssets),
+    settlementAssets: ownAro !== null ? mine?.settlementAssets ?? null : adopt(theirs.settlementAssets),
     pension: pick(mine?.pension, theirs.pension),
     lossContingencies: pick(mine?.lossContingencies, theirs.lossContingencies),
     contingentConsideration: pick(mine?.contingentConsideration, theirs.contingentConsideration),

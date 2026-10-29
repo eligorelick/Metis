@@ -3964,15 +3964,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const successorPredecessor = predecessorEntry === null || ownCompanyFacts === null ? null : {
     facts: predecessorEntry.facts, cik10: predecessorEntry.cik10, continuity: successorContinuity(ownCompanyFacts, predecessorEntry.facts) !== null,
   };
-  if (successorPredecessor !== null && !successorPredecessor.continuity) {
-    estimateGaps.push({
-      field: "valuation.dcf.debtLikeObligations.predecessor",
-      reason: `a predecessor registrant (CIK ${successorPredecessor.cik10}) is present, but the successor's own filings do not re-present its periods unchanged ` +
-        "(net income and per-share basis), so the two are not shown to be one reporting entity and the predecessor's filed retirement, " +
-        "environmental, pension, loss-contingency and contingent-consideration obligations are not read for the equity bridge",
-      severity: "info",
-    });
-  }
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
@@ -4030,11 +4021,14 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       if (lti === null || lti <= 0 || date === null) return null;
       const filed = isoDay(bridgePoint?.filingDate) ?? (typeof bridgePoint?.acceptedDate === "string" ? isoDay(bridgePoint.acceptedDate.slice(0, 10)) : null);
       // FIN-403: a successor with no annual report of its own cites its predecessor's filed stakes (same rule as the obligations).
-      const privateStakes = nonMarketableEquityCarrying(ownCompanyFacts, date, ctx.modelCurrency, bundle.builtAt) ??
-        nonMarketableEquityCarrying(predecessorFactsFor(ownCompanyFacts, successorPredecessor, date, ctx.modelCurrency, bundle.builtAt), date, ctx.modelCurrency, bundle.builtAt);
+      // It is read at the bridge date only, and the citation names the predecessor's CIK.
+      const ownStakes = nonMarketableEquityCarrying(ownCompanyFacts, date, ctx.modelCurrency, bundle.builtAt);
+      const predecessorStakes = ownStakes !== null || successorPredecessor === null ? null
+        : nonMarketableEquityCarrying(predecessorFactsFor(ownCompanyFacts, successorPredecessor, date, ctx.modelCurrency, bundle.builtAt), date, ctx.modelCurrency, bundle.builtAt);
+      const privateStakes = ownStakes ?? predecessorStakes;
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
       return `long-term investments ${b(lti)} on the ${date} ${bridgePointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}` +
-        (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
+        (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${predecessorStakes === null || successorPredecessor === null ? "" : `predecessor CIK ${successorPredecessor.cik10}, `}${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
     // Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the retirement, environmental, pension and OPEB, loss-contingency
@@ -4052,6 +4046,21 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   void ratiosTtm; // reserved for future ratio cross-checks
   const result = valueCompany(route, bundleInputs);
   result.gaps.push(...estimateGaps);
+  // FIN-403: on the DCF route, say when a predecessor would have supplied an obligation but continuity is not established.
+  if (result.kind === "dcf" && successorPredecessor !== null && !successorPredecessor.continuity && bridgePoint !== null) {
+    const bridgeDate = isoDay(bridgePoint.date);
+    const withheld = successorObligationsAt(ownCompanyFacts, { ...successorPredecessor, continuity: true }, bridgeDate, ctx.modelCurrency, bundle.builtAt);
+    const read = successorObligationsAt(ownCompanyFacts, successorPredecessor, bridgeDate, ctx.modelCurrency, bundle.builtAt);
+    if (JSON.stringify(withheld) !== JSON.stringify(read)) {
+      result.gaps.push({
+        field: "valuation.dcf.debtLikeObligations.predecessor",
+        reason: `a predecessor registrant (CIK ${successorPredecessor.cik10}) files obligations (retirement, environmental, pension, loss-contingency or contingent-consideration) ` +
+          "that the successor does not tag, but the successor's own filings do not re-present the predecessor's periods unchanged (net income and per-share basis), " +
+          "so the two are not shown to be one reporting entity and those obligations are not deducted in the equity bridge",
+        severity: "info",
+      });
+    }
+  }
   for (const history of [historyIncome, historyCashflow]) {
     if (history.gap !== null) result.gaps.push(history.gap);
   }

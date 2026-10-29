@@ -66,6 +66,48 @@ describe("a successor with no annual report of its own bears its predecessor's f
     expect(successorObligationsAt(own, { facts: predecessor(), ...PRED }, "2027-03-31", "USD", "2027-04-20")).toBeNull();
   });
 
+  it("an own annual report ends the read even when the predecessor's balance lies inside the look-back window", () => {
+    // The bridge date is the successor's own 10-K date and the predecessor's ARO (2026-09-30) is inside the 366-day window,
+    // so only the own-annual-report rule can return null here.
+    const own = successor({ Assets: usd(inst("2026-12-31", 470_000e6, "10-K", "2027-02-20")) });
+    const pred = predecessor({ AssetRetirementObligation: usd(inst("2026-09-30", 12_000e6, "10-Q", "2026-11-03")) });
+    expect(successorObligationsAt(own, { facts: pred, ...PRED }, "2026-12-31", "USD", "2027-04-20")).toBeNull();
+    // Control: the same predecessor is read when the successor has no annual report of its own.
+    const tenQOnly = successor({ Assets: usd(inst("2026-12-31", 470_000e6, "10-Q", "2027-02-20")) });
+    expect(successorObligationsAt(tenQOnly, { facts: pred, ...PRED }, "2026-12-31", "USD", "2027-04-20")!.assetRetirement!.value).toBe(12_000e6);
+  });
+
+  describe("a family the successor tags is its statement, a filed zero included", () => {
+    const pred = predecessor({
+      PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent: usd(inst("2026-03-31", 8_940e6, "10-Q", "2026-05-04")),
+      LossContingencyAccrualAtCarryingValue: usd(inst("2025-12-31", 500e6, "10-K", "2026-02-18")),
+    });
+    const read = (own: CompanyFacts) => successorObligationsAt(own, { facts: pred, ...PRED }, "2026-06-30", "USD", OBSERVED)!;
+    it("a zero asset-retirement obligation deducts nothing", () => {
+      const got = read(successor({ AssetRetirementObligation: usd(inst("2026-06-30", 0, "10-Q", "2026-08-03")) }));
+      expect(got.assetRetirement).toBeNull();
+      expect(got.lossContingencies!.value).toBe(500e6);
+    });
+    it("a zero pension family deducts nothing", () => {
+      const got = read(successor({ PensionAndOtherPostretirementDefinedBenefitPlansLiabilitiesNoncurrent: usd(inst("2026-06-30", 0, "10-Q", "2026-08-03")) }));
+      expect(got.pension).toBeNull();
+      expect(got.assetRetirement!.value).toBe(12_518e6);
+    });
+    it("a loss accrual equal to the successor's own environmental accrual deducts nothing", () => {
+      const got = read(successor({
+        LossContingencyAccrualAtCarryingValue: usd(inst("2026-06-30", 49e6, "10-Q", "2026-08-03")),
+        AccrualForEnvironmentalLossContingencies: usd(inst("2026-06-30", 49e6, "10-Q", "2026-08-03")),
+      }));
+      expect(got.lossContingencies).toBeNull();
+      expect(got.environmental!.value).toBe(49e6);
+    });
+    it("control: an untagged family still takes the predecessor's figure", () => {
+      const got = read(successor());
+      expect(got.pension!.value).toBe(8_940e6);
+      expect(got.lossContingencies!.value).toBe(500e6);
+    });
+  });
+
   it("the successor's own tagged obligation wins, family by family", () => {
     const own = successor({ AssetRetirementObligation: usd(inst("2026-06-30", 100e6, "10-Q", "2026-08-03")) });
     const pred = predecessor({ AccrualForEnvironmentalLossContingencies: usd(inst("2025-12-31", 400e6, "10-K", "2026-02-18")) });
@@ -102,8 +144,8 @@ function wiringBundle(continuity: boolean): DataBundle {
   const bundle = completeCurrencyBundle({ debt: 300, annualCurrency: "USD" });
   const cmp = { start: "2025-04-01", end: "2025-06-30" };
   const pred = facts(34088, {
-    Assets: usd(inst("2025-12-31", 450_000e6, "10-K", "2026-02-18")),
-    AssetRetirementObligation: usd(inst("2025-12-31", 125 * M, "10-K", "2026-02-18")),
+    Assets: usd(inst("2024-12-31", 440_000e6, "10-K", "2025-02-18")),
+    AssetRetirementObligation: usd(inst("2025-09-30", 125 * M, "10-Q", "2025-11-04")),
     NetIncomeLoss: usd({ ...cmp, val: 7_082e6, form: "10-Q", filed: "2025-08-04" }),
     EarningsPerShareDiluted: { unit: "USD/shares", points: [{ ...cmp, val: 1.64, form: "10-Q", filed: "2025-08-04" }] },
   });
@@ -128,9 +170,9 @@ describe("the bridge deducts the predecessor's obligation (FIN-403 wiring)", () 
     expect(lines).toHaveLength(1);
     // 125 M less the 21% US marginal rate (currencyBundle's profile is US).
     expect(lines[0]!.value).toBeCloseTo(-98.75 * M, 0);
-    // The fixture's bridge row is dated 2025-12-31, the predecessor's own balance date, so the line needs no "balance at" clause.
-    expect(lines[0]!.label).toBe("asset-retirement obligations (filed, after tax at 21%)");
-    expect(lines[0]!.basis).toMatch(/^predecessor \(CIK 0000034088, one reporting entity under B-36\): us-gaap\/AssetRetirementObligation 0\.125B at 2025-12-31 \(10-K filed 2026-02-18\)/);
+    // The predecessor's balance (2025-09-30) is older than the bridge row, so the line dates it.
+    expect(lines[0]!.label).toBe("asset-retirement obligations (filed, after tax at 21%; balance at 2025-09-30, the latest filed)");
+    expect(lines[0]!.basis).toMatch(/^predecessor \(CIK 0000034088, one reporting entity under B-36\): us-gaap\/AssetRetirementObligation 0\.125B at 2025-09-30 \(10-Q filed 2025-11-04\)/);
     expect(computed.gaps.map((g) => g.field)).not.toContain("valuation.dcf.debtLikeObligations.predecessor");
   });
 
@@ -139,5 +181,13 @@ describe("the bridge deducts the predecessor's obligation (FIN-403 wiring)", () 
     if (computed.valuation.kind !== "dcf") throw new Error("DCF fixture");
     expect((computed.valuation.dcf?.bridge.nonOperatingComponents ?? []).some((c) => c.kind === "debt-like-obligation")).toBe(false);
     expect(computed.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.debtLikeObligations.predecessor", severity: "info" }));
+  });
+
+  it("control: without continuity and with nothing the predecessor would supply, no gap is raised", () => {
+    const bundle = wiringBundle(false);
+    const predecessorFacts = (bundle.edgar as unknown as { predecessor: { facts: CompanyFacts } }).predecessor.facts;
+    delete (predecessorFacts.facts["us-gaap"] as Record<string, unknown>).AssetRetirementObligation;
+    const computed = runStageB(bundle);
+    expect(computed.gaps.map((g) => g.field)).not.toContain("valuation.dcf.debtLikeObligations.predecessor");
   });
 });
