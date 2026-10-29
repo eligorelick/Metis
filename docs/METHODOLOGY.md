@@ -1494,7 +1494,12 @@ is made at all** — enterprise value is reported as-is and an info-level
 `valuation.multiples.enterpriseValue.leases` manifest entry says that removing
 the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
-guessed, and nothing unknown is netted.
+guessed, and nothing unknown is netted. The "FMP route publishes no split" wording
+is kept only for a total whose provenance is not the SEC filing. A total with no
+tagged operating slice whose finance-lease liability reconciles to it (within the
+lease-integrity tolerance) is a finance lease: the EV basis and the DCF bridge
+note say so ("a total lease liability of 2,387M is a finance lease, which stays in
+EV and net debt on both bases"), no leases entry is raised, and no figure moves.
 
 **The operating slice is removed only when total debt is shown to hold it.**
 The removal assumes the operating-lease liability is inside `totalDebt`. It is

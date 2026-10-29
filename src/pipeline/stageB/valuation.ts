@@ -185,6 +185,16 @@ const fmtNum = (v: number): string => String(Math.round(v * 100) / 100);
 /** An exact amount for reader text, digits grouped ("42,783,000,000"), at fmtNum's two-decimal precision. */
 const fmtGrouped = (v: number): string => (Math.round(v * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
+/**
+ * Audit 2026-10-27 FIN-109: the lease total when it is wholly a filed finance-lease liability. No operating slice is
+ * tagged, and the finance-lease liability reconciles to the total within `leaseDebtConflict`'s tolerance, so there is
+ * nothing to remove and nothing unknown in the mix. Text only: the figures are those of a total with no operating slice.
+ */
+function financeLeaseOnlyTotal(total: number | null, operating: number | null | undefined, finance: number | null | undefined, conflict: string | null): number | null {
+  if (total === null || total <= 0 || conflict !== null || isNum(operating) || !isNum(finance) || finance <= 0) return null;
+  return Math.abs(finance - total) <= Math.max(1, Math.abs(total) * 1e-6) ? total : null;
+}
+
 const gapEntry = (
   field: string,
   reason: string,
@@ -4453,6 +4463,11 @@ export function multiplesFramework(
         : totalLeaseLiability !== null && leaseLiability !== null
           ? Math.max(0, totalLeaseLiability - leaseLiability)
           : null;
+  const financeOnlyTotal = evLeaseScope === null
+    ? financeLeaseOnlyTotal(totalLeaseLiability, bal?.operatingLeaseLiability, bal?.financeLeaseLiability, leaseDebtConflict(bal ?? {}))
+    : null;
+  // The vendor wording is for a vendor total: a row the SEC statements built never names the FMP route.
+  const vendorLeaseTotal = (bal?.fieldProvenance?.capitalLeaseObligations as { source?: string } | undefined)?.source !== "edgar";
   const includeLeases = inputs.includeLeasesInEv === true;
   const incompleteLeases = incompleteLeaseCoverage(bal);
   const inclusiveRefusal = leaseDebtScopeRefusal(bal, true);
@@ -4499,6 +4514,8 @@ export function multiplesFramework(
         ? `; ${evLeaseScope}, and EV is reported as-is`
         : totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
+        : financeOnlyTotal !== null
+        ? `; a total lease liability of ${millions(financeOnlyTotal)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is`
         : `; a total lease liability of ${fmtGrouped(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
       : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtGrouped(leaseLiability)}` +
         (financeLeaseLiability === null || financeLeaseLiability === 0
@@ -4539,6 +4556,8 @@ export function multiplesFramework(
   if (!financialsRoute && !(evWithheldReason !== null && netDebt.value === null)) notes.push(evBridgeBasis);
   if (!financialsRoute && ev === null) {
     gaps.push(gapEntry("valuation.multiples.enterpriseValue", `EV withheld: ${evWithheldReason} — EV multiples n/m`, "info"));
+  } else if (!financialsRoute && leaseLiability === null && financeOnlyTotal !== null) {
+    // FIN-109: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
   } else if (!financialsRoute && leaseLiability === null) {
     gaps.push(
       gapEntry(
@@ -4547,7 +4566,7 @@ export function multiplesFramework(
           ? `${evLeaseScope}; enterprise value is reported as-is`
           : totalLeaseLiability === null
           ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV under either lease setting"
-          : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
+          : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure${vendorLeaseTotal ? " (the FMP route publishes no split)" : ""} — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
         "info",
       ),
     );
@@ -6578,6 +6597,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
                 ? `${bridgeLeaseScope}.`
                 : totalLeaseLiability === null
                 ? "Lease liabilities were not disclosed separately, so they could not be separated from total debt; net debt is used as reported."
+                : financeLeaseOnlyTotal(totalLeaseLiability, inputs.operatingLeaseLiability, bridgeBalance?.financeLeaseLiability, leaseConflict) !== null
+                ? `A total lease liability of ${millions(totalLeaseLiability)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove; net debt is used as reported.`
                 : `A total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported.`
               : `Net debt as reported ${fmtNum(netDebtIncludingLeases)}; less the OPERATING lease liability ${fmtNum(netDebtExcludingLeases as number)}; ` +
                 `${includeLeases ? "KEEPING" : "REMOVING"} the operating-lease liability of ${fmtNum(leaseLiability)} (house default removes it; THESIS_EV_INCLUDE_LEASES=1 keeps it)` +
