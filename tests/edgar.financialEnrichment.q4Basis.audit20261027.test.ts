@@ -43,7 +43,7 @@ const AEP: Record<string, Filing> = {
   q325: { filed: "2025-10-29", form: "10-Q", fp: "Q3", fy: 2025, accn: "0000000049-25-000003" },
   k25: { filed: "2026-02-12", form: "10-K", fp: "FY", fy: 2025, accn: "0000000049-26-000001" },
 };
-const aepFacts = (): Facts => ({
+const aepFacts = (fy24Later = 6_804.0 * M): Facts => ({
   cik: 4904,
   entityName: "AEP-shaped Co",
   facts: { "us-gaap": { NetCashProvidedByUsedInOperatingActivities: { label: "CFO", units: { USD: [
@@ -51,7 +51,7 @@ const aepFacts = (): Facts => ({
     pt(AEP.k24!, "2024-01-01", "2024-12-31", 6_804.3 * M),
     pt(AEP.q325!, "2024-01-01", "2024-09-30", 5_076.9 * M),
     pt(AEP.k25!, "2025-01-01", "2025-12-31", 7_000 * M),
-    pt(AEP.k25!, "2024-01-01", "2024-12-31", 6_804.0 * M),
+    pt(AEP.k25!, "2024-01-01", "2024-12-31", fy24Later),
   ] } } } },
 });
 
@@ -102,9 +102,11 @@ describe("FIN-511-V2: the vendor-enrichment derivation pairs one presentation (C
     const { row, gaps } = enrichOut(withDiscontinuedLabel(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, 36))), vendorQ4({ operatingCashFlow: 100 }));
     expect(row.fieldProvenance?.financeLeasePrincipalPayments).toMatchObject({ derivation: "ytd-difference", filings: [{ accn: F.k24!.accn }, { accn: F.q324!.accn }] });
     const note = gaps.find((g) => /financeLeasePrincipalPayments enriched from SEC/.test(g.reason))!.reason;
+    // Fix round 1, M5: the pair is the first-reported one (the 2026 10-K re-filed the year), and the note says so.
     expect(note).toContain(
-      "derived for 2024-10-01 through 2024-12-31 (fiscal year or year to date less the prior year to date, " +
-        "from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004))",
+      "derived for 2024-10-01 through 2024-12-31 (the first-reported fiscal year or year to date less the prior year to date, " +
+        "from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004); " +
+        "re-filed later in the 10-K of 2026-02-12 (0000000009-26-000001))",
     );
     expect(note).not.toMatch(/exact quarter period/);
   });
@@ -232,5 +234,68 @@ describe("FIN-511-V2 ruling: the cash-flow and investment conflict reasons say a
         `for 2024-10-01 through 2024-12-31 ${FROM} differ from generic vendor buckets.`,
     );
     expect(reasons(out.gaps)).not.toMatch(/same-period filed short-term purchases/);
+  });
+});
+
+/**
+ * Fix round 1, M5: a vendor figure the SEC side cannot check because the pair is withheld is disclosed, one info entry
+ * per field listing its dates (R0's merged format); a value derived from the first-reported pair says so.
+ */
+describe("FIN-511-V2 fix round 1: unverified vendor figures and first-reported pairs are disclosed", () => {
+  const UNVERIFIED = "the filing's year and year-to-date figures sit on different presentations, so no one-presentation SEC value exists to check it against";
+  const unverified = (gaps: Gap[], field: string) => gaps.filter((g) => g.field === `statements.cashflow.${field}` && /kept unverified/.test(g.reason));
+  const run = (facts: Facts, rows: Record<string, unknown>[]) => {
+    const out = enrichFinancialFields(src([]) as never, src(rows.map((r) => ({ cik: String(facts.cik).padStart(10, "0"), ...r }))) as never, facts as never, "quarter", "2026-10-27T00:00:00.000Z");
+    return out.gaps as (Gap & { severity: string; expected?: boolean })[];
+  };
+  const k23: Filing = { filed: "2024-02-12", form: "10-K", fp: "FY", fy: 2023, accn: "0000000009-24-000001" };
+  const q323: Filing = { filed: "2023-11-01", form: "10-Q", fp: "Q3", fy: 2023, accn: "0000000009-23-000004" };
+  it("two withheld fourth quarters give one entry for the field, listing both dates, at info severity", () => {
+    // FY2023 first reported as 300 and re-filed as 340 (+13%, unlabelled) by the 10-K that first reports FY2024.
+    const points = [...recast(300, 400, 340, 330, 450, 360), pt(q323, "2023-01-01", "2023-09-30", 200), pt(k23, "2023-01-01", "2023-12-31", 300)];
+    const gaps = run(recastFacts("NetCashProvidedByUsedInOperatingActivities", points), [
+      { date: "2023-12-31", period: "Q4", fiscalYear: "2023", reportedCurrency: "USD", operatingCashFlow: 90 },
+      vendorQ4({ operatingCashFlow: 100 }),
+    ]);
+    const entries = unverified(gaps, "operatingCashFlow");
+    expect(entries).toEqual([{ field: "statements.cashflow.operatingCashFlow", severity: "info", expected: true,
+      reason: `vendor operatingCashFlow kept unverified for 2024-12-31, 2023-12-31: ${UNVERIFIED}` }]);
+  });
+  it("a withheld buyback, investment bucket or cash movement leaves its own entry; a missing vendor figure leaves none", () => {
+    const buybacks = run(recastFacts("PaymentsForRepurchaseOfCommonStock", recast(30, 40, 38, 33, 45, 36)), [vendorQ4({ commonStockRepurchased: -10 })]);
+    expect(unverified(buybacks, "commonStockRepurchased").map((g) => g.reason)).toEqual([`vendor commonStockRepurchased kept unverified for 2024-12-31: ${UNVERIFIED}`]);
+    const refiled = investmentFacts();
+    refiled.facts["us-gaap"]["PaymentsToAcquireShortTermInvestments"]!.units.USD!.push(pt(F.k25!, "2024-01-01", "2024-12-31", 900 * M));
+    const investments = run(refiled, [vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 249.5 * M })]);
+    expect(unverified(investments, "purchasesOfInvestments")).toHaveLength(1);
+    expect(unverified(investments, "salesMaturitiesOfInvestments")).toHaveLength(1);
+    const movementTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect";
+    const cash = () => [{ ...F.q324!, end: "2024-09-30", val: 130 }, { ...F.k24!, end: "2024-12-31", val: 150 }];
+    const movement: Facts = { cik: 9, entityName: "Probe Co", facts: { "us-gaap": {
+      [movementTag]: { label: "movement", units: { USD: recast(30, 50, 40, 33, 45, 60) } },
+      CashAndCashEquivalentsAtCarryingValue: { label: "cash", units: { USD: cash() } },
+      CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents: { label: "total cash", units: { USD: cash() } },
+    } } };
+    const moved = run(movement, [vendorQ4({ cashAtEndOfPeriod: 150, netChangeInCash: 20 })]);
+    expect(unverified(moved, "cashAtEndOfPeriod")).toHaveLength(1);
+    expect(unverified(moved, "netChangeInCash")).toHaveLength(1);
+    const missing = run(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, 36)), [vendorQ4({})]);
+    expect(missing.filter((g) => /kept unverified/.test(g.reason))).toEqual([]);
+    const principal = run(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, 36)), [vendorQ4({ financeLeasePrincipalPayments: 7 })]);
+    expect(unverified(principal, "financeLeasePrincipalPayments")).toHaveLength(1);
+  });
+  it("control: a pair on one presentation is checked, so nothing is reported unverified", () => {
+    const gaps = run(recastFacts("NetCashProvidedByUsedInOperatingActivities", recast(300, 400, 380, 330, 450, 400)), [vendorQ4({ operatingCashFlow: 100 })]);
+    expect(gaps.filter((g) => /kept unverified/.test(g.reason))).toEqual([]);
+  });
+  it("a conflict against the first-reported pair says first-reported and names the re-filing", () => {
+    // FY2024 re-filed 6,804.3M -> 6,830.5M: within 1% and not a re-rounding, so the first-reported pair (1,727.4M) is compared.
+    const out = enrichOut(aepFacts(6_830.5 * M), vendorQ4({ operatingCashFlow: 1_900 * M, netCashProvidedByOperatingActivities: 1_900 * M }));
+    expect(out.row.fieldConflicts?.operatingCashFlow).toMatchObject({ secValue: 1_727.4 * M, usable: false });
+    expect(out.gaps.map((g) => g.reason).join(" | ")).toContain(
+      "derived 1,727.4M USD for 2024-10-01 through 2024-12-31 (the first-reported fiscal year or year to date less the prior year to date, " +
+        "from the 10-K of 2025-02-13 (0000000049-25-000001) and the 10-Q of 2024-11-06 (0000000049-24-000003); " +
+        "re-filed later in the 10-K of 2026-02-12 (0000000049-26-000001))",
+    );
   });
 });

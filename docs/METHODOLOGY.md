@@ -4162,7 +4162,12 @@ cash flow (and nulled free cash flow) against a figure no filing reported, and
 the same mixed figure was written into a missing vendor finance-lease
 principal. A pair the helper withholds (two presentations, or a copy that a
 material re-filing labelling no re-presentation superseded) is no SEC value:
-nothing is compared, so no conflict is raised, and nothing is filled. A year
+nothing is compared, so no conflict is raised, and nothing is filled. A vendor
+figure left unverified that way is disclosed in one info entry per field that
+lists its dates ("vendor operatingCashFlow kept unverified for 2024-12-31,
+2023-12-31: the filing's year and year-to-date figures sit on different
+presentations, so no one-presentation SEC value exists to check it against");
+a field the vendor left empty gets no entry. A year
 re-filed within 1%, or labelled with a discontinued-operations line, while its
 year to date was not re-filed with it, is compared or filled on the
 first-reported pair; an amendment, a year whose year to date moved with it, and
@@ -4203,8 +4208,11 @@ filled field call a derived value derived, with its period and its two filings
 ("derived 100M USD for 2024-10-01 through 2024-12-31 (fiscal year or year to
 date less the prior year to date, from the 10-K of 2025-02-12 (accession) and
 the 10-Q of 2024-11-01 (accession))"; the reasons print the amounts in
-millions, the note prints none), never "filed" or an "exact quarter period". A directly filed figure keeps its
-"filed" or "exact" wording.
+millions, the note prints none). A first-reported pair reads "(the
+first-reported fiscal year or year to date less the prior year to date, from
+the ... and the ...; re-filed later in the 10-K of ...)". None says "filed"
+or an "exact quarter period". A directly filed figure keeps its "filed" or
+"exact" wording.
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
@@ -4502,7 +4510,8 @@ so the pair is also checked by one pure helper
 enrichment of the bundle's cash-flow and lease rows, provider or keyless
 ("Vendor figure against the filed figure (A-11)"). The notes, withholdings and
 quoted refusals the bullets name are the statement builder's; in the
-enrichment a withheld pair is no SEC value to compare or fill:
+enrichment a withheld pair is no SEC value to compare or fill, and a vendor
+figure it leaves unverified is disclosed (see the A-11 paragraphs):
 
 - A copy that only re-rounds is not a move: when the later copy is a whole
   multiple of 1,000,000 in a money unit and differs from the earlier copy by no
