@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { derivedRoundingAllowance, roundingUnit, vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
+import { millionsPair } from "@/pipeline/stageB/netDebt";
 
 /**
  * Audit 2026-10-27 FIN-511-V2 (decision C-9, OD-5): the vendor-enrichment derivation of a fiscal-year-end
@@ -356,5 +357,38 @@ describe("FIN-511-V2 fix round 1: a negative re-filed year to date", () => {
   it("control: unlabelled, the re-filing withholds it and nothing is filled", () => {
     const row = enrich(recastFacts("FinanceLeasePrincipalPayments", recast(30, 40, 38, 33, 45, -5)), vendorQ4({}));
     expect(row.financeLeasePrincipalPayments ?? null).toBeNull();
+  });
+});
+
+/** Re-review N1: a refusal never shows two equal-looking amounts; alike in millions but different, both print in full. */
+describe("FIN-511-V2 re-review N1: two amounts that read alike in millions print in full", () => {
+  const FROM = "(fiscal year or year to date less the prior year to date, from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004))";
+  const reasons = (gaps: Gap[]) => gaps.map((g) => g.reason).join(" | ");
+  const quarter = (val: number) => pt(F.k24!, "2024-10-01", "2024-12-31", val);
+  // FY 4,000,003 less nine months 3,000,003: a derived 1,000,000 whose operands carry no rounding beyond the unit.
+  const derived = (tag: string) => recastFacts(tag, [pt(F.q324!, "2024-01-01", "2024-09-30", 3_000_003), pt(F.k24!, "2024-01-01", "2024-12-31", 4_000_003)]);
+  it("millionsPair: millions, unless the two strings match while the values differ", () => {
+    expect(millionsPair(9 * M, 7 * M)).toEqual(["9M", "7M"]);
+    expect(millionsPair(5 * M, 5 * M)).toEqual(["5M", "5M"]);
+    expect(millionsPair(1_000_237, 1_000_000)).toEqual(["1,000,237", "1,000,000"]);
+    expect(millionsPair(-1_000_000, -1_000_237)).toEqual(["-1,000,000", "-1,000,237"]);
+  });
+  it("a direct principal conflict of 1,000,237 against 1,000,000 prints both in full", () => {
+    const out = enrichOut(recastFacts("FinanceLeasePrincipalPayments", [quarter(1_000_000)]), vendorQ4({ financeLeasePrincipalPayments: 1_000_237 }));
+    expect(reasons(out.gaps)).toContain("vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: 1,000,237 versus 1,000,000 USD;");
+  });
+  it("a derived principal conflict prints both in full when the millions read alike", () => {
+    const out = enrichOut(derived("FinanceLeasePrincipalPayments"), vendorQ4({ financeLeasePrincipalPayments: 1_000_237 }));
+    expect(reasons(out.gaps)).toContain(`vendor 1,000,237 versus derived 1,000,000 USD for 2024-10-01 through 2024-12-31 ${FROM};`);
+  });
+  it("direct and derived buyback conflicts print both in full when the millions read alike", () => {
+    const direct = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(1_000_000)]), vendorQ4({ commonStockRepurchased: -1_000_237 }));
+    expect(reasons(direct.gaps)).toContain("conflict: exact 2024-10-01 through 2024-12-31 USD; vendor -1,000,237, filed -1,000,000; field unavailable");
+    const fromPair = enrichOut(derived("PaymentsForRepurchaseOfCommonStock"), vendorQ4({ commonStockRepurchased: -1_000_237 }));
+    expect(reasons(fromPair.gaps)).toContain(`conflict: derived -1,000,000 USD for 2024-10-01 through 2024-12-31 ${FROM}; vendor -1,000,237; field unavailable`);
+  });
+  it("control: a pair that reads apart in millions still prints in millions", () => {
+    const out = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(99.9 * M)]), vendorQ4({ commonStockRepurchased: -120 * M }));
+    expect(reasons(out.gaps)).toContain("vendor -120M, filed -99.9M;");
   });
 });

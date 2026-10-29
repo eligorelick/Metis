@@ -10,7 +10,7 @@ import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInve
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
-import { millions } from "@/pipeline/stageB/netDebt";
+import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
 import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT } from "@/edgar/statements";
 
@@ -263,9 +263,10 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     const value = sec.value * sign;
     if (agreesWithSec(vendor, value, [sec])) continue;
     // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
+    const [vendorText, secText] = millionsPair(vendor, value);
     const reason = sec.operands
-      ? `vendor/SEC ${field} conflict: derived ${millions(value)} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}; vendor ${millions(vendor)}; field unavailable until reconciled`
-      : `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; vendor ${millions(vendor)}, filed ${millions(value)}; field unavailable until reconciled`;
+      ? `vendor/SEC ${field} conflict: derived ${secText} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}; vendor ${vendorText}; field unavailable until reconciled`
+      : `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; vendor ${vendorText}, filed ${secText}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
     const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"]
@@ -929,9 +930,10 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
           if (agreesWithSec(vendor, sec.value, [sec])) continue;
           // FIN-511-V2: a quarter derived from two filings is called derived.
+          const [vendorText, secText] = millionsPair(vendor, sec.value);
           const versus = sec.operands
-            ? `vendor ${millions(vendor)} versus derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
-            : `${millions(vendor)} versus ${millions(sec.value)} ${currency}`;
+            ? `vendor ${vendorText} versus derived ${secText} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
+            : `${vendorText} versus ${secText} ${currency}`;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${versus}; vendor observation preserved and field unavailable for reconciliation`;
           out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });

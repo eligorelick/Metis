@@ -4215,7 +4215,10 @@ the ... and the ...; re-filed later in the 10-K of ...)". None says "filed"
 or an "exact quarter period". A directly filed figure keeps its "filed" or
 "exact" wording, with its amounts also in millions (the lease-liability and
 principal conflict reads "vendor/SEC conflict for <field> at <date>: <vendor>
-versus <filed> <currency>", both in millions).
+versus <filed> <currency>", both in millions). Where a reason sets a vendor
+amount beside the SEC amount and the two would read alike in millions while
+they differ, both print in full with grouped digits ("1,000,237 versus
+1,000,000 USD").
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
