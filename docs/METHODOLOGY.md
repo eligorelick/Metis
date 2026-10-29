@@ -2732,6 +2732,26 @@ as-of), without the truncation marker — in
   takes the scale of an "(in millions" header above it when the table is a
   money table; a decimal cell never does, and no "$" cell does under an
   "except per share" header. Per-share and every other unit fail.
+  The claim reader (`claimEvidence.ts`, which the second gate below runs)
+  scales a table the same way: a table's "(In millions)" scales its money
+  amounts, its share counts and its cells with no stated unit (the last
+  cannot validate: their unit is not established); a percent, ratio or day
+  count is never scaled. Under an "except per share data" declaration, at
+  any scale, a decimal cell is a per-share figure only when its own row names
+  a per-share basis ("per share", "per basic share", "per diluted share",
+  "per common share", "per ordinary share", with up to two of those
+  qualifiers as in "per diluted common share", or "EPS": "Net income per
+  share: Basic", "Diluted EPS"); decimal precision
+  alone never makes it one, so "Revenue $ 5.0" under "($ in millions, except
+  per share data)" is $5.0 million (PR #71 review). A row whose own label
+  names no basis keeps the table's money scale, even inside a per-share
+  block (NVIDIA's Note 3 "Diluted (2)" row follows "Net income per share:
+  Basic"). A per-share cell is read as dollars per share. A claim that names the
+  per-share basis in its words ("per share") is compared with it only when the
+  cell's own row names a per-share basis (the declaration is a scale rule, not
+  the row's description); "EPS" alone is not read as that basis in a claim
+  (DECISIONS, "Audit batch B2: known residuals of the claim-verifier number
+  fixes"; post-fix audit check V7).
 - The value is what the text prints, at the printed precision: "$915
   billion" supports 915e9, not 915.3e9.
 - The printed figure is specific: three significant digits, or two with a
@@ -2745,29 +2765,200 @@ as-of), without the truncation marker — in
   or, for a table cell, in that row's own label. A number with no
   description words fails (`text-context-mismatch`).
 
-The period is not compared with the column a figure was printed in, and two
-figures that share the description's words in one sentence ("Standardized
-and Advanced CET1 ratios were 14.6% and 14.1%") cannot be told apart. The
-log note on every match says the period is not machine-checked. News rows,
+Since D-66 the second gate compares the number's period with the column a
+figure was printed in (the claim reader binds a table cell by its column's
+date and fiscal label), and two figures that share the description's words in
+one sentence ("Standardized and Advanced CET1 ratios were 14.6% and 14.1%")
+cannot be told apart. The first gate (`excerptNumbers.ts`) does not check the
+period; the log note on a match is the second gate's. News rows,
 string figures and insider notes carry no text to read and stay
 `text-source`.
+
+A figure is read with its own description (audit 2026-10-27 AI-305 and
+AI-305-V1; D-129, OD-1). The clause rule above still holds (every word of the
+claim is stated in the clause, and a definition-changing modifier the clause
+states is in the claim), and the claim must now also name every content word of
+the figure's own description. Before the figure, that is the text from the
+latest of the clause start, the previous figure's end, the last "(" when no ")"
+follows it (only the last "(" is looked at; an earlier unclosed one is not
+searched for) and the last colon or semicolon after that. After the figure, it is
+the text up to the first comma, semicolon, colon, parenthesis, em or en dash,
+the next figure or the clause end; a comma inside a date ("as of September 3,
+2026") does not cut. For a table cell, it is the row label after its last colon,
+with the table's scale declaration blanked. The same description is read for a
+prose claim and for a traced number on the second gate. These are not content
+words: ordinal period phrases ("the second quarter", "third-quarter"),
+comparison bases ("the prior year", "year over year", "yoy", "qoq"), every
+window token (TTM, YTD, "for the quarter": the code drops all of them from the
+own description, and a window the claim states is compared as a period), a
+prior fiscal year-end ("the end of the prior fiscal year") that no comparison
+word ("compared with", "compared to", "versus", "vs.", "relative to",
+"against", "than") and no "from" or "since" comes before in the description
+(after one it is a base or a start, so its words stay content words and a claim
+that names that year-end as its own period stays unchecked), and a
+closed list of context words. The list holds pronouns (we, us, they, them,
+their, there, which, who, whose, he, she, him, her, his), recognition verbs
+(totaled, totalled, totaling, totalling, amounted, came, represented, posted,
+generated, delivered, achieved, incurred, recognized, recognised, booked), the
+links associated, related, relating, attributable, driven, due, primarily,
+mainly, largely, partly, partially and reflecting, approximation hedges
+(approximately, approx, about, around, nearly, almost, roughly, some),
+"record", and the point abbreviations "pt" and "pts". It never holds a noun,
+adjective, comparator, definition modifier or direction word. A word of the
+description that comes before the figure must be named by the claim's own
+clause. A word that comes after the figure may also be named by the claim's
+words after an "and", "but", "while", "whereas", "versus" or "vs" that has no
+figure after it ("invested over USD 76.7 billion in research and development");
+such a continuation never extends to words before the figure. A total with its
+per-share restatement ("$973 million, or $0.92 per share, of cash dividends
+paid") share the trailing metric as their description. A figure the sentence
+gives to another noun then stays unchecked: "a record of nearly $26.0 billion
+to shareholders" is not a free-cash-flow figure, "benefiting our diluted
+earnings per share by $1.93" is not the diluted EPS, and "cash, marketable
+investments, and restricted cash of $73.48 billion" is not "cash". The own-description check can only leave a claim unchecked. Each claim is judged
+twice, with the clause rule alone and with the own-description filter, and
+when the filter would give the claim a different result from the clause rule
+alone, the claim is unchecked; it never makes a claim validated or contradicted.
+If the filter leaves no candidate, the claim is unchecked. An invalid or
+locale-ambiguous date among the clause candidates still leaves the claim
+unchecked, as `period-mismatch` unless the filter leaves no candidate (then the
+filter's own reason is given). A correct
+figure whose description carries words the claim leaves out is left unchecked,
+and that recall cost is accepted: a trailing explanation with no comma ("net
+discrete tax expense of $15.9 billion attributable to upward adjustments to our
+investments"), a subject noun ("the DDTL Credit Agreement provides for a $17.5
+billion ... facility"), a qualifier ("the remaining Commitment Amount"), a
+fronted phrase ("Under the new lease accounting guidance, operating lease
+liabilities were $2.5 billion": the claim must name the phrase, or the source
+must put it after a comma).
+
+A figure the source introduces with "from", "compared with", "compared to",
+"versus", "vs." or "against" is a comparison base (audit 2026-10-27 AI-503,
+AI-503-V1 and AI-503-V2; D-130): it supports only a claim figure introduced the
+same way (a claim figure after these words binds only a source base), and it
+does not take the excerpt's reporting period. In "<metric> increased from $A ...
+to $B" the metric and the direction belong to $B, so "commitments increased to
+USD 279 billion" is read against $279 billion, not the $119 billion the move
+started from. $B's description is the words before $A's "from" (the move's
+head, starting where $A's own description starts) plus $B's own words after it;
+the words between $A and "to" ("last quarter", "a year ago") describe $A and
+never $B, so "commitments increased to USD 279 billion last quarter" is not
+supported. The periods, windows and fiscal year-end those words state are $A's
+too: $B keeps only the periods of its clause that lie before $A or from $B on. Against
+a quarterly excerpt, "Total debt decreased from $10.0 billion at fiscal year-end
+to $8.5 billion" does not support "Total debt decreased to USD 8.5 billion at
+fiscal year-end" (the year-end is $A's); $B then reads the excerpt's own period
+and windows, so under a fiscal-year title "increased to USD 31.6 billion at
+fiscal year-end" is read against the title's year-end (audit 2026-10-27 final
+review). $B gets no head, and the claim stays unverified, when any of these
+holds: no direction word (rose, increased, fell, declined and the rest of the
+consistency reader's list) governs "from $A"; $A is in another clause than $B;
+a digit, "$", a currency sign, ";", a bullet or a line break lies between $A and
+"to"; the text between $A and "to" holds punctuation (a comma, colon,
+parenthesis, em or en dash), a direction word or any word outside this list:
+last, ago, earlier, sequentially, quarter, year, prior, first, second, third,
+fourth, fiscal, month, months, the, a, an, in, at, of, end. So a range
+("expected to range from $4.0 billion to $4.2 billion"), "went from", a verb
+far from "from", and a second move or a new subject ("... due to Data Center
+revenue growing to $41.1 billion") all leave $B without the metric.
 
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record
 years, unit words against record families, and sourcing of named individuals.
-The period-word check compares years only; it does not adjudicate fiscal
-quarters. A number that cannot be located confidently in its sentence is
+The number scanners that feed these checks (the consistency number scanner and
+the prose quantity reader) are linear in claim length: a long run of whitespace
+in model or filing text cannot make the verify step slow (audit 2026-10-27
+SEC-203). The comparison-base reader (`comparisonCueEnd`, AI-402) reads each
+amount between a cue and its period one way: its digits take a comma only as a
+thousands group, and a space before a unit belongs to the unit. So a
+comma-grouped table row cannot make it backtrack; it backtracked exponentially
+before (about 1,000 characters of such rows took 33.6 seconds to verify).
+A direction word reads the figure as a move or as a level (audit 2026-10-27 AI-401). "Increased to (about) X" is a level, and "increased by (about) X", "rose around X" or "<change noun> of (about) X" is a change, for each change noun the verifier reads with "of" (increase, decrease, decline, drop, rise, fall, expansion, contraction; the plural of each except expansion and contraction). An approximation or bound word (about, around, approximately, roughly, nearly, almost, some, close to, more than, less than, fewer than, at least, at most, just over, just under, in excess of) between the direction word and the figure does not change which. "A gain of X" is read as neither, because an accounting gain is a level, so a claim and a source that read it differently stay unverified and one that read it alike compare as usual. A change is never validated against a level. A direction word after the figure and across a comma, semicolon, colon, em dash, en dash (an ASCII hyphen is not read as one) or parenthesis describes a comparison, not the figure ("a tax rate of 16.5%, an increase from a year ago" reads 16.5% as a level; audit 2026-10-27 AI-401-V1).
+A minus written directly before the currency (-$5 billion, −USD 5 billion)
+negates the amount; a dash that follows a letter, digit or point ("$1.0-$1.2
+billion", "FY2025-$5 million"), or a figure and one space ("$1.0 -$1.2
+billion"), or one followed by a space ("$1.0 - $1.2 billion"), is not read as
+that sign (audit 2026-10-27 AI-202).
+Scale words, units and currency codes are read only as whole words (the M of
+"Marketable" is not millions, the AUD in "fraud" is not a currency, a
+hyphenated compound such as "Share-based" is not a unit, except that
+"percentage point", "percentage-point", "basis point" and "basis-point" are
+units, and the symbol % and the ratio "x" are the only units a hyphenated word
+may follow: "10x-ish" reads 10x); "N months" (any whole or decimal N) is a
+period phrase, not a quantity. The scale abbreviations read are k, m, mm, mn,
+mln, mil, mio, b, bn and bln, besides the spelled-out words (audit 2026-10-27
+AI-304). The consistency number scanner reads whole words too, with the scale
+words thousand, million, billion, trillion, bn, mm and k only. In the unit
+check, a figure written with $, US$ or an uppercase ISO currency code directly
+before it (at most one space; not part of a pair such as EUR/USD) is an amount of
+money, whatever noun follows it ("USD 99 billion share repurchase
+authorization", "a $45.32 share price"), and so a share count written that way
+("$15.2 billion shares") is a unit mismatch. Other currency signs (€, £, ¥) are
+not read there (audit 2026-10-27 AI-304-V2).
+A figure the source states as a bound ("less than 1%", "over $76.7 billion") supports only a claim that states the same kind of bound. The prose quantity reader marks a comparator directly before a figure, with only whitespace or the currency between: "more than", "over", "above", "exceed(s/ed/ing)", "in excess of", "greater than" and ">" are strict lower bounds; "at least", "a minimum of", "no less than", "not less than", "no fewer than" and "≥" are inclusive lower bounds; "less than", "fewer than", "under", "below" and "<" are strict upper bounds; "up to", "at most", "no more than", "not more than", "a maximum of", "not to exceed" and "≤" are inclusive upper bounds (the negated forms are read before "less than" and "more than"). One hedge from the consistency reader's hedge list (about, around, approximately, roughly, nearly, almost, some, close to, and the others it lists) may sit between the comparator and the figure ("at least about $5 billion" is an inclusive lower bound). On a filing excerpt, a source bound supports a claim bound of the same direction and value only when the claim is no stricter: a strict source bound supports a strict or an inclusive claim bound, and an inclusive source bound supports only an inclusive claim bound ("> $5 billion" does not validate against "≥ $5 billion", because the claim is false at exactly $5 billion; "≥" validates against ">"). An exact claim never validates against a source bound, a bound claim never validates against an exact source figure, and opposite directions never validate; two source figures that differ only by their bound or its strictness stay ambiguous. A bound states no value, so a bound is never contradicted by a value: a bound claim whose figure differs from its source bound's stays unverified, even where the source implies it ("over USD 70 billion" against NVIDIA's "over $76.7 billion"), and only an exact claim against an exact source figure can be contradicted by its value. The wording of the claim must still be in the source clause (D-63), so a claim of "at least" against a source "more than", or "more than" against "over", stays unchecked, and so does an "up to" claim against a source bound in other words (its "up" is a direction word); an "up to" claim against a source "up to" validates. A cited typed record is not changed: a bound in the claim is still read as a value there (audit 2026-10-27 AI-409).
+A period that directly follows a comparison word ("compared with $10.2 billion
+in second quarter 2025", "up 23% from the second quarter of fiscal 2025") is
+the comparison's base: it belongs to the amount between the comparison word and
+it, never to a figure before the comparison word, which is read under its own
+clause or the excerpt's own period. "From" and "over" count as comparison
+words after a change word ("up 23% from", "grew 20% over"), and a bare "from"
+only across an amount ("from $10.1 billion in the second quarter of fiscal
+2025"), never directly before a period ("from 2025-07-27 to 2026-07-26"); the
+release parser (D-98) reads them more widely. "At" or "as of", followed only by
+connecting words, may stand between the amount and the period ("compared with
+$25.8 billion at the prior fiscal year-end", "as of January 26, 2025"). The
+fiscal year-end and a prior fiscal year-end are instants and are read as a date
+is, so in "Inventory was $31.6 billion, up from $25.8 billion at the end of the
+prior fiscal year" the year-end is $25.8 billion's, never $31.6 billion's; no
+other window is a base. A year-end directly after "from" or "since" ("Since the
+end of the prior fiscal year, inventory increased by $5.8 billion") is where a
+change starts: it is read as the figure's base, never as its period, in the
+claim and in the source alike (audit 2026-10-27 final review). A base the claim names must be a
+base the source names. A record citation establishes a base only when the record
+is a year-over-year or quarter-over-quarter figure, which is measured against a
+known base period: the base is compared with its fiscal label one year (or one
+quarter) earlier for an FY-labelled base, otherwise with that label, the
+shifted date itself or, for a phrase that names a year and nothing finer, the
+calendar year of the shifted date. A phrase that names an exact date, a month,
+a quarter, a half, or a count of months or weeks is not established by its year:
+it must name the shifted date (or the fiscal label), or be a calendar quarter
+that closes on it ("second quarter 2025" or "Q2 2025" for 2025-06-30), so
+against a growth rate measured against 2025-06-30, "compared with 2025-01-01",
+"January 2025" or "first quarter 2025" leaves the claim unverified, on a cited
+record and in the period-word check alike (PR #71 review). A base spelled with "fiscal" is read as its
+fiscal label ("the second quarter of fiscal 2026" is Q2 FY2026) and compared
+with the shifted fiscal label only; "fiscal 2025" and "fiscal year 2025" are
+fiscal years, not the quarter a year-over-year figure is measured against, so
+they never match it. A base on any other record (a level, a period-less
+figure) and a base that does not match leave the claim unverified, never
+validated. Guidance,
+target, estimate, outlook, forecast and consensus phrases are not comparison
+bases and keep the claim's own period.
+The period-word check reads a spelled fiscal period as the citation check does ("the second quarter of fiscal 2027" is Q2 FY2027, "fiscal 2025" is FY2025) and compares a record that carries an issuer fiscal label through the citation check's own period rule first (so "fiscal 2025" agrees with a 52/53-week year ending 2026-01-03), then by calendar year; it never fails a phrase the citation check accepts. An exact date against a record registered only under a fiscal label is checked only against its as-of date or period end. A failure leaves the claim unverified and is listed in the missing-data manifest. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
+A claim that states one figure is read for its periods as a whole: a period
+named anywhere in it, whichever clause or sentence names it, is read as the
+figure's period, except one named only in a forward-looking clause ("NVIDIA
+expects strength in Q3 FY2027"), which is not lent to a figure whose own clause
+is not forward-looking. The claim is therefore validated only when the figure
+matches the source for that period. A claim with several figures is read clause
+by clause.
 
 "Contradicted" means a value conflict only: a stated amount outside its cited
 figure's rounding interval, or a direction word against the sign of its cited
-change (audit 2026-10-22 F-22, an owner decision). A period, unit or currency
+change (audit 2026-10-22 F-22, an owner decision). A bound ("more than", "up
+to") states no amount, so on a filing excerpt a bound claim or a bound source
+figure is never contradicted by its value (audit 2026-10-27 AI-409). A period, unit or currency
 the cited record does not establish is a metadata gap, so the claim or figure is
 unverified (period or unit not established), never contradicted. A claim whose
 direction word conflicts with its cited change stays contradicted even when its
 period or unit word also fails. That covers a
-missing or null record period, a prose period or year the period-word check
+missing or null record period (a record that carries no period establishes only
+its own as-of date, a date its period context declares, a fiscal label it
+declares when the prose names it as an FY label such as "FY2026" or "the second
+quarter of fiscal 2027", and a window its own label names; any other year,
+quarter, date or window named against it leaves the claim unverified), a prose period or year the period-word check
 cannot match to the record's window ("the twelve months ended June 30, 2026"
 against `ttm: 2025-07-01 to 2026-06-30`), and a unit or currency mismatch. The
 period-word and unit-word check failures are still listed in the verification
@@ -2961,7 +3152,7 @@ Capital metrics use complete compatible TTM flows and a matching balance sheet w
 
 Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Since D-60 scenario shocks decay to the base path by year 10 and scenario margins stay below gross margin less the leanest operating-expense ratio on record (the decaying shock is the main construction, so no alternative is listed). EPS uses flat shares because an authorization is not a committed schedule; the authorization-funded share change is stated and an unfunded historical-share-trend sensitivity is labeled hypothetical.
 
-Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with time words ("latest", "quarter end") and common abbreviations (FCF, SBC, capex) normalized; a named window must be the record's own, a bare "trailing" means twelve months, and an exact date names a window record's endpoint. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
+Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with common abbreviations (FCF, SBC, capex) normalized; a window is read however it is written ("for the quarter", "this quarter", "the quarter's", "latest-quarter", "for the latest fiscal year", "fiscal-year"), and horizons, plurals and comparisons ("five-year", "four quarters", "a year ago", "year one") are not windows; a named window must be the record's own, and a record with no period or fiscal basis establishes none. A year word that a year follows ("fiscal year 2026") names that year, not an annual window as well. "At fiscal year-end" and "at the end of the fiscal year" name the fiscal year-end instant, which only a record with an FY or fourth-quarter fiscal label or a fiscal-year basis establishes (on a filing excerpt, a source clause that states the year-end itself, or an FY or fourth-quarter title with a clause or table column dated to the excerpt's own reporting date; a claim's date that no source states stays unverified). A prior fiscal year-end ("at the end of the prior year", "at the end of the last or previous fiscal year", "at the prior, previous or last (fiscal) year-end") is a different instant: it is established only by the same relative phrase in the cited figure's own clause on a filing excerpt, stated as that figure's own instant (after a comparison word it is the base's, after "from" or "since" a change's start, and for a move's end it is never the words between $A and "to"). No typed record establishes it, by its label ("net debt at the prior fiscal year-end") or by its basis. A title, a table header, a window the excerpt inherits and the current fiscal year-end never establish it either, so such a claim is otherwise unverified for its period (`period-mismatch`), never validated and never contradicted on the strength of the title, and a source's prior year-end does not establish a claim's "at fiscal year-end" either (audit 2026-10-27 final review). A period of any kind (a date, a month, a year, a fiscal label, a window, the fiscal year-end or a prior fiscal year-end) inside a parenthetical that holds another figure is never a period of a figure outside the parenthetical, in the claim and in the source alike. Such a parenthetical can state the outside figure's own period as well as the inner figure's ("Inventory was $25.8 billion (at the end of the prior fiscal year, up from $20.0 billion a year earlier)"), so a figure that loses any period to one has periods that cannot be read: it takes no period, window or year-end from the excerpt's title, and every claim it could bind by its metric is unverified (`period-mismatch`), as is a claim whose own figure loses a period that way. So against "Inventory was $31.6 billion (at the end of the prior fiscal year, $25.8 billion)" or "(prior fiscal year-end: $25.8 billion)" a claim of either figure is unverified, never validated or contradicted, and against the $25.8 billion source above "USD 25.8 billion in Q2 FY2027" is unverified, not read under a 10-Q title's quarter. A parenthetical runs from "(" to the ")" that closes it, found by counting nested parentheses, or to the end of the clause when none does; one with no figure of its own ("$31.6 billion (at the end of the prior fiscal year)", "(at the end of the prior fiscal year (unaudited))") still states the period of the clause's figure. A clause's parentheticals are read once for all its figures. "Latest", "most recent" or "newest" directly before, or one word before (a space or hyphen between the words), a period or filing word (quarter, year, annual, fiscal, FY or an FY label, Q1 to Q4, period, month, results, reported, figure, 10-Q, 10-K, filing, report: "the latest-quarter", "latest full-year", "latest FY2026") on a figure from a dated statement, quarterly-trend or segment series requires the newest period of that series the payload registers, even when the claim also names an exact period; the word before anything else ("the latest guidance") is not a recency claim; on a filing excerpt it is not checked. On a filing excerpt, a claim's window must be the clause's own or, when the clause names no period, the window the excerpt's title states. A forward-looking clause of a filing is read under no period of the excerpt and binds only a claim that is itself forward-looking; a reported result binds only a claim stating a result (OD-3). The wording read as forward-looking is "is/are/was/were/be/been/being/remains/remained (now, currently, still or also) expected, projected, forecast or forecasted, anticipated, estimated or guided to", "expect(s)", "expecting", "anticipate(s)", "anticipating", "forecast(s)", "outlook", "guidance for", "guidance of", "guidance range", "guidance calls for", "guidance is", "guidance was", "guidance issued", and "our", "its", "management's" or "the company's" followed by up to three words and "guidance". So "Under the accounting guidance for leases, …", "Under guidance issued by the FASB, …" and "our new lease accounting guidance" are read as forward-looking too. Wording that does not match is a result: "under the new lease accounting guidance", a bare "as expected", "estimated useful lives". Whether a claim is forward-looking is judged from the clause of the figure the claim states, so a result figure beside a forward-looking clause binds no forward-looking span. A bare "trailing" means twelve months, and an exact date names a window record's end; its start counts only inside the complete stated interval (both dates named). Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
 
 ### Grade and reproducibility safeguards
 

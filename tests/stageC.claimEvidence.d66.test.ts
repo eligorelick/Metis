@@ -5,7 +5,7 @@
  * definition-changing word (GAAP, non-GAAP, a window) a requirement.
  */
 import { describe, expect, it } from "vitest";
-import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
+import { readProseQuantities, validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import type { SourcedClaim } from "@/report/schema";
@@ -122,5 +122,42 @@ describe("D-66 excerpt tables", () => {
     expect(checkTable("Revenue for the three months ended July 26, 2026 was USD 96,221 million.")).toBe("validated");
     expect(checkTable("Revenue for the six months ended July 26, 2026 was USD 177,837 million.")).toBe("validated");
     expect(checkTable("Revenue for the three months ended July 26, 2026 was USD 177,837 million.")).not.toBe("validated");
+  });
+});
+
+describe("AI-202 leading sign", () => {
+  const netDebt = (value: number) => record({ id: "computed.current-capital.net-debt-excluding-operating-leases", label: "net debt excluding operating leases",
+    value, unit: "currency", currency: "USD", period: "2026-07-26", asOf: "2026-07-26" });
+  const L = "Net debt excluding operating leases as of 2026-07-26 was";
+  const written = ["-$23.220 billion.", "\u2212$23.220 billion.", "-USD 23.220 billion.", "\u2212USD 23.220 billion."];
+
+  it.each(written)("reads %s as a negative amount", (amount) => {
+    expect(check(`${L} ${amount}`, netDebt(-23_220e6))).toBe("validated");
+    expect(check(`${L} ${amount}`, netDebt(23_220e6))).toBe("contradicted");
+  });
+
+  it("keeps the other spellings of a negative amount", () => {
+    expect(check(`${L} negative USD 23.220 billion.`, netDebt(-23_220e6))).toBe("validated");
+    expect(check(`${L} USD -23.220 billion.`, netDebt(-23_220e6))).toBe("validated");
+    expect(check(`${L} USD 23.220 billion.`, netDebt(-23_220e6))).toBe("contradicted");
+  });
+
+  it("does not read a range's dash or a dashed year as a minus", () => {
+    const values = (text: string) => readProseQuantities(text).map((quantity) => quantity.value);
+    expect(values("Guidance is $1.0-$1.2 billion.")).toEqual([1, 1.2e9]);
+    expect(values("Guidance is $1.0 - $1.2 billion.")).toEqual([1, 1.2e9]);
+    expect(values("FY2025-$5 million")).toEqual([5e6]);
+    expect(values("a 3-$4 range")).toEqual([3, 4]);
+    // A dash after a figure and one space is no sign either (review of AI-202).
+    expect(values("$1.0 -$1.2 billion")).toEqual([1, 1.2e9]);
+    expect(values("2024 -$5 million")).toEqual([5e6]);
+  });
+
+  it("reads a minus before a currency after a word, a parenthesis or a sign", () => {
+    const values = (text: string) => readProseQuantities(text).map((quantity) => quantity.value);
+    expect(values("+$-5")).toEqual([-5]);
+    expect(values("-$-5")).toEqual([-5]);
+    expect(values("Net debt -$23.2 B")).toEqual([-23.2e9]);
+    expect(values("(-$5 million)")).toEqual([-5e6]);
   });
 });

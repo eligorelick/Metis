@@ -454,6 +454,68 @@ describe("unit check", () => {
     expect(result.findings).toEqual([]);
   });
 
+  describe("a currency in front makes the figure money, whatever noun follows (AI-304-V2)", () => {
+    const authorization = numeric({
+      id: "payload.issuer-filings.share-repurchase-authorization-remaining",
+      kind: "provider",
+      origin: "edgar:companyfacts",
+      formulaVersion: null,
+      value: 99_000_000_000,
+      unit: "currency",
+      currency: "USD",
+      period: "2026-07-26",
+    });
+    const price = numeric({
+      id: "fmp:quote",
+      kind: "provider",
+      origin: "fmp:quote",
+      formulaVersion: null,
+      value: 45.32,
+      unit: "currency-per-share",
+      currency: "USD",
+      period: null,
+      asOf: "2026-07-09",
+    });
+    const diluted = numeric({
+      id: "payload.statements.income-statement-annual.2026-07-26.diluted-shares",
+      kind: "provider",
+      origin: "fmp:income-statement(annual)",
+      formulaVersion: null,
+      label: "diluted shares",
+      value: 15_200_000_000,
+      unit: "shares",
+      currency: null,
+      period: "2026-07-26",
+    });
+    const pct = numeric({ id: "computed.growth.revenue-growth-yoy", value: 6.4, unit: "percent" });
+    const ratio = numeric({ id: "computed.leverage.ratio", origin: "computed.leverage", value: 2.5, unit: "ratio" });
+    const fxRatio = numeric({ id: "computed.hedge.ratio", origin: "computed.hedge", value: 1.08, unit: "ratio" });
+    const unitFindings = (text: string, record: NumericProvenanceRecord, asOf: string) =>
+      run(refs(claim(text, record.id, { asOf })), [record]).findings.filter(
+        (finding) => finding.check === "unit",
+      );
+
+    it.each([
+      ["a code before a share noun", "NVIDIA had USD 99.00 billion share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a symbol before a share noun", "NVIDIA had a $99.00 billion share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a code before a hyphenated noun", "NVIDIA had USD 99.00 billion shareholder-return authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["a symbol before a per-share noun", "The current $45.32 share price sits below the DCF value as of 2026-07-09.", price, "2026-07-09", []],
+      ["control: the noun after an of", "NVIDIA had USD 99.00 billion of share repurchase authorization remaining as of 2026-07-26.", authorization, "2026-07-26", []],
+      ["control: the noun before the figure", "The share price was $45.32 as of 2026-07-09.", price, "2026-07-09", []],
+      ["control: a share count in shares", "Diluted shares were 15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", []],
+      ["control: a share count in dollars", "Diluted shares were $15.2 billion as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+      ["a currency symbol before a percent figure", "Growth was $6.4% as of 2025-09-27.", pct, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency code before a percent figure", "Growth was USD 6.4% as of 2025-09-27.", pct, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency symbol before a multiple", "Leverage was $2.5x as of 2025-09-27.", ratio, "2025-09-27", ["unit-word-mismatch"]],
+      ["a currency code before a scaled share count", "Diluted shares were USD 15.2 billion as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+      ["control: a word that ends in a code is no currency", "Growth was fraud 6.4% as of 2025-09-27.", pct, "2025-09-27", []],
+      ["an exchange-rate pair is no currency before a figure (EUR/USD)", "The EUR/USD 1.08x hedge ratio was stable as of 2025-09-27.", fxRatio, "2025-09-27", []],
+      ["a share count in dollars with a share noun", "Diluted shares were $15.2 billion shares as of 2026-07-26.", diluted, "2026-07-26", ["unit-word-mismatch"]],
+    ])("%s", (_name, text, record, asOf, reasons) => {
+      expect(unitFindings(text, record, asOf).map((finding) => finding.reason)).toEqual(reasons);
+    });
+  });
+
   it("does not invent a rule for dimensionless readings", () => {
     const score = numeric({ id: "computed.scores.quality", origin: "computed.scores", value: 72, unit: "score" });
     const result = run(refs(claim("The quality score was 72 out of 100.", score.id)), [score]);

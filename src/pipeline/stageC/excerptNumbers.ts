@@ -32,8 +32,9 @@
  *    label. A claim with no distinctive words is not accepted at all. This is
  *    what stops a right value being read with the wrong meaning ("15.1" is
  *    printed for two different ratios in JPM's 10-Q).
- * What it does not check: the period. A supplied period is not compared with
- * the column the figure was printed in, so the log says so on every match.
+ * What it does not check: the period. This first gate does not compare a
+ * supplied period with the column the figure was printed in; the second gate
+ * (claimEvidence.ts, D-66) does, and its note is the one the log carries.
  */
 
 import type { CanonicalUnit } from "@/pipeline/stageC/provenance";
