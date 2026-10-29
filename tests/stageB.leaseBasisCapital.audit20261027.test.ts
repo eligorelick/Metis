@@ -236,7 +236,8 @@ describe("lease-emptied capital (Review Focus 13)", () => {
     // A long-term investment is still added back (OD-6), and the history ratio is used, not Task 5's cap.
     const withLti = buildDcfAssumptions({ ...base, incomeHistory: income, balance: emptied({ longTermInvestments: 30e6 }), capitalHistory }).assumptions!;
     expect(withLti.salesToCapital.value).toBeCloseTo(history.ratio as number, 9);
-    expect(withLti.nonOperatingInvestments).toEqual({ value: 30e6, balanceDate: "2026-03-31", basis: expect.stringMatching(/own history because invested capital is not positive once the operating lease leaves debt/) });
+    // FIN-304 follow-up: the lease-emptied path says what sales-to-capital takes, in place of the untrue "denominator removes" clause
+    expect(withLti.nonOperatingInvestments).toEqual({ value: 30e6, balanceDate: "2026-03-31", basis: "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt" });
 
     // ... and the bridge carries it as a component.
     const multiples: MultiplesFrameworkInputs = {

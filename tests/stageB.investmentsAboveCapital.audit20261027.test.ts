@@ -176,6 +176,7 @@ describe("FIN-304: precedence with the lease-emptied branch (Task 4, I6)", () =>
     expect(a.salesToCapital.value).not.toBe(S2C_CLAMP[1]);
     expect(a.salesToCapital.basis).toMatch(/not positive once the operating lease .* leaves debt/);
     expect(a.salesToCapital.basis).not.toMatch(/not positive once long-term investments/);
+    // FIN-304 follow-up: the lease-emptied path says what sales-to-capital takes in place of the untrue "denominator removes" clause
     expect(a.nonOperatingInvestments).toEqual({ value: 30e6, balanceDate: "2026-03-31", basis: "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt" });
   });
 

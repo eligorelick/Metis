@@ -28,7 +28,7 @@ import type {
   FmpRawRow,
   FmpStatementRow,
 } from "@/providers/fmp";
-import { parseSicCode, RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
+import { parseSicCode } from "@/edgar/sic";
 import { tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -4019,16 +4019,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
-    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date, or in the year before it.
+    // Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the retirement, environmental, pension and OPEB, loss-contingency
+    // and contingent-consideration obligations filed at the bridge's balance date, or in the year before it.
     debtLikeObligations: bridgePoint === null ? null : debtLikeObligationsAt(
       bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
       isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
-    // FIN-305 (pre-flight I7): a rate-regulated utility's pension deficit is disclosed, not deducted; an unknown SIC is
-    // not a utility. The established code also names the utility note.
-    ...(() => {
-      const sicCode = parseSicCode(bundle.edgar?.sic);
-      return { sicEstablished: sicCode !== null, sicCode, rateRegulatedUtility: sicCode !== null && RATE_REGULATED_UTILITY_SIC.has(sicCode) };
-    })(),
+    // FIN-305 (pre-flight I7): the one SIC fact; valueCompany derives "rate-regulated utility" and "established" from it.
+    sicCode: parseSicCode(bundle.edgar?.sic),
     dcfInputs,
     multiples,
     excessReturn,

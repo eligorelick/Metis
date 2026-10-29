@@ -122,6 +122,13 @@ describe("FIN-305: the readers", () => {
     expect(o.lossContingencies!.value).toBe(400e6);
     expect(o.lossContingencies!.basis).toContain("AccrualForEnvironmentalLossContingencies");
     expect(o.environmental!.value).toBe(200e6);
+    // The environmental reading is E-7's own: the total, else noncurrent plus current (600 less 150 + 50).
+    const parts = facts({
+      LossContingencyAccrualAtCarryingValue: [usd("2025-12-31", 600e6)],
+      AccruedEnvironmentalLossContingenciesNoncurrent: [usd("2025-12-31", 150e6)],
+      AccruedEnvironmentalLossContingenciesCurrent: [usd("2025-12-31", 50e6)],
+    });
+    expect(debtLikeObligationsAt(parts, "2025-12-31", "USD", OBSERVED)!.lossContingencies!.value).toBe(400e6);
     // An environmental accrual that is the whole total leaves nothing for the loss-contingency line.
     const inside = facts({
       LossContingencyAccrualCarryingValueCurrent: [usd("2025-12-31", 49e6)],
@@ -141,6 +148,28 @@ describe("FIN-305: the readers", () => {
     expect(debtLikeObligationsAt(parts, "2025-12-31", "USD", OBSERVED)!.contingentConsideration!.value).toBe(20e9);
     const currentOnly = facts({ BusinessCombinationContingentConsiderationLiabilityCurrent: [usd("2025-12-31", 12e6)] });
     expect(debtLikeObligationsAt(currentOnly, "2025-12-31", "USD", OBSERVED)!.contingentConsideration!.value).toBe(12e6);
+  });
+
+  it("a zero family never blocks a positive family at the same date (E-7's own handling)", () => {
+    const zeroA = facts({
+      [`${FAMILY_A}Noncurrent`]: [usd("2025-12-31", 0)],
+      [`${FAMILY_B}Noncurrent`]: [usd("2025-12-31", 770e6)],
+      [`${FAMILY_B}Current`]: [usd("2025-12-31", 148e6)],
+    });
+    expect(debtLikeObligationsAt(zeroA, "2025-12-31", "USD", OBSERVED)!.pension!.value).toBe(918e6);
+    const zeroB = facts({
+      [`${FAMILY_B}Noncurrent`]: [usd("2025-12-31", 0)],
+      [`${PENSION_C}Noncurrent`]: [usd("2025-12-31", 600e6)],
+      [`${OPEB_C}Noncurrent`]: [usd("2025-12-31", 200e6)],
+    });
+    expect(debtLikeObligationsAt(zeroB, "2025-12-31", "USD", OBSERVED)!.pension!.value).toBe(800e6);
+    // Control: every family zero at the bridge date ends the look-back; no older positive is read.
+    const allZero = facts({
+      [`${FAMILY_A}Noncurrent`]: [usd("2026-06-30", 0, "10-Q", "2026-07-30"), usd("2025-12-31", 900e6)],
+      [`${FAMILY_B}Noncurrent`]: [usd("2026-06-30", 0, "10-Q", "2026-07-30"), usd("2025-12-31", 770e6)],
+      [`${PENSION_C}Noncurrent`]: [usd("2026-06-30", 0, "10-Q", "2026-07-30"), usd("2025-12-31", 600e6)],
+    });
+    expect(debtLikeObligationsAt(allZero, "2026-06-30", "USD", OBSERVED)).toBeNull();
   });
 
   it("a filed zero ends the look-back for the new families too", () => {
@@ -228,10 +257,26 @@ describe("FIN-305: the equity bridge deducts the new claims after the marginal-r
     expect(notes).toMatch(/162\(f\)/);
     expect(notes).not.toMatch(/before any tax relief/);
     expect(notes).not.toMatch(/accretion/);
+    // The plain line's note names the amount after the relief (M5).
+    expect(notes).toMatch(/subtracts pension and other postretirement benefit deficits of 91\.8 \(78\.03 after the 15% tax relief\)/);
     expect(withNew.multiples.enterpriseValue.basis).toMatch(/not added to the market EV/);
     // Control: nothing tagged leaves the EV basis byte for byte.
     expect(dcfOf({ debtLikeObligations: null }).multiples.enterpriseValue.basis).toBe(base.multiples.enterpriseValue.basis);
     expect(base.multiples.enterpriseValue.basis).not.toMatch(/not added to the market EV/);
+  });
+
+  it("the EV basis names only the families the bridge deducted", () => {
+    const only = (o: Partial<DebtLikeObligations>) => dcfOf({ debtLikeObligations: { assetRetirement: null, environmental: null, settlementAssets: null, pension: null, lossContingencies: null, contingentConsideration: null, ...o } }).multiples.enterpriseValue.basis;
+    const loss = only({ lossContingencies: claims.lossContingencies });
+    expect(loss).toMatch(/\(loss-contingency\) are not added to the market EV/);
+    expect(loss).not.toMatch(/pension|environmental|retirement|contingent-consideration/);
+    expect(only({ pension: claims.pension })).toMatch(/\(pension and OPEB\) are not added to the market EV/);
+    const two = only({ environmental: filed(202, "AccrualForEnvironmentalLossContingencies"), contingentConsideration: claims.contingentConsideration });
+    expect(two).toMatch(/\(environmental and contingent-consideration\) are not added to the market EV/);
+    // A DUK-shaped utility with an environmental line deducts no pension, so the basis does not name it.
+    const duk = dcfOf({ debtLikeObligations: { ...claims, pension: claims.pension, lossContingencies: null, contingentConsideration: null, environmental: filed(95, "AccrualForEnvironmentalLossContingencies") }, sicCode: 4931 }).multiples.enterpriseValue.basis;
+    expect(duk).toMatch(/\(environmental\) are not added to the market EV/);
+    expect(duk).not.toMatch(/pension/);
   });
 
   it("a US domicile takes the 21% federal rate", () => {
@@ -252,6 +297,13 @@ describe("FIN-305: the equity bridge deducts the new claims after the marginal-r
     expect(untagged.dcf!.bridge).toEqual(base.dcf!.bridge);
   });
 
+  it("states the accretion sentence only for a deducted retirement obligation, ending 'does not adjust for it' (M5)", () => {
+    const aro = dcfOf({ debtLikeObligations: { ...claims, assetRetirement: filed(384, "AssetRetirementObligation") } }).notes.join(" ");
+    expect(aro).toMatch(/so their time value is counted twice; the bridge does not adjust for it\./);
+    expect(aro).not.toMatch(/does not adjust for either/);
+    expect(aro).toMatch(/subtracts asset-retirement obligations of 384 \(326\.4 after the 15% tax relief\)/);
+  });
+
   it("names an earlier balance date on the new lines", () => {
     const earlier = dcfOf({ debtLikeObligations: { ...claims, pension: { ...claims.pension!, asOf: "2025-09-30" } } });
     expect(component(earlier, /pension/)!.label).toBe("pension and other postretirement benefit deficits (filed, after tax at 15%; balance at 2025-09-30, the latest filed)");
@@ -260,8 +312,8 @@ describe("FIN-305: the equity bridge deducts the new claims after the marginal-r
 
 describe("FIN-305: a rate-regulated utility's pension deficit (Review Focus 14; pre-flight I7)", () => {
   const base = dcfOf();
-  const utility = dcfOf({ debtLikeObligations: claims, rateRegulatedUtility: true, sicEstablished: true, sicCode: 4931 });
-  const plain = dcfOf({ debtLikeObligations: claims, sicEstablished: true });
+  const utility = dcfOf({ debtLikeObligations: claims, sicCode: 4931 });
+  const plain = dcfOf({ debtLikeObligations: claims, sicCode: 2834 });
 
   it("a rate-regulated utility's pension deficit is disclosed, not deducted", () => {
     expect(utility.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-52.9465, 6);
@@ -279,7 +331,7 @@ describe("FIN-305: a rate-regulated utility's pension deficit (Review Focus 14; 
   });
 
   it("an E-7 environmental line at the same utility is still deducted after tax", () => {
-    const withEnv = dcfOf({ debtLikeObligations: { ...claims, environmental: filed(202, "AccrualForEnvironmentalLossContingencies") }, rateRegulatedUtility: true, sicEstablished: true });
+    const withEnv = dcfOf({ debtLikeObligations: { ...claims, environmental: filed(202, "AccrualForEnvironmentalLossContingencies") }, sicCode: 4931 });
     expect(withEnv.dcf!.equityValue! - utility.dcf!.equityValue!).toBeCloseTo(-202 * 0.85, 6);
   });
 
@@ -290,7 +342,7 @@ describe("FIN-305: a rate-regulated utility's pension deficit (Review Focus 14; 
   });
 
   it("a utility with no pension deficit raises no rate-regulated gap", () => {
-    const noPension = dcfOf({ debtLikeObligations: { ...claims, pension: null }, rateRegulatedUtility: true, sicEstablished: true });
+    const noPension = dcfOf({ debtLikeObligations: { ...claims, pension: null }, sicCode: 4931 });
     expect(noPension.gaps.some((g) => g.field === "valuation.dcf.debtLikeObligations.rateRegulated")).toBe(false);
   });
 });
@@ -333,6 +385,6 @@ describe("FIN-305: the SIC wiring and the six utility codes", () => {
     const noPension = dcfOf({ debtLikeObligations: { ...claims, pension: null } });
     expect(noPension.gaps.some((g) => g.field === "valuation.dcf.debtLikeObligations.sicUnknown")).toBe(false);
     expect(dcfOf({ debtLikeObligations: claims }).gaps.some((g) => g.field === "valuation.dcf.debtLikeObligations.sicUnknown")).toBe(true);
-    expect(dcfOf({ debtLikeObligations: claims, sicEstablished: true }).gaps.some((g) => g.field === "valuation.dcf.debtLikeObligations.sicUnknown")).toBe(false);
+    expect(dcfOf({ debtLikeObligations: claims, sicCode: 2834 }).gaps.some((g) => g.field === "valuation.dcf.debtLikeObligations.sicUnknown")).toBe(false);
   });
 });

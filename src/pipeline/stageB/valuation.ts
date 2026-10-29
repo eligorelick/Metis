@@ -26,6 +26,7 @@ import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations"
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
@@ -1257,13 +1258,12 @@ export interface DcfAssumptions {
    * non-operating (D-60). The equity bridge adds back exactly this amount, so
    * an asset left out of operating capital is never left out of value too.
    * FIN-304: recorded whenever the balance carries a holding; `basis` is set
-   * only when the holding meets or exceeds a positive invested capital, so nothing is
-   * left to remove from operating capital and sales-to-capital takes the house
-   * cap (the bridge still adds the holding back); it replaces, in the bridge
-   * line's provenance, the clause saying the denominator removes the amount.
-   * On the lease-emptied
-   * path (capital already non-positive) it says the issuer's own history sets
-   * the ratio instead.
+   * only when the denominator does not remove the holding, and it replaces, in
+   * the bridge line's provenance, the clause saying it does. Either the holding
+   * meets or exceeds a positive invested capital, so nothing is left to remove
+   * from operating capital and sales-to-capital takes the house cap (the bridge
+   * still adds the holding back), or the lease-emptied path (capital already
+   * non-positive) takes the issuer's own history for the ratio.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
   /**
@@ -6000,20 +6000,20 @@ export interface ValuationBundleInputs {
    */
   longTermInvestmentsBasis?: string | null;
   /**
-   * Audit 2026-10-22 E-7: asset-retirement and environmental obligations
-   * tagged at the bridge's balance date, and any assets legally restricted to
-   * settle the former. The DCF bridge deducts them. Null ⇒ none tagged.
+   * Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the asset-retirement,
+   * environmental, pension and OPEB, loss-contingency and contingent-consideration
+   * obligations tagged at the bridge's balance date (or within E-7's look-back),
+   * and any assets legally restricted to settle the retirement obligations. The
+   * DCF bridge deducts them after tax, except the pension and OPEB deficit of a
+   * rate-regulated utility, which it discloses. Null ⇒ none tagged.
    */
   debtLikeObligations?: DebtLikeObligations | null;
   /**
-   * Audit 2026-10-27 FIN-305 (pre-flight I7): the filer's SIC is one of the six regulated or diversified utility codes
-   * (`RATE_REGULATED_UTILITY_SIC`), so its pension and OPEB deficit is assumed recoverable through rates (ASC 980) and
-   * is disclosed, not deducted. Absent is false.
+   * FIN-305 (pre-flight I7): the filer's SIC code, the one fact the utility rule reads. A code in
+   * `RATE_REGULATED_UTILITY_SIC` means the pension and OPEB deficit is assumed recoverable through rates (ASC 980) and
+   * is disclosed, not deducted; null or absent means not established, which is read as not a utility, and a deducted
+   * pension line then raises the `sicUnknown` info gap.
    */
-  rateRegulatedUtility?: boolean;
-  /** FIN-305: the filer's SIC code is established. Absent is false: a deducted pension line then raises the `sicUnknown` info gap. */
-  sicEstablished?: boolean;
-  /** FIN-305: the established SIC code, named in the utility note. */
   sicCode?: number | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
@@ -6564,8 +6564,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // D-65: so do the long-term investments the sales-to-capital denominator
       // removed as non-operating, at their filed carrying value. FIN-304: a
       // holding that met or exceeded invested capital is added back too.
-      // The exceed case keeps the filed provenance and swaps only the clause
-      // that says the denominator removes the amount.
+      // The exceed and lease-emptied cases keep the filed provenance and swap
+      // only the clause that says the denominator removes the amount.
       const components: NonOperatingAssetComponent[] = [];
       if (isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0) {
         components.push({ kind: "marketable-equity-securities", label: "marketable equity securities (filed fair value, not cash)",
@@ -6641,17 +6641,17 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         deduct("environmental remediation accruals", obligations.environmental);
         const pension = obligations.pension ?? null;
         if (pension !== null && pension.value > 0) {
-          if (inputs.rateRegulatedUtility === true) {
+          if (isNum(inputs.sicCode) && RATE_REGULATED_UTILITY_SIC.has(inputs.sicCode)) {
             // FIN-305 (pre-flight I7): a rate-regulated utility recovers the cost through rates (ASC 980); the
             // offsetting regulatory asset is dimensional XBRL, which companyfacts does not carry.
-            const sic = isNum(inputs.sicCode) ? ` (SIC ${inputs.sicCode})` : "";
+            const sic = ` (SIC ${inputs.sicCode})`;
             notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}) are not deducted: a rate-regulated utility${sic} is assumed to recover them through rates (ASC 980); ` +
               "the offsetting regulatory asset is reported only in dimensional XBRL, which the SEC companyfacts the bridge reads does not carry.");
             gaps.push(gapEntry("valuation.dcf.debtLikeObligations.rateRegulated",
               `The filer is a rate-regulated utility${sic}: its pension and OPEB deficit of ${millions(pension.value)} is assumed recoverable through rates (ASC 980) and is disclosed, not deducted.`, "info"));
           } else {
             deduct("pension and other postretirement benefit deficits", pension);
-            if (inputs.sicEstablished !== true) {
+            if (!isNum(inputs.sicCode)) {
               gaps.push(gapEntry("valuation.dcf.debtLikeObligations.sicUnknown",
                 "The filer's SIC code is not established, so it is read as not a rate-regulated utility and its pension and OPEB deficit is deducted.", "info"));
             }
@@ -6670,7 +6670,13 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               : "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
                 "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either."));
           // FIN-305 (OD-4): none of these joins the market EV; say so where the EV is stated.
-          multiples.enterpriseValue.basis += " The debt-like obligations the DCF equity bridge deducts (retirement, environmental, pension and OPEB, loss-contingency and contingent-consideration) are not added to the market EV.";
+          // Only the families with a deducted line are named: a utility's disclosed pension deficit is not one.
+          const deductedFamilies = [
+            ["retirement", /^asset-retirement/], ["environmental", /^environmental/], ["pension and OPEB", /^pension/],
+            ["loss-contingency", /^loss-contingency/], ["contingent-consideration", /^business-combination contingent/],
+          ].filter(([, label]) => components.some((c) => c.kind === "debt-like-obligation" && (label as RegExp).test(c.label))).map(([name]) => name as string);
+          const named = deductedFamilies.length > 2 ? `${deductedFamilies.slice(0, -1).join(", ")} and ${deductedFamilies[deductedFamilies.length - 1]}` : deductedFamilies.join(" and ");
+          multiples.enterpriseValue.basis += ` The debt-like obligations the DCF equity bridge deducts (${named}) are not added to the market EV.`;
         }
       }
       if (temporaryEquityNote !== null) notes.push(temporaryEquityNote);

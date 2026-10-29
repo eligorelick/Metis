@@ -164,8 +164,13 @@ function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: 
   });
 }
 
-/** The first pension family filed at `date`: its choices' readings summed; a family filed as zero ends the look-back. */
+/**
+ * The first pension family with a positive reading at `date`, its choices' readings summed. A family filed as zero
+ * never blocks a positive family at the same date (as E-7's own reader and family (c)'s parts); a filed zero ends the
+ * look-back only when no family is positive there.
+ */
 function readPensionAt(facts: CompanyFacts, unit: string, date: string, observedDay: string): DateReading {
+  let zero = false;
   for (const family of PENSION_FAMILIES) {
     const found = family.flatMap((choice) => {
       const r = read(facts, choice, unit, date, observedDay);
@@ -174,9 +179,9 @@ function readPensionAt(facts: CompanyFacts, unit: string, date: string, observed
     if (found.length > 0) {
       return { value: found.reduce((sum, r) => sum + r.value, 0), basis: found.map((r) => r.basis).join(" + ") };
     }
-    if (family.some((choice) => filedZero(facts, choice, unit, date, observedDay))) return "zero";
+    if (family.some((choice) => filedZero(facts, choice, unit, date, observedDay))) zero = true;
   }
-  return null;
+  return zero ? "zero" : null;
 }
 
 function read(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): FiledObligation | null {

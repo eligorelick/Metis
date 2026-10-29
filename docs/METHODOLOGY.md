@@ -1229,14 +1229,18 @@ Postemployment benefits (ASC 712) count only when family (a) includes them, and
 are never read on their own. The look-back is date first: the bridge date, then
 each earlier balance within E-7's look-back, newest first, and at each date the
 families are tried in the order (a), (b), (c); the first date at which any family
-is filed gives the reading, and a family filed as zero at that date ends the
-look-back. Overfunded plans are not credited: a surplus is not equity value
+is filed gives the reading. A family filed as zero never blocks a positive family
+at the same date (as for E-7's own readings); a filed zero ends the look-back only
+when no family is positive at that date. Overfunded plans are not credited: a surplus is not equity value
 one-for-one (a US employer reversion pays a 20% excise tax, 50% unless a
 replacement plan or benefit increase applies, IRC 4980), and practitioners
 ignore it. **Loss-contingency accruals** are `LossContingencyAccrualAtCarryingValue`,
 else `LossContingencyAccrualCarryingValueNoncurrent` plus `...Current`; only the
-amount above any same-date `AccrualForEnvironmentalLossContingencies` is
-deducted, so an environmental accrual inside the total is never counted twice.
+amount above any same-date environmental accrual, read as the environmental
+line reads it (`AccrualForEnvironmentalLossContingencies`, else its noncurrent
+plus current parts), is deducted, so an environmental accrual inside the total is
+never counted twice. An environmental accrual found only at an earlier date than
+the loss accrual is not netted.
 **Contingent consideration** is `BusinessCombinationContingentConsiderationLiability`,
 else its `Noncurrent` plus `Current` parts. For these two families a current
 portion filed alone counts as the whole balance: litigation accruals and earn-outs
@@ -1244,7 +1248,8 @@ are commonly all current, and a current part alone can only understate the claim
 (for retirement, environmental and pension readings a current portion alone is
 still not the obligation). None of these obligations joins the market EV (nor
 did the retirement and environmental ones); the EV basis says so in one sentence
-whenever the bridge deducts one.
+whenever the bridge deducts one, naming only the families it deducted (never the
+pension deficit of a rate-regulated utility, which it discloses).
 
 **Rate-regulated utilities.** For a filer whose SIC code (the EDGAR submissions
 `sic`) is one of 4911, 4923, 4924, 4931, 4932 or 4941, the pension and OPEB
@@ -1277,7 +1282,7 @@ B2b-1. For a pension deficit it is the after-tax cost of funding the deficit at
 once: the deficit is discounted at a pretax high-quality bond rate (ASC 715), the
 contribution is deductible (26 U.S.C. §404), and the fund then earns that rate
 untaxed (Feldstein, "Private Pensions as Corporate Debt", NBER 1982, pp. 75-90:
-not re-checked, the page images were lost on 2026-10-28; FE Training and IB
+unverified (evidence lost 2026-10-28); FE Training and IB
 Interview Questions carry the same convention). A deficit funded later costs more
 in present value; the bridge does not model the funding schedule. The relief is
 approximate and the notes say so: the rate omits state and local taxes and assumes
@@ -1325,8 +1330,8 @@ obligations are deducted after tax, as above, so the bridge adjusts for the tax
 relief a settlement earns. Filers also
 charge the retirement obligations' accretion to operating income, so the
 projected NOPAT already bears their time value, and deducting the obligation
-counts that time value twice. The bridge states the accretion, which it does not
-adjust for.
+counts that time value twice. The bridge adjusts for the tax and states the
+accretion, which it does not adjust for.
 
 The deduction sits inside the non-operating total, so the sensitivity grid,
 the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
