@@ -4140,8 +4140,22 @@ material re-filing labelling no re-presentation superseded) is no SEC value:
 nothing is compared, so no conflict is raised, and nothing is filled. A
 re-filing within 1%, or one labelled with a discontinued-operations line, is
 compared or filled on the first-reported pair. A copy that only re-rounds is no
-re-filing, so the as-filed pair stands, and a vendor quarter on the
-first-reported pair is judged against it by the tolerance above. The
+re-filing, so the as-filed pair stands.
+
+A vendor figure against a derived SEC value agrees within the larger of the
+tolerance above and the operands' rounding allowance: the sum, over the filed
+copies the compared figure nets (two, or four for short-term sales plus
+maturities), of half each copy's rounding unit, the largest power of ten up to
+a million that divides it exactly (1 for a zero, so a zero never widens it;
+none for a figure with a fraction). A figure the filing states only to the
+million is itself uncertain by half a million, so a difference within the
+operands' stated precision is not a disagreement. AEP's FY2024 operating cash
+flow, re-rounded from 6,804.3 to 6,804.0 million in the next 10-K, less nine
+months of 5,076.9 million gives a fourth quarter of 1,727.1 million, the
+quarter the statement builder publishes; a vendor 1,727.4 million is within its
+0.55 million (0.5 + 0.05) and is kept, and 1,728.0 million is a conflict. A
+directly filed figure keeps the tolerance above alone. (Controller ruling of
+2026-10-29, revising A-11 for derived values; D-next.) The
 operating-cash-flow conflict reason and the enrichment note call a derived
 value derived, with its period and its two filings ("derived 100M USD for
 2024-10-01 through 2024-12-31 (fiscal year or year to date less the prior year

@@ -7,7 +7,7 @@ import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
-import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { millions } from "@/pipeline/stageB/netDebt";
@@ -25,7 +25,12 @@ function validDay(day: unknown): day is string {
 }
 const span = (p: FactPoint) => p.start ? (Date.parse(p.end) - Date.parse(p.start)) / DAY : null;
 const newest = (points: FactPoint[]) => [...points].sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn))[0];
-interface Resolved { value: number; evidence: StatementFieldProvenance }
+interface Resolved {
+  value: number;
+  evidence: StatementFieldProvenance;
+  /** The two filed copies a derived value nets (minuend, then subtrahend); absent for a directly filed value. */
+  operands?: readonly FactPoint[];
+}
 
 /** Dated facts, exact monetary unit only; no implicit USD or million scaling. */
 function points(facts: CompanyFacts, tag: string, unit: string, observedAt: string): FactPoint[] {
@@ -101,7 +106,18 @@ function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, 
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
   const out = resolved(minuend.val - prior.val, [tag], [minuend, prior], unit, observedAt, start, end);
   out.evidence.derivation = "ytd-difference";
+  out.operands = [minuend, prior];
   return out;
+}
+/**
+ * A vendor figure against SEC values: A-11, or for a value derived from filed operands (every part derived), A-11
+ * widened to the operands' rounding (audit 2026-10-27 FIN-511-V2, `vendorAgreesWithDerived`). `value` is the parts'
+ * figure as compared (signed, or summed).
+ */
+function agreesWithSec(vendor: number, value: number, parts: readonly Resolved[]): boolean {
+  return parts.length > 0 && parts.every((part) => part.operands !== undefined)
+    ? vendorAgreesWithDerived(vendor, value, parts.flatMap((part) => part.operands!.map((operand) => operand.val)))
+    : vendorAgreesWithFiled(vendor, value);
 }
 /** How a derived SEC value was built, for reason texts: "(fiscal year or year to date less the prior year to date, from the <filing> and the <filing>)". */
 function derivedFrom(evidence: StatementFieldProvenance): string {
@@ -147,6 +163,7 @@ function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRo
   return { cashAtBeginningOfPeriod: beginning, cashAtEndOfPeriod: ending, netChangeInCash: {
     value: movement!.value, evidence: { ...movement!.evidence, tags: [...new Set([...movement!.evidence.tags, ...beginning.evidence.tags, ...ending.evidence.tags])],
       filings: [...movement!.evidence.filings, ...beginning.evidence.filings, ...ending.evidence.filings], calculation: "ending-cash-minus-beginning-cash" },
+    ...(movement!.operands ? { operands: movement!.operands } : {}),
   } };
 }
 
@@ -211,7 +228,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
-    if (vendorAgreesWithFiled(vendor, value)) continue;
+    if (agreesWithSec(vendor, value, [sec])) continue;
     const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
@@ -237,7 +254,7 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  const conflict = fields.some(field => finite(row[field]) && !vendorAgreesWithFiled(row[field], sec.value));
+  const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
   if (!conflict) return { row, gaps: [] };
   // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
   const secText = sec.evidence.derivation === "ytd-difference"
@@ -272,7 +289,8 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
     (typeof row.periodStart === "string" && row.periodStart !== evidence.periodStart) ||
     (validDay(row.filingDate) && !evidence.filings.some(f => f.filed === row.filingDate))) return { row, gaps: [] };
   const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
-  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && !vendorAgreesWithFiled(row[field], value))) return { row, gaps: [] };
+  const expectedParts: Record<string, Resolved[]> = { purchasesOfInvestments: [purchase!], salesMaturitiesOfInvestments: [sale!, maturity!] };
+  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && !agreesWithSec(row[field], value, expectedParts[field]!))) return { row, gaps: [] };
   const reason = `financial-investment classification unreconciled at ${row.date}: same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
   const fieldConflicts = { ...row.fieldConflicts };
   const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
@@ -861,7 +879,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         }
         const vendor = row[field];
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
-          if (vendorAgreesWithFiled(vendor, sec.value)) continue;
+          if (agreesWithSec(vendor, sec.value, [sec])) continue;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${vendor} versus ${sec.value} ${currency}; vendor observation preserved and field unavailable for reconciliation`;
           out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });

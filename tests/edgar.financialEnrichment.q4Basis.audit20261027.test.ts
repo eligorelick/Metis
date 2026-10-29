@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { derivedRoundingAllowance, roundingUnit, vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 
 /**
  * Audit 2026-10-27 FIN-511-V2 (decision C-9, OD-5): the vendor-enrichment derivation of a fiscal-year-end
@@ -115,5 +116,61 @@ describe("FIN-511-V2: the vendor-enrichment derivation pairs one presentation (C
       "derived 100M USD for 2024-10-01 through 2024-12-31 (fiscal year or year to date less the prior year to date, " +
         "from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004))",
     );
+  });
+});
+
+/**
+ * Controller ruling 2026-10-29 (FIN-511-V2, revising A-11 for derived values): a vendor figure against a derived SEC
+ * value agrees within max(A-11's allowance, the sum over the operands of half each operand's rounding unit), the
+ * rounding unit being the largest power of ten, at most a million, that divides the operand exactly.
+ */
+describe("FIN-511-V2 ruling: a derived SEC value is compared within its operands' stated precision", () => {
+  it("(c) a precision-only re-filing (AEP shape) raises no conflict against the original-pair vendor CFO", () => {
+    const row = enrich(aepFacts(), vendorQ4({ operatingCashFlow: 1_727.4 * M, netCashProvidedByOperatingActivities: 1_727.4 * M }));
+    expect(row.operatingCashFlow).toBe(1_727.4 * M);
+  });
+  it("control: a vendor beyond the operands' rounding (1,728.0M against the derived 1,727.1M, allowance 0.55M) still conflicts", () => {
+    const out = enrichOut(aepFacts(), vendorQ4({ operatingCashFlow: 1_728 * M, netCashProvidedByOperatingActivities: 1_728 * M }));
+    expect(out.row.operatingCashFlow).toBeNull();
+    expect(out.row.fieldConflicts?.operatingCashFlow).toMatchObject({ secValue: 1_727_100_000, usable: false });
+  });
+  it("control: a directly filed quarter keeps A-11 alone (filed 1,727.1M against vendor 1,727.4M conflicts)", () => {
+    const direct = { cik: 4904, entityName: "AEP-shaped Co", facts: { "us-gaap": { NetCashProvidedByUsedInOperatingActivities: { label: "CFO", units: { USD: [
+      pt(AEP.k25!, "2024-10-01", "2024-12-31", 1_727_100_000),
+    ] } } } } };
+    const out = enrichOut(direct, vendorQ4({ operatingCashFlow: 1_727.4 * M, netCashProvidedByOperatingActivities: 1_727.4 * M }));
+    expect(out.row.operatingCashFlow).toBeNull();
+    expect(out.row.fieldConflicts?.operatingCashFlow).toMatchObject({ secValue: 1_727_100_000, usable: false });
+  });
+  it("the rounding unit: the largest power of ten up to a million dividing the value exactly", () => {
+    expect(roundingUnit(6_804_000_000)).toBe(1_000_000);
+    expect(roundingUnit(5_076_900_000)).toBe(100_000);
+    expect(roundingUnit(1_234_567)).toBe(1);
+    expect(roundingUnit(-5_000_000)).toBe(1_000_000);
+    expect(roundingUnit(0)).toBe(1); // a zero shows no precision: the smallest unit, so it never widens the allowance
+    expect(roundingUnit(1.5)).toBe(0); // not a whole number: no rounding unit, no allowance
+    expect(derivedRoundingAllowance([6_804_000_000, 5_076_900_000])).toBe(550_000);
+    expect(vendorAgreesWithDerived(1_727_400_000, 1_727_100_000, [6_804_000_000, 5_076_900_000])).toBe(true);
+    expect(vendorAgreesWithDerived(1_727_700_000, 1_727_100_000, [6_804_000_000, 5_076_900_000])).toBe(false);
+    // Never narrower than A-11: 0.01% of 100,000M is 10M, above the operands' 1M.
+    expect(vendorAgreesWithDerived(100_010_000_000, 100_000_000_000, [400_000_000_000, 300_000_000_000])).toBe(true);
+  });
+
+  /** Short-term investment flows, each derived as FY (10-K, whole millions) less nine months (10-Q, to 0.1M). */
+  const investmentFacts = (): Facts => ({
+    cik: 9, entityName: "Probe Co", facts: { "us-gaap": Object.fromEntries(([
+      ["PaymentsToAcquireShortTermInvestments", 1_000 * M, 700.1 * M],
+      ["ProceedsFromSaleOfShortTermInvestments", 500 * M, 350.2 * M],
+      ["ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments", 300 * M, 200.3 * M],
+    ] as const).map(([tag, fy, nine]) => [tag, { label: tag, units: { USD: [pt(F.q324!, "2024-01-01", "2024-09-30", nine), pt(F.k24!, "2024-01-01", "2024-12-31", fy)] } }])) },
+  });
+  it("a derived sum is compared within every operand's rounding (sales 149.8M + maturities 99.7M, four operands, 1.1M)", () => {
+    const row = enrich(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.5 * M }));
+    expect(row).toMatchObject({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.5 * M });
+    expect(row.fieldConflicts?.salesMaturitiesOfInvestments).toBeUndefined();
+  });
+  it("control: beyond the four operands' 1.1M the investment buckets are still refused", () => {
+    const row = enrich(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.7 * M }));
+    expect(row).toMatchObject({ purchasesOfInvestments: null, salesMaturitiesOfInvestments: null });
   });
 });
