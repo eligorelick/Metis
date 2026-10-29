@@ -852,6 +852,9 @@ describe("final review: a year-end instant after a comparison cue or a start is 
     S8: "From the end of the prior fiscal year, inventory increased by $5.8 billion.",
     S9: "Since the end of the prior fiscal year, inventory increased by $5.8 billion.",
     S10: "Inventory was $31.6 billion, compared with $25.8 billion at fiscal year-end.",
+    // The parenthetical holds the other figure, and its year-end is that figure's (final re-review, AI-303-V3).
+    S11: "Inventory was $31.6 billion (at the end of the prior fiscal year, $25.8 billion).",
+    S12: "Inventory was $31.6 billion (prior fiscal year-end: $25.8 billion).",
   } as const;
   type Source = keyof typeof SOURCES;
   const SAME_PHRASE = "at the end of the prior fiscal year";
@@ -882,7 +885,7 @@ describe("final review: a year-end instant after a comparison cue or a start is 
         if (claim === "L31") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T(at !== SAME_PHRASE);
         if (claim === "L25") return fye ? (annual ? UNSTATED : AMBIGUOUS) : F;
         return UNSTATED;
-      case "S2": case "S3": case "S4": case "S5": case "S6": // $31.6 billion now; $25.8 billion at the prior fiscal year-end.
+      case "S2": case "S3": case "S4": case "S5": case "S6": case "S11": case "S12": // $31.6 billion now; $25.8 billion at the prior fiscal year-end.
         if (claim === "L31") return fye ? (annual ? T() : AMBIGUOUS) : F;
         if (claim === "L25") return fye ? (annual ? F : AMBIGUOUS) : T();
         if (claim === "C58since") return fye ? (annual ? UNSTATED : AMBIGUOUS) : T();
@@ -911,7 +914,7 @@ describe("final review: a year-end instant after a comparison cue or a start is 
   const ROWS = (Object.keys(SOURCES) as Source[]).flatMap((source) => (source === "S10" ? ["10-Q"] as Title[] : Object.keys(TITLES) as Title[])
     .flatMap((title) => (Object.keys(CLAIMS) as Claim[]).flatMap((claim) => SPELLINGS.map((at) => [source, title, claim, at] as const))));
   it("covers every source, title, claim and spelling (S10 under the 10-Q title only)", () => {
-    expect(ROWS).toHaveLength(9 * 3 * 4 * 6 + 4 * 6);
+    expect(ROWS).toHaveLength(11 * 3 * 4 * 6 + 4 * 6);
   });
   it.each(ROWS)("%s under the %s title: %s %s", (source, title, claim, at) => {
     const claimText = CLAIMS[claim](at);
@@ -960,6 +963,25 @@ describe("final review: a year-end instant after a comparison cue or a start is 
         { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" }).status, text).toBe("validated");
     }
     expect(run("S8", "10-Q", "Inventory increased by USD 5.8 billion since fiscal year-end.").status).toBe("unchecked");
+  });
+  it.each(Object.keys(TITLES) as Title[])("AI-303-V3: a year-end inside a parenthetical that holds another figure is that figure's (%s)", (title) => {
+    expect(run("S11", title, CLAIMS.L31(SAME_PHRASE))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(run("S11", title, CLAIMS.L25(SAME_PHRASE)).status).not.toBe("contradicted");
+    expect(run("S12", title, CLAIMS.L31("at the prior fiscal year-end"))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(run("S12", title, CLAIMS.L25("at the prior fiscal year-end")).status).not.toBe("contradicted");
+  });
+  it.each(Object.keys(TITLES) as Title[])("control: a parenthetical comparison stays the base's, and one with no figure stays the outer figure's (%s)", (title) => {
+    const on = (text: string, claim: string) => {
+      const { title: name, source: id, asOf } = TITLES[title];
+      const excerpt: TextExcerpt = { title: name, text, source: id, asOf, truncated: false, originalChars: text.length };
+      return validateClaimNumericSupport({ label: "FACT", text: claim, source: id, asOf }, { excerpts: [excerpt], sourceId: id, reportingCurrency: "USD" }).status;
+    };
+    for (const inner of ["compared with $25.8 billion", "up from $25.8 billion", "vs. $25.8 billion"]) {
+      expect(on(`Inventory was $31.6 billion (${inner} at the end of the prior fiscal year).`, CLAIMS.L31(SAME_PHRASE)), inner).toBe("unchecked");
+    }
+    expect(on("Inventory was $31.6 billion (at the end of the prior fiscal year).", CLAIMS.L31(SAME_PHRASE))).toBe("validated");
+    expect(on("Inventory was $31.6 billion (January 26, 2025: $25.8 billion).", "Inventory was USD 31.6 billion as of January 26, 2025.")).not.toBe("validated");
+    expect(on("Inventory was $31.6 billion (January 26, 2025: $25.8 billion).", "Inventory was USD 25.8 billion as of January 26, 2025.")).not.toBe("contradicted");
   });
   it("control: the figure's own prior year-end, in its own clause with no cue, still validates the same phrase under every title", () => {
     for (const title of Object.keys(TITLES) as Title[]) expect(run("S1", title, CLAIMS.L31(SAME_PHRASE)).status, title).toBe("validated");

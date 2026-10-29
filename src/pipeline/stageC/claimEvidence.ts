@@ -313,7 +313,20 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
       blanked = blanked.slice(0, other.start - span.start) + " ".repeat(other.end - other.start) + blanked.slice(other.end - span.start);
     }
   }
-  const stated = periodLabels(blanked, { loose, yearEnd });
+  // Final re-review (AI-303-V3): a period inside a parenthetical that holds another figure is that figure's ("$31.6 billion (at the end
+  // of the prior fiscal year, $25.8 billion)", "(prior fiscal year-end: $25.8 billion)"), never a figure's outside it; a parenthetical
+  // with no figure of its own stays the clause's. This is the reverse of the apposition rule for direction words (AI-401-V1). A
+  // parenthetical runs from "(" to the first ")" after it, or to the span's end.
+  const heldElsewhere: [number, number][] = [];
+  for (const open of ownText.matchAll(/\(/g)) {
+    const close = ownText.indexOf(")", open.index + 1);
+    const end = close < 0 ? ownText.length : close;
+    const inside = (other: Quantity): boolean => other.start - span.start > open.index && other.end - span.start <= end;
+    if (!inside(quantity) && all.some((other) => other.start !== quantity.start && other.start >= span.start && other.end <= span.end && inside(other))) {
+      heldElsewhere.push([open.index, end]);
+    }
+  }
+  const stated = periodLabels(blanked, { loose, yearEnd }).filter((period) => !heldElsewhere.some(([open, end]) => period.start > open && period.start < end));
   const isBase = (period: PeriodReference): boolean => {
     // Final re-review (AI-303-V3 / AI-402): a year-end is an instant, so it is read as a date is; any other window is a span and is
     // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
