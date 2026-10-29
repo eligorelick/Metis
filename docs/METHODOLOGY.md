@@ -3081,9 +3081,12 @@ dropping a period that files the non-operating aggregate without an interest
 element, removed a filer-tagged other non-operating result and stopped adding back
 interest the filer placed inside the aggregate, before D&A and R&D stopped taking a
 synonym below their own filed component, and before derived quarters and growth
-cells netted figures on one presentation only. (b) When the manifest holds a
-`keyless.incomeQuarterly.restatements` or `keyless.incomeAnnual.restatements` entry
-whose reason names a revenue re-presentation, the first quarterly-trend row's
+cells netted figures on one presentation only. (b) When the manifest holds an
+income restatements entry (`keyless.incomeQuarterly.restatements`,
+`keyless.incomeAnnual.restatements`, or a scoped one such as
+`keyless.incomeQuarterly.backfill.restatements`) whose reason names a revenue line
+or ends its list with "and N more" (a revenue line may sit past the six listed),
+the first quarterly-trend row's
 growth notes say the YoY/QoQ cells and derived fourth quarters were computed
 without checking whether the two quarters sit on one filed presentation. (c) The
 quality notes always say the one-time-items screen was skipped without notice where
@@ -3091,7 +3094,7 @@ the filer tags no NonoperatingIncomeExpense aggregate (so "no flags were raised"
 mean it was not evaluated), and that D&A could be a sub-line below the filer's own
 Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A. (c) does not wait
 for an available fair value, because (a) does. A report at or after the since-version,
-or one built on the FMP route, is returned as the identical object.
+or one with no `keyless.income*` manifest entry, is returned as the identical object.
 
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the

@@ -17,6 +17,7 @@ import {
   EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION as SINCE,
   withLegacyEdgarDerivedLines,
 } from "@/report/legacyEdgarDerivedLines";
+import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
@@ -93,6 +94,35 @@ describe("legacy EDGAR-derived-lines view", () => {
     const annual = base("1.44.0", { restated: true });
     annual.appendix.missingData = annual.appendix.missingData.map((e) => (e.field.endsWith(".restatements") ? { ...e, field: "keyless.incomeAnnual.restatements" } : e));
     expect(JSON.stringify(withLegacyEdgarDerivedLines(annual))).toMatch(TREND);
+  });
+
+  it("a scoped income restatements entry, or a list cut short with 'and N more', also triggers the trend note", () => {
+    // Review of ab12906 (M2): `discloseStatementRows` files scoped fields (backfill, predecessor), and the reason lists
+    // at most six restatements, so a revenue entry can sit behind "and N more".
+    const scoped = base("1.44.0", { restated: true });
+    scoped.appendix.missingData = scoped.appendix.missingData.map((e) => (e.field.endsWith(".restatements") ? { ...e, field: "keyless.incomeQuarterly.backfill.restatements" } : e));
+    expect(JSON.stringify(withLegacyEdgarDerivedLines(scoped))).toMatch(TREND);
+    const cut = base("1.44.0", { restated: true });
+    cut.appendix.missingData = cut.appendix.missingData.map((e) => (e.field.endsWith(".restatements")
+      ? { ...e, reason: e.reason.replace(" revenue ", " netIncome ").replace("filed 2026-02-25).", "filed 2026-02-25); and 3 more.") }
+      : e));
+    expect(JSON.stringify(withLegacyEdgarDerivedLines(cut))).toMatch(TREND);
+    // Controls: a revenue line on a cash-flow restatements entry, and a scoped income entry naming no revenue and no overflow.
+    const cash = base("1.44.0", { restated: true });
+    cash.appendix.missingData = cash.appendix.missingData.map((e) => (e.field.endsWith(".restatements") ? { ...e, field: "keyless.cashflowAnnual.restatements" } : e));
+    expect(JSON.stringify(withLegacyEdgarDerivedLines(cash))).not.toMatch(TREND);
+    const other = base("1.44.0", { restated: true });
+    other.appendix.missingData = other.appendix.missingData.map((e) => (e.field.endsWith(".restatements")
+      ? { ...e, field: "keyless.incomeAnnual.predecessor.restatements", reason: e.reason.replace(" revenue ", " netIncome ") }
+      : e));
+    expect(JSON.stringify(withLegacyEdgarDerivedLines(other))).not.toMatch(TREND);
+  });
+
+  it("the stored-read view carries the notes once", () => {
+    // Review of ab12906 (M1): the legacyEntitySafety wiring had no test of its own.
+    const view = parseStoredReportWithSafety(JSON.stringify(base("1.44.0")))!.report;
+    expect(view.quality.notes!.filter((l) => SCREENS.test(l))).toHaveLength(1);
+    expect(view.fairValue!.basis.filter((l) => DERIVATION.test(l))).toHaveLength(1);
   });
 
   it("applying the rule twice adds the notes once", () => {

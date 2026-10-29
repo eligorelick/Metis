@@ -6,7 +6,7 @@ import type { Report } from "@/report/schema";
  * filings before this batch's report spec (audit 2026-10-27, B13, D-67). The
  * derived lines and growth cells it shows are as stored; the notes below say
  * which derivations changed since. No figure is rewritten, and a report at or
- * after the since-version, or one that was not built from SEC statements, is
+ * after the since-version, or one whose manifest holds no `keyless.income*` entry, is
  * returned as the identical object.
  *
  * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
@@ -28,10 +28,16 @@ export const LEGACY_EDGAR_QUALITY_NOTE =
   `Statement-derived screens on this report were computed before report spec ${SINCE}: where the filer tags no NonoperatingIncomeExpense aggregate, the one-time-items screen was skipped without notice, so 'no flags were raised' may mean it was not evaluated; and D&A could be a sub-line below the filer's own Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A. Re-run the report for the current derivation.`;
 
 const STATEMENT_FIELDS = ["keyless.incomeAnnual", "keyless.incomeQuarterly"] as const;
-const RESTATEMENT_FIELDS = ["keyless.incomeQuarterly.restatements", "keyless.incomeAnnual.restatements"] as const;
 
 const isStatementField = (field: string): boolean =>
   STATEMENT_FIELDS.some((prefix) => field === prefix || field.startsWith(`${prefix}.`));
+
+/**
+ * An income restatements entry, scoped (`.backfill`, `.predecessor`) or not, that names a revenue line or lists at
+ * most six lines and ends "and N more" (keyless.ts MAX_LISTED_RESTATEMENTS), so a revenue line may sit behind it.
+ */
+const namesRevenueRepresentation = (entry: { field: string; reason: string }): boolean =>
+  isStatementField(entry.field) && entry.field.endsWith(".restatements") && (entry.reason.includes(" revenue ") || /; and \d+ more\b/.test(entry.reason));
 
 export function withLegacyEdgarDerivedLines(report: Report): Report {
   if (!specVersionBefore(report.meta.specVersion, SINCE)) return report;
@@ -47,9 +53,7 @@ export function withLegacyEdgarDerivedLines(report: Report): Report {
   }
 
   const trend = next.filingDisclosures?.quarterlyTrend;
-  const revenueRepresented = manifest.some(
-    (entry) => (RESTATEMENT_FIELDS as readonly string[]).includes(entry.field) && entry.reason.includes(" revenue "),
-  );
+  const revenueRepresented = manifest.some(namesRevenueRepresentation);
   if (revenueRepresented && trend !== undefined && trend.length > 0 && !(trend[0]!.revenueGrowthNotes ?? []).includes(LEGACY_EDGAR_TREND_NOTE)) {
     const rows = [{ ...trend[0]!, revenueGrowthNotes: [...(trend[0]!.revenueGrowthNotes ?? []), LEGACY_EDGAR_TREND_NOTE] }, ...trend.slice(1)];
     next = { ...next, filingDisclosures: { ...next.filingDisclosures!, quarterlyTrend: rows } };
