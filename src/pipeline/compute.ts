@@ -129,6 +129,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
@@ -3264,6 +3265,8 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     intangibleAssets: num(row.intangibleAssets),
     minorityInterest: num(row.minorityInterest),
     preferredStock: num(row.preferredStock),
+    // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
+    ...temporaryEquityOperands(row),
     equityOwnershipBasis: statementEquityOwnershipBasis(row),
     // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
     // disclosure context; only the OPERATING slice is netted out of EV
@@ -3941,6 +3944,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
+    // FIN-119: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
+    temporaryEquity: bridgePoint ? temporaryEquityClaims(temporaryEquityOperands(bridgePoint)) : null,
+    temporaryEquityUnknown: temporaryEquityUnknownAt(bridgePoint, bridgePoint ? isoDay(bridgePoint.date) : null, bundle.gaps),
     // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
     // Consolidated profit is the filed ProfitLoss, else net income on a
     // consolidated basis, else parent plus NCI income (as forensics does).
@@ -4401,6 +4407,8 @@ function mergeQuarterly(
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
       preferredStock: bal ? num(bal.preferredStock) : null,
       minorityInterest: bal ? num(bal.minorityInterest) : null,
+      // FIN-119: each quarter's own redeemable claims, so the own-history EV and the P/FCF guard read them.
+      ...(bal ? temporaryEquityOperands(bal) : {}),
       // WS6 review (BLOCKER 2): the lease slice too, so a lease-adjusted current
       // EV is ranked against a lease-adjusted history.
       operatingLeaseLiability: bal ? num(bal.operatingLeaseLiability) : null,

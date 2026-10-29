@@ -187,6 +187,11 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       [`Intrinsic value per share unavailable: ${nciKeyReason}`],
     );
   }
+  // FIN-119: withheld because a temporary-equity claim is refused or may overlap the NCI earnings key.
+  const temporaryEquityGap = valuation.kind === "dcf" ? valuation.gaps.find((g) => g.field === "valuation.dcf.temporaryEquityAllocation") : undefined;
+  if (temporaryEquityGap !== undefined) {
+    return suppressed([temporaryEquityGap], [`Intrinsic value per share unavailable: ${temporaryEquityGap.reason}`]);
+  }
 
   if (method === null || !isNum(perShareValue)) {
     const reason =
@@ -431,6 +436,8 @@ export interface DcfDisplay {
     noncontrollingBasis?: string;
     /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
     noncontrollingBook?: number;
+    /** FIN-119: the redeemable claims (temporary equity) already inside `preferredEquity` and `minorityInterest`. */
+    temporaryEquity?: { redeemablePreferred: number; redeemableNoncontrolling: number; unsplit: number };
   };
   /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
@@ -509,5 +516,8 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis !== undefined ? { noncontrollingBasis: noncontrollingBasisText(dcf.bridge) } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(dcf.bridge.minorityInterest) ? { noncontrollingBook: dcf.bridge.minorityInterest } : {}),
+    ...(dcf.bridge.temporaryEquity !== undefined ? { temporaryEquity: {
+      redeemablePreferred: dcf.bridge.temporaryEquity.redeemablePreferred, redeemableNoncontrolling: dcf.bridge.temporaryEquity.redeemableNoncontrolling,
+      unsplit: dcf.bridge.temporaryEquity.unsplit } } : {}),
   }, forecastRows: dcf.yearRows.map(mapRow), ...(consensusPath.length > 0 ? { consensusPath } : {}) };
 }

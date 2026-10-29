@@ -1036,6 +1036,7 @@ EV = market capitalisation
    + total debt
    + preferred stock
    + minority interest (non-controlling interests)
+   + redeemable preferred and redeemable non-controlling interests (temporary equity)
    - cash and short-term investments
 ```
 
@@ -1053,7 +1054,7 @@ it; a zero final quarter alone does not show the earlier quarters held none.
 The row discloses the inference (audit
 SNOW-2), and the inferred figure counts as parent equity wherever parent equity
 is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
-value = EV − net debt − minority interest − preferred equity + non-operating
+value = EV − net debt − minority interest − preferred equity (each including its redeemable part, below) + non-operating
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
 on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
@@ -1065,6 +1066,38 @@ bridge the one dated at the DCF statement date (see "Valuation date (D-65)"). Th
 two can differ even on a trailing-twelve-month base: a 10-K filed before its
 quarter reaches the quarterly feed makes the annual row the newer anchor, while
 the window still ends at the last quarter, and the bridge reads that quarter.
+
+**Redeemable preferred and redeemable NCI (temporary equity; audit 2026-10-27
+FIN-119).** Preferred stock and non-controlling interests that the holder can
+force the issuer to redeem are carried in temporary (mezzanine) equity, outside
+every equity field above, and their carrying amount is the redemption claim
+(ASC 480-10-S99). They are claims senior to common, so the house definition of
+"claims senior to common" has two parts. Preferred is permanent preferred plus
+temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttributableToParent`).
+Non-controlling interest is book NCI plus redeemable NCI
+(`RedeemableNoncontrollingInterestEquityCarryingAmount`). The DCF bridge deducts
+the parent part beside preferred, and the redeemable NCI joins book NCI as the
+book floor of the larger-of test in the next paragraph, so it is never deducted
+twice. A null book NCI beside a filed redeemable NCI is not a zero book: the
+per-share value is withheld, as E-5 withholds it, and the reason names the
+redeemable amount. A filed total with no parent/NCI split is deducted beside
+preferred; if the earnings key would also size the NCI, the per-share value is
+withheld (`valuation.dcf.temporaryEquityAllocation`), because the unsplit amount
+may be NCI the key already counts. The market EV and the own-history EV add the
+same claims. An operand Stage A refuses (a conflict between sources, a
+non-finite value, a total that contradicts its parts) withholds what it touches:
+the DCF per-share value and the EV multiples
+(`valuation.multiples.enterpriseValue.temporaryEquity`). It is never zero-filled.
+The same claims reach every guard that asks whether preferred or NCI exists:
+forecast operating EPS and the P/FCF cash-ownership guard are withheld as for
+permanent preferred, and so are the own-history common-allocation checks. When an
+issuer tags temporary equity but its SEC enrichment was withheld, the claim is
+unknown, not absent: the bridge and the EVs keep their figures and one warn gap
+(`valuation.temporaryEquity.unknown`) says a claim may be missing. A residual is
+disclosed in the report itself: the parent caption can also hold redeemable
+common shares (shares subject to possible redemption, an ESOP put) that the
+diluted share count may already include; companyfacts do not separate them, so
+such shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
@@ -1086,7 +1119,9 @@ reports zero without a filed fact cannot size it (the vendor feed can report an
 omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
 is positive: a zero book balance does not negate the claim the income shows.
 When NCI income is nonzero (a profit or a loss) but book NCI is unavailable,
-neither deduction can be set, so the per-share value is withheld.
+neither deduction can be set, so the per-share value is withheld. Book NCI here
+includes redeemable NCI (above), so the larger-of test floors at book plus the
+redeemable amount.
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -1979,7 +2014,9 @@ USD 12.105 million below common FFO, disproving an unconditional upper bound.
 The implied cap rate divides NOI by the **house enterprise value** — market
 capitalisation + net debt + preferred + minority interest, less the
 operating-lease slice by default — the same definition the multiples and the
-DCF bridge use, so a report carries one EV. The own-history P/FFO and P/AFFO
+DCF bridge use, so a report carries one EV. (The REIT block's own EV does not
+yet add redeemable preferred and redeemable NCI, which the multiples EV and the
+DCF bridge now add; "EV bridge", above.) The own-history P/FFO and P/AFFO
 bands are built from net income + D&A per rolling four quarters, the only
 construction quarterly statements support; when the current FFO adjusts
 additional NAREIT components (a property-sale gain, an impairment or real-estate-only depreciation

@@ -1075,6 +1075,8 @@ export const DcfSchema = z
       /** E-5: how the NCI deducted in minorityInterest was sized. */
       noncontrollingBasis: z.string().optional(),
       noncontrollingBook: z.number().optional(),
+      /** FIN-119: the redeemable claims (temporary equity) already inside preferredEquity and minorityInterest. */
+      temporaryEquity: z.object({ redeemablePreferred: z.number(), redeemableNoncontrolling: z.number(), unsplit: z.number() }).strict().optional(),
     }).strict().optional(),
     /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
     consensusPath: z.array(z.object({
