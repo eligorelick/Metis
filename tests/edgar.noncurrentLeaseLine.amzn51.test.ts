@@ -168,6 +168,32 @@ describe("a noncurrent debt that already holds the finance leases is not complet
   });
 });
 
+describe("a refused completion says only what it checked (review m2)", () => {
+  it("NVIDIA shape: a vendor short-term debt equal to the current operating lease is not called missing current debt", () => {
+    // NVIDIA's 10-Q at 2022-05-01 (SEC-filed, millions): no current debt and no finance lease tagged; the vendor's
+    // 147M short-term debt is the current operating lease, so its total 11,846M already held it.
+    const end = "2022-05-01";
+    const facts = companyFacts({ [end]: { OperatingLeaseLiability: 899, OperatingLeaseLiabilityCurrent: 147, OperatingLeaseLiabilityNoncurrent: 752, LongTermDebtNoncurrent: 10_947 } });
+    const row = { date: end, reportedCurrency: "USD", cik: "0000000042", shortTermDebt: 147 * M, longTermDebt: 10_947 * M, capitalLeaseObligations: 752 * M,
+      capitalLeaseObligationsCurrent: 0, capitalLeaseObligationsNonCurrent: 752 * M, totalDebt: 11_846 * M } as FmpBalanceSheetRow;
+    const reason = admitDebtFields(row, facts, "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
+    expect(reason).toBe(`incomplete debt carrying value: the vendor lease line 752000000 USD is the 10-Q ${ACCN} filing's noncurrent lease liabilities ` +
+      "(OperatingLeaseLiabilityNoncurrent 752000000; no finance lease is filed) at 2022-05-01, but the vendor short-term debt 147000000 equals current lease liabilities " +
+      "the completed lease total already holds; the filing tags no current debt to show it is debt, so total debt and net debt are withheld rather than counting those leases twice");
+  });
+
+  it("a current debt the filing does not tag is named as unestablished", () => {
+    const reason = admitDebtFields(vendorRow(Q2), companyFacts(without(FILED_FACTS, "LongTermDebtCurrent", "ShortTermBorrowings")), "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
+    expect(reason).toMatch(/, but the current debt cannot be established: the filing tags no LongTermDebtCurrent at 2026-06-30 and the vendor short-term debt is 0; total debt and net debt are withheld rather than published with a current debt the filing does not establish$/);
+  });
+
+  it("any other cause says only that the row is not completed", () => {
+    const reason = admitDebtFields(vendorRow(Q2), companyFacts(without(FILED_FACTS, "LongTermDebtNoncurrent")), "USD", OBSERVED).row.fieldConflicts?.totalDebt?.reason;
+    expect(reason).toMatch(/cannot be matched to a LongTermDebtNoncurrent in that filing, so a current portion inside it cannot be ruled out; the row is not completed from that filing, so total debt and net debt are withheld$/);
+    expect(reason).not.toMatch(/rather than published without the current debt and current lease liabilities/);
+  });
+});
+
 describe("the refusal names the values and the scope, not the issuer (VAL-4)", () => {
   it("states the operating-lease total against the vendor's noncurrent-only lease line", () => {
     expect(leaseDebtConflict(vendorRow(Q2))).toContain(

@@ -4565,8 +4565,10 @@ info entry gives the arithmetic, and the vendor's own total stays in the raw
 row. Where a rule fails, the row is refused with the exact cause ("the current
 debt cannot be established: the filing tags no LongTermDebtCurrent ...",
 "the vendor short-term debt ... does not reconcile with the filed current
-debt", and so on) rather than published without the current debt and current
-leases. The lease guard itself is unchanged, and its refusal now names the
+debt", and so on), and the refusal claims only what the check established:
+a current debt the filing does not establish, a vendor short-term debt that
+may be the current leases (counted twice if kept), or otherwise that the row
+is not completed from that filing. The lease guard itself is unchanged, and its refusal now names the
 values it compared and each operand's scope, for example "operating-lease
 liability 96,320M (current + noncurrent) exceeds the vendor lease line 94,338M
 (noncurrent only)". The WACC's refusal says "average total debt withheld:"

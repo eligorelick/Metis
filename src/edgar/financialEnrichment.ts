@@ -448,8 +448,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const ref = `${filing.form} ${filing.accn}`;
   const lineText = `the vendor lease line ${line} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
     `(OperatingLeaseLiabilityNoncurrent ${operatingNoncurrent}${financeNoncurrent === null ? "; no finance lease is filed" : ` + FinanceLeaseLiabilityNoncurrent ${financeNoncurrent}`}) at ${date}`;
-  const refuse = (cause: string): LeaseLineCompletion<T> => ({ status: "refused",
-    reason: `incomplete debt carrying value: ${lineText}, but ${cause}; total debt and net debt are withheld rather than published without the current debt and current lease liabilities` });
+  // Review m2: the consequence states only what the check established; by default, that the row is not completed.
+  const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld"): LeaseLineCompletion<T> => ({ status: "refused",
+    reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}` });
   const leaseTotal = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | string => {
     const tag = `${prefix}LeaseLiability`;
     const total = inFiling(tag), current = inFiling(`${tag}Current`), noncurrentPart = inFiling(`${tag}Noncurrent`);
@@ -511,10 +512,12 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     }
     const currentLeases = [leases - line, operating.value - operatingNoncurrent, finance.value - (financeNoncurrent ?? 0)].filter((value) => value > 0);
     if (filed === null && currentLeases.some((value) => vendorAgreesWithFiled(vendorShort, value))) {
-      return refuse(`the vendor short-term debt ${vendorShort} equals current lease liabilities the completed lease total already holds`);
+      return refuse(`the vendor short-term debt ${vendorShort} equals current lease liabilities the completed lease total already holds`,
+        "the filing tags no current debt to show it is debt, so total debt and net debt are withheld rather than counting those leases twice");
     }
   } else if (filedCurrent === null) {
-    return refuse(`the current debt cannot be established: the filing tags no LongTermDebtCurrent at ${date} and the vendor short-term debt is ${vendorShort ?? "absent"}`);
+    return refuse(`the current debt cannot be established: the filing tags no LongTermDebtCurrent at ${date} and the vendor short-term debt is ${vendorShort ?? "absent"}`,
+      "total debt and net debt are withheld rather than published with a current debt the filing does not establish");
   }
   const currentDebt = keepVendorShort ? vendorShort : filedCurrent!;
   const totalDebt = currentDebt + longTerm + leases;
