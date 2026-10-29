@@ -4579,10 +4579,19 @@ kept for a total debt that is absent.
 whose short-term debt is 0 while the same-period filing tags a positive
 `DebtCurrent`, `LongTermDebtCurrent`, `ShortTermBorrowings` or
 `CommercialPaper` is not complete: its total debt and net debt are withheld
-with a reason naming the filed tags. A short-term debt the SEC statements
+with a reason naming the filed tags. The row is kept when the provider folded
+the current maturities into its long-term debt: that long-term debt equals the
+same filing's `LongTermDebtNoncurrent` plus `LongTermDebtCurrent` (within the
+larger of 1 and one part in a million), and the filing tags no other current
+debt (`ShortTermBorrowings` and `CommercialPaper` absent or 0, `DebtCurrent`
+absent or equal to `LongTermDebtCurrent`). A `DebtCurrent` above the current
+maturities may hold borrowings or current finance leases the check cannot
+place, so it still withholds the row. A short-term debt the SEC statements
 built is not checked this way. On Amazon's provider rows this withholds the
-2017 year end, whose 10-K tags $100M of current long-term debt the provider
-row left out; no figure of report #51 uses that year.
+2017 year end, whose 10-K tags $100M of current long-term debt beside
+$24,743M of noncurrent debt; the provider's long-term debt is the noncurrent
+figure alone, so the current maturities are left out. No figure of report #51
+uses that year.
 
 **The tagged-total backstop keeps counting finance leases.** The audit
 proposed comparing a debt-only aggregate (`LongTermDebt`,

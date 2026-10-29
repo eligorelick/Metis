@@ -83,6 +83,31 @@ export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { 
       "total debt and net debt are withheld rather than published without it";
 }
 
+/** A same-filing instant: its value and the accession that filed it. */
+export interface FiledInstant { value: number; accn: string | undefined }
+
+/**
+ * Review m4 (2026-10-29): a vendor short-term debt of 0 left nothing out when
+ * the vendor folded the current maturities into its long-term debt. That is
+ * the case only when the vendor long-term debt equals the same filing's
+ * LongTermDebtNoncurrent + LongTermDebtCurrent (within max(1, |x|·1e-6)), and
+ * the filing tags no other current debt: ShortTermBorrowings and
+ * CommercialPaper absent or 0, and DebtCurrent absent or equal to
+ * LongTermDebtCurrent. A DebtCurrent above the current maturities may hold
+ * borrowings or current finance leases the check cannot place, so it still
+ * withholds (fail-closed).
+ */
+export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Readonly<Record<string, FiledInstant | null>>): boolean {
+  const noncurrent = filed.LongTermDebtNoncurrent ?? null, current = filed.LongTermDebtCurrent ?? null;
+  if (typeof vendorLongTermDebt !== "number" || !Number.isFinite(vendorLongTermDebt) || noncurrent === null || current === null || current.value <= 0) return false;
+  if (noncurrent.accn === undefined || noncurrent.accn !== current.accn) return false;
+  const near = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
+  if (!near(vendorLongTermDebt, noncurrent.value + current.value)) return false;
+  const debtCurrent = filed.DebtCurrent ?? null;
+  if (debtCurrent !== null && debtCurrent.value !== 0 && !near(debtCurrent.value, current.value)) return false;
+  return ["ShortTermBorrowings", "CommercialPaper"].every((tag) => (filed[tag]?.value ?? 0) === 0);
+}
+
 /**
  * A tagged remainder-of-fiscal-year bucket, zero included, shows the schedule
  * runs by fiscal year, so the next-twelve-months figure beside it can be the

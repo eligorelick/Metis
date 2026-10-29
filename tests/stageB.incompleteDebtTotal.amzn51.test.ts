@@ -24,7 +24,7 @@ import { debtBridge } from "@/pipeline/stageB/currentCapital";
 import type { DataBundle } from "@/pipeline/types";
 import type { FmpBalanceSheetRow } from "@/providers/fmp";
 
-import { FILED_FACTS, M, OBSERVED, Q2, companyFacts, vendorRow, without } from "./helpers/amzn51LeaseShape";
+import { FILED_FACTS, M, OBSERVED, Q2, companyFacts, vendorRow, without, type Points } from "./helpers/amzn51LeaseShape";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const bridgeOf = (row: FmpBalanceSheetRow) => debtBridge({ ...row, date: row.date! } as Parameters<typeof debtBridge>[0]);
@@ -158,5 +158,44 @@ describe("a withheld total or EV ends its reason with one period (review m3)", (
     expect(ev.value).toBeNull();
     expect(ev.basis).toMatch(/^EV withheld: Issuer-common economic share scope unresolved: .*equivalent rights\.$/);
     expect(ev.basis).not.toMatch(/\.\.$/);
+  });
+});
+
+describe("a vendor long-term debt that already holds the current maturities is complete (review m4)", () => {
+  // Round synthetic numbers (millions): the filing tags noncurrent 1,000 and current maturities 100; the vendor shows 0 short-term debt.
+  const FOLD: Points = { [Q2]: { LongTermDebtNoncurrent: 1_000, LongTermDebtCurrent: 100, CashAndCashEquivalentsAtCarryingValue: 50 } };
+  const foldRow = (longTermDebt: number): FmpBalanceSheetRow => ({
+    date: Q2, reportedCurrency: "USD", cik: "0000000042", filingDate: "2026-07-31",
+    shortTermDebt: 0, longTermDebt: longTermDebt * M, totalDebt: longTermDebt * M, netDebt: (longTermDebt - 50) * M, cashAndCashEquivalents: 50 * M,
+  } as FmpBalanceSheetRow);
+  const withTags = (tags: Record<string, number>): Points => ({ [Q2]: { ...FOLD[Q2]!, ...tags } });
+
+  it("publishes a row whose long-term debt equals the filing's noncurrent debt plus its current maturities", () => {
+    const { row } = admitDebtFields(foldRow(1_100), companyFacts(FOLD), "USD", OBSERVED);
+    expect(row.totalDebt).toBe(1_100 * M);
+    expect(row.fieldConflicts?.totalDebt).toBeUndefined();
+  });
+
+  it("control: a long-term debt that leaves the current maturities out is still withheld", () => {
+    const { row } = admitDebtFields(foldRow(1_000), companyFacts(FOLD), "USD", OBSERVED);
+    expect(row.totalDebt).toBeNull();
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0 but the same-period filing tags current debt \(LongTermDebtCurrent 100000000\)/);
+  });
+
+  it("still withholds when the filing tags short-term borrowings the fold-in does not cover", () => {
+    const { row } = admitDebtFields(foldRow(1_100), companyFacts(withTags({ ShortTermBorrowings: 20 })), "USD", OBSERVED);
+    expect(row.totalDebt).toBeNull();
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/ShortTermBorrowings 20000000/);
+  });
+
+  it("residual, fail-closed: a DebtCurrent above the current maturities (it may hold current finance leases) still withholds", () => {
+    expect(admitDebtFields(foldRow(1_100), companyFacts(withTags({ DebtCurrent: 130 })), "USD", OBSERVED).row.totalDebt).toBeNull();
+    expect(admitDebtFields(foldRow(1_100), companyFacts(withTags({ DebtCurrent: 100 })), "USD", OBSERVED).row.totalDebt).toBe(1_100 * M);
+  });
+
+  it("does not add current maturities from another filing to the noncurrent debt", () => {
+    const facts = companyFacts(FOLD);
+    (facts.facts["us-gaap"] as Record<string, { units: { USD: { accn: string }[] } }>).LongTermDebtCurrent!.units.USD[0]!.accn = "0000000042-26-000099";
+    expect(admitDebtFields(foldRow(1_100), facts, "USD", OBSERVED).row.totalDebt).toBeNull();
   });
 });
