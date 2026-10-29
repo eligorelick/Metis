@@ -3037,6 +3037,8 @@ function computeReturns(
     currentCoverageBasis: coverageBasis,
     negativeTotalDebtObservation: debtSnapshot.negativeObservation,
     marketCap: equityScope.marketCap,
+    // Review m5: a cap withheld on share scope is named as withheld, with the scope's reason.
+    marketCapWithheld: equityScope.status === "unresolved" ? equityScope.basis : null,
     // FMP's ratios-ttm endpoint suffixes every metric name with "TTM"
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
@@ -3993,9 +3995,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     result.notes.push(
       `${netDebtInfo.version}: net debt unavailable — ${netDebtInfo.reason}`,
     );
+    // Review m5: only a provider balance has an FMP netDebt field to set aside; a keyless report names none.
+    const balPointFamily = balPointBasis === "quarter" ? bundle.statements.balanceQuarterly : bundle.statements.balanceAnnual;
+    const fmpBalance = balPointFamily.ok && balPointFamily.value.source === "fmp";
     result.gaps.push({
       field: "valuation.netDebt",
-      reason: `${netDebtInfo.reason}; valuation equity bridge suppressed rather than using FMP's incompatible cash-only netDebt field`,
+      reason: `${netDebtInfo.reason}; valuation equity bridge suppressed` +
+        (fmpBalance ? " rather than using FMP's incompatible cash-only netDebt field" : ""),
       severity: "warn",
     });
   } else if (!financialRoute && netDebtInfo.value !== null) {

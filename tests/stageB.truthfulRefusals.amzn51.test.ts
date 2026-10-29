@@ -17,10 +17,11 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
-import { computeRoic } from "@/pipeline/stageB/returns";
+import { computeRoic, computeWacc } from "@/pipeline/stageB/returns";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
 
 import { leaseShapeStageBBundle, without } from "./helpers/amzn51LeaseShape";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const leaseRefused = () => runStageB(leaseShapeStageBBundle(() => ({})));
 const admissionRefused = () => runStageB(leaseShapeStageBBundle((points) => without(points, "LongTermDebtCurrent", "ShortTermBorrowings")));
@@ -176,5 +177,54 @@ describe("a ROIC withheld by a refused input is in the manifest (KNW-03)", () =>
     expect(computed.returns.roic.latestRoicPct).not.toBeNull();
     expect(computed.gaps.some((g) => g.field === "returns.roic")).toBe(false);
     expect(computed.valuation.multiples!.enterpriseValue.basis).not.toMatch(/^EV withheld/);
+  });
+});
+
+describe("quoted wording is true where it lands (review m5)", () => {
+  const SCOPE = "Issuer-common economic share scope unresolved: complete class coverage, outstanding counts and economic rights on the quoted security basis are required; aggregate equity and EV multiples withheld.";
+  const waccBase = { beta: 1.1, riskFreePct: 4.2, erpPct: 5.0, interestExpenseTtm: 40, totalDebtAvg: 1000, marketCap: null,
+    effectiveTaxRate: 0.21, ebitTtm: 600, analysisDate: "2026-01-15", reportedCurrency: "USD", quoteCurrency: "USD" };
+
+  it("a market cap withheld on share scope is called withheld, with its reason", () => {
+    const reason = reasonOf(computeWacc({ ...waccBase, marketCapWithheld: SCOPE }).gaps, "returns.wacc.weights");
+    expect(reason).toBe(`market cap withheld with debt outstanding — E/D weights not computable: ${SCOPE.slice(0, -1)}`);
+    expect(reason).not.toMatch(/missing/);
+  });
+
+  it("control: a market cap the quote never carried is still called missing", () => {
+    expect(reasonOf(computeWacc(waccBase).gaps, "returns.wacc.weights")).toBe("market cap missing with debt outstanding — E/D weights not computable");
+  });
+
+  it("the DCF gap and the fair-value line quote the withheld market cap, not a missing one", () => {
+    const bundle = completeCurrencyBundle({ debt: 300 });
+    bundle.edgar.tenQNotes = { ok: true, value: { data: { sectionName: "tenQNotes", text: "Capital stock", statementsText: "Common stock, issued and outstanding: 114,473 shares. Class B common stock, issued and outstanding: 5,523 shares.", method: "header-regex", chars: 13, accession: "filing", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: bundle.builtAt } };
+    const computed = runStageB(bundle);
+    expect(computed.returns.wacc.waccPct).toBeNull();
+    expect(reasonOf(computed.returns.wacc.gaps, "returns.wacc.weights")).toMatch(/^market cap withheld with debt outstanding — E\/D weights not computable: Issuer-common economic share scope unresolved/);
+    const dcfGap = reasonOf(computed.valuation.gaps, "valuation.dcf");
+    expect(dcfGap).toMatch(/market cap withheld with debt outstanding/);
+    expect(dcfGap).not.toMatch(/market cap missing/);
+    expect(computed.fairValue.reasons.map((r) => r.reason).join(" | ")).toMatch(/market cap withheld with debt outstanding/);
+    expect(JSON.stringify(computed.fairValue)).not.toMatch(/market cap missing/);
+  });
+
+  const debtless = (source: "fmp" | "edgar") => {
+    const bundle = completeCurrencyBundle({});
+    for (const family of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
+      if (!family.ok) throw new Error("fixture family missing");
+      for (const row of family.value.data.rows) delete row.totalDebt;
+      family.value.source = source;
+    }
+    return runStageB(bundle);
+  };
+
+  it("a keyless report does not cite an FMP field it never had", () => {
+    const reason = reasonOf(debtless("edgar").valuation.gaps, "valuation.netDebt");
+    expect(reason).toMatch(/valuation equity bridge suppressed$/);
+    expect(reason).not.toMatch(/FMP/);
+  });
+
+  it("control: the FMP route still says why the vendor's net debt is not used", () => {
+    expect(reasonOf(debtless("fmp").valuation.gaps, "valuation.netDebt")).toMatch(/valuation equity bridge suppressed rather than using FMP's incompatible cash-only netDebt field$/);
   });
 });

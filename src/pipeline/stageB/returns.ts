@@ -218,6 +218,12 @@ export interface WaccInputs {
   totalDebtLatestBasis?: string | null;
   /** Current market cap (currency units) — market-value equity weight. */
   marketCap: number | null;
+  /**
+   * Review m5 (2026-10-29): why the market cap is withheld, when the issuer's
+   * economic share scope is unresolved. The weights gap then says withheld,
+   * with this reason, never "missing".
+   */
+  marketCapWithheld?: string | null;
   /** Effective tax rate as a FRACTION (FMP ratios.effectiveTaxRate, e.g. 0.183). */
   effectiveTaxRate: number | null;
   /** TTM EBIT (operating income) for the synthetic-rating ICR. */
@@ -856,7 +862,9 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     gaps.push({
       field: "returns.wacc.weights",
       reason:
-        "market cap missing with debt outstanding — E/D weights not computable" +
+        (inputs.marketCapWithheld
+          ? `market cap withheld with debt outstanding — E/D weights not computable: ${inputs.marketCapWithheld.replace(/\.$/, "")}`
+          : "market cap missing with debt outstanding — E/D weights not computable") +
         (financialRoute ? financialSuffix : ""),
       severity: waccGapSeverity,
     });
