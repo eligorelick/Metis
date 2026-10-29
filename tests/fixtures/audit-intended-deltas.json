@@ -9940,29 +9940,9 @@
       "reason": "Audit batch 2 of 2026-10-22 (valuation in and out of its domain, D-102), as it reaches this provider-free DEMO control: finding C-10 adds the trailing four-quarter common return to Stage B's returns block, which is null here because the control is a general-route issuer with no bank or insurer return (stageB.returns.commonReturnTtm, absent before); report spec 1.37.0, moved out of audit-batch1-headline-numbers-20261022, whose record stands for 1.36.0. The DCF domain tests (B-29), the excess-return start and grid (C-10, C-11), the NCI earnings key (E-5) and the house base rate (B-30) do not reach this fixture: its DCF is inside its domain, it carries no noncontrolling interest, and no other value moves. The fair-value and scenario-target method stamps move to FAIR_VALUE_2026_10_D102 and SCENARIO_TARGETS_2026_10_D102 (the Codex review of PR #49) because both resolutions changed; the scenario stamp is moved out of the D-99 group, whose record stands for SCENARIO_TARGETS_2026_10_D99. See docs/audit/2026-10-22-audit-batch2-valuation-domain.md.",
       "deltas": [
         {
-          "path": "report.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D102"
-        },
-        {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D102"
-        },
-        {
-          "path": "stageB.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D102"
-        },
-        {
           "path": "stageB.returns.commonReturnTtm",
           "beforeMissing": true,
           "after": null
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D102"
         }
       ]
     },
@@ -10264,16 +10244,36 @@
       ]
     },
     {
-      "name": "b13-edgar-derived-lines-20261029",
+      "name": "equity-bridge-b4a-2026-10-27",
       "decisions": [
-        "D-134"
+        "D-135"
       ],
-      "reason": "Audit 2026-10-27 batch 13 (EDGAR-derived operating lines on the filer's total and one presentation), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.49.0 (Task 11): derived EBIT, D&A, R&D, a bank's interest income, derived fourth quarters and year-to-date differences, the growth cells and the FFO and one-time-items rules now mean the filer's total on one presentation, or a disclosed withholding. DEMO is FMP-shaped with no EDGAR synonym resolution, no derived quarter and a filed totalOtherIncomeExpensesNet, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of amzn51-lease-scope-20261029, which took it to 1.48.0 (D-133); that group held only this leaf, so its record stands in DECISIONS and the CHANGELOG.",
+      "reason": "Audit 2026-10-27 B4a (the equity bridge, the market EV and invested capital count every claim once), as it reaches this provider-free DEMO control. Only version stamps move, all from Task 16: the report spec to 1.50.0 and the fair-value and scenario-target method stamps to ..._D135, each in the report and in the Stage B result. This DEMO balance carries no covered operating lease, no redeemable equity, no pension or OPEB deficit, no loss contingency and no earn-out, and it is not in a loss period, so no DCF per share, sales-to-capital, scenario, grid, reverse-DCF or bridge leaf, and no EV-basis or lease wording, moves. The previously classified leaves of these five paths (D-102's stamps and B13's spec stamp) are reclassified here because the regenerator assigns each path to one group, its latest.",
       "deltas": [
+        {
+          "path": "report.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D135"
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.49.0"
+          "after": "1.50.0"
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D135"
+        },
+        {
+          "path": "stageB.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D135"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D135"
         }
       ]
     }
