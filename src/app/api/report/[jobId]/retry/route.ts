@@ -91,8 +91,10 @@ export async function POST(
   }
 
   // Claim atomically after validation. A dangling report projection remains
-  // on the queued row so another process can re-check its existence; a real
-  // linked report never reaches this branch. Artifacts and costs stay put.
+  // on the queued row so another process can re-check its existence. A linked
+  // report that blocks a resume never reaches this branch; a data-only
+  // fallback stays linked until the resumed run persists its own report.
+  // Artifacts and costs stay put.
   if (!claimPreparedJobResume(prepared)) {
     return NextResponse.json(
       { error: "job state changed while retry was being prepared — reload before retrying" },

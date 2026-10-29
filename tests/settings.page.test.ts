@@ -521,6 +521,21 @@ describe("settings page controller", () => {
     expect(html).not.toContain("provider access (read-only)");
   });
 
+  it("says the Claude model panel is not in use when reports run on another route", () => {
+    const current = payload(INITIAL, 0);
+    const render = (activeRoute?: { provider: "none" | "anthropic" | "chatgpt" | "gemini"; label: string; ready: boolean }) => renderToStaticMarkup(createElement(SettingsPageView, {
+      state: { status: "ready", payload: current, writer: null, error: null },
+      onAnalysisModel: vi.fn(),
+      onAnalysisEffort: vi.fn(),
+      ...(activeRoute ? { activeRoute } : {}),
+    }));
+    const chatgpt = render({ provider: "chatgpt", label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true });
+    expect(chatgpt).toContain("Not in use: reports currently run on ChatGPT plan · gpt-6.1-sol · max effort");
+    expect(render({ provider: "none", label: "AI off (data-only reports)", ready: false })).toContain("Not in use: reports currently run on AI off");
+    expect(render({ provider: "anthropic", label: "Claude API · Opus 5.5 · max effort", ready: true })).not.toContain("Not in use");
+    expect(render()).not.toContain("Not in use");
+  });
+
   it("the route-used view renders optimistic desired values and honest saving/recovery states", () => {
     const current = payload(
       { analysisModel: "claude-haiku-4-5-20251001", analysisEffort: "high" },

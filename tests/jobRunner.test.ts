@@ -172,6 +172,7 @@ import {
   claimNextQueuedJob,
   configuredSchedulerLimits,
   PaidPassOverReservationError,
+  terminalizeClaim,
 } from "@/pipeline/jobScheduler";
 import {
   _clearJobSubscribers,
@@ -876,15 +877,12 @@ describe("runJob — unsupported instruments", () => {
     });
   });
 
-  it("publishes canonical cost and data-only truth when a queued failure recovers a linked report", () => {
+  // Re-pinned (DB-001): the linked report is a FULL one. A data-only fallback no
+  // longer closes a queued retry as done; see "DB-001: a Retry of a data-only
+  // fallback is dispatched" for that case (error, report kept linked).
+  it("publishes canonical cost and report truth when a queued failure recovers a linked full report", () => {
     const { jobId } = createJob("AAPL");
     const report = fakeReport(fakeJudgeOutput());
-    report.appendix.missingData.push({
-      field: "analysis.llm",
-      reason: "data-only fixture",
-      severity: "critical",
-      attemptedSources: [],
-    });
     const linked = handle.db.insert(reports).values({
       symbol: "AAPL",
       createdAt: NOW().toISOString(),
@@ -921,7 +919,7 @@ describe("runJob — unsupported instruments", () => {
       type: "done",
       reportId: linked.id,
       totalCostUsd: 0.65,
-      dataOnly: true,
+      dataOnly: false,
     });
     const recovered = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!;
     expect(recovered.status).toBe("done");
@@ -6349,14 +6347,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.47.0");
+    expect(repRow?.specVersion).toBe("1.48.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.12");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.13");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -10652,5 +10650,133 @@ describe("runJob - final evidence timing", () => {
     expect(providerBoundaryMocks.runPass).not.toHaveBeenCalled();
     expect(providerBoundaryMocks.runPassStreaming).not.toHaveBeenCalled();
     expect(providerBoundaryMocks.webSearchTool).not.toHaveBeenCalled();
+  });
+});
+
+describe("DB-001: a Retry of a data-only fallback is dispatched", () => {
+  const row = (jobId: string) => handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!;
+  const costRows = (jobId: string) => handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all();
+  const routeAdmitsRetry = (jobId: string, status: "done" | "error" = "done") => {   // the retry route's exact pair
+    const prepared = prepareJobResume(jobId, status);
+    return prepared !== null && claimPreparedJobResume(prepared);
+  };
+
+  /** mockPasses whose calls list names only the three paid stages; the judge can be made to fail. */
+  function db001Passes(calls: string[], judgeFails: boolean): PipelinePasses {
+    const base = mockPasses().passes;
+    return {
+      ...base,
+      fingerprintPayload: () => "1.3.0:db001",
+      runBullThenBear: async (deps, hooks, settle) => {
+        calls.push("bullBear");
+        return base.runBullThenBear(deps, hooks, settle);
+      },
+      runJudgePass: async (...raw: Parameters<PipelinePasses["runJudgePass"]>) => {
+        calls.push("judge");
+        if (judgeFails) throw new Error("judge stream closed at the 15-minute limit");
+        return base.runJudgePass(...raw);
+      },
+      runVerifyPass: async (...raw: Parameters<PipelinePasses["runVerifyPass"]>) => {
+        calls.push("verify");
+        return base.runVerifyPass(...raw);
+      },
+    };
+  }
+
+  /** Generation 0 through the real runner: analysts settle, the judge fails, a data-only fallback is persisted. */
+  async function dataOnlyFallbackRun(): Promise<{ jobId: string; fallbackId: number }> {
+    const { jobId } = createJob("AAPL");
+    const r = await runJob(jobId, db001Passes([], true), {
+      bundle: fakeBundle("AAPL"),
+      hasAnthropicKey: true,
+      now: NOW,
+      maxJudgeRetries: 0,
+    });
+    expect(r).toMatchObject({ status: "done", dataOnly: true });
+    return { jobId, fallbackId: r.reportId! };
+  }
+
+  it("precondition: the fallback is data-only, Retry is offered and the route admits it", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(row(jobId).reportId).toBe(fallbackId);
+    expect(getJobSnapshot(jobId)).toMatchObject({ status: "done", dataOnly: true, resumable: true });
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    expect(row(jobId)).toMatchObject({ status: "queued", runGeneration: 1 });
+  });
+
+  it("scheduler dispatch claims an admitted retry of a data-only fallback", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const claim = claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits());
+    expect(claim).not.toBeNull();
+    expect(claim!.preparedResume?.bull).not.toBeNull();
+    expect(row(jobId)).toMatchObject({ status: "running", runGeneration: 1, reportId: fallbackId });
+  });
+
+  it("a dispatched retry runs the judge and links a full report in place of the fallback", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const calls: string[] = [];
+    // resume: true is what the scheduler passes for runGeneration > 0
+    const r = await runJob(jobId, db001Passes(calls, false), {
+      bundle: fakeBundle("AAPL"),
+      hasAnthropicKey: true,
+      now: NOW,
+      resume: true,
+    });
+    expect(calls).toEqual(["judge", "verify"]);                         // bull/bear reused, not re-run
+    expect(r).toMatchObject({ status: "done", dataOnly: false });
+    expect(r.reportId).not.toBe(fallbackId);
+    expect(costRows(jobId).filter((c) => c.step === "bull" || c.step === "bear")).toHaveLength(2); // nothing re-billed
+    expect(row(jobId).reportId).toBe(r.reportId);                        // the full report replaces the fallback link
+    const gen1 = costRows(jobId).filter((c) => c.runGeneration === 1);
+    expect(gen1.map((c) => c.step).sort()).toEqual(["synthesize", "verify"]);   // only the steps the mock bills; no bull or bear
+    const ledgerTotal = costRows(jobId).reduce((total, c) => total + c.costUsd, 0);
+    const stored = handle.db.select().from(reports).where(eq(reports.id, r.reportId!)).get()!;
+    expect(stored.costUsd).toBeCloseTo(ledgerTotal, 6);                  // 1.97 on the synthetic ledger
+  });
+
+  it("a dispatch failure on a data-only retry ends error with its message", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const q = row(jobId);
+    recordQueuedResumeDispatchFailure(jobId, q.runGeneration, q.revision, new Error("pass resolver failed"));
+    expect(row(jobId)).toMatchObject({ status: "error", reportId: fallbackId });
+    // safeQueuedResumeFailure stores a fixed, sanitized message, never the raw cause
+    expect(row(jobId).error).toBe("runJob: queued retry dispatch failed before execution");
+    expect(getJobSnapshot(jobId)).toMatchObject({ status: "error", dataOnly: true, resumable: true });
+    expect(routeAdmitsRetry(jobId, "error")).toBe(true);   // a later Retry from error is admitted (pins current behaviour)
+  });
+
+  // Production path: the scheduler claims the retry, then terminalizes the claim when the
+  // pass resolver fails. Passes at base: it pins behaviour the records now claim.
+  it("a scheduler pass-resolution failure on a claimed data-only retry ends error, keeps the fallback and stays resumable", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const claim = claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits());
+    expect(claim).not.toBeNull();
+    expect(terminalizeClaim(claim!, "error", "scheduler pass resolution failed before execution", new Date())).toBe(true);
+    expect(row(jobId)).toMatchObject({ status: "error", reportId: fallbackId, error: "scheduler pass resolution failed before execution" });
+    expect(getJobSnapshot(jobId)).toMatchObject({ status: "error", dataOnly: true, resumable: true });
+    expect(routeAdmitsRetry(jobId, "error")).toBe(true);
+    expect(claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits())).not.toBeNull();
+  });
+
+  it("a retried data-only fallback that fails again links a new data-only report", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const r = await runJob(jobId, db001Passes([], true), {
+      bundle: fakeBundle("AAPL"),
+      hasAnthropicKey: true,
+      now: NOW,
+      maxJudgeRetries: 0,
+      resume: true,
+    });
+    expect(r).toMatchObject({ status: "done", dataOnly: true });
+    expect(r.reportId).not.toBe(fallbackId);
+    expect(row(jobId)).toMatchObject({ runGeneration: 1, reportId: r.reportId });
+    expect(getJobSnapshot(jobId)).toMatchObject({ resumable: true });
+    expect(routeAdmitsRetry(jobId)).toBe(true);                          // offered again, and it will run again
+    expect(claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits())).not.toBeNull();
   });
 });

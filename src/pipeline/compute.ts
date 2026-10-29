@@ -139,7 +139,7 @@ import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipel
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
-import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
@@ -529,6 +529,7 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
+    ...(r.fieldConflicts !== undefined ? { fieldConflicts: r.fieldConflicts } : {}),
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     fieldProvenance: r.fieldProvenance,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
@@ -600,9 +601,12 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
     capitalLeaseObligations: num(r.capitalLeaseObligations),
+    ...(num(r.capitalLeaseObligationsCurrent) !== null ? { capitalLeaseObligationsCurrent: num(r.capitalLeaseObligationsCurrent) } : {}),
+    ...(num(r.capitalLeaseObligationsNonCurrent) !== null ? { capitalLeaseObligationsNonCurrent: num(r.capitalLeaseObligationsNonCurrent) } : {}),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
-    netDebt: num(r.netDebt),
+    // Review m8: the vendor's own figure when the completion recomposed netDebt (diagnostic only).
+    netDebt: num(r.vendorNetDebt !== undefined ? r.vendorNetDebt : r.netDebt),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
@@ -1724,6 +1728,10 @@ function totalDebtSnapshot(
   latestBasis?: string;
   /** Audit 2026-10-22 C-1: why no average was established, naming the balance date. */
   unavailable?: string;
+  /** Audit 2026-10-29 (AMZN #51, VAL-4): `unavailable` is a refusal of debt the balance carries, not an absent balance. */
+  refused?: true;
+  /** The date of the balance whose debt refusal (or invalid negative debt) withheld the average (fix round 1, I-1). */
+  refusedBalanceDate?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
@@ -1791,22 +1799,23 @@ function totalDebtSnapshot(
   const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
   if (refused !== undefined) {
     const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true, refusedBalanceDate: isoDay(refused.date) ?? undefined };
   }
   const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
   if (scopeRefused) {
     const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
-    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}` };
+    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true, refusedBalanceDate: isoDay(scopeRefused.date) ?? undefined };
   }
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
   // null the adjusted values, and reject contradictory lease compositions.
-  const negativeObservation = pair.map(row => num(row?.totalDebt)).find(value => value !== null && value < 0) ?? null;
-  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency };
+  const negativeRow = pair.find(row => { const value = num(row?.totalDebt); return value !== null && value < 0; });
+  const negativeObservation = negativeRow === undefined ? null : num(negativeRow.totalDebt);
+  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency, refusedBalanceDate: isoDay(negativeRow!.date) ?? undefined };
   const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
   if (conflicted !== undefined) {
     const leaseConflict = leaseDebtConflict(conflicted)!;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}` };
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true, refusedBalanceDate: isoDay(conflicted.date) ?? undefined };
   }
   if (a.value === null && b.value === null) {
     const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
@@ -2025,15 +2034,25 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
-  const admitBalance = (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+  // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
+  const balanceAdmissions: BalanceAdmission[] = [];
+  const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
     if (companyFacts === null) return row;
-    const admitted = admitDebtFields(row, companyFacts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar));
+    const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
+    const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
     ttmGaps.push(...admitted.gaps);
-    return admitted.row;
+    balanceAdmissions.push(...admitted.admissions);
+    if (!vendorFamily) return admitted.row;
+    // D-133: a provider row's undisclosed stakes, so a bundle frozen before the enrichment filled them reads them too.
+    const stakes = admitVendorLongTermInvestments(admitted.row, companyFacts, currency, bundle.builtAt);
+    balanceAdmissions.push(...stakes.admissions);
+    return stakes.row;
   };
-  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance);
+  const vendorFamily = (family: DataBundle["statements"]["balanceAnnual"]): boolean => family.ok && family.value.source !== "edgar";
+  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance(vendorFamily(bundle.statements.balanceAnnual)));
   const cashflowAnnual = compatible.cashflowAnnual.rows;
-  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance);
+  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance(vendorFamily(bundle.statements.balanceQuarterly)));
+  ttmGaps.push(...balanceAdmissionEntries(balanceAdmissions));
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
@@ -3017,11 +3036,14 @@ function computeReturns(
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
     totalDebtUnavailable: debtSnapshot.unavailable ?? null,
+    totalDebtRefused: debtSnapshot.refused === true,
     totalDebtLatest: debtSnapshot.latest ?? null,
     totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,
     negativeTotalDebtObservation: debtSnapshot.negativeObservation,
     marketCap: equityScope.marketCap,
+    // Review m5: a cap withheld on share scope is named as withheld, with the scope's reason.
+    marketCapWithheld: equityScope.status === "unresolved" ? equityScope.basis : null,
     // FMP's ratios-ttm endpoint suffixes every metric name with "TTM"
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
@@ -3080,7 +3102,10 @@ function computeReturns(
   const roic: RoicResult = isFinancial
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
-    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country) });
+    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
+        // that same balance refusal withholds the latest fiscal year's ROIC.
+        waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
@@ -3644,6 +3669,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
         financeLeaseLiability: num(balPoint.financeLeaseLiability),
         fieldProvenance: balPoint.fieldProvenance,
+        ...(balPoint.fieldConflicts !== undefined ? { fieldConflicts: balPoint.fieldConflicts } : {}),
         shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
       }
     : null;
@@ -3884,6 +3910,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
+    // VAL-10: the DCF gap quotes why the WACC is unavailable.
+    waccUnavailableReason: wacc.waccPct !== null ? null
+      : (wacc.gaps.find((g) => g.severity === "critical") ?? wacc.gaps.find((g) => g.severity === "warn"))?.reason ?? null,
     netDebt: netDebtDerived,
     dilutedShares: valuationDilutedShares,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
@@ -3971,9 +4000,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     result.notes.push(
       `${netDebtInfo.version}: net debt unavailable — ${netDebtInfo.reason}`,
     );
+    // Review m5: only a provider balance has an FMP netDebt field to set aside; a keyless report names none.
+    const balPointFamily = balPointBasis === "quarter" ? bundle.statements.balanceQuarterly : bundle.statements.balanceAnnual;
+    const fmpBalance = balPointFamily.ok && balPointFamily.value.source === "fmp";
     result.gaps.push({
       field: "valuation.netDebt",
-      reason: `${netDebtInfo.reason}; valuation equity bridge suppressed rather than using FMP's incompatible cash-only netDebt field`,
+      reason: `${netDebtInfo.reason}; valuation equity bridge suppressed` +
+        (fmpBalance ? " rather than using FMP's incompatible cash-only netDebt field" : ""),
       severity: "warn",
     });
   } else if (!financialRoute && netDebtInfo.value !== null) {
@@ -4031,7 +4064,8 @@ function netDebtFromBalance(
     shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
     cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
     marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
-    vendorNetDebt: bal ? num(bal.netDebt) : null,
+    vendorNetDebt: bal ? num(bal.vendorNetDebt !== undefined ? bal.vendorNetDebt : bal.netDebt) : null,
+    fieldConflicts: bal?.fieldConflicts,
   });
 }
 

@@ -33,6 +33,19 @@ connection selection is authoritative, including AI off. Creating the store
 during account setup can therefore require explicitly selecting Claude again.
 Claude's analysis model/effort settings are separate from this connection store.
 
+The saved connection selection outranks the Claude model setting. The home page
+("Reports run on"), the company page ("Runs on", beside the generate control)
+and Settings all show the route the next report will use, for example
+`ChatGPT plan · gpt-6.1-sol · max effort` or `Claude API · Opus 5.5 · max effort`,
+with `sign-in needed` or `key needed` when it is not connected. A Claude model
+that does not accept an effort setting (Haiku 4.5) is shown without one, because
+the request does not send it; `auto` shows the saved effort when every model it
+may pick accepts one. When the
+selection is not Claude, the Settings Claude model and effort panels say
+"Not in use". The label never includes an account email, token or key. A
+resumed job that reuses its completed analysis keeps the model that analysis
+ran on, whatever the current label says.
+
 The selection is captured when a job executes. Subscription account, model,
 effort and speed form part of the partial-work fingerprint; incompatible saved
 work cannot be reused. Changing Settings does not rewrite saved reports.
@@ -147,6 +160,10 @@ analysis failures produce disclosed data-only reports. A data-only result may
 still contain charges from work already attempted. Cancellation does not undo
 remote usage. A saved successful analyst checkpoint can support an explicit
 retry if its evidence and execution fingerprint still match.
+
+Retrying a data-only report reuses the analyst passes that already finished and
+replaces the fallback with the new run's report. If that run fails again, it
+saves a new data-only report and Retry stays available.
 
 ## Request ceilings, caching and retries
 

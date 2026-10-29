@@ -49,6 +49,9 @@ vi.mock("@/report/history", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/report/history")>();
   return { ...actual, getReportByIdForSymbol: harness.getReportByIdForSymbol };
 });
+vi.mock("@/ai/connections", () => ({
+  describeAnalysisRoute: () => ({ provider: "chatgpt", model: "gpt-6.1-sol", effort: "max", ready: true, label: "ChatGPT plan · gpt-6.1-sol · max effort" }),
+}));
 vi.mock("@/app/company/[symbol]/GenerateReport", () => ({
   GenerateReport: () => null,
 }));
@@ -257,7 +260,7 @@ describe("persisted report presentation", () => {
     try {
       const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
       const run = elementsWithin(tree).find(element => element.type === GenerateReport);
-      expect(run?.props).toEqual({ symbol: "DEMO", initialJobId: "existing-job" });
+      expect(run?.props).toEqual({ symbol: "DEMO", initialJobId: "existing-job", route: { label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true } });
       expect(harness.activeJob).toHaveBeenCalledWith("DEMO");
       expect(elementsWithin(tree).some(element => element.props.report === report)).toBe(true);
       expect(harness.buildDataBundle).not.toHaveBeenCalled(); expect(harness.runStageB).not.toHaveBeenCalled();
@@ -279,6 +282,12 @@ describe("persisted report presentation", () => {
       expect((tabs.props.reportNotes as ReactElement<Props>).props).toEqual({ symbol: "DEMO", reportId: 42 });
       expect((tabs.props.report as ReactElement<Props>).props).toEqual({ report, selectedReportId:42 });
     } finally { vi.unstubAllEnvs(); resetConfigCache(); }
+  });
+
+  it("passes the live analysis page the route a report will run on, computed on the server", async () => {
+    const live = await CompanyBody({ symbol: "DEMO", liveRequested: true });
+    const run = elementsWithin(live).find(element => element.type === GenerateReport);
+    expect(run?.props.route).toEqual({ label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true });
   });
 
   it("loads live analysis only when explicitly requested", async () => {

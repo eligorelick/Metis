@@ -17,6 +17,7 @@ import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimat
 import type { DataBundle } from "@/pipeline/types";
 import type { MarketData } from "@/report/schema";
 import { quotePriceObservationDay } from "@/providers/fmp";
+import { completedTotalOmission, leaseDebtConflict, millions, type LeaseDebtInputs } from "@/pipeline/stageB/netDebt";
 
 type Row = Record<string, unknown>;
 
@@ -46,13 +47,44 @@ function iso(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
-/** Balance dates whose total debt Stage B withheld (audit O-2); a derived EV built on that debt is refused.
+/** Balance dates whose total debt Stage B withheld (audit O-2), with the reason; a derived EV built on that debt is refused.
  * An info entry records a recovery, not a withhold. */
-function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: string }[] | undefined): Set<string> {
-  return new Set((gaps ?? []).filter((gap) => gap.severity !== "info").flatMap((gap) => /^statements\.balance\.(\d{4}-\d{2}-\d{2})\.totalDebt$/.exec(gap.field)?.[1] ?? []));
+function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: string; reason?: string }[] | undefined): Map<string, string> {
+  return new Map((gaps ?? []).filter((gap) => gap.severity !== "info").flatMap((gap): [string, string][] => {
+    const date = /^statements\.balance\.(\d{4}-\d{2}-\d{2})\.totalDebt$/.exec(gap.field)?.[1];
+    return date === undefined ? [] : [[date, gap.reason ?? "total debt withheld"]];
+  }));
 }
 
-export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string; severity?: string }[] } = {}): MarketData | undefined {
+const DEBT_FIELDS = ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"] as const;
+
+/**
+ * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): a provider EV is that date's
+ * market cap + the vendor's total debt − cash. It is withheld when the
+ * same-date balance's debt was refused (its operand cannot be checked) or was
+ * composed from the filing because the vendor's own total was partial and the
+ * operand differs from it. Returns the reason, or null to show it as served.
+ */
+function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseValue"]>, balances: readonly Row[], currency: string | null,
+  currencyEvidence: ReturnType<typeof statementCurrencyEvidence>, withheld: ReadonlyMap<string, string>): string | null {
+  const operand = ev.totalDebt === null ? "(not stated)" : millions(ev.totalDebt);
+  for (const row of balances) {
+    if (day(row.date) !== ev.periodEnd || currency === null || establishedCurrencyOn([row], ev.periodEnd, currencyEvidence) !== currency) continue;
+    const conflicts = row.fieldConflicts as Record<string, { usable?: boolean; reason?: string }> | undefined;
+    const refusedField = DEBT_FIELDS.find((field) => conflicts?.[field]?.usable === false);
+    const refusal = withheld.get(ev.periodEnd) ?? (refusedField ? `${refusedField}: ${conflicts![refusedField]!.reason}` : null) ?? leaseDebtConflict(row as LeaseDebtInputs);
+    if (refusal) return `the same-date balance's debt was refused (${refusal}), so the provider's debt operand ${operand} cannot be checked`;
+    const total = n(row.totalDebt);
+    const provenance = (row.fieldProvenance as Record<string, { calculation?: string; tags?: string[] }> | undefined)?.totalDebt;
+    const composed = provenance?.calculation === "noncurrent-lease-line-completed";
+    if (composed && total !== null && (ev.totalDebt === null || Math.abs(total - ev.totalDebt) > Math.max(1, Math.abs(total) * 1e-6))) {
+      return `its debt operand ${operand} differs from the same-date total debt including leases ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
+    }
+  }
+  return null;
+}
+
+export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string; severity?: string; reason?: string }[] } = {}): MarketData | undefined {
   const profile = rows(bundle.profile)[0];
   let currencies: { trading: string | null; model: string | null };
   try {
@@ -112,6 +144,13 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
       usable: !withheldDebt.has(day(row.date) ?? "") && !["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some((field) =>
         (row.fieldConflicts as Record<string, { usable?: boolean }> | undefined)?.[field]?.usable === false),
     })));
+  const providerRefusal = evOrigin === "provider" && historicalEv.enterpriseValue !== null
+    ? providerEnterpriseValueRefusal(historicalEv.enterpriseValue, [...rows(bundle.statements?.balanceQuarterly), ...rows(bundle.statements?.balanceAnnual)], currencies.trading, currencyEvidence, withheldDebt)
+    : null;
+  if (providerRefusal !== null) {
+    historicalEv.enterpriseValueNote = `Provider enterprise value withheld at ${historicalEv.enterpriseValue!.periodEnd}: ${providerRefusal}. The report's market EV is separate; no replacement value is inferred.`;
+    historicalEv.enterpriseValue = null;
+  }
   if (evOrigin === "computed" && historicalEv.enterpriseValue !== null) {
     const balance = [...rows(bundle.statements?.balanceQuarterly), ...rows(bundle.statements?.balanceAnnual)].find((row) =>
       day(row.date) === historicalEv.enterpriseValue!.periodEnd && establishedCurrencyOn([row], day(row.date), currencyEvidence) === currencies.trading);

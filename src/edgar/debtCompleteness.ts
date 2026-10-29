@@ -1,3 +1,5 @@
+import { millions } from "@/pipeline/stageB/netDebt";
+
 /** A noncurrent convertible carrying subtype is a lower bound on noncurrent
  * financing debt, never an automatic addition to an inclusive generic total.
  * `agrees` compares a vendor noncurrent figure with the filed subtype (A-11
@@ -65,6 +67,59 @@ export function uncomposedDebtReason(row: {
   return over === undefined ? null
     : `incomplete debt carrying value: same-period ${over.tag} ${over.value} exceeds the composed current and noncurrent financing debt ` +
       `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
+}
+
+/**
+ * Commercial paper is conventionally a component of ShortTermBorrowings, so a
+ * current-debt sum that has both tags counts the borrowings and leaves the
+ * commercial paper out. One rule for the SEC statements builder
+ * (`resolveDebtOverlaps`, case 3) and the provider-row completion (D-133,
+ * review round 4).
+ */
+export function commercialPaperInsideBorrowings(tags: readonly string[]): boolean {
+  return tags.includes("ShortTermBorrowings") && tags.includes("CommercialPaper");
+}
+
+/** The current-debt tags a vendor short-term debt of 0 is checked against. */
+export const CURRENT_DEBT_TAGS: readonly string[] = ["DebtCurrent", "LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
+
+/**
+ * A vendor short-term debt of 0 is not complete when the same-period filing
+ * tags a positive current debt (audit 2026-10-29, AMZN #51 VAL-2): the vendor
+ * row left the current debt out of its total.
+ */
+export function zeroCurrentDebtReason(shortTermDebt: unknown, filed: readonly { tag: string; value: number | null }[]): string | null {
+  if (shortTermDebt !== 0) return null;
+  const tagged = filed.filter(({ value }) => value !== null && Number.isFinite(value) && value > 0);
+  return tagged.length === 0 ? null
+    : `incomplete debt carrying value: the vendor short-term debt is 0 but the same-period filing tags current debt (${tagged.map(({ tag, value }) => `${tag} ${millions(value!)}`).join(", ")}); ` +
+      "total debt and net debt are withheld rather than published without it";
+}
+
+/** A same-filing instant: its value and the accession that filed it. */
+export interface FiledInstant { value: number; accn: string | undefined }
+
+/**
+ * Review m4 (2026-10-29): a vendor short-term debt of 0 left nothing out when
+ * the vendor folded the current maturities into its long-term debt. That is
+ * the case only when the vendor long-term debt equals the same filing's
+ * LongTermDebtNoncurrent + LongTermDebtCurrent (within max(1, |x|·1e-6)), and
+ * the filing tags no other current debt: ShortTermBorrowings and
+ * CommercialPaper absent or 0, and DebtCurrent absent or equal to
+ * LongTermDebtCurrent within that tolerance. A DebtCurrent of 0 beside them
+ * contradicts the filing; one above them may hold borrowings or current
+ * finance leases the check cannot place. Either still withholds (fail-closed).
+ */
+export function currentMaturitiesFoldedIn(vendorLongTermDebt: unknown, filed: Readonly<Record<string, FiledInstant | null>>): boolean {
+  const noncurrent = filed.LongTermDebtNoncurrent ?? null, current = filed.LongTermDebtCurrent ?? null;
+  if (typeof vendorLongTermDebt !== "number" || !Number.isFinite(vendorLongTermDebt) || noncurrent === null || current === null || current.value <= 0) return false;
+  if (noncurrent.accn === undefined || noncurrent.accn !== current.accn) return false;
+  const near = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
+  if (!near(vendorLongTermDebt, noncurrent.value + current.value)) return false;
+  const debtCurrent = filed.DebtCurrent ?? null;
+  // Fix round 2, I-2a: a DebtCurrent of 0 beside positive current maturities contradicts the filing.
+  if (debtCurrent !== null && !near(debtCurrent.value, current.value)) return false;
+  return ["ShortTermBorrowings", "CommercialPaper"].every((tag) => (filed[tag]?.value ?? 0) === 0);
 }
 
 /**

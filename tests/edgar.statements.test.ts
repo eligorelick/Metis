@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, lowerBoundDAndACaveat } from "@/edgar/statements";
+import type { FmpBalanceSheetRow } from "@/providers/fmp";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import type { CompanyFacts } from "@/edgar/xbrl";
 
@@ -1055,6 +1057,18 @@ describe("buildStatementsFromCompanyFacts — debt chain overlaps", () => {
           /conventionally a component of ShortTermBorrowings/.test(n),
       ),
     ).toBe(true);
+  });
+
+  it("the provider-row completion counts commercial paper the same way (D-133, review round 4)", () => {
+    // One filing: borrowings 120, commercial paper 50, current maturities 30, and a noncurrent-only provider lease line.
+    const f = bare({ ShortTermBorrowings: [...at(120)], CommercialPaper: [...at(50)], LongTermDebtCurrent: [...at(30)], LongTermDebtNoncurrent: [...at(400)],
+      OperatingLeaseLiability: [...at(90)], OperatingLeaseLiabilityCurrent: [...at(10)], OperatingLeaseLiabilityNoncurrent: [...at(80)] });
+    const built = row(f).rows[0]!;
+    const vendor = { date: "2025-12-31", reportedCurrency: "USD", shortTermDebt: 0, longTermDebt: 400, capitalLeaseObligations: 80,
+      capitalLeaseObligationsCurrent: 0, totalDebt: 480 } as FmpBalanceSheetRow;
+    const completed = admitDebtFields(vendor, f, "USD", "2026-10-29T00:00:00.000Z").row;
+    expect(built.shortTermDebt).toBe(150);
+    expect(completed.shortTermDebt).toBe(built.shortTermDebt);
   });
 
   it("still sums commercial paper when the filer tags no short-term borrowings", () => {

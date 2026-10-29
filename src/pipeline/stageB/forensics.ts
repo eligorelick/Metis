@@ -1988,7 +1988,11 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     );
   } else if (definition === "financial-asset-adjusted") {
     notes.push(
-      "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. " +
+      "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude " +
+        // FIG-4 (audit 2026-10-29, AMZN #51): the exclusion is claimed only when an investment was removed.
+        (ltiT !== 0 || ltiP !== 0
+          ? "cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. "
+          : "cash and short-term investments. Long-term investments are 0 on both balance sheets, so none are removed from net operating assets. ") +
         (otherInvesting !== null && otherInvesting !== 0
           ? "Capex, acquisitions and the investing flows the statement leaves unclassified"
           : "Capex and acquisitions") +

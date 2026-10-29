@@ -31,7 +31,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
-import { parseSubscriptionModel, subscriptionModel, type AiSelection } from "@/ai/contracts";
+import { requestedAnalysisModel } from "@/ai/analysisRoute";
+import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
@@ -526,8 +527,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. */
-export const PIPELINE_VERSION = "stage-c-1.6.12" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). */
+export const PIPELINE_VERSION = "stage-c-1.6.13" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -2634,7 +2635,10 @@ function settleQueuedResumeWithoutExecution(
           .from(reports)
           .where(eq(reports.id, row.reportId))
           .get();
-    if (linkedReport !== undefined) {
+    // A data-only fallback is not a finished run: it falls through to the
+    // `error` mutation below and stays linked (the admission rule, DB-001).
+    // Mirrors linkedReportBlocksResume (jobStore), read inline on this test-seam path.
+    if (linkedReport !== undefined && !reportJsonIsDataOnly(linkedReport.reportJson)) {
       const stepsJson = normalizeLinkedReportRecoverySteps(
         row.stepsJson,
         authority.toISOString(),
@@ -2664,7 +2668,7 @@ function settleQueuedResumeWithoutExecution(
             totalCostUsd: round4(ledger.length > 0
               ? ledger.reduce((total, cost) => total + cost.costUsd, 0)
               : (linkedReport.costUsd ?? 0)),
-            dataOnly: reportJsonIsDataOnly(linkedReport.reportJson),
+            dataOnly: false, // this branch is taken only for a linked report that is not data-only
             revision: update.revision,
           }
         : { kind: "unchanged" };
@@ -2713,7 +2717,11 @@ function settleQueuedResumeWithoutExecution(
   return settled;
 }
 
-/** Route/scheduler safety net for failures before runJob owns a running row. */
+/**
+ * Test seam: settles a queued retry that failed before runJob owned a running
+ * row. Neither the route nor the scheduler calls it (the scheduler terminalizes
+ * its own claims); only tests do.
+ */
 export function recordQueuedResumeDispatchFailure(
   jobId: string,
   expectedGeneration: number,
@@ -2782,6 +2790,8 @@ export async function runJob<TPayload = unknown>(
       schedulerLimits,
     ) ?? undefined;
     if (schedulerClaim === undefined) {
+      // Only reports a row another path already made terminal: a data-only
+      // fallback is never closed as done before dispatch (DB-001), so it is claimed above.
       const afterClaim = getJobSnapshot(jobId);
       const linkedReportExists = afterClaim?.reportId !== null && afterClaim?.reportId !== undefined &&
         getDb().select({ id: reports.id }).from(reports)
@@ -3139,8 +3149,8 @@ export async function runJob<TPayload = unknown>(
       try {
         const analysisResolved = await awaitJobStage(
           "connectionId" in aiSelection
-            ? Promise.resolve({ model: subscriptionModel(aiSelection.provider, aiSelection.model) })
-            : resolveModel(capturedSettings.state.analysisModel),
+            ? Promise.resolve({ model: requestedAnalysisModel(aiSelection, capturedSettings.state.analysisModel) })
+            : resolveModel(requestedAnalysisModel(aiSelection, capturedSettings.state.analysisModel)),
           jobSignal,
           jobController,
           "model resolution",

@@ -1225,7 +1225,12 @@ describe("payload determinism + provenance", () => {
       // Audit 2026-10-27 B13 Task 6 review, 2026-10-28 (FIN-509-V1): the gap reason reads "in every fiscal year of the
       // lookback" in place of "in every one of the last 5 fiscal years" (-3 bytes). Fingerprint 1.49.0:f42dbc29 ->
       // 1.49.0:2cdc3384, promptBytes 144_299 -> 144_296; no count, citation or finance leaf moves.
-      fingerprint: "1.49.0:2cdc3384",
+      // Audit 2026-10-29 of AMZN #51 (D-133, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
+      // no noncurrent-only lease line, no zero short-term debt beside filed current debt, no vendor stakes and no
+      // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
+      // Merge of main into B13, 2026-10-29: both changes together, payload 1.50.0 (D-133's header) with B13's +429 bytes
+      // (Task 6 and its review). promptBytes 144_296 as B13; every other leaf as on both sides; fingerprint 1.50.0:6f42a9e6.
+      fingerprint: "1.50.0:6f42a9e6",
       promptBytes: 144_296,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
@@ -1396,7 +1401,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.49.0");
+    expect(first.payloadVersion).toBe("1.50.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2925,7 +2930,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.47.0");
+    expect(report.meta.specVersion).toBe("1.48.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
