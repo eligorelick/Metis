@@ -4547,8 +4547,14 @@ part of it is filed there for the same date:
   `OperatingLeaseLiabilityNoncurrent` plus `FinanceLeaseLiabilityNoncurrent`
   (within the lease guard's tolerance), the vendor states no current lease
   portion, and the line has no SEC provenance of its own. A filing that tags
-  no finance lease completes from the operating part alone; one that tags a
-  finance-lease total without its noncurrent part does not trigger.
+  no finance lease completes from the operating part alone. "No finance lease"
+  is read only after every recognised finance-lease synonym is absent at that
+  instant: the synonym entry's totals (`FinanceLeaseLiability` and the older
+  ASC 840 `CapitalLeaseObligations`) with each one's current and noncurrent
+  forms. A filing that tags any of them without
+  `FinanceLeaseLiabilityNoncurrent`, while the line equals the operating
+  noncurrent part, is refused with the tag and amount named; no legacy
+  noncurrent figure is composed.
 - the lease liabilities become the filing's totals (the tagged total, else
   current plus noncurrent, cross-checked against each other);
 - a zero or absent vendor short-term debt becomes the filing's
@@ -4562,9 +4568,16 @@ part of it is filed there for the same date:
   where tagged; else `DebtCurrent`; else `ShortTermBorrowings` plus
   `CommercialPaper`, a 0 included; in either sum the commercial paper is left
   out beside the borrowings), the vendor figure must agree with it, and
-  the refusal or the kept figure names those tags and amounts. When the filing
-  tags none of the four, the vendor figure must not equal a current lease
-  amount the completed line already holds;
+  the refusal or the kept figure names those tags and amounts. When the only
+  current-debt evidence is `LongTermDebtAndCapitalLeaseObligationsCurrent`,
+  which holds the current finance leases the completed lease total adds again,
+  the vendor figure must equal it less the filing's
+  `FinanceLeaseLiabilityCurrent` (the statements builder's case 4b), or the
+  figure itself when no finance lease is filed; when finance leases are filed
+  without `FinanceLeaseLiabilityCurrent` the row is refused, since the
+  embedded portion cannot be established. When the filing tags none of these
+  five, the vendor figure must not equal a current lease amount the completed
+  line already holds;
 - total debt is short-term debt plus the vendor's long-term debt (which must
   agree with the filing's `LongTermDebtNoncurrent`) plus the completed leases,
   and net debt is recomputed from it;

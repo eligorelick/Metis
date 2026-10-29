@@ -9,7 +9,7 @@ import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporar
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
-import { tagsFor } from "@/edgar/tagSynonyms";
+import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { millions } from "@/pipeline/stageB/netDebt";
 
 /** Already acquired filing sections only; no additional provider reads. */
@@ -429,8 +429,9 @@ type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T
  *
  * The line is noncurrent-only when, at the row's period end and currency, it
  * equals OperatingLeaseLiabilityNoncurrent + FinanceLeaseLiabilityNoncurrent
- * (the finance part only when filed; a filer with no finance lease uses the
- * operating part alone) within the lease guard's tolerance, both from one
+ * (the finance part only when filed; a filer with no finance lease, every
+ * recognised finance-lease synonym absent, uses the operating part alone)
+ * within the lease guard's tolerance, both from one
  * filing, and the vendor's current lease portion is 0 or absent. The row is
  * then recomposed from that filing: the lease line becomes the operating plus
  * finance lease TOTALS; a vendor short-term debt of 0 or absent becomes the
@@ -486,17 +487,27 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (typeof operatingNoncurrent !== "number") return none;
   const financeNoncurrent = inFiling("FinanceLeaseLiabilityNoncurrent");
   if (financeNoncurrent === "elsewhere") return none;
-  // No finance-lease noncurrent fact: only a filer with no finance lease at all at this instant.
-  if (financeNoncurrent === null && (inFiling("FinanceLeaseLiability") !== null || inFiling("FinanceLeaseLiabilityCurrent") !== null)) return none;
   const noncurrent = operatingNoncurrent + (financeNoncurrent ?? 0);
   if (Math.abs(line - noncurrent) > tolerance(noncurrent)) return none;
+  // Fix round 5, B: "no finance lease is filed" only after every recognised finance-lease synonym (from the synonym
+  // entry, with the current and noncurrent forms of each total) is absent at this instant; the legacy ASC 840
+  // CapitalLeaseObligations is one of them.
+  const financeTotals = tagsFor("financeLeaseLiability");
+  const financeSynonyms = [...new Set([...financeTotals, ...tagsFor("financeLeaseLiabilityParts"), ...financeTotals.flatMap((tag) => [`${tag}Current`, `${tag}Noncurrent`])])]
+    .filter((tag) => tag !== "FinanceLeaseLiabilityNoncurrent");
+  const otherFinanceTags = financeNoncurrent !== null ? [] : financeSynonyms.map((tag) => [tag, inFiling(tag)] as const).filter(([, value]) => value !== null);
   const ref = `${filing.form} ${filing.accn}`;
   // Fix round 3: every amount in these texts reads in millions ("94,338M").
   const lineText = `the vendor lease line ${millions(line)} ${currency} is the ${ref} filing's noncurrent lease liabilities ` +
-    `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent === null ? "; no finance lease is filed" : ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`}) at ${date}`;
+    `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent !== null ? ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`
+      : otherFinanceTags.length > 0 ? "; no FinanceLeaseLiabilityNoncurrent is filed" : "; no finance lease is filed"}) at ${date}`;
   // Review m2: the consequence states only what the check established; by default, that the row is not completed.
   const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld"): LeaseLineCompletion<T> => ({ status: "refused",
     reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}` });
+  if (otherFinanceTags.length > 0) {
+    return refuse(`the filing tags a finance lease (${otherFinanceTags.map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : "(in another filing)"}`).join(", ")}) ` +
+      "without FinanceLeaseLiabilityNoncurrent, so the finance leases the provider line may leave out cannot be established");
+  }
   const leaseTotal = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | string => {
     const tag = `${prefix}LeaseLiability`;
     const total = inFiling(tag), current = inFiling(`${tag}Current`), noncurrentPart = inFiling(`${tag}Noncurrent`);
@@ -561,11 +572,25 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   // null only when the filing tags none of the four.
   const named = (parts: readonly (readonly [string, number | null | "elsewhere"])[]) => parts.filter(([, value]) => value !== null).map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : value}`).join(" + ");
   const borrowings = currentParts.slice(1).filter((part): part is readonly [string, number] => typeof part[1] === "number");
+  // Fix round 5, A: the combined current tag holds the current finance leases, which the completed lease total adds
+  // again; as the only current-debt evidence it is checked less FinanceLeaseLiabilityCurrent (resolveDebtOverlaps
+  // case 4b), as itself when no finance lease is filed, and not at all (a refusal) when that slice is not tagged.
+  const combined = filedCurrent === null && debtCurrent === null && borrowings.length === 0 ? inFiling(COMBINED_CURRENT_DEBT_TAG) : null;
+  const financeCurrent = inFiling("FinanceLeaseLiabilityCurrent");
   const checkedCurrent: { value: number; tags: string } | null = filedCurrent !== null ? { value: filedCurrent, tags: named(currentParts) + paperNote }
     : typeof debtCurrent === "number" ? { value: debtCurrent, tags: `DebtCurrent ${millions(debtCurrent)}` }
-      : borrowings.length > 0 ? { value: borrowings.reduce((sum, [, value]) => sum + value, 0), tags: named(borrowings) + paperNote } : null;
-  const noCurrentTag = "the filing tags none of LongTermDebtCurrent, DebtCurrent, ShortTermBorrowings or CommercialPaper";
+      : borrowings.length > 0 ? { value: borrowings.reduce((sum, [, value]) => sum + value, 0), tags: named(borrowings) + paperNote }
+        : typeof combined !== "number" ? null
+          : financeNoncurrent === null ? { value: combined, tags: `${COMBINED_CURRENT_DEBT_TAG} ${millions(combined)}; no finance lease is filed` }
+            : typeof financeCurrent === "number" ? { value: combined - financeCurrent, tags: `${COMBINED_CURRENT_DEBT_TAG} ${millions(combined)} less FinanceLeaseLiabilityCurrent ${millions(financeCurrent)}` }
+              : null;
+  const noCurrentTag = `the filing tags none of LongTermDebtCurrent, DebtCurrent, ShortTermBorrowings, CommercialPaper or ${COMBINED_CURRENT_DEBT_TAG}`;
   if (keepVendorShort) {
+    if (combined === "elsewhere") return refuse(`the filing's ${COMBINED_CURRENT_DEBT_TAG} is not established in that one filing`);
+    if (typeof combined === "number" && checkedCurrent === null) {
+      return refuse(`the vendor short-term debt ${millions(vendorShort)} is checked against ${COMBINED_CURRENT_DEBT_TAG} ${millions(combined)}, which holds current finance leases, ` +
+        (financeCurrent === "elsewhere" ? "but its FinanceLeaseLiabilityCurrent is not established in that one filing" : "but the filing tags no FinanceLeaseLiabilityCurrent to take them out"));
+    }
     // Kept, never added to: it must be the filing's current debt, and never the current leases the completed line now holds.
     const currentLeases = [leases - line, operating.value - operatingNoncurrent, finance.value - (financeNoncurrent ?? 0)].filter((value) => value > 0);
     const isCurrentLease = currentLeases.some((value) => vendorAgreesWithFiled(vendorShort, value));
