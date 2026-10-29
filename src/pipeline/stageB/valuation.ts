@@ -5759,9 +5759,26 @@ export interface ReitInputs {
   ffoApprox: number | null;
   /** AFFO — recurring capex and straight-line rent when tagged, else FFO − all capex. */
   affoApprox: number | null;
+  /**
+   * The quote's price. The block no longer prices on it (the market cap below
+   * does); a null price still withholds the market cap and EV, like every guard
+   * that withholds the price.
+   */
   sharePrice: number | null;
+  /** The weighted diluted count FFO and AFFO per share divide by. */
   shares: number | null;
-  netDebt: number | null;
+  /**
+   * FIN-311: the market cap the multiples framework priced P/FFO and P/AFFO on
+   * (the quote's admitted market cap), so a report carries one P/FFO.
+   */
+  marketCap?: number | null;
+  /**
+   * FIN-108, FIN-119-V2: the house enterprise value the multiples framework
+   * computed (`multiples.enterpriseValue.value`, with the lease scope proof,
+   * redeemable preferred and redeemable noncontrolling interest), and the
+   * claims it holds. Never rebuilt here.
+   */
+  enterpriseValue?: { value: number | null; basis: string } | null;
   /** NOI approx = operatingIncome + D&A, when derivable. */
   noiApprox?: number | null;
   asOf?: string | null;
@@ -5780,18 +5797,6 @@ export interface ReitInputs {
   submap?: "equity" | "mortgage" | "undetermined" | null;
   /** WS5: the routing reason for an undetermined sub-map, repeated on each withheld figure. */
   submapReason?: string | null;
-  /**
-   * Claims senior to common in the HOUSE enterprise value — the definition the
-   * multiples framework and the DCF bridge use. 0 when absent (the provider's
-   * convention). The sketch used market cap + net debt alone, so a UPREIT
-   * with OP-unit non-controlling interest and preferred carried two EVs in
-   * one report and its implied cap rate was overstated.
-   */
-  preferredStock?: number | null;
-  minorityInterest?: number | null;
-  /** The operating-lease slice inside net debt; removed unless `includeLeasesInEv` (the EV bridge's rule). */
-  operatingLeaseLiability?: number | null;
-  includeLeasesInEv?: boolean;
 }
 
 export interface ReitValuationResult {
@@ -5871,31 +5876,23 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
         "are not fully reconciled, so the reconstruction may be above or below the issuer's common-holder FFO.",
     );
   }
-  const price = posOrNull(inputs.sharePrice);
   const shares = posOrNull(inputs.shares);
-  const mcap = price !== null && shares !== null ? price * shares : null;
+  const mcap = posOrNull(inputs.marketCap);
   if (mcap === null) {
-    gaps.push(gapEntry("valuation.reit.marketCap", "share price or share count missing", "warn"));
+    gaps.push(gapEntry("valuation.reit.marketCap", "market cap missing (the multiples' admitted market cap is unavailable)", "warn"));
   }
   const ffo = posOrNull(inputs.ffoApprox);
   const affo = posOrNull(inputs.affoApprox);
   if (ffo === null) {
     gaps.push(gapEntry("valuation.reit.ffo", "FFO missing or non-positive — P/FFO n/m", "warn"));
   }
-  const operatingLease =
-    isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability > 0 ? inputs.operatingLeaseLiability : 0;
-  const leaseRemoved = inputs.includeLeasesInEv === true ? 0 : operatingLease;
-  const preferred = isNum(inputs.preferredStock) ? inputs.preferredStock : 0;
-  const minority = isNum(inputs.minorityInterest) ? inputs.minorityInterest : 0;
-  const ev =
-    mcap !== null && isNum(inputs.netDebt) ? mcap + inputs.netDebt - leaseRemoved + preferred + minority : null;
+  // FIN-108: the block reads the multiples' EV as computed (one EV per report); a withheld multiples EV withholds this one.
+  const ev = mcap !== null && isNum(inputs.enterpriseValue?.value) ? inputs.enterpriseValue.value : null;
   if (ev === null) {
-    gaps.push(gapEntry("valuation.reit.enterpriseValue", "net debt or market cap missing — EV/implied cap rate unavailable", "info"));
+    gaps.push(gapEntry("valuation.reit.enterpriseValue", "the multiples' enterprise value or the market cap is unavailable — EV/implied cap rate unavailable", "info"));
   } else {
     notes.push(
-      `enterprise value = market cap ${fmtNum(mcap as number)} + net debt ${fmtNum(inputs.netDebt as number)}` +
-        (leaseRemoved > 0 ? ` − operating-lease liability ${fmtNum(leaseRemoved)}` : "") +
-        ` + preferred ${fmtNum(preferred)} + minority interest ${fmtNum(minority)} = ${fmtNum(ev)} — the house definition the multiples and the DCF bridge use`,
+      `enterprise value = ${millions(ev)}: ${inputs.enterpriseValue?.basis ?? "the house enterprise value"} — the house definition the multiples and the DCF bridge use, so a report carries one EV`,
     );
   }
   const noi = posOrNull(inputs.noiApprox);
@@ -6287,7 +6284,6 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     const reason = "REIT enterprise value and implied cap rate withheld: consolidated equity establishes outside ownership but the NCI allocation is unavailable; no market NCI value is inferred from the book-equity difference. FFO figures are evaluated separately.";
     notes.push(reason);
     gaps.push(gapEntry("valuation.reit.noncontrollingOwnership", reason, "warn"));
-    inputs = { ...inputs, reit: { ...inputs.reit, netDebt: null } };
   }
   // The one rule every comparison with the quote obeys (priceCurrency.ts):
   // statements and quote in ONE KNOWN currency, or no comparison at all.
@@ -6438,11 +6434,27 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         ),
       );
     }
+    // The lease refusal is already in the multiples' EV (null), which the block reads; the gap stays.
     const reitDebtRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
     if (reitDebtRefusal) gaps.push(gapEntry("valuation.reit.enterpriseValue.leaseScope", reitDebtRefusal, "critical"));
-    const reit = inputs.reit
-      ? reitValuation({ ...inputs.reit, ...(!quoteComparison.comparable ? { sharePrice: null } : {}), ...(reitDebtRefusal ? { netDebt: null } : {}) })
-      : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null, netDebt: null });
+    // FIN-311, FIN-108: the market cap P/FFO was priced on and the house EV come from the multiples. Every guard that
+    // withholds the price (ADR security basis, unresolved class basis, price currency) withholds both with it.
+    const reitInputs: ReitInputs | null = inputs.reit && !quoteComparison.comparable ? { ...inputs.reit, sharePrice: null } : inputs.reit ?? null;
+    const reitBridge = multiples.enterpriseValue;
+    const reitMarketCap = reitInputs !== null && reitInputs.sharePrice !== null ? posOrNull(reitBridge.equityScope?.marketCap) : null;
+    const reitLease = reitBridge.leaseLiability === null
+      ? reitBridge.includeLeases ? "" : "; no operating-lease liability is removed (its scope is unproven or it is not disclosed)"
+      : `, ${reitBridge.includeLeases ? "keeping" : "less"} the operating-lease liability of ${millions(reitBridge.leaseLiability)}`;
+    const reit = reitInputs !== null
+      ? reitValuation({
+        ...reitInputs,
+        marketCap: reitMarketCap,
+        enterpriseValue: reitMarketCap === null ? null : {
+          value: reitBridge.value,
+          basis: `market cap ${millions(reitMarketCap)} + total debt + preferred stock + minority interest + any redeemable preferred or redeemable noncontrolling interest filed in temporary equity − cash and short-term investments${reitLease}`,
+        },
+      })
+      : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null });
     if (!inputs.reit) {
       gaps.push(gapEntry("valuation.reit", "REIT inputs not provided by caller", "critical"));
     }

@@ -3395,7 +3395,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const dilutedShareDivisor = dilutedSharesBasis === "quarter" ? divisors.quarter : dilutedSharesBasis === "annual" ? divisors.annual : null;
 
   const netDebtInfo = netDebtFromBalance(balPoint);
-  const netDebtDerived = netDebtInfo.value;
 
   // --- DCF inputs (general route) -------------------------------------------
   // The analyst-consensus growth case divides FY1 estimated revenue by the
@@ -3983,7 +3982,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           affoApprox,
           sharePrice: currentPrice,
           shares: valuationDilutedShares,
-          netDebt: netDebtDerived,
           noiApprox,
           // The FFO computation's own period end, never the trailing income
           // date: labelling a fiscal-year FFO with a TTM as-of asserted a
@@ -3997,12 +3995,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           affoApproximate: nareitFfo.affoApproximate,
           submap: route.reitSubmap ?? null,
           submapReason: reitSubmapReason,
-          // The HOUSE enterprise value for the implied cap rate: the same
-          // senior claims and lease rule the multiples and the DCF bridge use.
-          preferredStock: balPoint ? num(balPoint.preferredStock) : null,
-          minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
-          operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
-          includeLeasesInEv: evIncludeLeases,
+          // FIN-311, FIN-108: the market cap and the house EV come from the
+          // multiples framework (`valueCompany`), never rebuilt here.
         }
       : null;
 

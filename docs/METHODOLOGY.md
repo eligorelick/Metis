@@ -1011,7 +1011,7 @@ tagged in companyfacts for both dates.
 source — EPS and share counts on the statement rows, the keyless market cap,
 market-cap history, enterprise values and free float — so no downstream
 calculation can rebuild them: EPS growth, P/E from EPS, DCF and excess-return
-per share, the reverse DCF, REIT price × shares (P/FFO, P/AFFO), the share-count
+per share, the reverse DCF, the REIT block's market cap (P/FFO, P/AFFO) and its FFO and AFFO per share, the share-count
 trend, dilution, the grades built on them, and the AI payload all read the empty
 value. Figures that need no share count (revenue, margins, free cash flow,
 capex, EV/sales on a vendor market cap) are unaffected.
@@ -2223,12 +2223,23 @@ contains unconsolidated-entity and noncontrolling-interest adjustments. Even
 using its real-estate-only components, the app's unreconciled formula is
 USD 12.105 million below common FFO, disproving an unconditional upper bound.
 
-The implied cap rate divides NOI by the **house enterprise value** — market
-capitalisation + net debt + preferred + minority interest, less the
-operating-lease slice by default — the same definition the multiples and the
-DCF bridge use, so a report carries one EV. (The REIT block's own EV does not
-yet add redeemable preferred and redeemable NCI, which the multiples EV and the
-DCF bridge now add; "EV bridge", above.) The own-history P/FFO and P/AFFO
+The REIT block takes its market cap and its enterprise value from the multiples
+framework (FIN-311, FIN-108, FIN-119-V2; it builds neither itself). P/FFO and
+P/AFFO are the quote's admitted market cap divided by FFO and AFFO, the same
+figures the multiples publish, so a report carries one P/FFO; FFO and AFFO per
+share divide by the weighted diluted count ("Share basis (D-65)"). The implied
+cap rate divides NOI by the **house enterprise value** — market capitalisation
++ total debt + preferred + redeemable preferred + minority interest +
+redeemable noncontrolling interest, less the operating-lease slice only where
+its scope is proven (and by default) — the same definition the multiples and the
+DCF bridge use, so a report carries one EV ("EV bridge", above). Operating
+partnership units, permanent or redeemable, are not common shares, so they enter
+the EV through the noncontrolling-interest terms and never double count against
+the quote's market cap. When the multiples withhold the EV (an unproven lease
+scope that cannot be removed, an unknown noncontrolling allocation, a refused
+temporary-equity operand), the REIT EV and cap rate are withheld with it, and
+every guard that withholds the price withholds the REIT market cap and EV too.
+The own-history P/FFO and P/AFFO
 bands are built from net income + D&A per rolling four quarters, the only
 construction quarterly statements support; when the current FFO adjusts
 additional NAREIT components (a property-sale gain, an impairment or real-estate-only depreciation
@@ -2240,7 +2251,7 @@ resolves at that period end, so the statement fallbacks are read from the same
 fiscal year rather than from a trailing window — a fiscal-year net income against
 trailing depreciation is a hybrid of two periods, not a figure. The REIT
 valuation block carries that period end as its as-of, and the notes say that the
-share price in P/FFO is current while the FFO it divides is up to three quarters
+market cap in P/FFO is current while the FFO it divides is up to three quarters
 old.
 
 P/FFO and P/AFFO are computed from these figures. When the REIT sub-map is

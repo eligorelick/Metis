@@ -141,7 +141,7 @@ describe("computeDcfDisplay — no FCFF DCF for the route → empty (never fabri
   });
 
   it("REIT route → empty", () => {
-    const reit = reitValuation({ ffoApprox: 300, affoApprox: 250, sharePrice: 40, shares: 100, netDebt: 500 });
+    const reit = reitValuation({ ffoApprox: 300, affoApprox: 250, sharePrice: 40, shares: 100, marketCap: 4000, enterpriseValue: { value: 4500, basis: "test" } });
     const valuation: ValuationResult = { kind: "reit", route: "reit", reit, multiples: MULTIPLES, notes: [], gaps: [] };
     const display = computeDcfDisplay(valuation);
     expect(display.assumptions).toEqual([]);
