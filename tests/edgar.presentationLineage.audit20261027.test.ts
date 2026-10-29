@@ -767,6 +767,23 @@ describe("fix round 2 F3: a withheld floor tag is decided from same-filing copie
     });
     expect(frRow(b)?.depreciationAndAmortization).toBe(1042 * M); // 58dfdce: withheld; 56d52a9: the mixed 1,093
   });
+  it("PEP Q4 2025 shape: DA's year stands alone and its nine months are superseded after the 10-K; DDA is still served (1,136)", () => {
+    const q326: Filing = { filed: "2026-10-08", form: "10-Q", fp: "Q3", fy: 2026, accn: "0000000007-26-000009" };
+    const FY25 = ["2025-01-01", "2025-12-31"] as const;
+    const NINE25 = ["2025-01-01", "2025-09-30"] as const;
+    const b = build(
+      {
+        DepreciationDepletionAndAmortization: [pt(FR.q325, ...NINE25, 2315 * M), pt(q326, ...NINE25, 2315 * M), pt(FR.k25, ...FY25, 3451 * M), pt(FR.k24, ...FY24, 3160 * M)],
+        // FY2024 is re-scoped in the 10-K (3,086 -> 3,160), so that 10-K re-presented earlier periods; the nine months in the
+        // 10-Q before it are on the old basis (2,259), and only a later 10-Q carries 2,315.
+        DepreciationAndAmortization: [pt(FR.k24, ...FY24, 3086 * M), pt(FR.k25, ...FY24, 3160 * M), pt(FR.q325, ...NINE25, 2259 * M), pt(q326, ...NINE25, 2315 * M), pt(FR.k25, ...FY25, 3451 * M)],
+        Revenues: [pt(FR.q325, ...NINE25, 700 * M), pt(FR.k25, ...FY25, 1000 * M)],
+        Assets: [inst(FR.q325, "2025-09-30", 1000 * M), inst(FR.k25, "2025-12-31", 1000 * M)],
+      },
+      { annualPeriods: 3, quarterlyPeriods: 8, asOf: "2026-10-15" },
+    );
+    expect(frRow(b, "2025-12-31")?.depreciationAndAmortization).toBe(1136 * M); // 58dfdce: withheld (as-filed DA quarter 1,192)
+  });
   it("no-common-filing control: the as-filed magnitude of the refused floor decides", () => {
     const kA: Filing = { filed: "2025-03-01", form: "10-K/A", fp: "FY", fy: 2024, accn: "0000000007-25-000009" };
     const b = frBuild({

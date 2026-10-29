@@ -4205,14 +4205,17 @@ so the pair is also checked, in the statement builder, by one pure helper
 - A combined-total floor tag (for example `Depreciation` under a combined D&A
   tag) that is withheld for presentation still bounds the floored tag: the
   decision is made from filed copies on one basis, never from the refused
-  quarter: the candidate's copy of each period it nets (the year and the year to
-  date) is compared with the floor tag's copy of the same period in the same
-  filing, and the candidate is skipped only if it sits below the floor beyond
+  quarter: the candidate's copy of each period it nets is compared with the
+  floor tag's copy of the same period in the same filing (for a fourth quarter,
+  the fiscal year and the year to date through the previous quarter; for a
+  year-to-date difference, the year to date and the one before it), and the candidate is skipped only if it sits below the floor beyond
   the 0.5% / 2 million allowance in such a filing. If no filing carries both
   tags for those periods, the floor tag's as-filed derived quarter (the newest
   copies filed no later than its own minuend's filing) decides. The floor is a
-  magnitude check that is never published. A floor tag that is not filed at all
-  leaves no floor.
+  magnitude check that is never published. A floor tag that is not withheld is
+  compared by its one-basis quarter, not by the as-filed pair, so a real total is
+  published and not a lower bound (a synthetic case: 3,000 where the as-filed
+  pair gave 2,940). A floor tag that is not filed at all leaves no floor.
 - A withheld revenue quarter suppresses the TTM window, which then falls back to
   the annual statement.
 
