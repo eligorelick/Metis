@@ -2208,6 +2208,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // date. The bridge stays at the statement-date balance: cash generated since
   // then is inside the first window's flows, not double counted.
   const statementDate = ttm?.date ?? null;
+  // FIN-103: the bridge row is the statement-date balance when one exists
+  // (`dcfBridgeRow`); when none does, the text names the balance actually used
+  // and which side of the statement date it falls on, never the D-65 sentence.
+  const bridgeOffsetDays = statementDate !== null ? daysBetween(statementDate, bal.date.slice(0, 10)) : null;
+  const bridgeBalanceText = bridgeOffsetDays === null || bridgeOffsetDays === 0 ? null
+    : bridgeOffsetDays > 0
+      ? `the equity bridge uses the ${bal.date.slice(0, 10)} balance, ${bridgeOffsetDays} days after the statement date; flows between the two dates are in both that balance and the first window`
+      : `the equity bridge uses the ${bal.date.slice(0, 10)} balance, ${-bridgeOffsetDays} days before the statement date; flows between the two dates are in neither that balance nor the first window`;
+  if (bridgeBalanceText !== null) {
+    gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate", `no balance sheet is dated at the statement date ${statementDate}: ${bridgeBalanceText}`, "info"));
+  }
   const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
   let valuationDate: DcfAssumptions["valuationDate"] | undefined;
   if (elapsedDays !== null && elapsedDays > 0 && elapsedDays <= MAX_ROLL_FORWARD_DAYS) {
@@ -2217,12 +2228,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       value: inputs.valuationDate as string,
       elapsedYears,
       basis: `cash flows are discounted from the statement date ${statementDate} and rolled forward ${elapsedDays} days to the quote date ${inputs.valuationDate} ` +
-        `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; the equity bridge stays at the ${statementDate} balance, ` +
-        "whose later cash generation is inside the first window's flows (house rule D-65)",
+        `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; ${bridgeBalanceText ?? `the equity bridge stays at the ${statementDate} balance, ` +
+        "whose later cash generation is inside the first window's flows"} (house rule D-65)`,
     };
     notes.push(`Valuation date: ${valuationDate.basis}`);
   } else if (elapsedDays !== null && elapsedDays > MAX_ROLL_FORWARD_DAYS) {
-    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date (house rule D-65)`);
+    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date${bridgeBalanceText === null ? "" : `, and ${bridgeBalanceText}`} (house rule D-65)`);
     gaps.push(gapEntry("valuation.dcf.valuationDate", `quote ${elapsedDays} days after the statement date — value not rolled forward`, "info"));
   }
 
@@ -5664,6 +5675,12 @@ export interface ValuationBundleInputs {
   dilutedShareEconomicBasis?: string | null;
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
+  /**
+   * FIN-103: the balance row the DCF equity bridge reads, the one dated at the
+   * DCF statement date (`dcfBridgeRow`). Absent ⇒ the bridge reads
+   * `multiples.balance`, the newest row the market EV uses.
+   */
+  bridgeBalance?: MultiplesBalance | null;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */
   minorityInterest?: number | null;
   preferred?: number | null;
@@ -5804,11 +5821,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
 
   // Audit 2026-10-22 C-15: the critical DCF gap names this gate, not a missing caller input.
   let dcfWithheldCause: string | null = null;
-  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
+  // FIN-103: the DCF-only gates read the balance the bridge reads.
+  const bridgeBalance = inputs.bridgeBalance ?? inputs.multiples.balance;
+  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(bridgeBalance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
-    dcfWithheldCause = `DCF withheld: noncontrolling ownership unresolved at ${inputs.multiples.balance?.date ?? "the valuation balance date"} (the balance sheet carries consolidated equity without a filed parent/NCI split; see valuation.dcf.noncontrollingOwnership)`;
+    dcfWithheldCause = `DCF withheld: noncontrolling ownership unresolved at ${bridgeBalance?.date ?? "the valuation balance date"} (the balance sheet carries consolidated equity without a filed parent/NCI split; see valuation.dcf.noncontrollingOwnership)`;
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
   }
 
@@ -6143,9 +6162,9 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         isNum(inputs.leaseLiability) && inputs.leaseLiability >= 0 ? inputs.leaseLiability : null;
       // Audit 2026-10-19 CODE-1: the operating lease leaves net debt only when
       // totalDebt is shown to hold it; otherwise net debt is used as reported.
-      const bridgeLeaseScope = operatingLeaseScopeUnproven({ ...inputs.multiples.balance,
-        capitalLeaseObligations: inputs.leaseLiability ?? inputs.multiples.balance?.capitalLeaseObligations,
-        operatingLeaseLiability: inputs.operatingLeaseLiability ?? inputs.multiples.balance?.operatingLeaseLiability });
+      const bridgeLeaseScope = operatingLeaseScopeUnproven({ ...bridgeBalance,
+        capitalLeaseObligations: inputs.leaseLiability ?? bridgeBalance?.capitalLeaseObligations,
+        operatingLeaseLiability: inputs.operatingLeaseLiability ?? bridgeBalance?.operatingLeaseLiability });
       if (bridgeLeaseScope !== null) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeLeaseScope, "warn"));
       const leaseLiability =
         bridgeLeaseScope === null && isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability >= 0
@@ -6157,13 +6176,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
           : null;
       const includeLeases = inputs.includeLeasesInEv === true;
       const leaseConflict = leaseDebtConflict({
-        totalDebt: inputs.multiples.balance?.totalDebt,
+        totalDebt: bridgeBalance?.totalDebt,
         capitalLeaseObligations: inputs.leaseLiability,
         operatingLeaseLiability: inputs.operatingLeaseLiability,
-        financeLeaseLiability: inputs.multiples.balance?.financeLeaseLiability,
+        financeLeaseLiability: bridgeBalance?.financeLeaseLiability,
       });
       if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
-      const bridgeScopeRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
+      const bridgeScopeRefusal = leaseDebtScopeRefusal(bridgeBalance, inputs.includeLeasesInEv === true);
       if (bridgeScopeRefusal) { notes.push(bridgeScopeRefusal); gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeScopeRefusal, "critical")); }
       const netDebtIncludingLeases = leaseConflict === null && bridgeScopeRefusal === null ? inputs.netDebt : null;
       const netDebtExcludingLeases =
