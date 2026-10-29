@@ -3,7 +3,7 @@
  * material is read here, so nothing a label could leak ever reaches it.
  * The server wrapper `describeAnalysisRoute()` lives in connections.ts.
  */
-import { resolveRegistryModel } from "@/models/registry";
+import { autoPreferenceIds, resolveRegistryModel } from "@/models/registry";
 import { subscriptionModel, type AiSelection } from "./contracts";
 
 export interface AnalysisRoute {
@@ -39,7 +39,10 @@ export function buildAnalysisRoute(
   if (selection.provider === "anthropic") {
     const model = requestedAnalysisModel(selection, settings.analysisModel);
     // The request builder sends effort only where the registry says the model accepts it (Haiku 4.5 does not).
-    const effort = resolveRegistryModel(model)?.entry.effort.supported === true ? settings.analysisEffort : null;
+    // "auto" resolves at run time to one of the registry's preferred models, so it shows the effort when every one
+    // of them accepts it.
+    const takesEffort = (id: string): boolean => resolveRegistryModel(id)?.entry.effort.supported === true;
+    const effort = (model === "auto" ? autoPreferenceIds().every(takesEffort) : takesEffort(model)) ? settings.analysisEffort : null;
     const label = effort === null ? `Claude API · ${claudeName(model)}` : `Claude API · ${claudeName(model)} · ${effort} effort`;
     return { provider: "anthropic", model, effort, ready, label: ready ? label : `${label} · key needed` };
   }

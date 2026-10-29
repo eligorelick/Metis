@@ -18,7 +18,7 @@ vi.mock("@/settings/settings", () => ({ getWritableSettingsAuthority: () => ({ s
 
 import { describeAnalysisRoute } from "@/ai/connections";
 import { buildAnalysisRoute, requestedAnalysisModel } from "@/ai/analysisRoute";
-import { activeModels } from "@/models/registry";
+import { activeModels, autoPreferenceIds } from "@/models/registry";
 import { modelSupportsEffort } from "@/report/execution";
 
 const GRANT = ["chatgpt.tokens.use.direct"];
@@ -56,6 +56,18 @@ describe("describeAnalysisRoute", () => {
       expect(route.effort).toBe(modelSupportsEffort(model.id) ? "high" : null);
       expect(route.label.includes("effort")).toBe(modelSupportsEffort(model.id));
     }
+  });
+  it("keeps the saved effort for the Claude auto setting when every model auto may pick accepts it", () => {
+    // Codex review of a8d0d78 (PR #72): "auto" resolves at run time (resolveModel), so the label cannot name the model,
+    // but the effort is sent to whichever preferred model it picks.
+    fake.key = true;
+    fake.settings = { analysisModel: "auto", analysisEffort: "max" };
+    const everyAutoModelTakesEffort = autoPreferenceIds().every((id) => modelSupportsEffort(id));
+    expect(everyAutoModelTakesEffort).toBe(true); // the registry today; the rule below covers either answer
+    expect(describeAnalysisRoute()).toEqual({
+      provider: "anthropic", model: "auto", effort: "max", ready: true,
+      label: "Claude API · auto · max effort",
+    });
   });
   it("says a Claude route without a key is not ready", () => {
     chatgptStore(false, { provider: "anthropic" });
