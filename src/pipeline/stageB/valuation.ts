@@ -191,7 +191,8 @@ const gapEntry = (
  * current balance: debt (excluding operating leases when the current balance
  * does) + temporary equity (FIN-119-V1: redeemable preferred and redeemable
  * NCI are financing capital) + consolidated equity - cash and short-term
- * investments - long-term investments while capital remains. A year whose
+ * investments - long-term investments, a year whose holding meets or exceeds its
+ * capital counting at the house cap (FIN-304). A year whose
  * temporary equity is refused is skipped with a note, never zero-filled.
  * Fewer than three years: no ratio.
  *
@@ -234,8 +235,9 @@ export function establishedSalesToCapital(
     if (temporary !== null && temporary.refusal !== null) { refused.push(`FY${date}`); continue; }
     const ic = debt + equity + (temporary === null ? 0 : temporary.total) - row.cashAndShortTermInvestments;
     const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
-    const operating = ic - lti > 0 ? ic - lti : ic;
-    if (operating > 0) years.set(date, revenue / operating);
+    // FIN-304: a holding that meets or exceeds the year's capital leaves no operating capital; the ratio approaches the
+    // house cap from below, so the year counts at the cap (never revenue over the full capital).
+    if (ic > 0) years.set(date, ic - lti > 0 ? revenue / (ic - lti) : S2C_CLAMP[1]);
   }
   const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
   const skipped = (refused.length === 0 ? "" : `; ${refused.join(", ")} left out: a temporary-equity operand was refused, so that year's invested capital is unknown (FIN-119-V1)`) +
@@ -1243,8 +1245,12 @@ export interface DcfAssumptions {
    * D-65: long-term investments the sales-to-capital denominator removed as
    * non-operating (D-60). The equity bridge adds back exactly this amount, so
    * an asset left out of operating capital is never left out of value too.
+   * FIN-304: recorded whenever the balance carries a holding; `basis` is set
+   * only when the holding meets or exceeds the invested capital, so nothing is
+   * left to remove from operating capital and sales-to-capital takes the house
+   * cap (the bridge still adds the holding back).
    */
-  nonOperatingInvestments?: { value: number; balanceDate: string };
+  nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
   /**
    * AMZN audit 2026-10-20: the rate at which the bridge taxes the non-operating
    * investments it adds — the marginal-rate floor the terminal tax converges
@@ -2226,20 +2232,27 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // marketable securities) are non-operating: their income is below the EBIT
   // this DCF projects, so they are not capital the operating path earns on.
   // NVDA's $51.2B of them cut sales-to-capital from 2.58 to 1.80. When
-  // removing them would leave no operating capital the D-58 basis stands.
+  // removing them would leave no operating capital (FIN-304), the operating
+  // ratio is unbounded and takes the house cap, and the bridge still adds the
+  // holding back. (Capital emptied by the lease removal is `emptiedHistory`'s.)
   const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
+  const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
+  const exceedsBasis = holdingExceedsCapital
+    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-next, FIN-304)`
+    : null;
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
-  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : startRev / (operatingIc ?? ic);
+  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : startRev / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
-  let s2cBasis = operatingIc !== null
+  let s2cBasis = exceedsBasis !== null
+    ? `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}): ${exceedsBasis}`
+    : operatingIc !== null
     ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
-    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
-      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
+    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
   else if (leaseOut.amount > 0) s2cBasis += ` The operating-lease liability ${millions(leaseOut.amount)} removed: its cost is inside the EBIT this DCF projects (ASC 842; D-25).`;
@@ -2396,7 +2409,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...((operatingIc !== null || emptiedHistory !== null) && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
+    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsBasis } : {}) } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
@@ -6527,7 +6540,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       const lti = assumptions.nonOperatingInvestments ?? null;
       if (isNum(netDebtForBridge) && lti !== null && isNum(lti.value) && lti.value > 0) {
         components.push({ kind: "long-term-investments", label: "long-term investments (filed carrying value)", value: lti.value,
-          basis: inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
+          basis: lti.basis !== undefined
+            ? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value; ${lti.basis}`
+            : inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
       }
       for (const c of components) {
         notes.push(
