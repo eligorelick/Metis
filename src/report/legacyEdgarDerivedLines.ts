@@ -5,9 +5,15 @@ import type { Report } from "@/report/schema";
  * Display-time marking of a stored report whose statements were built from SEC
  * filings before this batch's report spec (audit 2026-10-27, B13, D-67). The
  * derived lines and growth cells it shows are as stored; the notes below say
- * which derivations changed since. No figure is rewritten, and a report at or
- * after the since-version, or one whose manifest holds no `keyless.income*` entry, is
- * returned as the identical object.
+ * which derivations changed since. No figure is rewritten. Two classes carry a
+ * note: FULL (the income statements were served by EDGAR: a `keyless.incomeAnnual`
+ * or `keyless.incomeQuarterly` entry whose reason starts "served by edgar") and
+ * BACKFILL (only older periods came from SEC filings: a `statements.backfill.income*`
+ * entry, an appended `edgar.predecessor` entry, or a scoped `keyless.income*.backfill.*`
+ * or `.predecessor.*` entry), whose two notes are scoped to those older periods. FULL
+ * wins when both are present. A report at or after the since-version, or in neither
+ * class (an FMP-route report, whose `.shareBasis` entries describe vendor rows), is
+ * returned as the identical object (Task 10b, R1 pre-flight I3).
  *
  * The since-version is frozen: it never compares against `REPORT_SPEC_VERSION`
  * itself, because later batches move that constant. Every note is a fixed
@@ -27,6 +33,16 @@ export const LEGACY_EDGAR_TREND_NOTE =
 export const LEGACY_EDGAR_QUALITY_NOTE =
   `Statement-derived screens on this report were computed before report spec ${SINCE}: where the filer tags no NonoperatingIncomeExpense aggregate, the one-time-items screen was skipped without notice, so 'no flags were raised' may mean it was not evaluated; and D&A could be a sub-line below the filer's own Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A. Re-run the report for the current derivation.`;
 
+export const LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE = LEGACY_EDGAR_FAIR_VALUE_NOTE.replace(
+  `Statement lines on this report were built from SEC filings before report spec ${SINCE}.`,
+  `The older statement periods on this report that were backfilled from SEC filings were built before report spec ${SINCE}.`,
+);
+
+export const LEGACY_EDGAR_BACKFILL_QUALITY_NOTE = LEGACY_EDGAR_QUALITY_NOTE.replace(
+  `Statement-derived screens on this report were computed before report spec ${SINCE}:`,
+  `Statement-derived screens on this report's older periods backfilled from SEC filings were computed before report spec ${SINCE}:`,
+);
+
 const STATEMENT_FIELDS = ["keyless.incomeAnnual", "keyless.incomeQuarterly"] as const;
 
 const isStatementField = (field: string): boolean =>
@@ -39,17 +55,35 @@ const isStatementField = (field: string): boolean =>
 const namesRevenueRepresentation = (entry: { field: string; reason: string }): boolean =>
   isStatementField(entry.field) && entry.field.endsWith(".restatements") && (entry.reason.includes(" revenue ") || /; and \d+ more\b/.test(entry.reason));
 
+/** The `record()` entry of keyless.ts: the whole member was built from SEC filings. Wording unchanged since d6ed91a. */
+const isFullEntry = (entry: { field: string; reason: string }): boolean =>
+  STATEMENT_FIELDS.some((field) => entry.field === field) && entry.reason.startsWith("served by edgar");
+
+/** Older periods only: `statements.backfill.income*`, an appended predecessor, or a scoped income backfill/predecessor entry. */
+const isBackfillEntry = (entry: { field: string; reason: string }): boolean =>
+  entry.field === "statements.backfill.incomeAnnual" ||
+  entry.field === "statements.backfill.incomeQuarterly" ||
+  // predecessorManifestEntry's appended form; the "not appended" form (keyless.ts) says "no pre-reorganization periods were appended".
+  (entry.field === "edgar.predecessor" && entry.reason.includes("were taken from the predecessor's filings")) ||
+  STATEMENT_FIELDS.some((field) => entry.field.startsWith(`${field}.backfill.`) || entry.field.startsWith(`${field}.predecessor.`));
+
 export function withLegacyEdgarDerivedLines(report: Report): Report {
   if (!specVersionBefore(report.meta.specVersion, SINCE)) return report;
   const manifest = report.appendix.missingData;
-  // A keyless run files `keyless.<member>` "served by edgar (...)": that entry means the statements came from SEC filings.
-  if (!manifest.some((entry) => isStatementField(entry.field))) return report;
+  // `keyless.<member>.shareBasis` describes VENDOR rows, so only the entries above mean SEC filings built the statements.
+  const full = manifest.some(isFullEntry);
+  if (!full && !manifest.some(isBackfillEntry)) return report;
+  const fairValueNote = full ? LEGACY_EDGAR_FAIR_VALUE_NOTE : LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE;
+  const qualityNote = full ? LEGACY_EDGAR_QUALITY_NOTE : LEGACY_EDGAR_BACKFILL_QUALITY_NOTE;
+  // A report that already carries either class's text keeps it: the other class's text is never added beside it.
+  const carries = (lines: readonly string[]): boolean =>
+    lines.some((line) => line === LEGACY_EDGAR_FAIR_VALUE_NOTE || line === LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE || line === LEGACY_EDGAR_QUALITY_NOTE || line === LEGACY_EDGAR_BACKFILL_QUALITY_NOTE);
 
   let next: Report = report;
 
   const fairValue = next.fairValue;
-  if (fairValue !== undefined && fairValue.status === "available" && !fairValue.basis.includes(LEGACY_EDGAR_FAIR_VALUE_NOTE)) {
-    next = { ...next, fairValue: { ...fairValue, basis: [...fairValue.basis, LEGACY_EDGAR_FAIR_VALUE_NOTE] } };
+  if (fairValue !== undefined && fairValue.status === "available" && !carries(fairValue.basis)) {
+    next = { ...next, fairValue: { ...fairValue, basis: [...fairValue.basis, fairValueNote] } };
   }
 
   const trend = next.filingDisclosures?.quarterlyTrend;
@@ -60,8 +94,8 @@ export function withLegacyEdgarDerivedLines(report: Report): Report {
   }
 
   const notes = next.quality.notes ?? [];
-  if (!notes.includes(LEGACY_EDGAR_QUALITY_NOTE)) {
-    next = { ...next, quality: { ...next.quality, notes: [...notes, LEGACY_EDGAR_QUALITY_NOTE] } };
+  if (!carries(notes)) {
+    next = { ...next, quality: { ...next.quality, notes: [...notes, qualityNote] } };
   }
   return next;
 }

@@ -3098,12 +3098,23 @@ a kept amount may belong to a person the cut excerpt did not name (audit
 be found or corrected at display; such figures are shown as stored.
 
 **Legacy reports built from SEC statements (audit 2026-10-27 B13, D-67).** A report
-saved before report spec 1.49.0 whose missing-data manifest holds a
-`keyless.incomeAnnual` or `keyless.incomeQuarterly` entry (or one starting with
-either followed by `.`) took its statements from SEC filings. It is shown, on the
-page and in the Markdown, print and audit exports, through
+saved before report spec 1.49.0 whose income statements came from SEC filings is
+marked in one of two classes. FULL: the manifest holds a `keyless.incomeAnnual` or
+`keyless.incomeQuarterly` entry (exactly that field) whose reason starts "served by
+edgar" (the wording of the `record()` entry in `src/pipeline/keyless.ts`, unchanged
+since 2026-09-01). BACKFILL, when no FULL entry exists: only older periods came from
+SEC filings, shown by a `statements.backfill.incomeAnnual` or
+`statements.backfill.incomeQuarterly` entry, an `edgar.predecessor` entry whose reason
+says older periods "were taken from the predecessor's filings" (the "no
+pre-reorganization periods were appended" form does not count), or a scoped
+`keyless.incomeAnnual.backfill.*`, `keyless.incomeQuarterly.backfill.*`,
+`keyless.incomeAnnual.predecessor.*` or `keyless.incomeQuarterly.predecessor.*` entry.
+FULL wins when both are present. A `keyless.<member>.shareBasis` entry never marks a
+report: `keyless.ts` files it only when the member holds vendor rows, the opposite
+of an SEC-built statement. The report is shown, on the page and in the Markdown,
+print and audit exports, through
 `withLegacyEdgarDerivedLines` (`src/report/legacyEdgarDerivedLines.ts`), which
-follows the payload-record view above. It adds three fixed-string notes and
+follows the payload-record view above. It adds up to three fixed-string notes and
 changes no figure; the stored report and its bytes are never rewritten. The
 since-version is a frozen constant (`EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`), never
 the current `REPORT_SPEC_VERSION`, compared numerically through
@@ -3113,7 +3124,10 @@ dropping a period that files the non-operating aggregate without an interest
 element, removed a filer-tagged other non-operating result and stopped adding back
 interest the filer placed inside the aggregate, before D&A and R&D stopped taking a
 synonym below their own filed component, and before derived quarters and growth
-cells netted figures on one presentation only. (b) When the manifest holds an
+cells netted figures on one presentation only. For the BACKFILL class, line (a)
+opens "The older statement periods on this report that were backfilled from SEC
+filings were built before report spec 1.49.0." instead (`LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE`),
+and the rest is unchanged. (b) When the manifest holds an
 income restatements entry (`keyless.incomeQuarterly.restatements`,
 `keyless.incomeAnnual.restatements`, or a scoped one such as
 `keyless.incomeQuarterly.backfill.restatements`) whose reason names a revenue line
@@ -3124,9 +3138,14 @@ without checking whether the two quarters sit on one filed presentation. (c) The
 quality notes always say the one-time-items screen was skipped without notice where
 the filer tags no NonoperatingIncomeExpense aggregate (so "no flags were raised" may
 mean it was not evaluated), and that D&A could be a sub-line below the filer's own
-Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A. (c) does not wait
-for an available fair value, because (a) does. A report at or after the since-version,
-or one with no `keyless.income*` manifest entry, is returned as the identical object.
+Depreciation, which moves EBITDA, net debt/EBITDA and capex/D&A; for the BACKFILL
+class the first clause reads "Statement-derived screens on this report's older
+periods backfilled from SEC filings were computed before report spec 1.49.0:"
+(`LEGACY_EDGAR_BACKFILL_QUALITY_NOTE`). (c) does not wait for an available fair
+value, because (a) does. The trend note (b) keeps its own trigger in both classes.
+A report carrying either class's text never gains the other's. A report at or after
+the since-version, or in neither class (an FMP-route report), is returned as the
+identical object.
 
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the

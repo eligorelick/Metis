@@ -15,6 +15,8 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import {
   EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION as SINCE,
+  LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE,
+  LEGACY_EDGAR_BACKFILL_QUALITY_NOTE,
   withLegacyEdgarDerivedLines,
 } from "@/report/legacyEdgarDerivedLines";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
@@ -26,9 +28,51 @@ import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 const DERIVATION = /built from SEC filings before report spec .*re-run the report for the current derivation/;
 const TREND = /computed before report spec .* without checking whether the two quarters sit on one filed presentation/;
 const SCREENS = /one-time-items screen was skipped without notice/;
+const B_DERIVATION = /older statement periods on this report that were backfilled from SEC filings were built before report spec .*re-run the report for the current derivation/;
+const B_SCREENS = /on this report(?:'|&#x27;|&#39;)s older periods backfilled from SEC filings were computed before report spec .*one-time-items screen was skipped without notice/;
 
 const RESTATEMENT_REASON =
   "1 material line(s) restated or re-presented by more than 1% in a later filing; this statement carries the LAST-FILED value and keeps the superseded one as `original`: 2024-12-31 revenue 101887000000 → 105856000000 (+3.90%, first 10-K 0000000099-25-000001 filed 2025-02-25, restated in 10-K 0000000099-26-000001 filed 2026-02-25).";
+
+// Real shapes copied from stored reports (audit 2026-10-27 data/reports 46 and AMZN #51).
+const FULL_ENTRY = {
+  field: "keyless.incomeAnnual",
+  reason: "served by edgar (companyfacts→income-statement(annual)) because FMP returned no rows",
+  severity: "info" as const,
+  expected: true,
+};
+const SHARE_BASIS_ENTRY = {
+  field: "keyless.incomeQuarterly.shareBasis",
+  reason: "4 field(s) in 1 vendor row(s) (2021-12-31 … 2021-12-31; eps, epsDiluted, weightedAverageShsOut, weightedAverageShsOutDil) withheld: each period precedes a split the report knows of, and its split basis on 2026-10-28 could not be established",
+  severity: "warn" as const,
+};
+const SHARE_BASIS_ANNUAL_ENTRY = { ...SHARE_BASIS_ENTRY, field: "keyless.incomeAnnual.shareBasis" };
+const BACKFILL_ENTRY = {
+  field: "statements.backfill.incomeAnnual",
+  reason: "FMP served 5 period(s) back to 2021-12-31; SEC EDGAR companyfacts supplied 5 older period(s), 2016-12-31 to 2020-12-31, each row carrying source \"edgar\" (companyfacts→income-statement(annual)).",
+  severity: "info" as const,
+};
+const PREDECESSOR_APPENDED_ENTRY = {
+  field: "edgar.predecessor",
+  reason: "this registrant (CIK 0000000001) is a SUCCESSOR issuer. 4 older period(s), 2020-12-31 to 2023-12-31, were taken from the predecessor's filings and each row is tagged `predecessor: true` with that CIK.",
+  severity: "info" as const,
+  expected: true,
+};
+const PREDECESSOR_NOT_APPENDED_ENTRY = {
+  field: "edgar.predecessor",
+  reason: "the registrant is a successor issuer whose predecessor (CIK 0000000002) has filed history of its own, but THESIS_STATEMENT_SOURCE=fmp keeps the statements vendor-only, so no pre-reorganization periods were appended",
+  severity: "info" as const,
+  expected: true,
+};
+
+type Entry = { field: string; reason: string; severity: "info" | "warn"; expected?: boolean };
+
+/** A report whose only income manifest entries are `entries` (Task 10b, R1 pre-flight I3). */
+function withEntries(specVersion: string, entries: Entry[]): Report {
+  const report = base(specVersion, { keyless: false });
+  report.appendix.missingData = [...report.appendix.missingData, ...entries];
+  return report;
+}
 
 function base(specVersion: string, opts: { fair?: "available" | "suppressed"; keyless?: boolean; restated?: boolean } = {}): Report {
   const report = cloneTask28(loadTask28Fixture());
@@ -39,7 +83,8 @@ function base(specVersion: string, opts: { fair?: "available" | "suppressed"; ke
   if (opts.keyless !== false) {
     report.appendix.missingData = [
       ...report.appendix.missingData,
-      { field: "keyless.incomeAnnual.substitutions", reason: "income annual: served by edgar (fixture)", severity: "info", expected: true },
+      // Task 10b (R1 pre-flight I3): the real "served by edgar" entry replaces the fake `.substitutions` one.
+      FULL_ENTRY,
     ];
   }
   if (opts.restated === true) {
@@ -166,6 +211,99 @@ describe("legacy EDGAR-derived-lines view", () => {
       expect(count(surface, DERIVATION)).toBe(1);
       expect(count(surface, /currency unknown/)).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it("an FMP-route report whose only income entries describe vendor rows is returned as the identical object", () => {
+    // Task 10b (R1 pre-flight I3): keyless.ts files `.shareBasis` only when the member holds VENDOR rows.
+    for (const entries of [[SHARE_BASIS_ENTRY], [SHARE_BASIS_ANNUAL_ENTRY, SHARE_BASIS_ENTRY]]) {
+      const report = withEntries("1.44.0", entries);
+      expect(withLegacyEdgarDerivedLines(report)).toBe(report);
+      for (const surface of surfaces(report)) {
+        expect(surface).not.toMatch(SCREENS);
+        expect(surface).not.toMatch(B_SCREENS);
+      }
+    }
+    // Control: a statements.<member> withholding entry and a scoped withheld entry, with no FULL or backfill entry, carry no note.
+    const withheld = withEntries("1.44.0", [
+      { field: "statements.incomeAnnual", reason: "withheld", severity: "warn" },
+      { field: "keyless.incomeAnnual.withheld.ebit", reason: "ebit WITHHELD", severity: "info" },
+    ]);
+    expect(withLegacyEdgarDerivedLines(withheld)).toBe(withheld);
+  });
+
+  it("the FULL class needs the exact member field and a 'served by edgar' reason", () => {
+    for (const bad of [
+      { ...FULL_ENTRY, reason: "served by yahoo (chart) because FMP returned no rows" },
+      { ...FULL_ENTRY, field: "keyless.incomeAnnual.withheld.ebit" },
+      { ...FULL_ENTRY, field: "keyless.cashflowAnnual" },
+    ]) {
+      const report = withEntries("1.44.0", [bad]);
+      expect(withLegacyEdgarDerivedLines(report)).toBe(report);
+    }
+    for (const field of ["keyless.incomeAnnual", "keyless.incomeQuarterly"]) {
+      const view = withLegacyEdgarDerivedLines(withEntries("1.44.0", [{ ...FULL_ENTRY, field }]));
+      expect(view.quality.notes!.filter((l) => SCREENS.test(l))).toHaveLength(1);
+    }
+  });
+
+  it("a report with only older periods backfilled from SEC filings carries the scoped notes once on every surface", () => {
+    const cases: Entry[][] = [
+      [BACKFILL_ENTRY],
+      [{ ...BACKFILL_ENTRY, field: "statements.backfill.incomeQuarterly" }],
+      [PREDECESSOR_APPENDED_ENTRY],
+      [{ field: "keyless.incomeQuarterly.backfill.interestExpense", reason: "stand-in", severity: "info" }],
+      [{ field: "keyless.incomeAnnual.predecessor.restatements", reason: "x", severity: "info" }],
+    ];
+    for (const entries of cases) {
+      const report = withEntries("1.44.0", entries);
+      const before = JSON.stringify(report);
+      for (const surface of surfaces(report)) {
+        expect(count(surface, B_DERIVATION)).toBe(1);
+        expect(count(surface, B_SCREENS)).toBe(1);
+        expect(surface).not.toMatch(DERIVATION);
+        expect(surface.replace(/\s+/g, " ")).not.toContain("Statement-derived screens on this report were computed");
+      }
+      const view = withLegacyEdgarDerivedLines(report);
+      expect(view.fairValue!.basis).toContain(LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE);
+      expect(view.quality.notes).toContain(LEGACY_EDGAR_BACKFILL_QUALITY_NOTE);
+      // Idempotent, and the stored bytes are untouched.
+      expect(withLegacyEdgarDerivedLines(view)).toEqual(view);
+      expect(JSON.stringify(report)).toBe(before);
+    }
+  });
+
+  it("the scoped notes keep the rest of each note and name the since-version", () => {
+    expect(LEGACY_EDGAR_BACKFILL_FAIR_VALUE_NOTE.startsWith(`The older statement periods on this report that were backfilled from SEC filings were built before report spec ${SINCE}. Since then, a derived operating income:`)).toBe(true);
+    expect(LEGACY_EDGAR_BACKFILL_QUALITY_NOTE.startsWith(`Statement-derived screens on this report's older periods backfilled from SEC filings were computed before report spec ${SINCE}: where the filer tags`)).toBe(true);
+  });
+
+  it("an appended predecessor triggers the scoped notes but the 'not appended' form carries no note", () => {
+    const control = withEntries("1.44.0", [PREDECESSOR_NOT_APPENDED_ENTRY]);
+    expect(withLegacyEdgarDerivedLines(control)).toBe(control);
+  });
+
+  it("a FULL entry wins over a backfill entry, and a report never carries both classes' texts", () => {
+    const both = withEntries("1.44.0", [BACKFILL_ENTRY, PREDECESSOR_APPENDED_ENTRY, FULL_ENTRY]);
+    const view = withLegacyEdgarDerivedLines(both);
+    expect(JSON.stringify(view)).not.toMatch(B_DERIVATION);
+    expect(JSON.stringify(view)).not.toMatch(B_SCREENS);
+    expect(view.fairValue!.basis.filter((l) => DERIVATION.test(l))).toHaveLength(1);
+    expect(view.quality.notes!.filter((l) => SCREENS.test(l))).toHaveLength(1);
+    expect(withLegacyEdgarDerivedLines(view)).toEqual(view);
+    for (const surface of surfaces(both)) {
+      expect(count(surface, DERIVATION)).toBe(1);
+      expect(count(surface, B_DERIVATION)).toBe(0);
+    }
+    // A report that already carries the FULL text never gains the BACKFILL text, and the reverse holds too.
+    const fullFirst = withLegacyEdgarDerivedLines(base("1.44.0"));
+    fullFirst.appendix.missingData = [...fullFirst.appendix.missingData, BACKFILL_ENTRY];
+    expect(JSON.stringify(withLegacyEdgarDerivedLines(fullFirst))).not.toMatch(B_DERIVATION);
+    const backfillFirst = withLegacyEdgarDerivedLines(withEntries("1.44.0", [BACKFILL_ENTRY]));
+    backfillFirst.appendix.missingData = [...backfillFirst.appendix.missingData, FULL_ENTRY];
+    const swapped = withLegacyEdgarDerivedLines(backfillFirst);
+    expect(swapped.fairValue!.basis.filter((l) => B_DERIVATION.test(l))).toHaveLength(1);
+    expect(swapped.fairValue!.basis.filter((l) => DERIVATION.test(l))).toHaveLength(0);
+    expect(swapped.quality.notes!.filter((l) => SCREENS.test(l))).toHaveLength(1);
   });
 
   it("stored bytes are never rewritten", () => {
