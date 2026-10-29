@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.49.0** and
-payload **1.51.0** (the EDGAR-derived operating-line fixes of the 2026-10-27 audit batch B13, after the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, and after the claim verifier and payload-record fixes of the 2026-10-27 audit). The
+Current source declares application **0.1.0**, report spec **1.50.0** and
+payload **1.52.0** (the equity-bridge, EV and invested-capital fixes of the 2026-10-27 audit batch B4a, after the EDGAR-derived operating-line fixes of batch B13, the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, and the claim verifier and payload-record fixes of the 2026-10-27 audit). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,24 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - the equity bridge, EV and invested capital count every claim once (B4a, 2026-10-27)
+
+The independent audit of 2026-10-27 found that the valuation counted some claims on a business twice and others not at all. This batch fixes the part that changes Stage B and how stored reports display; convertibles, equity-method stakes and fair-value financial assets are the next batch (B4b). The decision is D-135, and the disposition note is [the B4a note](docs/audit/2026-10-27-audit-batch-b4-equity-bridge.md).
+
+- The DCF equity bridge reads the statement-date balance sheet when the base falls back to the fiscal year, and says which date it used, instead of silently pairing an annual base with a newer quarter's balance (FIN-103).
+- Redeemable preferred and redeemable noncontrolling interests (temporary equity) are claims senior to common: the bridge deducts them, the market, own-history and REIT enterprise values add them, forecast EPS and parent-common P/FCF treat them like permanent preferred, and a refused operand withholds what it touches. A redeemable NCI takes the same 1% materiality floor as book NCI in the P/FCF guard, so a 54 million stake no longer hides Tesla's P/FCF (FIN-119). A redeemable claim that is also redeemable common stock in the diluted count is a disclosed residual.
+- Invested capital (ROIC, DCF sales-to-capital and its filed history) adds temporary equity, the financing whose cash it already nets (FIN-119-V1).
+- Sales-to-capital, its history and ROIC remove the operating-lease slice from debt exactly when the equity bridge does, on the default lease switch and with the CODE-1 proof, through one shared predicate. The history is measured on one lease basis, and lease-emptied capital uses the issuer's own history or withholds the DCF, never a mixed basis (FIN-303, FIN-303-V1). Covered lessees' values rise (AMZN #51 about +6.9%).
+- A long-term investment larger than the operating capital is added back at carrying value less tax, and sales-to-capital takes the house cap, so DCF value never falls when investments rise (FIN-304).
+- Pension and OPEB deficits, loss-contingency accruals and earn-outs join the bridge's retirement and environmental lines, and every debt-like line is now deducted after tax at the marginal-rate floor (21% US, 15% elsewhere). A rate-regulated utility's pension deficit is disclosed, not deducted (ASC 980). The largest deficits fall the most (CAT, BA, JNJ, VZ) (FIN-305, FIN-305-V1, FIN-305-V2).
+- A successor registrant reads its predecessor's retirement obligations until its own annual report (FIN-403, ExxonMobil Holdings).
+- A loss quarter's per-share divisor keeps the newest profitable period's award dilution, dated and disclosed (FIN-404, Boeing).
+- The REIT block takes its market cap and enterprise value from the multiples framework, so a report carries one P/FFO and one EV (FIN-311, FIN-108, FIN-119-V2).
+- A lease total that is wholly a finance lease is named as one (FIN-109).
+- One test pins that the bridge, every EV, invested capital and every divisor count each claim once across consumers.
+- Reports saved before this batch show a method note on their DCF, excess-return and REIT values; their bytes are unchanged (D-67).
+- Report 1.50.0, payload 1.52.0 and Stage B ACCOUNTING_EVIDENCE_31 (D-135, next after the preceding merge; renumbered at merge if another batch lands first); fair-value and scenario-target versions D135; pipeline stage-c-1.6.13 and the score bands are unchanged. Stored reports keep their bytes; legacy DCF and excess-return values carry a method note on display.
 
 ## Unreleased - operating lines derived from filed tags are the filer's totals, on one presentation (2026-10-29)
 

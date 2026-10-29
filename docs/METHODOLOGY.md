@@ -1120,7 +1120,12 @@ so in their own note when they withheld a cell or path this way, and one
 `valuation.dcf.temporaryEquityAllocation` gap says it once for the run. The same claims reach every guard that asks whether
 preferred or NCI exists. The P/FCF cash-ownership guard and the three
 own-history common-allocation checks count an admitted claim and a refused one (a
-refused operand is a filed claim of unknown amount). Forecast operating EPS is
+refused operand is a filed claim of unknown amount). In the P/FCF guard alone (which
+also tests each retained TTM window), a redeemable NCI is the same claim as book NCI
+and takes the same 1% floor: it withholds P/FCF unless the book NCI is known and the
+book and redeemable NCI together, and the NCI income, are each at most 1% of
+consolidated equity. A redeemable preferred, an unsplit amount or a refused operand
+withholds at any size, as permanent preferred does. Forecast operating EPS is
 withheld, with the disclosure `projections.eps.ownershipScope`, when the DCF
 publishes beside an admitted temporary-equity claim above zero, and also through
 the deducted preferred and book NCI fields as for permanent preferred. A
@@ -3824,7 +3829,8 @@ that, NCI cannot move the multiple (audit SNOW-2). A stake bought out before
 the balance date leaves a zero balance but still earned its share of the cash
 flow, so earnings above the floor still withhold P/FCF. A non-zero NCI balance
 with no NCI earnings figure also withholds it: an ending balance cannot bound
-the period's earnings.
+the period's earnings. A redeemable NCI (temporary equity) counts toward the same
+floor, added to the book balance (FIN-119).
 
 **A grade needs corroborating evidence.** No surface shows an aspect's letter
 when its score rests on less than half of its intended signal weight (D-67).
