@@ -22,7 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 When a report ended data-only because the judge failed, its Retry button did nothing: the job was closed as done without running anything, the same data-only report stayed linked, and Retry was offered again every time. A queued Retry is now closed before it runs only when the report it points to is a full report that blocks a resume. A data-only report no longer closes it, so the Retry runs the judge and verify passes on the analyst passes already settled. Only the judge is billed again (the verify pass makes no model call); the analyst passes already paid for are reused. If the Retry fails again, the job links a new data-only report and stays resumable; if it cannot be dispatched (for example the scheduler cannot resolve the passes), the job ends in error with a fixed, sanitized message such as "scheduler pass resolution failed before execution", keeps the data-only report linked, and Retry can be pressed again.
 
-Pipeline stage-c-1.6.13 (D-next). Report spec, payload and Stage B are unchanged. Stored reports keep their bytes.
+Pipeline stage-c-1.6.13 (D-132). Report spec, payload and Stage B are unchanged. Stored reports keep their bytes.
 
 ## Unreleased - claim verifier reads signs, scales, units and each figure's own description (2026-10-28)
 

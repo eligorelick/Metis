@@ -2692,9 +2692,9 @@ Audit 2026-10-27, batch B2 (main-session resolution, decisions spec 4.3, B2). Th
 - **Preservation.** Stored bytes unchanged.
 - **Validation.** The post-fix audit (verification plan Task V7) is given every residual above as a named probe target, with its input; a confirmed defect becomes a follow-up finding.
 
-## D-next - Audit batch 8a: an accepted Retry of a data-only fallback runs (DB-001) (2026-10-29)
+## D-132 - Audit batch 8a: an accepted Retry of a data-only fallback runs (DB-001) (2026-10-29)
 
-Audit 2026-10-27, batch B8, finding DB-001 (High), owner decision OD-5. The owner ruled on 2026-10-28 that this finding ships first as batch 8a; the rest of batch 8 follows as B8b. The D-number is assigned when the pull request is opened.
+Audit 2026-10-27, batch B8, finding DB-001 (High), owner decision OD-5. The owner ruled on 2026-10-28 that this finding ships first as batch 8a; the rest of batch 8 follows as B8b.
 
 - **Evidence.** A job whose judge failed ends `done` with a data-only fallback report linked. Retry is offered and the route admits it, because admission reads `linkedReportBlocksResume` (a data-only link does not block a resume). Dispatch then recovered the linked report before running and closed the queued retry as `done` with that same data-only report, so nothing ran, nothing was billed, and Retry came back unchanged.
 - **Choice.** A queued retry is closed before dispatch only when `linkedReportBlocksResume` says the linked report blocks a resume. A data-only link falls through to dispatch. The retry then runs the judge and verify on the settled analyst passes (verify makes no model call, so only the judge is billed again). If it fails again, the runner writes its own data-only report and links it; the first stays in the history. If the dispatch itself fails, the job ends in `error` with a fixed, sanitized message (for example "scheduler pass resolution failed before execution"), keeps the fallback linked, and a later Retry from `error` is admitted. `recordQueuedResumeDispatchFailure` is a test seam with no production caller; the scheduler terminalizes its own claims.
