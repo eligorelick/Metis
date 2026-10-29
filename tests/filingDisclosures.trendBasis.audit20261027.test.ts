@@ -246,3 +246,43 @@ describe("growth basis: a presentation first filed in the printed quarter's own 
     expect(flagged.revenueQoqPct).toBeNull();
   });
 });
+
+// Task 9b (B13): the table's "one presentation" sentence appears only where the presentation check ran.
+describe("quarterly trend note: the one-presentation sentence needs the presentation check (Task 9b)", () => {
+  const SENTENCE = "where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note";
+  const PRE_TASK_9 = "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.";
+  const noteOf = (b: DataBundle): string => filingDisclosureTables(buildFilingDisclosures(b)! as never, "fundamentals").find((x) => x.heading.startsWith("Quarterly trend"))!.note!;
+
+  function sealed(): DataBundle {
+    const b = fixture(true);
+    const inc = b.statements.incomeQuarterly;
+    if (!inc.ok) throw new Error("fixture");
+    inc.value.data.rows = SPECS.map((s) => ({
+      ...row(s, true),
+      ...(s.supplied === null || s.revenue === null ? {} : { revenuePresentation: { accn: s.supplied.accn, form: s.supplied.form, filed: s.supplied.filed, represented: s.represented !== undefined } }),
+    })) as never;
+    return b;
+  }
+
+  it("SEC-built quarterly rows carry the flag, and the table note has the sentence", () => {
+    const built = buildFilingDisclosures(sealed())!;
+    expect(built.quarterlyTrendPresentationChecked).toBe(true);
+    expect(noteOf(sealed())).toContain(`quarter; ${SENTENCE}. FCF here`);
+  });
+
+  it("FMP-shaped rows omit the flag, and the note is the pre-Task-9 text", () => {
+    for (const b of [fmpBundle, edgarBundle]) {
+      const built = buildFilingDisclosures(b)!;
+      expect("quarterlyTrendPresentationChecked" in built).toBe(false);
+      expect(noteOf(b)).not.toContain("re-presentation");
+      expect(noteOf(b).split("\n")[0]!.startsWith(PRE_TASK_9)).toBe(true);
+    }
+  });
+
+  it("a stored legacy filing disclosure (no flag) renders the pre-Task-9 note", () => {
+    const stored = JSON.parse(JSON.stringify(buildFilingDisclosures(sealed())!)) as Record<string, unknown>;
+    delete stored.quarterlyTrendPresentationChecked;
+    const note = filingDisclosureTables(stored as never, "fundamentals").find((x) => x.heading.startsWith("Quarterly trend"))!.note!;
+    expect(note).not.toContain("re-presentation");
+  });
+});

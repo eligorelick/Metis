@@ -569,7 +569,8 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
   return plain;
 }
 
-function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[]): FilingDisclosures["quarterlyTrend"] {
+/** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
+function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
   for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {
@@ -608,6 +609,7 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     const d = dates.find((x) => x < target && daysApart(x, target) >= lo && daysApart(x, target) <= hi);
     return d === undefined ? undefined : income.get(d);
   };
+  flags.presentationChecked = dates.slice(0, TREND_QUARTERS).some((d) => revenueBasis(income.get(d)).presentation !== null);
   return dates.slice(0, TREND_QUARTERS).map((d) => {
     const r = income.get(d)!;
     const c = cash.get(d);
@@ -670,7 +672,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const currency = statementReportingCurrency(bundle);
   const releases = orderedEarningsReleases(reports?.releases ?? []);
   const notes: string[] = selectedGeographyNotes(bundle.segmentation?.geographic);
-  const trend = quarterlyTrend(bundle, releases, currency, notes);
+  const trendFlags = { presentationChecked: false };
+  const trend = quarterlyTrend(bundle, releases, currency, notes, trendFlags);
   const interim = segmentPrimarySection(bundle);
   const segmentCurrency = interim === null ? null : periodReportingCurrency(bundle, day(interim.data.reportDate));
   const segmentPerformance = interim !== null && segmentCurrency === currency
@@ -992,6 +995,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(companyStatements.length === 0 ? {} : { companyStatements }),
     segments: segmentTables,
     ...(segmentPerformance.length === 0 ? {} : { segmentPerformance }),
+    ...(trendFlags.presentationChecked ? { quarterlyTrendPresentationChecked: true as const } : {}),
     quarterlyTrend: trend,
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),

@@ -4639,6 +4639,15 @@ figure. A growth cell against a withheld quarter stays a dash, as before. This
 follows the presentation rule above and SEC Financial Reporting Manual 13110.4,
 under which a later 10-Q re-presents only the periods it shows (D-next).
 
+The quarterly-trend table note carries the sentence "where the filings show a
+re-presentation, each growth cell divides two quarters on one presentation or is
+not shown, with a note" only where that check ran: the stored filing disclosures
+carry `quarterlyTrendPresentationChecked: true`, which the builder sets only when
+a shown quarter's SEC-built row carries `revenuePresentation` (report spec 1.49.0
+on). Otherwise the field is omitted, and reports built before the check and
+provider-route (FMP) reports keep the earlier note, which says only how YoY and
+QoQ compare (Task 9b).
+
 **Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
 capital although the filing establishes the figure.
 

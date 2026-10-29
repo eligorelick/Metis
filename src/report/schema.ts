@@ -2292,6 +2292,11 @@ export const FilingDisclosuresSchema = z
       spans: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict()),
       source: FilingRefSchema,
     }).strict()).optional(),
+    /**
+     * Task 9b: true only when the trend's quarterly rows carry the builder's revenue presentation key, so the
+     * one-presentation growth check ran. Omitted otherwise (FMP-route and older reports).
+     */
+    quarterlyTrendPresentationChecked: z.literal(true).optional(),
     quarterlyTrend: z.array(
       z
         .object({

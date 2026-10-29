@@ -312,6 +312,16 @@ describe("legacy EDGAR-derived-lines view", () => {
     expect(swapped.quality.notes!.filter((l) => SCREENS.test(l))).toHaveLength(1);
   });
 
+  it("a stored legacy report shows Task 10's trend note and not the Task 9 sentence on every surface (Task 9b)", () => {
+    const report = base("1.44.0", { restated: true });
+    const stored = JSON.stringify(report);
+    expect(stored).not.toContain("quarterlyTrendPresentationChecked");
+    for (const surface of surfaces(report)) {
+      expect(count(surface, TREND)).toBe(1);
+      expect(surface.replace(/\s+/g, " ")).not.toContain("each growth cell divides two quarters on one presentation");
+    }
+  });
+
   it("stored bytes are never rewritten", () => {
     const report = base("1.44.0", { restated: true });
     const before = JSON.stringify(report);
