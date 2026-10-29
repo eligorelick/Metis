@@ -856,8 +856,11 @@ function rowLead(label: string): string {
 function perShareInWords(quantity: Quantity, label: string): boolean {
   return quantity.unit === "currency" && /\bper\s+share\b/i.test(label);
 }
-/** A table row label that names a per-share basis: "per share", "per diluted share", "per basic share", "EPS". */
-const PER_SHARE_ROW = /\bper[\s-]+(?:(?:basic|diluted)[\s-]+)?share\b|\beps\b/i;
+/**
+ * A table row label that names a per-share basis: "per share", "per basic share", "per diluted share", "per common share", "per
+ * ordinary share" (up to two of those qualifiers, "per diluted common share") or "EPS" (Codex fixes re-review, Y1).
+ */
+const PER_SHARE_ROW = /\bper[\s-]+(?:(?:basic|diluted|common|ordinary)[\s-]+){0,2}share\b|\beps\b/i;
 /**
  * AI-403 / D-45: under "except per share data" a decimal cell is the per-share line only when its own row names a per-share basis
  * ("Net income per share: Basic", "Diluted EPS"). Decimal precision alone never makes a cell per share, whatever the declared

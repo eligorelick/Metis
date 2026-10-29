@@ -301,6 +301,16 @@ describe("AI-403 table scale applies to amounts only", () => {
       expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0 million.", ...Q)).not.toBe("validated");
       expect(await synthetic(table("Net income per diluted share $ 5.0 $ 4.0"), "Net income per diluted share as of 2026-07-26 was USD 5.0.", ...Q)).not.toBe("contradicted");
     });
+    // Codex fixes re-review (Y1): "per common share" names the basis as well, so these cells are never read as millions.
+    it.each([
+      ["Net income per common share: Basic $ 2.47 $ 1.10 Diluted $ 2.46 $ 1.08", "Basic net income per common share as of 2026-07-26 was USD 2.47"],
+      ["Diluted net income per common share $ 2.46 $ 1.08", "Diluted net income per common share as of 2026-07-26 was USD 2.46"],
+      ["Cash dividends declared per common share $ 0.25 $ 0.24", "Cash dividends declared per common share as of 2026-07-26 were USD 0.25"],
+    ])("a per-common-share row is per share: %s", async (row, claim) => {
+      expect(await synthetic(table(row), `${claim}.`, ...Q)).not.toBe("contradicted");
+      expect(await synthetic(table(row), `${claim} per share.`, ...Q)).toBe("validated");
+      expect(await synthetic(table(row), `${claim} million.`, ...Q)).not.toBe("validated");
+    });
   });
 
   describe("controls that hold before and after", () => {

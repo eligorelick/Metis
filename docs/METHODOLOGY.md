@@ -2738,8 +2738,10 @@ as-of), without the truncation marker — in
   cannot validate: their unit is not established); a percent, ratio or day
   count is never scaled. Under an "except per share data" declaration, at
   any scale, a decimal cell is a per-share figure only when its own row names
-  a per-share basis ("per share", "per basic share", "per diluted share" or
-  "EPS": "Net income per share: Basic", "Diluted EPS"); decimal precision
+  a per-share basis ("per share", "per basic share", "per diluted share",
+  "per common share", "per ordinary share", with up to two of those
+  qualifiers as in "per diluted common share", or "EPS": "Net income per
+  share: Basic", "Diluted EPS"); decimal precision
   alone never makes it one, so "Revenue $ 5.0" under "($ in millions, except
   per share data)" is $5.0 million (PR #71 review). A row whose own label
   names no basis keeps the table's money scale, even inside a per-share
