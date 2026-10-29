@@ -356,8 +356,9 @@ matches the window they require.
 `src/pipeline/stageB/returns.ts` computes up to five annual return observations.
 ROIC is annual `EBIT × (1 − observed effective tax rate) / invested capital`,
 with the tax rate clamped to [0%, 35%], invested capital equal to debt plus
-stockholders' equity less cash and short-term investments, and the operating
-lease adjustment described below. An unavailable observed tax rate withholds
+temporary equity (redeemable preferred and redeemable non-controlling
+interests) plus stockholders' equity less cash and short-term investments, and
+the operating lease adjustment described below. An unavailable observed tax rate withholds
 that year's NOPAT/ROIC; non-positive invested capital is not interpreted as
 an exceptional return. This historical NOPAT is separate from the forward
 DCF's projected loss-carryforward logic.
@@ -368,12 +369,19 @@ combined cash/component values do not qualify for this fallback; they withhold
 the affected invested capital and return. A year withheld because a debt or
 capital input was refused (a total debt the admission refused, a lease
 conflict or lease-scope refusal, a negative total debt, or conflicting cash
-components) is listed in one `returns.roic` manifest entry that gives each
-year's refusal. It is critical only when the latest fiscal year's ROIC is
+components, or a temporary-equity operand the admission refused or whose total
+contradicts its parts) is listed in one `returns.roic` manifest entry that
+gives each year's refusal. It is critical only when the latest fiscal year's ROIC is
 withheld by the same balance's debt refusal that withholds the WACC (the
 balance the WACC names, refused for its debt rather than its cash), and a
 warning otherwise, including a latest year withheld while the WACC exists
-(audit 2026-10-29, KNW-03; review fix I-1).
+(audit 2026-10-29, KNW-03; review fix I-1). A year withheld for a refused
+temporary-equity operand is never critical, since the WACC does not read it.
+Where a balance date's temporary-equity enrichment was withheld (the SEC
+fill-in was refused or unavailable, so the claim is unknown rather than
+absent), the year keeps its invested capital without the claim and the ROIC
+notes say a redeemable claim at that date could not be established (audit
+2026-10-27 FIN-119-V1).
 
 ROTE is income available to common / average tangible common equity, with
 preferred allocations required when preferred equity is outstanding. Tangible
@@ -1367,8 +1375,8 @@ follows the identical convention through net debt, so the two can never
 disagree.
 
 **Invested capital and the WACC's debt leg share the lease basis.** ROIC's
-invested capital (debt + equity − cash and short-term investments, with the
-disclosed cash-only fallback when investments are unreported) and the
+invested capital (debt + temporary equity + equity − cash and short-term
+investments, with the disclosed cash-only fallback when investments are unreported) and the
 average debt behind the effective cost of debt and the E/D weights remove the
 same operating-lease slice by default and keep it when the option is on, so
 the discount rate, the return on capital and the enterprise value are on one
@@ -2333,8 +2341,13 @@ conventions meet, not a forecast, and the terminal-reinvestment assumption row
 says so.
 
 Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
-total debt + equity − cash and short-term investments − long-term
-investments, whose income is below the EBIT the DCF projects. When removing
+total debt + temporary equity + equity − cash and short-term investments −
+long-term investments, whose income is below the EBIT the DCF projects. The
+temporary equity is the redeemable preferred and redeemable non-controlling
+interests the bridge deducts, which are financing capital whichever caption
+holds them (the cash they raised is already netted); a refused operand
+withholds the DCF with a critical `valuation.dcf.salesToCapital` gap rather
+than being zero-filled, and the basis names the added amount. When removing
 them would leave no operating capital the D-58 basis stands and says why.
 
 **The issuer's own sales-to-capital (audit 2026-10-22 A-2).** The 0.5 floor is
@@ -2345,13 +2358,14 @@ regulated utility turns over its capital about a quarter of a time a year
 applies only when the issuer's own history does not establish a lower ratio:
 each fiscal year with filed revenue and positive operating invested capital at
 the same date (measured as above, with debt on the current balance's lease
-basis) gives a ratio, and with at least three such years the median of the
+basis and that year's own temporary equity) gives a ratio, and with at least three such years the median of the
 newest five is the issuer's established ratio. When it is below 0.5 it is the
 lower bound in place of 0.5, so a current ratio at or above it is used as
 filed and one below it is raised to it. With fewer than three years, or an
 established ratio of 0.5 or more, the house floor applies as before. The
 sales-to-capital basis lists the years and ratios, or says why the house floor
-stands. The median, rather than the newest year or the mean, and the
+stands. A year whose temporary-equity operand is refused is left out of the
+median, and the basis names it. The median, rather than the newest year or the mean, and the
 three-year minimum are project choices: one restated or acquisition year does
 not move the median, and fewer than three years do not establish a ratio. So
 is a lower bound of 0.1 on the established ratio. Capital-heavy filers sit

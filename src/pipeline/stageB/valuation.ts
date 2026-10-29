@@ -189,8 +189,11 @@ const gapEntry = (
  * newest five fiscal years with revenue and positive invested capital filed
  * for the same date. Invested capital is measured as the DCF measures the
  * current balance: debt (excluding operating leases when the current balance
- * does) + consolidated equity - cash and short-term investments - long-term
- * investments while capital remains. Fewer than three years: no ratio.
+ * does) + temporary equity (FIN-119-V1: redeemable preferred and redeemable
+ * NCI are financing capital) + consolidated equity - cash and short-term
+ * investments - long-term investments while capital remains. A year whose
+ * temporary equity is refused is skipped with a note, never zero-filled.
+ * Fewer than three years: no ratio.
  */
 function establishedSalesToCapital(
   incomeHistory: DcfIncomeRow[],
@@ -199,31 +202,35 @@ function establishedSalesToCapital(
 ): { ratio: number | null; basis: string } {
   const revenueByDate = new Map(incomeHistory.flatMap((r) => isNum(r.revenue) && r.revenue > 0 ? [[r.date.slice(0, 10), r.revenue] as const] : []));
   const years = new Map<string, number>();
+  const refused: string[] = [];
   for (const row of capitalHistory ?? []) {
     const date = row.date.slice(0, 10);
     const revenue = revenueByDate.get(date);
     const debt = isNum(row.totalDebt) ? row.totalDebt - (leaseExcluded ? (isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN) : 0) : NaN;
     const equity = resolveConsolidatedEquity(row).value;
     if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
-    const ic = debt + equity - row.cashAndShortTermInvestments;
+    const temporary = temporaryEquityClaims(row);
+    if (temporary !== null && temporary.refusal !== null) { refused.push(`FY${date}`); continue; }
+    const ic = debt + equity + (temporary === null ? 0 : temporary.total) - row.cashAndShortTermInvestments;
     const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
     const operating = ic - lti > 0 ? ic - lti : ic;
     if (operating > 0) years.set(date, revenue / operating);
   }
   const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
+  const skipped = refused.length === 0 ? "" : `; ${refused.join(", ")} left out: a temporary-equity operand was refused, so that year's invested capital is unknown (FIN-119-V1)`;
   if (newest.length < S2C_HISTORY_MIN_YEARS) {
-    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)` };
+    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)${skipped}` };
   }
   const ratio = medianOf(newest.map(([, r]) => r)) as number;
   const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x`).join(", ");
   if (ratio < S2C_HISTORY_MIN_RATIO) {
-    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)` };
+    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)${skipped}` };
   }
   return {
     ratio,
     basis: ratio < S2C_CLAMP[0]
-      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)`
-      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)`,
+      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)${skipped}`
+      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)${skipped}`,
   };
 }
 
@@ -695,6 +702,11 @@ export interface DcfBalanceRow {
   /** Consolidated equity is used once; otherwise parent equity plus signed NCI. */
   totalEquity?: number | null;
   minorityInterest?: number | null;
+  /** FIN-119-V1: temporary equity is financing capital (read through `temporaryEquityClaims`; a refusal rides in `fieldConflicts`). */
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
+  fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   cashAndShortTermInvestments: number | null;
   /** D-60: non-operating long-term investments, removed from the sales-to-capital denominator when reported. */
   longTermInvestments?: number | null;
@@ -2134,9 +2146,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const leaseExcluded = leaseDebtScopeRefusal(bal, true) !== null && bal !== null && isNum(bal.operatingLeaseLiability);
   const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : 0) : null;
   const equity = resolveConsolidatedEquity(bal ?? {});
+  // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
+  // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
+  const temporary = temporaryEquityClaims(bal);
+  if (temporary !== null && temporary.refusal !== null) {
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${temporary.refusal} - invested capital for sales-to-capital cannot be established, so the DCF is withheld instead of zero-filling the claim`, "critical"));
+    return { assumptions: null, notes, gaps };
+  }
+  const temporaryText = temporary !== null && temporary.total !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.total)} [${temporary.basis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
-      ? icDebt + equity.value - bal.cashAndShortTermInvestments
+      ? icDebt + equity.value + (temporary === null ? 0 : temporary.total) - bal.cashAndShortTermInvestments
       : null;
   if (bal === null || ic === null || ic <= 0) {
     gaps.push(
@@ -2163,8 +2183,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
   let s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
-    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
+    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;

@@ -291,7 +291,7 @@ describe("FIN-119: the unsplit rule holds on the scenario paths", () => {
     { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
   ];
   const targetsOf = (valuation: ReturnType<typeof dcfOf>) =>
-    computeScenarioTargets({ valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2025-12-31" });
+    computeScenarioTargets({ route: { ...route, notes: [], gaps: [], asOf: { today: "2026-07-06", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } }, valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2025-12-31" });
 
   it("a path that flips to the earnings share is withheld and says why; the base and a no-unsplit control are not", () => {
     const probe = dcfOf({ minorityInterest: 1, noncontrollingEarnings: KEY });
@@ -441,8 +441,10 @@ describe("FIN-119: runStageB wiring", () => {
     });
     it("a refused temporary-equity operand withholds forecast EPS", () => {
       const out = stageB({ temporaryEquity: 1000 * M, fieldConflicts: { temporaryEquity: { vendorValue: 1000 * M, secValue: 900 * M, usable: false, reason: "two filings disagree" } } as never });
-      expect(eps(out).base).toEqual([]);
-      expect(eps(out).disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
+      // Re-pinned for FIN-119-V1 (Task 3): the same refusal now also leaves the bridge row's invested capital unknown, so the DCF
+      // itself is withheld by a critical sales-to-capital gap and no forecast EPS series is built at all (it was a withheld series).
+      expect(out.projections.series.find((s) => s.metric === "epsDiluted")).toBeUndefined();
+      expect(out.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", reason: expect.stringMatching(/temporary-equity operand refused/) }));
     });
     it("controls: no temporary equity publishes forecast EPS, and a withheld enrichment withholds nothing", () => {
       expect(eps(stageB()).base.length).toBeGreaterThan(0);

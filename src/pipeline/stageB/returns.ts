@@ -32,6 +32,7 @@ import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
+import { temporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { marginalTaxFloor } from "@/pipeline/stageB/valuation";
 import { riskFreeSeriesText } from "@/pipeline/riskFreeSeries";
 
@@ -1299,6 +1300,13 @@ export interface ReturnsBalanceRow {
   goodwill?: number | null;
   intangibleAssets?: number | null;
   preferredStock?: number | null;
+  /**
+   * Temporary (mezzanine) equity: financing capital outside the equity fields above (audit 2026-10-27
+   * FIN-119-V1; `temporaryEquityClaims` reads and admits these three fields, `fieldConflicts` carries a refusal).
+   */
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   /** Short-term investments, so invested capital can net the same cash the house net-debt resolver does. */
   shortTermInvestments?: number | null;
   /** Vendor's combined cash + short-term investments; preferred when present. */
@@ -1407,8 +1415,9 @@ function yearTaxRate(row: ReturnsIncomeRow, notes: string[]): number | null {
 }
 
 /**
- * Invested capital = totalDebt + consolidated equity - cash, which is
- * exactly `netDebt + consolidated equity`. It therefore routes through the house net-debt
+ * Invested capital = totalDebt + temporary equity + consolidated equity - cash, which is
+ * exactly `netDebt + consolidated equity + temporary equity` (FIN-119-V1: redeemable
+ * preferred and redeemable NCI are financing capital, the cash they raised is netted). It therefore routes through the house net-debt
  * resolver rather than open-coding a cash convention: netting
  * cashAndCashEquivalents ALONE (the old behaviour) overstated invested capital
  * by the short-term-investment balance for any issuer holding liquidity in
@@ -1421,7 +1430,7 @@ function investedCapital(
   notes: string[],
   includeOperatingLeases: boolean,
   /** KNW-03: the refusal of a debt or capital input that exists, for the manifest; "debt" for the balance's debt, "cash" for its cash basis. */
-  refusals: { reason: string; kind: "debt" | "cash" }[] = [],
+  refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [],
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
   const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
@@ -1451,6 +1460,18 @@ function investedCapital(
     notes.push(`${b.date}: ${leaseConflict} - invested capital uncomputable`);
     refusals.push({ reason: leaseConflict, kind: "debt" });
     return null;
+  }
+  // FIN-119-V1: a refused or contradictory temporary-equity operand leaves the capital unknown, never zero (D-87).
+  // The kind is not "debt", so it never turns the WACC-balance critical rule on.
+  const temporary = temporaryEquityClaims(b);
+  if (temporary !== null && temporary.refusal !== null) {
+    notes.push(`${b.date}: ${temporary.refusal} - invested capital uncomputable, ROIC withheld.`);
+    refusals.push({ reason: temporary.refusal, kind: "temporary-equity" });
+    return null;
+  }
+  const temporaryTotal = temporary === null ? 0 : temporary.total;
+  if (temporary !== null) {
+    notes.push(`${b.date}: temporary equity ${fmt(temporary.total)} (${temporary.basis}) added to invested capital as financing capital (redeemable preferred and redeemable noncontrolling interests are claims outside the equity fields; the cash they raised is netted)`);
   }
 
   // Lease basis. Under ASC 842 operating-lease cost stays in operating
@@ -1486,7 +1507,7 @@ function investedCapital(
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
   });
   if (resolution.value !== null) {
-    return resolution.value + equity.value;
+    return resolution.value + equity.value + temporaryTotal;
   }
 
   // A CONFLICT refusal is not a missing basis: the vendor's combined cash field
@@ -1515,7 +1536,7 @@ function investedCapital(
     `short-term investments unreported on ${b.date} — invested capital nets cash only ` +
       "(narrower than the house cash + short-term-investments basis)",
   );
-  return debt + equity.value - b.cashAndCashEquivalents;
+  return debt + equity.value + temporaryTotal - b.cashAndCashEquivalents;
 }
 
 /**
@@ -1565,6 +1586,12 @@ export interface RoicOptions {
    * refusal withholds the latest fiscal year's ROIC; a warning otherwise.
    */
   waccRefusal?: { date: string } | null;
+  /**
+   * FIN-119-V1: balance dates whose temporary-equity enrichment was withheld
+   * (`temporaryEquityUnknownAt`): the year keeps its invested capital with no
+   * redeemable claim and the notes say the claim could not be established.
+   */
+  temporaryEquityUnknownDates?: string[];
   /**
    * Issuer domicile (ISO 3166 alpha-2) for the D-58 marginal-rate floor that
    * taxes a pre-tax-loss year's positive operating income (AMZN audit
@@ -1753,8 +1780,10 @@ export function computeRoic(
   const series: RoicYear[] = [];
   const refusedYears: { date: string; reason: string }[] = [];
   /** The latest fiscal year's refusal: the balance it read and whether it was that balance's debt. */
-  let latestRefusal: { balanceDate: string; kind: "debt" | "cash" } | null = null;
+  let latestRefusal: { balanceDate: string; kind: "debt" | "cash" | "temporary-equity" } | null = null;
   const take = Math.min(ROIC_SERIES_MAX_YEARS, inc.length);
+  /** The balance dates the series read, so a withheld temporary-equity enrichment is named only where it applies. */
+  const balanceDatesRead = new Set<string>();
   for (let i = take - 1; i >= 0; i -= 1) {
     const row = inc[i];
     const yearNotes: string[] = [];
@@ -1812,7 +1841,8 @@ export function computeRoic(
       yearNotes.push(`no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS}d of ${row.date}`);
       continue;
     }
-    const refusals: { reason: string; kind: "debt" | "cash" }[] = [];
+    balanceDatesRead.add(balNow.date.slice(0, 10));
+    const refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [];
     const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases, refusals);
     if (icNow === null) {
       if (refusals.length > 0) {
@@ -1827,6 +1857,7 @@ export function computeRoic(
     const balPrev = findPriorAnnualBalance(bal, balNow, prevIncomeDate, "roic", yearNotes, gaps);
     let icAvg: number;
     if (balPrev !== null && balPrev !== balNow) {
+      balanceDatesRead.add(balPrev.date.slice(0, 10));
       const priorScopeRefusal = leaseDebtScopeRefusal(balPrev, includeOperatingLeases);
       if (priorScopeRefusal) {
         yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`);
@@ -1857,6 +1888,10 @@ export function computeRoic(
     entry.roicPct = (nopat / icAvg) * 100;
   }
 
+  for (const date of [...new Set(options.temporaryEquityUnknownDates ?? [])].sort().reverse()) {
+    if (!balanceDatesRead.has(date.slice(0, 10))) continue;
+    notes.push(`${date}: a redeemable claim (temporary equity) at this balance date could not be established, because its SEC enrichment was withheld; invested capital carries no temporary equity there and may be understated by it`);
+  }
   if (refusedYears.length > 0) {
     const newestFirst = [...refusedYears].sort((a, b) => b.date.localeCompare(a.date));
     gaps.push({

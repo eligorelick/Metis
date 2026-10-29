@@ -527,6 +527,16 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
   return statementEquityOwnershipBasis(row) === "consolidated" ? null : num(row?.totalStockholdersEquity);
 }
 
+/** The three filed temporary-equity amounts of a balance row, without the refusals (those ride in the row's own `fieldConflicts`). */
+function temporaryEquityFields(row: FmpBalanceSheetRow) {
+  const operands = temporaryEquityOperands(row);
+  return {
+    ...(operands.temporaryEquity !== undefined ? { temporaryEquity: operands.temporaryEquity } : {}),
+    ...(operands.temporaryEquityAttributableToParent !== undefined ? { temporaryEquityAttributableToParent: operands.temporaryEquityAttributableToParent } : {}),
+    ...(operands.temporaryEquityAttributableToNoncontrollingInterest !== undefined ? { temporaryEquityAttributableToNoncontrollingInterest: operands.temporaryEquityAttributableToNoncontrollingInterest } : {}),
+  };
+}
+
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
@@ -553,6 +563,8 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     goodwill: num(r.goodwill),
     intangibleAssets: num(r.intangibleAssets),
     preferredStock: num(r.preferredStock),
+    // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
+    ...temporaryEquityFields(r),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     totalAssets: num(r.totalAssets),
   };
@@ -3110,6 +3122,11 @@ function computeReturns(
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        // FIN-119-V1: the annual balance dates whose temporary-equity enrichment was withheld (the M11 matcher Task 2 uses for the bridge).
+        temporaryEquityUnknownDates: balanceAnnual.flatMap((r) => {
+          const unknown = temporaryEquityUnknownAt(r, isoDay(r.date), bundle.gaps);
+          return unknown === null ? [] : [unknown.date];
+        }),
         // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
         // that same balance refusal withholds the latest fiscal year's ROIC.
         waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
@@ -3428,6 +3445,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     totalStockholdersEquity: statementParentEquity(row),
     totalEquity: num(row.totalEquity),
     minorityInterest: num(row.minorityInterest),
+    // FIN-119-V1: temporary equity (and any refusal of it, in `fieldConflicts`) is financing capital in sales-to-capital.
+    ...temporaryEquityFields(row),
+    ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
     cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
     longTermInvestments: num(row.longTermInvestments),
   });
