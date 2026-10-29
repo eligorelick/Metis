@@ -172,6 +172,7 @@ import {
   claimNextQueuedJob,
   configuredSchedulerLimits,
   PaidPassOverReservationError,
+  terminalizeClaim,
 } from "@/pipeline/jobScheduler";
 import {
   _clearJobSubscribers,
@@ -10727,6 +10728,12 @@ describe("DB-001: a Retry of a data-only fallback is dispatched", () => {
     expect(r).toMatchObject({ status: "done", dataOnly: false });
     expect(r.reportId).not.toBe(fallbackId);
     expect(costRows(jobId).filter((c) => c.step === "bull" || c.step === "bear")).toHaveLength(2); // nothing re-billed
+    expect(row(jobId).reportId).toBe(r.reportId);                        // the full report replaces the fallback link
+    const gen1 = costRows(jobId).filter((c) => c.runGeneration === 1);
+    expect(gen1.map((c) => c.step).sort()).toEqual(["synthesize", "verify"]);   // only the steps the mock bills; no bull or bear
+    const ledgerTotal = costRows(jobId).reduce((total, c) => total + c.costUsd, 0);
+    const stored = handle.db.select().from(reports).where(eq(reports.id, r.reportId!)).get()!;
+    expect(stored.costUsd).toBeCloseTo(ledgerTotal, 6);                  // 1.97 on the synthetic ledger
   });
 
   it("a dispatch failure on a data-only retry ends error with its message", async () => {
@@ -10739,6 +10746,20 @@ describe("DB-001: a Retry of a data-only fallback is dispatched", () => {
     expect(row(jobId).error).toBe("runJob: queued retry dispatch failed before execution");
     expect(getJobSnapshot(jobId)).toMatchObject({ status: "error", dataOnly: true, resumable: true });
     expect(routeAdmitsRetry(jobId, "error")).toBe(true);   // a later Retry from error is admitted (pins current behaviour)
+  });
+
+  // Production path: the scheduler claims the retry, then terminalizes the claim when the
+  // pass resolver fails. Passes at base: it pins behaviour the records now claim.
+  it("a scheduler pass-resolution failure on a claimed data-only retry ends error, keeps the fallback and stays resumable", async () => {
+    const { jobId, fallbackId } = await dataOnlyFallbackRun();
+    expect(routeAdmitsRetry(jobId)).toBe(true);
+    const claim = claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits());
+    expect(claim).not.toBeNull();
+    expect(terminalizeClaim(claim!, "error", "scheduler pass resolution failed before execution", new Date())).toBe(true);
+    expect(row(jobId)).toMatchObject({ status: "error", reportId: fallbackId, error: "scheduler pass resolution failed before execution" });
+    expect(getJobSnapshot(jobId)).toMatchObject({ status: "error", dataOnly: true, resumable: true });
+    expect(routeAdmitsRetry(jobId, "error")).toBe(true);
+    expect(claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits())).not.toBeNull();
   });
 
   it("a retried data-only fallback that fails again links a new data-only report", async () => {
