@@ -1357,7 +1357,12 @@ warning-level `valuation.dcf.netDebt.leaseScope` entry says so (audit
 2026-10-19, CODE-1). The same proof applies to the WACC debt leg and to the key
 data net debt excluding operating leases. The entry names what it compared: no
 total lease liability, or one smaller than the operating slice, and borrowings
-that are not disclosed or do not reconcile.
+that are not disclosed or do not reconcile. The DCF's sales-to-capital, its
+filed-history ratios and ROIC apply the same proof (audit 2026-10-27, FIN-303 and
+FIN-303-V1; one shared predicate, `operatingLeaseOutOfDebt`): on the default
+switch the slice leaves their debt exactly when it leaves the bridge's, and with
+the switch set or the scope unproven they keep total debt as reported, the basis
+or note saying which and why.
 
 **A withheld value states its refusal (audit 2026-10-29, VAL-4, VAL-10,
 KNW-04).** When enterprise value cannot be built, its basis and the
@@ -1399,8 +1404,13 @@ basis: NOPAT and interest expense are both after operating-lease cost under
 ASC 842, and a lease-inclusive denominator understated ROIC for every
 lease-heavy issuer (a discount retailer: 6% on the inclusive base against 11%
 on the consistent one) and could push the effective rate below the acceptance
-band. Where no split is disclosed the ROIC notes say the provider's total
-debt, lease liabilities included, was used unadjusted.
+band. Where no split is disclosed, or the split is not shown to sit inside total
+debt (the proof above), the ROIC notes say the provider's total debt, lease
+liabilities included, was used unadjusted. The DCF's sales-to-capital denominator
+is the same capital: the proven operating-lease slice leaves its debt by default
+(its cost is inside the projected EBIT, so keeping its liability in the capital
+that reinvestment rebuilds would charge the lease twice, D-25), the basis naming
+the amount removed or the unproven reason.
 
 **Annual return denominators require adjacent balances.** ROIC, ROTE and
 DuPont average the closing balance with the balance matched to the next older
@@ -2356,7 +2366,8 @@ conventions meet, not a forecast, and the terminal-reinvestment assumption row
 says so.
 
 Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
-total debt + temporary equity + equity − cash and short-term investments −
+total debt (less the proven operating-lease slice on the default lease switch,
+FIN-303) + temporary equity + equity − cash and short-term investments −
 long-term investments, whose income is below the EBIT the DCF projects. The
 temporary equity is the redeemable preferred and redeemable non-controlling
 interests the bridge deducts, which are financing capital whichever caption
@@ -2375,7 +2386,12 @@ applies only when the issuer's own history does not establish a lower ratio:
 each fiscal year with filed revenue and positive operating invested capital at
 the same date (measured as above, with debt on the current balance's lease
 basis and that year's own temporary equity) gives a ratio, and with at least three such years the median of the
-newest five is the issuer's established ratio. When it is below 0.5 it is the
+newest five is the issuer's established ratio. One median is on one lease basis,
+the current balance's: on the default switch a year whose operating lease is not
+shown to sit inside its total debt cannot be put on that basis, so it is left out
+of the median and the basis names it and why; it is never kept lease-inclusive
+beside lease-excluded years. With the switch set, or a current balance that keeps
+its lease because the scope is unproven, every year keeps its debt as reported. When it is below 0.5 it is the
 lower bound in place of 0.5, so a current ratio at or above it is used as
 filed and one below it is raised to it. With fewer than three years, or an
 established ratio of 0.5 or more, the house floor applies as before. The
@@ -2388,6 +2404,15 @@ is a lower bound of 0.1 on the established ratio. Capital-heavy filers sit
 near 0.15 to 0.25, so a median below 0.1 is read as a scale error, which
 would repeat in every year; the house floor then stands, and the basis says
 why.
+
+When removing the proven operating-lease slice leaves invested capital that is
+not positive (a negative-equity lessee, FIN-303), the current balance cannot
+establish a ratio, and the lease is not put back (that would mix the bases). The
+DCF takes the issuer's own history on the same lease-excluded basis (at least three
+usable years, within the house cap of 5.0) and says so in the basis; without
+three usable years it is withheld with a critical `valuation.dcf.salesToCapital`
+gap that names the invested capital and the lease basis. Capital that is not
+positive with no lease removed keeps the plain "invested capital <= 0" gap.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the

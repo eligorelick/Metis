@@ -142,6 +142,37 @@ export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDe
     `(${cover}, and ${reconcile}), so it is not removed; net debt is used as reported`;
 }
 
+/** The reason `operatingLeaseOutOfDebt` gives, without its net-debt tail, for a consumer that states its own consequence. */
+export function leaseReasonClause(note: string): string {
+  return note.replace(/, so it is not removed; (?:net|total) debt is used as reported$/, "");
+}
+
+/**
+ * Audit 2026-10-27 FIN-303 and FIN-303-V1 (D-25, D-97 item 3): the operating-lease
+ * slice that leaves total debt, for every invested-capital consumer (DCF
+ * sales-to-capital and its A-2 history, ROIC), exactly when the EV bridge
+ * removes it. On the default switch (`includeLeases` false) that is the slice
+ * when it is positive, at most total debt, and the CODE-1 proof holds
+ * (`operatingLeaseScopeUnproven` is null); otherwise 0 with the reason the slice
+ * is not removed. With the lease-inclusive switch set, or with no operating
+ * lease on the row, the amount is 0 and there is no note.
+ */
+export function operatingLeaseOutOfDebt(
+  row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null },
+  includeLeases: boolean,
+): { amount: number; note: string | null } {
+  if (includeLeases) return { amount: 0, note: null };
+  const operating = finite(row.operatingLeaseLiability);
+  if (operating === null || operating <= 0) return { amount: 0, note: null };
+  const unproven = operatingLeaseScopeUnproven(row);
+  if (unproven !== null) return { amount: 0, note: unproven };
+  const debt = finite(row.totalDebt);
+  if (debt === null || operating > debt) {
+    return { amount: 0, note: `the operating-lease liability ${millions(operating)} exceeds total debt ${debt === null ? "unavailable" : millions(debt)}, so it is not removed; total debt is used as reported` };
+  }
+  return { amount: operating, note: null };
+}
+
 export interface NetDebtInputs extends LeaseDebtInputs {
   date?: string | null;
   totalDebt?: number | null;

@@ -26,7 +26,7 @@ import type { ManifestEntry } from "@/types/core";
 import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, leaseReasonClause, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
@@ -1484,20 +1484,16 @@ function investedCapital(
   // bridge removes the same slice by default and the finance-lease liability
   // stays, as it does there.
   let debt = b.totalDebt;
-  const operatingLease =
-    isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability > 0
-      ? b.operatingLeaseLiability
-      : null;
-  if (operatingLease !== null && !includeOperatingLeases) {
-    if (operatingLease <= b.totalDebt) {
-      debt = b.totalDebt - operatingLease;
+  if (!includeOperatingLeases) {
+    // FIN-303-V1 (D-97 item 3): the CODE-1 proof the EV bridge, the WACC debt leg and net debt already require.
+    const leaseOut = operatingLeaseOutOfDebt(b, false);
+    if (leaseOut.amount > 0) {
+      debt = b.totalDebt - leaseOut.amount;
       notes.push(
-        `${b.date}: ${b.leaseCoverageNote ? "disclosed operating-lease portion" : "operating-lease liability"} ${fmt(operatingLease)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
+        `${b.date}: ${b.leaseCoverageNote ? "disclosed operating-lease portion" : "operating-lease liability"} ${fmt(leaseOut.amount)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
       );
-    } else {
-      notes.push(
-        `${b.date}: operating-lease liability ${fmt(operatingLease)} exceeds totalDebt ${fmt(b.totalDebt)} — inconsistent lease data; totalDebt used unadjusted`,
-      );
+    } else if (leaseOut.note !== null) {
+      notes.push(`${b.date}: ${leaseReasonClause(leaseOut.note)}; total debt is used as reported in invested capital, as in the EV bridge`);
     }
   }
 

@@ -79,4 +79,22 @@ describe("operating lease removed only when total debt holds it (audit CODE-1)",
     expect(out.valuation.multiples.enterpriseValue.leaseLiability).toBe(gap ? null : 150 * M);
     expect(out.gaps.some((g) => g.field === "valuation.dcf.netDebt.leaseScope")).toBe(gap);
   });
+
+  // FIN-303-V1: ROIC follows the same proof as the bridge, the WACC debt leg and net debt.
+  it.each([
+    ["borrowings-only total with an enriched lease keeps total debt as reported", { ...borrowingsOnly }, /operating-lease scope unproven/, /excluded from invested capital/],
+    ["lease-inclusive total with its lease total removes the lease", { ...borrowingsOnly, totalDebt: 450 * M, capitalLeaseObligations: 150 * M }, /excluded from invested capital/, /operating-lease scope unproven/],
+  ] as const)("ROIC invested capital: %s", (_, fields, present, absent) => {
+    const bundle = completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    for (const result of [bundle.statements.balanceQuarterly, bundle.statements.balanceAnnual]) {
+      if (!result.ok) throw new Error("Missing balance fixture");
+      for (const row of result.value.data.rows) Object.assign(row, fields, { netDebt: null, cashAndCashEquivalents: 100 * M, shortTermInvestments: 0, cashAndShortTermInvestments: 100 * M, financeLeaseLiability: 0 });
+    }
+    const out = runStageB(bundle, { evIncludeLeases: false });
+    const latest = out.returns.roic.series[out.returns.roic.series.length - 1]!;
+    // Both land on 675M: debt as reported 300M, or 450M less the 150M lease it is shown to hold.
+    expect(latest.investedCapitalAvg).toBe(675 * M);
+    expect(latest.notes.join(" ")).toMatch(present);
+    expect(latest.notes.join(" ")).not.toMatch(absent);
+  });
 });

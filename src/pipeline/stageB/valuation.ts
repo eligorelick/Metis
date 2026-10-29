@@ -26,7 +26,7 @@ import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations"
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
-import { leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, millions, leaseReasonClause, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
@@ -194,19 +194,40 @@ const gapEntry = (
  * investments - long-term investments while capital remains. A year whose
  * temporary equity is refused is skipped with a note, never zero-filled.
  * Fewer than three years: no ratio.
+ *
+ * FIN-303: one median is on one lease basis, the current balance's (D-25). The
+ * FCX-1 mode (`fcx1Excluded`) subtracts every row's disclosed operating lease
+ * and skips a row without one. Otherwise, with the lease-inclusive switch set
+ * or a current row that keeps its lease (its scope unproven), every row keeps
+ * its debt as reported; else each row subtracts `operatingLeaseOutOfDebt`, and
+ * a row with an operating lease the predicate cannot prove inside its total
+ * debt is left out with a note, never kept lease-inclusive beside
+ * lease-excluded years.
  */
-function establishedSalesToCapital(
+export function establishedSalesToCapital(
   incomeHistory: DcfIncomeRow[],
   capitalHistory: DcfBalanceRow[] | null,
-  leaseExcluded: boolean,
+  lease: { fcx1Excluded: boolean; includeLeasesInEv: boolean; currentRowExcludesLease: boolean },
 ): { ratio: number | null; basis: string } {
   const revenueByDate = new Map(incomeHistory.flatMap((r) => isNum(r.revenue) && r.revenue > 0 ? [[r.date.slice(0, 10), r.revenue] as const] : []));
   const years = new Map<string, number>();
   const refused: string[] = [];
+  const unprovenLease = new Map<string, string>();
+  const removeLease = !lease.includeLeasesInEv && lease.currentRowExcludesLease;
   for (const row of capitalHistory ?? []) {
     const date = row.date.slice(0, 10);
     const revenue = revenueByDate.get(date);
-    const debt = isNum(row.totalDebt) ? row.totalDebt - (leaseExcluded ? (isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN) : 0) : NaN;
+    let leaseOut = 0;
+    if (lease.fcx1Excluded) leaseOut = isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN;
+    else if (removeLease) {
+      const proof = operatingLeaseOutOfDebt(row, false);
+      if (proof.note !== null) {
+        if (revenue !== undefined && !years.has(date) && !unprovenLease.has(date)) unprovenLease.set(date, leaseReasonClause(proof.note));
+        continue;
+      }
+      leaseOut = proof.amount;
+    }
+    const debt = isNum(row.totalDebt) ? row.totalDebt - leaseOut : NaN;
     const equity = resolveConsolidatedEquity(row).value;
     if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
     const temporary = temporaryEquityClaims(row);
@@ -217,7 +238,8 @@ function establishedSalesToCapital(
     if (operating > 0) years.set(date, revenue / operating);
   }
   const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
-  const skipped = refused.length === 0 ? "" : `; ${refused.join(", ")} left out: a temporary-equity operand was refused, so that year's invested capital is unknown (FIN-119-V1)`;
+  const skipped = (refused.length === 0 ? "" : `; ${refused.join(", ")} left out: a temporary-equity operand was refused, so that year's invested capital is unknown (FIN-119-V1)`) +
+    [...unprovenLease].map(([d, note]) => `; FY${d} left out: ${note} - the year cannot be put on the current balance's lease-excluded basis, so it is not kept lease-inclusive beside lease-excluded years (FIN-303)`).join("");
   if (newest.length < S2C_HISTORY_MIN_YEARS) {
     return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)${skipped}` };
   }
@@ -735,6 +757,12 @@ export interface DcfRevenueTrend {
 }
 
 export interface DcfAssumptionInputs {
+  /**
+   * FIN-303 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s `evIncludeLeases`).
+   * Absent is false, the default: sales-to-capital and its A-2 history remove the proven operating-lease slice
+   * from debt exactly when the equity bridge does.
+   */
+  includeLeasesInEv?: boolean;
   /** 3y revenue CAGR in percent (computed upstream from statements); null when unavailable. */
   revenueCagr3yPct: number | null;
   /** 5y revenue CAGR in percent — one of the growth-anchor methods (D-18). */
@@ -2144,7 +2172,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     return { assumptions: null, notes, gaps };
   }
   const leaseExcluded = leaseDebtScopeRefusal(bal, true) !== null && bal !== null && isNum(bal.operatingLeaseLiability);
-  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : 0) : null;
+  // FIN-303 / FIN-303-V1 (D-25, D-97 item 3): on the default switch the operating-lease slice leaves debt here exactly
+  // when the equity bridge removes it (`operatingLeaseOutOfDebt`: positive, inside total debt, scope proven). The
+  // FCX-1 partial-coverage path above is unchanged and runs first.
+  const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
+  const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
+  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
   const equity = resolveConsolidatedEquity(bal ?? {});
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
@@ -2154,15 +2187,33 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
       ? icDebt + equity.value + (temporary === null ? 0 : temporary.total) - bal.cashAndShortTermInvestments
       : null;
-  if (bal === null || ic === null || ic <= 0) {
-    gaps.push(
-      gapEntry(
-        "valuation.dcf.salesToCapital",
-        `${ic === null ? "balance-sheet fields missing for invested capital" : "invested capital <= 0"} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
-        "critical",
-      ),
-    );
+  const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
+    "valuation.dcf.salesToCapital",
+    `${lead} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
+    "critical",
+  );
+  if (bal === null || ic === null) {
+    gaps.push(mainCapitalGap("balance-sheet fields missing for invested capital"));
     return { assumptions: null, notes, gaps };
+  }
+  // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
+  // positive once the proven operating lease leaves debt) takes the issuer's own history on the same lease basis, or
+  // the DCF is withheld. It never falls back to the lease-inclusive (mixed) basis. A non-positive capital with no lease
+  // removed keeps main's gap text.
+  let emptiedHistory: ReturnType<typeof establishedSalesToCapital> | null = null;
+  if (ic <= 0) {
+    if (!(leaseOut.amount > 0 && ic + leaseOut.amount > 0)) {
+      gaps.push(mainCapitalGap("invested capital <= 0"));
+      return { assumptions: null, notes, gaps };
+    }
+    const history = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
+    if (history.ratio === null) {
+      gaps.push(gapEntry("valuation.dcf.salesToCapital",
+        `invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
+        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "critical"));
+      return { assumptions: null, notes, gaps };
+    }
+    emptiedHistory = history;
   }
   // Only after main's critical checks (a refused claim is zero in `ic` above, so those read as at main): a refused
   // temporary-equity operand withholds the DCF at warn, never critical (controller ruling, Task 3, 2026-10-29): the
@@ -2178,10 +2229,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // removing them would leave no operating capital the D-58 basis stands.
   const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
-  const rawS2c = startRev / (operatingIc ?? ic);
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
-  const s2cHistory = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseExcluded);
+  const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
+  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : startRev / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
@@ -2191,7 +2242,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
-  if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  else if (leaseOut.amount > 0) s2cBasis += ` The operating-lease liability ${millions(leaseOut.amount)} removed: its cost is inside the EBIT this DCF projects (ASC 842; D-25).`;
+  else if (leaseOut.note !== null) s2cBasis += ` The operating lease is not removed from invested capital: ${leaseReasonClause(leaseOut.note)}; total debt is used as reported.`;
+  if (emptiedHistory !== null) {
+    s2cBasis = `${periodBasis} sales-to-capital ${s2c.toFixed(4)}x from the issuer's own filed history: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), ` +
+      `so the current balance cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}`;
+  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
   else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
@@ -2338,7 +2394,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...(operatingIc !== null && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
+    ...((operatingIc !== null || emptiedHistory !== null) && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,

@@ -3593,6 +3593,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
+          // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
+          includeLeasesInEv: evIncludeLeases,
           bridgeCause: { cause: bridge.cause, detail: bridge.detail },
           capitalHistory: dcfCapitalHistory,
           marketCap,
