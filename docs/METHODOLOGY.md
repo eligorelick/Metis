@@ -4551,7 +4551,12 @@ part of it is filed there for the same date:
   must not be a current lease amount the completed line already holds;
 - total debt is short-term debt plus the vendor's long-term debt (which must
   agree with the filing's `LongTermDebtNoncurrent`) plus the completed leases,
-  and net debt is recomputed from it.
+  and net debt is recomputed from it;
+- the completion is refused when that filing's `LongTermDebtNoncurrent`
+  equals its `LongTermDebtAndCapitalLeaseObligations` while it tags noncurrent
+  finance leases: the noncurrent debt then already holds them (Duke Energy's
+  2019 to 2021 10-Ks are filed this way), and adding the finance-lease total
+  would count them twice.
 
 The filings that carry the date are tried newest first, so a comparative that
 only a later 10-Q tags still completes. The completed fields carry the filing

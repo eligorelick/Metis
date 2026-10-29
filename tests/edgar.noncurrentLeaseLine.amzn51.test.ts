@@ -20,6 +20,7 @@ import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { runStageB } from "@/pipeline/compute";
 import { leaseDebtConflict } from "@/pipeline/stageB/netDebt";
 import { computeWacc } from "@/pipeline/stageB/returns";
+import type { FmpBalanceSheetRow } from "@/providers/fmp";
 
 import { ACCN, FILED, FILED_FACTS, FY, M, OBSERVED, Q2, SHAPE, companyFacts, leaseShapeStageBBundle, vendorRow, without } from "./helpers/amzn51LeaseShape";
 
@@ -137,6 +138,33 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
     const { row: out } = admitDebtFields(vendorRow(Q2, { shortTermDebt: 5_000 }), companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(out.totalDebt).toBeNull();
     expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/does not reconcile/);
+  });
+});
+
+describe("a noncurrent debt that already holds the finance leases is not completed (review m1, Duke shape)", () => {
+  // Duke Energy's 10-K at 2021-12-31 (SEC-filed, millions): LongTermDebtNoncurrent equals
+  // LongTermDebtAndCapitalLeaseObligations, so its noncurrent debt carries the noncurrent finance leases.
+  const DUKE_FY = "2021-12-31";
+  const duke = (aclo: number | null) => companyFacts({ [DUKE_FY]: {
+    LongTermDebtNoncurrent: 60_448, LongTermDebtCurrent: 3_387, ShortTermBorrowings: 3_304,
+    OperatingLeaseLiability: 1_261, OperatingLeaseLiabilityCurrent: 187, OperatingLeaseLiabilityNoncurrent: 1_074,
+    FinanceLeaseLiability: 915, FinanceLeaseLiabilityCurrent: 151, FinanceLeaseLiabilityNoncurrent: 764,
+    ...(aclo === null ? {} : { LongTermDebtAndCapitalLeaseObligations: aclo }),
+  } });
+  // A provider row of the AMZN #51 shape: long-term debt plus the noncurrent lease line, no current part.
+  const row = { date: DUKE_FY, reportedCurrency: "USD", cik: "0000000042", shortTermDebt: 0, longTermDebt: 60_448 * M,
+    capitalLeaseObligations: 1_838 * M, capitalLeaseObligationsCurrent: 0, capitalLeaseObligationsNonCurrent: 1_838 * M,
+    totalDebt: (60_448 + 1_838) * M, cashAndCashEquivalents: 343 * M } as FmpBalanceSheetRow;
+
+  it("refuses the completion, naming the three facts, instead of counting the finance leases twice", () => {
+    const { row: out } = admitDebtFields(row, duke(60_448), "USD", OBSERVED);
+    expect(out.totalDebt).toBeNull();
+    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/the filing's LongTermDebtNoncurrent 60448000000 equals its LongTermDebtAndCapitalLeaseObligations 60448000000 while FinanceLeaseLiabilityNoncurrent is 764000000/);
+  });
+
+  it("control: an aggregate that adds the finance leases to the noncurrent debt still completes", () => {
+    const { row: out } = admitDebtFields(row, duke(60_448 + 764), "USD", OBSERVED);
+    expect(out.totalDebt).toBe((3_387 + 3_304 + 60_448 + 1_261 + 915) * M);
   });
 });
 

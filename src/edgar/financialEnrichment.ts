@@ -479,6 +479,14 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   if (!finite(longTerm) || longTerm < 0) return refuse("the vendor long-term debt is unavailable");
   if (typeof filedNoncurrentDebt !== "number") return refuse("the vendor long-term debt cannot be matched to a LongTermDebtNoncurrent in that filing, so a current portion inside it cannot be ruled out");
   if (!vendorAgreesWithFiled(longTerm, filedNoncurrentDebt)) return refuse(`the vendor long-term debt ${longTerm} does not reconcile with the filed LongTermDebtNoncurrent ${filedNoncurrentDebt}`);
+  // Review m1 (Duke shape): a filer whose noncurrent debt equals its debt-and-lease aggregate carries the
+  // noncurrent finance leases inside it, so adding the filed finance-lease total would count them twice.
+  const debtAndLeases = inFiling("LongTermDebtAndCapitalLeaseObligations");
+  if (typeof debtAndLeases === "number" && typeof financeNoncurrent === "number" && financeNoncurrent > 0 &&
+      Math.abs(debtAndLeases - filedNoncurrentDebt) <= tolerance(filedNoncurrentDebt)) {
+    return refuse(`the filing's LongTermDebtNoncurrent ${filedNoncurrentDebt} equals its LongTermDebtAndCapitalLeaseObligations ${debtAndLeases} ` +
+      `while FinanceLeaseLiabilityNoncurrent is ${financeNoncurrent}, so the noncurrent debt may already hold the finance leases`);
+  }
   const vendorTotal = row.totalDebt;
   const vendorShort = row.shortTermDebt;
   if (vendorShort != null && (!finite(vendorShort) || vendorShort < 0)) return refuse("the vendor short-term debt is not a valid amount");
