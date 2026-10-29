@@ -57,6 +57,7 @@ import { getLatestDoneReport, type LatestReport } from "@/report/query";
 
 import { fmtBig, fmtFractionPct, fmtMoney, fmtNum, fmtPct, fmtSignedPct, fmtX, upsidePct } from "./format";
 import { GenerateReport } from "./GenerateReport";
+import { describeAnalysisRoute } from "@/ai/connections";
 import { ReportTabs } from "./ReportTabs";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { normalizeRouteSymbol } from "@/symbol";
@@ -904,6 +905,16 @@ function UnknownTicker({ symbol, gap }: { symbol: string; gap: ManifestEntry | n
   );
 }
 
+/** The route a new report would run on; null when the connection store cannot be read. */
+function readRunRoute(): { label: string; ready: boolean } | null {
+  try {
+    const { label, ready } = describeAnalysisRoute();
+    return { label, ready };
+  } catch {
+    return null;
+  }
+}
+
 /** A failed refresh must not strand a reader who already has saved research. */
 function UnavailableLiveAnalysis({ symbol, children }: { symbol: string; children: ReactNode }) {
   if (!getConfig().uiRedesign) return children;
@@ -945,7 +956,7 @@ export default async function CompanyPage({ params, searchParams }: {
           <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
             actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
             navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
-            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
+            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
           <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
         </div>
@@ -1077,7 +1088,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </div>
         </div>
 
-        {getConfig().uiRedesign ? <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} /> : <GenerateReport key={bundle.symbol} symbol={bundle.symbol} />}
+        {getConfig().uiRedesign ? <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} /> : <GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />}
 
         <QuoteHeader bundle={bundle} computed={computed} />
 

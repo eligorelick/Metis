@@ -7,6 +7,7 @@ import {
   type SettingsPageController,
   type SettingsPageControllerState,
 } from "@/settings/writeQueue";
+import type { AnalysisRoute } from "@/ai/analysisRoute";
 import { SettingsPageView } from "./SettingsPageView";
 
 const INITIAL_STATE: SettingsPageControllerState = {
@@ -18,6 +19,7 @@ const INITIAL_STATE: SettingsPageControllerState = {
 
 export default function SettingsPage() {
   const [state, setState] = useState<SettingsPageControllerState>(INITIAL_STATE);
+  const [activeRoute, setActiveRoute] = useState<AnalysisRoute | null>(null);
   const controllerRef = useRef<SettingsPageController | null>(null);
 
   useEffect(() => {
@@ -46,6 +48,8 @@ export default function SettingsPage() {
   return (
     <SettingsPageView
       state={state}
+      activeRoute={activeRoute}
+      onRoute={setActiveRoute}
       onAnalysisModel={onAnalysisModel}
       onAnalysisEffort={onAnalysisEffort}
     />

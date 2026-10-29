@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const fake = vi.hoisted(() => ({ view: vi.fn(() => ({ selection: { provider: "none" }, connections: [] })), select: vi.fn() }));
-vi.mock("@/ai/connections", () => ({ connectionsView: fake.view, selectConnection: fake.select }));
+const fake = vi.hoisted(() => ({ view: vi.fn(() => ({ selection: { provider: "none" }, connections: [] })), select: vi.fn(), routeThrows: false }));
+const ROUTE = { provider: "none", model: null, effort: null, ready: false, label: "AI off (data-only reports)" };
+vi.mock("@/ai/connections", () => ({ connectionsView: fake.view, selectConnection: fake.select, describeAnalysisRoute: () => { if (fake.routeThrows) throw new Error("settings unreadable"); return ROUTE; } }));
 vi.mock("@/ai/chatgpt", () => ({ beginChatGpt: vi.fn(), disconnectChatGpt: vi.fn() }));
 vi.mock("@/ai/gemini", () => ({ beginGemini: vi.fn(), disconnectGemini: vi.fn() }));
 vi.mock("@/ai/transport", () => ({ listChatGptModels: vi.fn() }));
@@ -13,7 +14,7 @@ import { assertSameOrigin } from "@/app/api/sameOrigin";
 import { beginChatGpt, disconnectChatGpt } from "@/ai/chatgpt";
 import { beginGemini, disconnectGemini } from "@/ai/gemini";
 import { listChatGptModels } from "@/ai/transport";
-beforeEach(() => { vi.clearAllMocks(); fake.view.mockImplementation(() => ({ selection: { provider: "none" }, connections: [] })); });
+beforeEach(() => { vi.clearAllMocks(); fake.routeThrows = false; fake.view.mockImplementation(() => ({ selection: { provider: "none" }, connections: [] })); });
 function request(body: unknown) {
   return new Request("http://127.0.0.1:3000/api/ai/connections", { method: "POST", headers: { host: "127.0.0.1:3000", origin: "http://127.0.0.1:3000" }, body: typeof body === "string" ? body : JSON.stringify(body) });
 }
@@ -27,7 +28,11 @@ describe("local connection API", () => {
   it("returns sanitized status to the local UI without initiating inference", async () => {
     const response = await GET(new Request("http://127.0.0.1:3000/api/ai/connections", { headers: { host: "127.0.0.1:3000", origin: "http://127.0.0.1:3000" } }));
     expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(await response.json()).toEqual({ selection: { provider: "none" }, connections: [] });
+    expect(await response.json()).toEqual({ selection: { provider: "none" }, connections: [], route: ROUTE });
+    fake.routeThrows = true;
+    const degraded = await GET(new Request("http://127.0.0.1:3000/api/ai/connections", { headers: { host: "127.0.0.1:3000", origin: "http://127.0.0.1:3000" } }));
+    expect(degraded.status).toBe(200); expect(await degraded.json()).toEqual({ selection: { provider: "none" }, connections: [] });
+    fake.routeThrows = false;
     expect(fake.select).not.toHaveBeenCalled();
   });
   it("rejects LAN access even if the general origin guard allows that host", async () => {

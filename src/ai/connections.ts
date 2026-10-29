@@ -3,6 +3,8 @@ import { getConfig } from "@/config/env";
 import { readAiStore, withAiStore } from "./store";
 import { chatGptPending } from "./chatgpt";
 import { geminiExecutable, geminiPending } from "./gemini";
+import { getWritableSettingsAuthority } from "@/settings/settings";
+import { buildAnalysisRoute, type AnalysisRoute } from "./analysisRoute";
 import { CHATGPT_EFFORTS, chatGptFastOffered, validModelId, type ChatGptEffort, type AiConnectionsView, type AiSelection } from "./contracts";
 
 export function captureAiSelection(): AiSelection {
@@ -18,6 +20,12 @@ export function selectionIsConnected(selection: AiSelection): boolean {
   const store = readAiStore();
   if (selection.provider === "gemini") return store?.gemini?.id === selection.connectionId && store.gemini.connected && geminiExecutable() !== null;
   return store?.profiles.some((p) => p.id === selection.connectionId && p.tokens?.scopes.includes("chatgpt.tokens.use.direct")) ?? false;
+}
+
+/** The route a report would run on right now: the same selection and settings the job runner captures. */
+export function describeAnalysisRoute(): AnalysisRoute {
+  const selection = captureAiSelection();
+  return buildAnalysisRoute(selection, selectionIsConnected(selection), getWritableSettingsAuthority().state);
 }
 
 export function connectionsView(): AiConnectionsView {
