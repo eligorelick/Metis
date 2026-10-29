@@ -960,6 +960,30 @@ describe("B13 final review M-3: no operand mismatch is a withholding beside a pu
   });
 });
 
+describe("B13 final review M-6: a refused D&A candidate the floor would skip does not end the D&A field", () => {
+  const daFacts = (dda: readonly [number, number, number]): Record<string, unknown[]> => ({
+    // DDA's FY2024 is re-filed by the FY2025 10-K beyond 1% with no label, so its Q4 2024 is withheld (C-9).
+    DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, dda[0] * M), pt(FR.k24, ...FY24, dda[1] * M), pt(FR.k25, ...FY24, dda[2] * M)],
+    Depreciation: [pt(FR.q324, ...NINE24, 1200 * M), pt(FR.k24, ...FY24, 1600 * M)],
+    DepreciationAndAmortization: [pt(FR.q324, ...NINE24, 1650 * M), pt(FR.k24, ...FY24, 2199 * M)],
+    Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+    Assets: frAssets(),
+  });
+  it("MCD shape: a refused DDA whose as-filed quarter sits below Depreciation is skipped, and D&A is the total DepreciationAndAmortization", () => {
+    const b = frBuild(daFacts([340, 457, 500]));
+    expect(frRow(b)?.depreciationAndAmortization).toBe(549 * M); // d6f4300: null (the DDA refusal ended the field)
+    expect(b.incomeQuarterly.withheld.filter((w) => w.field === "depreciationAndAmortization")).toEqual([]);
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 160000000 not used — below the same period's Depreciation 400000000, so it is not the total \(its quarter is withheld for presentation/.test(n))).toBe(true);
+  });
+  it("control: a refused combined tag at or above its components still ends the step (C1)", () => {
+    const b = frBuild(daFacts([1300, 1800, 1900]));
+    expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull();
+    expect(b.incomeQuarterly.withheld).toContainEqual(
+      expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/DepreciationDepletionAndAmortization 2024-12-31:.*first reported as 1800000000/) }),
+    );
+  });
+});
+
 describe("B13 final review M-4: a presentation refusal ends its synonym step even inside notes.quietly", () => {
   const tags = ["InterestExpense", "InterestExpenseNonoperating"];
   it("muted: the refused synonym ends the step, so the narrower one does not serve", () => {

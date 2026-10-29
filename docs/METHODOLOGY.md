@@ -4568,7 +4568,13 @@ figure it leaves unverified is disclosed (see the A-11 paragraphs):
   it: not a narrower synonym, not a stand-in (cash interest paid for interest
   expense), not a derivation (consolidated profit for profit attributable to the
   parent, derived EBIT for a filed operating income). The withheld field quotes
-  the refusal.
+  the refusal. The one exception is a synonym the component floor would skip
+  anyway: a combined synonym whose quarter is withheld, but whose as-filed
+  derived quarter sits below a floor tag (decided as for a withheld floor tag,
+  below), is skipped as a subset line and the next synonym is tried, so a
+  McDonald's-shaped `DepreciationDepletionAndAmortization` gives way to the total
+  `DepreciationAndAmortization`. A withheld synonym at or above its floors still
+  ends the field (B13 final review M-6).
 - A derived EBIT whose adjustment or optional interest part is withheld for
   presentation is itself withheld, quoting that reason (never read as "not
   filed"), when the derivation uses that operand. An operand the derivation does

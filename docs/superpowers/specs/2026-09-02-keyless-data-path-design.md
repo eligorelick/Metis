@@ -146,10 +146,12 @@ Rules:
    subtrahend a later filing re-filed so, or a minuend filing that re-presented
    earlier periods beside a subtrahend filing that did not, withholds the
    quarter naming both filings, and no stand-in, derivation or other tag
-   serves the field afterwards. A re-filing within 1% derives the quarter from
-   the first-reported pair, and the quarter is withheld when that first-reported
-   copy has no subtrahend filed on or before it; a re-rounding to whole millions
-   (half a million or less) is not a re-filing. See `docs/METHODOLOGY.md`
+   serves the field afterwards (except the next synonym after a combined
+   tag the component floor skips as a subset line). A re-filing within 1%
+   derives the quarter from the first-reported pair, and the quarter is
+   withheld when that first-reported copy has no subtrahend filed on or before
+   it; a re-rounding to whole millions (half a million or less) is not a
+   re-filing. See `docs/METHODOLOGY.md`
    "Derived quarters on one presentation".
 4. Quarterly cash-flow rows: cash-flow facts are year-to-date in 10-Qs, so
    every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`. The

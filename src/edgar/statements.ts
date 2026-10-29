@@ -1807,44 +1807,62 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
     }
     case "first": {
       const skipped: string[] = [];
+      /** Why the candidate `r` of `tag` is a subset line below a component the line item contains, or null. */
+      const belowItsFloor = (tag: string, r: Resolved): string | null => {
+        if (spec.unlessBelow === undefined) return null;
+        const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
+        // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
+        const components: { tag: string; value: number }[] = [];
+        let sameFilingHit: string | null = null;
+        for (const floorTag of floorTags) {
+          if (floorTag === tag) continue;
+          const presentationBefore = notes.presentationRefusals.length;
+          let f = notes.quietly(() => resolve(floorTag, spec.unit));
+          const floorRefused = f === null && notes.presentationRefusals.length > presentationBefore;
+          // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
+          notes.presentationRefusals.length = presentationBefore;
+          if (floorRefused) {
+            // The floor tag's quarter is withheld for presentation. The floor is a magnitude check that is never
+            // published, so it is decided from filed copies on one basis: the candidate against the floor tag in
+            // each filing that carries both. With no such filing, the as-filed magnitude decides (FIN-511 M5, F3).
+            f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }));
+            if (f?.sameFiling !== undefined) {
+              if (f.sameFiling.below) sameFilingHit = `${tag} ${r.value} not used — ${f.sameFiling.detail}, so it is not the total`;
+              continue;
+            }
+          }
+          if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
+        }
+        const hit = belowComponentFloor(r.value, components);
+        return sameFilingHit ?? (hit === null ? null : `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`);
+      };
       for (const tag of spec.tags) {
-        const presentationAtTag = notes.presentationRefusals.length;
+        const refusalsBefore = notes.refusals.length;
+        const presentationBefore = notes.presentationRefusals.length;
         const r = resolve(tag, spec.unit);
         // A synonym refused for presentation ends the step: a narrower synonym must not take over (FIN-511). The
         // check reads `presentationRefusals`, which a muted probe fills too (B13 final review M-4).
-        if (r === null && notes.presentationRefusals.length > presentationAtTag) return null;
+        if (r === null && notes.presentationRefusals.length > presentationBefore) {
+          // Unless the floor would skip the candidate as a subset line anyway: its floor is decided from its as-filed
+          // value, as for a refused floor tag (M5, F3), and the next synonym is tried (B13 final review M-6).
+          const refusedAt = notes.presentationRefusals.length;
+          const asFiled = spec.unlessBelow === undefined ? null : notes.quietly(() => resolve(tag, spec.unit, undefined, true));
+          notes.presentationRefusals.length = refusedAt;
+          const subset = asFiled === null ? null : belowItsFloor(tag, asFiled);
+          if (subset === null) return null;
+          notes.presentationRefusals.length = presentationBefore;
+          notes.refusals.length = refusalsBefore;
+          const text = `${subset} (its quarter is withheld for presentation, so its as-filed value is compared, as for a withheld floor tag)`;
+          notes.add(`${label}: ${text}`);
+          skipped.push(text);
+          continue;
+        }
         if (r === null) continue;
-        if (spec.unlessBelow !== undefined) {
-          const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
-          // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
-          const components: { tag: string; value: number }[] = [];
-          let sameFilingHit: string | null = null;
-          for (const floorTag of floorTags) {
-            if (floorTag === tag) continue;
-            const presentationBefore = notes.presentationRefusals.length;
-            let f = notes.quietly(() => resolve(floorTag, spec.unit));
-            const floorRefused = f === null && notes.presentationRefusals.length > presentationBefore;
-            // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
-            notes.presentationRefusals.length = presentationBefore;
-            if (floorRefused) {
-              // The floor tag's quarter is withheld for presentation. The floor is a magnitude check that is never
-              // published, so it is decided from filed copies on one basis: the candidate against the floor tag in
-              // each filing that carries both. With no such filing, the as-filed magnitude decides (FIN-511 M5, F3).
-              f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }));
-              if (f?.sameFiling !== undefined) {
-                if (f.sameFiling.below) sameFilingHit = `${tag} ${r.value} not used — ${f.sameFiling.detail}, so it is not the total`;
-                continue;
-              }
-            }
-            if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
-          }
-          const hit = belowComponentFloor(r.value, components);
-          if (hit !== null || sameFilingHit !== null) {
-            const text = sameFilingHit ?? `${tag} ${r.value} not used — below the same period's ${hit!.tag} ${hit!.value}, so it is not the total`;
-            notes.add(`${label}: ${text}`);
-            skipped.push(text);
-            continue;
-          }
+        const subset = belowItsFloor(tag, r);
+        if (subset !== null) {
+          notes.add(`${label}: ${subset}`);
+          skipped.push(subset);
+          continue;
         }
         if (spec.sign === undefined) return disclosed(r);
         const decimals = spec.unit === "perShare" ? PER_SHARE_DECIMALS : MONEY_DECIMALS;
