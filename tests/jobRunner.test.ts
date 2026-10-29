@@ -10738,6 +10738,7 @@ describe("DB-001: a Retry of a data-only fallback is dispatched", () => {
     // safeQueuedResumeFailure stores a fixed, sanitized message, never the raw cause
     expect(row(jobId).error).toBe("runJob: queued retry dispatch failed before execution");
     expect(getJobSnapshot(jobId)).toMatchObject({ status: "error", dataOnly: true, resumable: true });
+    expect(routeAdmitsRetry(jobId, "error")).toBe(true);   // a later Retry from error is admitted (pins current behaviour)
   });
 
   it("a retried data-only fallback that fails again links a new data-only report", async () => {
