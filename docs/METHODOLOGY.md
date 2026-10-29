@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.34.0 / payload 1.39.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_16 (2026-10-20). Its bounded evidence fixes
+The current source declares report 1.48.0 / payload 1.50.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_29 (2026-10-29). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -1208,7 +1208,13 @@ withheld, with the refusal, in net debt, invested capital and net debt/EBITDA;
 "missing" is kept for a value that is absent. A DCF withheld for want of a
 WACC says why the WACC is unavailable, and a suppressed fair value quotes the
 DCF gap, or the bridge gap and the net-debt refusal behind it. The generic
-reason remains only when no gap says.
+reason remains only when no gap says. A market cap withheld because the
+issuer's share scope is unresolved is called withheld, with that reason, in
+the WACC weights entry and so in the DCF and fair-value lines ("market cap
+missing" is kept for a quote that has none). The net-debt entry says the
+equity bridge passed over FMP's cash-only `netDebt` field only when the
+balance came from FMP; a keyless report has no such field. A quoted reason
+that already ends a sentence is not given a second period.
 
 Both enterprise values — as reported, and less the operating-lease liability —
 are computed, together with the total lease liability and its finance slice.
@@ -4547,8 +4553,11 @@ part of it is filed there for the same date:
 - a zero or absent vendor short-term debt becomes the filing's
   `LongTermDebtCurrent` plus `ShortTermBorrowings` and `CommercialPaper` where
   tagged, cross-checked against `DebtCurrent`. A nonzero vendor short-term debt
-  is kept, never added to: it must agree with the filed current debt, and it
-  must not be a current lease amount the completed line already holds;
+  is kept, never added to. When the filing tags a current debt
+  (`LongTermDebtCurrent`, with `ShortTermBorrowings` and `CommercialPaper`
+  where tagged, else `DebtCurrent`), the vendor figure must agree with it. When
+  the filing tags none, the vendor figure must not equal a current lease amount
+  the completed line already holds;
 - total debt is short-term debt plus the vendor's long-term debt (which must
   agree with the filing's `LongTermDebtNoncurrent`) plus the completed leases,
   and net debt is recomputed from it;
@@ -4602,8 +4611,8 @@ proposed comparing a debt-only aggregate (`LongTermDebt`,
 `DebtLongtermAndShorttermCombinedAmount`) with the financing debt alone. It is
 not applied: Alphabet files its finance leases inside `LongTermDebt` (at
 2019-12-31, $4.69B against $3.96B of noncurrent debt plus $0.71B of finance
-leases), so the comparison refused Alphabet's 2019 to 2022 debt and moved its
-DCF and composite on no defect. The current-debt check above catches the
+leases), so the comparison refused Alphabet's 2019 to 2022 and 2025 debt and
+moved its DCF, composite and latest ROIC on no defect. The current-debt check above catches the
 Amazon case instead.
 
 **The current-capital bridge and the provider EV.** "Total debt including

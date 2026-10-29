@@ -12,7 +12,7 @@
  * leases) is not applied: Alphabet files its finance leases inside
  * LongTermDebt (2019-12-31: LongTermDebt 4,685M against LongTermDebtNoncurrent
  * 3,958M plus FinanceLeaseLiability 711M), so the rule withheld its 2019-2022
- * debt. The tagged-total check is unchanged and is pinned as it stands.
+ * and 2025 debt. The tagged-total check is unchanged and is pinned as it stands.
  */
 import { describe, expect, it } from "vitest";
 
