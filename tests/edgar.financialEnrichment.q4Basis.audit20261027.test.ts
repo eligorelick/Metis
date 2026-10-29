@@ -164,6 +164,22 @@ describe("FIN-511-V2 ruling: a derived SEC value is compared within its operands
     // Never narrower than A-11: 0.01% of 100,000M is 10M, above the operands' 1M.
     expect(vendorAgreesWithDerived(100_010_000_000, 100_000_000_000, [400_000_000_000, 300_000_000_000])).toBe(true);
   });
+  // Fix round 1, I1: the rounding allowance is capped at 1% of the larger figure, A-11's own bound.
+  it("the derived allowance never exceeds 1% of the larger figure: small lines, zeros and sign changes stay conflicts", () => {
+    expect(vendorAgreesWithDerived(2 * M, 1 * M, [4 * M, 3 * M])).toBe(false); // A-11's "2 million against 1 million"
+    expect(vendorAgreesWithDerived(1 * M, 0, [4 * M, 4 * M])).toBe(false); // a zero against a nonzero figure
+    expect(vendorAgreesWithDerived(-1 * M, 0, [4 * M, 4 * M])).toBe(false);
+    expect(vendorAgreesWithDerived(1 * M, -1 * M, [5 * M, 3 * M, 2 * M, 5 * M])).toBe(false); // four operands, a sign change
+    // Four whole-million operands give 2M of rounding; on a 150M figure the cap is 1.516M, so a 1.6M gap refuses.
+    expect(vendorAgreesWithDerived(151.6 * M, 150 * M, [400 * M, 300 * M, 200 * M, 150 * M])).toBe(false);
+    // The same 1.6M gap on a 1,000M figure is inside both the 2M allowance and the 10M cap.
+    expect(vendorAgreesWithDerived(1_001.6 * M, 1_000 * M, [4_000 * M, 3_000 * M, 2_000 * M, 2_000 * M])).toBe(true);
+  });
+  it("a derived 1M finance-lease principal (4M - 3M) does not keep a vendor 2M", () => {
+    const facts = recastFacts("FinanceLeasePrincipalPayments", [pt(F.q324!, "2024-01-01", "2024-09-30", 3 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 4 * M)]);
+    const out = enrichOut(facts, vendorQ4({ financeLeasePrincipalPayments: 2 * M }));
+    expect(out.row.fieldConflicts?.financeLeasePrincipalPayments).toMatchObject({ vendorValue: 2 * M, secValue: 1 * M, usable: false });
+  });
 
   it("a derived sum is compared within every operand's rounding (sales 149.8M + maturities 99.7M, four operands, 1.1M)", () => {
     const row = enrich(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.5 * M }));

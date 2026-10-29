@@ -7,7 +7,10 @@
  * rounding as a conflict; a classification difference is percent-scale and
  * still refuses. The unit allowance applies only when the larger figure is at
  * least 100 units, so it never exceeds 1% of it (Batch 1's rounding bound): 2
- * million against 1 million is a conflict, not display rounding.
+ * million against 1 million is a conflict, not display rounding. A figure
+ * derived from filed operands may also use their rounding (`vendorAgreesWithDerived`),
+ * capped by the same 1%, so 2 million against 1 million, a zero against a
+ * nonzero figure and a sign change stay conflicts for it too.
  */
 export const VENDOR_SEC_TOLERANCE = { unitCap: 1_000_000, share: 0.0001, minUnits: 100 } as const;
 
@@ -54,11 +57,16 @@ export function derivedRoundingAllowance(operands: readonly number[]): number {
 
 /**
  * A vendor figure against a SEC figure derived from filed operands (a fiscal year or year to date less the prior
- * year to date): the same observation within max(A-11's allowance, the operands' rounding allowance). A figure the
- * filing states only to the million is itself uncertain by half a million, so a difference within the operands'
- * stated precision is not a disagreement (audit 2026-10-27 FIN-511-V2, the controller's ruling revising A-11 for
- * derived values). A directly filed figure keeps `vendorAgreesWithFiled`.
+ * year to date): the same observation within max(A-11's allowance, the operands' rounding allowance capped at 1% of
+ * the larger figure). A figure the filing states only to the million is itself uncertain by half a million, so a
+ * difference within the operands' stated precision is not a disagreement (audit 2026-10-27 FIN-511-V2, the
+ * controller's ruling revising A-11 for derived values). The rounding allowance is the sum over the operands of half
+ * each one's `roundingUnit`: up to 1M for two whole-million operands, 2M for four (a sum of two derived figures). The
+ * cap is A-11's own bound (one unit at the 100-unit floor, `1 / minUnits`), so a gap across a zero or a sign change,
+ * which is at least the larger figure, is never within it. A directly filed figure keeps `vendorAgreesWithFiled`.
  */
 export function vendorAgreesWithDerived(vendor: number, derived: number, operands: readonly number[]): boolean {
-  return Math.abs(vendor - derived) <= Math.max(filedAllowance(vendor, derived), derivedRoundingAllowance(operands));
+  const larger = Math.max(Math.abs(vendor), Math.abs(derived));
+  const rounding = Math.min(derivedRoundingAllowance(operands), larger / VENDOR_SEC_TOLERANCE.minUnits);
+  return Math.abs(vendor - derived) <= Math.max(filedAllowance(vendor, derived), rounding);
 }
