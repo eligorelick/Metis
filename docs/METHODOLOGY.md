@@ -737,8 +737,11 @@ adjustment the filer files for the period in another currency or for another
 period than the row is never a withholding beside the published figure (B13
 final review M-3): beside the aggregate a component is named as already inside
 it, and an item that would be subtracted is not subtracted and is named in the
-error band with why, so the figure is the one published before this batch plus
-that disclosure. Johnson &
+error band with why, so the figure is computed as it would be without that
+item, plus that disclosure. When that item is the `NonoperatingIncomeExpense`
+aggregate itself, it is not used: the components the filer tags stand in for
+it, as where no aggregate is filed, and the disclosure says why, so the figure
+can differ from the one published before this batch. Johnson &
 Johnson's quarter ended 2026-09-27 files pretax income of 34 million,
 `InterestExpenseNonoperating` of 217, `InvestmentIncomeInterest` of 186 and
 `OtherNonoperatingIncomeExpense` of -5,780 (litigation charges and reversals),
