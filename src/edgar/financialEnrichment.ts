@@ -120,9 +120,9 @@ function agreesWithSec(vendor: number, value: number, parts: readonly Resolved[]
     : vendorAgreesWithFiled(vendor, value);
 }
 /** How a derived SEC value was built, for reason texts: "(fiscal year or year to date less the prior year to date, from the <filing> and the <filing>)". */
-function derivedFrom(evidence: StatementFieldProvenance): string {
-  const filing = (f: StatementFieldProvenance["filings"][number]) => `${f.form.trim()} of ${f.filed} (${f.accn})`;
-  return `(fiscal year or year to date less the prior year to date, from ${evidence.filings.map((f) => `the ${filing(f)}`).join(" and ")})`;
+function derivedFrom(operands: readonly FactPoint[]): string {
+  const filing = (f: FactPoint) => `${f.form.trim()} of ${f.filed} (${f.accn})`;
+  return `(fiscal year or year to date less the prior year to date, from ${operands.map((f) => `the ${filing(f)}`).join(" and ")})`;
 }
 function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): Resolved | null {
   return filedFlow(facts, "FinanceLeasePrincipalPayments", unit, end, scope, observedAt, false, labels);
@@ -229,7 +229,10 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
     if (agreesWithSec(vendor, value, [sec])) continue;
-    const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
+    // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
+    const reason = sec.operands
+      ? `vendor/SEC ${field} conflict: derived ${millions(value)} ${unit} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.operands)}; raw vendor ${millions(vendor)}; field unavailable until reconciled`
+      : `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
     const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"]
@@ -257,8 +260,8 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
   if (!conflict) return { row, gaps: [] };
   // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
-  const secText = sec.evidence.derivation === "ytd-difference"
-    ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.evidence)}`
+  const secText = sec.operands
+    ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.operands)}`
     : `filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
   const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
@@ -291,7 +294,12 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
   const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
   const expectedParts: Record<string, Resolved[]> = { purchasesOfInvestments: [purchase!], salesMaturitiesOfInvestments: [sale!, maturity!] };
   if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && !agreesWithSec(row[field], value, expectedParts[field]!))) return { row, gaps: [] };
-  const reason = `financial-investment classification unreconciled at ${row.date}: same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
+  // FIN-511-V2: the three parts share their filings, so they are all derived or all filed directly.
+  const amounts = purchase!.operands
+    ? `derived ${millions(-purchase!.value)} short-term purchases and ${millions(sale!.value + maturity!.value)} sales/maturities ${currency} ` +
+      `for ${evidence.periodStart} through ${evidence.periodEnd} ${derivedFrom(purchase!.operands)}`
+    : `same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency}`;
+  const reason = `financial-investment classification unreconciled at ${row.date}: ${amounts} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
   const fieldConflicts = { ...row.fieldConflicts };
   const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
   for (const field of [...Object.keys(expected), "otherInvestingActivities"]) if (fieldConflicts[field]?.usable !== false) fieldConflicts[field] = {
@@ -886,8 +894,8 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
           continue;
         }
         out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
-        const period = sec.evidence.derivation === "ytd-difference"
-          ? `derived for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.evidence)}`
+        const period = sec.operands
+          ? `derived for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.operands)}`
           : `exact ${scope} period ending ${row.date}`;
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, ${period}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
       }

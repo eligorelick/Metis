@@ -4155,12 +4155,15 @@ months of 5,076.9 million gives a fourth quarter of 1,727.1 million, the
 quarter the statement builder publishes; a vendor 1,727.4 million is within its
 0.55 million (0.5 + 0.05) and is kept, and 1,728.0 million is a conflict. A
 directly filed figure keeps the tolerance above alone. (Controller ruling of
-2026-10-29, revising A-11 for derived values; D-next.) The
-operating-cash-flow conflict reason and the enrichment note call a derived
-value derived, with its period and its two filings ("derived 100M USD for
-2024-10-01 through 2024-12-31 (fiscal year or year to date less the prior year
-to date, from the 10-K of 2025-02-12 (accession) and the 10-Q of 2024-11-01
-(accession))"), never "filed" or an "exact quarter period".
+2026-10-29, revising A-11 for derived values; D-next.) The conflict reasons
+of these checks (operating cash flow; buybacks, the investing and financing
+totals and the cash movement; the short-term investment buckets) and the
+enrichment note of a filled field call a derived value derived, in millions,
+with its period and its two filings ("derived 100M USD for 2024-10-01 through
+2024-12-31 (fiscal year or year to date less the prior year to date, from the
+10-K of 2025-02-12 (accession) and the 10-Q of 2024-11-01 (accession))"), never
+"filed" or an "exact quarter period". A directly filed figure keeps its
+"filed" or "exact" wording.
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,

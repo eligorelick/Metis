@@ -55,6 +55,15 @@ const aepFacts = (): Facts => ({
   ] } } } },
 });
 
+/** Short-term investment flows, each derived as FY (10-K, whole millions) less nine months (10-Q, to 0.1M). */
+const investmentFacts = (): Facts => ({
+  cik: 9, entityName: "Probe Co", facts: { "us-gaap": Object.fromEntries(([
+    ["PaymentsToAcquireShortTermInvestments", 1_000 * M, 700.1 * M],
+    ["ProceedsFromSaleOfShortTermInvestments", 500 * M, 350.2 * M],
+    ["ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments", 300 * M, 200.3 * M],
+  ] as const).map(([tag, fy, nine]) => [tag, { label: tag, units: { USD: [pt(F.q324!, "2024-01-01", "2024-09-30", nine), pt(F.k24!, "2024-01-01", "2024-12-31", fy)] } }])) },
+});
+
 type Row = Record<string, unknown> & { fieldConflicts?: Record<string, unknown>; fieldProvenance?: Record<string, { derivation?: string; filings: { accn: string }[] }> };
 type Gap = { field: string; reason: string };
 /** The vendor row carries the issuer of the facts it is set against, as the probe's rows did (CIK 9, or AEP's 4904). */
@@ -156,14 +165,6 @@ describe("FIN-511-V2 ruling: a derived SEC value is compared within its operands
     expect(vendorAgreesWithDerived(100_010_000_000, 100_000_000_000, [400_000_000_000, 300_000_000_000])).toBe(true);
   });
 
-  /** Short-term investment flows, each derived as FY (10-K, whole millions) less nine months (10-Q, to 0.1M). */
-  const investmentFacts = (): Facts => ({
-    cik: 9, entityName: "Probe Co", facts: { "us-gaap": Object.fromEntries(([
-      ["PaymentsToAcquireShortTermInvestments", 1_000 * M, 700.1 * M],
-      ["ProceedsFromSaleOfShortTermInvestments", 500 * M, 350.2 * M],
-      ["ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments", 300 * M, 200.3 * M],
-    ] as const).map(([tag, fy, nine]) => [tag, { label: tag, units: { USD: [pt(F.q324!, "2024-01-01", "2024-09-30", nine), pt(F.k24!, "2024-01-01", "2024-12-31", fy)] } }])) },
-  });
   it("a derived sum is compared within every operand's rounding (sales 149.8M + maturities 99.7M, four operands, 1.1M)", () => {
     const row = enrich(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.5 * M }));
     expect(row).toMatchObject({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.5 * M });
@@ -172,5 +173,48 @@ describe("FIN-511-V2 ruling: a derived SEC value is compared within its operands
   it("control: beyond the four operands' 1.1M the investment buckets are still refused", () => {
     const row = enrich(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.7 * M }));
     expect(row).toMatchObject({ purchasesOfInvestments: null, salesMaturitiesOfInvestments: null });
+  });
+});
+
+/** Controller ruling 2026-10-29 (FIN-511-V2): the cash-flow and investment conflict reasons, like the CFO reason, call a derived SEC value derived. */
+describe("FIN-511-V2 ruling: the cash-flow and investment conflict reasons say a derived value is derived", () => {
+  const FROM = "(fiscal year or year to date less the prior year to date, from the 10-K of 2025-02-12 (0000000009-25-000001) and the 10-Q of 2024-11-01 (0000000009-24-000004))";
+  const reasons = (gaps: Gap[]) => gaps.map((g) => g.reason).join(" | ");
+  const buybacks = () => recastFacts("PaymentsForRepurchaseOfCommonStock", [pt(F.q324!, "2024-01-01", "2024-09-30", 300.1 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 400 * M)]);
+  it("admitCashFields: a derived buyback conflict reads derived, with the period and both filings", () => {
+    const out = enrichOut(buybacks(), vendorQ4({ commonStockRepurchased: -120 * M }));
+    expect(out.row.commonStockRepurchased).toBeNull();
+    expect(reasons(out.gaps)).toContain(
+      `vendor/SEC commonStockRepurchased conflict: derived -99.9M USD for 2024-10-01 through 2024-12-31 ${FROM}; raw vendor -120M; field unavailable until reconciled`,
+    );
+    expect(reasons(out.gaps)).not.toMatch(/commonStockRepurchased conflict: exact/);
+  });
+  it("admitCashFields: a derived buyback within its operands' rounding (0.55M) agrees", () => {
+    const row = enrich(buybacks(), vendorQ4({ commonStockRepurchased: -100.3 * M }));
+    expect(row.commonStockRepurchased).toBe(-100.3 * M);
+    expect(row.fieldConflicts?.commonStockRepurchased).toBeUndefined();
+  });
+  it("admitCashFields: a cash movement derived from the year less nine months reads derived, naming the movement's two filings", () => {
+    const movementTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect";
+    const cash = () => [{ ...F.q324!, end: "2024-09-30", val: 130 * M }, { ...F.k24!, end: "2024-12-31", val: 150 * M }];
+    const facts: Facts = { cik: 9, entityName: "Probe Co", facts: { "us-gaap": {
+      [movementTag]: { label: "movement", units: { USD: [pt(F.q324!, "2024-01-01", "2024-09-30", 30 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 50 * M)] } },
+      CashAndCashEquivalentsAtCarryingValue: { label: "cash", units: { USD: cash() } },
+      CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents: { label: "total cash", units: { USD: cash() } },
+    } } };
+    const out = enrichOut(facts, vendorQ4({ netChangeInCash: 25 * M }));
+    expect(out.row.netChangeInCash).toBeNull();
+    expect(out.row.fieldConflicts?.netChangeInCash).toMatchObject({ secValue: 20 * M, usable: false });
+    expect(reasons(out.gaps)).toContain(
+      `vendor/SEC netChangeInCash conflict: derived 20M USD for 2024-10-01 through 2024-12-31 ${FROM}; raw vendor 25M; field unavailable until reconciled`,
+    );
+  });
+  it("admitInvestmentFlows: a derived classification conflict reads derived, with the period and both filings", () => {
+    const out = enrichOut(investmentFacts(), vendorQ4({ purchasesOfInvestments: -299.9 * M, salesMaturitiesOfInvestments: 250.7 * M }));
+    expect(reasons(out.gaps)).toContain(
+      `financial-investment classification unreconciled at 2024-12-31: derived -299.9M short-term purchases and 249.5M sales/maturities USD ` +
+        `for 2024-10-01 through 2024-12-31 ${FROM} differ from generic vendor buckets.`,
+    );
+    expect(reasons(out.gaps)).not.toMatch(/same-period filed short-term purchases/);
   });
 });
