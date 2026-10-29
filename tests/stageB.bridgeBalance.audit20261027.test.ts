@@ -182,7 +182,7 @@ describe("FIN-103 the valuation-date basis names the balance bridged", () => {
     expect(withCause("none-filed", null)).toMatch(/^no balance sheet is filed at the statement date 2026-06-30; the equity bridge uses the 2026-03-31 balance, 91 days before/);
     expect(withCause("incomplete", "totalDebt")).toMatch(/^the balance sheet at the statement date 2026-06-30 lacks totalDebt; the equity bridge uses the 2026-03-31 balance/);
     expect(withCause("statement-row-refused", "consolidated equity")).toMatch(/^the balance sheet at the statement date 2026-06-30 is withheld \(consolidated equity\); the equity bridge keeps the 2026-03-31 balance/);
-    expect(withCause("anchor-refused", "x")).toMatch(/^the newest balance \(2026-03-31\) is withheld \(x\), so the equity bridge keeps it and the DCF stays withheld as before/);
+    expect(withCause("anchor-refused", "x")).toMatch(/^the market EV's balance \(2026-03-31\) is withheld \(x\), so the equity bridge keeps it and the DCF stays withheld as before/);
   });
 
   it("past the roll-forward limit the statement-date note names the bridge balance too", () => {

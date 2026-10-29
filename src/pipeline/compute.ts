@@ -4143,12 +4143,13 @@ function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): bo
 }
 /** Why the DCF bridge cannot be built on this row (the refusal test, or the gate's ownership test); null when it can. */
 function balanceRowBlockReason(row: object): string | null {
-  const refused = REFUSABLE_ANCHOR_FIELDS.find(field => (row as FmpBalanceSheetRow).fieldConflicts?.[field]?.usable === false);
-  if (refused !== undefined) {
+  // The refusal test lives once, in `balanceRowRefused`; this only words it.
+  if (balanceRowRefused(row)) {
+    const refused = REFUSABLE_ANCHOR_FIELDS.find(field => (row as FmpBalanceSheetRow).fieldConflicts?.[field]?.usable === false);
+    if (refused === undefined) return "consolidated equity with no filed parent/NCI split";
     const why = (row as FmpBalanceSheetRow).fieldConflicts?.[refused]?.reason;
     return `${refused} refused${why ? `: ${why}` : ""}`;
   }
-  if (statementEquityOwnershipBasis(row as FmpBalanceSheetRow) === "consolidated") return "consolidated equity with no filed parent/NCI split";
   if (noncontrollingOwnershipUnresolvedAt(row as FmpBalanceSheetRow)) return "noncontrolling ownership unresolved";
   return null;
 }

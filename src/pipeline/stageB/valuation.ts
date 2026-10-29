@@ -2234,7 +2234,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       : `the balance sheet the bridge reads is not dated at the statement date ${statementDate}`;
     gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate",
       lead === null
-        ? `the newest balance (${bridgeDate}) is withheld${bridgeDetail ? ` (${bridgeDetail})` : ""}, so the equity bridge keeps it and the DCF stays withheld as before; that balance is ${dayClause}`
+        ? `the market EV's balance (${bridgeDate}) is withheld${bridgeDetail ? ` (${bridgeDetail})` : ""}, so the equity bridge keeps it and the DCF stays withheld as before; that balance is ${dayClause}`
         : `${lead}; ${bridgeBalanceText}`, "info"));
   }
   const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
