@@ -2230,15 +2230,24 @@ figures the multiples publish, so a report carries one P/FFO; FFO and AFFO per
 share divide by the weighted diluted count ("Share basis (D-65)"). The implied
 cap rate divides NOI by the **house enterprise value** — market capitalisation
 + total debt + preferred + redeemable preferred + minority interest +
-redeemable noncontrolling interest, less the operating-lease slice only where
-its scope is proven (and by default) — the same definition the multiples and the
-DCF bridge use, so a report carries one EV ("EV bridge", above). Operating
+redeemable noncontrolling interest − cash and short-term investments, less the
+operating-lease slice only where its scope is proven (and by default) — the
+same definition the multiples and the DCF bridge use, so a report carries one
+EV ("EV bridge", above). The REIT EV note states that it is the multiples' EV
+and quotes the multiples' own basis text verbatim, so its components and
+amounts cannot differ from the multiples'. Operating
 partnership units, permanent or redeemable, are not common shares, so they enter
 the EV through the noncontrolling-interest terms and never double count against
-the quote's market cap. When the multiples withhold the EV (an unproven lease
-scope that cannot be removed, an unknown noncontrolling allocation, a refused
-temporary-equity operand), the REIT EV and cap rate are withheld with it, and
-every guard that withholds the price withholds the REIT market cap and EV too.
+the quote's market cap. When the multiples withhold the EV (a partial lease
+maturity whose embedded slice cannot be proven, an unknown noncontrolling
+allocation, a refused temporary-equity operand), the REIT EV and cap rate are
+withheld with it; an unproven lease scope otherwise publishes the EV with the
+lease liability left in total debt. Every guard that withholds the price
+(currency, ADR or economic-class security basis) withholds the REIT market cap
+and EV too, inside the block itself, so P/FFO, P/AFFO, the EV and the cap rate
+are withheld together while FFO and AFFO per share stand. A REIT whose quote
+carries a price but no market cap withholds P/FFO and the EV with a warn gap
+(OD-8), where the earlier block priced on price × diluted shares.
 The own-history P/FFO and P/AFFO
 bands are built from net income + D&A per rolling four quarters, the only
 construction quarterly statements support; when the current FFO adjusts
@@ -2251,7 +2260,7 @@ resolves at that period end, so the statement fallbacks are read from the same
 fiscal year rather than from a trailing window — a fiscal-year net income against
 trailing depreciation is a hybrid of two periods, not a figure. The REIT
 valuation block carries that period end as its as-of, and the notes say that the
-market cap in P/FFO is current while the FFO it divides is up to three quarters
+market cap in P/FFO is at the current quote while the FFO it divides is up to three quarters
 old.
 
 P/FFO and P/AFFO are computed from these figures. When the REIT sub-map is
@@ -4760,8 +4769,10 @@ inventory date. The diluted count is then restated in quoted-share units (a
 count filed in Class A equivalents is multiplied by the Class A units per
 quoted share) and the basis is disclosed as an info entry. When that count was
 substituted or is a loss period's basic count (FIN-404, "Share basis (D-65)"),
-the entry calls it "the diluted count", not "the filed diluted count"; every
-other filer's text is unchanged. Otherwise the
+the entry (and its refusal text) calls it "the diluted count", not "the filed
+diluted count", in the substituted and loss-period-basic cases only; when the
+not-restored case keeps the filed count it stays "the filed diluted count", and
+every other filer's text is unchanged. Otherwise the
 per-share value stays withheld, and the warning names the test that failed.
 ADRs are out of scope: their per-share bridge needs a depositary ratio and
 dated security evidence that no data path supplies yet.

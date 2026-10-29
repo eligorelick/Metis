@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
+import { reitValuation } from "@/pipeline/stageB/valuation";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import type { DataBundle } from "@/pipeline/types";
@@ -67,6 +68,8 @@ describe("FIN-311: one market cap", () => {
     // FFO per share stays on the diluted count: FFO is recovered from the multiples' own P/FFO.
     const ffo = (10_000 * M) / (r.pToFfo as number);
     expect(r.reit.ffoPerShare as number).toBeCloseTo(ffo / (104 * M), 12);
+    // The EV is the multiples' EV, not one rebuilt on price x diluted count.
+    expect(r.reit.enterpriseValue).toBe(r.ev);
   });
 
   it("control: with diluted equal to the quote's shares every value is unchanged", () => {
@@ -89,14 +92,30 @@ describe("FIN-311: one market cap", () => {
   });
 
   it("a withheld price withholds the market cap and EV with it (no price figure reappears)", () => {
-    const bundle = reitBundle();
-    // An ADR with no verified depositary evidence nulls the REIT price today (and the multiples' price multiples with it).
-    (bundle.profile as unknown as { value: { data: { rows: Row[] } } }).value.data.rows[0]!.isAdr = true;
+    // A listing currency that differs from the statements' withholds the REIT price, yet the multiples' scope still carries a market cap.
+    const bundle = completeCurrencyBundle({ debt: 100, reit: true, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"], profileCurrency: "EUR" });
     const r = reitRun(bundle);
+    expect(r.v.multiples.enterpriseValue.equityScope?.marketCap).toBeGreaterThan(0);
     expect(r.reit.pToFfo).toBeNull();
     expect(r.reit.pToAffo).toBeNull();
     expect(r.reit.enterpriseValue).toBeNull();
     expect(r.reit.impliedCapRatePct).toBeNull();
+  });
+});
+
+describe("reitValuation: a withheld price withholds the market cap and EV in the block itself", () => {
+  const base = { ffoApprox: 400, affoApprox: 300, shares: 100, marketCap: 5000, enterpriseValue: { value: 7000, basis: "test" }, noiApprox: 500, submap: "equity" as const };
+  it("a null price gives no P/FFO, EV or cap rate; FFO per share stands", () => {
+    const r = reitValuation({ ...base, sharePrice: null });
+    expect(r.pToFfo).toBeNull();
+    expect(r.pToAffo).toBeNull();
+    expect(r.enterpriseValue).toBeNull();
+    expect(r.impliedCapRatePct).toBeNull();
+    expect(r.ffoPerShare).toBe(4);
+    expect(r.gaps.find((g) => g.field === "valuation.reit.marketCap")?.reason).toMatch(/withheld or unavailable \(a currency, security-basis or per-share guard, or no admitted market cap\)/);
+  });
+  it("control: a price publishes them", () => {
+    expect(reitValuation({ ...base, sharePrice: 50 })).toMatchObject({ pToFfo: 12.5, enterpriseValue: 7000 });
   });
 });
 
@@ -150,7 +169,24 @@ describe("FIN-119-V2: redeemable claims in the REIT EV", () => {
     expect((opUnits.reit.enterpriseValue as number) - (base.reit.enterpriseValue as number)).toBeCloseTo(X, -3);
     expect(preferred.reit.enterpriseValue).toBe(preferred.ev);
     expect(opUnits.reit.enterpriseValue).toBe(opUnits.ev);
-    expect(preferred.reit.notes.find((n) => n.startsWith("enterprise value"))).toMatch(/redeemable/);
-    expect(opUnits.reit.notes.find((n) => n.startsWith("enterprise value"))).toMatch(/redeemable/);
+    // The note quotes the multiples' own basis verbatim, so its components and amounts match by construction.
+    for (const run of [preferred, opUnits]) {
+      const note = run.reit.notes.find((n) => n.startsWith("enterprise value")) ?? "";
+      expect(note).toContain("the multiples' enterprise value");
+      expect(note).toContain(run.v.multiples.enterpriseValue.basis);
+      expect(note).toMatch(/redeemable/);
+    }
+  });
+
+  it("control: a run with no temporary-equity claim does not mention redeemable claims in the EV note", () => {
+    const note = base.reit.notes.find((n) => n.startsWith("enterprise value")) ?? "";
+    expect(note).toContain(base.v.multiples.enterpriseValue.basis);
+    expect(note).not.toMatch(/redeemable|temporary equity/);
+  });
+
+  it("the fiscal-year note says the market cap is at the current quote", () => {
+    const notes = [...base.out.valuation.notes];
+    expect(notes.some((n) => n.includes("The market cap in P/FFO is at the current quote, so for a REIT compounding FFO"))).toBe(true);
+    expect(notes.some((n) => n.includes("The share price in P/FFO"))).toBe(false);
   });
 });

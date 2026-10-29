@@ -181,11 +181,11 @@ export function issuerEconomicDilutedShares(
   scope: EconomicEquityScope,
   evidence: readonly EconomicShareEvidence[],
   counts: WeightedShareCounts,
-  /** `countNotFiled`: the diluted count was substituted, or is a loss period's basic count (FIN-404), so it is not called filed. */
+  /** `countNotFiled`: the count was substituted or is a loss period's basic count (FIN-404), so it is not called the filed count. A kept filed count (not restored) is filed. */
   options: { countNotFiled?: boolean } = {},
 ): { shares: number; basis: string } | { shares: null; reason: string } | null {
   if (scope.status !== "resolved" || !evidence.some(row => row.classes.length > 1)) return null;
-  const refuse = (why: string) => ({ shares: null, reason: `The filed diluted count is not established on the all-class economic basis: ${why}.` });
+  const refuse = (why: string) => ({ shares: null, reason: `The ${options.countNotFiled === true ? "" : "filed "}diluted count is not established on the all-class economic basis: ${why}.` });
   const total = scope.economicShares;
   const countDay = scope.shareCountAsOf;
   const priceDay = scope.priceAsOf;

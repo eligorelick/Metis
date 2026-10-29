@@ -220,6 +220,21 @@ describe("FIN-404 carried minors (Task 9 review)", () => {
     const gap = out.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor");
     expect(gap?.severity).toBe("info");
     expect(gap?.reason).toMatch(/2025-12-31/);
+    expect(out.valuation.notes.some((n) => n === gap?.reason)).toBe(true);
+  });
+
+  it("control: a loss-period REIT whose FFO and AFFO per share are both withheld raises no gap and no note", () => {
+    const b = withLossQuarter({ reit: true, sic: "6798" });
+    // No sector or industry and SIC 6798 alone: the REIT sub-map is undetermined (D-16), so every FFO figure is withheld.
+    const profile = (b.profile as unknown as { value: { data: { rows: Row[] } } }).value.data.rows[0]!;
+    profile.sector = null;
+    profile.industry = null;
+    const out = runStageB(b);
+    if (out.valuation.kind !== "reit") throw new Error("expected the REIT route");
+    expect(out.valuation.reit.ffoPerShare).toBeNull();
+    expect(out.valuation.reit.affoPerShare).toBeNull();
+    expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
+    expect(out.valuation.notes.some((n) => /basic count plus the award dilution|Award dilution not restored/.test(n))).toBe(false);
   });
 
   it("control: a profitable REIT quarter raises no divisor gap", () => {

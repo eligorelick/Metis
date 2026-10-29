@@ -3908,8 +3908,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
-    // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count.
-    { countNotFiled: dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" },
+    // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
+    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
 
@@ -4118,7 +4118,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       `FFO, AFFO and everything derived from them (P/FFO, P/AFFO, the AFFO payout ratio) are measured on the latest ` +
         `FISCAL YEAR${nareitFfo.asOf !== null ? ` ending ${nareitFfo.asOf}` : ""}, not on a trailing twelve months: ` +
         "the NAREIT components resolve as annual XBRL facts, and mixing a fiscal-year net income with trailing " +
-        "depreciation would make the figure a hybrid of two periods. The share price in P/FFO is current, so for a " +
+        "depreciation would make the figure a hybrid of two periods. The market cap in P/FFO is at the current quote, so for a " +
         "REIT compounding FFO the multiple is measured against a figure up to three quarters old.",
     );
   }

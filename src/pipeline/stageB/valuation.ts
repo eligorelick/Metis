@@ -5760,9 +5760,9 @@ export interface ReitInputs {
   /** AFFO — recurring capex and straight-line rent when tagged, else FFO − all capex. */
   affoApprox: number | null;
   /**
-   * The quote's price. The block no longer prices on it (the market cap below
-   * does); a null price still withholds the market cap and EV, like every guard
-   * that withholds the price.
+   * The quote's price. The block does not price on it (the market cap below
+   * does); a null price withholds the market cap and EV here, so no caller can
+   * publish a P/FFO from a withheld price.
    */
   sharePrice: number | null;
   /** The weighted diluted count FFO and AFFO per share divide by. */
@@ -5877,9 +5877,9 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     );
   }
   const shares = posOrNull(inputs.shares);
-  const mcap = posOrNull(inputs.marketCap);
+  const mcap = posOrNull(inputs.sharePrice) !== null ? posOrNull(inputs.marketCap) : null;
   if (mcap === null) {
-    gaps.push(gapEntry("valuation.reit.marketCap", "market cap missing (the multiples' admitted market cap is unavailable)", "warn"));
+    gaps.push(gapEntry("valuation.reit.marketCap", "market cap withheld or unavailable (a currency, security-basis or per-share guard, or no admitted market cap)", "warn"));
   }
   const ffo = posOrNull(inputs.ffoApprox);
   const affo = posOrNull(inputs.affoApprox);
@@ -5892,7 +5892,7 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     gaps.push(gapEntry("valuation.reit.enterpriseValue", "the multiples' enterprise value or the market cap is unavailable — EV/implied cap rate unavailable", "info"));
   } else {
     notes.push(
-      `enterprise value = ${millions(ev)}: ${inputs.enterpriseValue?.basis ?? "the house enterprise value"} — the house definition the multiples and the DCF bridge use, so a report carries one EV`,
+      `enterprise value = ${millions(ev)}, the multiples' enterprise value (the house definition the multiples and the DCF bridge use, so a report carries one EV). Its basis: ${inputs.enterpriseValue?.basis ?? "the house enterprise value"}`,
     );
   }
   const noi = posOrNull(inputs.noiApprox);
@@ -6268,7 +6268,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     notes.push(inputs.dilutedShareEconomicBasis);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
-  // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF and the excess-return route).
+  // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF, the excess-return route and the REIT FFO/AFFO per share).
   const divisorDisclosure = (perShare: number | null | undefined): void => {
     if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(inputs.dilutedShares) || inputs.dilutedShares <= 0) return;
     gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
@@ -6442,16 +6442,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     const reitInputs: ReitInputs | null = inputs.reit && !quoteComparison.comparable ? { ...inputs.reit, sharePrice: null } : inputs.reit ?? null;
     const reitBridge = multiples.enterpriseValue;
     const reitMarketCap = reitInputs !== null && reitInputs.sharePrice !== null ? posOrNull(reitBridge.equityScope?.marketCap) : null;
-    const reitLease = reitBridge.leaseLiability === null
-      ? reitBridge.includeLeases ? "" : "; no operating-lease liability is removed (its scope is unproven or it is not disclosed)"
-      : `, ${reitBridge.includeLeases ? "keeping" : "less"} the operating-lease liability of ${millions(reitBridge.leaseLiability)}`;
     const reit = reitInputs !== null
       ? reitValuation({
         ...reitInputs,
         marketCap: reitMarketCap,
         enterpriseValue: reitMarketCap === null ? null : {
           value: reitBridge.value,
-          basis: `market cap ${millions(reitMarketCap)} + total debt + preferred stock + minority interest + any redeemable preferred or redeemable noncontrolling interest filed in temporary equity − cash and short-term investments${reitLease}`,
+          // The multiples' own basis, verbatim: every component and amount matches by construction (D-26).
+          basis: reitBridge.basis,
         },
       })
       : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null });
