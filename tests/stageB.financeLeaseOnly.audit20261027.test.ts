@@ -13,6 +13,11 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 
+type Gap = { field: string; reason: string };
+type StageBLoose = {
+  gaps?: Gap[];
+  valuation: { gaps?: Gap[]; notes?: string[]; multiples: { gaps?: Gap[]; enterpriseValue: Record<string, unknown> & { basis: string } } };
+};
 const MIX = /combined operating \+ finance figure|FMP route publishes no split|unknown mix/;
 
 function build(provenance: { source: string; tags: string[] }, finance: number | null) {
@@ -28,11 +33,11 @@ function build(provenance: { source: string; tags: string[] }, finance: number |
       });
     }
   }
-  const c = runStageB(bundle, { evIncludeLeases: false }) as any;
+  const c = runStageB(bundle, { evIncludeLeases: false }) as unknown as StageBLoose;
   const gaps = [...(c.valuation.gaps ?? []), ...(c.valuation.multiples?.gaps ?? []), ...(c.gaps ?? [])]
-    .filter((g: any) => /enterpriseValue\.leases/.test(g.field)).map((g: any) => g.reason as string);
+    .filter((g) => /enterpriseValue.leases/.test(g.field)).map((g) => g.reason);
   const ev = c.valuation.multiples.enterpriseValue;
-  const dcfNote: string = (c.valuation.notes ?? []).find((n: string) => n.startsWith("DCF equity bridge")) ?? "";
+  const dcfNote: string = (c.valuation.notes ?? []).find((n) => n.startsWith("DCF equity bridge")) ?? "";
   return { gaps, ev, dcfNote };
 }
 
