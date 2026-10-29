@@ -717,7 +717,7 @@ tagged is not added back (audit 2026-10-22 B-39, below).
 
 The derivation's pre-tax operand is the same evidence as the pre-tax field: the
 filed total, else the B-32 domestic + foreign composition (audit 2026-10-27
-FIN-507-V1, D-next), and the disclosure says when the composition was taken as
+FIN-507-V1, D-134), and the disclosure says when the composition was taken as
 the full total. The interest operand is not required beside a filed
 `NonoperatingIncomeExpense` aggregate. An interest element that is filed but
 unusable on the row (another currency, another period) is likewise skipped
@@ -730,7 +730,7 @@ withheld with it, so a missing operand is never a silent gap.
 What the derivation removes is the aggregate, else its components the filer
 tags (`InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`), plus
 equity-method results; each subtracted item is named in the disclosure with its
-amount (audit 2026-10-27 FIN-509, D-next). A component is never subtracted
+amount (audit 2026-10-27 FIN-509, D-134). A component is never subtracted
 beside a filed aggregate, which already holds it, and when the aggregate is not
 filed the disclosure says so and lists the components taken instead. Johnson &
 Johnson's quarter ended 2026-09-27 files pretax income of 34 million,
@@ -4194,7 +4194,7 @@ quarter the statement builder publishes; a vendor 1,727.4 million is within its
 0.55 million (0.5 + 0.05; the cap is 17.27 million) and is kept, and 1,728.0
 million is a conflict. A directly filed figure keeps the tolerance above
 alone. (Controller ruling of 2026-10-29, revising A-11 for derived values;
-D-next.) The rule applies to the enrichment's cash-flow and lease comparisons
+D-134.) The rule applies to the enrichment's cash-flow and lease comparisons
 above only. The income-classification check (revenue, cost of revenue, gross profit and
 operating expenses, `src/edgar/incomeClassification.ts`) still compares a
 vendor figure with the statement builder's quarter, a derived fourth quarter
@@ -4250,7 +4250,7 @@ total in companyfacts and is kept. The same rule applies to R&D:
 `ResearchAndDevelopmentExpense` below the same period's
 `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost` is not the total,
 because the first includes acquired in-process R&D and software and the second
-excludes them (audit 2026-10-27 FIN-510 and FIN-510-V1, D-next).
+excludes them (audit 2026-10-27 FIN-510 and FIN-510-V1, D-134).
 Either is a stand-in for the period and is disclosed as a lower bound,
 because a combined cash-flow line can hold other amortization: Microsoft's
 "depreciation, amortization, and other" is larger than the two tagged lines.
@@ -4492,7 +4492,7 @@ not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
 presentation, as the withholding rule already did; the disclosure says that
 where a filer's aggregate leaves its interest out, the figure understates
 EBIT by that interest. A period that files the aggregate and no interest
-element at all is derived the same way (audit 2026-10-27 FIN-507, D-next):
+element at all is derived the same way (audit 2026-10-27 FIN-507, D-134):
 pretax income less the aggregate, with a disclosure that no interest element is
 filed and that an interest line outside the aggregate would leave the figure
 understating EBIT by that interest. The nesting is read from the period: when the
@@ -4586,7 +4586,7 @@ figure it leaves unverified is disclosed (see the A-11 paragraphs):
 - A withheld revenue quarter suppresses the TTM window, which then falls back to
   the annual statement.
 
-(Revises D-13, "one filing lineage": it now means one presentation; D-next.)
+(Revises D-13, "one filing lineage": it now means one presentation; D-134.)
 
 **Quarterly trend growth on one presentation (audit 2026-10-27 FIN-511-V1).**
 Where the filings show a re-presentation, each year-over-year and
@@ -4637,7 +4637,7 @@ its cell can be withheld although its figure is the same on both. The notes foll
 quarterly-trend section of the payload, where a dashed cell registers no
 figure. A growth cell against a withheld quarter stays a dash, as before. This
 follows the presentation rule above and SEC Financial Reporting Manual 13110.4,
-under which a later 10-Q re-presents only the periods it shows (D-next).
+under which a later 10-Q re-presents only the periods it shows (D-134).
 
 The quarterly-trend table note carries the sentence "where the filings show a
 re-presentation, each growth cell divides two quarters on one presentation or is

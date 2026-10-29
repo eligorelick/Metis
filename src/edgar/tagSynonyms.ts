@@ -166,7 +166,7 @@ export const INTEREST_EXPENSE_STAND_INS: readonly TagStandIn[] = [
  * taxonomy's income-statement calculation: `InvestmentIncomeInterest` is a
  * child of `NonoperatingIncomeExpense`, so it is subtracted on its own only
  * when the aggregate is absent. `OtherNonoperatingIncomeExpense` is its sibling
- * under the aggregate (the "other" line beside interest, DQC_0181; D-next OD-2),
+ * under the aggregate (the "other" line beside interest, DQC_0181; D-134 OD-2),
  * so the same rule applies: with no aggregate filed, a filer that tags it has the
  * result taken out of the derived EBIT, named with its amount (audit 2026-10-27
  * FIN-509).
@@ -233,7 +233,7 @@ export const EBIT_INTEREST_INSIDE_AGGREGATE = {
 
 /**
  * A period that files the `NonoperatingIncomeExpense` aggregate and no interest
- * element at all (audit 2026-10-27 FIN-507; D-next extends B-39 to it). The
+ * element at all (audit 2026-10-27 FIN-507; D-134 extends B-39 to it). The
  * interest part of the derived EBIT is then not required: pretax income less
  * the aggregate is the EBIT, and `disclose` says what that rests on.
  */
@@ -271,7 +271,7 @@ export const EBIT_AGGREGATE_MAY_HOLD_INTEREST =
 /**
  * The caveat a derived EBIT carries when `OtherNonoperatingIncomeExpense` was
  * subtracted and an interest expense was added back (audit 2026-10-27 FIN-509,
- * D-next OD-2). The element is by definition the "other" line beside separately
+ * D-134 OD-2). The element is by definition the "other" line beside separately
  * tagged interest, but companyfacts carries no calculation linkbase, so a filer
  * that tags an interest-inclusive total under it cannot be told apart. The
  * amount is stated because the error is exactly the net interest added back.

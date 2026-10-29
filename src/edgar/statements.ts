@@ -811,10 +811,12 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
    *
    * Pretax income also contains the OTHER non-operating items, so the
    * derivation subtracts each one the filer tags — the `NonoperatingIncomeExpense`
-   * aggregate, `InvestmentIncomeInterest` when that aggregate is absent (the
-   * taxonomy makes it a component of it, so subtracting both would double-count),
+   * aggregate, `InvestmentIncomeInterest` and `OtherNonoperatingIncomeExpense`
+   * when that aggregate is absent (the taxonomy makes them components of it, so
+   * subtracting both would double-count; audit 2026-10-27 FIN-509, D-134 OD-2),
    * and equity-method results. Whatever could not be subtracted is named in the
-   * disclosure as the error band on the figure.
+   * disclosure as the error band on the figure. The interest part is optional
+   * beside a filed aggregate (FIN-507, D-134 OD-1).
    */
   operatingIncome: {
     kind: "chain",

@@ -552,7 +552,7 @@ not evaluated (`forensics.flags.oneTimeItems`). On the SEC route the operand is
 the `NonoperatingIncomeExpense` aggregate only; a filer that tags just the
 narrower `OtherNonoperatingIncomeExpense` gets the not-evaluated entry rather
 than a stand-in, because that element holds interest at some filers and not at
-others (audit 2026-10-27 FIN-509-V1, D-next).
+others (audit 2026-10-27 FIN-509-V1, D-134).
 Repeated material other income/expense warrants checking earnings quality; it
 does not establish that the issuer called an item exceptional, excluded it from
 adjusted earnings, or misstated those earnings.

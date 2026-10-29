@@ -21,7 +21,7 @@
  * AMZN #51) move the lease-line completion, the vendor path's stakes and the
  * refusal-naming diagnostics; a pass stored under 1.49.0 is never resumed.
  * Pipeline stage-c-1.6.12 does not move.
- * Report 1.49.0, payload 1.51.0 and Stage B ..._30 (D-next, audit 2026-10-27
+ * Report 1.49.0, payload 1.51.0 and Stage B ..._30 (D-134, audit 2026-10-27
  * B13) move the EDGAR-derived operating lines. A report stored under 1.48.0
  * cannot claim that a derived EBIT, D&A, R&D or bank interest income is the
  * filer's total on one presentation, that a derived or year-to-date quarter

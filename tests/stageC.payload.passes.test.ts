@@ -1230,7 +1230,7 @@ describe("payload determinism + provenance", () => {
       // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
       // Merge of main into B13, 2026-10-29: both changes together, payload 1.50.0 (D-133's header) with B13's +429 bytes
       // (Task 6 and its review). promptBytes 144_296 as B13; every other leaf as on both sides; fingerprint 1.50.0:6f42a9e6.
-      // 2026-10-29 B13 (D-next): payload 1.51.0. The only changed line of the serialized payload is the versioned header
+      // 2026-10-29 B13 (D-134): payload 1.51.0. The only changed line of the serialized payload is the versioned header
       // ("payloadVersion 1.50.0" -> "1.51.0", same byte length; Task 11's stamp). The fixture is FMP-shaped DEMO data
       // with a filed-shaped income block, no EDGAR provenance, no re-presentation flag on its quarterly rows (Task 9)
       // and no derived EBIT, D&A or R&D (Tasks 1-5, 7, 8), so no other line moves: the old prompt with its header

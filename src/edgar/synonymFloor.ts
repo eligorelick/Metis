@@ -7,7 +7,7 @@
  */
 
 /**
- * House rounding allowance (D-next): a total below a component by no more than
+ * House rounding allowance (D-134): a total below a component by no more than
  * max(0.5% of the component, 2,000,000 in the row's currency) differs by
  * rounding only; the absolute term covers two derived quarters compared with
  * each other (each the difference of two rounded figures).
