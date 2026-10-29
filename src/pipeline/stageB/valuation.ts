@@ -784,6 +784,11 @@ export interface DcfAssumptionInputs {
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
   /**
+   * FIN-103: why `balance` is not dated at the statement date, when it is not
+   * (`dcfBridgeRow`), so the basis and the info gap state only what was checked.
+   */
+  bridgeCause?: { cause: "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused"; detail: string | null };
+  /**
    * Audit 2026-10-22 A-2: annual balance rows (any order), measured like
    * `balance`. With the income history they show whether the issuer's own
    * filings establish a sales-to-capital below the house floor. Omitted or
@@ -2212,12 +2217,25 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // (`dcfBridgeRow`); when none does, the text names the balance actually used
   // and which side of the statement date it falls on, never the D-65 sentence.
   const bridgeOffsetDays = statementDate !== null ? daysBetween(statementDate, bal.date.slice(0, 10)) : null;
-  const bridgeBalanceText = bridgeOffsetDays === null || bridgeOffsetDays === 0 ? null
+  const bridgeDate = bal.date.slice(0, 10);
+  const bridgeCause = inputs.bridgeCause?.cause;
+  const bridgeDetail = inputs.bridgeCause?.detail ?? null;
+  const keeps = bridgeCause === "statement-row-refused" || bridgeCause === "anchor-refused";
+  const dayClause = bridgeOffsetDays === null || bridgeOffsetDays === 0 ? null
     : bridgeOffsetDays > 0
-      ? `the equity bridge uses the ${bal.date.slice(0, 10)} balance, ${bridgeOffsetDays} days after the statement date; flows between the two dates are in both that balance and the first window`
-      : `the equity bridge uses the ${bal.date.slice(0, 10)} balance, ${-bridgeOffsetDays} days before the statement date; flows between the two dates are in neither that balance nor the first window`;
+      ? `${bridgeOffsetDays} days after the statement date; flows between the two dates are in both that balance and the first window`
+      : `${-bridgeOffsetDays} days before the statement date; flows between the two dates are in neither that balance nor the first window`;
+  const bridgeBalanceText = dayClause === null ? null : `the equity bridge ${keeps ? "keeps" : "uses"} the ${bridgeDate} balance, ${dayClause}`;
   if (bridgeBalanceText !== null) {
-    gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate", `no balance sheet is dated at the statement date ${statementDate}: ${bridgeBalanceText}`, "info"));
+    const lead = bridgeCause === "none-filed" ? `no balance sheet is filed at the statement date ${statementDate}`
+      : bridgeCause === "incomplete" ? `the balance sheet at the statement date ${statementDate} lacks ${bridgeDetail ?? "an operand the bridge reads"}`
+      : bridgeCause === "statement-row-refused" ? `the balance sheet at the statement date ${statementDate} is withheld (${bridgeDetail ?? "refused"})`
+      : bridgeCause === "anchor-refused" ? null
+      : `the balance sheet the bridge reads is not dated at the statement date ${statementDate}`;
+    gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate",
+      lead === null
+        ? `the newest balance (${bridgeDate}) is withheld${bridgeDetail ? ` (${bridgeDetail})` : ""}, so the equity bridge keeps it and the DCF stays withheld as before; that balance is ${dayClause}`
+        : `${lead}; ${bridgeBalanceText}`, "info"));
   }
   const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
   let valuationDate: DcfAssumptions["valuationDate"] | undefined;
@@ -5678,7 +5696,7 @@ export interface ValuationBundleInputs {
   /**
    * FIN-103: the balance row the DCF equity bridge reads, the one dated at the
    * DCF statement date (`dcfBridgeRow`). Absent ⇒ the bridge reads
-   * `multiples.balance`, the newest row the market EV uses.
+   * `multiples.balance`, the anchor the market EV uses.
    */
   bridgeBalance?: MultiplesBalance | null;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */

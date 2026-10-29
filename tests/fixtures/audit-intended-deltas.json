@@ -8873,7 +8873,7 @@
       "decisions": [
         "D-98"
       ],
-      "reason": "AMZN audit 2026-10-20 finding 1: the DCF equity bridge now subtracts an estimated tax on the non-operating investments it adds back, at the marginal-rate floor the terminal tax converges to (21% US federal) on a zero tax basis. The fixture's 0.50B of long-term investments carries a 105M tax line, so equity value falls by exactly 105M and every per-share cell (base, WACC x terminal-growth grid, growth x margin grid) by 105M / 205M diluted shares = 0.512195; upside and the dcfUpside valuation signal follow. The new assumptions.investmentTax leaf records the rate; stageB notes 8-11 move by one because the tax note is inserted after the investments note, and the sales-to-capital and investments bases are reworded. These paths were blessed by earlier groups and are reclassified here because their after values moved.",
+      "reason": "AMZN audit 2026-10-20 finding 1: the DCF equity bridge now subtracts an estimated tax on the non-operating investments it adds back, at the marginal-rate floor the terminal tax converges to (21% US federal) on a zero tax basis. The fixture's 0.50B of long-term investments carries a 105M tax line, so equity value falls by exactly 105M and every per-share cell (base, WACC x terminal-growth grid, growth x margin grid) by 105M / 205M diluted shares = 0.512195; upside and the dcfUpside valuation signal follow. The new assumptions.investmentTax leaf records the rate; stageB notes 8-11 move by one because the tax note is inserted after the investments note, and the sales-to-capital and investments bases are reworded. These paths were blessed by earlier groups and are reclassified here because their after values moved. Audit 2026-10-27 FIN-103 (B4a Task 1) then moved the word in both bases and in the bridge's long-term-investments basis from \"quarter\" to \"annual\" balance: this fixture's DCF is on the fiscal year, so the bridge reads the fiscal-year row dated at the statement date, ahead of the same-date quarter row; the two rows hold the same amounts, so no figure moves.",
       "deltas": [
         {
           "path": "report.fairValue.perShare.value",
@@ -8913,7 +8913,7 @@
           "after": {
             "name": "sales-to-capital",
             "value": "2.98",
-            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
           }
         },
         {
@@ -9167,7 +9167,7 @@
         {
           "path": "stageB.valuation.assumptions.salesToCapital.basis",
           "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
         },
         {
           "path": "stageB.valuation.dcf.bridge",
@@ -9183,7 +9183,7 @@
                 "kind": "long-term-investments",
                 "label": "long-term investments (filed carrying value)",
                 "value": 500000000,
-                "basis": "long-term investments 0.50B on the 2025-12-31 quarter balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
+                "basis": "long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
               },
               {
                 "kind": "investment-tax",
@@ -9270,7 +9270,7 @@
         {
           "path": "stageB.valuation.notes.7",
           "beforeMissing": true,
-          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 quarter balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
         },
         {
           "path": "stageB.valuation.notes.8",

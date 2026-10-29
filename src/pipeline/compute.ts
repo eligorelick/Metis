@@ -3391,7 +3391,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
   // date (D-65), not the newest row the market EV uses.
-  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null });
+  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null });
   const bridgePoint = bridge.row;
   const bridgePointBasis = bridge.basis;
   const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
@@ -3564,6 +3564,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
+          bridgeCause: { cause: bridge.cause, detail: bridge.detail },
           capitalHistory: dcfCapitalHistory,
           marketCap,
           // The terminal excess-return rule reads the same annual ROIC series
@@ -3929,18 +3930,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     // VAL-10: the DCF gap quotes why the WACC is unavailable.
     waccUnavailableReason: wacc.waccPct !== null ? null
       : (wacc.gaps.find((g) => g.severity === "critical") ?? wacc.gaps.find((g) => g.severity === "warn"))?.reason ?? null,
-    // FIN-103: every DCF-bridge operand below reads the statement-date row (`bridgePoint`);
-    // `multiples.balance`, `reit` and `excessReturn` keep the newest row (`bridgePoint`).
+    // FIN-103: every DCF-bridge operand below reads the bridge row (`bridgePoint`: the
+    // statement-date row, else the anchor); `multiples.balance`, `reit` and
+    // `excessReturn` keep the anchor (`balPoint`).
     bridgeBalance,
     netDebt: bridgeNetDebtInfo.value,
     dilutedShares: valuationDilutedShares,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
-    noncontrollingOwnershipUnresolved: bridgePoint !== null && num(bridgePoint.minorityInterest) === null &&
-      (statementEquityOwnershipBasis(bridgePoint) === "consolidated" ||
-        (num(bridgePoint.totalEquity) !== null && num(bridgePoint.totalStockholdersEquity) !== null &&
-          Math.abs((num(bridgePoint.totalEquity) as number) - (num(bridgePoint.totalStockholdersEquity) as number)) >
-            1e-9 * Math.max(1, Math.abs(num(bridgePoint.totalEquity) as number), Math.abs(num(bridgePoint.totalStockholdersEquity) as number)))),
+    noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
     // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
@@ -4115,11 +4113,47 @@ const BALANCE_ANCHOR_FIELDS = ["totalDebt", "totalStockholdersEquity", "cashAndS
  * consolidated with no parent split. Such a refusal is not cured by moving to
  * another date (`pickBalanceAnchor`, `dcfBridgeRow`).
  */
+const REFUSABLE_ANCHOR_FIELDS = ["totalDebt", "netDebt", "cashAndCashEquivalents", "cashAndShortTermInvestments", "totalStockholdersEquity", "totalEquity"] as const;
 function balanceRowRefused(row: object): boolean {
   const conflicts = (row as FmpBalanceSheetRow).fieldConflicts;
-  const refusedAnchor = ["totalDebt", "netDebt", "cashAndCashEquivalents", "cashAndShortTermInvestments", "totalStockholdersEquity", "totalEquity"]
-    .some(field => conflicts?.[field]?.usable === false);
+  const refusedAnchor = REFUSABLE_ANCHOR_FIELDS.some(field => conflicts?.[field]?.usable === false);
   return refusedAnchor || statementEquityOwnershipBasis(row as FmpBalanceSheetRow) === "consolidated";
+}
+
+/** The anchor operands a balance row lacks (empty means the row is whole). One completeness rule for both anchors. */
+function balanceRowMissing(row: object): string[] {
+  const r = row as Record<string, unknown>;
+  return BALANCE_ANCHOR_FIELDS.filter((field) => !(typeof r[field] === "number" && Number.isFinite(r[field] as number)));
+}
+function balanceRowWhole(row: object): boolean {
+  return balanceRowMissing(row).length === 0;
+}
+
+/**
+ * The ownership test the DCF's NCI gate applies (`noncontrollingOwnershipUnresolved`):
+ * no book NCI, and consolidated equity that has no parent split or differs from
+ * parent equity. One test for the gate and for the bridge row choice.
+ */
+function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): boolean {
+  return row !== null && num(row.minorityInterest) === null &&
+    (statementEquityOwnershipBasis(row) === "consolidated" ||
+      (num(row.totalEquity) !== null && num(row.totalStockholdersEquity) !== null &&
+        Math.abs((num(row.totalEquity) as number) - (num(row.totalStockholdersEquity) as number)) >
+          1e-9 * Math.max(1, Math.abs(num(row.totalEquity) as number), Math.abs(num(row.totalStockholdersEquity) as number))));
+}
+/** Why the DCF bridge cannot be built on this row (the refusal test, or the gate's ownership test); null when it can. */
+function balanceRowBlockReason(row: object): string | null {
+  const refused = REFUSABLE_ANCHOR_FIELDS.find(field => (row as FmpBalanceSheetRow).fieldConflicts?.[field]?.usable === false);
+  if (refused !== undefined) {
+    const why = (row as FmpBalanceSheetRow).fieldConflicts?.[refused]?.reason;
+    return `${refused} refused${why ? `: ${why}` : ""}`;
+  }
+  if (statementEquityOwnershipBasis(row as FmpBalanceSheetRow) === "consolidated") return "consolidated equity with no filed parent/NCI split";
+  if (noncontrollingOwnershipUnresolvedAt(row as FmpBalanceSheetRow)) return "noncontrolling ownership unresolved";
+  return null;
+}
+function balanceRowBlocksBridge(row: object): boolean {
+  return balanceRowBlockReason(row) !== null;
 }
 
 export interface BalanceAnchor<TRow> {
@@ -4148,8 +4182,7 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   const quarterly = quarterlyRow ?? null;
   const annual = annualRow ?? null;
   const date = (r: TRow | null): string => (typeof r?.date === "string" ? r.date : "");
-  const missing = (r: TRow): string[] =>
-    BALANCE_ANCHOR_FIELDS.filter((field) => !(typeof r[field] === "number" && Number.isFinite(r[field] as number)));
+  const missing = (r: TRow): string[] => balanceRowMissing(r);
   const newer: TRow | null = quarterly !== null && (annual === null || date(quarterly) >= date(annual)) ? quarterly : annual;
   const older: TRow | null = newer === quarterly ? annual : quarterly;
   if (newer === null) return { row: null, basis: undefined, fallback: null };
@@ -4173,41 +4206,47 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   return { row: newer, basis: basisOf(newer), fallback: null };
 }
 
+export type BridgeRowCause = "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused";
+
 /**
  * FIN-103: the balance row the DCF equity bridge reads. D-65 promises "the
- * equity bridge stays at the statement-date balance", but the anchor above
- * picks the newest row whatever the DCF's income basis, so a DCF that fell
- * back to the fiscal-year statement bridged on a newer quarter. This returns
- * the quarterly or annual row dated at the statement date, provided it
- * carries every operand the anchors read (the completeness rule
- * `pickBalanceAnchor` applies, so a 10-Q that tags no debt line cannot
- * suppress the DCF again); otherwise the fallback (the anchor), with
- * `matchesStatement: false`. When the anchor itself is dated at the statement
- * date it stands; failing that, a fiscal-year row beats a quarterly row of the
- * same date. A refused anchor row stays the bridge row (its refusal is not
- * cured by another date). The market EV keeps the anchor.
+ * equity bridge stays at the statement-date balance", but the market EV's
+ * anchor (`pickBalanceAnchor`: the newest row, or the newest whole one when the
+ * newest lacks an operand) ignores the DCF's income basis, so a DCF that fell
+ * back to the fiscal-year statement bridged on a newer quarter.
+ *
+ * Candidates are the rows dated at the statement date, in the order the
+ * statement's basis calls for: the fiscal-year row first on an annual base, the
+ * quarter row first on a trailing-twelve-month base (at a fiscal-year end both
+ * are the same instant). The first candidate that is whole (`balanceRowWhole`,
+ * the anchor's completeness rule, so a 10-Q that tags no debt line cannot
+ * suppress the DCF again) and not blocked (`balanceRowBlocksBridge`) is the
+ * row. Otherwise the anchor stands, which is main's row and main's figure, and
+ * `cause` says why. A blocked anchor always stands: its refusal is never cured
+ * by another date.
  */
 export function dcfBridgeRow<TRow extends { date?: unknown } & Partial<Record<(typeof BALANCE_ANCHOR_FIELDS)[number], unknown>>>(
   statementDate: string | null,
+  statementBasis: "annual" | "ttm" | null,
   quarterly: readonly TRow[],
   annual: readonly TRow[],
   fallback: { row: TRow | null; basis: "quarter" | "annual" | null },
-): { row: TRow | null; basis: "quarter" | "annual" | null; matchesStatement: boolean } {
-  // A refusal on the anchor row is not cured by moving to another date, exactly
-  // as `pickBalanceAnchor` keeps a refused newest row: the DCF stays withheld
-  // rather than bridging on an older, unrefused balance the current filing does not stand behind.
-  if (statementDate !== null && !(fallback.row !== null && balanceRowRefused(fallback.row) && isoDay(fallback.row.date) !== statementDate)) {
-    const whole = (r: TRow): boolean => BALANCE_ANCHOR_FIELDS.every((field) => typeof r[field] === "number" && Number.isFinite(r[field] as number));
-    const candidates: { row: TRow; basis: "quarter" | "annual" }[] = [
-      ...(fallback.row !== null && fallback.basis !== null ? [{ row: fallback.row, basis: fallback.basis }] : []),
-      // On a tie the fiscal-year row wins: an annual-base DCF is stated on the fiscal year.
-      ...annual.map((row) => ({ row, basis: "annual" as const })),
-      ...quarterly.map((row) => ({ row, basis: "quarter" as const })),
-    ];
-    const hit = candidates.find((c) => isoDay(c.row.date) === statementDate && whole(c.row));
-    if (hit !== undefined) return { row: hit.row, basis: hit.basis, matchesStatement: true };
-  }
-  return { row: fallback.row, basis: fallback.basis, matchesStatement: false };
+): { row: TRow | null; basis: "quarter" | "annual" | null; matchesStatement: boolean; cause: BridgeRowCause; detail: string | null } {
+  const anchorAt = fallback.row !== null && statementDate !== null && isoDay(fallback.row.date) === statementDate;
+  const keep = (cause: BridgeRowCause, detail: string | null) =>
+    ({ row: fallback.row, basis: fallback.basis, matchesStatement: anchorAt, cause, detail });
+  if (fallback.row !== null && balanceRowBlocksBridge(fallback.row)) return keep("anchor-refused", balanceRowBlockReason(fallback.row));
+  if (statementDate === null) return keep("none-filed", null);
+  const q = quarterly.map((row) => ({ row, basis: "quarter" as const }));
+  const a = annual.map((row) => ({ row, basis: "annual" as const }));
+  const candidates = (statementBasis === "annual" ? [...a, ...q] : [...q, ...a]).filter((c) => isoDay(c.row.date) === statementDate);
+  const hit = candidates.find((c) => balanceRowWhole(c.row) && !balanceRowBlocksBridge(c.row));
+  if (hit !== undefined) return { row: hit.row, basis: hit.basis, matchesStatement: true, cause: "statement-row", detail: null };
+  const blocked = candidates.find((c) => balanceRowBlocksBridge(c.row));
+  if (blocked !== undefined) return keep("statement-row-refused", balanceRowBlockReason(blocked.row));
+  const incomplete = candidates[0];
+  if (incomplete !== undefined) return keep("incomplete", balanceRowMissing(incomplete.row).join(", "));
+  return keep("none-filed", null);
 }
 
 /**

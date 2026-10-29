@@ -684,16 +684,27 @@ elapsed from the statement date to the quote date, which rolls the whole value
 forward at the WACC (NVDA: 81 days, × 1.0279). The equity bridge keeps the
 statement-date balance: cash generated since then is inside the first window's
 flows, so it is not counted twice. The bridge reads the balance sheet dated at
-the statement date also when the DCF base falls back to the fiscal year while a
-newer quarterly balance exists (audit 2026-10-27 FIN-103; the market EV keeps the
-newest balance). The row must carry total debt, parent equity and cash and
-short-term investments, as the newest-balance anchor requires; a statement-date
-row that lacks one is passed over. When no such balance exists, the bridge uses
-the newest balance row, the valuation-date basis says so instead of "stays at
-the statement-date balance" (it names the balance used and how many days it falls
-after or before the statement date, and whether the flows between the two dates
-are in both that balance and the first window, or in neither), and an info gap
-`valuation.dcf.bridgeBalanceDate` records it. A quote more than `MAX_ROLL_FORWARD_DAYS` =
+the statement date, also when the DCF base falls back to the fiscal year while a
+newer quarterly balance exists, and also when the trailing window ends before a
+newer annual anchor (audit 2026-10-27 FIN-103). The market EV keeps its own
+anchor: the newest balance row, or the newest whole one when the newest lacks
+total debt, parent equity or cash and short-term investments.
+At the statement date the order follows the DCF's basis: a fiscal-year base takes
+the fiscal-year row first and then the quarter row, a trailing-twelve-month base
+the quarter row first and then the fiscal-year row (at a fiscal-year end they are
+the same instant). The first row that carries all three operands, and that the
+ownership gate (see "EV bridge") and the parser's refusals do not withhold, is the bridge
+row. Otherwise the bridge keeps the market EV's anchor, which is the row and the
+figure the DCF had before this rule, for one of four causes, each stated in the
+info gap `valuation.dcf.bridgeBalanceDate` and in the valuation-date basis, which
+then names the balance used, how many days it falls after or before the statement
+date, and whether the flows between the two dates are in both that balance and the
+first window or in neither, instead of "stays at the statement-date balance":
+no balance sheet is filed at the statement date; the one filed lacks an operand
+(the gap names it); the one filed is withheld, so the bridge keeps the anchor and
+its figure; or the anchor itself is withheld, so the bridge keeps it and the DCF
+stays withheld, because another date's balance never cures a refusal on the
+newest one. A quote more than `MAX_ROLL_FORWARD_DAYS` =
 200 days after the statement is not rolled forward (a stale statement is a data
 problem, not a timing one), and a gap says so. The "valuation date" assumption
 row and the bridge's "value stated at" row print the date and factor.
@@ -1048,9 +1059,12 @@ investments sales-to-capital removed as non-operating (D-65) − the estimated t
 on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
 asset-retirement and environmental obligations (audit 2026-10-22 E-7, below). Minority interest
 enters the market EV at its book carrying amount, not a market or earnings-share
-value. The market EV uses the newest balance sheet, and the DCF's bridge the one
-dated at the DCF statement date (see "Valuation date (D-65)"); the two are the
-same row whenever the DCF is on a trailing-twelve-month base.
+value. The market EV uses the balance anchor (the newest balance sheet that carries
+total debt, parent equity and cash and short-term investments), and the DCF's
+bridge the one dated at the DCF statement date (see "Valuation date (D-65)"). The
+two can differ even on a trailing-twelve-month base: a 10-K filed before its
+quarter reaches the quarterly feed makes the annual row the newer anchor, while
+the window still ends at the last quarter, and the bridge reads that quarter.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
