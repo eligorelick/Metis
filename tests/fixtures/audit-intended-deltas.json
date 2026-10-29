@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-28",
+  "generatedAt": "2026-10-29",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10264,18 +10264,16 @@
       ]
     },
     {
-      "name": "claim-verifier-numbers-20261027",
+      "name": "amzn51-lease-scope-20261029",
       "decisions": [
-        "D-128",
-        "D-129",
-        "D-130"
+        "D-132"
       ],
-      "reason": "Claim verifier period rules (D-128, batch B1) and number readings (D-129 and D-130, batch B2), as they reach this provider-free DEMO control. B1 and B2 ship as one pull request, so this group absorbed B1's single-leaf group (audit-b1-claim-verifier-periods-20261027, which took the leaf to spec 1.46.0). Only the report stamp moves: spec 1.46.0 (a validated claim's periods, windows, comparison base and recency are established by what it cites) and then 1.47.0 (an excerpt figure is read with its sign, scale, unit, relation and bound, binds to its own description, and a comparison base binds only a comparison base). The leaf comes out of audit-b3-payload-records-20261027, whose record for spec 1.45.0 stands in D-124 to D-127. No value, availability flag, order, verified flag or verification-log leaf moves.",
+      "reason": "Audit 2026-10-29 of AMZN report #51 (D-132), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.48.0 (a noncurrent-only vendor lease line completed from its filing, the vendor path's undisclosed stakes filled with the D-98 chain, and refusals named instead of called missing). The DEMO rows carry none of those shapes, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of claim-verifier-numbers-20261027, which took it to 1.47.0; that group's record stands in D-128 to D-130.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.47.0"
+          "after": "1.48.0"
         }
       ]
     }

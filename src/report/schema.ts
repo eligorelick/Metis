@@ -139,7 +139,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.45.0 (D-124 to D-127): payload records carry the right label, unit, currency and period; reports before 1.45.0 are shown through `withLegacyPayloadRecordSafety`. The data-only FCF conversion label no longer says "graded ratio", and stored provider geography and that label are shown through rules 7 and 8 of the legacy view. A computed fiscal-year row's label and period, and a release fiscal label withheld unless the statement rows confirm it (a labelled row within 3 days, the newest labelled quarter's successor, or with only annual rows the next fiscal year at the days its quarter number fits), change which period claims validate.
 // 1.46.0 (D-128): a [validated] claim's periods, windows, comparison base, "latest" and forward-looking wording are established by the record or excerpt clause it cites; the period check never fails a phrase the citation check accepts.
 // 1.47.0 (D-129, D-130): an excerpt figure is read with its sign, scale, unit, relation and bound (a minus before the currency, whole-word scale and unit tokens, a table scale applied to amounts only, a hedge or "an increase of" keeping a change a change, an apposition not a change, a bound not a value); a figure binds to its own description, which can only leave a claim unchecked; a comparison base binds only a comparison base, and the end of a base-first move takes the move's metric.
-export const REPORT_SPEC_VERSION = "1.47.0" as const;
+// 1.48.0 (D-132): a noncurrent-only vendor lease line completed from its filing, the vendor path's stakes and the refusal-naming diagnostics change WACC, the DCF, fair value, grades and the debt profile on identical inputs; the key data withholds a provider EV whose debt was refused or recomposed.
+export const REPORT_SPEC_VERSION = "1.48.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

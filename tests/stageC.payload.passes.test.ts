@@ -1213,7 +1213,10 @@ describe("payload determinism + provenance", () => {
       // preceding-pin chain above.
       // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
       // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
-      fingerprint: "1.49.0:c74b6cd9",
+      // Audit 2026-10-29 of AMZN #51 (D-132, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
+      // no noncurrent-only lease line, no zero short-term debt beside filed current debt, no vendor stakes and no
+      // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
+      fingerprint: "1.50.0:25742c4f",
       promptBytes: 143_867,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
@@ -1384,7 +1387,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.49.0");
+    expect(first.payloadVersion).toBe("1.50.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2913,7 +2916,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.47.0");
+    expect(report.meta.specVersion).toBe("1.48.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

@@ -4514,3 +4514,92 @@ predecessor rather than calling it unlinked. Reading the predecessor's 10-K
 for Item 1A, MD&A and notes is not done: it needs live SEC requests and an
 identity design for the 10-K parsers, which bind their evidence to the
 registrant's own CIK.
+
+### AMZN report #51: the noncurrent-only lease line (October 29, 2026)
+
+Report #51 ran on provider (FMP) statements and lost its WACC, DCF, fair value
+and scenario targets, and three grades fell. Decision: D-132.
+
+**A lease line that holds only the noncurrent lease liabilities.** The
+provider's `capitalLeaseObligations` for Amazon at June 30, 2026 was $94.3B:
+the 10-Q's noncurrent operating lease liabilities ($82.6B) plus its noncurrent
+finance lease liabilities ($11.8B), with no current portion. The SEC
+enrichment wrote the filing's lease totals beside it ($96.3B operating, $13.5B
+finance), and the lease guard rightly refused a row whose operating slice
+exceeds its lease line. Every balance was refused, so the WACC had no debt
+weight. The vendor's total, $223.2B, also left out $3.7B of current debt and
+$15.4B of current lease liabilities: the filing composes $242.3B.
+
+The balance admission now completes such a row from one filing, when every
+part of it is filed there for the same date:
+
+- the trigger: the vendor's lease line equals that filing's
+  `OperatingLeaseLiabilityNoncurrent` plus `FinanceLeaseLiabilityNoncurrent`
+  (within the lease guard's tolerance), the vendor states no current lease
+  portion, and the line has no SEC provenance of its own. A filing that tags
+  no finance lease completes from the operating part alone; one that tags a
+  finance-lease total without its noncurrent part does not trigger.
+- the lease liabilities become the filing's totals (the tagged total, else
+  current plus noncurrent, cross-checked against each other);
+- a zero or absent vendor short-term debt becomes the filing's
+  `LongTermDebtCurrent` plus `ShortTermBorrowings` and `CommercialPaper` where
+  tagged, cross-checked against `DebtCurrent`. A nonzero vendor short-term debt
+  is kept, never added to: it must agree with the filed current debt, and it
+  must not be a current lease amount the completed line already holds;
+- total debt is short-term debt plus the vendor's long-term debt (which must
+  agree with the filing's `LongTermDebtNoncurrent`) plus the completed leases,
+  and net debt is recomputed from it.
+
+The filings that carry the date are tried newest first, so a comparative that
+only a later 10-Q tags still completes. The completed fields carry the filing
+as provenance (total debt is marked `noncurrent-lease-line-completed`), an
+info entry gives the arithmetic, and the vendor's own total stays in the raw
+row. Where a rule fails, the row is refused with the exact cause ("the current
+debt cannot be established: the filing tags no LongTermDebtCurrent ...",
+"the vendor short-term debt ... does not reconcile with the filed current
+debt", and so on) rather than published without the current debt and current
+leases. The lease guard itself is unchanged, and its refusal now names the
+values it compared and each operand's scope, for example "operating-lease
+liability 96,320M (current + noncurrent) exceeds the vendor lease line 94,338M
+(noncurrent only)". The WACC's refusal says "average total debt withheld:"
+with that reason; "cannot distinguish debt-free from unknown leverage" is
+kept for a total debt that is absent.
+
+**A vendor short-term debt of 0 beside filed current debt.** A provider row
+whose short-term debt is 0 while the same-period filing tags a positive
+`DebtCurrent`, `LongTermDebtCurrent`, `ShortTermBorrowings` or
+`CommercialPaper` is not complete: its total debt and net debt are withheld
+with a reason naming the filed tags. A short-term debt the SEC statements
+built is not checked this way. On Amazon's provider rows this withholds the
+2017 year end, whose 10-K tags $100M of current long-term debt the provider
+row left out; no figure of report #51 uses that year.
+
+**The tagged-total backstop keeps counting finance leases.** The audit
+proposed comparing a debt-only aggregate (`LongTermDebt`,
+`LongTermDebtNoncurrent`, `LongTermNotesAndLoans`,
+`DebtLongtermAndShorttermCombinedAmount`) with the financing debt alone. It is
+not applied: Alphabet files its finance leases inside `LongTermDebt` (at
+2019-12-31, $4.69B against $3.96B of noncurrent debt plus $0.71B of finance
+leases), so the comparison refused Alphabet's 2019 to 2022 debt and moved its
+DCF and composite on no defect. The current-debt check above catches the
+Amazon case instead.
+
+**The current-capital bridge and the provider EV.** "Total debt including
+leases" is withheld, with the refusal, when the lease guard or the admission
+refused the row; it was printed as the vendor's partial $223.2B. A total
+composed from a filing is said to be composed, with the filing and its tags,
+and what the vendor's own total left out. A provider enterprise value is the
+vendor's market cap plus its own total debt less cash; it is withheld at a
+date whose debt was refused, or whose debt operand differs from the total the
+filing composes, and the key data says so. The report's market EV is separate
+and nothing replaces the withheld one.
+
+**Replayed.** On report #51's frozen inputs, with no provider or model call,
+the WACC is 10.47%, the DCF and fair value $116.12 a share (scenarios $100.33,
+$116.12 and $136.37) and the composite 56.11 (C), the same figures as the
+audit's counterfactual with the composition and the stakes. On the 45 census
+snapshots (all built from SEC statements) no figure moves; only refusal
+wording does. On NVIDIA's provider runs #48 to #50 the July and October 2022
+quarters complete (no finance lease filed) and add two EV own-history
+observations; the May 2022 quarter stays refused because its vendor
+short-term debt is its current operating lease liability.

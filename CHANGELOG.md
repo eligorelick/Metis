@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.47.0** and
-payload **1.49.0** (claim verifier period and number rules and payload-record fixes from the 2026-10-27 audit, batches B1, B2 and B3). The
+Current source declares application **0.1.0**, report spec **1.48.0** and
+payload **1.50.0** (the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, after the claim verifier and payload-record fixes of the 2026-10-27 audit). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,19 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Amazon's debt, leases and stakes are read from the filing (2026-10-29)
+
+Amazon report #51 lost its WACC, DCF, fair value and scenario targets, and its balance-sheet, quality and moat grades moved, because one provider number was read as something it was not. The provider's lease line for Amazon was only the noncurrent part of its lease liabilities, while the SEC data beside it gave the full totals, so every balance sheet looked contradictory and was refused. The same provider rows also left out Amazon's current debt and read its Anthropic and other private stakes as zero. Three audits traced it. The decision is D-132 in [DECISIONS](docs/audit/DECISIONS.md), and the [disposition record](docs/audit/2026-10-29-amzn51-lease-scope.md) lists each finding, its commit and the replay.
+
+- A provider lease line that equals one filing's noncurrent lease liabilities is completed from that filing: its lease totals, its current debt where the provider row has none, and a total debt rebuilt from them. For Amazon at June 30, 2026 that is $242.3B, not the provider's $223.2B. When a part is not filed, the row is refused with the exact reason instead of published short.
+- A provider short-term debt of 0 is no longer accepted when the same filing tags current debt.
+- "Total debt including leases" is withheld, with the reason, when the row was refused, and a total rebuilt from a filing is labelled as such. A provider enterprise value whose debt was refused or rebuilt is withheld in the key data.
+- A provider long-term investments of 0 is read as undisclosed when the filing tags noncurrent investments, and is filled the way the SEC statements already fill it (D-98): $122.7B for Amazon at June 30, 2026 ($122.3B of non-marketable equity securities and $0.4B of equity-method investments). The DCF bridge adds them and net operating assets leave them out. Amazon's $97.9B of Anthropic notes are still not counted, as on the SEC path. The accrual note no longer says long-term investments were removed when there were none.
+- Refusals are named, not called missing: "EV withheld:" with the reason instead of "EV components missing" or "EV is reported as-is", "total debt withheld (...)" instead of "total debt missing", the WACC reason inside the DCF's, and the actual cause in the fair-value line. A ROIC withheld because its debt was refused now has a manifest entry.
+- Not changed: the check that a filed debt total does not exceed the composed debt still counts finance leases, because Alphabet's filed long-term debt includes them; the audit's proposed change would have refused Alphabet's 2019 to 2022 debt.
+- Replayed on report #51's saved inputs with no provider or model call: WACC 10.47%, fair value $116.12 a share (scenarios $100.33 to $136.37), composite 56.11 (C), with no critical gap; before, WACC and fair value were withheld and the composite was 54.34 (D). The valuation grade is now assessed at 34.44 (F), because the model value is 54% below the price. The 45 census snapshots move no figure. NVIDIA's provider runs #48 to #50 gain two 2022 quarters in their EV history and keep their headline figures.
+- Report 1.48.0, payload 1.50.0 and Stage B ACCOUNTING_EVIDENCE_29 (D-132); pipeline stage-c-1.6.12 and the score bands are unchanged. Stored reports keep their bytes (D-67); report #51 is not rewritten.
 
 ## Unreleased - claim verifier reads signs, scales, units and each figure's own description (2026-10-28)
 
