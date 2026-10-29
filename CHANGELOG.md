@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.48.0** and
-payload **1.50.0** (the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, after the claim verifier and payload-record fixes of the 2026-10-27 audit). The
+Current source declares application **0.1.0**, report spec **1.49.0** and
+payload **1.51.0** (the EDGAR-derived operating-line fixes of the 2026-10-27 audit batch B13, after the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, and after the claim verifier and payload-record fixes of the 2026-10-27 audit). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
