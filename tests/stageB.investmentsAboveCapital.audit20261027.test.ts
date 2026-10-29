@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDcfAssumptions,
   establishedSalesToCapital,
+  LONG_TERM_INVESTMENTS_REMOVED_CLAUSE,
   S2C_CLAMP,
   valueCompany,
   type DcfAssumptionInputs,
@@ -88,7 +89,7 @@ describe("FIN-304: a holding above invested capital is still valued", () => {
     const above = valued(aboveInputs);
     const t = taxFraction(aboveInputs);
     expect(above.equityValue! - below.equityValue!).toBeCloseTo((701 - 699) * (1 - t), 6);
-    expect(above.bridge?.nonOperatingComponents ?? []).toContainEqual(expect.objectContaining({ kind: "long-term-investments", value: 701, basis: expect.stringMatching(/not positive once long-term investments .* are removed/) }));
+    expect(above.bridge?.nonOperatingComponents ?? []).toContainEqual(expect.objectContaining({ kind: "long-term-investments", value: 701, basis: expect.stringMatching(/meets or exceeds operating invested capital, so sales-to-capital takes the house cap/) }));
     const a = buildDcfAssumptions(aboveInputs).assumptions!;
     const b = buildDcfAssumptions(belowInputs).assumptions!;
     expect(a.salesToCapital.value).toBe(S2C_CLAMP[1]);
@@ -127,6 +128,9 @@ describe("FIN-304: the A-2 history counts a year whose holding meets its capital
     expect(history.basis).toContain("FY2023-12-31 0.3636x");
     expect(history.basis).toContain("FY2025-12-31 0.4545x");
     expect(history.ratio).toBeCloseTo(0.4545454545, 6);
+    // Fix round 1 (M1): the cap year is not listed as a measured ratio.
+    expect(history.basis).toContain("FY2024-12-31 5.0000x (house cap: holding >= capital, FIN-304)");
+    expect(history.basis).not.toContain("FY2023-12-31 0.3636x (house cap");
   });
 
   it("a year with a holding inside its capital is unchanged", () => {
@@ -186,4 +190,49 @@ describe("FIN-304: precedence with the lease-emptied branch (Task 4, I6)", () =>
     if (v.kind !== "dcf" || v.dcf === null) throw new Error("expected the DCF route");
     return v.dcf;
   }
+});
+
+describe("FIN-304 fix round 1: the filed provenance of the holding survives the exceed case (N1)", () => {
+  const provenance = `long-term investments 0.00B on the 2025-12-31 annual balance sheet (filed 2026-02-12), at carrying value — ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}; ` +
+    "of which non-marketable equity securities 0.00B (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, 10-K filed 2026-02-12), carried at cost less impairment; a stake the statements do not break out of other assets stays in operating capital";
+  const basisOf = (lti: number) => {
+    const dcf = valued({ ...withBalance({ longTermInvestments: lti }) });
+    void dcf;
+    const v = valueCompany(route, { ...bundle(withBalance({ longTermInvestments: lti })), longTermInvestmentsBasis: provenance });
+    if (v.kind !== "dcf" || v.dcf === null) throw new Error("expected the DCF route");
+    return v.dcf.bridge!.nonOperatingComponents!.find((c) => c.kind === "long-term-investments")!.basis;
+  };
+
+  it("keeps the filing date, the citation and the stays-in-operating-capital sentence, and drops the untrue clause", () => {
+    const basis = basisOf(701);
+    expect(basis).toContain("(filed 2026-02-12)");
+    expect(basis).toContain("EquitySecuritiesWithoutReadilyDeterminableFairValueAmount");
+    expect(basis).toContain("stays in operating capital");
+    expect(basis).not.toContain(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE);
+    expect(basis).toMatch(/meets or exceeds operating invested capital, so sales-to-capital takes the house cap/);
+  });
+
+  it("the normal case is unchanged", () => {
+    expect(basisOf(350)).toBe(provenance);
+  });
+});
+
+describe("FIN-304 fix round 1: the A-2 cutoff can step sales-to-capital (N2, a pre-existing residual)", () => {
+  // Task 19 residual: A-2's 0.1 cutoff can make sales-to-capital step from 0.5 to 0.1 when one more of long-term
+  // investments moves the history median across it (pre-existing, same at main). The bridge row is also a history
+  // row (compute.ts feeds the annual balance to capitalHistory); FY ratios 0.05, 0.2 and 1000 / (11000 - lti).
+  const row = (y: string, equity: number, over: Partial<DcfBalanceRow> = {}): DcfBalanceRow => ({
+    date: `${y}-12-31`, basis: "annual", totalDebt: 0, totalStockholdersEquity: equity, cashAndShortTermInvestments: 0, ...over,
+  });
+  const at = (lti: number): DcfAssumptionInputs => ({
+    ...steady,
+    balance: row("2025", 11000, { longTermInvestments: lti }),
+    capitalHistory: [row("2025", 11000, { longTermInvestments: lti }), row("2024", 4500), row("2023", 16000)],
+  });
+
+  it("documents the step: the current-capital rule is continuous, the history median is not", () => {
+    expect(buildDcfAssumptions(at(500)).assumptions!.salesToCapital.value).toBe(0.5);
+    expect(buildDcfAssumptions(at(1000)).assumptions!.salesToCapital.value).toBeCloseTo(0.1, 9);
+    expect(valued(at(1000)).equityValue!).toBeLessThan(valued(at(500)).equityValue!);
+  });
 });

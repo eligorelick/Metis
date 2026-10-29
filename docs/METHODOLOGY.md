@@ -2386,8 +2386,12 @@ being zero-filled, and the basis names the added amount. When removing
 them would leave no operating capital (a holding at or above invested capital, FIN-304,
 house rule D-next), the operating ratio is unbounded and takes the house cap 5.0, the
 basis says why and names the cap as the limit the ratio approaches from below, and
-the bridge still adds the holding back at its carrying value less the investment tax;
-one more of long-term investments therefore never lowers the DCF value. The
+the bridge still adds the holding back at its carrying value less the investment tax
+(the line keeps its filed provenance and says the holding meets or exceeds operating
+capital). On the current-capital rule one more of long-term investments therefore never
+lowers the DCF value: the cap is the value the ratio reaches just below the boundary,
+and the holding is added back on both sides. The A-2 history median's 0.1 cutoff
+(below) predates this and can still step when the bridge row is also a history row. The
 A-2 history below counts a year whose holding meets or exceeds its capital at the same
 cap. Capital the lease removal itself emptied takes the issuer's own history instead
 (FIN-303), whatever the holding.
@@ -2399,7 +2403,7 @@ regulated utility turns over its capital about a quarter of a time a year
 0.5 halved the capital its growth needs and doubled DUK's DCF. The floor now
 applies only when the issuer's own history does not establish a lower ratio:
 each fiscal year with filed revenue and positive invested capital at
-the same date (a year whose holding meets or exceeds its capital counts at the house cap 5.0, FIN-304; measured as above, with debt on the current balance's lease
+the same date (a year whose holding meets or exceeds its capital counts at the house cap 5.0 and is listed as "house cap: holding >= capital", not as a measured ratio, FIN-304; measured as above, with debt on the current balance's lease
 basis and that year's own temporary equity) gives a ratio, and with at least three such years the median of the
 newest five is the issuer's established ratio. One median is on one lease basis,
 the current balance's: on the default switch a year whose operating lease is not

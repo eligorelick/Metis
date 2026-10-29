@@ -123,6 +123,7 @@ import {
   type ExcessReturnInputs,
   type ReitInputs,
   noncontrollingEarningsInput,
+  LONG_TERM_INVESTMENTS_REMOVED_CLAUSE,
 } from "@/pipeline/stageB/valuation";
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
@@ -4013,7 +4014,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       const privateStakes = nonMarketableEquityCarrying(bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
         date, ctx.modelCurrency, bundle.builtAt);
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
-      return `long-term investments ${b(lti)} on the ${date} ${bridgePointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — the amount the sales-to-capital denominator removes as non-operating` +
+      return `long-term investments ${b(lti)} on the ${date} ${bridgePointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}` +
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
