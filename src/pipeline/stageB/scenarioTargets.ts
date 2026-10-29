@@ -28,6 +28,7 @@
 
 import {
   dcfDomainFailure,
+  unsplitCellsNote,
   type DcfRunOptions,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
@@ -334,6 +335,13 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
 
+  // FIN-119: a path whose deduction takes the profit share while an unsplit temporary-equity total is deducted is withheld, and says why.
+  const unsplitPath = baseDcf.bridge.temporaryEquity !== undefined && baseDcf.bridge.temporaryEquity.unsplit !== 0 &&
+    (shared.bull.result.temporaryEquityWithheld !== undefined || shared.bear.result.temporaryEquityWithheld !== undefined);
+  if (unsplitPath) {
+    missingReasons.push({ field: "valuation.dcf.temporaryEquityAllocation", reason: unsplitCellsNote(baseDcf.bridge.temporaryEquity!.unsplit), severity: "warn" });
+  }
+
   const targets: ScenarioTarget[] = [
     mk("bull", optimistic.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
     mk("base", baseDcf.perShare, 0, 0),
@@ -353,6 +361,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     // D-65: the decay-and-cap paragraph is stated once, as the note of the
     // projections' scenario-construction table (it was printed three times).
     "The shock decay and the scenario margin cap are set out under the weighted projections' scenario construction.",
+    ...(unsplitPath ? [unsplitCellsNote(baseDcf.bridge.temporaryEquity!.unsplit)] : []),
   ];
 
   return {

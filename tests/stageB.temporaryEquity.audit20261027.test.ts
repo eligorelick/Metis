@@ -19,7 +19,7 @@ import { valuationAuditTables } from "@/report/auditTables";
 import { fixedBridgeClaimsText } from "@/report/scenarioPresentation";
 import { temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import {
-  multiplesFramework, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type QuarterlyFundamentalsRow, type ValuationBundleInputs,
+  multiplesFramework, reverseDcf, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type QuarterlyFundamentalsRow, type ValuationBundleInputs,
 } from "@/pipeline/stageB/valuation";
 import type { CompanyRoute } from "@/types/core";
 
@@ -259,6 +259,25 @@ describe("FIN-119: the unsplit rule holds in every bridge re-run", () => {
     expect(grid.perShare[grid.waccPcts.indexOf(9)]![0]).not.toBeNull();
     // Control without an unsplit total: every cell publishes.
     expect(controlGrid.perShare.flat().every((c) => c !== null)).toBe(true);
+
+    // G1: the withheld cells say why, once for the run, though the base per share published.
+    const sentence = /Cells where the noncontrolling deduction takes the profit share are withheld: the filed temporary-equity total of .*M is not split between redeemable preferred and redeemable noncontrolling interests, so it could be counted twice\./;
+    expect(grid.notes.some((n) => sentence.test(n))).toBe(true);
+    expect(v.growthMarginGrid!.notes.some((n) => sentence.test(n))).toBe(true); // its higher-value cells flip to the profit share too
+    expect(v.growthMarginGrid!.perShare.flat().some((c) => c === null)).toBe(true);
+    expect(v.gaps.filter((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toHaveLength(1);
+    // Control: a fixture whose cells all stay book carries neither the sentence nor the gap.
+    const allBook = dcfOf({ minorityInterest: equity0 * 0.9, temporaryEquity: claims({ unsplit: 40 }), noncontrollingEarnings: { ...KEY, noncontrollingIncome: 10.1 } });
+    expect([...allBook.sensitivity!.notes, ...allBook.growthMarginGrid!.notes].some((n) => /profit share are withheld/.test(n))).toBe(false);
+    expect(hasGap(allBook, "valuation.dcf.temporaryEquityAllocation")).toBe(false);
+    expect(control.gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toBe(false);
+    // The reverse DCF solves over candidate paths, so it can reach the same case and says so.
+    const opts = { waccPct: 9, netDebt: 200, dilutedShares: 100, minorityInterest: book, preferred: 40, noncontrollingEarningsShare: 0.3,
+      temporaryEquity: { redeemablePreferred: 0, redeemableNoncontrolling: 0, unsplit: 40, basis: "test" } };
+    const reverse = reverseDcf(1000, v.assumptions!, opts);
+    expect(reverse.gaps.filter((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toHaveLength(1);
+    expect(reverse.notes.some((n) => sentence.test(n))).toBe(true);
+    expect(reverseDcf(1000, v.assumptions!, { ...opts, temporaryEquity: undefined }).gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")).toBe(false);
   });
 });
 

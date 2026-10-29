@@ -2542,6 +2542,7 @@ export function dcfDomainFailure(dcf: DcfResult): DcfDomainFailure | null {
   const reason =
     `FCFF DCF outside its domain: ${failures.map((f) => f.detail).join("; ")}. ` +
     "The per-share value, sensitivity grids, reverse DCF and scenario targets are withheld, and the valuation grade does not use the DCF";
+  // `rawPerShare` is null when an unsplit temporary-equity total met the earnings key (the per share was already withheld); nothing reads it.
   return { status: "outside", failures, rawPerShare: dcf.perShare, reason };
 }
 
@@ -2750,6 +2751,12 @@ function bridgeToPerShare(
     return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis, unsplitWithheld: true };
   }
   return { equityValue, perShare: equityValue / shares, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
+}
+
+/** FIN-119: the sentence a grid, reverse DCF or scenario note carries when its own cells or paths were withheld by the unsplit rule. */
+export const UNSPLIT_CELLS_LEAD = "Cells where the noncontrolling deduction takes the profit share are withheld";
+export function unsplitCellsNote(unsplit: number): string {
+  return `${UNSPLIT_CELLS_LEAD}: the filed temporary-equity total of ${millions(unsplit)} is not split between redeemable preferred and redeemable noncontrolling interests, so it could be counted twice.`;
 }
 
 /** FIN-119: why the per share is withheld when an unsplit temporary-equity total meets the E-5 earnings key. */
@@ -3003,6 +3010,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
     `terminal ROIC held at WACC ${terminalExcessPp >= 0 ? "+" : "−"} ${fmtNum(Math.abs(terminalExcessPp))}pp in every cell (the house convention defines it relative to the discount rate)`,
   );
   let withheld = 0;
+  let unsplitCells = 0;
   const perShare = waccPcts.map((w) => {
     const cellAssumptions: DcfAssumptions = {
       ...assumptions,
@@ -3025,6 +3033,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         base.noncontrollingEarningsShare ?? null,
         base.temporaryEquity?.unsplit ?? 0,
       );
+      if (bridged.unsplitWithheld === true) unsplitCells += 1;
       if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
         withheld += 1;
         return null;
@@ -3033,6 +3042,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
     });
   });
   notes.push(...gridDomainNote(withheld));
+  if (unsplitCells > 0) notes.push(unsplitCellsNote(base.temporaryEquity!.unsplit));
   return { waccPcts, gTermPcts, perShare, notes, gaps };
 }
 
@@ -3071,6 +3081,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       : `cells whose margin would exceed ${fmtNum(ceiling)}% (gross margin less the leanest operating-expense ratio) above the base path are withheld`,
   ];
   let withheld = 0;
+  let unsplitCells = 0;
   const perShare = growthShiftsPp.map((dg) =>
     marginShiftsPp.map((dm) => {
       const margins = assumptions.ebitMarginPath.value.map((m) => m + dm);
@@ -3080,6 +3091,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       if (core === null) return null;
       const bridged = bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
         base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null, base.temporaryEquity?.unsplit ?? 0);
+      if (bridged.unsplitWithheld === true) unsplitCells += 1;
       if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
         withheld += 1;
         return null;
@@ -3088,6 +3100,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
     }),
   );
   notes.push(...gridDomainNote(withheld));
+  if (unsplitCells > 0) notes.push(unsplitCellsNote(base.temporaryEquity!.unsplit));
   return { growthShiftsPp, marginShiftsPp, perShare, notes };
 }
 
@@ -3220,6 +3233,23 @@ export function reverseDcf(
   assumptions: DcfAssumptions,
   opts: DcfRunOptions,
 ): ReverseDcfResult {
+  const hit = { unsplit: false };
+  const result = reverseDcfCore(currentPrice, assumptions, opts, hit);
+  // FIN-119: a candidate path whose deduction takes the profit share while an unsplit total is deducted is withheld from the solve.
+  if (hit.unsplit) {
+    const note = unsplitCellsNote(opts.temporaryEquity!.unsplit);
+    result.notes.push(note);
+    result.gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", note, "warn"));
+  }
+  return result;
+}
+
+function reverseDcfCore(
+  currentPrice: number | null,
+  assumptions: DcfAssumptions,
+  opts: DcfRunOptions,
+  hit: { unsplit: boolean },
+): ReverseDcfResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   const none = (why: string): ReverseDcfResult => {
@@ -3245,7 +3275,7 @@ export function reverseDcf(
   const perShareAt = (overrides: Omit<DcfCoreOverrides, "guardMode">): number | null => {
     const core = dcfCore(assumptions, opts.waccPct, { ...overrides, guardMode: "clamp" });
     if (core === null) return null;
-    return bridgeToPerShare(
+    const bridged = bridgeToPerShare(
       core.enterpriseValue,
       opts.netDebt,
       opts.dilutedShares,
@@ -3255,7 +3285,9 @@ export function reverseDcf(
       opts.nonOperatingAssets ?? null,
       opts.noncontrollingEarningsShare ?? null,
       opts.temporaryEquity?.unsplit ?? 0,
-    ).perShare;
+    );
+    if (bridged.unsplitWithheld === true) hit.unsplit = true;
+    return bridged.perShare;
   };
 
   // Base-year FCFF sign check (negative-FCF companies skip the growth solve).
@@ -6604,6 +6636,11 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // unsolvable reverse DCF stayed invisible in the manifest — the same
       // defect, on the model that carries the headline number.
       gaps.push(...dcf.gaps, ...(reverse?.gaps ?? []));
+      // FIN-119: a grid cell withheld by the unsplit rule is said once for the run, even when the base per share published.
+      const cellNote = [sensitivity, growthMargin].flatMap((g) => g?.notes ?? []).find((n) => n.startsWith(UNSPLIT_CELLS_LEAD));
+      if (cellNote !== undefined && !gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")) {
+        gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", cellNote, "warn"));
+      }
     }
   }
   return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, growthMarginGrid: growthMargin, reverseDcf: reverse, multiples, notes, gaps };

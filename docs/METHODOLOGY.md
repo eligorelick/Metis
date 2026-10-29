@@ -1091,7 +1091,9 @@ the DCF per-share value and the EV multiples
 The unsplit rule holds wherever the NCI deduction is decided: any sensitivity
 cell, growth/margin cell, reverse-DCF step or scenario path whose deduction is on
 the earnings share while an unsplit total is deducted is withheld, and cells on
-book publish as before. The same claims reach every guard that asks whether
+book publish as before. Each grid, the reverse DCF and the scenario targets say
+so in their own note when they withheld a cell or path this way, and one
+`valuation.dcf.temporaryEquityAllocation` gap says it once for the run. The same claims reach every guard that asks whether
 preferred or NCI exists. The P/FCF cash-ownership guard and the three
 own-history common-allocation checks count an admitted claim and a refused one (a
 refused operand is a filed claim of unknown amount). Forecast operating EPS is
