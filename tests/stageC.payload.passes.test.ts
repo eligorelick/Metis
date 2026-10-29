@@ -642,9 +642,10 @@ describe("payload determinism + provenance", () => {
       ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
       // Codex review of PR #42: the scenario construction's method stamps.
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
-      // stamps move again; restored to the preceding pin's wording.
-      ["SCENARIO_TARGETS_2026_10_D102", "SCENARIO_TARGETS_2026_10_D60", 1],
-      ["FAIR_VALUE_2026_10_D102", "FAIR_VALUE_2026_07", 1],
+      // stamps move again; restored to the preceding pin's wording. D-135
+      // (B4a) moves them to ..._D135; the restoration follows the live stamp.
+      ["SCENARIO_TARGETS_2026_10_D135", "SCENARIO_TARGETS_2026_10_D60", 1],
+      ["FAIR_VALUE_2026_10_D135", "FAIR_VALUE_2026_07", 1],
       ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
       // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
       // outside the DCF's domain is withheld, no longer floored at 0.
@@ -1236,14 +1237,24 @@ describe("payload determinism + provenance", () => {
       // and no derived EBIT, D&A or R&D (Tasks 1-5, 7, 8), so no other line moves: the old prompt with its header
       // restored hashes to the preceding 6f42a9e6. promptBytes 144_296, the 531 records, the 76 citations and every
       // other leaf are unchanged; only the fingerprint moves, 1.50.0:6f42a9e6 -> 1.51.0:9120109f.
-      fingerprint: "1.51.0:9120109f",
+      // 2026-10-29 B4a (D-135): payload 1.52.0, next after the preceding merge. Dumped before (bda2b94) and after
+      // with this test's own serializer (tmp/b4-payload, untracked): the prompt differs in one line, the versioned
+      // header ("payloadVersion 1.51.0" -> "1.52.0", same byte length), so promptBytes 144_296, the 531 records, the
+      // 76 citations, the labels and the ids do not move. The finance block differs in two leaves, fairValue.methodVersion
+      // and scenarioTargets.methodVersion (..._D102 -> ..._D135, Task 16), and the registry in the four formulaVersion
+      // leaves that echo them, so financeHash 3fc254c2 -> e5b05d9e and provenanceHash 3fc51d0c -> 8eccd2f0.
+      // This fixture is FMP-shaped DEMO data with no covered lease, no temporary equity, no pension, loss-contingency
+      // or earn-out tag and no loss-period divisor, so no DCF figure, EV-basis sentence or lease wording moves (Tasks 4 and 6
+      // change none of its lines). Fingerprint 1.51.0:9120109f -> 1.52.0:4257f13c. The preceding-pin chain restores the
+      // ..._D135 stamps to the earlier wording (d99Restorations) and is otherwise untouched.
+      fingerprint: "1.52.0:4257f13c",
       promptBytes: 144_296,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "3fc51d0c",
+      provenanceHash: "8eccd2f0",
       provenanceIdsHash: "fe7c2621",
       citationCount: 76,
       citationHash: "77d52670",
@@ -1283,7 +1294,7 @@ describe("payload determinism + provenance", () => {
       // D-107: the grouped EV digits and the grid guard wording, restored above.
       // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "3fc254c2",
+      financeHash: "e5b05d9e",
     });
   });
 
@@ -1407,7 +1418,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.51.0");
+    expect(first.payloadVersion).toBe("1.52.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2936,7 +2947,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.49.0");
+    expect(report.meta.specVersion).toBe("1.50.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
