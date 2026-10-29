@@ -4123,11 +4123,12 @@ and net debt are still withheld, with a gap naming both figures. A tagged carryi
 on the components' own basis, so only rounding can separate them. The band is
 a house convention.
 
-**Vendor figure against the filed figure (A-11).** On the provider path, a
-vendor statement figure is checked against the filed SEC figure for the same
-period: revenue, cost of revenue, gross profit and operating expenses; cash,
-cash-flow totals, operating cash flow and short-term investment flows; lease
-liabilities; debt lines against the same filing; and temporary-equity
+**Vendor figure against the filed figure (A-11).** Wherever EDGAR confirms the
+issuer, a statement figure the bundle holds (a provider's on the provider path;
+on the keyless route, the SEC-built row's own) is checked against the filed SEC
+figure for the same period: revenue, cost of revenue, gross profit and
+operating expenses; cash, cash-flow totals, operating cash flow and short-term
+investment flows; lease liabilities; debt lines against the same filing; and temporary-equity
 operands, including the recheck of operating cash flow against a filed
 cash-investment period. The check allowed one part in ten billion, so Meta's December 2025
 quarter (vendor revenue $59,894M, filed $59,893M) was refused as a conflict,
@@ -4147,8 +4148,10 @@ tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.
 
-A quarterly flow that no three-month copy states (operating cash flow, the
-cash-flow and short-term investment lines above, a finance-lease principal) is
+In the SEC enrichment of the bundle's cash-flow and lease rows
+(`src/edgar/financialEnrichment.ts`), a quarterly flow that no three-month copy
+states (operating cash flow, buybacks, the investing and financing totals, the
+cash movement, the short-term investment flows, a finance-lease principal) is
 derived on the SEC side as the fiscal year or year to date less the prior year
 to date, and the pair is chosen by the statement builder's one-presentation
 helper ("Derived quarters on one presentation (audit 2026-10-27 FIN-511)"
@@ -4159,10 +4162,12 @@ cash flow (and nulled free cash flow) against a figure no filing reported, and
 the same mixed figure was written into a missing vendor finance-lease
 principal. A pair the helper withholds (two presentations, or a copy that a
 material re-filing labelling no re-presentation superseded) is no SEC value:
-nothing is compared, so no conflict is raised, and nothing is filled. A
-re-filing within 1%, or one labelled with a discontinued-operations line, is
-compared or filled on the first-reported pair. A copy that only re-rounds is no
-re-filing, so the as-filed pair stands.
+nothing is compared, so no conflict is raised, and nothing is filled. A year
+re-filed within 1%, or labelled with a discontinued-operations line, while its
+year to date was not re-filed with it, is compared or filled on the
+first-reported pair; an amendment, a year whose year to date moved with it, and
+a copy that only re-rounds keep the as-filed pair (the bullets of "Derived
+quarters on one presentation" give every case).
 
 A vendor figure against a derived SEC value agrees within the larger of the
 tolerance above and the operands' rounding allowance, the latter capped at 1%
@@ -4182,15 +4187,23 @@ flow, re-rounded from 6,804.3 to 6,804.0 million in the next 10-K, less nine
 months of 5,076.9 million gives a fourth quarter of 1,727.1 million, the
 quarter the statement builder publishes; a vendor 1,727.4 million is within its
 0.55 million (0.5 + 0.05; the cap is 17.27 million) and is kept, and 1,728.0
-million is a conflict. A directly filed figure keeps the tolerance above alone. (Controller ruling of
-2026-10-29, revising A-11 for derived values; D-next.) The conflict reasons
-of these checks (operating cash flow; buybacks, the investing and financing
-totals and the cash movement; the short-term investment buckets) and the
-enrichment note of a filled field call a derived value derived, in millions,
-with its period and its two filings ("derived 100M USD for 2024-10-01 through
-2024-12-31 (fiscal year or year to date less the prior year to date, from the
-10-K of 2025-02-12 (accession) and the 10-Q of 2024-11-01 (accession))"), never
-"filed" or an "exact quarter period". A directly filed figure keeps its
+million is a conflict. A directly filed figure keeps the tolerance above
+alone. (Controller ruling of 2026-10-29, revising A-11 for derived values;
+D-next.) The rule applies to the enrichment's cash-flow and lease comparisons
+above only. The income-classification check (revenue, cost of revenue, gross profit and
+operating expenses, `src/edgar/incomeClassification.ts`) still compares a
+vendor figure with the statement builder's quarter, a derived fourth quarter
+included, under A-11 alone, and its reason says "filed": after a re-rounding
+like AEP's, a vendor fourth-quarter revenue on the first-reported pair can
+still be refused by a few tenths of a million (a recorded residual of audit
+2026-10-27 FIN-511-V2). The conflict reasons of the enrichment's checks
+(operating cash flow; buybacks, the investing and financing totals and the
+cash movement; the short-term investment buckets) and the enrichment note of a
+filled field call a derived value derived, with its period and its two filings
+("derived 100M USD for 2024-10-01 through 2024-12-31 (fiscal year or year to
+date less the prior year to date, from the 10-K of 2025-02-12 (accession) and
+the 10-Q of 2024-11-01 (accession))"; the reasons print the amounts in
+millions, the note prints none), never "filed" or an "exact quarter period". A directly filed figure keeps its
 "filed" or "exact" wording.
 
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
@@ -4485,9 +4498,11 @@ quarters) nets two figures, and they must sit on one presentation. Filing-date
 lineage (D-13) is the minimum: each operand is the newest copy filed no later
 than the minuend's own filing. Lineage by date is not lineage by presentation,
 so the pair is also checked by one pure helper
-(`src/edgar/presentationLineage.ts`), in the statement builder and in the
-provider path's vendor-enrichment derivation ("Vendor figure against the filed
-figure (A-11)"):
+(`src/edgar/presentationLineage.ts`), in the statement builder and in the SEC
+enrichment of the bundle's cash-flow and lease rows, provider or keyless
+("Vendor figure against the filed figure (A-11)"). The notes, withholdings and
+quoted refusals the bullets name are the statement builder's; in the
+enrichment a withheld pair is no SEC value to compare or fill:
 
 - A copy that only re-rounds is not a move: when the later copy is a whole
   multiple of 1,000,000 in a money unit and differs from the earlier copy by no
