@@ -1,7 +1,7 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
+import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -435,7 +435,8 @@ type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T
  * then recomposed from that filing: the lease line becomes the operating plus
  * finance lease TOTALS; a vendor short-term debt of 0 or absent becomes the
  * filed current debt (LongTermDebtCurrent, plus ShortTermBorrowings and
- * CommercialPaper where tagged); total debt is current + noncurrent debt +
+ * CommercialPaper where tagged, CommercialPaper left out beside
+ * ShortTermBorrowings); total debt is current + noncurrent debt +
  * leases; net debt is recomputed as the note recovery does. A nonzero vendor
  * short-term debt is kept, never added to. Anything the filing cannot
  * establish, or that does not reconcile with it, withholds total debt instead.
@@ -540,8 +541,12 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     return refuse(`the vendor total debt ${finite(vendorTotal) ? millions(vendorTotal) : "(unavailable)"} is not its short-term debt + long-term debt + lease line, so its composition is unknown`);
   }
   const currentTags = ["LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
-  const currentParts = currentTags.map((tag) => [tag, inFiling(tag)] as const);
-  if (currentParts.some(([, value]) => value === "elsewhere")) return refuse("the current debt is not established in that one filing");
+  const taggedParts = currentTags.map((tag) => [tag, inFiling(tag)] as const);
+  if (taggedParts.some(([, value]) => value === "elsewhere")) return refuse("the current debt is not established in that one filing");
+  // Fix round 4 (D-133): commercial paper beside ShortTermBorrowings is a component of it, the statements builder's rule.
+  const paperInside = commercialPaperInsideBorrowings(taggedParts.filter(([, value]) => value !== null).map(([tag]) => tag));
+  const currentParts = taggedParts.filter(([tag]) => !(paperInside && tag === "CommercialPaper"));
+  const paperNote = paperInside ? `; CommercialPaper ${millions(taggedParts[2]![1] as number)} excluded as a component of ShortTermBorrowings` : "";
   const filedCurrentTags = currentParts.filter(([, value]) => value !== null).map(([tag]) => tag);
   const filedCurrent = currentParts[0]![1] === null ? null : currentParts.reduce((sum, [, value]) => sum + (typeof value === "number" ? value : 0), 0);
   const debtCurrent = inFiling("DebtCurrent");
@@ -552,12 +557,13 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const keepVendorShort = finite(vendorShort) && vendorShort > 0;
   // Fix round 2, I-1: the filed current debt a kept vendor figure is checked against, named by its tags and amounts:
   // LongTermDebtCurrent (with ShortTermBorrowings and CommercialPaper where tagged), else DebtCurrent, else
-  // ShortTermBorrowings plus CommercialPaper; null only when the filing tags none of the four.
+  // ShortTermBorrowings plus CommercialPaper (CommercialPaper left out beside ShortTermBorrowings, fix round 4);
+  // null only when the filing tags none of the four.
   const named = (parts: readonly (readonly [string, number | null | "elsewhere"])[]) => parts.filter(([, value]) => value !== null).map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : value}`).join(" + ");
   const borrowings = currentParts.slice(1).filter((part): part is readonly [string, number] => typeof part[1] === "number");
-  const checkedCurrent: { value: number; tags: string } | null = filedCurrent !== null ? { value: filedCurrent, tags: named(currentParts) }
+  const checkedCurrent: { value: number; tags: string } | null = filedCurrent !== null ? { value: filedCurrent, tags: named(currentParts) + paperNote }
     : typeof debtCurrent === "number" ? { value: debtCurrent, tags: `DebtCurrent ${millions(debtCurrent)}` }
-      : borrowings.length > 0 ? { value: borrowings.reduce((sum, [, value]) => sum + value, 0), tags: named(borrowings) } : null;
+      : borrowings.length > 0 ? { value: borrowings.reduce((sum, [, value]) => sum + value, 0), tags: named(borrowings) + paperNote } : null;
   const noCurrentTag = "the filing tags none of LongTermDebtCurrent, DebtCurrent, ShortTermBorrowings or CommercialPaper";
   if (keepVendorShort) {
     // Kept, never added to: it must be the filing's current debt, and never the current leases the completed line now holds.
@@ -599,7 +605,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     detail: `${lineText}, not total lease liabilities; completed from that filing: lease liabilities ${millions(leases)} ` +
       `(${operating.tags.join(" + ")} ${millions(operating.value)}${financeNoncurrent === null ? "" : ` + ${finance.tags.join(" + ")} ${millions(finance.value)}`}), ` +
       `current debt ${millions(currentDebt)} (${keepVendorShort ? checkedCurrent === null ? `the vendor's short-term debt, kept; ${noCurrentTag} to check it against`
-        : `the vendor's short-term debt, kept; it equals the filed current debt (${checkedCurrent.tags})` : filedCurrentTags.join(" + ")}), ` +
+        : `the vendor's short-term debt, kept; it equals the filed current debt (${checkedCurrent.tags})` : filedCurrentTags.join(" + ") + paperNote}), ` +
       `total debt ${millions(currentDebt)} + noncurrent debt ${millions(longTerm)} + leases ${millions(leases)} = ${millions(totalDebt)} ${currency}; ` +
       `vendor total ${finite(vendorTotal) ? millions(vendorTotal) : "absent"} retained in the raw row` } };
 }

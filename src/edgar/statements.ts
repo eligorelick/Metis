@@ -46,7 +46,7 @@
 
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
-import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
+import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
@@ -2341,7 +2341,7 @@ function resolveDebtOverlaps(
 
   // Case 3 first: it changes `shortTermDebt`, which case 2 does not read.
   let shortTermTags = tagsOf("shortTermDebt");
-  if (shortTermTags.includes("ShortTermBorrowings") && shortTermTags.includes("CommercialPaper")) {
+  if (commercialPaperInsideBorrowings(shortTermTags)) {
     const commercialPaper = cc.money("CommercialPaper");
     if (commercialPaper !== null && v.shortTermDebt != null) {
       v.shortTermDebt = tidy(v.shortTermDebt - commercialPaper, MONEY_DECIMALS);

@@ -242,6 +242,45 @@ describe("a refused completion says only what it checked (review m2)", () => {
   });
 });
 
+describe("commercial paper beside short-term borrowings is counted once (fix round 4, Codex)", () => {
+  // The AMZN shape with its current debt replaced by round numbers (millions): current maturities 30, borrowings 120, commercial paper 50.
+  const shape = (tags: Record<string, number>) => companyFacts({ [Q2]: { ...without(FILED_FACTS, "LongTermDebtCurrent", "ShortTermBorrowings")[Q2]!, ...tags } });
+  const EXCLUDED = "CommercialPaper 50M excluded as a component of ShortTermBorrowings";
+
+  it("completes with a current debt of 150, not 200", () => {
+    const { row: out, admissions } = admitDebtFields(vendorRow(Q2), shape({ LongTermDebtCurrent: 30, ShortTermBorrowings: 120, CommercialPaper: 50 }), "USD", OBSERVED);
+    expect(out.shortTermDebt).toBe(150 * M);
+    expect(out.totalDebt).toBe((150 + 128_894 + 109_771) * M);
+    expect(out.fieldProvenance?.shortTermDebt?.tags).toEqual(["us-gaap/LongTermDebtCurrent", "us-gaap/ShortTermBorrowings"]);
+    expect(admissions[0]!.detail).toContain(`current debt 150M (LongTermDebtCurrent + ShortTermBorrowings; ${EXCLUDED})`);
+  });
+
+  it("the same row with DebtCurrent 150 completes and is not refused", () => {
+    const { row: out } = admitDebtFields(vendorRow(Q2), shape({ LongTermDebtCurrent: 30, ShortTermBorrowings: 120, CommercialPaper: 50, DebtCurrent: 150 }), "USD", OBSERVED);
+    expect(out.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(out.totalDebt).toBe((150 + 128_894 + 109_771) * M);
+  });
+
+  it("the fallback with no current maturities or DebtCurrent: a vendor 120 is kept, a vendor 170 is refused", () => {
+    const facts = shape({ ShortTermBorrowings: 120, CommercialPaper: 50 });
+    const kept = admitDebtFields(vendorRow(Q2, { shortTermDebt: 120 }), facts, "USD", OBSERVED);
+    expect(kept.row.totalDebt).toBe((120 + 128_894 + 109_771) * M);
+    expect(kept.admissions[0]!.detail).toContain(`it equals the filed current debt (ShortTermBorrowings 120M; ${EXCLUDED})`);
+    const refused = admitDebtFields(vendorRow(Q2, { shortTermDebt: 170 }), facts, "USD", OBSERVED).row;
+    expect(refused.totalDebt).toBeNull();
+    expect(refused.fieldConflicts?.totalDebt?.reason).toMatch(/the vendor short-term debt 170M does not reconcile with the filed current debt 120M \(ShortTermBorrowings 120M; CommercialPaper 50M excluded as a component of ShortTermBorrowings\)/);
+  });
+
+  it("control: commercial paper without short-term borrowings still counts", () => {
+    const { row: out, admissions } = admitDebtFields(vendorRow(Q2), shape({ LongTermDebtCurrent: 30, CommercialPaper: 50 }), "USD", OBSERVED);
+    expect(out.shortTermDebt).toBe(80 * M);
+    expect(admissions[0]!.detail).toContain("current debt 80M (LongTermDebtCurrent + CommercialPaper)");
+    expect(admissions[0]!.detail).not.toMatch(/excluded as a component/);
+    const kept = admitDebtFields(vendorRow(Q2, { shortTermDebt: 50 }), shape({ CommercialPaper: 50 }), "USD", OBSERVED);
+    expect(kept.row.totalDebt).toBe((50 + 128_894 + 109_771) * M);
+  });
+});
+
 describe("a kept vendor short-term debt is checked against filed borrowings when no current maturities are tagged (fix round 2, I-1)", () => {
   // The AMZN shape without LongTermDebtCurrent or DebtCurrent: the filing still tags ShortTermBorrowings 325.
   const borrowingsOnly = (extra: Record<string, number> = {}) => companyFacts({ [Q2]: { ...without(FILED_FACTS, "LongTermDebtCurrent", "DebtCurrent")[Q2]!, ...extra } });
@@ -259,11 +298,13 @@ describe("a kept vendor short-term debt is checked against filed borrowings when
     expect(admitDebtFields(vendorRow(Q2, { shortTermDebt: 1_000 }), borrowingsOnly(), "USD", OBSERVED).row.totalDebt).toBeNull();
   });
 
-  it("control: a vendor figure equal to ShortTermBorrowings plus CommercialPaper is kept, and the text names them", () => {
-    const { row: out, admissions } = admitDebtFields(vendorRow(Q2, { shortTermDebt: 325 + 75 }), borrowingsOnly({ CommercialPaper: 75 }), "USD", OBSERVED);
-    expect(out.totalDebt).toBe((400 + 128_894 + 109_771) * M);
-    expect(admissions[0]!.detail).toContain("current debt 400M (the vendor's short-term debt, kept; it equals the filed current debt (ShortTermBorrowings 325M + CommercialPaper 75M))");
+  it("control: a vendor figure equal to the filed borrowings is kept, and the text names them", () => {
+    // Fix round 4: beside ShortTermBorrowings, CommercialPaper is a component of it and is not added again.
+    const { row: out, admissions } = admitDebtFields(vendorRow(Q2, { shortTermDebt: 325 }), borrowingsOnly({ CommercialPaper: 75 }), "USD", OBSERVED);
+    expect(out.totalDebt).toBe((325 + 128_894 + 109_771) * M);
+    expect(admissions[0]!.detail).toContain("current debt 325M (the vendor's short-term debt, kept; it equals the filed current debt (ShortTermBorrowings 325M; CommercialPaper 75M excluded as a component of ShortTermBorrowings))");
     expect(admissions[0]!.detail).not.toMatch(/tags no current debt/);
+    expect(admitDebtFields(vendorRow(Q2, { shortTermDebt: 325 + 75 }), borrowingsOnly({ CommercialPaper: 75 }), "USD", OBSERVED).row.totalDebt).toBeNull();
   });
 
   it("control: with current maturities tagged, the kept figure names the tags and amounts it equals", () => {

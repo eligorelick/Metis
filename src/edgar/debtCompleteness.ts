@@ -69,6 +69,17 @@ export function uncomposedDebtReason(row: {
       `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
 }
 
+/**
+ * Commercial paper is conventionally a component of ShortTermBorrowings, so a
+ * current-debt sum that has both tags counts the borrowings and leaves the
+ * commercial paper out. One rule for the SEC statements builder
+ * (`resolveDebtOverlaps`, case 3) and the provider-row completion (D-133,
+ * review round 4).
+ */
+export function commercialPaperInsideBorrowings(tags: readonly string[]): boolean {
+  return tags.includes("ShortTermBorrowings") && tags.includes("CommercialPaper");
+}
+
 /** The current-debt tags a vendor short-term debt of 0 is checked against. */
 export const CURRENT_DEBT_TAGS: readonly string[] = ["DebtCurrent", "LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
 

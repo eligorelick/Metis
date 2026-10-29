@@ -40,7 +40,7 @@ The scoped re-review confirmed round 1 and found two Important items and two Min
 
 | Item | Change | Commit | Tests |
 |---|---|---|---|
-| I-1 | A kept provider short-term debt is checked against `ShortTermBorrowings` plus `CommercialPaper` (a 0 included) when the filing tags neither `LongTermDebtCurrent` nor `DebtCurrent`, and refused on disagreement. The reviewer's probe (Amazon's shape without those two tags, a provider 15,758M holding 325M of borrowings and 15,433M of current leases) had published 254,423M. Every refusal and keep text names the tags and amounts it checked. | `e65b6a3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
+| I-1 | A kept provider short-term debt is checked against `ShortTermBorrowings` plus `CommercialPaper` (a 0 included; since round 4, commercial paper beside borrowings is left out) when the filing tags neither `LongTermDebtCurrent` nor `DebtCurrent`, and refused on disagreement. The reviewer's probe (Amazon's shape without those two tags, a provider 15,758M holding 325M of borrowings and 15,433M of current leases) had published 254,423M. Every refusal and keep text names the tags and amounts it checked. | `e65b6a3` | `tests/edgar.noncurrentLeaseLine.amzn51.test.ts` |
 | I-2a | The m4 fold-in admits `DebtCurrent` only when absent or equal to `LongTermDebtCurrent`; a 0 beside positive current maturities withholds. | `f8e8cb4` | `tests/stageB.incompleteDebtTotal.amzn51.test.ts` |
 | I-2b | METHODOLOGY and D-133 say the m1 guard's noncurrent debt may hold the finance leases, and that the guard also refuses Alphabet's 2023-12-31, 2024-12-31 and 2025-03-31 filings, whose finance leases sit outside noncurrent debt. The code is unchanged. | `1c119c3` | |
 | M3 | The net-debt reason names the row's cash-only net debt only when the row carries one. | `a4c2b8a` | `tests/stageB.truthfulRefusals.amzn51.test.ts` |
@@ -51,6 +51,10 @@ No figure, grade, band or critical count moves against round 1, and report #51's
 ### Review fix round 3
 
 Every amount in a completion, refusal, keep or stakes text this branch added or changed reads in millions ("242,320M", a tagged zero "0M"); the texts had printed raw amounts such as 242320000000. The zero-current-debt reason and the operating-lease scope note follow the same rule. Wording only: report #51 (its 2017-12-31 refusal and the two merged entries' latest explanations) and NVIDIA #48 to #50 (the 2022-05-01 refusal and the completion entry); no figure, grade, band or critical count moves, and no census snapshot changes.
+
+### Review fix round 4
+
+Codex found that the completion's current-debt sum, and round 2's fallback, added `CommercialPaper` on top of `ShortTermBorrowings`, while the SEC statements builder (`resolveDebtOverlaps`, case 3) leaves commercial paper out as a component of the borrowings when both are tagged. Both now call one helper, `commercialPaperInsideBorrowings`: current maturities 30 + borrowings 120 + commercial paper 50 completes at 150, not 200; with `DebtCurrent` 150 it completes rather than being refused; in the fallback a provider 120 is kept and 170 refused; commercial paper alone still counts. The text says "CommercialPaper ... excluded as a component of ShortTermBorrowings". Round 2's control that kept a provider figure equal to borrowings plus commercial paper now keeps the borrowings alone. No replayed row moves: Amazon tags no commercial paper and NVIDIA tags commercial paper 0 without borrowings.
 
 ## The rule that was not applied
 

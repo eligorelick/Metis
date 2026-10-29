@@ -4553,11 +4553,15 @@ part of it is filed there for the same date:
   current plus noncurrent, cross-checked against each other);
 - a zero or absent vendor short-term debt becomes the filing's
   `LongTermDebtCurrent` plus `ShortTermBorrowings` and `CommercialPaper` where
-  tagged, cross-checked against `DebtCurrent`. A nonzero vendor short-term debt
+  tagged, cross-checked against `DebtCurrent`. When the filing tags both
+  `ShortTermBorrowings` and `CommercialPaper`, the commercial paper is left out
+  as a component of the borrowings, the SEC statements builder's rule (one
+  shared helper), and the text says so. A nonzero vendor short-term debt
   is kept, never added to. When the filing tags a current debt
   (`LongTermDebtCurrent`, with `ShortTermBorrowings` and `CommercialPaper`
   where tagged; else `DebtCurrent`; else `ShortTermBorrowings` plus
-  `CommercialPaper`, a 0 included), the vendor figure must agree with it, and
+  `CommercialPaper`, a 0 included; in either sum the commercial paper is left
+  out beside the borrowings), the vendor figure must agree with it, and
   the refusal or the kept figure names those tags and amounts. When the filing
   tags none of the four, the vendor figure must not equal a current lease
   amount the completed line already holds;
