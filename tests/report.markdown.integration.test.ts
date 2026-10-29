@@ -708,8 +708,10 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     const before = JSON.stringify(parsed);
     const markdown = reportToMarkdown(parsed);
 
+    // Re-pinned (B4a Task 15, D-67): this spec-1.2.0 fixture is a legacy DCF, so the display-time method note now
+    // follows the escaped basis on the same line; the escaped basis itself is unchanged.
     expect(markdown).toContain(
-      String.raw`_P30FAIRAVAILABLE \<style data-p30=fair-available\>bad\</style\>_`,
+      String.raw`_P30FAIRAVAILABLE \<style data-p30=fair-available\>bad\</style\> Valued under the equity-bridge method before report spec `,
     );
     expect(markdown).toContain(
       String.raw`_Scenario price targets suppressed — P30SCENARIOSUPPRESSED \<script data-p30=scenario-suppressed\>bad\</script\>_`,

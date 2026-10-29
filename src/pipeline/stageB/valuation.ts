@@ -190,9 +190,17 @@ const fmtGrouped = (v: number): string => (Math.round(v * 100) / 100).toLocaleSt
  * tagged, and the finance-lease liability reconciles to the total within `leaseDebtConflict`'s tolerance, so there is
  * nothing to remove and nothing unknown in the mix. Text only: the figures are those of a total with no operating slice.
  */
-function financeLeaseOnlyTotal(total: number | null, operating: number | null | undefined, finance: number | null | undefined, conflict: string | null): number | null {
+export function financeLeaseOnlyTotal(total: number | null, operating: number | null | undefined, finance: number | null | undefined, conflict: string | null): number | null {
   if (total === null || total <= 0 || conflict !== null || isNum(operating) || !isNum(finance) || finance <= 0) return null;
   return Math.abs(finance - total) <= Math.max(1, Math.abs(total) * 1e-6) ? total : null;
+}
+
+/**
+ * FIN-109: the EV basis clause for a finance-lease-only total. One wording for the live basis and for the display-time
+ * correction of a stored report (`withLegacyBridgeMethod`, D-67).
+ */
+export function financeLeaseOnlyEvClause(total: number): string {
+  return `a total lease liability of ${millions(total)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is`;
 }
 
 const gapEntry = (
@@ -4515,7 +4523,7 @@ export function multiplesFramework(
         : totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
         : financeOnlyTotal !== null
-        ? `; a total lease liability of ${millions(financeOnlyTotal)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is`
+        ? `; ${financeLeaseOnlyEvClause(financeOnlyTotal)}`
         : `; a total lease liability of ${fmtGrouped(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
       : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtGrouped(leaseLiability)}` +
         (financeLeaseLiability === null || financeLeaseLiability === 0

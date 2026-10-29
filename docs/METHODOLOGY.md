@@ -3496,6 +3496,38 @@ A report carrying either class's text never gains the other's. A report at or af
 the since-version, or in neither class (an FMP-route report), is returned as the
 identical object.
 
+A stored DCF, excess-return or REIT value made before the equity-bridge batch
+(audit 2026-10-27 B4a, D-67) is shown through `withLegacyBridgeMethod`
+(`src/report/legacyBridgeMethod.ts`), which follows the EDGAR-derived-lines view
+above. It changes no figure and rewrites no stored byte. Its since-version is a
+frozen constant (`BRIDGE_METHOD_SINCE_SPEC_VERSION`, 1.50.0), never the current
+`REPORT_SPEC_VERSION`, compared numerically through `specVersionBefore`, and each
+clause compares the report's spec with its own part's cutoff. (a) When the fair
+value is available, one line is added to its basis after any line the view above
+added: "Valued under the equity-bridge method before report spec 1.50.0: ...
+Re-run the report for the current method." Its clauses, in order: on the FCFF DCF
+route only, that the bridge did not read temporary-equity (redeemable) claims,
+pension and OPEB deficits, loss-contingency accruals or contingent consideration,
+"so any the issuer filed were not deducted" (a condition, because no stored byte
+shows a claim); that the filed retirement and environmental obligations were
+deducted at their full amount before the tax relief a settlement earns (only when
+a stored bridge component is labelled "(filed, before tax"); that sales-to-capital
+kept the operating lease the EV left out in invested capital (only when the stored
+EV basis names that lease and the stored sales-to-capital basis does not say it
+was removed); and, on both routes, that a loss-quarter divisor carried no award
+dilution (a condition unless a stored basis says the divisor period was a loss).
+The excess-return route has no E-7 bridge and no sales-to-capital, so it carries
+only the divisor clause. (b) A REIT route report gets one line in its route notes
+saying P/FFO, P/AFFO and the implied cap rate used price x weighted diluted shares
+and the block's own enterprise value. (c) A stored EV basis that says a total
+lease liability "is disclosed but its operating slice is not" is shown with the
+finance-lease sentence of the current EV basis when the stored lease amounts show
+the total is wholly a finance lease (no operating-lease amount, and the filed
+finance lease reconciles to the total, the rule of Stage B's
+`financeLeaseOnlyTotal`), and the stored "the FMP route publishes no split" entry
+is hidden. The wrapper is idempotent and returns the identical object when nothing
+applies.
+
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
