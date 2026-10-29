@@ -768,3 +768,60 @@ describe("final review: the comparison-cue reader stays fast on comma-grouped ro
     expect(comparisonCueEnd(text, text.indexOf("2025"))).toBe("Less than".length);
   });
 });
+
+// Final review (2026-10-28, AI-303-V3): a claim's prior fiscal year-end ("at the end of the prior year", "at the end of last
+// fiscal year", "at the previous fiscal year-end") is its own instant, not the excerpt's or record's fiscal year-end. Only the same
+// relative phrase in the cited figure's own clause establishes it; a title, a header, an inherited window or the current fiscal
+// year-end never does, and such a claim is unchecked for its period, never validated or contradicted by the title.
+describe("final review: a claim's prior fiscal year-end is established only by the same phrase in the figure's own clause (AI-303-V3)", () => {
+  const FY_TITLE = "10-K Item 7 — MD&A (reporting period ended 2026-01-25 (FY2026))";
+  const Q_TITLE = "10-Q Part I Item 2 — MD&A (reporting period ended 2026-07-26 (Q2 FY2027))";
+  const fy = (text: string, title = FY_TITLE): TextExcerpt => ({ title, text, source: "edgar:10-K item7", asOf: "2026-01-25", truncated: false, originalChars: text.length });
+  const q = (text: string): TextExcerpt => ({ title: Q_TITLE, text, source: "edgar:10-Q item2", asOf: "2026-07-26", truncated: false, originalChars: text.length });
+  const on = (claim: string, excerpt: TextExcerpt) => validateClaimNumericSupport({ label: "FACT", text: claim, source: excerpt.source, asOf: excerpt.asOf },
+    { excerpts: [excerpt], sourceId: excerpt.source, reportingCurrency: "USD" });
+  const PRIOR = ["at the end of the prior year", "at the end of last fiscal year", "at the previous fiscal year-end"];
+  it.each(PRIOR)("move form under an FY title: the end figure does not establish %s", (phrase) => {
+    const prefix = phrase.startsWith("at the previous") ? "at the prior fiscal year-end" : phrase;
+    const result = on(`Inventory increased to USD 31.6 billion ${phrase}.`, fy(`Inventory increased from $25.8 billion ${prefix} to $31.6 billion.`));
+    expect(result).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+  });
+  it.each(PRIOR)("plain form under an FY title: the current fiscal year-end does not establish %s", (phrase) => {
+    expect(on(`Inventory was USD 31.6 billion ${phrase}.`, fy("Inventory was $31.6 billion at fiscal year-end."))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+    expect(on(`Inventory was USD 31.6 billion ${phrase}.`, fy("Inventory was $31.6 billion."))).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+  });
+  it("a title that names the prior year-end does not establish it", () => {
+    const titled = fy("Inventory was $25.8 billion.", "10-K Item 8 — balance sheet at the end of the prior fiscal year (reporting period ended 2026-01-25 (FY2026))");
+    expect(on("Inventory was USD 25.8 billion at the end of the prior fiscal year.", titled).status).toBe("unchecked");
+  });
+  it("a record whose basis is the fiscal year does not establish a prior year-end", async () => {
+    const { entry } = await cite([FY_DEBT], FY_DEBT.id, "Total debt at the end of the prior fiscal year was USD 10.00 billion.");
+    expect(entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("a source's prior year-end does not establish a claim's current fiscal year-end", () => {
+    expect(on("Inventory was USD 25.8 billion at fiscal year-end.", fy("Inventory was $25.8 billion at the end of the prior year, reflecting lower demand.")).status)
+      .toBe("unchecked");
+  });
+  it("control: the same relative phrase in the figure's own clause establishes it", () => {
+    const claim = "Inventory was USD 25.8 billion at the end of the prior year.";
+    const source = "Inventory was $25.8 billion at the end of the prior year, reflecting lower demand.";
+    expect(on(claim, fy(source)).status).toBe("validated");
+    expect(on(claim, q(source)).status).toBe("validated");
+    expect(on("Inventory was USD 25.8 billion at the prior fiscal year-end.", fy("Inventory was $25.8 billion at the prior fiscal year-end, reflecting lower demand.")).status).toBe("validated");
+    expect(on("Inventory was USD 25.8 billion at the end of last fiscal year.", fy("Inventory was $25.8 billion at the prior fiscal year-end, reflecting lower demand.")).status)
+      .toBe("validated");
+  });
+  it("control: the fiscal year-end is read as before", async () => {
+    expect(on("Inventory was USD 31.6 billion at fiscal year-end.", fy("Inventory was $31.6 billion.")).status).toBe("validated");
+    expect((await cite([FY_DEBT], FY_DEBT.id, "Total debt at fiscal year-end was USD 10.00 billion.")).entry.validationStatus).toBe("validated");
+    expect(windowsNamed("at year-end")).toEqual(["FYE"]);
+    expect(windowsNamed("at the end of the latest fiscal year")).toEqual(["FYE"]);
+    expect(windowsNamed("at the end of the fiscal year")).toEqual(["FYE"]);
+  });
+  it("reads each prior year-end spelling as one instant that is not the fiscal year-end", () => {
+    for (const phrase of [...PRIOR, "at the prior fiscal year-end", "at the end of the previous fiscal year", "at last year-end", "at the prior-year end"]) {
+      expect(windowsNamed(phrase), phrase).toHaveLength(1);
+      expect(windowsNamed(phrase), phrase).not.toEqual(["FYE"]);
+    }
+  });
+});

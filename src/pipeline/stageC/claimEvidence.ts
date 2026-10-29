@@ -210,6 +210,13 @@ const NOT_A_WINDOW_AFTER = /^[\s‐‑–—-]*(?:ago|earlier|later|before|end|e
 const NAMED_PERIOD_AFTER = /^[\s‐‑–—-]*(?:(?:19|20)\d{2}|FY\s*\d{4}|Q[1-4])\b/i;
 // "year ended" does not match (`end` needs a word end); "quarter end" stays a descriptor.
 const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b|\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:(?:latest|most\s+recent|last|current|prior|previous)\s+)?(?:fiscal\s+)?year\b/gi;
+/**
+ * Final review (2026-10-28, AI-303-V3): a prior fiscal year-end ("the end of the prior year", "the end of last fiscal year", "the
+ * previous fiscal year-end") is an instant of its own, read before FISCAL_YEAR_END. No title, header, inherited window or current
+ * fiscal year-end establishes it; only the same relative phrase in a figure's own clause (or a record's own label) does.
+ */
+const PRIOR_YEAR_END = /\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:last|prior|previous)\s+(?:fiscal\s+)?year\b|\b(?:last|prior|previous)[\s‐‑–—-]+(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b/gi;
+const PRIOR_FISCAL_YEAR_END = "PRIORFYE";
 function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
@@ -229,7 +236,10 @@ function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolea
   // AI-303-V3: the fiscal year-end is an instant, read before the window words so
   // "the end of the fiscal year" is not an annual window. A claim's reading only.
   // A source clause that states the year-end itself names it too ({ yearEnd: true }).
-  if (options.loose || options.yearEnd) take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
+  if (options.loose || options.yearEnd) {
+    take(PRIOR_YEAR_END, () => ({ kind: "window", key: PRIOR_FISCAL_YEAR_END, label: "prior fiscal year-end" }));
+    take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
+  }
   take(/\b(?:year[\s‐‑–—-]+to[\s‐‑–—-]+date|ytd)\b/gi, () => ({ kind: "window", key: "YTD", label: "YTD" }));
   take(/\b(?:quarter[\s‐‑–—-]+to[\s‐‑–—-]+date|qtd)\b/gi, () => ({ kind: "window", key: "QTD", label: "QTD" }));
   take(/\b(?:month[\s‐‑–—-]+to[\s‐‑–—-]+date|mtd)\b/gi, () => ({ kind: "window", key: "MTD", label: "MTD" }));
@@ -476,6 +486,8 @@ function ownDescriptionTokens(text: string, ignore: readonly string[]): string[]
   const blanked = text
     .replace(/\b(?:first|second|third|fourth)[\s\u2010-\u2014-]+(?:fiscal[\s\u2010-\u2014-]+)?(?:quarter|half)\b/gi, " ")
     .replace(/\b(?:prior|previous|preceding|same)\s+(?:quarter|year|period)\b/gi, " ")
+    // A prior fiscal year-end is compared as a period, as the claim's is (final review, AI-303-V3).
+    .replace(PRIOR_YEAR_END, " ")
     // A spelled-out basis is a comparison base too ("a year-over-year increase of $66.1 billion in purchases"), and D-63 never required it.
     .replace(/\b(?:year|quarter)[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+(?:year|quarter)\b|\b(?:yoy|qoq)\b/gi, " ");
   // A window is compared as a period (AI-303 / C-6), not as a metric word, exactly as the claim's own window tokens are.
@@ -740,7 +752,9 @@ function excerptWindows(excerpt: TextExcerpt): Set<string> {
     .replace(/\bfiled \d{4}-\d{2}-\d{2}\b/gi, " ")
     .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ")
     .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
-  const windows = new Set(periodLabels(title, { loose: true }).filter((period) => period.kind === "window").map((period) => period.key));
+  // A title never establishes a prior fiscal year-end (final review, AI-303-V3).
+  const windows = new Set(periodLabels(title, { loose: true }).filter((period) => period.kind === "window" && period.key !== PRIOR_FISCAL_YEAR_END)
+    .map((period) => period.key));
   for (const period of excerptPeriods(excerpt)) {
     if (period.kind !== "period") continue;
     if (/^Q[1-4]/.test(period.key)) windows.add("quarter");
@@ -1033,7 +1047,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const perShare = (words: string[]): string[] => record.unit === "currency-per-share" ? words.filter((word) => word !== "share" && word !== "shares") : words;
     // A window the record's basis establishes may be left unstated on either side.
     const unestablished = (words: string[]): string[] => words.filter((word) => ![...established].some((key) => word === `window${key.toLowerCase()}`));
-    const claimTokens = perShare(unestablished(metricTokens(own.label, ignore, { loose: true })).filter((word) => !(word === "yoy" && established.has("annual"))));
+    // Final review (AI-303-V3): a claim's prior fiscal year-end is checked as a period below, so it is not a metric word here.
+    const claimTokens = perShare(unestablished(metricTokens(own.label, ignore, { loose: true })).filter((word) => !(word === "yoy" && established.has("annual")) &&
+      word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
     const labels = labelReadings(record);
     if (!labels.some((label) => namesMetric(claimTokens, perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)))))) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
@@ -1198,6 +1214,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
             : candidate.inherited.some((source) => source.key === period.key))));
       let matchingPeriods = periodFilter(pool);
       if (matchingPeriods.length === 0) {
+        // Final review (AI-303-V3): a prior fiscal year-end that no bound figure's own clause states is a period gap.
+        if (pool.length > 0 && own.periods.some((period) => period.key === PRIOR_FISCAL_YEAR_END)) {
+          return support("unchecked", "period-mismatch", "the prose names a prior fiscal year-end that the source figure's own clause does not state",
+            pool.slice(0, 3).map((candidate) => candidate.span));
+        }
         // One stated other period is a period mismatch (unverified, F-22); a
         // flattened table's header of several periods binds no column.
         if (own.periods.length > 0 && pool.length === 1 && pool[0].context.periods.length === 1) {
