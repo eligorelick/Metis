@@ -11,6 +11,8 @@ import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { millions } from "@/pipeline/stageB/netDebt";
+import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
+import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT } from "@/edgar/statements";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -56,8 +58,24 @@ function unambiguousNewest(candidates: FactPoint[]): FactPoint | null {
     .every(p => p.start === last.start && p.end === last.end && p.val === last.val) ? last : null;
 }
 
-/** Direct and YTD-derived flows use the exact emitted start/end interval. */
-function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean): Resolved | null {
+/**
+ * Every core copy of every discontinued-operations element, with its tag and unit: the one re-presentation label
+ * companyfacts carries (decision C-9; the statement builder reads the same tags). Read once per enrichment call.
+ */
+function labelCopies(facts: CompanyFacts, observedAt: string): LabelCopy[] {
+  return DISCONTINUED_LABEL_TAGS.flatMap((tag) => {
+    const units = (facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined)?.units ?? {};
+    return Object.keys(units).flatMap((unit) => points(facts, tag, unit, observedAt).map((p) => ({ ...p, tag, unit })));
+  });
+}
+
+/**
+ * Direct and YTD-derived flows use the exact emitted start/end interval. A derived quarter nets two copies on one
+ * presentation, chosen by `oneBasisPair` as in the statement builder (audit 2026-10-27 FIN-511-V2, decision C-9): a
+ * pair that would net two presentations, or a copy that a material re-filing labelling no re-presentation
+ * superseded, gives no SEC value, so nothing is compared or written.
+ */
+function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean, labels: readonly LabelCopy[]): Resolved | null {
   const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
   const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
   const directCandidates = ps.filter(p => p.end === end && span(p)! >= min! && span(p)! <= max!);
@@ -66,23 +84,35 @@ function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, 
     ? resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end) : null;
   if (scope === "annual") return null;
   const ytd = unambiguousNewest(ps.filter(p => p.end === end && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
-  if (!ytd || (!signed && ytd.val < 0)) return null;
+  if (!ytd) return null;
   // A prior cumulative end is the day BEFORE the derived start. Validate the
   // resulting interval, not the one-day-longer difference between period ends.
-  const prior = unambiguousNewest(ps.filter(p => p.start === ytd.start && p.end < end && p.filed <= ytd.filed &&
-    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
-    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
-  if (!prior || (!signed && (prior.val < 0 || ytd.val < prior.val))) return null;
+  const subtrahendsFor = (m: FactPoint): FactPoint[] | null => {
+    const prior = unambiguousNewest(ps.filter(p => p.start === m.start && p.end < end && p.filed <= m.filed &&
+      (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
+      (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
+    return prior ? [prior] : null;
+  };
+  const choice = oneBasisPair(ps, ytd, subtrahendsFor, RESTATEMENT_THRESHOLD_PCT, (m) => representationLabelled(labels, m, RESTATEMENT_THRESHOLD_PCT));
+  if (choice.kind !== "pair") return null;
+  const minuend = choice.minuend;
+  const prior = choice.subtrahends[0]!;
+  if (!signed && (minuend.val < 0 || prior.val < 0 || minuend.val < prior.val)) return null;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  const out = resolved(ytd.val - prior.val, [tag], [ytd, prior], unit, observedAt, start, end);
+  const out = resolved(minuend.val - prior.val, [tag], [minuend, prior], unit, observedAt, start, end);
   out.evidence.derivation = "ytd-difference";
   return out;
 }
-function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
-  return filedFlow(facts, "FinanceLeasePrincipalPayments", unit, end, scope, observedAt, false);
+/** How a derived SEC value was built, for reason texts: "(fiscal year or year to date less the prior year to date, from the <filing> and the <filing>)". */
+function derivedFrom(evidence: StatementFieldProvenance): string {
+  const filing = (f: StatementFieldProvenance["filings"][number]) => `${f.form.trim()} of ${f.filed} (${f.accn})`;
+  return `(fiscal year or year to date less the prior year to date, from ${evidence.filings.map((f) => `the ${filing(f)}`).join(" and ")})`;
 }
-function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
-  return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
+function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): Resolved | null {
+  return filedFlow(facts, "FinanceLeasePrincipalPayments", unit, end, scope, observedAt, false, labels);
+}
+function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): Resolved | null {
+  return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true, labels);
 }
 
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
@@ -90,7 +120,7 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
  * compatible instants. The interval comes from the filing, not an invented
  * vendor periodStart. Prior-quarter cash need not have the ending filing's ID.
  */
-function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Partial<Record<"cashAtBeginningOfPeriod" | "cashAtEndOfPeriod" | "netChangeInCash", Resolved>> {
+function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): Partial<Record<"cashAtBeginningOfPeriod" | "cashAtEndOfPeriod" | "netChangeInCash", Resolved>> {
   if (!validDay(row.date)) return {};
   const cashTag = "CashAndCashEquivalentsAtCarryingValue";
   const totalTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
@@ -106,7 +136,7 @@ function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRo
     return { value: total.value, evidence: { ...total.evidence, tags: [...unrestricted.evidence.tags, ...total.evidence.tags] } };
   };
   const ending = common(row.date);
-  const movement = filedFlow(facts, movementTag, unit, row.date, scope, observedAt, true);
+  const movement = filedFlow(facts, movementTag, unit, row.date, scope, observedAt, true, labels);
   const start = movement?.evidence.periodStart;
   const flowFiling = movement?.evidence.filings[0];
   if (!ending || !start || !flowFiling || (typeof row.periodStart === "string" && row.periodStart !== start) ||
@@ -140,8 +170,8 @@ function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatement
 }
 
 /** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
-function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow"): { row: T; gaps: ManifestEntry[] } {
-  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt) : {};
+function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow", labels: readonly LabelCopy[]): { row: T; gaps: ManifestEntry[] } {
+  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt, labels) : {};
   const specifications: [string, string, boolean, number][] = kind === "balance"
     ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
     : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
@@ -170,7 +200,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
-        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, labels);
     // A prior-quarter filing is a calculation dependency, not authority for
     // comparing the current vendor row. All three cash fields share the
     // ending/current-flow filing anchor; retain every dependency in secEvidence.
@@ -201,15 +231,19 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
-function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): { row: T; gaps: ManifestEntry[] } {
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
-  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt);
+  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt, labels);
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
   const conflict = fields.some(field => finite(row[field]) && !vendorAgreesWithFiled(row[field], sec.value));
   if (!conflict) return { row, gaps: [] };
-  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
+  // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
+  const secText = sec.evidence.derivation === "ytd-difference"
+    ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.evidence)}`
+    : `filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
+  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
   for (const field of [...fields, "freeCashFlow"]) {
     if (fieldConflicts[field]?.usable === false) continue;
@@ -228,9 +262,9 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
  * comparison here. Mixed long-term investments/intangibles/other assets are
  * not silently classified as financial assets or subtracted from CFI.
  */
-function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string, labels: readonly LabelCopy[]): { row: T; gaps: ManifestEntry[] } {
   const tags = ["PaymentsToAcquireShortTermInvestments", "ProceedsFromSaleOfShortTermInvestments", "ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments"];
-  const parts = tags.map(tag => filedFlow(facts, tag, currency, row.date!, scope, observedAt, false));
+  const parts = tags.map(tag => filedFlow(facts, tag, currency, row.date!, scope, observedAt, false, labels));
   if (parts.some(part => part === null)) return { row, gaps: [] };
   const [purchase, sale, maturity] = parts as Resolved[];
   const evidence = purchase!.evidence;
@@ -794,6 +828,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
   // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
   const admissions: BalanceAdmission[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
+  const labels = labelCopies(facts, observedAt);
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
     if (!input.ok) return input;
     const rows = input.value.data.rows.map((row) => {
@@ -810,7 +845,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       const candidates: [string, Resolved | null][] = kind === "balance" ? [
         ["operatingLeaseLiability", liability(facts, "Operating", currency, row.date, observedAt)],
         ["financeLeaseLiability", liability(facts, "Finance", currency, row.date, observedAt)],
-      ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt)]];
+      ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt, labels)]];
       let out = row;
       for (const [field, sec] of candidates) {
         if (out.fieldConflicts?.[field]?.usable === false) continue;
@@ -833,13 +868,16 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
           continue;
         }
         out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
-        gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
+        const period = sec.evidence.derivation === "ytd-difference"
+          ? `derived for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec.evidence)}`
+          : `exact ${scope} period ending ${row.date}`;
+        gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, ${period}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
       }
       if (kind === "cashflow") {
-        const admitted = admitOperatingCashFlow(out, facts, currency, scope, observedAt);
+        const admitted = admitOperatingCashFlow(out, facts, currency, scope, observedAt, labels);
         out = admitted.row;
         gaps.push(...admitted.gaps);
-        const investments = admitInvestmentFlows(out, facts, currency, scope, observedAt);
+        const investments = admitInvestmentFlows(out, facts, currency, scope, observedAt, labels);
         out = investments.row;
         gaps.push(...investments.gaps);
         const investmentScope = admitCashInvestment(out, cashInvestment, facts.cik, scope, observedAt);
@@ -866,7 +904,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = nci.row;
         gaps.push(...nci.gaps);
       }
-      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind);
+      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind, labels);
       out = cashAdmission.row;
       gaps.push(...cashAdmission.gaps);
       return out;

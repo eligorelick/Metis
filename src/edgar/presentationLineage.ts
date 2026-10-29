@@ -5,9 +5,10 @@
  * difference of two year-to-date figures, or the fiscal year less three
  * quarters) must net two figures that sit on one presentation. Filing-date
  * lineage (D-13) is the minimum; this module decides when it is not enough.
- * The statement builder calls it; the vendor-enrichment derivation will call
- * the same helpers (audit 2026-10-27 B13 Task 8), so a derived value means the
- * same thing in both. Pure: no I/O, no clock.
+ * The statement builder and the vendor-enrichment derivation
+ * (`financialEnrichment.ts`, audit 2026-10-27 FIN-511-V2) call the same
+ * helpers, so a derived value means the same thing in both. Pure: no I/O, no
+ * clock.
  *
  * See docs/METHODOLOGY.md "Derived quarters on one presentation" for the
  * rules and their sources (ASC 250-10-45-23, ASC 205-20-45-3, SEC FRM 13110.4).

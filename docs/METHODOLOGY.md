@@ -4125,6 +4125,29 @@ tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.
 
+A quarterly flow that no three-month copy states (operating cash flow, the
+cash-flow and short-term investment lines above, a finance-lease principal) is
+derived on the SEC side as the fiscal year or year to date less the prior year
+to date, and the pair is chosen by the statement builder's one-presentation
+helper ("Derived quarters on one presentation (audit 2026-10-27 FIN-511)"
+below; audit 2026-10-27 FIN-511-V2). Before, the newest year was netted against
+the nine months filed before it: a year a later 10-K re-presented, netted
+against nine months on the old basis, refused a vendor's one-basis operating
+cash flow (and nulled free cash flow) against a figure no filing reported, and
+the same mixed figure was written into a missing vendor finance-lease
+principal. A pair the helper withholds (two presentations, or a copy that a
+material re-filing labelling no re-presentation superseded) is no SEC value:
+nothing is compared, so no conflict is raised, and nothing is filled. A
+re-filing within 1%, or one labelled with a discontinued-operations line, is
+compared or filled on the first-reported pair. A copy that only re-rounds is no
+re-filing, so the as-filed pair stands, and a vendor quarter on the
+first-reported pair is judged against it by the tolerance above. The
+operating-cash-flow conflict reason and the enrichment note call a derived
+value derived, with its period and its two filings ("derived 100M USD for
+2024-10-01 through 2024-12-31 (fiscal year or year to date less the prior year
+to date, from the 10-K of 2025-02-12 (accession) and the 10-Q of 2024-11-01
+(accession))"), never "filed" or an "exact quarter period".
+
 **D&A from separate lines (B-7).** On the SEC path, depreciation and
 amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
 `DepreciationAndAmortization`, `DepreciationAmortizationAndAccretionNet`).
@@ -4416,8 +4439,10 @@ date, a year to date less the previous year to date, or the year less three
 quarters) nets two figures, and they must sit on one presentation. Filing-date
 lineage (D-13) is the minimum: each operand is the newest copy filed no later
 than the minuend's own filing. Lineage by date is not lineage by presentation,
-so the pair is also checked, in the statement builder, by one pure helper
-(`src/edgar/presentationLineage.ts`):
+so the pair is also checked by one pure helper
+(`src/edgar/presentationLineage.ts`), in the statement builder and in the
+provider path's vendor-enrichment derivation ("Vendor figure against the filed
+figure (A-11)"):
 
 - A copy that only re-rounds is not a move: when the later copy is a whole
   multiple of 1,000,000 in a money unit and differs from the earlier copy by no
