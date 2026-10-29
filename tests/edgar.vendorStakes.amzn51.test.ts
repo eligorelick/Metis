@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { admitVendorLongTermInvestments, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { admitVendorLongTermInvestments, balanceAdmissionEntries, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { runStageB } from "@/pipeline/compute";
 import { computeAccruals, type ForensicsPeriod } from "@/pipeline/stageB/forensics";
 import type { DataBundle } from "@/pipeline/types";
@@ -40,15 +40,15 @@ function vendorBalance(date: string, longTermInvestments: number | null | undefi
 
 describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)", () => {
   it("fills the AMZN shape with the D-98 chain: non-marketable equity plus equity-method investments", () => {
-    const { row, gaps } = admitVendorLongTermInvestments(vendorBalance(Q2, 0), companyFacts(withStakes()), "USD", OBSERVED);
+    const { row, admissions } = admitVendorLongTermInvestments(vendorBalance(Q2, 0), companyFacts(withStakes()), "USD", OBSERVED);
     expect(row.longTermInvestments).toBe(122_695 * M);
     expect(row.fieldProvenance?.longTermInvestments).toMatchObject({
       source: "edgar", unit: "USD", periodEnd: Q2,
       tags: ["us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount", "us-gaap/EquityMethodInvestments"],
       filings: [{ accn: ACCN, form: "10-Q" }],
     });
-    expect(gaps).toEqual([expect.objectContaining({ field: `statements.balance.${Q2}.longTermInvestments`, severity: "info", expected: true })]);
-    expect(gaps[0]!.reason).toBe(
+    expect(admissions).toEqual([expect.objectContaining({ kind: "stakes", date: Q2, summary: "122,695M" })]);
+    expect(admissions[0]!.detail).toBe(
       "vendor longTermInvestments 0 at 2026-06-30 read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: " +
       "non-marketable equity securities 122300000000 (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) + equity-method investments 395000000 (EquityMethodInvestments) " +
       "= 122695000000 USD; absent and excluded: non-current debt securities; vendor value retained in the raw row");
@@ -75,23 +75,23 @@ describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)"
     const only = admitVendorLongTermInvestments(vendorBalance(Q2, 0),
       companyFacts({ [Q2]: { EquitySecuritiesWithoutReadilyDeterminableFairValueAmount: 715 } }), "USD", OBSERVED);
     expect(only.row.longTermInvestments).toBe(715 * M);
-    expect(only.gaps).toHaveLength(1);
-    expect(only.gaps[0]!.reason).toMatch(/absent and excluded: non-current debt securities, equity-method investments;/);
+    expect(only.admissions).toHaveLength(1);
+    expect(only.admissions[0]!.detail).toMatch(/absent and excluded: non-current debt securities, equity-method investments;/);
   });
 
   it("control: a vendor nonzero value is unchanged", () => {
     const vendor = vendorBalance(Q2, 50_000 * M);
-    const { row, gaps } = admitVendorLongTermInvestments(vendor, companyFacts(withStakes()), "USD", OBSERVED);
+    const { row, admissions } = admitVendorLongTermInvestments(vendor, companyFacts(withStakes()), "USD", OBSERVED);
     expect(row).toBe(vendor);
-    expect(gaps).toEqual([]);
+    expect(admissions).toEqual([]);
   });
 
   it("control: a filer with no noncurrent investments keeps 0", () => {
     const vendor = vendorBalance(Q2, 0);
-    const { row, gaps } = admitVendorLongTermInvestments(vendor, companyFacts(FILED_FACTS), "USD", OBSERVED);
+    const { row, admissions } = admitVendorLongTermInvestments(vendor, companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(row).toBe(vendor);
     expect(row.longTermInvestments).toBe(0);
-    expect(gaps).toEqual([]);
+    expect(admissions).toEqual([]);
   });
 
   it("control: a value the SEC statements built, or a refused one, is left alone; so is a row in another currency", () => {
@@ -99,7 +99,7 @@ describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)"
     const filled = admitVendorLongTermInvestments(vendorBalance(Q2, 0), facts, "USD", OBSERVED).row;
     const again = admitVendorLongTermInvestments(filled, facts, "USD", OBSERVED);
     expect(again.row).toBe(filled);
-    expect(again.gaps).toEqual([]);
+    expect(again.admissions).toEqual([]);
     const refused = { ...vendorBalance(Q2, 0), fieldConflicts: { longTermInvestments: { vendorValue: 0, secValue: 1, usable: false, reason: "test" } } } as FmpBalanceSheetRow;
     expect(admitVendorLongTermInvestments(refused, facts, "USD", OBSERVED).row).toBe(refused);
     expect(admitVendorLongTermInvestments(vendorBalance(Q2, 0), facts, "EUR", OBSERVED).row.longTermInvestments).toBe(0);
@@ -113,10 +113,16 @@ describe("a vendor long-term investments of 0 is filled from the filing (VAL-3)"
     const facts = companyFacts(withStakes());
     const vendor = enrichFinancialFields(payload("fmp"), cashflow, facts, "quarter", OBSERVED);
     expect(vendor.balance.ok && vendor.balance.value.data.rows[0]!.longTermInvestments).toBe(122_695 * M);
-    expect(vendor.gaps.map((gap) => gap.field)).toContain(`statements.balance.${Q2}.longTermInvestments`);
+    // Review m6: the enrichment returns the fills; the bundle builder merges both families into one entry.
+    expect(vendor.gaps.map((gap) => gap.field)).not.toContain(`statements.balance.${Q2}.longTermInvestments`);
+    expect(vendor.admissions).toEqual([expect.objectContaining({ kind: "stakes", date: Q2 })]);
+    const annual = enrichFinancialFields(payload("fmp"), cashflow, facts, "annual", OBSERVED);
+    const merged = balanceAdmissionEntries([...annual.admissions, ...vendor.admissions]);
+    expect(merged).toEqual([expect.objectContaining({ field: "statements.balance.longTermInvestments", severity: "info", expected: true })]);
+    expect(merged[0]!.reason).toMatch(/^vendor longTermInvestments read as undisclosed at 1 balance date; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: 2026-06-30 122,695M\. Latest: vendor longTermInvestments 0 at 2026-06-30/);
     const sec = enrichFinancialFields(payload("edgar"), cashflow, facts, "quarter", OBSERVED);
     expect(sec.balance.ok && sec.balance.value.data.rows[0]!.longTermInvestments).toBe(0);
-    expect(sec.gaps.map((gap) => gap.field)).not.toContain(`statements.balance.${Q2}.longTermInvestments`);
+    expect(sec.admissions).toEqual([]);
   });
 });
 
@@ -151,7 +157,11 @@ describe("the filled stakes reach the DCF bridge and leave net operating assets 
     expect(computed.valuation.dcf?.bridge.nonOperatingComponents ?? []).toContainEqual(expect.objectContaining({ kind: "long-term-investments", value: stakes }));
     expect(computed.forensics?.accruals?.longTermInvestmentsCurrent).toBe(stakes);
     expect(computed.forensics?.accruals?.longTermInvestmentsPrior).toBe(stakes);
-    expect(computed.gaps).toContainEqual(expect.objectContaining({ field: "statements.balance.2025-12-31.longTermInvestments", severity: "info" }));
+    // Review m6: one stakes entry listing every filled date, none per date.
+    expect(computed.gaps.filter((g) => /^statements\.balance\.\d{4}-\d{2}-\d{2}\.longTermInvestments$/.test(g.field))).toEqual([]);
+    const stakesEntries = computed.gaps.filter((g) => g.field === "statements.balance.longTermInvestments");
+    expect(stakesEntries).toHaveLength(1);
+    expect(stakesEntries[0]!.reason).toContain("2025-12-31 180M");
     // The same bundle with the stakes left at the vendor's 0 has a bridge without them and NOA that keeps them.
     const unfilled = stakesBundle();
     unfilled.edgar = { ...unfilled.edgar, companyFacts: { ok: true, value: { source: "edgar", endpoint: "test facts", asOf: "2026-07-01", fetchedAt: unfilled.builtAt,

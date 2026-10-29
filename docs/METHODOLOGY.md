@@ -3404,9 +3404,9 @@ so report #51 (audit 2026-10-29, VAL-3 and FIG-4) added no stake to the equity
 bridge and kept them inside net operating assets. A provider row whose
 `longTermInvestments` is 0 or absent is now read as undisclosed when the
 same-period filing shows noncurrent investments, and is filled with the chain
-above: the same tags, period and currency, the filing as the field's
-provenance, and an info entry in the manifest that names each piece and any
-absent one. The enrichment fills it when the bundle is built, and Stage B's
+above: the same tags, period and currency, and the filing as the field's
+provenance. One info entry in the manifest lists every filled date with its
+amount and quotes the latest date's pieces, naming any absent one. The enrichment fills it when the bundle is built, and Stage B's
 balance admission fills a provider row frozen before that. A nonzero provider
 value, a refused one and one the SEC statements built are left as they are.
 The Amazon line above is therefore the same on both paths.
@@ -4560,9 +4560,12 @@ part of it is filed there for the same date:
 
 The filings that carry the date are tried newest first, so a comparative that
 only a later 10-Q tags still completes. The completed fields carry the filing
-as provenance (total debt is marked `noncurrent-lease-line-completed`), an
-info entry gives the arithmetic, and the vendor's own total stays in the raw
-row. Where a rule fails, the row is refused with the exact cause ("the current
+as provenance (total debt is marked `noncurrent-lease-line-completed`), and
+the vendor's own total stays in the raw row. One info entry in the manifest
+covers every completed date: it lists each date's completed total, the
+vendor's total and the filing, and gives the latest date's arithmetic. On
+report #51 the per-date entries were 51 entries and about 25,000 characters in
+every model pass; the two merged entries are about 3,500. Where a rule fails, the row is refused with the exact cause ("the current
 debt cannot be established: the filing tags no LongTermDebtCurrent ...",
 "the vendor short-term debt ... does not reconcile with the filed current
 debt", and so on), and the refusal claims only what the check established:

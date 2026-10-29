@@ -10,6 +10,7 @@ import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInve
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { tagsFor } from "@/edgar/tagSynonyms";
+import { millions } from "@/pipeline/stageB/netDebt";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -249,12 +250,13 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
 }
 
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
-export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
+export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[]; admissions: BalanceAdmission[] } {
   const gaps: ManifestEntry[] = [];
-  if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
+  const admissions: BalanceAdmission[] = [];
+  if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps, admissions };
   const recovered = recoverNoteCarryingDebt(row, facts, currency, observedAt, presentations);
   if (recovered !== null) return { row: recovered, gaps: [{ field: `statements.balance.${row.date}.totalDebt`,
-    reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }] };
+    reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }], admissions };
   let out = row;
   const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
   const maturitySourced = out.fieldProvenance?.shortTermDebt?.tags.some((tag) => tag === `us-gaap/${maturityTag}`) === true;
@@ -288,7 +290,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     const completion = completeNoncurrentLeaseLine(out, facts, currency, observedAt);
     if (completion.status === "completed") {
       out = completion.row;
-      gaps.push(completion.gap);
+      admissions.push(completion.admission);
     } else if (completion.status === "refused") leaseLineReason = completion.reason;
   }
   let presentationReason: string | null = null;
@@ -376,10 +378,47 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     } } };
     if (reason !== null) gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "warn" });
   }
-  return { row: out, gaps };
+  return { row: out, gaps, admissions };
 }
 
-type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; gap: ManifestEntry } | { status: "refused"; reason: string };
+/**
+ * Review m6 (2026-10-29): one row's lease-line completion or stake fill. The
+ * row keeps its own provenance; the manifest gets one entry per kind listing
+ * the dates (`balanceAdmissionEntries`), not one entry per row: on report #51
+ * the per-row entries were 51 entries and about 25K characters in every LLM pass.
+ */
+export interface BalanceAdmission {
+  kind: "completion" | "stakes";
+  date: string;
+  /** The row's full explanation; the merged entry quotes the latest date's. */
+  detail: string;
+  /** The date's figures, in millions, for the merged entry's list. */
+  summary: string;
+  attemptedSources?: string[];
+}
+
+/** One info entry per kind (completion, stakes), newest date first, a date counted once across the annual and quarterly families. */
+export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[]): ManifestEntry[] {
+  const entries: ManifestEntry[] = [];
+  for (const kind of ["completion", "stakes"] as const) {
+    const byDate = new Map<string, BalanceAdmission>();
+    for (const admission of admissions) if (admission.kind === kind && !byDate.has(admission.date)) byDate.set(admission.date, admission);
+    const dated = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
+    if (dated.length === 0) continue;
+    const dates = `${dated.length} balance date${dated.length === 1 ? "" : "s"}`;
+    const list = dated.map((admission) => `${admission.date} ${admission.summary}`).join("; ");
+    const sources = [...new Set(dated.flatMap((admission) => admission.attemptedSources ?? []))];
+    entries.push(kind === "completion"
+      ? { field: "statements.balance.totalDebt", severity: "info", expected: true,
+        reason: `vendor lease line held only the noncurrent lease liabilities at ${dates}; total debt completed from each date's filing, the vendor total retained in the raw row: ${list}. Latest: ${dated[0]!.detail}` }
+      : { field: "statements.balance.longTermInvestments", severity: "info", expected: true,
+        reason: `vendor longTermInvestments read as undisclosed at ${dates}; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: ${list}. Latest: ${dated[0]!.detail}`,
+        ...(sources.length > 0 ? { attemptedSources: sources } : {}) });
+  }
+  return entries;
+}
+
+type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; admission: BalanceAdmission } | { status: "refused"; reason: string };
 
 /**
  * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-132). A vendor
@@ -541,8 +580,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     ...(row.operatingLeaseLiability == null ? { operatingLeaseLiability: operating.value } : {}),
     ...(financeNoncurrent !== null && row.financeLeaseLiability == null ? { financeLeaseLiability: finance.value } : {}),
     fieldProvenance } as T;
-  return { status: "completed", row: out, gap: { field: `statements.balance.${date}.totalDebt`, severity: "info", expected: true,
-    reason: `${lineText}, not total lease liabilities; completed from that filing: lease liabilities ${leases} ` +
+  return { status: "completed", row: out, admission: { kind: "completion", date,
+    summary: `${millions(totalDebt)} (vendor ${finite(vendorTotal) ? millions(vendorTotal) : "absent"}; ${ref})`,
+    detail: `${lineText}, not total lease liabilities; completed from that filing: lease liabilities ${leases} ` +
       `(${operating.tags.join(" + ")} ${operating.value}${financeNoncurrent === null ? "" : ` + ${finance.tags.join(" + ")} ${finance.value}`}), ` +
       `current debt ${currentDebt} (${keepVendorShort ? (filedCurrent ?? debtCurrent) === null ? "the vendor's short-term debt, kept; the filing tags no current debt to check it against"
         : "the vendor's short-term debt, kept; it equals the filed current debt" : filedCurrentTags.join(" + ")}), ` +
@@ -657,10 +697,10 @@ function firstInstant(facts: CompanyFacts, tags: readonly string[], unit: string
  * a vendor value is filled: one the SEC statements built carries provenance,
  * and a nonzero vendor value or a refused one is left as it is.
  */
-export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string): { row: T; admissions: BalanceAdmission[] } {
   const vendor = row.longTermInvestments;
   if (!validDay(row.date) || currency === null || row.fieldProvenance?.longTermInvestments !== undefined || row.fieldConflicts?.longTermInvestments !== undefined
-    || (vendor != null && vendor !== 0)) return { row, gaps: [] };
+    || (vendor != null && vendor !== 0)) return { row, admissions: [] };
   const date = row.date;
   const at = (tags: readonly string[]) => firstInstant(facts, tags, currency, date, observedAt);
   const present: { label: string; r: Resolved }[] = [];
@@ -683,20 +723,22 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
     }
   }
   const value = present.reduce((sum, { r }) => sum + r.value, 0);
-  if (present.length === 0 || !(value > 0)) return { row, gaps: [] };
+  if (present.length === 0 || !(value > 0)) return { row, admissions: [] };
   const filings = present.flatMap(({ r }) => r.evidence.filings).filter((filing, i, all) => all.findIndex((f) => f.accn === filing.accn) === i);
   const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: date, observedAt,
     tags: present.flatMap(({ r }) => r.evidence.tags), filings };
   const out = { ...row, longTermInvestments: value, fieldProvenance: { ...row.fieldProvenance, longTermInvestments: evidence } } as T;
   const parts = present.map(({ label, r }) => `${label} ${r.value} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
-  return { row: out, gaps: [{ field: `statements.balance.${date}.longTermInvestments`, severity: "info", expected: true,
-    reason: `vendor longTermInvestments ${vendor ?? "absent"} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
+  return { row: out, admissions: [{ kind: "stakes", date, summary: `${millions(value)}${vendor == null ? " (vendor absent)" : ""}`,
+    detail: `vendor longTermInvestments ${vendor ?? "absent"} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
       `${parts} = ${value} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
     attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };
 }
 
-export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = [], equityStatementNci: readonly FilingEquityStatementNci[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
+export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = [], equityStatementNci: readonly FilingEquityStatementNci[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[]; admissions: BalanceAdmission[] } {
   const gaps: ManifestEntry[] = [];
+  // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
+  const admissions: BalanceAdmission[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
     if (!input.ok) return input;
@@ -759,11 +801,12 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);
+        admissions.push(...admitted.admissions);
         // D-132: a provider row only; the SEC statements already ran the chain.
         if (input.value.source !== "edgar") {
           const stakes = admitVendorLongTermInvestments(out, facts, currency, observedAt);
           out = stakes.row;
-          gaps.push(...stakes.gaps);
+          admissions.push(...stakes.admissions);
         }
         const nci = admitEquityStatementNci(out, equityStatementNci, facts.cik, currency, observedAt);
         out = nci.row;
@@ -776,5 +819,5 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };
   }
-  return { balance: enrich(balance, "balance"), cashflow: enrich(cashflow, "cashflow"), gaps };
+  return { balance: enrich(balance, "balance"), cashflow: enrich(cashflow, "cashflow"), gaps, admissions };
 }

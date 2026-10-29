@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { admitDebtFields } from "@/edgar/financialEnrichment";
+import { admitDebtFields, balanceAdmissionEntries } from "@/edgar/financialEnrichment";
 import { runStageB } from "@/pipeline/compute";
 import { leaseDebtConflict } from "@/pipeline/stageB/netDebt";
 import { computeWacc } from "@/pipeline/stageB/returns";
@@ -28,7 +28,7 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
   it("completes the 2026-06-30 AMZN shape to the filed composition, 242,320M", () => {
     const row = vendorRow(Q2);
     expect(leaseDebtConflict(row)).not.toBeNull(); // the refusal report #51 published
-    const { row: out, gaps } = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED);
+    const { row: out, gaps, admissions } = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(out.capitalLeaseObligations).toBe(109_771 * M); // 96,320 + 13,451
     expect(out.shortTermDebt).toBe(3_655 * M); // LongTermDebtCurrent 3,330 + ShortTermBorrowings 325
     expect(out.longTermDebt).toBe(128_894 * M);
@@ -44,12 +44,12 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
     expect(out.fieldProvenance?.totalDebt?.filings).toEqual([{ accn: ACCN, filed: FILED, form: "10-Q" }]);
     expect(out.fieldProvenance?.shortTermDebt?.tags).toEqual(["us-gaap/LongTermDebtCurrent", "us-gaap/ShortTermBorrowings"]);
     expect(out.fieldProvenance?.capitalLeaseObligations?.tags).toEqual(["us-gaap/OperatingLeaseLiability", "us-gaap/FinanceLeaseLiability"]);
-    const info = gaps.find((gap) => gap.field === `statements.balance.${Q2}.totalDebt`);
-    expect(info).toMatchObject({ severity: "info", expected: true });
-    expect(info?.reason).toMatch(/noncurrent lease liabilities/);
-    expect(info?.reason).toContain(ACCN);
-    expect(info?.reason).toContain("OperatingLeaseLiabilityNoncurrent");
-    expect(gaps.some((gap) => gap.severity !== "info")).toBe(false);
+    // Review m6: the row's explanation is an admission record; the manifest entry is merged per kind by the caller.
+    expect(gaps).toEqual([]);
+    expect(admissions).toEqual([expect.objectContaining({ kind: "completion", date: Q2, summary: `242,320M (vendor 223,232M; 10-Q ${ACCN})` })]);
+    expect(admissions[0]!.detail).toMatch(/noncurrent lease liabilities/);
+    expect(admissions[0]!.detail).toContain(ACCN);
+    expect(admissions[0]!.detail).toContain("OperatingLeaseLiabilityNoncurrent");
   });
 
   it("completes the 2025-12-31 shape the same way", () => {
@@ -81,6 +81,7 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
     const twice = admitDebtFields(once, facts, "USD", OBSERVED);
     expect(twice.row).toBe(once);
     expect(twice.gaps).toEqual([]);
+    expect(twice.admissions).toEqual([]);
   });
 
   it("control: a vendor lease line that is already the total keeps today's behaviour", () => {
@@ -88,6 +89,29 @@ describe("a noncurrent-only vendor lease line is completed from its filing (VAL-
     const admitted = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED);
     expect(admitted.row).toBe(row);
     expect(admitted.gaps).toEqual([]);
+    expect(admitted.admissions).toEqual([]);
+  });
+
+  it("one manifest entry lists every completed date, newest first, a date counted once (review m6)", () => {
+    const facts = companyFacts(FILED_FACTS);
+    const quarter = admitDebtFields(vendorRow(Q2), facts, "USD", OBSERVED).admissions;
+    const year = admitDebtFields(vendorRow(FY), facts, "USD", OBSERVED).admissions;
+    const entries = balanceAdmissionEntries([...year, ...quarter, ...year]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ field: "statements.balance.totalDebt", severity: "info", expected: true });
+    expect(entries[0]!.reason).toBe(
+      "vendor lease line held only the noncurrent lease liabilities at 2 balance dates; total debt completed from each date's filing, the vendor total retained in the raw row: " +
+      `2026-06-30 242,320M (vendor 223,232M; 10-Q ${ACCN}); 2025-12-31 170,389M (vendor 152,987M; 10-Q ${ACCN}). Latest: ${quarter[0]!.detail}`);
+    expect(balanceAdmissionEntries([])).toEqual([]);
+  });
+
+  it("Stage B on a frozen provider bundle: one completion entry, no entry per date (review m6)", () => {
+    const computed = runStageB(leaseShapeStageBBundle());
+    const perDate = computed.gaps.filter((g) => /^statements\.balance\.\d{4}-\d{2}-\d{2}\.totalDebt$/.test(g.field) && g.severity === "info");
+    expect(perDate).toEqual([]);
+    const merged = computed.gaps.filter((g) => g.field === "statements.balance.totalDebt");
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.reason).toMatch(/^vendor lease line held only the noncurrent lease liabilities at \d+ balance dates; /);
   });
 
   it("control: a genuine contradiction (neither the noncurrent sum nor the total) is still refused", () => {
