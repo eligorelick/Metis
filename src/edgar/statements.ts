@@ -1590,6 +1590,11 @@ interface Resolved {
    */
   original?: OriginalValue;
   evidencePoints?: FactPoint[];
+  /**
+   * Set only on a floor probe (`magnitudeOnly: { against }`): whether, in a filing that carries both tags for a
+   * period the candidate nets, the candidate sits below this floor tag. Undefined when no filing carries both.
+   */
+  sameFiling?: { below: boolean; detail: string };
   /** Actual resolved flow start, rather than a YTD/FY minuend's start. */
   periodStart?: string;
 }
@@ -1614,10 +1619,11 @@ function resolvedPoint(tag: string, up: UnitPoints, point: FactPoint, value: num
 
 /**
  * `magnitudeOnly` asks a derived quarter for its AS-FILED pair, ignoring the one-presentation rule. Only a floor
- * comparison uses it (a magnitude check, never published): a floor tag withheld for presentation still bounds
- * the figure it floors (audit 2026-10-27 FIN-511 M5).
+ * comparison and the nesting probe use it (a magnitude or existence check, never published): a floor tag withheld
+ * for presentation still bounds the figure it floors (audit 2026-10-27 FIN-511 M5). `{ against }` names the
+ * floored candidate and also asks for a same-filing verdict on it (`Resolved.sameFiling`, F3).
  */
-type TagResolver = (tag: string, kind: UnitKind, currency?: string, magnitudeOnly?: boolean) => Resolved | null;
+type TagResolver = (tag: string, kind: UnitKind, currency?: string, magnitudeOnly?: boolean | { against: string }) => Resolved | null;
 
 interface NoteSink {
   readonly notes: string[];
@@ -1637,7 +1643,8 @@ interface NoteSink {
   refuse(text: string): void;
   /**
    * A refusal recorded by the one-presentation rule (audit 2026-10-27 FIN-511). Unlike the other refusals it ends
-   * the field: no later step of any chain (stand-in, derivation, other tag list) may serve it.
+   * the field: no later step of any chain (stand-in, derivation, other tag list) may serve it. It is listed even
+   * while a probe is muted (`quietly`), though only an unmuted one becomes a `refusals` entry.
    */
   readonly presentationRefusals: string[];
   refusePresentation(text: string): void;
@@ -1694,10 +1701,10 @@ function createNoteSink(): NoteSink {
       if (muted === 0) refusals.push(text);
     },
     refusePresentation(text: string): void {
-      if (muted === 0) {
-        refusals.push(text);
-        presentationRefusals.push(text);
-      }
+      // Recorded even while muted, as `withholdAttempts` is: a probe that ran into a presentation refusal has
+      // not found "nothing filed", and the checks that read this list must see it (FIN-511 F1).
+      presentationRefusals.push(text);
+      if (muted === 0) refusals.push(text);
     },
     quietly<T>(fn: () => T): T {
       muted += 1;
@@ -1797,16 +1804,29 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           const floorTags = [...spec.unlessBelow, ...(spec.unlessBelowTag?.[tag] ?? [])];
           // Floor probes run quietly: a floor that cannot resolve is simply not a floor.
           const components: { tag: string; value: number }[] = [];
+          let sameFilingHit: string | null = null;
           for (const floorTag of floorTags) {
             if (floorTag === tag) continue;
-            // The floor is a magnitude check that is never published: a floor tag withheld for presentation still
-            // bounds the candidate by its as-filed value (FIN-511 M5).
-            const f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, true));
+            const presentationBefore = notes.presentationRefusals.length;
+            let f = notes.quietly(() => resolve(floorTag, spec.unit));
+            const floorRefused = f === null && notes.presentationRefusals.length > presentationBefore;
+            // A floor probe is a magnitude check: what it ran into is not a refusal of the floored field.
+            notes.presentationRefusals.length = presentationBefore;
+            if (floorRefused) {
+              // The floor tag's quarter is withheld for presentation. The floor is a magnitude check that is never
+              // published, so it is decided from filed copies on one basis: the candidate against the floor tag in
+              // each filing that carries both. With no such filing, the as-filed magnitude decides (FIN-511 M5, F3).
+              f = notes.quietly(() => resolve(floorTag, spec.unit, undefined, { against: tag }));
+              if (f?.sameFiling !== undefined) {
+                if (f.sameFiling.below) sameFilingHit = `${tag} ${r.value} not used — ${f.sameFiling.detail}, so it is not the total`;
+                continue;
+              }
+            }
             if (f !== null && f.unit === r.unit && f.value > 0) components.push({ tag: floorTag, value: f.value });
           }
           const hit = belowComponentFloor(r.value, components);
-          if (hit !== null) {
-            const text = `${tag} ${r.value} not used — below the same period's ${hit.tag} ${hit.value}, so it is not the total`;
+          if (hit !== null || sameFilingHit !== null) {
+            const text = sameFilingHit ?? `${tag} ${r.value} not used — below the same period's ${hit!.tag} ${hit!.value}, so it is not the total`;
             notes.add(`${label}: ${text}`);
             skipped.push(text);
             continue;
@@ -1850,6 +1870,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       for (const part of spec.parts) {
         const refusalsBefore = notes.refusals.length;
         const attemptsBefore = notes.withholdAttempts.length;
+        const presentationBefore = notes.presentationRefusals.length;
         // An optional part is probed quietly first: if it turns out unusable and the aggregate serves, the
         // mismatch withholding it would have written must not stand beside the published value.
         const optional = part.optionalWhenAdjustment !== undefined;
@@ -1868,6 +1889,14 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           return null;
         }
         if (r === null) {
+          if (optional && notes.presentationRefusals.length > presentationBefore) {
+            // A refused optional part is not an absent one: dropping it would publish a figure that still holds
+            // it, with a disclosure that says the filer files none (FIN-511 F1).
+            notes.refusePresentation(
+              `${field} not derived: ${part.label} for the period is withheld (${notes.presentationRefusals[notes.presentationRefusals.length - 1]})`,
+            );
+            return null;
+          }
           const mismatch = notes.withholdAttempts.slice(attemptsBefore).find((t) => /^(mixed_unit|period_mismatch):/.test(t));
           if (optional) {
             deferred.push({ part, ...(mismatch === undefined ? {} : { problem: { text: mismatch, kind: mismatch.startsWith("mixed_unit") ? "currency" : "period" } }) });
@@ -1960,7 +1989,9 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             // Resolved only in this case (lazy resolution) and quietly: a probe that cannot resolve writes no
             // period_mismatch, mixed_unit or "not derived" entry against the field.
             const served = partTags.findIndex((p) => p.label === rule.partLabel);
-            const child = served < 0 ? null : notes.quietly(() => resolve(rule.partTag, spec.unit));
+            // Magnitude-only: the probe asks whether the filer tags this period's interest as the nesting tag, so a
+            // quarter refused for presentation still answers yes (FIN-511 F2).
+            const child = served < 0 ? null : notes.quietly(() => resolve(rule.partTag, spec.unit, undefined, true));
             if (child !== null && child.unit === present[0]!.unit) {
               total -= present[served]!.value;
               present.splice(served, 1);
@@ -2270,7 +2301,8 @@ function quarterResolver(
   ytdOnly: boolean,
   notes: NoteSink,
 ): TagResolver {
-  return (tag, kind, currency, magnitudeOnly) => {
+  const resolveQuarter: TagResolver = (tag, kind, currency, magnitudeArg) => {
+    const magnitudeOnly = magnitudeArg !== undefined && magnitudeArg !== false;
     const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const pts = up.points;
@@ -2297,7 +2329,7 @@ function quarterResolver(
     const labelCopies = labelCopiesOf(index);
     const labelled = (m: FactPoint): boolean => representationLabelled(labelCopies, m, RESTATEMENT_THRESHOLD_PCT);
     const choose = (winner: FactPoint, subtrahendsFor: (m: FactPoint) => readonly FactPoint[] | null): PairChoice<FactPoint> => {
-      if (magnitudeOnly === true) {
+      if (magnitudeOnly) {
         const subs = subtrahendsFor(winner);
         return subs === null ? { kind: "none" } : { kind: "pair", minuend: winner, subtrahends: subs, basis: "as-filed", refiledBy: null, refiledAs: null };
       }
@@ -2388,6 +2420,62 @@ function quarterResolver(
       periodStart: new Date(dateMs(prior.end) + DAY_MS).toISOString().slice(0, 10),
     };
   };
+
+  // A floor probe that names its candidate also gets a same-filing verdict (audit 2026-10-27 FIN-511 F3).
+  return (tag, kind, currency, magnitudeArg) => {
+    const r = resolveQuarter(tag, kind, currency, magnitudeArg);
+    if (r === null || typeof magnitudeArg !== "object") return r;
+    const verdict = sameFilingVerdict(index, ctx, tag, magnitudeArg.against, kind, currency);
+    return verdict === null ? r : { ...r, sameFiling: verdict };
+  };
+}
+
+/**
+ * Whether the candidate tag sits below the floor tag in a filing that carries both for a period the quarter nets
+ * (the fiscal year and the year to date through the previous quarter, or the year to date and the one before it).
+ * Each period is compared copy for copy inside one filing, so no mixed presentation enters the comparison. Null
+ * when no filing carries both tags for any such period.
+ */
+function sameFilingVerdict(
+  index: FactIndex,
+  ctx: QuarterContext,
+  floorTag: string,
+  candidateTag: string,
+  kind: UnitKind,
+  currency: string | undefined,
+): { below: boolean; detail: string } | null {
+  const floor = pickUnitPoints(index, floorTag, kind, currency);
+  const candidate = pickUnitPoints(index, candidateTag, kind, currency);
+  if (floor === null || candidate === null || floor.unit !== candidate.unit) return null;
+  const periods: [string, string][] = [];
+  if (ctx.isFiscalYearEnd) {
+    const fy = (ctx.fyStart !== null ? findDurationExact(floor.points, ctx.fyStart, ctx.end) : null) ?? findAnnualDuration(floor.points, ctx.end);
+    if (fy?.start !== undefined) {
+      periods.push([fy.start, fy.end]);
+      if (ctx.previousEnd !== null) periods.push([fy.start, ctx.previousEnd]);
+    }
+  } else if (ctx.fyStart !== null) {
+    periods.push([ctx.fyStart, ctx.end]);
+    if (ctx.previousEnd !== null) periods.push([ctx.fyStart, ctx.previousEnd]);
+  }
+  let decided = false;
+  for (const [start, end] of periods) {
+    const copies = (up: UnitPoints): FactPoint[] =>
+      up.all.filter((p) => p.start !== undefined && withinDays(p.start, start, TOLERANCE_DAYS) && withinDays(p.end, end, TOLERANCE_DAYS));
+    const floorCopies = copies(floor);
+    for (const c of copies(candidate)) {
+      const f = floorCopies.find((x) => x.accn === c.accn);
+      if (f === undefined) continue;
+      decided = true;
+      if (belowComponentFloor(c.val, [{ tag: floorTag, value: f.val }]) !== null) {
+        return {
+          below: true,
+          detail: `its filed ${start}..${end} ${c.val} is below ${floorTag} ${f.val} in the same filing (${c.form.trim()} ${c.filed}, ${c.accn})`,
+        };
+      }
+    }
+  }
+  return decided ? { below: false, detail: "" } : null;
 }
 
 /** Every core copy of every discontinued-operations element in the index, once per index (decision C-9 labels). */
@@ -2443,7 +2531,10 @@ interface ComputeContext {
 }
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext, route: "bank" | "general"): void {
-  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null) {
+  // A gross profit withheld for presentation is not filled as revenue less cost: no derivation follows a
+  // presentation withholding (audit 2026-10-27 FIN-511 F4).
+  const grossProfitRefused = notes.withheld.some((w) => w.field === "grossProfit" && w.periods.includes(ctx) && notes.presentationRefusals.includes(w.text));
+  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null && !grossProfitRefused) {
     const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
     const filings = (resolved: Resolved) => JSON.stringify([...new Set((resolved.evidencePoints ?? [resolved.point]).map(p => `${p.accn}|${p.filed}|${p.form}`))].sort());
     const full = revenue && cost && revenue.tags.some(tag => GROSS_PROFIT_REVENUE_TAGS.includes(tag)) && cost.tags.some(tag => GROSS_PROFIT_COST_TAGS.includes(tag)) &&
@@ -3193,7 +3284,13 @@ function buildStatementRows<TRow>(
 
     const anchorField = def.anchors.find((f) => resolutions.has(f));
     if (anchorField === undefined) {
-      notes.add(`${def.statement} ${ctxLabel}: no ${def.anchors.join(" or ")} fact resolved; row omitted`);
+      // Say the true cause: an anchor that was filed and withheld for presentation is not a missing fact (FIN-511 F5).
+      const refused = notes.withheld.find((w) => def.anchors.includes(w.field) && w.periods.includes(slot.date) && notes.presentationRefusals.includes(w.text));
+      notes.add(
+        refused === undefined
+          ? `${def.statement} ${ctxLabel}: no ${def.anchors.join(" or ")} fact resolved; row omitted`
+          : `${def.statement} ${ctxLabel}: ${refused.field} is withheld for presentation (${refused.text}); row omitted`,
+      );
       continue;
     }
     const anchor = resolutions.get(anchorField) as Resolved;

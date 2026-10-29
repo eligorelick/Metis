@@ -685,8 +685,9 @@ describe("fix round 1 M5: a refused floor tag does not silently disable the floo
       Assets: frAssets(),
     });
     expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull(); // 87738d9: 117
-    // The DDA tag is skipped against Depreciation's as-filed 600 (1800 - 1200), never published.
-    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 117000000 not used — below the same period's Depreciation 600000000/.test(n))).toBe(true);
+    // Fix round 2 (F3): the floor is decided from filed copies in one filing: DDA FY 457 is below Depreciation 1,600 in the
+    // same 10-K (it was the as-filed Depreciation quarter 600 in round 1). The DDA tag is never published.
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 117000000 not used — its filed 2024-01-01\.\.2024-12-31 457000000 is below Depreciation 1600000000 in the same filing \(10-K 2025-02-12/.test(n))).toBe(true);
     expect(b.incomeQuarterly.withheld).toContainEqual(
       expect.objectContaining({ field: "depreciationAndAmortization", text: expect.stringMatching(/Depreciation 2024-12-31:.*first reported as 1600000000/) }),
     );
@@ -698,5 +699,108 @@ describe("fix round 1 M5: a refused floor tag does not silently disable the floo
       Assets: frAssets(),
     });
     expect(frRow(b)?.depreciationAndAmortization).toBe(117 * M);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 2 (scoped re-review of 58dfdce): F1, F2, F3, F4, F5.
+// ---------------------------------------------------------------------------
+const PRETAX = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest";
+/** Pretax 300/400, aggregate 30/40 (optional), InterestExpense 60/80 with the FY re-filed as 88 (+10%, unlabelled). */
+function ebitInterestFacts(opts: { aggregate: boolean; refiled: boolean; cash?: boolean; nesting?: "none" | "refused" }): Record<string, unknown[]> {
+  return {
+    [PRETAX]: [pt(FR.q324, ...NINE24, 300 * M), pt(FR.k24, ...FY24, 400 * M)],
+    ...(opts.aggregate ? { NonoperatingIncomeExpense: [pt(FR.q324, ...NINE24, 30 * M), pt(FR.k24, ...FY24, 40 * M)] } : {}),
+    InterestExpense: [pt(FR.q324, ...NINE24, 60 * M), pt(FR.k24, ...FY24, 80 * M), ...(opts.refiled ? [pt(FR.k25, ...FY24, 88 * M)] : [])],
+    ...(opts.cash === true ? { InterestPaidNet: [pt(FR.q324, ...NINE24, 65 * M), pt(FR.k24, ...FY24, 90 * M)] } : {}),
+    ...(opts.nesting === "refused"
+      ? { InterestExpenseNonoperating: [pt(FR.q324, ...NINE24, 60 * M), pt(FR.k24, ...FY24, 80 * M), pt(FR.k25, ...FY24, 88 * M)] }
+      : {}),
+    Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+    Assets: frAssets(),
+  };
+}
+
+describe("fix round 2 F1: a refused optional EBIT part is not read as not filed", () => {
+  it("control: interest that is not re-filed derives EBIT 110 beside the aggregate", () => {
+    const b = frBuild(ebitInterestFacts({ aggregate: true, refiled: false }));
+    expect(frRow(b)?.operatingIncome).toBe(110 * M); // 100 + 20 - 10
+  });
+  it.each([
+    ["aggregate filed", { aggregate: true, refiled: true }],
+    ["aggregate and InterestPaidNet filed", { aggregate: true, refiled: true, cash: true }],
+    ["no aggregate", { aggregate: false, refiled: true }],
+  ])("%s: EBIT is withheld and the reason names the interest refusal", (_name, opts) => {
+    const b = frBuild(ebitInterestFacts(opts));
+    expect(frRow(b)?.operatingIncome ?? null).toBeNull(); // 58dfdce: 90 with a false "not filed" disclosure
+    expect(frRow(b)?.ebit ?? null).toBeNull();
+    const w = b.incomeQuarterly.withheld.find((x) => x.field === "operatingIncome");
+    expect(w?.text).toMatch(/interest expense for the period is withheld \(.*InterestExpense 2024-12-31:.*first reported as 80000000/);
+    expect(w?.text).not.toMatch(/not filed/);
+    expect(b.incomeQuarterly.substitutions.some((s) => s.field === "operatingIncome" && /not filed/.test(s.text))).toBe(false);
+  });
+  it("control: interest that is simply not filed keeps the FIN-507 behaviour and text", () => {
+    const facts = ebitInterestFacts({ aggregate: true, refiled: false });
+    delete facts.InterestExpense;
+    const b = frBuild(facts);
+    expect(frRow(b)?.operatingIncome).toBe(90 * M); // 100 - 10
+    expect(b.incomeQuarterly.substitutions.some((s) => s.field === "operatingIncome" && /no interest-expense element/.test(s.text))).toBe(true);
+  });
+});
+
+describe("fix round 2 F2: the nesting probe keeps its evidence when the nesting tag is refused", () => {
+  it("InterestExpenseNonoperating filed but refused: the interest is still not added back (EBIT 90)", () => {
+    const b = frBuild(ebitInterestFacts({ aggregate: true, refiled: false, nesting: "refused" }));
+    expect(frRow(b)?.operatingIncome).toBe(90 * M); // 58dfdce: 110
+    expect(b.incomeQuarterly.substitutions.some((s) => s.field === "operatingIncome" && /also tags this period's interest as InterestExpenseNonoperating/.test(s.text))).toBe(true);
+  });
+});
+
+describe("fix round 2 F3: a withheld floor tag is decided from same-filing copies", () => {
+  const dda = (fy: number, nine: number) => [pt(FR.q324, ...NINE24, nine * M), pt(FR.k24, ...FY24, fy * M)];
+  it("PEP shape: DDA at or above the refused DA in every filing that carries both is served (1,042)", () => {
+    const b = frBuild({
+      DepreciationDepletionAndAmortization: [...dda(3160, 2118), pt(FR.q325, ...NINE24, 2118 * M)],
+      DepreciationAndAmortization: [pt(FR.k24, ...FY24, 3086 * M), pt(FR.q325, ...NINE24, 2067 * M), pt(FR.k25, ...FY24, 3160 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.depreciationAndAmortization).toBe(1042 * M); // 58dfdce: withheld; 56d52a9: the mixed 1,093
+  });
+  it("no-common-filing control: the as-filed magnitude of the refused floor decides", () => {
+    const kA: Filing = { filed: "2025-03-01", form: "10-K/A", fp: "FY", fy: 2024, accn: "0000000007-25-000009" };
+    const b = frBuild({
+      DepreciationDepletionAndAmortization: [pt(FR.q324, ...NINE24, 340 * M), pt(kA, ...FY24, 457 * M)],
+      Depreciation: [pt(FR.q325, ...NINE24, 1200 * M), pt(FR.k24, ...FY24, 1600 * M), pt(FR.k25, ...FY24, 1800 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.depreciationAndAmortization ?? null).toBeNull();
+    expect(b.incomeQuarterly.notes.some((n) => /DepreciationDepletionAndAmortization 117000000 not used — below the same period's Depreciation 600000000/.test(n))).toBe(true);
+  });
+});
+
+describe("fix round 2 F4: no gross-profit fill beside its own withholding", () => {
+  it("GrossProfit withheld for presentation is not filled as revenue less cost", () => {
+    const b = frBuild({
+      GrossProfit: [pt(FR.q324, ...NINE24, 1200 * M), pt(FR.k24, ...FY24, 1600 * M), pt(FR.k25, ...FY24, 1800 * M)],
+      Revenues: [pt(FR.q324, ...NINE24, 3000 * M), pt(FR.k24, ...FY24, 4000 * M)],
+      CostOfRevenue: [pt(FR.q324, ...NINE24, 1800 * M), pt(FR.k24, ...FY24, 2400 * M)],
+      Assets: frAssets(),
+    });
+    expect(frRow(b)?.grossProfit ?? null).toBeNull(); // 58dfdce: 400
+    expect(b.incomeQuarterly.withheld.some((w) => w.field === "grossProfit")).toBe(true);
+  });
+});
+
+describe("fix round 2 F5: a withheld anchor row omission says why", () => {
+  it("the omitted cash-flow row names the withheld operating cash flow, not a missing fact", () => {
+    const b = frBuild({
+      NetCashProvidedByUsedInOperatingActivities: [pt(FR.q324, ...NINE24, 700 * M), pt(FR.k24, ...FY24, 1000 * M), pt(FR.k25, ...FY24, 1200 * M)],
+      Assets: frAssets(),
+    });
+    expect(b.cashflowQuarterly.rows.find((r) => r.date === "2024-12-31")).toBeUndefined();
+    expect(b.cashflowQuarterly.notes.some((n) => /2024-12-31: operatingCashFlow is withheld for presentation \(.*first reported as 1000000000.*\); row omitted/.test(n))).toBe(true);
+    expect(b.cashflowQuarterly.notes.some((n) => /2024-12-31: no operatingCashFlow fact resolved/.test(n))).toBe(false);
   });
 });

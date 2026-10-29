@@ -156,7 +156,7 @@ export type PairChoice<T> =
       basis: "as-filed" | "first-reported";
       refiledBy: T | null;
       /** Why the first-reported copy stands in (basis "first-reported" only): C-9's two admitted cases. */
-      refiledAs: "precision" | "labelled-representation" | null;
+      refiledAs: "within-threshold" | "labelled-representation" | null;
     }
   | { kind: "withheld"; reason: string }
   | { kind: "none" };
@@ -248,5 +248,5 @@ export function oneBasisPair<T extends LineageCopy>(
         `the first-reported copy (${first.form.trim()} ${first.filed}, ${first.accn}) has no subtrahend filed on or before it`,
     };
   }
-  return mixedOrPair(first, subsFirst, { basis: "first-reported", refiledBy: winner, refiledAs: material ? "labelled-representation" : "precision" });
+  return mixedOrPair(first, subsFirst, { basis: "first-reported", refiledBy: winner, refiledAs: material ? "labelled-representation" : "within-threshold" });
 }
