@@ -701,8 +701,9 @@ At the statement date the order follows the DCF's basis: a fiscal-year base take
 the fiscal-year row first and then the quarter row, a trailing-twelve-month base
 the quarter row first and then the fiscal-year row (at a fiscal-year end they are
 the same instant). The first row that carries all three operands, and that the
-ownership gate (see "EV bridge") and the parser's refusals do not withhold, is the bridge
-row. Otherwise the bridge keeps the market EV's anchor, which is the row and the
+ownership gate (see "EV bridge"), the parser's refusals, a lease conflict, a lease-scope
+refusal (on the run's own lease switch) and a refused temporary-equity operand do not withhold,
+is the bridge row, so the DCF never raises on the chosen row a refusal the anchor did not have. Otherwise the bridge keeps the market EV's anchor, which is the row and the
 figure the DCF had before this rule, for one of four causes, each stated in the
 info gap `valuation.dcf.bridgeBalanceDate` and in the valuation-date basis, which
 then names the balance used, how many days it falls after or before the statement
@@ -1084,7 +1085,10 @@ force the issuer to redeem are carried in temporary (mezzanine) equity, outside
 every equity field above, and their carrying amount is the redemption claim
 (ASC 480-10-S99). They are claims senior to common, so the house definition of
 "claims senior to common" has two parts. Preferred is permanent preferred plus
-temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttributableToParent`).
+temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttributableToParent`). A balance whose positive `PreferredStockValue`
+equals that parent part (within max(1, 1e-6 x amount), the same date) is one mezzanine series tagged
+twice and is deducted once, as temporary equity, with the info gap `valuation.preferredOverlap` naming both
+tags; unequal amounts are both deducted (B4b's overlap territory).
 Non-controlling interest is book NCI plus redeemable NCI
 (`RedeemableNoncontrollingInterestEquityCarryingAmount`). The DCF bridge deducts
 the parent part beside preferred, and the redeemable NCI joins book NCI as the
@@ -1122,9 +1126,10 @@ preferred or NCI exists. The P/FCF cash-ownership guard and the three
 own-history common-allocation checks count an admitted claim and a refused one (a
 refused operand is a filed claim of unknown amount). In the P/FCF guard alone (which
 also tests each retained TTM window), a redeemable NCI is the same claim as book NCI
-and takes the same 1% floor: it withholds P/FCF unless the book NCI is known and the
-book and redeemable NCI together, and the NCI income, are each at most 1% of
-consolidated equity. A redeemable preferred, an unsplit amount or a refused operand
+and takes the same 1% floor: it withholds P/FCF unless the book and redeemable NCI together,
+and the NCI income, are each at most 1% of consolidated equity (a null book NCI beside a
+redeemable NCI counts as none, so the floor applies to the redeemable NCI alone, with the income
+known; with no redeemable NCI a null book NCI is main's test). A redeemable preferred, an unsplit amount or a refused operand
 withholds at any size, as permanent preferred does. Forecast operating EPS is
 withheld, with the disclosure `projections.eps.ownershipScope`, when the DCF
 publishes beside an admitted temporary-equity claim above zero, and also through
@@ -1259,8 +1264,7 @@ pension deficit of a rate-regulated utility, which it discloses).
 
 **Rate-regulated utilities.** For a filer whose SIC code (the EDGAR submissions
 `sic`) is one of 4911, 4923, 4924, 4931, 4932 or 4941, the pension and OPEB
-deficit is disclosed, not deducted: a rate-regulated utility is assumed to
-recover it through rates (ASC 980), and the offsetting regulatory asset is
+deficit is disclosed, not deducted: the code is read as a rate-regulated utility (ASC 980), and the offsetting regulatory asset is
 reported only in dimensional XBRL, which the SEC companyfacts the bridge reads
 does not carry (`valuation.dcf.debtLikeObligations.rateRegulated`, info). These
 are exactly the codes the repository's SIC map sends to a regulated electric,
@@ -1270,7 +1274,7 @@ gas or water utility or a diversified utility (`RATE_REGULATED_UTILITY_SIC`,
 through rates, and the group-49 fallback (4900, 4950, 4961) does not count. A
 filer whose SIC is not established is read as not rate-regulated; when, and only
 when, a pension line is then deducted, the info gap
-`valuation.dcf.debtLikeObligations.sicUnknown` says so. Its loss contingencies,
+`valuation.dcf.debtLikeObligations.sicUnknown` says so. A filer under one of these codes whose rates do not recover the deficit (a merchant generator under 4911) is overstated by it after tax; the note says so. Its loss contingencies,
 earn-outs and E-7 lines are deducted as for any filer. Residual, routed to the
 free-data-source batch: net the deficit against the pension regulatory asset
 once dimensional XBRL is available.
@@ -2608,9 +2612,10 @@ DCF takes the issuer's own history on the same lease-excluded basis (at least th
 usable years with a median of at least 0.1, held to the house cap of 5.0) and says
 so in the basis, which still states that any long-term investment is non-operating
 and added back by the bridge; without an established history ratio (three usable
-years, median at least 0.1) it is withheld with a critical
-`valuation.dcf.salesToCapital` gap that names the invested capital and the lease
-basis. Capital that is already not positive before the lease is removed, or with
+years, median at least 0.1) it is withheld with a warn
+`valuation.dcf.salesToCapital` gap (lead `LEASE_EMPTIED_CAPITAL_LEAD`; warn because main
+published a DCF on the lease-inclusive capital and a critical gap would block the report) that
+names the invested capital and the lease basis; the fair value and scenario targets quote it. Capital that is already not positive before the lease is removed, or with
 no lease removed, keeps the plain "invested capital <= 0" gap.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
