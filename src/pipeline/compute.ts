@@ -3287,6 +3287,7 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
     periodEndBasis: outlook.periodEndBasis,
     asOf: outlook.filingDate,
     source: `sec:8-K EX-99.1 ${outlook.accession}`,
+    qualifiers: outlook.qualifiers,
     operatingMarginPct: outlook.impliedOperatingMarginPct,
     revenueLow: outlook.low,
     ...(outlook.annualRevenueComparison === undefined ? {} : { revenueHigh: outlook.high, currency: outlook.currency, fiscalYear: outlook.fiscalYear,

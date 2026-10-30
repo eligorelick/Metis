@@ -45,7 +45,7 @@ import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
-import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
@@ -463,15 +463,23 @@ type PayloadFigureInput = Omit<PayloadFigure, "currency" | "period"> &
   Partial<Pick<PayloadFigure, "currency" | "period">>;
 
 /** D136/R2: a guided-quarter level is not growth over the next twelve months. */
-export function reverseDcfContextFigures(anchor: RevenueAnchor | undefined, startRevenue: number | null, asOf: string | null): PayloadFigureInput[] {
+type ReverseDcfCaveats = { guided: readonly string[]; latestQuarter: readonly string[] };
+export function reverseDcfContextFigures(anchor: RevenueAnchor | undefined, startRevenue: number | null, asOf: string | null,
+  caveats: ReverseDcfCaveats = { guided: [], latestQuarter: [] }): { figures: PayloadFigureInput[]; notes: string[] } {
   const overStart = (level: number | null | undefined): number | null =>
     startRevenue !== null && startRevenue > 0 && typeof level === "number" && Number.isFinite(level) ? (level / startRevenue - 1) * 100 : null;
-  return ([
+  const figures = ([
     { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf },
     { label: "guided-quarter revenue growth, year over year", value: anchor?.evidence?.guidedYoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedYoy", asOf },
     { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf },
     { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf },
   ] satisfies PayloadFigureInput[]).filter(figure => typeof figure.value === "number" && Number.isFinite(figure.value));
+  const notes = figures.flatMap(figure => {
+    const qualifiers = figure.source === "computed.valuation.reverseDcfContext.guidedYoy" ? caveats.guided
+      : figure.source === "computed.valuation.reverseDcfContext.latestQuarterYoy" ? caveats.latestQuarter : [];
+    return qualifiers.map(text => `Outlook caveat on ${figure.label}: ${text}`);
+  });
+  return { figures, notes };
 }
 
 function payloadSection(
@@ -713,6 +721,7 @@ function computedSections(
   currentPrice: number | null,
   collectionNotes: ReadonlySet<string>,
   annualLabels: ReadonlyMap<string, string>,
+  caveats: ReverseDcfCaveats,
 ): PayloadSection[] {
   const sections: PayloadSection[] = [];
   const g = computed.growth;
@@ -1089,6 +1098,9 @@ function computedSections(
 
   // --- Valuation -----------------------------------------------------------
   const val = computed.valuation;
+  const reverseContext = val.kind === "dcf"
+    ? reverseDcfContextFigures(val.assumptions?.revenueAnchor, val.assumptions?.startRevenue.value ?? null, val.assumptions?.asOf.statements ?? null, caveats)
+    : { figures: [], notes: [] };
   const valFigures: PayloadFigureInput[] = [{ label: "valuation model", value: val.kind, unit: "", source: "computed.valuation.kind", asOf: null }];
   if (val.kind === "dcf") {
     valFigures.push(
@@ -1100,10 +1112,7 @@ function computedSections(
     // D-60 (P0-E): the price-implied year-one growth beside the evidence it
     // must be read against, with guided and latest quarters on a YoY basis, so
     // "demanding" or "undemanding" is a comparison, not an adjective.
-    const anchor = val.assumptions?.revenueAnchor;
-    const start = val.assumptions?.startRevenue.value ?? null;
-    const anchorAsOf = val.assumptions?.asOf.statements ?? null;
-    valFigures.push(...reverseDcfContextFigures(anchor, start, anchorAsOf));
+    valFigures.push(...reverseContext.figures);
   } else if (val.kind === "excess-return") {
     // WS5 review (NIT 8): the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
@@ -1194,6 +1203,7 @@ function computedSections(
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
       ? ["Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures."]
       : []),
+    ...reverseContext.notes,
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
     ...(val.kind === "excess-return" && val.excessReturn.startCoeGrid !== undefined
       ? [`Excess-return sensitivity (C-11): start × cost of equity grid — ${val.excessReturn.startCoeGrid.notes.join("; ")}. ` +
@@ -3461,6 +3471,12 @@ export function assembleContextPayload(
   const transcript = transcriptExcerpt(bundle);
   const filings = filingExcerpts(bundle);
   const disclosures = buildFilingDisclosures(bundle);
+  const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
+  const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
+  const latestEnd = anchor?.runRate?.latestQuarterEnd;
+  const latestCheck = disclosures?.guidanceChecks.filter(check => check.metric === "revenue" && latestEnd &&
+    Math.abs(Date.parse(check.periodEnd) - Date.parse(latestEnd)) <= 3 * 86400000)[0];
+  const caveats = { guided: outlookCaveats(bundle, guidedAccession), latestQuarter: outlookCaveats(bundle, latestCheck?.guidance.accession ?? null) };
   const quarterlyTrend = quarterlyTrendSection(bundle, disclosures);
   const segmentRevenue = segmentRevenueSection(bundle);
   const issuerFilings = issuerFilingsSection(disclosures);
@@ -3487,7 +3503,7 @@ export function assembleContextPayload(
       industry: computed.route.evidence.industry,
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
-    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle)),
+    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle), caveats),
     statements: statementExtracts(bundle),
     ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),

@@ -378,6 +378,8 @@ describe("filing disclosures through the payload and the report tables", () => {
     expect(dcfGuidance(bundle, "USD")).toEqual({
       // 2026-10-29 D-136: carry the guidance duration and calendar basis into the DCF.
       periodStart: "2026-07-27", periodEndBasis: "13-week-quarter",
+      // 2026-10-29 D136/R4: original qualifier added; all financial pins unchanged.
+      qualifiers: ["NVIDIA is not assuming any Data Center compute revenue from China in its outlook."],
       revenue: 108e9, periodEnd: "2026-10-25", asOf: "2026-08-26",
       source: "sec:8-K EX-99.1 0001045810-26-000073", operatingMarginPct: 65.48,
       revenueLow: 105.84e9, grossMarginLowPct: 73.5, taxRatePct: 17, taxRatePeriod: "FY2027",

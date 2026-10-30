@@ -121,6 +121,14 @@ function withRelease(base: string, guidedQuarter: string, amount = "$300 - $320 
 }
 
 describe("guidance on a seasonal and period-comparable basis", () => {
+  it("states the issuer's ex-item effect without moving the revenue level", () => {
+    const s = scenario(SEASONAL);
+    const plain = build({ ...s.inputs, guidance: s.guide }).revenueAnchor!;
+    const qualified = build({ ...s.inputs, guidance: { ...s.guide, qualifiers: ["Excluding the annual event, year-over-year growth would be nearly 400 basis points higher."] } }).revenueAnchor!;
+    expect(qualified.yearOneRevenue).toBe(plain.yearOneRevenue);
+    expect(qualified.evidence!.guidedYoyIssuerEffectPp).toBe(4);
+    expect(qualified.basis).toMatch(/the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about 4\.00pp higher; year one uses the reported guidance/);
+  });
   it("keeps consensus holding a peak quarter at its midpoint (FIN-101 a)", () => {
     const s = scenario(SEASONAL);
     const a = build({ ...s.inputs, guidance: s.guide }).revenueAnchor!;

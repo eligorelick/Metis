@@ -270,6 +270,8 @@ export interface RevenueGuidanceAnchor {
   annualRevenueComparison?: { periodLabel: string; fiscalYear: number; low: number; high: number; currency: string };
   filingDate: string;
   accession: string;
+  /** Raw issuing-release qualifiers; display filtering is separate. */
+  qualifiers?: readonly string[];
   /** End of the quarter the same release reported (the guided quarter follows it). */
   basePeriodEnd: string | null;
   /**
@@ -295,6 +297,13 @@ export interface RevenueGuidanceAnchor {
   taxRatePeriod?: string | null;
   /** D-60: low end of the guided GAAP gross margin for the same quarter, percent. */
   grossMarginLowPct?: number | null;
+}
+
+/** Display-only filtering; numeric evidence reads the original qualifier. */
+export function outlookCaveats(bundle: DataBundle, accession: string | null): readonly string[] {
+  if (accession === null) return [];
+  const release = orderedEarningsReleases(currentReportsOf(bundle)?.releases ?? []).find(r => r.accession === accession);
+  return (release?.guidance?.qualifiers ?? []).map(q => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release."));
 }
 
 function guidedQuarterEnd(base: string | null, fiscalQuarter: number, rule: FiscalYearRule | null): Pick<RevenueGuidanceAnchor, "periodEnd" | "periodEndBasis"> {
@@ -353,6 +362,7 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
     filingDate: release.filingDate,
     accession: release.accession,
     basePeriodEnd: release.reported.periodEnd,
+    qualifiers: release.guidance.qualifiers,
     ...guidedQuarterEnd(release.reported.periodEnd, item.period.fiscalQuarter,
       fiscalYearRule(normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)).rows.map(row => String(row.date)))),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,

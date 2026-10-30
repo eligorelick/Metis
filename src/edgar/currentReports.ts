@@ -420,6 +420,14 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   return bases.map((basis, i) => ({ metric: rule.metric, basis, period, unit: rule.unit, sentence: text, ...bounds[i]! }));
 }
 
+/** Issuer-quantified ex-item growth effect; disclosure only, not an adjustment. */
+export function parseIssuerGrowthEffect(sentence: string): { pp: number } | null {
+  const match = /\bexcluding\b[^.]*\byear-over-year growth would be (?:nearly |approximately |about |roughly )?(\d+(?:\.\d+)?) basis points (higher|lower)\b/i.exec(sentence);
+  if (!match) return null;
+  const pp = Number(match[1]) / 100 * (match[2].toLowerCase() === "lower" ? -1 : 1);
+  return Number.isFinite(pp) ? { pp } : null;
+}
+
 /** Guidance from a release or commentary; null when it prints no outlook. */
 export function parseGuidance(rawText: string): IssuerGuidance | null {
   const table = parseGuidanceTables(rawText);

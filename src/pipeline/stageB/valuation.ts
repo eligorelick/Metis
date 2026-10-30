@@ -18,6 +18,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
@@ -936,6 +937,8 @@ export interface DcfQuarterRevenue {
 
 /** D-58: management's outlook for the next fiscal quarter (an 8-K earnings release). */
 export interface DcfGuidance {
+  /** Raw issuing-release qualifiers; ex-item effects are disclosure only. */
+  qualifiers?: readonly string[];
   /** Guided revenue for the next fiscal quarter (midpoint), model currency. */
   revenue: number;
   /** Guided quarter's period end (ISO date). */
@@ -1012,6 +1015,7 @@ export interface RevenueAnchor {
     guidedPacePct: number | null;
     /** Guided quarter over the same quarter a year earlier, percent; absent before the AMZN audit 2026-10-20. */
     guidedYoyPct?: number | null;
+    guidedYoyIssuerEffectPp?: number | null;
     /** Calendarized consensus for the year-one and year-two windows. */
     consensusYearOne: number | null;
     consensusYearTwo: number | null;
@@ -1748,9 +1752,12 @@ function buildRevenueAnchor(args: {
     `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
   const gateText = !anyConsensus ? "" :
     ` House rule D-65: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
+  const guidedYoyIssuerEffectPp = statedGuide?.qualifiers?.map(parseIssuerGrowthEffect).find(effect => effect !== null)?.pp ?? null;
+  const issuerEffectText = guidedYoyIssuerEffectPp === null ? "" :
+    `; the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about ${Math.abs(guidedYoyIssuerEffectPp).toFixed(2)}pp ${guidedYoyIssuerEffectPp < 0 ? "lower" : "higher"}; year one uses the reported guidance`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
-    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}`;
+    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}${issuerEffectText}`;
   notes.push(`Year-one revenue anchor: ${basis}`);
   return {
     source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis,
@@ -1758,7 +1765,7 @@ function buildRevenueAnchor(args: {
     consensusYears,
     consensusPath: path.map((row) => ({ year: row.year, label: row.label, startDate: row.startDate, endDate: row.endDate,
       consensus: row.consensus, anchored: row.anchored, status: row.status, fiscalYears: row.fiscalYears })),
-    evidence: { guidedRunRate, guidedPacePct, guidedYoyPct, guidedFloor, guidedSeasonalFactor: seasonal?.value ?? null, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
+    evidence: { guidedRunRate, guidedPacePct, guidedYoyPct, guidedYoyIssuerEffectPp, guidedFloor, guidedSeasonalFactor: seasonal?.value ?? null, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
       guidedQuarter: statedGuide === null ? null : { periodEnd: statedGuide.periodEnd, revenueLow: posOrNull(statedGuide.revenueLow) ?? statedGuide.revenue, revenueMid: statedGuide.revenue,
         grossMarginLowPct: isNum(statedGuide.grossMarginLowPct) ? statedGuide.grossMarginLowPct : null, source: statedGuide.source, asOf: statedGuide.asOf } },
   };

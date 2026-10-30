@@ -549,6 +549,9 @@ first available of three sources:
    guidance sets no revenue level or floor. The sequential pace is retained
    only as evidence; it carries the season. This applies to annual bases too.
    Guidance must end 80–100 days after the base and be published after it.
+   The issuing release's raw qualifiers travel with the guidance. A quantified
+   ex-item year-over-year effect is stated in the anchor basis, but never
+   adjusts a revenue level; its filtered caveat accompanies the growth row.
    A guided fourth quarter uses the established fiscal-year rule when its end
    is 84–105 days after the reported base. Other weekly quarters are dated
    base plus 91 days, even when the base happens to be a month end. In a
@@ -2893,6 +2896,19 @@ its own year-ago quarter. No guided run-rate or sequential row is sent: a level
 dated at the guided quarter is not twelve-month growth (D136). Stored reports
 keep their D-67 labels. The thesis trigger's year-one window likewise omits
 the guided-quarter run-rate. Thus "demanding" is a comparison rather than an adjective.
+
+The guided-quarter growth row carries the issuing release's outlook caveats
+as valuation notes. The latest-quarter growth row carries those of the earlier
+release paired with that quarter by the guidance track record (within three
+days). Caveats are omitted when their row is absent and pass the existing
+rating-language filter for display. A raw issuer sentence explicitly saying
+that, excluding a named item, year-over-year growth would be a number of basis
+points higher or lower supplies a signed percentage-point effect, before
+display filtering. The first matching sentence is stated in the revenue-anchor
+basis. It is disclosure only: year one and every valuation still use reported
+guidance. An unmatched sentence leaves today's behavior unchanged. A timing
+event cannot safely be distinguished from a persistent item such as FX or a
+divestiture by this sentence pattern alone (D136/R4).
 
 `src/pipeline/stageB/fairValue.ts` resolves the deterministic route value:
 FCFF DCF for general companies and excess-return equity value for financial
