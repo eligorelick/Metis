@@ -322,7 +322,10 @@ describe("FIN-305: a rate-regulated utility's pension deficit (Review Focus 14; 
     expect(lines.some((c) => /loss-contingency/.test(c.label))).toBe(true);
     expect(lines.some((c) => /contingent consideration/.test(c.label))).toBe(true);
     const notes = utility.notes.join(" ");
-    expect(notes).toMatch(/is assumed to recover them through rates \(ASC 980\)/);
+    // Fix round 1, M-8: SIC 4911 also files merchant generators, so the note does not assert rate recovery as a fact.
+    expect(notes).toContain("SIC 4931 is read as a rate-regulated utility (ASC 980): its pension and OPEB deficit is disclosed, not deducted; " +
+      "a filer under this code whose rates do not recover the deficit (a merchant generator) is overstated by it after tax");
+    expect(notes).not.toMatch(/is assumed to recover/);
     expect(notes).toMatch(/dimensional XBRL/);
     expect(notes).toContain(`${FAMILY_B}Noncurrent`);
     expect(notes).toContain("SIC 4931");

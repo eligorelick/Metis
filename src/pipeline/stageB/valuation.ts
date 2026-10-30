@@ -28,7 +28,7 @@ import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
-import { TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
+import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
@@ -2247,9 +2247,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     }
     const history = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
     if (history.ratio === null) {
+      // Warn, not critical (B4a final review I-1; D-135 OD-3): the DCF is withheld, but main published one on the
+      // lease-inclusive capital, and a critical gap would block the report.
       gaps.push(gapEntry("valuation.dcf.salesToCapital",
-        `invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
-        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "critical"));
+        `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
+        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn"));
       return { assumptions: null, notes, gaps };
     }
     emptiedHistory = history;
@@ -2258,6 +2260,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // temporary-equity operand withholds the DCF at warn, never critical (controller ruling, Task 3, 2026-10-29): the
   // claim exists, only its amount is disputed, and a critical gap would block the report.
   if (temporary !== null && temporary.refusal !== null) {
+    // B4a final review M-1: this return skips `valueCompany`'s bridge lease checks, which run only for a built DCF, so a
+    // row with a lease conflict or a lease-scope refusal as well keeps main's critical gaps beside the warn.
+    const leaseConflict = leaseDebtConflict(bal);
+    if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
+    const scopeRefusal = leaseDebtScopeRefusal(bal, inputs.includeLeasesInEv === true);
+    if (scopeRefusal) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", scopeRefusal, "critical"));
     gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
     return { assumptions: null, notes, gaps };
   }
@@ -4060,15 +4068,27 @@ function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEqui
   if (claims === null) return false;
   if (claims.refusal !== null || claims.redeemablePreferred !== 0 || claims.unsplit !== 0) return true;
   if (claims.redeemableNoncontrolling === 0) return false;
-  if (!isNum(row?.minorityInterest)) return true;
+  // A null book NCI is no claim at main; the floor then applies to the redeemable NCI alone (B4a final review M-7).
+  const book = isNum(row?.minorityInterest) ? Math.abs(row.minorityInterest) : 0;
   return !immaterialNoncontrollingInterest(
-    { totalEquity: row?.totalEquity, minorityInterest: Math.abs(row.minorityInterest) + Math.abs(claims.redeemableNoncontrolling) },
+    { totalEquity: row?.totalEquity, minorityInterest: book + Math.abs(claims.redeemableNoncontrolling) },
     row?.noncontrollingIncome,
   );
 }
 
+/**
+ * `immaterialNoncontrollingInterest` for the cash-ownership guard. B4a final review M-7: a null book NCI beside a
+ * redeemable NCI is no book claim, so the NCI income meets the floor on its own and `temporaryEquityBlocksCashOwnership`
+ * bounds the redeemable NCI; with no redeemable NCI this is main's test, unchanged.
+ */
+function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & { totalEquity?: number | null; minorityInterest?: number | null }) | null, noncontrollingIncome?: number | null): boolean {
+  const redeemable = temporaryEquityClaims(row);
+  const redeemableOnly = !isNum(row?.minorityInterest) && redeemable !== null && redeemable.refusal === null && redeemable.redeemableNoncontrolling !== 0;
+  return immaterialNoncontrollingInterest(redeemableOnly ? { ...row, minorityInterest: 0 } : row, noncontrollingIncome);
+}
+
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
-  const nciImmaterial = immaterialNoncontrollingInterest(row, row?.noncontrollingIncome);
+  const nciImmaterial = bookNciImmaterial(row, row?.noncontrollingIncome);
   return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
@@ -4440,7 +4460,7 @@ export function multiplesFramework(
   const cashStart = /^\d{4}-\d{2}-\d{2}$/.test(cashEnd) ? `${Number(cashEnd.slice(0, 4)) - 1}${cashEnd.slice(4)}` : "";
   const currentCashRows = (inputs.quarterlyFundamentals ?? []).filter(row => cashStart && row.date > cashStart && row.date <= cashEnd);
   const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership({ ...bal, noncontrollingIncome: inc?.noncontrollingIncome })) ||
-    (!immaterialNoncontrollingInterest(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
+    (!bookNciImmaterial(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
     (isNum(inc?.preferredDividendsPaid) && inc.preferredDividendsPaid !== 0) || currentCashRows.some(unresolvedCashOwnership);
   const parentFcfScope = unresolvedParentFcf
     ? "Parent-common cash-flow attribution unresolved: the numerator is parent-common capitalization and the denominator is consolidated operating cash flow less capital expenditure before SBC. Retained disclosures do not allocate that cash flow among parent common holders, noncontrolling interests or preferred claims. P/FCF, its own-history rank and peer comparison are withheld as parent-common valuation measures."
@@ -6719,11 +6739,13 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           if (isNum(inputs.sicCode) && RATE_REGULATED_UTILITY_SIC.has(inputs.sicCode)) {
             // FIN-305 (pre-flight I7): a rate-regulated utility recovers the cost through rates (ASC 980); the
             // offsetting regulatory asset is dimensional XBRL, which companyfacts does not carry.
-            const sic = ` (SIC ${inputs.sicCode})`;
-            notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}) are not deducted: a rate-regulated utility${sic} is assumed to recover them through rates (ASC 980); ` +
-              "the offsetting regulatory asset is reported only in dimensional XBRL, which the SEC companyfacts the bridge reads does not carry.");
+            // B4a final review M-8: SIC 4911 also files merchant generators, so the text states the reading, never the recovery.
+            const reading = `SIC ${inputs.sicCode} is read as a rate-regulated utility (ASC 980): its pension and OPEB deficit is disclosed, not deducted; ` +
+              "a filer under this code whose rates do not recover the deficit (a merchant generator) is overstated by it after tax";
+            notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}): ${reading}. ` +
+              "The offsetting regulatory asset is reported only in dimensional XBRL, which the SEC companyfacts the bridge reads does not carry.");
             gaps.push(gapEntry("valuation.dcf.debtLikeObligations.rateRegulated",
-              `The filer is a rate-regulated utility${sic}: its pension and OPEB deficit of ${millions(pension.value)} is assumed recoverable through rates (ASC 980) and is disclosed, not deducted.`, "info"));
+              `Pension and OPEB deficit of ${millions(pension.value)}: ${reading}.`, "info"));
           } else {
             deduct("pension and other postretirement benefit deficits", pension);
             if (!isNum(inputs.sicCode)) {

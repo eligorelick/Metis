@@ -131,9 +131,9 @@ import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
-import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type LeaseDebtInputs, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
-import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
+import { mezzaninePreferredOverlap, temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
@@ -1630,6 +1630,25 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
+/**
+ * B4a final review M-9: a balance row whose positive `preferredStock` equals the admitted redeemable preferred (the
+ * filer tagged one mezzanine series twice) keeps the claim once, as temporary equity, so the bridge, every EV,
+ * invested capital and the guards read it once. One info gap per date names both tags; unequal amounts are untouched.
+ */
+function withoutMezzaninePreferredOverlap(rows: FmpBalanceSheetRow[], gaps: ManifestEntry[]): FmpBalanceSheetRow[] {
+  const noted = new Set<string>();
+  return rows.map((row) => {
+    const reason = mezzaninePreferredOverlap({ ...temporaryEquityOperands(row), preferredStock: num(row.preferredStock) });
+    if (reason === null) return row;
+    const date = isoDay(row.date) ?? "";
+    if (!noted.has(date)) {
+      noted.add(date);
+      gaps.push({ field: "valuation.preferredOverlap", reason: `balance ${date}: ${reason}`, severity: "info" });
+    }
+    return { ...row, preferredStock: 0 };
+  });
+}
+
 /** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
 function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
   return rows.flatMap((row) => {
@@ -1970,16 +1989,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
   const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
-  const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
-  const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
+  const balanceAnnualReported = withoutMezzaninePreferredOverlap(withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt), ttmGaps);
+  const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const incomeQuarterSet = normalizeStatementQuarters(
     rowsOf(bundle.statements.incomeQuarterly),
     "income",
     ttmGaps,
   );
   const balanceQuarterSet = normalizeStatementQuarters(
-    withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
+    withoutMezzaninePreferredOverlap(withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt), ttmGaps),
     "balance",
     ttmGaps,
   );
@@ -3465,7 +3484,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
   // date (D-65), not the newest row the market EV uses.
-  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null });
+  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
   const bridgePoint = bridge.row;
   const bridgePointBasis = bridge.basis;
   const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
@@ -4255,8 +4274,14 @@ function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): bo
         Math.abs((num(row.totalEquity) as number) - (num(row.totalStockholdersEquity) as number)) >
           1e-9 * Math.max(1, Math.abs(num(row.totalEquity) as number), Math.abs(num(row.totalStockholdersEquity) as number))));
 }
-/** Why the DCF bridge cannot be built on this row (the refusal test, or the gate's ownership test); null when it can. */
-function balanceRowBlockReason(row: object): string | null {
+/**
+ * Why the DCF bridge cannot be built on this row (the refusal test, the gate's ownership test, or a lease or
+ * temporary-equity refusal the DCF raises on the row it reads); null when it can. The DCF reads the bridge row for the
+ * sales-to-capital lease scope, the bridge's lease integrity and scope, and the temporary-equity operands, so the row
+ * choice must refuse the same rows (B4a final review I-2): a refused candidate or anchor keeps main's row, never cured
+ * by another date.
+ */
+function balanceRowBlockReason(row: object, includeLeases = false): string | null {
   // The refusal test lives once, in `balanceRowRefused`; this only words it.
   if (balanceRowRefused(row)) {
     const refused = REFUSABLE_ANCHOR_FIELDS.find(field => (row as FmpBalanceSheetRow).fieldConflicts?.[field]?.usable === false);
@@ -4265,10 +4290,16 @@ function balanceRowBlockReason(row: object): string | null {
     return `${refused} refused${why ? `: ${why}` : ""}`;
   }
   if (noncontrollingOwnershipUnresolvedAt(row as FmpBalanceSheetRow)) return "noncontrolling ownership unresolved";
+  const leaseConflict = leaseDebtConflict(row as LeaseDebtInputs);
+  if (leaseConflict !== null) return `lease inputs conflict: ${leaseConflict}`;
+  const leaseScope = leaseDebtScopeRefusal(row as FmpBalanceSheetRow, includeLeases);
+  if (leaseScope !== null) return `lease scope refused: ${leaseScope}`;
+  const temporaryRefusal = temporaryEquityClaims(temporaryEquityOperands(row))?.refusal ?? null;
+  if (temporaryRefusal !== null) return temporaryRefusal;
   return null;
 }
-function balanceRowBlocksBridge(row: object): boolean {
-  return balanceRowBlockReason(row) !== null;
+function balanceRowBlocksBridge(row: object, includeLeases = false): boolean {
+  return balanceRowBlockReason(row, includeLeases) !== null;
 }
 
 export interface BalanceAnchor<TRow> {
@@ -4335,8 +4366,9 @@ export type BridgeRowCause = "statement-row" | "none-filed" | "incomplete" | "st
  * quarter row first on a trailing-twelve-month base (at a fiscal-year end both
  * are the same instant). The first candidate that is whole (`balanceRowWhole`,
  * the anchor's completeness rule, so a 10-Q that tags no debt line cannot
- * suppress the DCF again) and not blocked (`balanceRowBlocksBridge`) is the
- * row. Otherwise the anchor stands, which is main's row and main's figure, and
+ * suppress the DCF again) and not blocked (`balanceRowBlocksBridge`: a parser
+ * refusal, unresolved ownership, a lease conflict, a lease-scope refusal or a
+ * refused temporary-equity operand) is the row. Otherwise the anchor stands, which is main's row and main's figure, and
  * `cause` says why. A blocked anchor always stands: its refusal is never cured
  * by another date.
  */
@@ -4346,19 +4378,21 @@ export function dcfBridgeRow<TRow extends { date?: unknown } & Partial<Record<(t
   quarterly: readonly TRow[],
   annual: readonly TRow[],
   fallback: { row: TRow | null; basis: "quarter" | "annual" | null },
+  /** The run's own lease switch (`evIncludeLeases`), which the lease-scope refusal reads. */
+  includeLeases = false,
 ): { row: TRow | null; basis: "quarter" | "annual" | null; matchesStatement: boolean; cause: BridgeRowCause; detail: string | null } {
   const anchorAt = fallback.row !== null && statementDate !== null && isoDay(fallback.row.date) === statementDate;
   const keep = (cause: BridgeRowCause, detail: string | null) =>
     ({ row: fallback.row, basis: fallback.basis, matchesStatement: anchorAt, cause, detail });
-  if (fallback.row !== null && balanceRowBlocksBridge(fallback.row)) return keep("anchor-refused", balanceRowBlockReason(fallback.row));
+  if (fallback.row !== null && balanceRowBlocksBridge(fallback.row, includeLeases)) return keep("anchor-refused", balanceRowBlockReason(fallback.row, includeLeases));
   if (statementDate === null) return keep("none-filed", null);
   const q = quarterly.map((row) => ({ row, basis: "quarter" as const }));
   const a = annual.map((row) => ({ row, basis: "annual" as const }));
   const candidates = (statementBasis === "annual" ? [...a, ...q] : [...q, ...a]).filter((c) => isoDay(c.row.date) === statementDate);
-  const hit = candidates.find((c) => balanceRowWhole(c.row) && !balanceRowBlocksBridge(c.row));
+  const hit = candidates.find((c) => balanceRowWhole(c.row) && !balanceRowBlocksBridge(c.row, includeLeases));
   if (hit !== undefined) return { row: hit.row, basis: hit.basis, matchesStatement: true, cause: "statement-row", detail: null };
-  const blocked = candidates.find((c) => balanceRowBlocksBridge(c.row));
-  if (blocked !== undefined) return keep("statement-row-refused", balanceRowBlockReason(blocked.row));
+  const blocked = candidates.find((c) => balanceRowBlocksBridge(c.row, includeLeases));
+  if (blocked !== undefined) return keep("statement-row-refused", balanceRowBlockReason(blocked.row, includeLeases));
   const incomplete = candidates[0];
   if (incomplete !== undefined) return keep("incomplete", balanceRowMissing(incomplete.row).join(", "));
   return keep("none-filed", null);

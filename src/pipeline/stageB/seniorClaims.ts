@@ -38,6 +38,14 @@ export interface TemporaryEquityClaims {
 /** The lead of the `valuation.dcf.salesToCapital` reason when a refused temporary-equity operand withholds the DCF (FIN-119-V1); the fair value and scenario targets quote a warn gap that starts with it. */
 export const TEMPORARY_EQUITY_REFUSAL_LEAD = "Temporary equity refused for invested capital: ";
 
+/**
+ * The lead of the `valuation.dcf.salesToCapital` reason when the operating-lease removal itself empties invested capital
+ * and the issuer's own history cannot stand in (FIN-303, pre-flight I6; D-135 OD-3). The gap is a warn: the DCF is
+ * withheld, but main published one on the lease-inclusive capital, and a critical gap would block the report. The fair
+ * value and the scenario targets quote a warn gap that starts with it.
+ */
+export const LEASE_EMPTIED_CAPITAL_LEAD = "Invested capital emptied by the operating-lease removal: ";
+
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 /**
@@ -119,4 +127,21 @@ export function temporaryEquityUnknownAt(
   // The SEC-silent refusal says the SEC period itself holds no temporary equity: it is not a claim that may be missing.
   const hit = gaps.find((gap) => gap.severity === "warn" && paths.has(gap.field) && gap.reason.startsWith(ENRICHMENT_WITHHELD) && !gap.reason.endsWith(SEC_SILENT));
   return hit === undefined ? null : { date, reason: hit.reason.slice(ENRICHMENT_WITHHELD.length) };
+}
+
+/**
+ * B4a final review M-9: a filer that tags its mezzanine preferred series `PreferredStockValue` and also reports it as
+ * `TemporaryEquityCarryingAmountAttributableToParent` has one claim filed twice. When the row's positive preferred
+ * equals the admitted redeemable preferred within `max(1, 1e-6 x amount)`, the preferred line is zeroed and the claim
+ * is read once, as temporary equity (invested capital reads it there too, so it is still counted once). Unequal
+ * amounts are both kept: that is B4b's overlap territory (D-135 OD-2). Returns the info reason, or null.
+ */
+export function mezzaninePreferredOverlap(row: TemporaryEquityRow & { preferredStock?: number | null }): string | null {
+  const preferred = row.preferredStock;
+  if (!finite(preferred) || preferred <= 0) return null;
+  const claims = temporaryEquityClaims(row);
+  if (claims === null || claims.refusal !== null || claims.redeemablePreferred <= 0) return null;
+  if (Math.abs(preferred - claims.redeemablePreferred) > Math.max(1, 1e-6 * claims.redeemablePreferred)) return null;
+  return `preferredStock (us-gaap/PreferredStockValue) ${millions(preferred)} equals temporary equity attributable to the parent ` +
+    `(us-gaap/TemporaryEquityCarryingAmountAttributableToParent) ${millions(claims.redeemablePreferred)}: the same mezzanine series is tagged twice, so it is deducted once, as temporary equity`;
 }

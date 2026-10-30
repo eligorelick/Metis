@@ -259,7 +259,8 @@ describe("lease-emptied capital (Review Focus 13)", () => {
     const built = buildDcfAssumptions({ ...base, incomeHistory: income, balance: emptied(), capitalHistory });
     expect(built.assumptions).toBeNull();
     const gap = built.gaps.find((g) => g.field === "valuation.dcf.salesToCapital");
-    expect(gap?.severity).toBe("critical");
+    // Fix round 1, I-1: warn (D-135 OD-3), not critical: a critical gap blocks the report, and main published a DCF here.
+    expect(gap?.severity).toBe("warn");
     expect(gap?.reason).toMatch(/invested capital -100M/);
     expect(gap?.reason).toMatch(/once the operating lease .* leaves debt/);
     expect(gap?.reason).toMatch(/lease-excluded basis/);

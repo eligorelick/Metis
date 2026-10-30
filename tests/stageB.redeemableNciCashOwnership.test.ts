@@ -66,8 +66,11 @@ describe("redeemable NCI takes the book-NCI materiality floor in the P/FCF cash-
     expect(cashOwnershipGap(build({ bookNci: 3 * M, redeemableNci: 1 * M, nciIncome: 40 * M }))).toBe(true);
   });
 
-  it("withholds P/FCF beside a null book NCI (the combined NCI cannot be bounded)", () => {
-    expect(cashOwnershipGap(build({ bookNci: null, redeemableNci: 1 * M, nciIncome: 100_000 }))).toBe(true);
+  // Fix round 1, M-7 (re-pinned): a null book NCI is no claim at main, so the floor applies to the redeemable NCI alone.
+  it("beside a null book NCI the floor applies to the redeemable NCI alone", () => {
+    expect(cashOwnershipGap(build({ bookNci: null, redeemableNci: 1 * M, nciIncome: 100_000 }))).toBe(false);
+    expect(cashOwnershipGap(build({ bookNci: null, redeemableNci: 30 * M, nciIncome: 100_000 }))).toBe(true);
+    expect(cashOwnershipGap(build({ bookNci: null, redeemableNci: 1 * M, nciIncome: null }))).toBe(true);
   });
 
   it("withholds P/FCF for redeemable preferred of any size, with no floor", () => {
