@@ -142,6 +142,7 @@ The merge rule: no report that main publishes becomes Blocked, and no figure is 
 ### Codex review of PR #76, fix round 4
 
 - C1: the M-9 reduction cut `total` for the claim consumers, but invested capital, sales-to-capital and ROIC add no `preferredStock`, so a twice-tagged mezzanine preferred counted zero times in capital. `temporaryEquityClaims` now also returns `capitalTotal` (the reduced `total` plus the overlap left out of it) and `capitalBasis`; the three capital sums read them. The bridge, every EV and the guards keep `total`.
+- C2: `familyStatesAt` netted the environmental accrual out of the loss-contingency total only within one registrant. After the successor/predecessor merge picks each family's registrant, `successorObligationsAt` now nets the total by the environmental accrual the other registrant files for the total's own date, floored at nil (a predecessor's 500M total holding 400M environmental, repeated by a successor as a bare 500M total, deducts 400M plus 100M, not 400M plus 500M). A date mismatch keeps the existing reading and its OD-4 residual; a single registrant is unchanged.
 
 ### What a reader will notice beyond the figures
 

@@ -1301,7 +1301,12 @@ the successor tags, a filed zero or an accrual that nets to nil included, is its
 statement and is never replaced), its basis prefixed "predecessor (CIK ..., one reporting entity under
 B-36)". The merge is per family: a family both registrants tag is read once, from
 the successor, never summed and never taken from the predecessor first; the
-settlement assets follow the retirement obligation they offset. The predecessor's
+settlement assets follow the retirement obligation they offset. The same-date
+environmental netting above also runs across the merge: when the loss-contingency total comes from one
+registrant and the environmental accrual from the other, the total is reduced by the environmental accrual the
+other registrant files for the total's own date (the total, else noncurrent plus current), floored at nil, so
+an accrual both filings repeat is deducted once. A date mismatch keeps the existing reading, with its recorded
+residual (D-135 OD-4). The predecessor's
 non-marketable equity carrying value is cited beside the long-term investments,
 under the same no-annual-report and continuity conditions but at the bridge date
 only (no look-back), with the predecessor's CIK named in the citation. Once the successor files an annual balance sheet of its own, the

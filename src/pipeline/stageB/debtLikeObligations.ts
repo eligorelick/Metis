@@ -215,6 +215,23 @@ interface FamilyStates {
   contingentConsideration: FamilyState;
   /** The fund read beside the retirement obligation's date. */
   settlementAssets: FiledObligation | null;
+  /** The loss-contingency accrual as filed, before any environmental accrual is netted out of it (`successorObligationsAt` nets across registrants). */
+  lossGross: Latest;
+}
+
+/**
+ * FIN-305: the loss-contingency accrual above an environmental accrual of the same date, which may sit inside it and is
+ * deducted on its own line. Tagged by the filer, so a zero or a netted-to-zero accrual is its statement, not an omission.
+ */
+function netOfEnvironmental(loss: Latest, inside: FiledObligation | null, insidePrefix = ""): FamilyState {
+  if (loss === null) return null;
+  if (loss === "zero") return "zero";
+  const asOf = loss.asOf === undefined ? {} : { asOf: loss.asOf };
+  if (inside === null) return { value: loss.value, basis: loss.basis, ...asOf };
+  const net = loss.value - inside.value;
+  return net > 0
+    ? { value: net, basis: `${loss.basis}, less the environmental accrual of ${billions(inside.value)} inside it (${insidePrefix}${inside.basis}), which is deducted on its own line`, ...asOf }
+    : "zero";
 }
 
 function familyStatesAt(facts: CompanyFacts | null | undefined, date: string | null, unit: string | null, observedAt: string): FamilyStates | null {
@@ -226,18 +243,7 @@ function familyStatesAt(facts: CompanyFacts | null | undefined, date: string | n
   const loss = readLatest(facts, LOSS_CONTINGENCIES, unit, date, observedDay);
   const consideration = readLatest(facts, CONTINGENT_CONSIDERATION, unit, date, observedDay);
   // Only the amount above any same-date environmental accrual: the environmental accrual may sit inside the total.
-  const lossNet = ((): FamilyState => {
-    if (loss === null) return null;
-    // Tagged by the filer, so a zero or a netted-to-zero accrual is its statement, not an omission.
-    if (loss === "zero") return "zero";
-    const inside = read(facts, ENVIRONMENTAL, unit, loss.date, observedDay);
-    const asOf = loss.asOf === undefined ? {} : { asOf: loss.asOf };
-    if (inside === null) return { value: loss.value, basis: loss.basis, ...asOf };
-    const net = loss.value - inside.value;
-    return net > 0
-      ? { value: net, basis: `${loss.basis}, less the environmental accrual of ${billions(inside.value)} inside it (${inside.basis}), which is deducted on its own line`, ...asOf }
-      : "zero";
-  })();
+  const lossNet = netOfEnvironmental(loss, loss === null || loss === "zero" ? null : read(facts, ENVIRONMENTAL, unit, loss.date, observedDay));
   const strip = (o: Latest): FamilyState =>
     o === null || o === "zero" ? o : { value: o.value, basis: o.basis, ...(o.asOf === undefined ? {} : { asOf: o.asOf }) };
   return {
@@ -247,6 +253,7 @@ function familyStatesAt(facts: CompanyFacts | null | undefined, date: string | n
     lossContingencies: lossNet,
     contingentConsideration: strip(consideration),
     settlementAssets: aro === null || aro === "zero" ? null : read(facts, SETTLEMENT_ASSETS, unit, aro.date, observedDay),
+    lossGross: loss,
   };
 }
 
@@ -292,6 +299,11 @@ export function predecessorFactsFor(own: CompanyFacts | null | undefined, predec
  * contingent consideration), the successor's own reading wins when it has one; a family it does not tag is read from the
  * predecessor (`predecessorFactsFor`), its basis prefixed with the predecessor's CIK. A family is never summed across the
  * two registrants. The settlement assets follow the retirement obligation they offset, from the same facts.
+ *
+ * The environmental accrual that sits inside a loss-contingency total is netted out of the total by the same-date rule
+ * (`netOfEnvironmental`) even when the two families come from different registrants (PR #76 Codex review): the loss total is
+ * reduced by the environmental accrual the other registrant files for the loss total's own date. A date mismatch keeps the
+ * existing reading (D-135 OD-4).
  */
 export function successorObligationsAt(own: CompanyFacts | null | undefined, predecessor: SuccessorPredecessor | null, date: string | null, unit: string | null, observedAt: string): DebtLikeObligations | null {
   const mine = familyStatesAt(own, date, unit, observedAt);
@@ -303,13 +315,25 @@ export function successorObligationsAt(own: CompanyFacts | null | undefined, pre
   // The successor's own state wins whenever it tagged the family, a filed zero (or an accrual that nets to nil) included.
   const pick = (a: FamilyState | undefined, b: FamilyState): FiledObligation | null => (a === undefined || a === null ? adopt(obligation(b)) : obligation(a));
   const ownAro = mine?.assetRetirement ?? null;
+  // The loss total and the environmental accrual came from different registrants: net the total by the other one's accrual at the total's date.
+  const lossFromOwn = mine?.lossContingencies != null, envFromOwn = mine?.environmental != null;
+  const crossNetted = ((): FiledObligation | null | undefined => {
+    if (lossFromOwn === envFromOwn) return undefined;
+    const loss = lossFromOwn ? mine?.lossGross : theirs.lossGross;
+    if (loss === null || loss === undefined || loss === "zero") return undefined;
+    const otherFacts = lossFromOwn ? predecessorFacts : own;
+    const inside = otherFacts === null || otherFacts === undefined ? null : read(otherFacts, ENVIRONMENTAL, unit as string, loss.date, observedAt.slice(0, 10));
+    if (inside === null) return undefined;
+    const net = netOfEnvironmental(loss, inside, lossFromOwn ? prefix : "");
+    return lossFromOwn ? obligation(net) : adopt(obligation(net));
+  })();
   const merged: DebtLikeObligations = {
     assetRetirement: pick(mine?.assetRetirement, theirs.assetRetirement),
     environmental: pick(mine?.environmental, theirs.environmental),
     // The fund offsets the obligation it was read beside: the predecessor's only when the obligation is the predecessor's.
     settlementAssets: ownAro !== null ? mine?.settlementAssets ?? null : adopt(theirs.settlementAssets),
     pension: pick(mine?.pension, theirs.pension),
-    lossContingencies: pick(mine?.lossContingencies, theirs.lossContingencies),
+    lossContingencies: crossNetted !== undefined ? crossNetted : pick(mine?.lossContingencies, theirs.lossContingencies),
     contingentConsideration: pick(mine?.contingentConsideration, theirs.contingentConsideration),
   };
   return Object.values(merged).every((o) => o === null) ? null : merged;

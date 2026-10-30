@@ -141,6 +141,41 @@ describe("a successor with no annual report of its own bears its predecessor's f
   });
 });
 
+// PR #76 Codex review, fix round 4 (C2): the environmental overlap is netted across the merged registrants.
+describe("the environmental accrual inside a loss-contingency total is counted once across the merged registrants (C2)", () => {
+  const LOSS = "LossContingencyAccrualAtCarryingValue";
+  const ENV = "AccrualForEnvironmentalLossContingencies";
+  const at = (end: string, val: number) => usd(inst(end, val, "10-Q", "2026-08-03"));
+  const read = (own: CompanyFacts, pred: CompanyFacts) => successorObligationsAt(own, { facts: pred, ...PRED }, "2026-06-30", "USD", OBSERVED)!;
+
+  it("a predecessor environmental accrual and a successor that repeats only the total deduct 400M plus 100M, never 400M plus 500M", () => {
+    const got = read(successor({ [LOSS]: at("2026-06-30", 500e6) }), predecessor({ [LOSS]: at("2026-06-30", 500e6), [ENV]: at("2026-06-30", 400e6) }));
+    expect(got.environmental!.value).toBe(400e6);
+    expect(got.lossContingencies!.value).toBe(100e6);
+    expect(got.lossContingencies!.basis).toMatch(/less the environmental accrual of 0\.400B/);
+  });
+
+  it("the successor's environmental accrual nets the predecessor's loss total in the same way, and a fully overlapping total deducts nothing", () => {
+    const own = successor({ [ENV]: at("2026-06-30", 400e6) });
+    expect(read(own, predecessor({ [LOSS]: at("2026-06-30", 500e6) })).lossContingencies!.value).toBe(100e6);
+    expect(read(own, predecessor({ [LOSS]: at("2026-06-30", 400e6) })).lossContingencies).toBeNull();
+  });
+
+  it("a date mismatch keeps the existing reading (its residual is recorded under OD-4)", () => {
+    const got = read(successor({ [LOSS]: at("2026-06-30", 500e6) }), predecessor({ [ENV]: usd(inst("2025-12-31", 400e6, "10-K", "2026-02-18")) }));
+    expect(got.environmental!.value).toBe(400e6);
+    expect(got.lossContingencies!.value).toBe(500e6);
+  });
+
+  it("controls: one registrant tagging both is unchanged, and both read from the predecessor stay netted", () => {
+    const both = { [LOSS]: at("2026-06-30", 500e6), [ENV]: at("2026-06-30", 400e6) };
+    const single = read(successor(both), predecessor());
+    expect([single.environmental!.value, single.lossContingencies!.value]).toEqual([400e6, 100e6]);
+    const fromPredecessor = read(successor(), predecessor({ [LOSS]: usd(inst("2025-12-31", 500e6, "10-K", "2026-02-18")), [ENV]: usd(inst("2025-12-31", 400e6, "10-K", "2026-02-18")) }));
+    expect([fromPredecessor.environmental!.value, fromPredecessor.lossContingencies!.value]).toEqual([400e6, 100e6]);
+  });
+});
+
 function wiringBundle(continuity: boolean, confirmed = true): DataBundle {
   const bundle = completeCurrencyBundle({ debt: 300, annualCurrency: "USD" });
   const cmp = { start: "2025-04-01", end: "2025-06-30" };
