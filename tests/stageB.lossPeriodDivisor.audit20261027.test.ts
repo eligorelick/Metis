@@ -15,6 +15,7 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled } from "@/pipeline/stageB/dilutedDivisor";
 import type { DataBundle } from "@/pipeline/types";
 import { currencyBundle, M } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 type Row = Record<string, unknown>;
 const rowsOf = (b: DataBundle, key: "incomeQuarterly" | "incomeAnnual"): Row[] =>
@@ -43,9 +44,9 @@ const convertibleFacts = (increment: number | null): CompanyFacts => factsOf({
   ...(increment === null ? {} : { IncrementalCommonSharesAttributableToConversionOfDebtSecurities: { unit: "shares", points: [point("2025-12-31", increment, { start: "2025-10-01" })] } }),
   ConvertibleNotesPayable: { unit: "USD", points: [point("2025-12-31", 500 * M)] },
 });
-function withFacts(b: DataBundle, data: CompanyFacts): DataBundle {
-  (b.edgar as unknown as Record<string, unknown>).companyFacts = { ok: true, value: { data } };
-  return b;
+// The facts are read only for a confirmed issuer (PR #76 Codex review), so the fixture builds one.
+function withFacts(b: DataBundle, data: CompanyFacts, confirmed = true): DataBundle {
+  return withIssuerFacts(b, data, confirmed);
 }
 
 describe("FIN-404: awardDilutedDivisor", () => {
@@ -170,6 +171,14 @@ describe("FIN-404 fix round 1: conversion shares are not award dilution (I-1)", 
     // Convertible filed, no donor increment: main's count (the loss quarter's filed 98.5 M), and the note.
     expect(none.valuation.dcf?.bridge.dilutedShares).toBe(98.5 * M);
     expect(none.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor")?.reason).toMatch(/Award dilution not restored/);
+  });
+
+  it("facts of an unconfirmed registrant (a stale FMP CIK) refuse nothing: the whole award increment is restored", () => {
+    const out = runStageB(withFacts(withLossQuarter({}, true), convertibleFacts(null), false));
+    if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    // Main's behaviour with no usable facts: no convertible refusal, so the profitable donor's 1 M increment is restored in full.
+    expect(out.valuation.dcf?.bridge.dilutedShares).toBe(99.5 * M);
+    expect(out.valuation.gaps.find((g) => g.field === "valuation.perShare.lossPeriodDivisor")?.reason).not.toMatch(/Award dilution not restored/);
   });
 });
 

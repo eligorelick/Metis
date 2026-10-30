@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { issuerEconomicDilutedShares, type EconomicEquityScope, type EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import { currencyBundle, M } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 function multiClassBundle(basic: number | null) {
   const bundle = currencyBundle({ sic: "3571" });
@@ -157,7 +158,7 @@ describe("B-37 wording when the count was not filed (FIN-404 carried minor)", ()
     q.weightedAverageShsOutDil = 99.5 * M;
     // A convertible is filed but no conversion increment: nothing is restored (loss-period-withheld).
     const pt = { end: "2025-12-31", val: 500 * M, accn: "0000000000-26-000001", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-13" };
-    (b.edgar as unknown as Record<string, unknown>).companyFacts = { ok: true, value: { data: { cik: 1, entityName: "T", facts: { "us-gaap": { ConvertibleNotesPayable: { units: { USD: [pt] } } } } } } };
+    withIssuerFacts(b, { cik: 1, entityName: "T", facts: { "us-gaap": { ConvertibleNotesPayable: { units: { USD: [pt] } } } } } as never);
     const out = runStageB(b);
     if (out.valuation.kind !== "dcf") throw new Error("fixture route");
     expect(out.valuation.gaps.find(g => g.field === "valuation.perShare.lossPeriodDivisor")?.reason).toMatch(/Award dilution not restored/);

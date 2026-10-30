@@ -2538,7 +2538,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
-  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null);
+  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQProj = projDivisors.quarter.shares;
   const sharesAProj = projDivisors.annual.shares;
   const dilutedSharesProj =
@@ -3381,7 +3381,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // zero-for-undisclosed sentinel, not a real count (missing ≠ zero).
   const posShares = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
   // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
-  const divisors = incomeDivisors(incomeQuarterly, inc0, bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null);
+  const divisors = incomeDivisors(incomeQuarterly, inc0, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQuarterly = divisors.quarter.shares;
   const sharesAnnual = divisors.annual.shares;
   const quarterlySharesFresh = rowDate(incomeQuarterly[0]) >= rowDate(inc0);
@@ -4004,7 +4004,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   // FIN-403: a successor registrant with no annual report of its own bears its predecessor's filed obligations, when its
   // filings re-present the predecessor's periods unchanged (B-36); without that continuity nothing is read from it.
-  const ownCompanyFacts = bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null;
+  // An FMP-supplied CIK that SEC answers for another registrant must not drive the successor read (PR #76 Codex review).
+  const ownCompanyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const predecessorEntry = bundle.edgar?.predecessor ?? null;
   const successorPredecessor = predecessorEntry === null || ownCompanyFacts === null ? null : {
     facts: predecessorEntry.facts, cik10: predecessorEntry.cik10, continuity: successorContinuity(ownCompanyFacts, predecessorEntry.facts) !== null,

@@ -13,6 +13,7 @@ import { successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import type { DataBundle } from "@/pipeline/types";
 
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 const M = 1_000_000;
 const PREDECESSOR_CIK = "0000034088";
@@ -140,7 +141,7 @@ describe("a successor with no annual report of its own bears its predecessor's f
   });
 });
 
-function wiringBundle(continuity: boolean): DataBundle {
+function wiringBundle(continuity: boolean, confirmed = true): DataBundle {
   const bundle = completeCurrencyBundle({ debt: 300, annualCurrency: "USD" });
   const cmp = { start: "2025-04-01", end: "2025-06-30" };
   const pred = facts(34088, {
@@ -154,8 +155,9 @@ function wiringBundle(continuity: boolean): DataBundle {
     NetIncomeLoss: usd({ ...cmp, val: continuity ? 7_082e6 : 7_000e6, form: "10-Q", filed: "2026-05-04" }),
     EarningsPerShareDiluted: { unit: "USD/shares", points: [{ ...cmp, val: 1.64, form: "10-Q", filed: "2026-05-04" }] },
   });
+  // The successor's facts are read only for a confirmed issuer (PR #76 Codex review).
+  withIssuerFacts(bundle, succ, confirmed);
   bundle.edgar = { ...bundle.edgar,
-    companyFacts: { ok: true, value: { source: "edgar", endpoint: "test facts", asOf: "2026-07-01", fetchedAt: bundle.builtAt, data: succ } },
     predecessor: { cik10: PREDECESSOR_CIK, name: "Predecessor Corp", facts: pred, endpoint: "test predecessor facts", fetchedAt: bundle.builtAt,
       via: { accession: "0000034088-26-000001", form: "8-K12B", filed: "2026-07-01", successorFormAccession: "0002115436-26-000001" } },
   } as DataBundle["edgar"];
@@ -174,6 +176,12 @@ describe("the bridge deducts the predecessor's obligation (FIN-403 wiring)", () 
     expect(lines[0]!.label).toBe("asset-retirement obligations (filed, after tax at 21%; balance at 2025-09-30, the latest filed)");
     expect(lines[0]!.basis).toMatch(/^predecessor \(CIK 0000034088, one reporting entity under B-36\): us-gaap\/AssetRetirementObligation 0\.125B at 2025-09-30 \(10-Q filed 2025-11-04\)/);
     expect(computed.gaps.map((g) => g.field)).not.toContain("valuation.dcf.debtLikeObligations.predecessor");
+  });
+
+  it("facts of an unconfirmed registrant (a stale FMP CIK) read no predecessor obligations", () => {
+    const computed = runStageB(wiringBundle(true, false));
+    if (computed.valuation.kind !== "dcf") throw new Error("DCF fixture");
+    expect((computed.valuation.dcf?.bridge.nonOperatingComponents ?? []).some((c) => c.kind === "debt-like-obligation")).toBe(false);
   });
 
   it("without established continuity nothing is deducted and the run says so", () => {
