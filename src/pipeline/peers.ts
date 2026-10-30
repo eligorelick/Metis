@@ -8,7 +8,7 @@ import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
-import { commonHolderCapital } from "@/pipeline/stageB/securityBasis";
+import { commonHolderCapital, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import type { SectorRoute } from "@/types/core";
 
 // FMP discovery returns about ten names; six cut real competitors (NVDA report
@@ -90,7 +90,7 @@ export interface PeerCoverage {
   evaluated: number;
   eligible: string[];
   exclusions: PeerExclusion[];
-  comparisons: Array<{ name: string; current: number | null; peerMedian: number | null; peerCount: number; basis: string }>;
+  comparisons: Array<{ name: string; current: number | null; currentWithheldReason?: string; peerMedian: number | null; peerCount: number; basis: string }>;
 }
 export interface PeerFundamentals {
   /** Independently sourced comparability evidence; the bounded FMP reads do not establish it. */
@@ -318,7 +318,7 @@ export function comparePeerFundamentals(opts: {
     methodology: [
       `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-      "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+      "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
       "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
@@ -329,6 +329,10 @@ export function comparePeerFundamentals(opts: {
   const exclude = (symbol: string, reason: string) => peerCoverage.exclusions.push({ symbol, reason });
   const now = opts.now.getTime(); const symbol = normalize(opts.symbol); const subject = opts.subject;
   const currency = normalize(subject.quote.currency);
+  const scope = resolveEconomicEquityScope(subject.quote, subject.economicShareEvidence ?? [], subject.securityBasisAsOf ?? "");
+  const subjectCap = scope.status === "unresolved" ? null : scope.marketCap;
+  const sizeCap = scope.status === "resolved" ? scope.marketCap : subject.quote.marketCap;
+  const scopeWithheld = scope.status === "unresolved" ? scope.basis : null;
   const targetCik = issuer(opts.profile?.cik);
   const targetQuoteReason = quoteReason(opts.quote, symbol, now, targetCik);
   if (!opts.profile || !issuer(opts.profile.cik) || opts.profile.isAdr !== false || targetQuoteReason || !comparePriceCurrency(subject.reportedCurrency, subject.quote.currency).comparable) {
@@ -355,6 +359,7 @@ export function comparePeerFundamentals(opts: {
   const targetIncomeEnd = day(subjectCommon.date);
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
+  if (commonValid && scopeWithheld) exclude(symbol, `Company figure withheld: ${scopeWithheld}`);
   const commonValues: Array<{ symbol: string; value: number; economicEvidence?: PeerEconomicEvidence }> = [];
   const subjectProfileRoute = routeCompany({ sector: opts.profile.sector ?? null, industry: opts.profile.industry ?? null,
     currency: opts.profile.currency ?? null, country: opts.profile.country ?? null, isAdr: false, isEtf: false, isFund: false, ipoDate: null },
@@ -378,7 +383,7 @@ export function comparePeerFundamentals(opts: {
       continue;
     }
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;
-    const sizeReason = peerSizeExclusion(subject.quote.marketCap, peerQuote.marketCap);
+    const sizeReason = peerSizeExclusion(sizeCap, peerQuote.marketCap);
     if (sizeReason !== null) { exclude(peerSymbol, sizeReason); continue; }
     const normalizedBalance = normalizeQuarterRows(rows(candidate.balanceQuarterly));
     const bal = normalizedBalance.rows[0]; const balanceEnd = day(bal?.date);
@@ -462,7 +467,8 @@ export function comparePeerFundamentals(opts: {
   }
   const trimmed = survivors(screen(commonValues, "marketCapToTtmCommonEarnings"), "common earnings");
   peerCoverage.eligible = peers.filter(peer => eligibleSymbols.has(peer.symbol)).map(peer => peer.symbol);
-  peerCoverage.comparisons.push({ name: "Market cap / TTM common earnings", current: commonValid ? (subject.quote.marketCap as number) / (subjectCommon.value as number) : null,
+  peerCoverage.comparisons.push({ name: "Market cap / TTM common earnings", current: commonValid && subjectCap !== null ? subjectCap / (subjectCommon.value as number) : null,
+    ...(commonValid && scopeWithheld ? { currentWithheldReason: scopeWithheld } : {}),
     peerMedian: commonValid && trimmed.length >= 4 ? quantile(trimmed, .5) : null, peerCount: trimmed.length,
     basis: "Issuer market capitalization / four contiguous quarters of filed common earnings (or net income only with zero preferred and minority claims in each same-date quarterly balance). Not price/diluted EPS. At least four issuers after 1.5×IQR filtering required." });
   if (trimmed.length < 4) peerCoverage.methodology.push(`Common-earnings median withheld: ${trimmed.length} eligible peers after the IQR rule; four required.`);

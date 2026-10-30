@@ -6,6 +6,8 @@ import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers
 import { makeLimiter } from "@/providers/http";
 import type { FmpFetch } from "@/pipeline/types";
 import { peerCommonEquityCase, PEER_COMMON_CAP } from "./helpers/peerCommonEquityCase";
+import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
+import { peerCoverageAuditLines, valuationReviewBlocks } from "@/report/researchReview";
 
 const NOW = new Date("2026-10-13T18:00:00Z");
 function data<T extends FmpRawRow>(rows: T[]): FmpFetch<T> {
@@ -46,6 +48,50 @@ function run(candidates: Record<string, PeerFundamentals>, target = subject()) {
     subjectIncomeQuarterly: candidate("ROOT").incomeQuarterly, subjectBalanceQuarterly: candidate("ROOT").balanceQuarterly,
     collection: { candidates, candidateCount: Object.keys(candidates).length, exclusions: [], notes: [] } });
 }
+
+function unresolvedTarget() {
+  const target = subject();
+  target.quote = { ...target.quote, marketCapSecurityBasis: "unresolved",
+    marketCapScopeEvidence: { reason: "The retained 10-Q names Class A and Class B common stock.", sourceIds: ["edgar:10-Q:capital"] } };
+  return target;
+}
+
+describe("subject capitalization scope in the peer row", () => {
+  const four = () => ({ P2: candidate("P2", 1000), P3: candidate("P3", 1500), P4: candidate("P4", 2000), P5: candidate("P5", 2500) });
+  const twoClass = (): EconomicShareEvidence => ({ issuerId: "1", securityId: "ROOT", asOf: "2026-06-30", filed: "2026-08-01",
+    effectiveFrom: "2026-06-30", effectiveTo: null, complete: true, sourceIds: ["filing:share-capital"], sourceHash: "synthetic-hash",
+    classes: [
+      { classId: "ROOT", shares: 100, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "quoted-market-price" },
+      { classId: "ROOT-B", shares: 20, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" },
+    ] });
+  it("withholds unresolved Company capitalization while retaining the peer context", () => {
+    const target = unresolvedTarget(), result = run(four(), target);
+    expect(multiplesFramework("general", { ...target, ...result }).multiples.find(m => m.key === "priceToBook")?.current ?? null).toBeNull();
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: null, peerMedian: 17.5, peerCount: 4,
+      currentWithheldReason: expect.stringMatching(/^Issuer-common economic share scope unresolved.*Class A and Class B/) });
+    expect(result.peerCoverage.exclusions).toContainEqual({ symbol: "ROOT", reason: expect.stringMatching(/^Company figure withheld: Issuer-common economic share scope unresolved/) });
+  });
+  it("uses resolved issuer-common capitalization for the Company figure and size screen", () => {
+    const target = subject();
+    target.quote = { ...target.quote, priceAsOf: "2026-10-13", issuerId: "1", securityId: "ROOT", marketCapSecurityBasis: "quoted-security" };
+    target.securityBasisAsOf = "2026-10-13"; target.economicShareEvidence = [twoClass()];
+    const result = run({ ...four(), P6: candidate("P6", 11) }, target);
+    expect(result.peerCoverage.comparisons[0].current).toBeCloseTo(12, 10);
+    expect(result.peerCoverage.comparisons[0].currentWithheldReason).toBeUndefined();
+    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^size screen: .*outside the 100× comparable-size band/);
+  });
+  it("keeps the unverified vendor capitalization control", () => {
+    expect(run(four()).peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+  });
+  it("labels withheld Company figures and retains the legacy missing display", () => {
+    const peers = run(four(), unresolvedTarget()).peerCoverage;
+    const table = valuationReviewBlocks({ peerCoverage: peers, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!;
+    expect(table.rows[0]).toEqual(["Market cap / TTM common earnings", "withheld", "17.5×", "4"]);
+    expect(peerCoverageAuditLines(peers).join(" ")).toMatch(/company withheld \(Issuer-common economic share scope unresolved/);
+    const legacy = { ...peers, comparisons: [{ name: "Market cap / TTM common earnings", current: null, peerMedian: 17.5, peerCount: 4, basis: "stored" }] };
+    expect(valuationReviewBlocks({ peerCoverage: legacy, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!.rows[0][1]).toBe("n/m");
+  });
+});
 
 describe("defensible peer comparables", () => {
   function evidenceRefinedPeerCase(route: "bank" | "general") {

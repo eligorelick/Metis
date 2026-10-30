@@ -491,6 +491,23 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
  * ------------------------------------------------------------------------ */
 
 describe("payload determinism + provenance", () => {
+  it("names a withheld peer Company figure beside its null figure", () => {
+    const { bundle, computed } = buildInputs();
+    const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });
+    if (computed.valuation.kind === "pre-revenue") throw new Error("fixture needs multiples");
+    const reason = "Issuer-common economic share scope unresolved: synthetic.";
+    computed.valuation.multiples.peerCoverage = {
+      methodology: ["same currency and issuer-common earnings basis"], candidates: 4, evaluated: 4,
+      eligible: ["P1", "P2", "P3", "P4"], exclusions: [{ symbol: "ROOT", reason: `Company figure withheld: ${reason}` }],
+      comparisons: [{ name: "Market cap / TTM common earnings", current: null, currentWithheldReason: reason, peerMedian: 15, peerCount: 4, basis: "b" }],
+    };
+    const payload = assembleContextPayload(bundle, computed, validation);
+    const section = payload.computed.find(entry => entry.title === "Comparable peers (computed)");
+    expect(section?.figures.map(figure => figure.value)).toEqual([null, 15, 4]);
+    expect(section?.notes.join(" ")).toContain(`Company figure withheld: ${reason}`);
+    expect(payload.peerScreen?.notes).toContain(`ROOT: Company figure withheld: ${reason}`);
+    expect(section?.notes.join(" ")).not.toContain("ROOT:");
+  });
   it("exposes qualified peer comparisons and their sample counts as independently citable evidence", () => {
     const { bundle, computed } = buildInputs();
     const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });

@@ -1216,7 +1216,7 @@ function computedSections(
       // the assembler's method lines and the comparison bases.
       notes: [
         ...peerCoverage.methodology.filter((line) => !collectionNotes.has(line)),
-        ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}`),
+        ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}${comparison.currentWithheldReason ? ` Company figure withheld: ${comparison.currentWithheldReason}` : ""}`),
       ],
     }));
   }

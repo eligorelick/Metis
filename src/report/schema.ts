@@ -1192,7 +1192,7 @@ export const PeerCoverageSchema = z.object({
   eligible: z.array(z.string()),
   exclusions: z.array(z.object({ symbol: z.string(), reason: z.string() }).strict()),
   comparisons: z.array(z.object({
-    name: z.string(), current: z.number().nullable(), peerMedian: z.number().nullable(),
+    name: z.string(), current: z.number().nullable(), currentWithheldReason: z.string().optional(), peerMedian: z.number().nullable(),
     peerCount: z.number().int().nonnegative(), basis: z.string(),
   }).strict()),
 }).strict();

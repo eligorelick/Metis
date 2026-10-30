@@ -1762,6 +1762,11 @@ Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
 multiples. Those definitions can differ with changing share counts and are
 never silently combined. P/B and P/TBV require supported positive denominators.
+The company's own comparison figure uses the issuer-common market capitalization
+the multiples use (B-8): the class sum when established, the provider's cap when
+its scope is unverified, and none when unresolved. The latter row reads withheld
+with its reason, while the peer median remains context. The comparison's size
+screen uses the class sum when established, otherwise the provider's cap.
 Peer P/B uses the subject's common-equity rule: explicit common equity when
 disclosed, otherwise parent stockholders' equity less preferred stock; a
 consolidated basis additionally requires a disclosed noncontrolling-equity
