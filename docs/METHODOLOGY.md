@@ -552,6 +552,8 @@ first available of three sources:
    The issuing release's raw qualifiers travel with the guidance. A quantified
    ex-item year-over-year effect is stated in the anchor basis, but never
    adjusts a revenue level; its filtered caveat accompanies the growth row.
+   The new guidance evidence fields are omitted when there is no stated guide;
+   unguided anchors retain their preceding evidence contract.
    A guided fourth quarter uses the established fiscal-year rule when its end
    is 84–105 days after the reported base. Other weekly quarters are dated
    base plus 91 days, even when the base happens to be a month end. In a

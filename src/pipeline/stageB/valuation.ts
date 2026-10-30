@@ -1765,7 +1765,10 @@ function buildRevenueAnchor(args: {
     consensusYears,
     consensusPath: path.map((row) => ({ year: row.year, label: row.label, startDate: row.startDate, endDate: row.endDate,
       consensus: row.consensus, anchored: row.anchored, status: row.status, fiscalYears: row.fiscalYears })),
-    evidence: { guidedRunRate, guidedPacePct, guidedYoyPct, guidedYoyIssuerEffectPp, guidedFloor, guidedSeasonalFactor: seasonal?.value ?? null, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
+    evidence: { guidedRunRate, guidedPacePct,
+      // Preserve the pre-B5a evidence contract when there is no stated guide.
+      ...(statedGuide === null ? {} : { guidedYoyPct, guidedYoyIssuerEffectPp, guidedFloor, guidedSeasonalFactor: seasonal?.value ?? null }),
+      consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
       guidedQuarter: statedGuide === null ? null : { periodEnd: statedGuide.periodEnd, revenueLow: posOrNull(statedGuide.revenueLow) ?? statedGuide.revenue, revenueMid: statedGuide.revenue,
         grossMarginLowPct: isNum(statedGuide.grossMarginLowPct) ? statedGuide.grossMarginLowPct : null, source: statedGuide.source, asOf: statedGuide.asOf } },
   };
