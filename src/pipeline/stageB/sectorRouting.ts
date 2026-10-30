@@ -33,7 +33,7 @@ import type {
 } from "@/types/core";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
-import { minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
+import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { isFinancialForensicsSuppressed } from "@/pipeline/stageB/forensics";
 import {
@@ -870,8 +870,8 @@ export function routeCompany(
   if (profile.isAdr === true) {
     overlays.push("adr");
     notes.push(
-      "adr overlay applied (profile.isAdr). ADR ratio comes from the static ADR_RATIOS map " +
-        "(no FMP field exists); unknown ADRs are disclosed as gaps.",
+      "adr overlay applied (profile.isAdr). No depositary ratio is applied: per-ADS figures need verified, " +
+        "effective-dated security evidence (B-19), otherwise they are withheld.",
     );
   } else {
     const country = normStr(profile.country)?.toUpperCase() ?? null;
@@ -932,60 +932,6 @@ export function routeCompany(
       cashflowAnnual: statements.cashflowAnnual?.date ?? null,
     },
   };
-}
-
-// ---------------------------------------------------------------------------
-// ADR_RATIOS — static, research-verified map (house table)
-// ---------------------------------------------------------------------------
-
-export interface AdrRatioEntry {
-  /** Ordinary (home-market) shares represented by 1 ADS. TSM: 1 ADS = 5 ordinary. */
-  ordinarySharesPerAds: number;
-  /** Home-jurisdiction dividend withholding percent (indicative; verify per treaty). */
-  withholdingPct: number | null;
-  /** Home country (ISO-ish label). */
-  country: string;
-  /** Provenance of the ratio. */
-  source: string;
-}
-
-/**
- * Only ratios verified against primary sources belong here. Everything else
- * goes through the lookupAdrRatio gap path (LLM/F-6/depositary lookup later).
- */
-export const ADR_RATIOS: Readonly<Record<string, AdrRatioEntry>> = {
-  TSM: {
-    ordinarySharesPerAds: 5,
-    withholdingPct: 21,
-    country: "TW",
-    source: "TSMC IR Jan-2026",
-  },
-};
-
-export type AdrRatioLookup =
-  | { ok: true; symbol: string; ratio: AdrRatioEntry }
-  | { ok: false; gap: ManifestEntry };
-
-/** Look up a covered ADR's ratio; unknown symbols return a disclosed gap. */
-export function lookupAdrRatio(symbol: string): AdrRatioLookup {
-  const sym = symbol.trim().toUpperCase();
-  const ratio: AdrRatioEntry | undefined =
-    sym.length > 0 && Object.hasOwn(ADR_RATIOS, sym) ? ADR_RATIOS[sym] : undefined;
-  if (ratio === undefined) {
-    return {
-      ok: false,
-      gap: {
-        field: "adr.ratio",
-        reason:
-          `unknown ADR ratio for "${sym.length > 0 ? sym : symbol}" — not in the static ADR_RATIOS map; ` +
-          "per-ADS figures (EPS × ratio / FX) cannot be reconstructed until the ratio is sourced " +
-          "(depositary bank / company IR / F-6 filing)",
-        severity: "warn",
-        attemptedSources: ["static:ADR_RATIOS"],
-      },
-    };
-  }
-  return { ok: true, symbol: sym, ratio };
 }
 
 // ---------------------------------------------------------------------------
@@ -1316,6 +1262,7 @@ export function degradationPlan(
   overlays: readonly SectorOverlay[],
   availableQuarters: number | null,
   reitSubmap?: ReitSubmap | null,
+  currencies?: { statements: string | null; quote: string | null } | null,
 ): DegradationPlan {
   const items: DegradationItem[] = [];
   const notes: string[] = [];
@@ -1576,21 +1523,23 @@ export function degradationPlan(
         },
       );
     } else if (overlay === "adr") {
-      items.push(
-        {
-          target: "header.dividendYield",
-          action: "annotate",
-          disclosure:
-            "Dividend yield shown GROSS — foreign withholding applies (see ADR ratio map for the rate); " +
-            "depositary pass-through fees (typ. $0.01–$0.05/ADS) also reduce net dividends.",
-        },
-        {
+      items.push({
+        target: "header.dividendYield",
+        action: "annotate",
+        disclosure:
+          "Dividend yield is shown GROSS of foreign withholding tax and depositary pass-through fees; no withholding rate is applied.",
+      });
+      const comparison = comparePriceCurrency(currencies?.statements, currencies?.quote);
+      if (currencies && !comparison.comparable && comparison.mismatch) {
+        items.push({
           target: "fundamentals.currency",
           action: "annotate",
           disclosure:
-            "Statements are in reportedCurrency while the ADR quotes in USD — per-ADS figures use " +
-            "eps_local × ADR ratio / FX; never divide the USD price by local-currency EPS.",
-        },
+            `Statements are in ${normalizeReportedCurrency(currencies.statements)} while the ADR quotes in ${normalizeReportedCurrency(currencies.quote)}: ` +
+            "per-ADS and per-share comparisons with the price are withheld; no depositary ratio or FX rate is applied.",
+        });
+      }
+      items.push(
         {
           target: "meta.reportingCadence",
           action: "annotate",

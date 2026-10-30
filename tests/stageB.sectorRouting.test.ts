@@ -6,7 +6,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  ADR_RATIOS,
   BURN_WINDOW_MAX_QUARTERS,
   DAYS_PER_QUARTER,
   PRE_REVENUE_TTM_REVENUE_FLOOR_USD,
@@ -16,7 +15,6 @@ import {
   SPY_BENCHMARK,
   computeRunway,
   degradationPlan,
-  lookupAdrRatio,
   lookupSectorEtf,
   metricPolicy,
   routeCompany,
@@ -643,35 +641,6 @@ describe("routeCompany pre-revenue invalid revenue gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ADR ratio map + lookup
-// ---------------------------------------------------------------------------
-
-describe("ADR_RATIOS / lookupAdrRatio", () => {
-  it("TSM: 1 ADS = 5 ordinary shares, 21% withholding, TSMC IR source", () => {
-    const res = lookupAdrRatio("tsm");
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.symbol).toBe("TSM");
-      expect(res.ratio.ordinarySharesPerAds).toBe(5);
-      expect(res.ratio.withholdingPct).toBe(21);
-      expect(res.ratio.country).toBe("TW");
-      expect(res.ratio.source).toBe("TSMC IR Jan-2026");
-    }
-    expect(ADR_RATIOS.TSM.ordinarySharesPerAds).toBe(5);
-  });
-
-  it("unknown ADR -> gap path (never throws)", () => {
-    const res = lookupAdrRatio("NVO");
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.gap.field).toBe("adr.ratio");
-      expect(res.gap.severity).toBe("warn");
-      expect(res.gap.reason).toContain("NVO");
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Sector ETF map
 // ---------------------------------------------------------------------------
 
@@ -774,10 +743,10 @@ describe("degradationPlan", () => {
   });
 
   it("adr overlay yields gross-yield / currency / cadence annotations", () => {
-    const plan = degradationPlan("general", ["adr"], 40);
+    const plan = degradationPlan("general", ["adr"], 40, null, { statements: "EUR", quote: "USD" });
     const all = plan.items.map((i) => i.disclosure).join("\n");
     expect(all).toContain("GROSS");
-    expect(all).toContain("reportedCurrency");
+    expect(all).toContain("Statements are in EUR while the ADR quotes in USD");
     expect(all).toContain("20-F");
   });
 

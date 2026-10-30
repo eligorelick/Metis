@@ -4305,10 +4305,17 @@ ordinary shares one quoted share represents. A Form 40-F filer is a Canadian
 issuer whose listed security is its common share, so its market cap stands. A
 20-F filer that lists its ordinary shares directly loses the keyless figure
 too, because the filed facts read here do not say which security is quoted.
-Métis does not compute the figure from the static ADR table or guess a ratio. A market cap Métis computed from a
+Métis does not guess a depositary ratio or apply a static ratio table. A market cap Métis computed from a
 quote and a filed count is now labelled "derived" in Key data and the market
 data table, with the note "quote price × filed share count, computed by
 Métis", instead of "raw provider observation".
+
+ADR disclosures describe the path that runs: dividend yield is gross of foreign
+withholding tax and depositary pass-through fees, with no withholding rate
+applied. A currency annotation names the statement and quote currencies only
+when both are known and different; it says price comparisons are withheld and
+no depositary ratio or FX rate is applied. Unknown or minor-unit currencies
+retain their existing valuation gaps without an invented currency mismatch.
 
 **Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
 `LongTermNotesAndLoans` and its current notes as `NotesPayableCurrent`. No

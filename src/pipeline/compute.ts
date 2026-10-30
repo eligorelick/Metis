@@ -2139,6 +2139,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route.overlays,
     incomeQuarterly.length,
     route.reitSubmap ?? null,
+    { statements: currencies.model, quote: str(profile?.currency) },
   );
 
   // --- Growth ----------------------------------------------------------------
