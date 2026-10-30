@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-29",
+  "generatedAt": "2026-10-30",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10256,11 +10256,6 @@
           "after": "FAIR_VALUE_2026_10_D135"
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.50.0"
-        },
-        {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D135"
@@ -10274,6 +10269,20 @@
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D135"
+        }
+      ]
+    },
+    {
+      "name": "audit-b5a-seasonality-calendars-20261027",
+      "decisions": [
+        "D-136"
+      ],
+      "reason": "B5a puts quarter and DCF starting flows on 13-week and 52-week bases, takes guidance out of its own season, uses evidenced weekday fiscal-year ends, compares like-for-like guided growth and discloses calendar-shifted events. Task 23 advances report spec 1.50.0 to 1.51.0. DEMO is an unguided calendar-year control: a fresh main/branch replay confirms this spec leaf is its only change; all valuation figures stay identical. The baseline predates both batches (1.2.0), so this path is reclassified from B4a.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.51.0"
         }
       ]
     }
