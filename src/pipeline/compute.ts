@@ -133,7 +133,7 @@ import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type LeaseDebtInputs, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
-import { mezzaninePreferredOverlap, temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
+import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
@@ -1630,25 +1630,6 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
-/**
- * B4a final review M-9: a balance row whose positive `preferredStock` equals the admitted redeemable preferred (the
- * filer tagged one mezzanine series twice) keeps the claim once, as temporary equity, so the bridge, every EV,
- * invested capital and the guards read it once. One info gap per date names both tags; unequal amounts are untouched.
- */
-function withoutMezzaninePreferredOverlap(rows: FmpBalanceSheetRow[], gaps: ManifestEntry[]): FmpBalanceSheetRow[] {
-  const noted = new Set<string>();
-  return rows.map((row) => {
-    const reason = mezzaninePreferredOverlap({ ...temporaryEquityOperands(row), preferredStock: num(row.preferredStock) });
-    if (reason === null) return row;
-    const date = isoDay(row.date) ?? "";
-    if (!noted.has(date)) {
-      noted.add(date);
-      gaps.push({ field: "valuation.preferredOverlap", reason: `balance ${date}: ${reason}`, severity: "info" });
-    }
-    return { ...row, preferredStock: 0 };
-  });
-}
-
 /** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
 function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
   return rows.flatMap((row) => {
@@ -1989,16 +1970,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
   const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
-  const ttmGaps: ManifestEntry[] = [];
-  const balanceAnnualReported = withoutMezzaninePreferredOverlap(withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt), ttmGaps);
+  const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
+  const ttmGaps: ManifestEntry[] = [];
   const incomeQuarterSet = normalizeStatementQuarters(
     rowsOf(bundle.statements.incomeQuarterly),
     "income",
     ttmGaps,
   );
   const balanceQuarterSet = normalizeStatementQuarters(
-    withoutMezzaninePreferredOverlap(withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt), ttmGaps),
+    withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
     "balance",
     ttmGaps,
   );
@@ -2630,7 +2611,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // FIN-119 (OD-1, one definition of claims senior to common): a refused temporary-equity operand, or an
   // admitted claim, also leaves a future common-earnings allocation unestablished. This covers a redeemable
   // NCI beside a null book NCI, which the bridge fields cannot show. An unknown (withheld) enrichment withholds nothing.
-  const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims(temporaryEquityOperands(projectionOwnershipBalance));
+  const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims({ ...temporaryEquityOperands(projectionOwnershipBalance), preferredStock: num(projectionOwnershipBalance.preferredStock) });
   const projectionTemporaryClaim = projectionTemporary !== null && (projectionTemporary.refusal !== null || projectionTemporary.total > 0);
   // A rejected TTM can leave an older annual DCF anchor. Its EPS must not
   // import a newer quarter, or interest in an unestablished/different currency.
@@ -3514,6 +3495,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     minorityInterest: num(row.minorityInterest),
     // FIN-119-V1: temporary equity (and any refusal of it, in `fieldConflicts`) is financing capital in sales-to-capital.
     ...temporaryEquityFields(row),
+    // The preferred line as filed: `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9).
+    preferredStock: num(row.preferredStock),
     ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
     cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
     longTermInvestments: num(row.longTermInvestments),
@@ -4046,7 +4029,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
     // FIN-119: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
-    temporaryEquity: bridgePoint ? temporaryEquityClaims(temporaryEquityOperands(bridgePoint)) : null,
+    temporaryEquity: bridgePoint ? temporaryEquityClaims({ ...temporaryEquityOperands(bridgePoint), preferredStock: num(bridgePoint.preferredStock) }) : null,
     // The DCF bridge reads the statement-date row and the enterprise values the anchor row, so each is matched on its own date.
     temporaryEquityUnknown: (() => {
       const unknownAt = (row: FmpBalanceSheetRow | null | undefined) => temporaryEquityUnknownAt(row ?? null, row ? isoDay(row.date) : null, bundle.gaps);
@@ -4110,6 +4093,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   void ratiosTtm; // reserved for future ratio cross-checks
   const result = valueCompany(route, bundleInputs);
   result.gaps.push(...estimateGaps);
+  // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
+  const overlapDates = new Set<string>();
+  for (const row of [bridgePoint, balPoint]) {
+    const overlap = row ? temporaryEquityClaims({ ...temporaryEquityOperands(row), preferredStock: num(row.preferredStock) })?.overlap ?? null : null;
+    const date = row ? isoDay(row.date) ?? "" : "";
+    if (row && overlap !== null && !overlapDates.has(date)) {
+      overlapDates.add(date);
+      result.gaps.push({ field: "valuation.preferredOverlap", reason: `balance ${date}: ${overlap}`, severity: "info" });
+    }
+  }
   // FIN-403: on the DCF route, say when a predecessor would have supplied an obligation but continuity is not established.
   if (result.kind === "dcf" && successorPredecessor !== null && !successorPredecessor.continuity && bridgePoint !== null) {
     const bridgeDate = isoDay(bridgePoint.date);

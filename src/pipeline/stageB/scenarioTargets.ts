@@ -39,7 +39,7 @@ import {
 } from "@/pipeline/stageB/projections";
 import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
-import { perShareUnit, temporaryEquityRefusalGap } from "@/pipeline/stageB/fairValue";
+import { perShareUnit, dcfWithheldWarnGap } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
 import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/schema";
 
@@ -155,7 +155,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
     // FIN-119-V1: a refused temporary-equity operand that withheld the DCF is named, as in the fair value.
-    const refusedClaim = temporaryEquityRefusalGap(valuation.gaps);
+    const refusedClaim = dcfWithheldWarnGap(valuation.gaps);
     return suppressed(
       [
         {

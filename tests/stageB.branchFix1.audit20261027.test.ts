@@ -182,10 +182,23 @@ describe("M-1: a refused temporary-equity operand does not mask the lease critic
     expect(built.gaps.some((g) => g.field === "valuation.dcf.salesToCapital" && g.severity === "warn")).toBe(true);
   });
 
-  it("a row with a lease-scope refusal and a refused operand raises the critical scope gap", () => {
-    const built = input({ ...LEASE_SCOPE, ...TEMP_REFUSED }, { includeLeasesInEv: true });
-    expect(built.assumptions).toBeNull();
-    expect(built.gaps.some((g) => g.severity === "critical" && /lease/i.test(g.reason))).toBe(true);
+  it("a row with a lease-scope refusal under the switch and a refused operand raises the critical scope gap", () => {
+    // A partial operating lease whose scope the financing components prove: the FCX-1 check in sales-to-capital does not
+    // fire, so only the bridge's own scope refusal (raised with the switch set) can produce the critical gap.
+    const provenance = (tag: string) => ({ tags: [tag], source: "edgar", unit: "USD", periodEnd: "2026-03-31", filings: [{ accn: "0000000000-26-000001" }] });
+    const proven = {
+      shortTermDebt: 50e6, longTermDebt: 200e6, operatingLeaseLiability: 50e6, financeLeaseLiability: 0,
+      fieldProvenance: {
+        shortTermDebt: provenance("us-gaap/LongTermDebtCurrent"), longTermDebt: provenance("us-gaap/LongTermDebtNoncurrent"),
+        operatingLeaseLiability: provenance("us-gaap/OperatingLeaseLiabilityNoncurrent"),
+      },
+    };
+    const switched = input({ ...proven, ...TEMP_REFUSED }, { includeLeasesInEv: true });
+    expect(switched.assumptions).toBeNull();
+    expect(switched.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.netDebt.leaseScope", severity: "critical" }));
+    // Control: on the default switch the proven scope is no refusal, so the warn stands alone.
+    const plain = input({ ...proven, ...TEMP_REFUSED });
+    expect(plain.gaps.filter((g) => g.severity === "critical")).toEqual([]);
   });
 
   it("control: a row with only a refused operand keeps the warn and raises no critical", () => {
@@ -234,8 +247,11 @@ describe("M-7: a null book NCI beside a redeemable NCI", () => {
     expect(cashOwnershipGap(nciRun({ redeemableNci: 1 * M, nciIncome: null }))).toBe(true);
     expect(cashOwnershipGap(nciRun({ redeemableNci: 1 * M, nciIncome: 40 * M }))).toBe(true);
   });
-  it("control: a null book NCI with no redeemable NCI behaves as main", () => {
-    expect(cashOwnershipGap(nciRun({ nciIncome: 100_000 }))).toBe(nciRun({ redeemableNci: 0, nciIncome: 100_000 }).gaps.some((g) => g.field === "valuation.multiples.priceToFcf.cashOwnership"));
+  it("control: a null book NCI with no redeemable NCI behaves as main (literal values)", () => {
+    // Main: a null book NCI is no claim, but a nonzero NCI income is unbounded without a book floor, so it withholds.
+    expect(cashOwnershipGap(nciRun({ nciIncome: 100_000 }))).toBe(true);
+    expect(cashOwnershipGap(nciRun({ redeemableNci: 0, nciIncome: 100_000 }))).toBe(true);
+    expect(cashOwnershipGap(nciRun({ nciIncome: 0 }))).toBe(false);
   });
 });
 
@@ -257,26 +273,31 @@ function preferredRun(preferred: number, parent: number) {
   return runStageB(bundle);
 }
 
-describe("M-9: mezzanine preferred tagged twice is deducted once", () => {
+describe("M-9: mezzanine preferred tagged twice is deducted once, inside the temporary-equity reader", () => {
   const claimsOf = (out: ReturnType<typeof runStageB>) => {
     const v = out.valuation;
     if (v.kind !== "dcf" || v.dcf === null) throw new Error("expected a DCF");
-    const bridge = v.dcf.bridge;
     // `valueCompany` folds the redeemable preferred into the bridge's preferred line, so that line is the whole deduction.
-    return { preferred: bridge.preferred ?? 0, ev: v.multiples!.enterpriseValue.value };
+    return { preferred: v.dcf.bridge.preferred ?? 0, ev: v.multiples!.enterpriseValue.value };
   };
+  const overlapGaps = (out: ReturnType<typeof runStageB>) => out.gaps.filter((g) => g.field === "valuation.preferredOverlap");
 
   it("an equal pair is deducted once in the bridge and in the multiples EV, and an info note names both tags", () => {
     const pair = preferredRun(100 * M, 100 * M);
-    const only = preferredRun(0, 100 * M);
     const claims = claimsOf(pair);
     expect(claims.preferred).toBe(100 * M);
-    expect(claims.ev).toBe(claimsOf(only).ev);
-    const note = pair.gaps.find((g) => g.field === "valuation.preferredOverlap");
+    expect(claims.ev).toBe(claimsOf(preferredRun(100 * M, 0)).ev); // main's figure: the preferred line alone
+    const note = overlapGaps(pair)[0];
     expect(note?.severity).toBe("info");
     expect(note?.reason).toMatch(/PreferredStockValue/);
     expect(note?.reason).toMatch(/TemporaryEquityCarryingAmountAttributableToParent/);
-    expect(only.gaps.some((g) => g.field === "valuation.preferredOverlap")).toBe(false);
+    expect(overlapGaps(preferredRun(0, 100 * M))).toEqual([]);
+  });
+
+  it("the gap appears once for a date that is in both the annual and the quarterly rows", () => {
+    const dates = overlapGaps(preferredRun(100 * M, 100 * M)).map((g) => g.reason.match(/^balance (\d{4}-\d{2}-\d{2})/)?.[1]);
+    expect(dates.length).toBeGreaterThan(0);
+    expect(new Set(dates).size).toBe(dates.length);
   });
 
   it("an unequal pair is deducted in full (B4b's overlap territory)", () => {
@@ -284,6 +305,23 @@ describe("M-9: mezzanine preferred tagged twice is deducted once", () => {
     const claims = claimsOf(pair);
     expect(claims.preferred).toBe(160 * M);
     expect(claims.ev).toBe(claimsOf(preferredRun(0, 60 * M)).ev! + 100 * M);
-    expect(pair.gaps.some((g) => g.field === "valuation.preferredOverlap")).toBe(false);
+    expect(overlapGaps(pair)).toEqual([]);
+  });
+
+  it("a bank's rows stay as filed: key data, returns and the displayed basis equal the run without the temporary equity", () => {
+    const bank = (temporary: boolean) => {
+      const bundle = completeCurrencyBundle({ bank: true, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+      for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+        const statement = bundle.statements[key];
+        if (!statement.ok) throw new Error("fixture has balances");
+        for (const r of statement.value.data.rows) Object.assign(r, { preferredStock: 100 * M, ...(temporary ? { temporaryEquityAttributableToParent: 100 * M } : {}) });
+      }
+      return runStageB(bundle);
+    };
+    const pair = bank(true), main = bank(false);
+    expect(pair.route.base).toBe("bank");
+    expect(JSON.stringify(pair.financialMetrics)).toBe(JSON.stringify(main.financialMetrics));
+    expect(JSON.stringify(pair.returns)).toBe(JSON.stringify(main.returns));
+    expect(JSON.stringify(pair.financialMetrics)).not.toMatch(/preferred 0/);
   });
 });

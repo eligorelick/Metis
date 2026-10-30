@@ -760,6 +760,8 @@ export interface DcfBalanceRow {
   temporaryEquity?: number | null;
   temporaryEquityAttributableToParent?: number | null;
   temporaryEquityAttributableToNoncontrollingInterest?: number | null;
+  /** The preferred line as filed; `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9). */
+  preferredStock?: number | null;
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   cashAndShortTermInvestments: number | null;
   /** D-60: non-operating long-term investments, removed from the sales-to-capital denominator when reported. */
@@ -6079,8 +6081,8 @@ export interface ValuationBundleInputs {
   debtLikeObligations?: DebtLikeObligations | null;
   /**
    * FIN-305 (pre-flight I7): the filer's SIC code, the one fact the utility rule reads. A code in
-   * `RATE_REGULATED_UTILITY_SIC` means the pension and OPEB deficit is assumed recoverable through rates (ASC 980) and
-   * is disclosed, not deducted; null or absent means not established, which is read as not a utility, and a deducted
+   * `RATE_REGULATED_UTILITY_SIC` is read as a rate-regulated utility (ASC 980): the pension and OPEB deficit
+   * is disclosed, not deducted (a merchant generator under the code is overstated by it after tax); null or absent means not established, which is read as not a utility, and a deducted
    * pension line then raises the `sicUnknown` info gap.
    */
   sicCode?: number | null;

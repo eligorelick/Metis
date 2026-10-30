@@ -700,7 +700,7 @@ total debt, parent equity or cash and short-term investments.
 At the statement date the order follows the DCF's basis: a fiscal-year base takes
 the fiscal-year row first and then the quarter row, a trailing-twelve-month base
 the quarter row first and then the fiscal-year row (at a fiscal-year end they are
-the same instant). The first row that carries all three operands, and that the
+the same instant). The first row at the statement date that carries all three operands, and that the
 ownership gate (see "EV bridge"), the parser's refusals, a lease conflict, a lease-scope
 refusal (on the run's own lease switch) and a refused temporary-equity operand do not withhold,
 is the bridge row, so the DCF never raises on the chosen row a refusal the anchor did not have. Otherwise the bridge keeps the market EV's anchor, which is the row and the
@@ -1087,8 +1087,11 @@ every equity field above, and their carrying amount is the redemption claim
 "claims senior to common" has two parts. Preferred is permanent preferred plus
 temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttributableToParent`). A balance whose positive `PreferredStockValue`
 equals that parent part (within max(1, 1e-6 x amount), the same date) is one mezzanine series tagged
-twice and is deducted once, as temporary equity, with the info gap `valuation.preferredOverlap` naming both
-tags; unequal amounts are both deducted (B4b's overlap territory).
+twice. The temporary-equity reader (`temporaryEquityClaims`, behind the bridge, every EV, invested capital, the
+guards and the own-history windows) then leaves the parent part out and counts the claim once, as the preferred
+line main already deducts; every balance row stays as filed, so the financial-route key data, the displayed
+statements and the field provenance are unchanged. The info gap `valuation.preferredOverlap` names both tags
+once per date; unequal amounts are both deducted (B4b's overlap territory).
 Non-controlling interest is book NCI plus redeemable NCI
 (`RedeemableNoncontrollingInterestEquityCarryingAmount`). The DCF bridge deducts
 the parent part beside preferred, and the redeemable NCI joins book NCI as the

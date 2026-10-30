@@ -62,7 +62,7 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  * The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1) or for invested capital the
  * operating-lease removal emptied (FIN-303, I6); every other warn gap stays unquoted.
  */
-export function temporaryEquityRefusalGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
+export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
   return gaps.find((g) => g.severity === "warn" && g.field === "valuation.dcf.salesToCapital" &&
     (g.reason.startsWith(TEMPORARY_EQUITY_REFUSAL_LEAD) || g.reason.startsWith(LEASE_EMPTIED_CAPITAL_LEAD)));
 }
@@ -70,7 +70,7 @@ export function temporaryEquityRefusalGap(gaps: readonly ManifestEntry[]): Manif
 function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
   if (critical !== undefined) return critical.reason;
-  const refusedClaim = temporaryEquityRefusalGap(gaps);
+  const refusedClaim = dcfWithheldWarnGap(gaps);
   if (refusedClaim !== undefined) return refusedClaim.reason;
   const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");
   if (bridge === undefined) return null;
