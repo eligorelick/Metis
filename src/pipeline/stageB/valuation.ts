@@ -5103,8 +5103,12 @@ export interface ExcessReturnInputs {
    * value, which would flatter a goodwill-heavy acquirer.
    */
   tangibleCommonEquity?: number | null;
+  /** Balance date of the tangible equity used in the P/TBV pairing. */
+  tangibleCommonEquityAsOf?: string | null;
   /** WS5: return on tangible common equity, percent — the return P/TBV is read against. */
   rotePct?: number | null;
+  roteAsOf?: string | null;
+  roteSource?: "computed.returns.commonReturnTtm" | "computed.returns.rote";
   /**
    * Risk-free rate, percent, for the sustainable-growth cap in the justified
    * P/TBV cross-check. The house rule (same one the DCF terminal value obeys)
@@ -5128,6 +5132,10 @@ export interface ExcessReturnInputs {
 
 /** WS5: the multiple a financial's price is actually read on, beside the return that justifies it. */
 export interface PriceToTangibleBookVsRote {
+  /** Optional for callers and legacy results predating explicit pairing dates. */
+  asOf?: string | null;
+  roteAsOf?: string | null;
+  roteSource?: string;
   /** market cap / tangible common equity. */
   pTbv: number | null;
   /** Return on tangible common equity, percent. */
@@ -5329,7 +5337,10 @@ function priceToTangibleBookVsRote(
   const tce = posOrNull(inputs.tangibleCommonEquity);
   const mcap = posOrNull(inputs.marketCap);
   const rotePct = isNum(inputs.rotePct) ? inputs.rotePct : null;
+  const dating = { asOf: inputs.tangibleCommonEquityAsOf, roteAsOf: inputs.roteAsOf, roteSource: inputs.roteSource };
+  const equityDateBasis = inputs.tangibleCommonEquityAsOf ? `; tangible common equity at ${inputs.tangibleCommonEquityAsOf}` : "";
   const empty = (reason: string, basis: string): PriceToTangibleBookVsRote => ({
+    ...dating,
     pTbv: null,
     rotePct,
     justifiedPTbv: null,
@@ -5360,11 +5371,12 @@ function priceToTangibleBookVsRote(
           ? "cost of equity"
           : "payout history (needed for the retention rate in g)";
     return {
+      ...dating,
       pTbv,
       rotePct,
       justifiedPTbv: null,
       premiumToJustified: null,
-      basis: `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x`,
+      basis: `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x${equityDateBasis}`,
       withheldReason: `${missing} unavailable — the justified multiple (ROTE − g)/(CoE − g) was not computed, so the multiple is shown without the return that would justify it`,
     };
   }
@@ -5386,12 +5398,13 @@ function priceToTangibleBookVsRote(
   const spread = coePct - g;
   if (spread < JUSTIFIED_PTBV_MIN_SPREAD_PP) {
     return {
+      ...dating,
       pTbv,
       rotePct,
       justifiedPTbv: null,
       premiumToJustified: null,
       basis:
-        `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%`,
+        `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%${equityDateBasis}`,
       withheldReason:
         `growth g = ${fmtNum(g)}% (${gCapped ? `ROTE ${fmtNum(rotePct)}% x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, capped by ${gCapBasis}` : `ROTE ${fmtNum(rotePct)}% x retention ${fmtNum(retention * 100)}%, below ${gCapBasis}`}) ` +
         `leaves only ${fmtNum(spread)}pp below the cost of equity ${fmtNum(coePct)}% (floor ${JUSTIFIED_PTBV_MIN_SPREAD_PP}pp) — ` +
@@ -5400,12 +5413,13 @@ function priceToTangibleBookVsRote(
   }
   const justifiedPTbv = (rotePct - g) / spread;
   return {
+    ...dating,
     pTbv,
     rotePct,
     justifiedPTbv,
     premiumToJustified: pTbv - justifiedPTbv,
     basis:
-      `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%. ` +
+      `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%${equityDateBasis}. ` +
       `Justified P/TBV = (ROTE ${fmtNum(rotePct)}% − g ${fmtNum(g)}%) / (CoE ${fmtNum(coePct)}% − g ${fmtNum(g)}%) = ` +
       `${fmtNum(justifiedPTbv)}x, where g = ${gCapped ? `${gCapBasis} (ROTE x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, capped)` : `ROTE x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, within ${gCapBasis}`}. ` +
       "This is a STABLE-GROWTH cross-check: it assumes ROTE persists in perpetuity. The forward excess-return " +

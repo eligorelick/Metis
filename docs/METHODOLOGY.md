@@ -2068,8 +2068,11 @@ statement figures, without the quote. Stored reports carrying the financial
 currency-refusal gap show the same withheld pair on the web page, Markdown
 and print views, without changing the stored report or audit export.
 
-The current multiple names its balance date; the annual return and model name
-their fiscal-year date. Preferred stock is deducted in both tangible bases.
+Each P/TBV row is dated at the balance its tangible equity comes from, and the
+ROTE row at the period its return covers: the trailing window's end for a bank
+using its trailing four quarters, otherwise the fiscal-year end. An insurer's
+pairing retains its fiscal-year basis even when its forward model starts from
+a trailing common-equity return. Preferred stock is deducted in both tangible bases.
 Undisclosed preferred is treated as zero and that convention is disclosed.
 From EDGAR companyfacts, preferred is the carrying value
 (`PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount`, then

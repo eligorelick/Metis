@@ -1110,9 +1110,9 @@ function computedSections(
       { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
-      { label: "P/TBV", value: val.excessReturn.priceToTangibleBookVsRote.pTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
-      { label: "ROTE (the return P/TBV is read against)", value: val.excessReturn.priceToTangibleBookVsRote.rotePct, unit: "%", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
-      { label: "justified P/TBV (stable-growth cross-check)", value: val.excessReturn.priceToTangibleBookVsRote.justifiedPTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
+      { label: "P/TBV", value: val.excessReturn.priceToTangibleBookVsRote.pTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.priceToTangibleBookVsRote.asOf ?? val.excessReturn.asOf },
+      { label: "ROTE (the return P/TBV is read against)", value: val.excessReturn.priceToTangibleBookVsRote.rotePct, unit: "%", source: val.excessReturn.priceToTangibleBookVsRote.roteSource ?? "computed.returns.rote", asOf: val.excessReturn.priceToTangibleBookVsRote.roteAsOf ?? computed.returns?.rote?.asOf ?? null },
+      { label: "justified P/TBV (stable-growth cross-check)", value: val.excessReturn.priceToTangibleBookVsRote.justifiedPTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.priceToTangibleBookVsRote.asOf ?? val.excessReturn.asOf },
     );
     const a = val.excessReturn.financialAssumptions;
     for (const [label, key, unit] of [

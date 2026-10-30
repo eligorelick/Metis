@@ -2808,7 +2808,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.pTbv,
         basis: p.basis,
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.pTbv === null ? unavailable : null,
         proxy: false,
       },
@@ -2819,8 +2819,8 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.rotePct,
         basis:
           "net income available to common / average tangible common equity — the return the P/TBV multiple above is read against, on the SAME tangible denominator",
-        sources: ["computed.returns.rote"],
-        asOf: computed.returns?.rote?.asOf ?? null,
+        sources: [p.roteSource ?? "computed.returns.rote"],
+        asOf: p.roteAsOf ?? computed.returns?.rote?.asOf ?? null,
         withheldReason:
           p.rotePct === null
             ? "return on tangible common equity unavailable — see the returns block for the reason"
@@ -2834,7 +2834,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.justifiedPTbv,
         basis: p.basis,
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.justifiedPTbv === null ? unavailable : null,
         proxy: false,
       },
@@ -2846,7 +2846,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         basis:
           "P/TBV − justified P/TBV; positive means the market pays more than the return supports under the stable-growth cross-check, which rests on a different assumption than the fading forward model",
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.premiumToJustified === null ? unavailable : null,
         proxy: false,
       },
@@ -3948,7 +3948,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
           tangibleCommonEquity: route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          tangibleCommonEquityAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
+          roteAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
+          roteSource: route.base === "bank" && ttmStart !== null ? "computed.returns.commonReturnTtm" : "computed.returns.rote",
           // The justified-P/TBV cross-check caps its growth rate at the same
           // ceiling the DCF terminal value uses: nothing grows faster than the
           // risk-free rate forever. Null leaves the house terminal-growth cap
