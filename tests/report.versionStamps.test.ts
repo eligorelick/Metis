@@ -102,6 +102,7 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { getLatestDoneReport } from "@/report/query";
 import { BRIDGE_METHOD_SINCE_SPEC_VERSION } from "@/report/legacyBridgeMethod";
+import { ANNUALIZATION_CONVENTION_SPEC } from "@/report/legacyValuationNotes";
 import { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/legacyEdgarDerivedLines";
 import { PAYLOAD_RECORD_CORRECTION_SPEC, specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import { REPORT_SPEC_VERSION, ReportSchema, type Report } from "@/report/schema";
@@ -129,10 +130,16 @@ function newReport(): Report {
 }
 
 describe("new version stamps", () => {
+  it("freezes the annualization cutoff above the earlier display conventions", () => {
+    expect(ANNUALIZATION_CONVENTION_SPEC).toBe("1.51.0");
+    for (const prior of [BRIDGE_METHOD_SINCE_SPEC_VERSION, EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION, PAYLOAD_RECORD_CORRECTION_SPEC])
+      expect(specVersionBefore(prior, ANNUALIZATION_CONVENTION_SPEC)).toBe(true);
+    expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
+  });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.50.0");
-    expect(PAYLOAD_VERSION).toBe("1.52.0");
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_31");
+    expect(REPORT_SPEC_VERSION).toBe("1.51.0");
+    expect(PAYLOAD_VERSION).toBe("1.53.0");
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_32");
     expect(FAIR_VALUE_METHOD_VERSION).toBe("FAIR_VALUE_2026_10_D135");
     expect(SCENARIO_TARGET_METHOD_VERSION).toBe("SCENARIO_TARGETS_2026_10_D135");
   });
@@ -151,15 +158,15 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.50.0");
+    expect(newReport().meta.specVersion).toBe("1.51.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.52.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.52\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.52\.0\)/);
+    expect(payload.payloadVersion).toBe("1.53.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.53\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.53\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1", "1.35.0", "1.35.1", "1.36.0", "1.37.0", "1.38.0", "1.39.0", "1.40.0", "1.41.0", "1.42.0", "1.43.0", "1.44.0", "1.45.0", "1.46.0", "1.47.0", "1.48.0", "1.49.0", "1.50.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1", "1.35.0", "1.35.1", "1.36.0", "1.37.0", "1.38.0", "1.39.0", "1.40.0", "1.41.0", "1.42.0", "1.43.0", "1.44.0", "1.45.0", "1.46.0", "1.47.0", "1.48.0", "1.49.0", "1.50.0", "1.51.0", "1.52.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });
@@ -167,7 +174,7 @@ describe("new version stamps", () => {
     expect(payloadFingerprint(payload)).not.toBe(prior);
   });
 
-  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0", "1.21.0", "1.31.0"])("does not compare a prior %s report as the same financial convention", (version) => {
+  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0", "1.21.0", "1.31.0", "1.50.0"])("does not compare a prior %s report as the same financial convention", (version) => {
     const before = newReport();
     before.meta.specVersion = version;
     const after = newReport();

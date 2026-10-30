@@ -431,7 +431,9 @@ export interface ContextPayload {
 // 1.50.0 (D-133, audit 2026-10-29 AMZN #51): the current-capital composition note (a lease-inclusive total withheld with its refusal, or composed from a filing), the withheld provider EV note, the vendor path's filled stakes and the refusal wording of net debt, EV, the DCF gap, fair value and ROIC alter admitted context.
 // 1.51.0 (D-134, audit 2026-10-27 B13): derived EBIT, D&A, R&D and bank interest income come from the filer's total on one presentation or are withheld with the reason named; derived and first-reported quarters, the quarterly-trend growth cells and their basis notes (`revenueGrowthNotes`), the vendor enrichment's one-presentation pairing and the forensic one-time-items gap alter admitted context.
 // 1.52.0 (D-135, audit 2026-10-27 B4a): the equity bridge, the market EV basis and the invested-capital basis count redeemable equity, debt-like obligations and the covered operating lease once; the DCF per share, its scenarios and grids, and the EV-basis, lease and divisor wording alter admitted context.
-export const PAYLOAD_VERSION = "1.52.0" as const;
+// D136 / B5a Tasks 1-4 and 3b: quarter/year conventions, fiscal calendars,
+// guided-quarter season, like-for-like context and issuer caveats. No old resume.
+export const PAYLOAD_VERSION = "1.53.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
