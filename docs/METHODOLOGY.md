@@ -557,8 +557,8 @@ first available of three sources:
    The issuing release's raw qualifiers travel with the guidance. A quantified
    ex-item year-over-year effect is stated in the anchor basis, but never
    adjusts a revenue level or changes the selected anchor source. Its filtered
-   caveat accompanies the growth row when that row is present. The basis does
-   not claim that guidance was admitted or selected.
+   caveat accompanies the growth row when that row is present. The effect
+   disclosure does not itself assert that guidance was admitted or selected.
    The new guidance evidence fields are omitted when there is no stated guide;
    unguided anchors retain their preceding evidence contract.
    A guided fourth quarter uses the established fiscal-year rule when its end
