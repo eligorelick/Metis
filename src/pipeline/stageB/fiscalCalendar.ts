@@ -33,3 +33,53 @@ export function thirteenWeekFactor(days: number | null): number {
 export function fiftyTwoWeekFactor(days: number | null): number {
   return weeksOf(days) === 53 ? 52 / 53 : 1;
 }
+
+export interface FiscalYearRule {
+  kind: "last-weekday" | "nearest-weekday";
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  month: number;
+}
+
+/** The chosen weekday at, or nearest to, the named month's last day. */
+export function fiscalYearEndFor(rule: FiscalYearRule, year: number): string {
+  const last = new Date(0);
+  last.setUTCFullYear(year, rule.month, 0);
+  const back = (last.getUTCDay() - rule.weekday + 7) % 7;
+  const offset = rule.kind === "last-weekday" || back <= 3 ? -back : 7 - back;
+  return new Date(last.getTime() + offset * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** Only one unambiguous rule fitting at least three newest chained ends is evidence. */
+export function fiscalYearRule(annualEnds: readonly string[]): FiscalYearRule | null {
+  if (annualEnds.some(end => dayTime(end) === null)) return null;
+  const ends = [...new Set(annualEnds)].sort().reverse();
+  const chain = ends.slice(0, 1);
+  for (let i = 1; i < ends.length; i++) {
+    const days = (dayTime(ends[i - 1])! - dayTime(ends[i])!) / DAY_MS;
+    if (days !== 364 && days !== 371) break;
+    chain.push(ends[i]);
+  }
+  if (chain.length < 3) return null;
+  const weekday = new Date(chain[0]).getUTCDay() as FiscalYearRule["weekday"];
+  const candidates: FiscalYearRule[] = [];
+  for (const kind of ["last-weekday", "nearest-weekday"] as const) {
+    for (let month = 1; month <= 12; month++) {
+      const rule = { kind, month, weekday };
+      if (chain.every(end => {
+        const year = Number(end.slice(0, 4));
+        return fiscalYearEndFor(rule, year) === end || fiscalYearEndFor(rule, year - 1) === end;
+      })) candidates.push(rule);
+    }
+  }
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+/** Keep provider dates unless a nearby filed-calendar year end is established. */
+export function snapToFiscalYearEnd(rule: FiscalYearRule | null, date: string, toleranceDays = 10): string {
+  const time = dayTime(date);
+  if (rule === null || time === null || !Number.isFinite(toleranceDays) || toleranceDays < 0) return date;
+  const year = Number(date.slice(0, 4));
+  const candidates = [year - 1, year, year + 1].map(y => fiscalYearEndFor(rule, y));
+  const near = candidates.filter(end => Math.abs(dayTime(end)! - time) / DAY_MS <= toleranceDays);
+  return near.length === 1 ? near[0] : date;
+}

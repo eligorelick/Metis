@@ -18,7 +18,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf } from "./fiscalCalendar";
+import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
@@ -560,7 +560,7 @@ function seasonalFiscalYearShare(fyBegin: number, fyEnd: number, from: number, t
  * D-65: when the issuer has already reported part of a fiscal year that
  * overlaps the window, that year contributes its consensus LESS the reported
  * revenue, spread over its unreported days (NVDA FY2027: $409.80B − $177.84B
- * reported for H1 = $231.96B for 2026-07-27..2027-01-25, where an even spread
+ * reported for H1 = $231.96B for 2026-07-27..2027-01-31 on the filed weekday rule, where an even spread
  * gave $205.5B). A consensus at or below what is already reported is stale
  * and leaves the window uncovered.
  */
@@ -569,6 +569,7 @@ export function calendarizeConsensusWindow(
   window: { startDate: string; endDate: string },
   reported?: FiscalYearToDate | null,
   seasonality?: RevenueSeasonality | null,
+  calendar?: FiscalYearRule | null,
 ): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean; partialSpread: "seasonal" | "even" | null } {
   const empty = { value: null, fiscalYears: [], staleAgainstReported: false, partialSpread: null };
   // AMZN audit 2026-10-20 finding 19: the quarterly shape applies to estimates
@@ -587,7 +588,10 @@ export function calendarizeConsensusWindow(
   const byDate = new Map<string, AnalystEstimateRow & { revenueAvg: number }>();
   for (const row of rows) {
     const revenue = posOrNull(row.revenueAvg);
-    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) byDate.set(row.date.slice(0, 10), { ...row, revenueAvg: revenue });
+    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) {
+      const date = snapToFiscalYearEnd(calendar ?? null, row.date.slice(0, 10));
+      byDate.set(date, { ...row, date, revenueAvg: revenue });
+    }
   }
   const reportedEnd = reported && posOrNull(reported.revenue) !== null ? Date.parse(reported.through) : Number.NaN;
   let total = 0;
@@ -598,8 +602,8 @@ export function calendarizeConsensusWindow(
   for (const [date, row] of [...byDate].sort(([a], [b]) => a.localeCompare(b))) {
     const fy = forecastYearPeriod(date, 0, "fiscal-year");
     if (fy === null) continue;
-    // A 52/53-week year starts the day after the previous estimate's year
-    // end, not on a calendar anniversary, so adjacent years never share a day.
+    // Established 52/53-week dates use the issuer's weekday rule. Each year
+    // starts after the preceding snapped end, so adjacent years share no day.
     const span = previousEnd === null ? null : daysBetween(previousEnd, date);
     const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
     let fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
@@ -869,6 +873,8 @@ export interface DcfAssumptionInputs {
   unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
+  /** Unambiguous weekday year-end rule established from filed annual ends. */
+  fiscalCalendar?: FiscalYearRule | null;
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
   /**
@@ -1523,7 +1529,7 @@ function buildRevenueAnchor(args: {
   for (let k = 1; ttmEnd !== null && k <= DCF_HORIZON_YEARS; k++) {
     const w = forecastYearPeriod(ttmEnd, k, windowBasis);
     if (w === null) break;
-    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality);
+    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality, inputs.fiscalCalendar);
     if (cal.value !== null && cal.partialSpread !== null) spread = spread === "even" ? "even" : cal.partialSpread;
     const gate = cal.value === null
       ? cal.staleAgainstReported
@@ -1540,14 +1546,18 @@ function buildRevenueAnchor(args: {
     `; the fiscal year ending ${window1.fiscalYears.find((f) => f.reportedToDate !== undefined)?.date} contributes its consensus less the ${fmtMoney(reported.revenue)} ` +
     `already reported through ${reported.through} (${reported.quarters} quarter${reported.quarters === 1 ? "" : "s"}), spread over its unreported days`;
   const shares = seasonalQuarterShares(inputs.revenueSeasonality);
-  const spreadText = spread === "seasonal" && shares !== null
+  const annualWeekdays = inputs.incomeHistory.map(row => new Date(row.date).getUTCDay());
+  const approximate = inputs.fiscalCalendar === null && annualWeekdays.length >= 2 &&
+    annualWeekdays.every(day => day === annualWeekdays[0]);
+  const spreadText = (spread === "seasonal" && shares !== null
     ? `fiscal-year estimates spread by the quarterly shape of the fiscal year ending ${(inputs.revenueSeasonality as RevenueSeasonality).fiscalYearEnd} ` +
       `(${shares.slice(0, 3).map((x) => `${fmtNum(x * 100)}%`).join(", ")} and ${fmtNum(shares[3] * 100)}% of its reported revenue, each quarter's share over its three months)`
     : spread === "even"
       ? `fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because ${shares === null
         ? "the last complete fiscal year has no four reported quarterly revenues to shape it"
         : "its year end is not an anniversary of the fiscal year the quarterly shape was measured in"}`
-      : "fiscal-year estimates weighted by day overlap";
+      : "fiscal-year estimates weighted by day overlap") +
+      (approximate ? "; fiscal-year boundaries are the provider's dates, approximate by up to a week" : "");
   const statedGuide = nextQuarterGuidance(inputs.guidance, ttmEnd);
   const annual = statedGuide?.annualRevenueComparison;
   const quarterLow = posOrNull(statedGuide?.revenueLow);

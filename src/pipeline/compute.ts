@@ -161,7 +161,7 @@ import {
 } from "@/pipeline/stageB/instrumentSupport";
 // WS6 (D-19): THESIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
-import { periodDays } from "@/pipeline/stageB/fiscalCalendar";
+import { periodDays, fiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type {
   Scoring,
@@ -3669,6 +3669,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             observedAt: bundle.builtAt,
           }),
           incomeHistory: dcfIncomeHistory,
+          fiscalCalendar: fiscalYearRule(normalizeQuarterRows(incomeAnnual).rows.map(row => String(row.date))),
           balance: dcfBalance,
           // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
           includeLeasesInEv: evIncludeLeases,

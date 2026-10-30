@@ -507,14 +507,21 @@ first available of three sources:
    before: each quarter's share of
    the year goes to its three months, and each month's share to its days.
    Otherwise the spread is even, and the anchor basis says why (AMZN audit
-   2026-10-20 finding 19; an even spread overstated a seasonal year one). A 52/53-week year starts the day after the previous estimate's
-   year end. The estimates must cover at least 97% of the window. D-65: the
+   2026-10-20 finding 19; an even spread overstated a seasonal year one).
+   For a 52/53-week issuer, at least three newest filed year ends, chained
+   364 or 371 days apart, must establish exactly one rule: the last named
+   weekday of a month, or the named weekday nearest its last day. Provider
+   estimate dates within ten days of that rule's end are snapped to it;
+   each year starts after the preceding snapped end. An ambiguous or broken
+   weekday calendar keeps provider dates and discloses that the boundaries
+   are approximate by up to a week. Calendar month ends stay as provided.
+   The estimates must cover at least 97% of the window. D-65: the
    fiscal year the window starts in contributes its consensus **less the
    revenue already reported** in it (the quarters after the latest annual
    statement through the TTM end, consecutive 13/14-week quarters in the model
    currency), spread over its unreported days; a consensus at or below what
    is already reported is stale and leaves the window uncovered. NVDA FY2027:
-   $409.80B − $177.84B reported for H1 = $231.96B for 2026-07-27..2027-01-25,
+   $409.80B − $177.84B reported for H1 = $231.96B for 2026-07-27..2027-01-31,
    where an even share gave $205.5B. The next fiscal year's share is still an
    even spread, which for a fast grower overstates its early quarters
    (disclosed in D-65; no within-year shape is assumed). Consensus covers the
