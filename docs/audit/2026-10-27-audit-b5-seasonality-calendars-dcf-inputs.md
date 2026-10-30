@@ -178,6 +178,24 @@ filing citations in an old basis are tested, as are missing period contexts.
 The adapter is outermost in all five display/export compositions and appears
 in both risk-coverage inventories.
 
+## Independent review correction
+
+A fresh reviewer found that the first snapped consensus year, or one after a
+missing estimate, still used a calendar-anniversary start. Without YTD this
+could allocate a 371-day estimate over 365 days. The regression uses filed
+last-Sunday-of-January boundaries with synthetic $1B/day estimates: the
+365-day forecast window previously read $368.106849B and now reads $365B.
+Four cases failed before the correction: the first 53-week year, a missing
+predecessor, a 52-week year, and a December rule that ends in January. The
+no-rule and unadmitted-date controls retain main's behavior.
+
+Task 31 completes Task 2 by deriving the missing preceding boundary from an
+applicable rule. Existing contiguous-estimate chaining stays unchanged. All
+385 targeted tests pass, including the unchanged payload golden. Comparing
+all 52 full computed results with the reviewed head finds no additional
+change; the table and task attribution above remain valid. Final acceptance
+still uses the replay and nine gates on the committed correction.
+
 ## Judgments and what remains
 
 The owner's defaults settle these choices without a new permission step:
@@ -202,6 +220,10 @@ The owner's defaults settle these choices without a new permission step:
 8. Use separate Task 26/27 commits under the user's one-commit-per-task rule.
    Date this note as prepared, with merge pending, because the handoff forbids
    merging. D-136 is the handoff's specified next number after B4a.
+9. Complete the first-year fiscal boundary after independent review: the
+   detailed recipe missed a realistic no-YTD input. Use the established rule
+   for the missing boundary, while preserving the existing chaining and
+   unknown-rule fallback. This changes no convention or admission threshold.
 
 The release check initially rejected the new documentation test's literal
 reference to a retired root-document name. The identical decision-reference
@@ -210,13 +232,20 @@ current audit-document paths. The check and assertions were not weakened.
 
 No B5a finding is abandoned. Not fixed here: B5b's DCF-input findings,
 transition filtering, terminal returns, WACC/ERP refresh, tax/margin rules and
-reverse-DCF bounds; B4b's remaining claim/ownership work; or an ex-event
+reverse-DCF bounds; B4b's remaining claim/ownership work; B6's financial-route
+share-base and withheld-revenue return work; or an ex-event
 guidance model. The seasonal estimator can misread acquisitions, commodity
 spikes, shifted events or changing growth regimes as season. The new floor is
 looser for a fast grower and can admit stale consensus. The retained bounded
 run-rate can understate a growing seasonal trough. Unknown future extra-week
 placement is disclosed, not guessed. Live API testing is deferred to Claude
 after merge; no real database, credentials or running application were used.
+
+Deferred review minor: the issuer-effect disclosure says "year one uses the
+reported guidance" even when consensus leads or the comparison guard rejects
+guidance. The actual anchor source appears earlier in the same basis. The
+wording follows the plan; clearer wording remains a polish item, with no
+change to a reported figure.
 
 The final acceptance requires the unchanged nine-gate script, the final-head
 offline replay and a fresh independent reviewer. Their exact results and head

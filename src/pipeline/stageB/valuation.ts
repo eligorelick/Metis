@@ -608,7 +608,13 @@ export function calendarizeConsensusWindow(
     // starts after the preceding snapped end, so adjacent years share no day.
     const span = previousEnd === null ? null : daysBetween(previousEnd, date);
     const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
-    let fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
+    // The first estimate (or one after a missing year) also needs the filed
+    // calendar's start, even without YTD. A December rule can end in January.
+    const endYear = Number(date.slice(0, 4));
+    const ruleYear = calendar ? [endYear, endYear - 1].find(year => fiscalYearEndFor(calendar, year) === date) : undefined;
+    const rulePreviousEnd = calendar && ruleYear !== undefined ? fiscalYearEndFor(calendar, ruleYear - 1) : null;
+    const priorEnd = chained ? previousEnd : rulePreviousEnd;
+    let fyStart = priorEnd === null ? Date.parse(fy.startDate) : Date.parse(priorEnd) + DAY_MS;
     const fyBegin = fyStart;
     previousEnd = date;
     const fyEnd = Date.parse(fy.endDate) + DAY_MS;

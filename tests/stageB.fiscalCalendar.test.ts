@@ -105,4 +105,51 @@ it("moves a vendor anniversary date to the 53-week year end, so no day is counte
   expect(vendor.value).toBeCloseTo(531.1381e9, -5);
 });
 
+it.each([false, true])("uses the filed 53-week first year without YTD, including a missing predecessor (%s)", (missingPredecessor) => {
+  const rule = fiscalYearRule(["2026-01-25", "2025-01-26", "2024-01-28"]);
+  const rows = [
+    ...(missingPredecessor ? [{ date: "2025-01-25", revenueAvg: 364 * B }] : []),
+    { date: "2027-01-25", revenueAvg: 371 * B },
+    { date: "2028-01-25", revenueAvg: 364 * B },
+  ];
+  const window = { startDate: "2026-07-27", endDate: "2027-07-26" };
+  // Filed years are 2026-01-26..2027-01-31 (371 days), then 364 days.
+  // Both estimates therefore represent $1B/day, including the first row.
+  const actual = calendarizeConsensusWindow(rows, window, null, null, rule);
+  expect(actual.value).toBeCloseTo(365 * B, -3);
+  expect(actual.fiscalYears.map((fy) => [fy.date, fy.days])).toEqual([["2027-01-31", 189], ["2028-01-30", 176]]);
+  if (!missingPredecessor) {
+    const vendor = calendarizeConsensusWindow(rows, window, null, null, null);
+    expect(vendor.value).toBeCloseTo((371 * 183 + 364 * 182) / 365 * B, -3);
+  }
+});
+
+it("uses a 364-day first fiscal year rather than a calendar anniversary without YTD", () => {
+  const rule = fiscalYearRule(["2026-01-25", "2025-01-26", "2024-01-28"]);
+  const actual = calendarizeConsensusWindow([
+    { date: "2028-01-25", revenueAvg: 364 * B },
+    { date: "2029-01-25", revenueAvg: 364 * B },
+  ], { startDate: "2027-07-26", endDate: "2028-07-25" }, null, null, rule);
+  expect(actual.value).toBeCloseTo(366 * B, -3); // The requested window includes leap day.
+});
+
+it("finds the first fiscal year's preceding boundary when December's rule ends in January", () => {
+  const rule = { kind: "nearest-weekday" as const, weekday: 6 as const, month: 12 };
+  const actual = calendarizeConsensusWindow([
+    { date: "2025-12-31", revenueAvg: 371 * B },
+    { date: "2026-12-31", revenueAvg: 364 * B },
+  ], { startDate: "2025-07-01", endDate: "2026-06-30" }, null, null, rule);
+  expect(actual.value).toBeCloseTo(365 * B, -3);
+  expect(actual.fiscalYears.map((fy) => fy.date)).toEqual(["2026-01-03", "2027-01-02"]);
+});
+
+it("keeps the calendar-anniversary start when an estimate is outside the rule's admission window", () => {
+  const rule = fiscalYearRule(["2026-01-25", "2025-01-26", "2024-01-28"]);
+  const rows = [{ date: "2027-03-31", revenueAvg: 365 * B }];
+  const window = { startDate: "2026-04-01", endDate: "2027-03-31" };
+  const actual = calendarizeConsensusWindow(rows, window, null, null, rule);
+  expect(actual).toEqual(calendarizeConsensusWindow(rows, window, null, null, null));
+  expect(actual.value).toBe(365 * B);
+});
+
 });

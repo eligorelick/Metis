@@ -515,7 +515,12 @@ first available of three sources:
    364 or 371 days apart, must establish exactly one rule: the last named
    weekday of a month, or the named weekday nearest its last day. Provider
    estimate dates within ten days of that rule's end are snapped to it;
-   each year starts after the preceding snapped end. An ambiguous or broken
+   each year starts after the preceding snapped end. When the preceding
+   estimate is absent or not contiguous, an admitted year end uses the rule's
+   preceding year end to establish its start, including December rules that
+   spill into January; it does not substitute a 365/366-day anniversary.
+   Without an applicable rule, the existing anniversary fallback remains.
+   An ambiguous or broken
    weekday calendar keeps provider dates and discloses that the boundaries
    are approximate by up to a week. Calendar month ends stay as provided.
    The estimates must cover at least 97% of the window. D-65: the
