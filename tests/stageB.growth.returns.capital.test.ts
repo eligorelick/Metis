@@ -893,6 +893,8 @@ const capBalance: CapitalBalanceRow[] = [
   },
 ];
 const capMcapHistory: MarketCapPoint[] = [
+  // FIN-117: history predates every fiscal window; this point enters none of their averages.
+  { date: "2023-12-29", marketCap: 1000 },
   { date: "2025-09-30", marketCap: 1100 },
   { date: "2025-06-30", marketCap: 900 },
 ];

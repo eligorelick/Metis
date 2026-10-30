@@ -356,6 +356,7 @@ export const SHARE_TREND_WINDOW_YEARS = 5;
 export const SHARE_TREND_FLAT_BAND_PCT = 1.0;
 
 const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
+const DAY_MS = 86_400_000;
 
 /**
  * WS6 (D-19) house default: SBC is subtracted from free cash flow.
@@ -395,6 +396,8 @@ const BUYBACK_HEURISTIC_NOTE =
  */
 export const BUYBACK_EXECUTION_PLAUSIBLE_RATIO = 1.6;
 export const BUYBACK_TIMING_MIN_COVERAGE_PCT = 50;
+/** Allow the first trading day after a holiday without pricing a partial fiscal year. */
+export const BUYBACK_WINDOW_START_TOLERANCE_DAYS = 7;
 /**
  * AMZN audit 2026-10-20 finding 15: timing is graded only when a priced year
  * is one of the issuer's last this-many fiscal years. Amazon's signal, 30% of
@@ -1024,6 +1027,7 @@ export function computeCapital(
         isFiniteNumber(p.marketCap),
       ),
     );
+    const historyStartMs = mcaps.length > 0 ? Date.parse(mcaps[mcaps.length - 1]!.date) : null;
     const rows = cf.slice(0, CAPITAL_SERIES_MAX_YEARS); // newest first
     for (let i = 0; i < rows.length; i += 1) {
       const r = rows[i];
@@ -1043,8 +1047,10 @@ export function computeCapital(
         const t = Date.parse(p.date);
         return Number.isFinite(t) && t > startMs && t <= endMs;
       });
+      const partial = inWindow.length > 0 && historyStartMs !== null &&
+        historyStartMs > startMs + BUYBACK_WINDOW_START_TOLERANCE_DAYS * DAY_MS;
       const avgMarketCap =
-        inWindow.length > 0
+        !partial && inWindow.length > 0
           ? inWindow.reduce((s, p) => s + p.marketCap, 0) / inWindow.length
           : null;
       // Recover the average price from marketCap. FMP marketCap = price × shares
@@ -1063,6 +1069,8 @@ export function computeCapital(
       let sharesProxy: number | null = null;
       if (priceProxySuppressed) {
         rowNotes.push(`price proxy suppressed: ${priceProxySuppressedReason}`);
+      } else if (partial) {
+        rowNotes.push(`market-cap history starts ${new Date(historyStartMs!).toISOString().slice(0, 10)}, inside the fiscal window ${new Date(startMs).toISOString().slice(0, 10)} to ${r.date}; a part-window average is not the fiscal year's average price`);
       } else if (avgMarketCap === null) {
         rowNotes.push("no market-cap history inside the fiscal window");
       } else if (!isFiniteNumber(shares) || shares <= 0) {
@@ -1120,7 +1128,10 @@ export function computeCapital(
   if (timingCoveragePct !== null && timingCoveragePct >= BUYBACK_TIMING_MIN_COVERAGE_PCT) {
     timingPct = (timingAtYearAverage / timingCost - 1) * 100;
     notes.push(
-      `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (tagged cost ÷ tagged shares; ${fmt(timingCoveragePct)}% of repurchase dollars covered)`,
+      `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (tagged cost ÷ tagged shares; ${fmt(timingCoveragePct)}% of repurchase dollars covered)` +
+        (unpricedExecutionYears.length > 0
+          ? `; no year-average price for ${unpricedExecutionYears.join(", ")} (${[...unpricedReasons].join("; ")}), so those years are left out`
+          : ""),
     );
   } else if (totalRepurchased > 0) {
     // D-68: name the side of the comparison that is missing. The tags were

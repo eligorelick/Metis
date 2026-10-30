@@ -458,7 +458,11 @@ fiscal year.
   average price is excluded as a basis or tagging mismatch. Timing is
   withheld below 50% coverage of repurchase dollars.
 - **Missing side (D-68).** The year's average price is the market cap over
-  the fiscal window ÷ basic weighted shares. When timing is not measured,
+  the fiscal window ÷ basic weighted shares. A year is priced only when the
+  market-cap history starts no more than seven days after the window opens;
+  a partial window is unpriced, like an empty window. Left-out years and their
+  reasons are named even when the remaining timing coverage clears 50%.
+  When timing is not measured,
   the capital note names the side that is missing: the years whose tagged
   execution price has no year-average price (and why, e.g. no market-cap
   history inside the fiscal window), the years outside the plausibility band,
