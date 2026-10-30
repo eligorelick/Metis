@@ -24,7 +24,11 @@ model eligibility unresolved until consolidated scope is reconciled. Source fact
 remain visible, while industrial FCFF, debt-based WACC, leverage, EV multiples,
 ROIC, forward scenarios and related grades are withheld. No financial-company
 model is substituted by guessing. Weak single-tag evidence does not trigger this
-hold. REIT historical P/AFFO comparisons separately require compatible AFFO
+hold. Under unresolved model eligibility, Altman Z, Beneish M and the accrual
+ratios are withheld and Piotroski is reported on its eligibility-unresolved
+scale; the reasons name unresolved eligibility, not an established financial
+classification. The exclusion is not evidence of financial health.
+REIT historical P/AFFO comparisons separately require compatible AFFO
 construction; compatible FFO alone does not establish AFFO comparability. The
 current approximate AFFO may remain visible without a historical percentile.
 These are implementation safeguards, not issuer-specific model validation. See
