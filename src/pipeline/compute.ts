@@ -2246,7 +2246,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,
-    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc } : null,
+    // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
+    // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, ebit: ttmInc.operatingIncome } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
       stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),

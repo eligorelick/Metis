@@ -2,13 +2,46 @@ import { describe, expect, it } from "vitest";
 import { computeCapital } from "@/pipeline/stageB/capital";
 import { attachCurrentCapital, cashFlowBridge, debtBridge } from "@/pipeline/stageB/currentCapital";
 import { runStageB } from "@/pipeline/compute";
-import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 
 const annual = () => computeCapital([{ date: "2025-12-31", revenue: 100, operatingIncome: 40, netIncome: 30, interestExpense: 1 }], [{ date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10, depreciationAndAmortization: 5, stockBasedCompensation: 5 }], [{ date: "2025-12-31", totalDebt: 20, cashAndShortTermInvestments: 15 }], [], { price: null });
 const income = { date: "2026-06-30", revenue: 120, operatingIncome: 30, netIncome: 20, interestExpense: 2 };
 const cash = { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -25, depreciationAndAmortization: 6, stockBasedCompensation: 9, financeLeasePrincipalPayments: 3, issuerFreeCashFlow: 12, issuerFreeCashFlowDefinition: "Issuer cash definition includes finance-lease principal" };
 // The lease total shows the operating lease inside total debt (audit 2026-10-19 CODE-1).
 const balance = { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10, capitalLeaseObligations: 10 };
+
+describe("TTM operating income incomplete (FIN-112)", () => {
+  function fixture(missing: boolean) {
+    const bundle = completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("income quarters required");
+    const rows = bundle.statements.incomeQuarterly.value.data.rows;
+    const operatingSum = rows.slice(0, 4).reduce((sum, row) => sum + Number(row.operatingIncome), 0);
+    for (const row of rows) {
+      row.ebit = Number(row.operatingIncome) + 50 * M;
+      row.interestExpense = 2 * M;
+    }
+    if (missing) delete rows[1]!.operatingIncome;
+    return { bundle, operatingSum };
+  }
+  it("withholds trailing EBIT, EBITDA and coverage instead of substituting vendor gains", () => {
+    const c = runStageB(fixture(true).bundle, { evIncludeLeases: false });
+    expect(c.capital.current!.basis).toBe("ttm");
+    expect(c.capital.current!.ebit).toBeNull();
+    expect(c.capital.current!.ebitda).toBeNull();
+    expect(c.capital.current!.interestCoverage).toBeNull();
+    expect(c.capital.current!.netDebtToEbitda).toBeNull();
+    expect(c.scores.aspects.balanceSheet.signals.find(s => s.id === "interestCoverage")).toBeUndefined();
+    expect(c.gaps.some(g => g.field === "compute.ttmIncome.operatingIncome")).toBe(true);
+  });
+  it("control: complete quarters retain operating EBIT despite the higher vendor EBIT", () => {
+    const { bundle, operatingSum } = fixture(false);
+    expect(operatingSum).toBeGreaterThan(0);
+    const c = runStageB(bundle, { evIncludeLeases: false });
+    expect(c.capital.current!.basis).toBe("ttm");
+    expect(c.capital.current!.ebit).toBe(operatingSum);
+    expect(c.capital.current!.interestCoverage).toBe(operatingSum / (8 * M));
+  });
+});
 
 describe("capital grading snapshot", () => {
   it("uses complete current TTM flows and same-period balance without replacing annual history", () => {
