@@ -18,6 +18,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
@@ -481,10 +482,20 @@ export function revenueRunRate(
   if (latest === null || yearAgo === null || days === null || days < YEAR_AGO_QUARTER_DAYS[0] || days > YEAR_AGO_QUARTER_DAYS[1]) {
     return null;
   }
-  const annualized = 4 * latest;
-  const seasonallyNeutral = ttmRevenue * Math.pow(latest / yearAgo, TTM_TO_LATEST_QUARTER_YEARS);
+  const latestFactor = thirteenWeekFactor(quarters.latest.days ?? null);
+  const yearAgoFactor = thirteenWeekFactor(quarters.yearAgo.days ?? null);
+  const latestQuarterWeeks = weeksOf(quarters.latest.days ?? null);
+  const lengthNotes = [quarters.latest, quarters.yearAgo].flatMap((quarter) => {
+    const weeks = weeksOf(quarter.days ?? null);
+    if (quarter.days == null) return [`the quarter ending ${quarter.date}: length not established; read as 13 weeks`];
+    return weeks !== null && weeks !== 13 ? [`the ${weeks}-week quarter ending ${quarter.date} on a 13-week basis (× 13/${weeks})`] : [];
+  });
+  const annualized = 4 * latest * latestFactor;
+  const ratio = (latest * latestFactor) / (yearAgo * yearAgoFactor);
+  const seasonallyNeutral = ttmRevenue * Math.pow(ratio, TTM_TO_LATEST_QUARTER_YEARS);
   const value = Math.min(Math.max(seasonallyNeutral, Math.min(annualized, ttmRevenue)), Math.max(annualized, ttmRevenue));
-  return { value, latestQuarterEnd: ttmEnd, latestQuarterAnnualized: annualized, seasonallyNeutral, yoyPct: (latest / yearAgo - 1) * 100 };
+  return { value, latestQuarterEnd: ttmEnd, latestQuarterAnnualized: annualized, seasonallyNeutral, yoyPct: (ratio - 1) * 100,
+    latestQuarterWeeks, lengthNote: lengthNotes.length > 0 ? lengthNotes.join("; ") : null };
 }
 
 /**
@@ -729,6 +740,8 @@ export interface ConsensusPathRow {
 /** Income-statement slice used by the DCF builder (FMP field names). */
 export interface DcfIncomeRow {
   date: string;
+  /** Inclusive filed duration, or the gap to the preceding period end. */
+  days?: number | null;
   /** Four-quarter TTM or the latest audited annual statement when TTM is unavailable. */
   basis?: "ttm" | "annual";
   revenue: number | null;
@@ -906,10 +919,10 @@ export interface DcfAssumptionInputs {
 
 /** D-58: the run-rate quarters (revenue in the model currency). */
 export interface DcfQuarterRevenue {
-  latest: { date: string; revenue: number | null };
-  yearAgo: { date: string; revenue: number | null } | null;
+  latest: { date: string; revenue: number | null; days?: number | null };
+  yearAgo: { date: string; revenue: number | null; days?: number | null } | null;
   /** The same fiscal quarter a year before the guided quarter, model currency (AMZN audit 2026-10-20). */
-  guidedYearAgo?: { date: string; revenue: number | null } | null;
+  guidedYearAgo?: { date: string; revenue: number | null; days?: number | null } | null;
 }
 
 /** D-58: management's outlook for the next fiscal quarter (an 8-K earnings release). */
@@ -943,8 +956,10 @@ export interface DcfGuidance {
 export interface RevenueRunRate {
   value: number;
   latestQuarterEnd: string;
-  /** Latest quarter × 4. */
+  /** Latest quarter on a 13-week basis × 4. */
   latestQuarterAnnualized: number;
+  latestQuarterWeeks: number | null;
+  lengthNote: string | null;
   /** TTM carried 4.5 months forward at the latest quarter's year-over-year growth. */
   seasonallyNeutral: number;
   /** Latest quarter's year-over-year revenue growth, percent. */
@@ -1495,7 +1510,8 @@ function buildRevenueAnchor(args: {
   const levelText = runRate === null
     ? `${periodBasis} revenue ${fmtMoney(startRev)}`
     : `the seasonally neutral run-rate ${fmtMoney(runRate.value)} (latest quarter ending ${runRate.latestQuarterEnd} × 4 = ${fmtMoney(runRate.latestQuarterAnnualized)}; ` +
-      `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)`;
+      `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)` +
+      (runRate.lengthNote === null ? "" : `; ${runRate.lengthNote}`);
   // D-65: every explicit window against calendarized consensus. The first
   // window takes the current fiscal year's consensus less what is already
   // reported; each window then passes or fails the breadth and agreement gates.
@@ -1783,7 +1799,16 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const gaps: ManifestEntry[] = [];
   const years = DCF_HORIZON_YEARS;
 
-  const ttm = inputs.incomeTtm;
+  const baseFactor = fiftyTwoWeekFactor(inputs.incomeTtm?.days ?? null);
+  const scaleFlow = (value: number | null | undefined) => value == null ? value : value * baseFactor;
+  const ttm = inputs.incomeTtm === null || baseFactor === 1 ? inputs.incomeTtm : {
+    ...inputs.incomeTtm,
+    revenue: scaleFlow(inputs.incomeTtm.revenue) as number | null,
+    operatingIncome: scaleFlow(inputs.incomeTtm.operatingIncome) as number | null,
+    grossProfit: scaleFlow(inputs.incomeTtm.grossProfit),
+    incomeBeforeTax: scaleFlow(inputs.incomeTtm.incomeBeforeTax),
+    incomeTaxExpense: scaleFlow(inputs.incomeTtm.incomeTaxExpense),
+  };
   const periodBasis = ttm?.basis === "annual" ? `latest annual FY ${ttm.date}` : "TTM";
   const startRev = posOrNull(zeroAsNull(ttm?.revenue));
   if (startRev === null) {
@@ -1973,7 +1998,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // Audit item 15 (FCX-9): a one-off inside operating income (FCX's $699m
   // insurance gain, an impairment) would set the margin for every year, so
   // the seed leaves tagged one-offs out, gains and charges alike.
-  const unusual = inputs.unusualOperatingItems ?? null;
+  const unusual = inputs.unusualOperatingItems == null ? null : {
+    ...inputs.unusualOperatingItems, value: inputs.unusualOperatingItems.value * baseFactor,
+  };
   const baseOperatingIncome = ttm?.operatingIncome ?? null;
   const normalizeUnusual = unusual !== null && unusual.value !== 0 && isNum(baseOperatingIncome);
   const ttmMarginRaw = safeDiv(normalizeUnusual ? (baseOperatingIncome as number) - unusual.value : baseOperatingIncome, startRev);
@@ -2290,7 +2317,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
-  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : startRev / (operatingIc ?? ic);
+  // Task 29: capital efficiency stays on reported flows; only the DCF starting flows are annualised.
+  const filedRevenue = inputs.incomeTtm!.revenue as number;
+  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : filedRevenue / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
@@ -2308,9 +2337,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (D-25), ` +
       `so the ${bal.basis} balance as of ${bal.date} cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65` : ""}`;
-  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
-  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
     `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
   else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
@@ -2402,7 +2431,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       anchorEndDate: ttm.date,
       anchorStartDate: forecastYearPeriod(ttm.date, 0, "rolling-12-month")?.startDate ?? null,
     } } : {}),
-    startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` },
+    startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` +
+      (baseFactor === 1 ? "" : `; 53-week ${periodBasis} on a 52-week basis (× 52/53), all base-period flows and tagged one-offs scaled together`) },
     years,
     wacc: {
       value: inputs.waccPct,

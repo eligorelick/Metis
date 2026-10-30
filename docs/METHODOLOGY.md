@@ -549,6 +549,20 @@ earlier (350–380 days before), established in the model currency. Without one,
 the anchor falls back to the pre-D-58 rule: TTM revenue grown one year at the
 near-term growth rate.
 
+Filed quarter lengths put each quarter on a **13-week basis** before its
+year-over-year comparison or annualisation: an exact w-week quarter is
+multiplied by 13/w. Calendar quarters of 90–92 days read as 13 weeks; other
+lengths that are not exact multiples of seven stay unscaled. An unknown
+length stays unscaled and is disclosed as "length not established; read as
+13 weeks". A filed start takes precedence; otherwise the preceding quarter's
+end establishes the next day's start. The run-rate basis names every scaled
+quarter. A **53-week DCF base period** (371 days) is put on a 52-week basis
+(× 52/53): revenue, operating income, gross profit, pretax income, tax and any
+tagged one-off are scaled together, preserving the base margins. The start
+revenue basis says so.
+Sales-to-capital retains the filed revenue numerator; this annualisation
+changes the DCF starting flows, not the observed capital-efficiency ratio.
+
 **A broken-input guard bounds year-one revenue relative to the run-rate.** Its
 range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided pace
 the anchor uses and the latest quarter's year-over-year growth. It catches a
@@ -2715,7 +2729,9 @@ trend. D-65: the interest is the latest quarter's run-rate when a quarter
 newer than the latest fiscal year exists — the quarter's interest over its
 average debt (opening and closing balances, operating leases excluded) is the
 issuer's own effective rate, applied to the closing debt so debt issued during
-the quarter is priced for a full year; without both balances, the quarter × 4;
+the quarter is priced for a full year; the quarter's interest is first put on
+the same 13-week basis (× 13/w for an exact non-13-week quarter), both for the
+effective-rate calculation and the quarter × 4 fallback without both balances;
 else the latest fiscal year's. NVDA: FY2026 $0.26B predates $25B of notes
 issued in Q2 FY2027; Q2's $227M on $20.9B average debt is 4.34% a year, $1.45B
 on $33.4B. Interest income, investment gains and other non-operating items are

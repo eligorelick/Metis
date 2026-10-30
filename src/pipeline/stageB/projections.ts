@@ -42,6 +42,7 @@ import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from
 export { perturbScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import { perShareUnit } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
+import { thirteenWeekFactor, weeksOf } from "./fiscalCalendar";
 import type {
   Projections,
   ProjectionSeries,
@@ -159,20 +160,24 @@ export interface ProjectionsInputs {
  * issued during the quarter for a full year. Without both balances, the
  * quarter × 4. Null without a nonnegative disclosed quarterly interest figure.
  */
-export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean } | null,
+export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean; days?: number | null } | null,
   closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string } | null {
   if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense < 0) return null;
   if (quarter.interestExpense === 0 && quarter.interestExpenseDisclosed !== true) return null;
-  const q = quarter.interestExpense;
+  const q = quarter.interestExpense * thirteenWeekFactor(quarter.days ?? null);
+  const weeks = weeksOf(quarter.days ?? null);
+  const quarterBasis = weeks !== null && weeks !== 13
+    ? `the ${weeks}-week quarter ending ${quarter.date} on a 13-week basis (× 13/${weeks})`
+    : `the quarter ending ${quarter.date}`;
   const b = (v: number) => `${round2(v / 1e9)}B`;
   if (closing !== null && opening !== null && closing.date === quarter.date && isNum(closing.debt) && isNum(opening.debt) && closing.debt > 0 && opening.debt >= 0) {
     const average = (closing.debt + opening.debt) / 2;
     const rate = (q / average) * 4;
     if (average > 0 && rate > 0 && rate < 0.25) {
-      return { value: rate * closing.debt, basis: `the quarter ending ${quarter.date}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
+      return { value: rate * closing.debt, basis: `${quarterBasis}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
     }
   }
-  return { value: q * 4, basis: `the quarter ending ${quarter.date}'s interest ${b(q)} × 4` };
+  return { value: q * 4, basis: `${quarterBasis}'s interest ${b(q)} × 4` };
 }
 
 /* ------------------------------------------------------------------------ *

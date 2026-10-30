@@ -161,6 +161,7 @@ import {
 } from "@/pipeline/stageB/instrumentSupport";
 // WS6 (D-19): THESIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
+import { periodDays } from "@/pipeline/stageB/fiscalCalendar";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type {
   Scoring,
@@ -774,6 +775,9 @@ function toOhlcv(r: FmpRawRow): OhlcvRow {
 
 export interface TtmIncome {
   date: string;
+  periodStart: string | null;
+  periodStartBasis: "filed" | "prior-quarter-end" | null;
+  days: number | null;
   /**
    * The window's one currency. ttmIncome returns no window at all when its
    * currency is not established, so a window it returns always carries one.
@@ -1185,6 +1189,22 @@ export function ttmIncome(
   return ttmIncomeFromNormalized(normalized, gaps, siblings);
 }
 
+/** Filed starts take precedence; otherwise the prior row establishes the next day's start. */
+function incomePeriod(row: FmpIncomeStatementRow, previous?: FmpIncomeStatementRow): {
+  periodStart: string | null; periodStartBasis: "filed" | "prior-quarter-end" | null; days: number | null;
+} {
+  const end = String(row.date ?? "");
+  const filed = row.fieldProvenance?.revenue?.periodStart;
+  if (filed != null) {
+    const days = periodDays(filed, end);
+    return { periodStart: days === null ? null : filed, periodStartBasis: days === null ? null : "filed", days };
+  }
+  const prior = String(previous?.date ?? "");
+  const span = periodDays(prior, end);
+  if (span === null || span <= 1) return { periodStart: null, periodStartBasis: null, days: null };
+  return { periodStart: new Date(Date.parse(prior) + SPREAD_DAYS).toISOString().slice(0, 10), periodStartBasis: "prior-quarter-end", days: span - 1 };
+}
+
 function ttmIncomeFromNormalized(
   normalized: NormalizedQuarterSet<FmpIncomeStatementRow>,
   gaps?: ManifestEntry[],
@@ -1285,8 +1305,12 @@ function ttmIncomeFromNormalized(
   gateComplete("netIncomeAttributableToNoncontrollingInterest");
   if (!commonWindow.commonIncomeWithheldReason) gateComplete("netIncomeAvailableToCommon");
 
+  const windowStart = incomePeriod(q[3], normalized.rows[4]);
   return {
     date: String(q[0].date ?? ""),
+    periodStart: windowStart.periodStart,
+    periodStartBasis: windowStart.periodStartBasis,
+    days: periodDays(windowStart.periodStart, String(q[0].date ?? "")),
     // One established code for all four quarters (the gate above).
     reportedCurrency: windowCurrency.code,
     currencyFromSameFilingStatements: windowCurrency.fromSameFiling,
@@ -2619,6 +2643,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     && projectionQuarterDate <= projectionAnchorDate && projectionQuarterDate > projRowDate(inc0Proj)
     && currencies.model !== null && establishedCurrencyOn([latestIncomeQuarter], projectionQuarterDate, currencyEvidence) === currencies.model
     ? interestRunRate({ date: projectionQuarterDate, interestExpense: num(latestIncomeQuarter.interestExpense),
+      days: incomePeriod(latestIncomeQuarter, incomeQuarterly[1]).days,
       interestExpenseDisclosed: disclosedProjectionInterest(latestIncomeQuarter) },
       debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
       debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
@@ -3444,6 +3469,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
+        days: ttmInc.days,
         basis: "ttm",
         revenue: ttmInc.revenue,
         operatingIncome: ttmInc.operatingIncome,
@@ -3454,6 +3480,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     : inc0
       ? {
           date: String(inc0.date ?? ""),
+          days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date))).days,
           basis: "annual",
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
@@ -3525,14 +3552,14 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const guidedYearAgoDate = guidedYearAgoQuarter === undefined ? null : isoDay(guidedYearAgoQuarter.date);
   const dcfQuarterRevenue: DcfQuarterRevenue | null = ttmInc && latestQuarter
     ? {
-        latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue) },
+        latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue), days: incomePeriod(latestQuarter, incomeQuarterly[incomeQuarterly.indexOf(latestQuarter) + 1]).days },
         yearAgo: yearAgoQuarter !== undefined && yearAgoDate !== null &&
           establishedCurrencyOn([yearAgoQuarter], yearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
-          ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue) }
+          ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue), days: incomePeriod(yearAgoQuarter, incomeQuarterly[incomeQuarterly.indexOf(yearAgoQuarter) + 1]).days }
           : null,
         ...(guidedYearAgoQuarter !== undefined && guidedYearAgoDate !== null &&
           establishedCurrencyOn([guidedYearAgoQuarter], guidedYearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
-          ? { guidedYearAgo: { date: guidedYearAgoDate, revenue: num(guidedYearAgoQuarter.revenue) } }
+          ? { guidedYearAgo: { date: guidedYearAgoDate, revenue: num(guidedYearAgoQuarter.revenue), days: incomePeriod(guidedYearAgoQuarter, incomeQuarterly[incomeQuarterly.indexOf(guidedYearAgoQuarter) + 1]).days } }
           : {}),
       }
     : null;
