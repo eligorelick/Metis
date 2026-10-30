@@ -1351,18 +1351,15 @@ export function degradationPlan(
           "(BV0 + sum of (ROTE − CoE) · TCE / (1 + CoE)^t) — bank FCF swings with loan growth and deposit flows.",
       },
       {
-        // "suppress", not "replace": nothing in the pipeline computes CET1,
-        // TCE/assets or a provisions trend — grading.ts states plainly that
-        // capital adequacy is "not modelled in v1". Promising a replacement
-        // battery that does not exist told the reader a bank had been screened
-        // for solvency when it had not been screened at all, which is worse
-        // than disclosing the absence.
+        // The forensic battery stays suppressed. D-46 separately grades the
+        // bank's capital, credit and funding metrics; CET1 is display-only.
         target: "forensics",
         action: "suppress",
         disclosure:
           "Altman Z, Beneish M and the accrual ratios are not computed for financials (their models are " +
-          "estimated on non-financial firms). Bank-specific capital-adequacy metrics — CET1, TCE/assets, " +
-          "provisions trend — are NOT modelled in this version, so no replacement solvency screen is shown.",
+          "estimated on non-financial firms). Capital, credit and funding are graded instead (D-46): " +
+          "tangible common equity / tangible assets, net charge-offs / average loans, nonperforming loans / loans " +
+          "where the filer tags them, and loans / deposits. CET1 is shown when the filer tags it and is never graded.",
       },
       {
         target: "leadership.cet1Ratio",
