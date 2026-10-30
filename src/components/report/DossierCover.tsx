@@ -1,8 +1,8 @@
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
-import { confidenceText, displayProse, keyDataRows } from "@/report/presentation";
-import { hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
+import { businessQualityGraded, confidenceText, displayProse, keyDataRows } from "@/report/presentation";
+import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, VerdictHeader } from "./sections";
 import { FactorAttribution } from "./FactorAttribution";
@@ -14,7 +14,10 @@ export function DossierCover({ report, completeness }: { report: Report; complet
   const recordedDimensions = report.scores?.assessments
     ? scoreAuditTables(report.scores).find(table => table.heading === "Assessment dimensions")?.rows : undefined;
   const valuation = report.scores?.aspects.valuation;
-  const dimensions = recordedDimensions?.map(row => row[0] === "Price attractiveness" && valuation && hasLimitedEvidence(valuation)
+  const assessments = report.scores?.assessments;
+  const dimensions = recordedDimensions?.map(row => row[0] === "Business quality" && assessments && !businessQualityGraded(assessments)
+    ? [row[0], `${formatScore(assessments.businessQuality.score, 2)} / not graded: evidence ${evidencePercentText(assessments.businessQuality.evidenceCompleteness!)}`, row[2]]
+    : row[0] === "Price attractiveness" && valuation && hasLimitedEvidence(valuation)
     ? [row[0], `${formatScore(report.scores!.assessments!.valuation.score, 2)} / limited evidence`, `${row[2]} Limited evidence: ${limitedEvidenceText(valuation)}.`]
     : row);
   const rows = keyDataRows(report);

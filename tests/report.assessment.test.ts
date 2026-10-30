@@ -11,6 +11,71 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { judgeOutputToJsonSchema, ReportSchema } from "@/report/schema";
 import { task28SentinelReport } from "./helpers/task28Report";
+import { ReportView } from "@/components/report/ReportView";
+import { runStageB } from "@/pipeline/compute";
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { assessmentLine } from "@/report/presentation";
+import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { scoreAuditTables } from "@/report/auditTables";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
+
+function businessAssessment(conflict = true) {
+  const bundle = completeCurrencyBundle({ symbol: "CREDIT" });
+  if (conflict) {
+    if (!bundle.profile.ok) throw new Error("fixture profile missing");
+    Object.assign(bundle.profile.value.data.rows[0], { sector: "Financial Services", industry: "Credit Services" });
+    const point = (val: number) => ({ units: { USD: [{ end: "2025-12-31", val, accn: "0000000001-26-000001", form: "10-K", filed: "2026-02-15", fy: 2025, fp: "FY" }] } });
+    withIssuerFacts(bundle, { cik: 1, entityName: "Conflicted credit company", facts: { "us-gaap": {
+      Deposits: point(1000e6), LoansAndLeasesReceivableNetReportedAmount: point(1200e6),
+    } } });
+  }
+  const validation = { checks: [], flags: [], gaps: [] };
+  const computed = runStageB(bundle, { evIncludeLeases: false }, validation);
+  const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Credit fixture", generatedAt: bundle.builtAt,
+    model: "none", costUsd: 0, bundle, validation, computed, costBreakdown: [], reason: "Offline regression" });
+  return { computed, report };
+}
+
+describe("business-quality evidence floor", () => {
+  it("RPT-101 withholds the letter in the line and Markdown, retaining the recorded audit band", () => {
+    const { computed, report } = businessAssessment();
+    expect(computed.scores.assessments!.businessQuality.evidenceCompleteness).toBeLessThan(MIN_HEADLINE_EVIDENCE);
+    expect(assessmentLine(computed.scores)).toMatch(/Business quality [\d.]+ \(not graded: evidence \d+\.\d%\)/);
+    expect(reportToMarkdown(report).split("\n").find(line => line.includes("Business quality"))).not.toMatch(/\([A-F]/);
+    expect(scoreAuditTables(computed.scores).find(t => t.heading === "Assessment dimensions")?.rows[0][1]).toMatch(/\/ [A-F]\b/);
+  });
+  it("RPT-101 withholds the business letter on the dossier cover", () => {
+    const { report } = businessAssessment();
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const row = html.slice(html.indexOf("Business quality"), html.indexOf("Price attractiveness"));
+    expect(row).toMatch(/not graded: evidence \d+\.\d%/);
+    expect(row).not.toMatch(/\/ [A-F]\b/);
+  });
+  it("RPT-101 preserves legacy assessment letters when the field was not recorded", () => {
+    const { computed, report } = businessAssessment();
+    delete computed.scores.assessments!.businessQuality.evidenceCompleteness;
+    report.scores = computed.scores;
+    expect(assessmentLine(computed.scores)).toMatch(/Business quality [\d.]+ \([A-F]/);
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    expect(html.slice(html.indexOf("Business quality"), html.indexOf("Price attractiveness"))).toMatch(/\/ [A-F]\b/);
+  });
+  it("RPT-101 retains a supported general-issuer letter and stores an unrounded share", () => {
+    const { computed } = businessAssessment(false);
+    const a = computed.scores.assessments!.businessQuality;
+    expect(a.evidenceCompleteness).toBeGreaterThanOrEqual(MIN_HEADLINE_EVIDENCE);
+    expect(assessmentLine(computed.scores)).toMatch(/Business quality [\d.]+ \([A-F]/);
+    const keys = ["fundamentals", "quality", "balanceSheet", "moat", "leadership"] as const;
+    const weight = keys.reduce((sum, key) => sum + computed.scores.composite.weights[key] * computed.scores.aspects[key].dataCompleteness, 0);
+    const ceiling = keys.reduce((sum, key) => { const aspect = computed.scores.aspects[key]; return sum + (aspect.applicableCompleteness === null ? 0 : computed.scores.composite.weights[key] * aspect.dataCompleteness / aspect.applicableCompleteness!); }, 0);
+    expect(a.evidenceCompleteness).toBe(weight / ceiling);
+  });
+  it.each([0.499999, 0.5])("RPT-101 applies the unrounded boundary at %s", share => {
+    const { computed } = businessAssessment(false);
+    computed.scores.assessments!.businessQuality.evidenceCompleteness = share;
+    expect(assessmentLine(computed.scores)?.includes("not graded: evidence")).toBe(share < 0.5);
+  });
+});
 
 describe("assessment presentation", () => {
   it("withholds sparse full-AI headlines on immutable stored reads across sections, history, and exports", () => {

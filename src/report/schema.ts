@@ -1825,7 +1825,7 @@ export const ScoringSchema = z
     /** Versioned band table id (e.g. "SCORE_BANDS_2026_01"). */
     bandsVersion: z.string(),
     assessments: z.object({
-      businessQuality: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
+      businessQuality: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string(), evidenceCompleteness: z.number().min(0).max(1).optional() }).strict(),
       valuation: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
       evidenceCompleteness: z.number().min(0).max(1),
       calibration: z.literal("unbacktested-house-rules"),

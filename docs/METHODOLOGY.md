@@ -3822,6 +3822,15 @@ produced.
 
 Fresh reports distinguish business quality, price attractiveness and evidence availability. Score bands, scenario display weights and forensic thresholds remain unbacktested house rules. They are not calibrated probabilities of returns or accounting misstatement. The score audit records each signal's measured dates, raw value, transformation, effective weight, missingness and contribution. Correlated signals are grouped into factor families so overlapping ROIC evidence is visible.
 
+Business quality shows its letter only when the business aspects carry at least
+half of their route-applicable evidence, the same floor as the composite. The
+unrounded evidence share is stored separately (zero when no applicable weight
+exists); the summary line, Markdown and dossier cover show the score and
+"not graded: evidence N.N%" below that floor. The audit table retains the recorded
+band. Legacy reports without the optional share keep their recorded presentation.
+This display rule does not change scores, bands or their weighting, including the
+reduced-battery denominator limitation disclosed under FIN-306.
+
 Capital metrics use complete compatible TTM flows and a matching balance sheet when available, with an explicit annual fallback. Annual history remains available. Within a selected TTM snapshot, incomplete operating income withholds EBIT, EBITDA, interest coverage and net debt/EBITDA: vendor EBIT, which can include non-operating gains, and annual operating income are never substituted for that trailing flow (D-31, FIN-112). Cash bridges distinguish operating cash flow minus cash capital expenditure, lease-principal-adjusted FCF, an explicitly supplied issuer definition, and after-SBC economic adjustments. Historical levered FCF and forecast unlevered FCFF are different measures. Debt, liquidity, lease liabilities, enterprise value, equity and diluted shares are reconciled separately.
 
 Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Since D-60 scenario shocks decay to the base path by year 10 and scenario margins stay below gross margin less the leanest operating-expense ratio on record (the decaying shock is the main construction, so no alternative is listed). EPS uses flat shares because an authorization is not a committed schedule; the authorization-funded share change is stated and an unfunded historical-share-trend sensitivity is labeled hypothetical.

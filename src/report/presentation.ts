@@ -1804,12 +1804,18 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
   };
 }
 
+/** Absent evidence shares retain legacy presentation; compare the unrounded share. */
+export function businessQualityGraded(a: NonNullable<Report["scores"]>["assessments"]): boolean {
+  return typeof a?.businessQuality.evidenceCompleteness !== "number"
+    || a.businessQuality.evidenceCompleteness >= MIN_HEADLINE_EVIDENCE;
+}
+
 /** The business-quality / price-attractiveness split beside the composite, when recorded. */
 export function assessmentLine(scores: NonNullable<Report["scores"]>): string | null {
   const a = scores.assessments;
   if (!a) return null;
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${!businessQualityGraded(a) ? `not graded: evidence ${evidencePercentText(a.businessQuality.evidenceCompleteness!)}` : a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
     `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
     `evidence available for ${evidencePercentText(a.evidenceCompleteness)} of the signal weight`,

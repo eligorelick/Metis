@@ -1229,7 +1229,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     bandsVersion: SCORE_BANDS_VERSION,
     factorExposure: [...exposures.values()].sort((a,b)=>b.weightPct-a.weightPct),
     assessments: {
-      businessQuality: { score: businessScore, band: businessScore === null ? null : scoreToBand(businessScore), basis: "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum." },
+      businessQuality: { score: businessScore, band: businessScore === null ? null : scoreToBand(businessScore),
+        evidenceCompleteness: businessCeiling > 0 ? businessWeight / businessCeiling : 0,
+        basis: "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum." },
       valuation: { score: aspects.valuation.score, band: aspects.valuation.band, basis: "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary." },
       evidenceCompleteness: overallCompleteness, calibration: "unbacktested-house-rules",
     },
