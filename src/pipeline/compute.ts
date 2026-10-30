@@ -2364,6 +2364,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
+    // FIN-121: use the SAME selected routing flow, before model-currency filtering.
+    finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
+      ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
+      (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
     incomeAnnual: revenueConflict ? incomeAnnual.map(row=>({...row,revenue:undefined})) : incomeAnnual,
     balanceAnnual,
     cashflowAnnual,
@@ -3221,6 +3225,8 @@ function computeReturns(
 
 interface ValuationCtx {
   route: CompanyRouteResult;
+  /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
+  finOtherOcfExemption: boolean;
   incomeAnnual: FmpIncomeStatementRow[];
   balanceAnnual: FmpBalanceSheetRow[];
   cashflowAnnual: FmpCashFlowRow[];
@@ -4105,7 +4111,29 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
 
   void ratiosTtm; // reserved for future ratio cross-checks
-  const result = valueCompany(route, bundleInputs);
+  let result = valueCompany(route, bundleInputs);
+  // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
+  // report main published. Retain its prior withheld valuation only when the
+  // new attempt fails critically and the actual prior treatment did not.
+  // Existing model-eligibility holds and every ordinary DCF check still run.
+  if (ctx.finOtherOcfExemption && !route.modelEligibility && result.kind === "dcf" &&
+      result.gaps.some(g => g.severity === "critical")) {
+    const prior = valueCompany({ ...route, overlays: ["unprofitable", ...route.overlays] }, bundleInputs);
+    if (prior.kind === "dcf-suppressed" && !prior.gaps.some(g => g.severity === "critical")) {
+      const reason = "Prior DCF suppression retained for this FIN-OTHER financial issuer: the required model inputs do not support a value (" +
+        result.gaps.filter(g => g.severity === "critical").map(g => g.reason).join("; ") +
+        "). Negative operating cash flow alone is not a profitability signal; the issuer is not labelled unprofitable.";
+      result = {
+        ...prior,
+        suppressionReason: reason,
+        notes: [...prior.notes.filter(n => !n.startsWith("fcfDcf suppressed by metric policy (unprofitable overlay)")), reason],
+        // Keep the prior suppression's classification; no input check or gap
+        // severity is changed. Replace its obsolete profitability explanation.
+        gaps: prior.gaps.map(g => g.field === "valuation.dcf" && g.reason.startsWith("DCF suppressed for unprofitable overlay")
+          ? { ...g, reason } : g),
+      };
+    }
+  }
   result.gaps.push(...estimateGaps);
   // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
   const overlapDates = new Set<string>();

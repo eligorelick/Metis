@@ -6193,14 +6193,15 @@ export type ValuationResult =
     }
   | {
       /**
-       * General route, but metricPolicy suppresses fcfDcf for this route's
-       * overlays (currently: "unprofitable" — structurally negative FCF makes
-       * an FCFF-based intrinsic-value model unreliable). Unlike "pre-revenue",
-       * multiples ARE still meaningful here (only pe/peg/fcfDcf/dividendSafety/
-       * piotroskiF/beneishM are suppressed, not multiples generally), so
+       * General route with an overlay-suppressed DCF, or a FIN-OTHER prior
+       * suppression retained because newly applicable model inputs fail.
+       * Multiples remain available; metricPolicy separately decides which
+       * ones are applicable for the actual route/overlays. Unlike pre-revenue,
        * `multiples` is a real MultiplesResult, not null.
        */
       kind: "dcf-suppressed";
+      /** Specific disclosure when prior suppression is retained for unsupported FIN-OTHER inputs. */
+      suppressionReason?: string;
       route: SectorRoute;
       multiples: MultiplesResult;
       notes: string[];

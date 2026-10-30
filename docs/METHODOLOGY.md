@@ -2721,10 +2721,19 @@ neutral). See `tests/stageB.valuation.test.ts`,
 `src/pipeline/stageB/sectorRouting.ts` composes overlays with the base business
 route. **Unprofitable** means negative selected net income or negative selected
 operating cash flow, with dated annual fallbacks when TTM is unavailable.
-For banks, insurers and mortgage REITs, negative OCF alone cannot trigger it:
-funding flows are operating cash flows on those balance sheets. The overlay
+For banks, insurers, mortgage REITs and FIN-OTHER issuers (sector Financial
+Services on the general map), negative OCF alone cannot trigger it: trading
+assets, loans held for sale and funding flows are operating cash flows on
+those balance sheets (ASC 230-10-45-20 and -21). The overlay
 suppresses the general FCFF DCF; it is a house applicability rule and does not
 establish that every future cash flow will be negative.
+
+When removing the FIN-OTHER OCF-only overlay would introduce a critical DCF
+failure, the prior withheld valuation is retained if that prior treatment had
+no critical valuation failure. The disclosure names the unsupported inputs
+without labelling the issuer unprofitable. Existing eligibility holds, input
+checks and gap severities remain unchanged. This compatibility exception
+defers those DCFs; it does not supply missing inputs or perform an FX conversion.
 
 **Pre-revenue** means selected revenue below USD 10 million. The threshold is
 evaluated only on established USD statements; a foreign-currency amount is

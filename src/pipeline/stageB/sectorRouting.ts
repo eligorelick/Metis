@@ -713,9 +713,10 @@ export function routeCompany(
   // profitability. Those routes evaluate the overlay on net income alone;
   // otherwise a profitable bank was labelled unprofitable, its headline metrics
   // replaced by cash runway and burn, and the analyst passes briefed on a
-  // loss-maker. Same balance-sheet gate as the ROTE/ROIC switch in
-  // `metricPolicy`.
-  const ocfIsProfitSignal = !(base === "bank" || base === "insurer" || base === "reit-mortgage");
+  // loss-maker. FIN-OTHER general-map financials also carry trading-asset,
+  // loan and customer-balance flows in OCF; net income is their trigger too.
+  const finOther = base === "general" && (sectorLc === "financial services" || sectorLc === "financial");
+  const ocfIsProfitSignal = !(base === "bank" || base === "insurer" || base === "reit-mortgage" || finOther);
   const ocfCounts = ocf !== null && ocfIsProfitSignal;
 
   if (ni === null && !ocfCounts) {
@@ -724,7 +725,7 @@ export function routeCompany(
       reason:
         ocf === null
           ? "netIncome and operatingCashFlow unavailable on both TTM and annual bases — overlay not evaluated"
-          : `netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal on the '${base}' route — overlay not evaluated`,
+          : `netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal ${finOther ? "for a FIN-OTHER issuer" : `on the '${base}' route`} — overlay not evaluated`,
       severity: "warn",
       attemptedSources: ["fmp:/stable/income-statement(-ttm)", "fmp:/stable/cash-flow-statement(-ttm)"],
     });
@@ -734,12 +735,14 @@ export function routeCompany(
       `unprofitable overlay applied: netIncome=${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}), ` +
         `operatingCashFlow=${ocf === null ? "n/a" : ocf} (${ocfBasis ?? "n/a"}). ` +
         "Trigger (house rule): TTM netIncome < 0 OR TTM operatingCashFlow < 0" +
-        (ocfIsProfitSignal ? "." : ` (net income only on the '${base}' route).`),
+        (ocfIsProfitSignal ? "." : finOther ? " (net income only for a FIN-OTHER issuer)." : ` (net income only on the '${base}' route).`),
     );
   } else if (!ocfIsProfitSignal && ocf !== null && ocf < 0) {
     notes.push(
-      `unprofitable overlay not applied: operating cash flow ${ocf} (${ocfBasis ?? "n/a"}) is negative, but on the '${base}' route ` +
-        "OCF is dominated by loan, deposit, trading-asset and reserve flows and is not a profitability signal (house rule); " +
+      `unprofitable overlay not applied: operating cash flow ${ocf} (${ocfBasis ?? "n/a"}) is negative, but ` +
+        (finOther
+          ? "for a FIN-OTHER financial issuer (sector Financial Services on the general map) OCF carries trading-asset, loan and customer-balance flows and is not a profitability signal (house rule); "
+          : `on the '${base}' route OCF is dominated by loan, deposit, trading-asset and reserve flows and is not a profitability signal (house rule); `) +
         `net income ${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}) is the only trigger there.`,
     );
   }

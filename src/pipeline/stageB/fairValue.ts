@@ -217,7 +217,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
         : valuation.kind === "pre-revenue"
           ? "pre-revenue company — no meaningful intrinsic per-share model in v1"
           : valuation.kind === "dcf-suppressed"
-            ? "intrinsic per-share DCF suppressed for this route/overlay (e.g. structurally negative free cash flow) — see missing-data"
+            ? valuation.suppressionReason ?? "intrinsic per-share DCF suppressed for this route/overlay (e.g. structurally negative free cash flow) — see missing-data"
             : (valuation.kind === "dcf" ? dcfWithheldReason(valuation.gaps) : null) ??
               "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
     // Not-applicable routes are info; a suppressed bridge on a modellable route is a warn.

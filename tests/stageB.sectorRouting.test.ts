@@ -243,6 +243,41 @@ describe("routeCompany overlays", () => {
     }
   });
 
+  it("negative OCF alone does not trigger unprofitable on a FIN-OTHER issuer", () => {
+    for (const industry of ["Financial - Capital Markets", "Capital Markets", "Credit Services", "Asset Management"]) {
+      const r = route({ sector: "Financial Services", industry }, {
+        incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: 3_000_000_000, reportedCurrency: "USD" },
+        cashflowTtm: { date: "2026-06-30", operatingCashFlow: -4_000_000_000 },
+      });
+      expect(r.base, industry).toBe("general");
+      expect(r.overlays, industry).not.toContain("unprofitable");
+      expect(r.notes.some(n => /^unprofitable overlay not applied: .*FIN-OTHER/.test(n)), industry).toBe(true);
+    }
+  });
+
+  it("a FIN-OTHER loss still triggers unprofitable and non-financial negative OCF still does", () => {
+    const s = {
+      incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: -1, reportedCurrency: "USD" },
+      cashflowTtm: { date: "2026-06-30", operatingCashFlow: -4_000_000_000 },
+    };
+    const loss = route({ sector: "Financial Services", industry: "Asset Management" }, s);
+    expect(loss.overlays).toContain("unprofitable");
+    expect(loss.notes.join(" ")).toContain("net income only for a FIN-OTHER issuer");
+    expect(route({ sector: "Technology", industry: "Software" }, {
+      ...s, incomeTtm: { ...s.incomeTtm, netIncome: 1 },
+    }).overlays).toContain("unprofitable");
+  });
+
+  it("FIN-OTHER without net income does not infer a loss from OCF", () => {
+    const r = route({ sector: "Financial", industry: "Credit Services" }, {
+      incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: null, reportedCurrency: "USD" },
+      incomeAnnual: null,
+      cashflowTtm: { date: "2026-06-30", operatingCashFlow: -1 },
+    });
+    expect(r.overlays).not.toContain("unprofitable");
+    expect(r.gaps.some(g => g.field === "route.overlays.unprofitable")).toBe(true);
+  });
+
   it("negative net income still triggers unprofitable on the bank route, and a positive bank OCF adds no note", () => {
     const loss = route(
       { sector: "Financial Services", industry: "Banks - Regional" },
