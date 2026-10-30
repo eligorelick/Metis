@@ -4006,6 +4006,8 @@ interface OwnHistoryDerivation {
    */
   leaseBasisMismatchWindows: string[];
   leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }>;
+  /** FIN-119: windows whose temporary-equity operand is refused; their EV is dropped and the vendor EV ratios may not stand in. */
+  temporaryEquityRejectedWindows: Array<{ anchor: string; reason: string }>;
   cashOwnershipRejectedWindows: string[];
 }
 
@@ -4125,12 +4127,14 @@ function deriveOwnHistory(
       unusableWindows: [],
       leaseBasisMismatchWindows: [],
       leaseScopeRejectedWindows: [],
+      temporaryEquityRejectedWindows: [],
       cashOwnershipRejectedWindows: [],
     };
   }
   const unusableWindows: Array<{ anchor: string; reason: string }> = [];
   const leaseBasisMismatchWindows: string[] = [];
   const leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }> = [];
+  const temporaryEquityRejectedWindows: Array<{ anchor: string; reason: string }> = [];
   const cashOwnershipRejectedWindows: string[] = [];
   const push = (key: MultipleKey, value: number): void => {
     const values = (series[key] ??= []);
@@ -4211,6 +4215,7 @@ function deriveOwnHistory(
     const historicalNetDebt = resolveNetDebt(b);
     // FIN-119: the quarter's own redeemable claims, read as the current EV reads them; a refused one drops the EV multiples.
     const windowTemporary = temporaryEquityClaims(b);
+    if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
       leaseBasisMatches && leaseScopeRefusal === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
@@ -4277,6 +4282,7 @@ function deriveOwnHistory(
     unusableWindows,
     leaseBasisMismatchWindows,
     leaseScopeRejectedWindows,
+    temporaryEquityRejectedWindows,
     cashOwnershipRejectedWindows,
   };
 }
@@ -4788,6 +4794,16 @@ export function multiplesFramework(
       ". Affected raw-statement EV windows are excluded. Vendor EV/EBITDA and EV/sales history lacks the component evidence needed to cure these refusals and cannot restore an own-history band; supported raw-statement windows remain eligible.";
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.evLeaseScope", reason, "warn"));
+  }
+  // FIN-119 (PR #76 Codex review): the same rule for a quarter whose temporary-equity operand is refused. The vendor's EV
+  // ratios are built on its own claims and cannot resolve the disputed one, so they may not restore the dropped windows.
+  if (derived.temporaryEquityRejectedWindows.length) {
+    for (const key of vendorEvKeys) delete vendor[key];
+    const reason = `${derived.temporaryEquityRejectedWindows.length} historical quarter window(s) have a refused temporary-equity operand: ` +
+      derived.temporaryEquityRejectedWindows.slice(0, 3).map(({ anchor, reason }) => `${anchor}: ${reason}`).join("; ") +
+      ". Affected raw-statement EV windows are excluded. Vendor EV/EBITDA and EV/sales history lacks the component evidence needed to resolve the refused claim and cannot restore an own-history band; supported raw-statement windows remain eligible.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.ownHistory.evTemporaryEquity", reason, "warn"));
   }
   if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
     for (const key of vendorEvKeys) delete vendor[key];

@@ -342,7 +342,7 @@ describe("FIN-119: the enterprise values", () => {
 
   describe("own-history EV", () => {
     const dates = Array.from({ length: 12 }, (_, index) => `${2025 - Math.floor(index / 4)}-${["12-31", "09-30", "06-30", "03-31"][index % 4]}`);
-    const history = (extra: Partial<QuarterlyFundamentalsRow>) => {
+    const history = (extra: Partial<QuarterlyFundamentalsRow>, vendor = false) => {
       const quarters: QuarterlyFundamentalsRow[] = dates.map((date) => ({ date, revenue: 25, operatingIncome: 5, depreciationAndAmortization: 1, netIncome: 4,
         operatingCashFlow: 6, capitalExpenditure: -1, totalStockholdersEquity: 100, totalDebt: 100, cashAndShortTermInvestments: 70, preferredStock: 0, minorityInterest: 0, ...extra }));
       return multiplesFramework("general", {
@@ -352,6 +352,7 @@ describe("FIN-119: the enterprise values", () => {
         balance: { date: dates[0], totalDebt: 100, cashAndShortTermInvestments: 70, totalStockholdersEquity: 100, goodwill: 0, intangibleAssets: 0, minorityInterest: 0, preferredStock: 0 },
         quarterlyFundamentals: quarters,
         enterpriseValuesHistory: dates.map((date) => ({ date, marketCapitalization: 1000, enterpriseValue: 1100 })),
+        ...(vendor ? { keyMetricsHistory: dates.map((date, index) => ({ date, evToSales: 7 + index * 0.1, evToEBITDA: 30 + index })) } : {}),
       });
     };
     const evToSales = (result: ReturnType<typeof history>) => result.multiples.find((row) => row.key === "evToSales")?.ownHistory ?? null;
@@ -385,6 +386,25 @@ describe("FIN-119: the enterprise values", () => {
       const refused = history({ temporaryEquity: 30, fieldConflicts: { temporaryEquity: { usable: false, reason: "two filings disagree" } } });
       expect(evToSales(refused)).toBeNull();
       expect(refused.multiples.find((row) => row.key === "priceToBook")?.ownHistory?.observations).toBeGreaterThanOrEqual(8);
+    });
+
+    // PR #76 Codex review, fix round 4 (C3): vendor EV ratios cannot resolve a refused claim, so they cannot stand in for the dropped windows.
+    it("vendor EV-ratio history does not restore the windows whose temporary equity is refused", () => {
+      const refused = history({ temporaryEquity: 30, fieldConflicts: { temporaryEquity: { usable: false, reason: "two filings disagree" } } }, true);
+      for (const key of ["evToSales", "evToEbitda"]) expect(refused.multiples.find((row) => row.key === key)?.ownHistory ?? null).toBeNull();
+      const gap = refused.gaps.find((g) => g.field === "valuation.multiples.ownHistory.evTemporaryEquity");
+      expect(gap?.severity).toBe("warn");
+      expect(gap?.reason).toMatch(/two filings disagree/);
+      // The vendor's equity-based history is not touched.
+      expect(refused.multiples.find((row) => row.key === "priceToBook")?.ownHistory).not.toBeNull();
+    });
+
+    it("control: without a refusal the vendor fallback behaves as before", () => {
+      const clean = history({ temporaryEquity: 30 }, true);
+      expect(evToSales(clean)).not.toBeNull();
+      expect(clean.gaps.some((g) => g.field === "valuation.multiples.ownHistory.evTemporaryEquity")).toBe(false);
+      const noClaim = history({}, true);
+      expect(noClaim.gaps.some((g) => g.field === "valuation.multiples.ownHistory.evTemporaryEquity")).toBe(false);
     });
   });
 });

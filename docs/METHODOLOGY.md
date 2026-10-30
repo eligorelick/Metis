@@ -1108,6 +1108,10 @@ same claims. An operand Stage A refuses (a conflict between sources, a
 non-finite value, a total that contradicts its parts) withholds what it touches:
 the DCF and the EV multiples
 (`valuation.multiples.enterpriseValue.temporaryEquity`). It is never zero-filled.
+In the own history, a quarter window whose temporary-equity operand is refused drops its EV, and the vendor's
+EV/sales and EV/EBITDA history may not stand in for it, exactly as for a lease-scope refusal: the vendor ratios cannot
+resolve the disputed claim. The withheld bands carry the warn gap `valuation.multiples.ownHistory.evTemporaryEquity`,
+which names the refused operand; windows without a refusal and the equity-based vendor history are unchanged.
 On the DCF bridge row the refusal withholds the whole DCF, not only the per-share
 value: sales-to-capital (invested capital) cannot be established without the
 claim's amount, so the `valuation.dcf.salesToCapital` gap is raised at warn
