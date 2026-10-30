@@ -47,6 +47,27 @@ function run(candidates: Record<string, PeerFundamentals>, target = subject()) {
 }
 
 describe("defensible peer comparables", () => {
+  it.each(["control", "subject", "candidate", "statement"])("keeps minor units out of peer medians: %s", (minorSide) => {
+    const target = subject();
+    target.reportedCurrency = "GBP";
+    target.quote.currency = minorSide === "subject" ? "GBp" : "GBP";
+    target.subjectEconomicEvidence = undefined;
+    const londonPeer = (symbol: string) => {
+      const peer = candidate(symbol);
+      peer.economicEvidence = undefined;
+      if (!peer.profile.ok || !peer.incomeQuarterly.ok || !peer.balanceQuarterly.ok) throw new Error("fixture");
+      peer.profile.value.data.rows[0].currency = symbol === "P2" && minorSide === "candidate" ? "GBp" : "GBP";
+      for (const row of peer.incomeQuarterly.value.data.rows) row.reportedCurrency = "GBP";
+      for (const row of peer.balanceQuarterly.value.data.rows) row.reportedCurrency = symbol === "P2" && minorSide === "statement" ? "GBp" : "GBP";
+      return peer;
+    };
+    const own = londonPeer("ROOT");
+    const result = comparePeerFundamentals({ symbol: "ROOT", profile: { ...profile, currency: target.quote.currency }, quote, route: "general", subject: target, now: NOW,
+      subjectIncomeQuarterly: own.incomeQuarterly, subjectBalanceQuarterly: own.balanceQuarterly,
+      collection: { candidates: { P2: londonPeer("P2") }, candidateCount: 1, exclusions: [], notes: [] } });
+    expect(result.peerCoverage.eligible).toEqual(minorSide === "control" ? ["P2"] : []);
+  });
+
   it("uses four independent issuers and independently calculated same-definition medians", () => {
     const result = run({ P2: candidate("P2", 1000), P3: candidate("P3", 1500), P4: candidate("P4", 2000), P5: candidate("P5", 2500) });
     const computed = multiplesFramework("general", { ...subject(), ...result });

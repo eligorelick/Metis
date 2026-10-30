@@ -2469,7 +2469,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // sets a model value against the quote. Without one known currency on both
   // sides there is no such figure, so the price is withheld from all of them;
   // the per-share values themselves do not use it and stand.
-  const quoteComparison = comparePriceCurrency(currencies.model, currencies.trading);
+  const quoteComparison = comparePriceCurrency(currencies.model, str(profile?.currency));
   const currentPrice = quoteComparison.comparable ? num(quote?.price) : null;
   if (!quoteComparison.comparable) {
     ttmGaps.push({

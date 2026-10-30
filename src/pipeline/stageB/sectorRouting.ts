@@ -33,6 +33,7 @@ import type {
 } from "@/types/core";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { isFinancialForensicsSuppressed } from "@/pipeline/stageB/forensics";
 import {
@@ -208,8 +209,9 @@ function normStr(v: string | null | undefined): string | null {
   return t.length > 0 ? t : null;
 }
 
-/** Canonical three-letter ISO-like statement currency, consistent with Stage C payload identity. */
+/** Canonical statement/trading currency; minor-unit quote codes never establish a major currency. */
 export function normalizeReportedCurrency(value: unknown): string | null {
+  if (minorUnitQuote(value) !== null) return null;
   const currency = typeof value === "string" ? value.trim().toUpperCase() : null;
   return currency !== null && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }

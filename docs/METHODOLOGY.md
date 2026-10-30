@@ -224,6 +224,23 @@ the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
+A minor-unit quote code (`GBp`, `GBX`, `GBx` pence; `ZAc`, `ZAC` cents;
+`ILA`, `ILa` agorot) is never treated as its major currency in a price
+comparison, technical-price label or admitted peer multiple. The raw code
+and unit explain the refusal; no price or market cap is rescaled because the
+provider's market-cap unit for that listing is unproven. Unknown-currency
+technical levels cannot become verified monetary indicators. Lowercase ISO
+codes such as `gbp` still mean GBP. B3's preliminary same-market discovery
+size heuristic is unchanged; discovery does not establish peer comparability.
+
+**B6 publication compatibility.** For a levered issuer whose `GBp` quote was
+previously case-folded to the same GBP as its statements, WACC retains the
+previous market-cap weighting and DCF, with an explicit unproven-unit warning.
+This narrow exception avoids newly blocking an existing report. It does not
+admit a previously refused currency pair, infer a cap conversion, or replace
+WACC with cost of equity. The market-cap unit for that retained weighting
+remains unresolved; price comparisons are still withheld.
+
 **Provider rows without a currency (D-57).** FMP's analyst-estimate,
 price-target, executive-compensation and stock-peer rows carry no currency
 field. `src/pipeline/estimateCurrency.ts` gives each row its own

@@ -6,6 +6,7 @@ import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
+import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import type { SectorRoute } from "@/types/core";
 
@@ -132,7 +133,9 @@ function profileReason(subject: FmpProfileRow, peer: FmpProfileRow, symbol: stri
   if (issuer(peer.cik) === issuer(subject.cik) || (companyName(peer.companyName) && companyName(peer.companyName) === companyName(subject.companyName))) return "self issuer/share class excluded";
   if (!normalize(subject.industry) || normalize(peer.industry) !== normalize(subject.industry)) return "industry does not exactly match the subject";
   if (!normalize(subject.sector) || normalize(peer.sector) !== normalize(subject.sector)) return "sector does not exactly match the subject";
-  if (!/^[A-Z]{3}$/.test(normalize(subject.currency)) || normalize(peer.currency) !== normalize(subject.currency)) return "listing currency does not match the proven subject currency";
+  const comparison = comparePriceCurrency(subject.currency, peer.currency);
+  if (!comparison.comparable) return "listing currency does not match the proven subject currency" +
+    (minorUnitQuote(subject.currency) || minorUnitQuote(peer.currency) ? `: ${comparison.reason}` : "");
   return null;
 }
 
@@ -263,7 +266,7 @@ function quoteReason(r: FmpFetch<FmpQuoteRow>, symbol: string, now: number, expe
 function statementReason(r: FmpRawRow, currency: string, quoteDate: number): string | null {
   const end = day(r.date);
   if (end === null || end > quoteDate) return "invalid/future fiscal period date";
-  if (normalize(r.reportedCurrency) !== currency) return "statement currency not proven to match the quote currency";
+  if (!comparePriceCurrency(typeof r.reportedCurrency === "string" ? r.reportedCurrency : null, currency).comparable) return "statement currency not proven to match the quote currency";
   const accepted = r.acceptedDate;
   // FMP acceptance times commonly omit a time zone. Treat such timestamps and
   // filing dates as whole-day intervals, never as evidence known at midnight.
@@ -327,7 +330,7 @@ export function comparePeerFundamentals(opts: {
   const currency = normalize(subject.quote.currency);
   const targetCik = issuer(opts.profile?.cik);
   const targetQuoteReason = quoteReason(opts.quote, symbol, now, targetCik);
-  if (!opts.profile || !issuer(opts.profile.cik) || opts.profile.isAdr !== false || targetQuoteReason || !/^[A-Z]{3}$/.test(currency) || normalize(subject.reportedCurrency) !== currency) {
+  if (!opts.profile || !issuer(opts.profile.cik) || opts.profile.isAdr !== false || targetQuoteReason || !comparePriceCurrency(subject.reportedCurrency, subject.quote.currency).comparable) {
     exclude(symbol, targetQuoteReason ?? "subject issuer, ordinary share or statement/quote currency comparability unproven"); return out;
   }
   const subjectBalanceEnd = day(subject.balance?.date);

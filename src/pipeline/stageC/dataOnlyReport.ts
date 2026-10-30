@@ -222,8 +222,7 @@ function cashFlowSeries(
 }
 
 function tradingCurrency(bundle: DataBundle): string | null {
-  const row = bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined;
-  return isoCurrency(row?.currency);
+  return statementCurrencies(bundle).trading;
 }
 
 function quotePrice(bundle: DataBundle): { price: number; asOf: string | null } | null {
