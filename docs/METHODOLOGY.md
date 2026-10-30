@@ -556,7 +556,9 @@ first available of three sources:
    Guidance must end 80–100 days after the base and be published after it.
    The issuing release's raw qualifiers travel with the guidance. A quantified
    ex-item year-over-year effect is stated in the anchor basis, but never
-   adjusts a revenue level; its filtered caveat accompanies the growth row.
+   adjusts a revenue level or changes the selected anchor source. Its filtered
+   caveat accompanies the growth row when that row is present. The basis does
+   not claim that guidance was admitted or selected.
    The new guidance evidence fields are omitted when there is no stated guide;
    unguided anchors retain their preceding evidence contract.
    A guided fourth quarter uses the established fiscal-year rule when its end
@@ -2930,8 +2932,10 @@ rating-language filter for display. A raw issuer sentence explicitly saying
 that, excluding a named item, year-over-year growth would be a number of basis
 points higher or lower supplies a signed percentage-point effect, before
 display filtering. The first matching sentence is stated in the revenue-anchor
-basis. It is disclosure only: year one and every valuation still use reported
-guidance. An unmatched sentence leaves today's behavior unchanged. A timing
+basis. It is disclosure only and adjusts no modeled revenue level. The anchor
+keeps its independently selected source, including consensus or the fallback
+when guidance is rejected or lacks a year-ago comparison. An unmatched
+sentence leaves today's behavior unchanged. A timing
 event cannot safely be distinguished from a persistent item such as FX or a
 divestiture by this sentence pattern alone (D136/R4).
 

@@ -1760,7 +1760,7 @@ function buildRevenueAnchor(args: {
     ` House rule D-65: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
   const guidedYoyIssuerEffectPp = statedGuide?.qualifiers?.map(parseIssuerGrowthEffect).find(effect => effect !== null)?.pp ?? null;
   const issuerEffectText = guidedYoyIssuerEffectPp === null ? "" :
-    `; the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about ${Math.abs(guidedYoyIssuerEffectPp).toFixed(2)}pp ${guidedYoyIssuerEffectPp < 0 ? "lower" : "higher"}; year one uses the reported guidance`;
+    `; the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about ${Math.abs(guidedYoyIssuerEffectPp).toFixed(2)}pp ${guidedYoyIssuerEffectPp < 0 ? "lower" : "higher"}; this issuer-stated effect is disclosed only and does not adjust any modeled revenue level`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
     `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}${issuerEffectText}`;

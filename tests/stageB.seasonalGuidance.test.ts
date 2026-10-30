@@ -127,7 +127,47 @@ describe("guidance on a seasonal and period-comparable basis", () => {
     const qualified = build({ ...s.inputs, guidance: { ...s.guide, qualifiers: ["Excluding the annual event, year-over-year growth would be nearly 400 basis points higher."] } }).revenueAnchor!;
     expect(qualified.yearOneRevenue).toBe(plain.yearOneRevenue);
     expect(qualified.evidence!.guidedYoyIssuerEffectPp).toBe(4);
-    expect(qualified.basis).toMatch(/the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about 4\.00pp higher; year one uses the reported guidance/);
+    expect(qualified.basis).toMatch(/the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about 4\.00pp higher/);
+    expect(qualified.basis).toContain("this issuer-stated effect is disclosed only and does not adjust any modeled revenue level");
+    expect(qualified.basis).not.toContain("year one uses the reported guidance");
+  });
+  it.each([
+    { mode: "guidance-led", source: "guidance" },
+    { mode: "consensus-led", source: "consensus" },
+    { mode: "guard-refused", source: "run-rate" },
+    { mode: "missing-year-ago", source: "run-rate" },
+  ] as const)("discloses an issuer effect without misattributing the $mode anchor", ({ mode, source }) => {
+    const s = scenario(SEASONAL);
+    const guide: DcfGuidance = { ...s.guide, currency: "USD", fiscalYear: 2026,
+      ...(mode === "guard-refused" ? { annualRevenueComparison: {
+        low: 100e9, high: 200e9, fiscalYear: 2026, currency: "USD", periodLabel: "FY2026",
+        source: s.guide.source, asOf: s.guide.asOf,
+      } } : {}),
+    };
+    const input: DcfAssumptionInputs = { ...s.inputs, guidance: guide,
+      analystEstimates: mode === "consensus-led" ? s.inputs.analystEstimates : null,
+      quarterRevenue: mode === "missing-year-ago" ? { ...s.inputs.quarterRevenue!, guidedYearAgo: null } : s.inputs.quarterRevenue,
+    };
+    const plain = build(input);
+    const qualified = build({ ...input, guidance: { ...guide,
+      qualifiers: ["Excluding the annual event, year-over-year growth would be nearly 400 basis points higher."],
+    } });
+    expect(plain.revenueAnchor!.source).toBe(source);
+    expect(qualified.revenueAnchor!.source).toBe(source);
+    expect(qualified.revenueAnchor!.evidence!.guidedYoyIssuerEffectPp).toBe(4);
+    expect(qualified.revenueAnchor!.basis).not.toContain("year one uses the reported guidance");
+    expect(qualified.revenueAnchor!.basis).toContain("this issuer-stated effect is disclosed only and does not adjust any modeled revenue level");
+    if (mode === "guard-refused") expect(qualified.revenueAnchor!.basis).toContain("annualization withheld");
+    if (mode === "missing-year-ago") expect(qualified.revenueAnchor!.basis).toContain("no same fiscal quarter a year earlier");
+    // The anchor basis is also copied verbatim to one note. Assert that duplication
+    // explicitly, then compare all other notes and every non-prose assumption exactly.
+    const withoutDisclosure = (a: DcfAssumptions) => {
+      const anchorNote = `Year-one revenue anchor: ${a.revenueAnchor!.basis}`;
+      expect(a.notes.filter(note => note === anchorNote)).toHaveLength(1);
+      return JSON.parse(JSON.stringify({ ...a, notes: a.notes.map(note => note === anchorNote ? "anchor disclosure" : note) },
+        (key, value) => key === "basis" || key === "guidedYoyIssuerEffectPp" ? undefined : value));
+    };
+    expect(withoutDisclosure(qualified)).toEqual(withoutDisclosure(plain));
   });
   it("keeps consensus holding a peak quarter at its midpoint (FIN-101 a)", () => {
     const s = scenario(SEASONAL);

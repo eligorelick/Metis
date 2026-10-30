@@ -241,11 +241,14 @@ run-rate can understate a growing seasonal trough. Unknown future extra-week
 placement is disclosed, not guessed. Live API testing is deferred to Claude
 after merge; no real database, credentials or running application were used.
 
-Deferred review minor: the issuer-effect disclosure says "year one uses the
-reported guidance" even when consensus leads or the comparison guard rejects
-guidance. The actual anchor source appears earlier in the same basis. The
-wording follows the plan; clearer wording remains a polish item, with no
-change to a reported figure.
+Verification correction to Task 3b: the issuer-effect disclosure now states
+that the effect is disclosure only and adjusts no modeled revenue level.
+It no longer claims guidance sets year one when consensus leads, the
+comparability guard refuses guidance, or a year-ago quarter is missing.
+Four source-specific controls pin the selected source and every assumption
+other than the disclosed effect and explanatory prose against qualifier-free
+inputs. The original effect quantification remains asserted. This resolves
+the previously deferred wording inaccuracy without changing a figure.
 
 PR #77 review comment 4421559444 identified a missing-quarter gap being read
 as a 182-day quarter. The correction requires an adjacent predecessor under
