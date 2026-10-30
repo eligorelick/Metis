@@ -3943,6 +3943,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
           marketCap,
+          price: currentPrice,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.

@@ -1435,7 +1435,7 @@ export function degradationPlan(
           "Reverse DCF is not shown on this route: it inverts the same FCFF model the forward DCF uses, so " +
           "the growth or margin it would solve for is derived from a free-cash-flow definition that has no " +
           "meaning where debt is raw material. The excess-return model's reverse solve (the starting ROE that " +
-          "reproduces the market cap) is shown instead.",
+          "makes the model's value per share equal the price, with market cap only as a disclosed fallback) is shown instead.",
       },
       {
         target: "returns.roicVsWacc",

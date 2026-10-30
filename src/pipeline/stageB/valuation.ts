@@ -5093,7 +5093,9 @@ export interface ExcessReturnInputs {
   /** Dividend + buyback payout as % of net income; missing history suppresses. */
   payoutRatioPct?: number | null;
   dilutedShares?: number | null;
-  /** Reverse-solve target (market cap in same currency units as bookValue). */
+  /** Quote price, on the same currency and admitted share basis as the forward per share. */
+  price?: number | null;
+  /** Reverse-solve fallback when price or diluted shares is unavailable; same currency as bookValue. */
   marketCap?: number | null;
   asOf?: string | null;
   /**
@@ -5221,7 +5223,7 @@ export interface ExcessReturnResult {
   terminalExcess: number | null;
   /** Additive: legacy objects may not retain these forward parameters. */
   financialAssumptions?: FinancialValuationAssumptions;
-  reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
+  reverseSolve: { impliedCurrentRoePct: number | null; notes: string[]; basis?: "price-per-diluted-share" | "market-cap" };
   /** Audit 2026-10-22 C-10: present when the model started from the trailing four quarters and a fiscal-year start exists. */
   startAlternative?: ExcessReturnStartAlternative;
   /** Audit 2026-10-22 C-11: start-return × cost-of-equity sensitivity; absent without a per-share denominator. */
@@ -5297,7 +5299,8 @@ function excessReturnValue(
  * valuation; JPM's price "required" a 54% starting ROTE). A caller MAY override the terminal ROE
  * (analystImpliedRoePct) to assert persistent excess; the override is reflected
  * honestly in `terminalExcess` and the basis string. Also reverse-solves the
- * constant steady-state ROE that reproduces the current market cap.
+ * starting ROE under that same fade at which value per diluted share equals
+ * the quote price, with market cap as the fallback when price or shares is unavailable.
  */
 /**
  * WS5: P/TBV read against ROTE — the pair a bank, insurer or mortgage REIT is
@@ -5643,7 +5646,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
 
   const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   const shares = posOrNull(inputs.dilutedShares);
-  const perShare = shares !== null ? equityValue / shares : null;
+  // FIN-506: the reverse solve must invert the exact admitted forward divisor.
+  const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
+  const perShare = perShareOf(equityValue);
   if (shares === null) {
     gaps.push(gapEntry("valuation.excessReturn.dilutedShares", "diluted shares missing — per-share value unavailable", "info"));
   }
@@ -5728,7 +5733,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
 
   // Reverse solve: the STARTING ROE which, under this model's own competitive
-  // fade, reproduces the market cap. Monotone in the starting ROE.
+  // fade and admitted divisor, reproduces the quote price (market cap only on
+  // the disclosed fallback). Monotone in the starting ROE.
   //
   // It previously held ROE CONSTANT for `years` and then stopped accruing
   // residual income — neither a fade (what the forward model assumes) nor a
@@ -5751,27 +5757,38 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   // solves to CoE. The solve fades to the same target and carries the same
   // continuing value as the forward path, so the comparison stays like for like.
   let impliedCurrentRoePct: number | null = null;
+  let reverseBasis: ExcessReturnResult["reverseSolve"]["basis"];
   const mcap = posOrNull(inputs.marketCap);
-  if (mcap === null) {
-    reverseNotes.push("skipped: market cap not provided");
+  const price = posOrNull(inputs.price);
+  const usePrice = price !== null && shares !== null;
+  const target = usePrice ? price : mcap;
+  if (target === null) {
+    reverseNotes.push("skipped: market cap not provided (price or diluted shares unavailable)");
   } else {
+    reverseBasis = usePrice ? "price-per-diluted-share" : "market-cap";
+    const targetLabel = usePrice ? "the price per diluted share" : "market cap";
     const [lo, hi] = REVERSE_ROE_RANGE_PCT;
-    const f = (roe: number): number =>
+    const f = (roe: number): number => {
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue - mcap;
+      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue;
+      return (usePrice ? perShareOf(value)! : value) - target;
+    };
     const fLo = f(lo);
     const fHi = f(hi);
     if (fLo > 0) {
-      reverseNotes.push(`market cap below the ${lo}% starting-ROE value — implied ROE < ${lo}%`);
+      reverseNotes.push(`${targetLabel} below the ${lo}% starting-ROE value — implied ROE < ${lo}%`);
     } else if (fHi < 0) {
-      reverseNotes.push(`market cap above the ${hi}% starting-ROE value — implied ROE > ${hi}% (price not justifiable on book returns)`);
+      reverseNotes.push(`${targetLabel} above the ${hi}% starting-ROE value — implied ROE > ${hi}% (price not justifiable on book returns)`);
     } else {
-      const root = bisect(f, { lo, hi, fLo, fHi }, mcap);
+      const root = bisect(f, { lo, hi, fLo, fHi }, target);
       impliedCurrentRoePct = root;
       if (root !== null) {
-        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
+        const targetBasis = usePrice
+          ? `the price per diluted share (${price} on ${shares} shares, the count the value per share divides by)`
+          : "market cap (price or diluted shares unavailable)";
+        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching ${targetBasis} — comparable to the current ROE, same dynamics as the forward path`);
       }
     }
   }
@@ -5840,7 +5857,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     bookValuePath,
     terminalExcess,
     financialAssumptions,
-    reverseSolve: { impliedCurrentRoePct, notes: reverseNotes },
+    reverseSolve: { impliedCurrentRoePct, notes: reverseNotes, ...(reverseBasis === undefined ? {} : { basis: reverseBasis }) },
     ...(startAlternative !== undefined ? { startAlternative } : {}),
     ...(startCoeGrid !== undefined ? { startCoeGrid } : {}),
     asOf: inputs.asOf ?? null,
@@ -6411,7 +6428,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       ),
       gapEntry(
         "valuation.reverseDcf",
-        `FCFF reverse DCF withheld on the '${route.base}' route: it inverts the same FCFF model, so the growth or margin it would solve for inherits the same category error — the excess-return model's reverse solve (the starting ROE that reproduces the market cap) is reported instead`,
+        `FCFF reverse DCF withheld on the '${route.base}' route: it inverts the same FCFF model, so the growth or margin it would solve for inherits the same category error — the excess-return model's reverse solve (the starting ROE at which the model's value per share equals the price, with market cap only as a disclosed fallback) is reported instead`,
         "info",
       ),
       gapEntry(
@@ -6437,8 +6454,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     // Currency guard, the excess-return twin of the DCF guard below. The
     // per-share value is in the statements' reportedCurrency while the price it
     // is graded against is the quote currency, so on a mismatch the upside is
-    // off by the FX rate. Suppress the per-share (and the market-cap reverse
-    // solve, which compares equity value to a quote-currency market cap) rather
+    // off by the FX rate. Suppress the per-share (and the reverse solve,
+    // which compares the statement-currency model to the quote) rather
     // than publish a mixed-currency comparison. No FX conversion attempted.
     const erReported = inputs.multiples.reportedCurrency;
     const erQuote = inputs.multiples.quote.currency;
@@ -6464,7 +6481,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           impliedCurrentRoePct: null,
           notes: [
             ...er.reverseSolve.notes,
-            `reverse solve suppressed: market cap is in ${erQuote} while book value is in ${erReported}`,
+            `reverse solve suppressed: the quote is in ${erQuote} while book value is in ${erReported}`,
           ],
         },
       };
@@ -6479,11 +6496,11 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     if (!quoteComparison.comparable) {
       // Currency unknown on one side: the per-share value (book value and ROE,
       // all statements) stands in its own currency, but the reverse solve sets
-      // the equity value against the market cap and is withheld.
+      // the statement-currency model against the quote and is withheld.
       gaps.push(
         gapEntry(
           "valuation.excessReturn.reverseSolve.currency",
-          `${quoteComparison.reason} — the market-implied ROE sets the market cap against book value, so it is withheld`,
+          `${quoteComparison.reason} — the market-implied ROE sets the quote against book value, so it is withheld`,
           "warn",
         ),
       );

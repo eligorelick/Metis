@@ -14,6 +14,7 @@
 import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
+import { IMPLIED_RETURN_SHARE_BASIS_FIELD } from "@/report/legacyImpliedReturnShareBasis";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
@@ -1717,7 +1718,9 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
   if (report.meta.judgeProtocol?.sharedModelFamily.shared) {
     notes.push("The judge pass ran on the same model family that wrote the bull and bear cases, so the adjudication is not an independent second opinion.");
   }
-  for (const gap of report.appendix?.missingData ?? []) if (gap.field === PRINCIPAL_CORRECTION_FIELD) notes.push(gap.reason);
+  for (const gap of report.appendix?.missingData ?? []) {
+    if (gap.field === PRINCIPAL_CORRECTION_FIELD || gap.field === IMPLIED_RETURN_SHARE_BASIS_FIELD) notes.push(gap.reason);
+  }
   return notes;
 }
 

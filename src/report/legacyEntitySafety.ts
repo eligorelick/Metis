@@ -14,6 +14,7 @@ import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
 import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
+import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import {
   citationAsOf,
@@ -71,13 +72,13 @@ export function parseStoredReportWithSafety(
       getEntityRegistry(parsed.meta.symbol),
     );
     const assessed = applyReportAssessmentStatus(applyGradeOverrideContract(safety.report, safety.report.appendix.verificationLog ?? []));
-    const view = withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety({
+    const view = withLegacyImpliedReturnShareBasis(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety({
       ...assessed,
       appendix: {
         ...assessed.appendix,
         missingData: attributeJudgeProtocolDisclosures(assessed.appendix.missingData, assessed.meta),
       },
-    })))));
+    }))))));
     const revalidated = validateStoredReportInReadMode(view, readMode);
     if (revalidated === null) return null;
     return {

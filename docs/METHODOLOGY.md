@@ -2013,13 +2013,27 @@ with, all printed as assumptions in their own right:
   unavailable without sufficient separate cash-distribution evidence; ROTE and
   tangible book metrics remain available when their own inputs are established.
 
-The model also reverse-solves the **starting** ROE that reproduces the current
-market cap, under the same fade the forward path uses. Inverting a *different*
+The model also reverse-solves the **starting** ROE at which its value per share
+equals the quote price, on the exact admitted diluted share count the forward
+per share uses and under the same fade. Market cap is only a disclosed fallback
+when price or that divisor is unavailable. The basis is named even when the
+quote lies outside the return bracket. Currency, ADS and economic-class guards
+still apply; this share-basis correction adds no date roll or conversion bridge.
+Inverting a *different*
 model (a flat ROE, as an earlier version did) made the solved figure
 systematically low, because a flat path is worth more than a fading one, and
 biased every financial toward "the market is too pessimistic". A clean property
 follows from the identity: an issuer priced at book solves to exactly the cost
 of equity.
+
+**Stored implied-return signals (FIN-506).** A report built before spec 1.51.0
+with the `roeImpliedVsAchievable` valuation driver gains a display-only note:
+its implied return used market cap rather than the price times the forward
+divisor. At the tested price-to-book ratios, a 1% share-count gap moved the
+implied return by about 0.3pp, downward when the diluted count was larger and
+upward when it was smaller. The separate frozen cutoff is independent of B5a's
+annualization disclosure. All stored figures, scores and audit fields remain
+unchanged; the note is composed into the screen, exports and stored-report view.
 
 **What the reader sees of the start (audit 2026-10-22 C-11).** The trailing
 four-quarter return is a row of its own in the returns block and in the LLM
