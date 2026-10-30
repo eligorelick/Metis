@@ -1,10 +1,10 @@
 # B6: financial-route currency, routing and grading
 
-Base: `222f92a082aa63e254783291ca21ee299a5dad9b`, current main when this worktree started, including B4a (PR #76). Scope: the 26 B6 findings, including FIN-503/504/505 from round 4 and FIN-506 moved from B5. Decision: D-136 in [DECISIONS](DECISIONS.md). The [implementation plan](../superpowers/plans/2026-10-27-audit-fix-06-financial-routes-currency-and-grading.md) is retained as planning history; the execution rulings here and in spec 4.7 record where its stale controls or later owner instructions change the outcome.
+Base: `222f92a082aa63e254783291ca21ee299a5dad9b`, current main when this worktree started, including B4a (PR #76). Scope: the 26 B6 findings, including FIN-503/504/505 from round 4 and FIN-506 moved from B5. Decision: D-137 in [DECISIONS](DECISIONS.md). The [implementation plan](../superpowers/plans/2026-10-27-audit-fix-06-financial-routes-currency-and-grading.md) is retained as planning history; the execution rulings here and in spec 4.7 record where its stale controls or later owner instructions change the outcome.
 
 This change made no model calls and no paid provider calls. Saved bundles, checked-in SEC fixtures and synthetic inputs were replayed with empty process-only profiles, a dead proxy and a database guard. Original reports and snapshots were only read; their hashes are retained in the private evidence ledger. No live application or database was used. Public academic-source verification and repository infrastructure are separate from financial/provider testing.
 
-Report 1.51.0, payload 1.53.0, Stage B ACCOUNTING_EVIDENCE_32 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE are the next stamps after the starting main. B5a and B6 were built in parallel, so one must be renumbered at merge. B6 imports no B5 runtime changes. Neither PR is authorized to merge in this session.
+Report 1.52.0, payload 1.54.0, Stage B ACCOUNTING_EVIDENCE_33 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE follow B5a's stamps. B5a and B6 were built in parallel; integration now places B6 after B5a, with both legacy adapters composed and independent cutoffs (annualization 1.51, implied return 1.52). The owner authorized merging after combined verification on 2026-10-30.
 
 ## Disposition
 
@@ -43,7 +43,7 @@ Task 6 is the one commit-count exception: a TypeScript optional-list error was n
 
 ## Owner decisions and execution judgments
 
-The full rationale and source names are in D-136. These are the adopted choices and deviations:
+The full rationale and source names are in D-137. These are the adopted choices and deviations:
 
 1. **OD-1:** refuse minor units instead of inventing a scale; retain existing WACC/DCF compatibility where necessary.
 2. **OD-2:** seven-day start tolerance, not a claim of complete daily trading coverage; do not fetch another year.
@@ -61,11 +61,11 @@ The full rationale and source names are in D-136. These are the adopted choices 
 14. **OD-14:** match the ranked construction while preserving B-20 display and B4a ownership guards. Stale planned movements are not imposed on MU #46 or NVDA #48's absent peer median.
 15. **OD-15:** keep peer context beside a withheld Company cell; class-sum sizing only when resolved. This is a B-8 house convention.
 
-FIN-506's display helper is separate from B5a's unmerged legacy helper. Its 1.51 cutoff and the frozen 1.50 equity-bridge cutoff are tested; B5a/B6 cutoff integration must be done at merge. The current golden has its own exact-byte pins, then an explicit counted restoration preserves all previous golden checks. Empty temporary profiles, dead proxies and guarded replay folders are used identically on main and the branch and deleted afterward. Test temporary folders live outside the repository to keep release-file checks meaningful.
+FIN-506's display helper composes with B5a's legacy helper on every reader and export path. Its cutoff is 1.52; the annualization and equity-bridge cutoffs remain frozen at 1.51 and 1.50. Integration regressions cover all boundaries, immutability and idempotence. The current golden has its own exact-byte pins, then an explicit counted restoration preserves B5a's complete payload and every older golden check. Empty temporary profiles, dead proxies and guarded replay folders are used identically on main and the branch and deleted afterward. Test temporary folders live outside the repository to keep release-file checks meaningful.
 
 The three reviewer extensions were confirmed in spec 4.3 on 2026-10-28: Task 20's margins and Task 21's dossier floor are implemented; Task 17's proposed stored Altman label rule is superseded by its R1a tombstone. No self-review substitutes for the required fresh reviewer.
 
-## Saved-input replay
+## Standalone saved-input replay before B5a integration
 
 Each task's before/after output and full leaf attribution are retained outside the release tree. The corpus comprises 52 saved inputs (45 census, five keyed snapshots and two retained AMZN inputs), 44 route/currency/eligibility/keyless controls, 25 peer cases, six rank cases, and the NVDA #50 control plus a synthetic two-class sentence injected only in memory. The artificial scope case is not evidence that NVDA actually has those classes.
 
@@ -118,6 +118,8 @@ The read-only corpus contains 51 numbered audit files (1–52, without 4) plus t
 
 ## Verification and remaining work
 
-The local progress ledger records each RED/GREEN run, isolation, ruling, commit and replay attribution. Stamps are pinned in `report.versionStamps.test.ts`. The full Stage C file passes 232 tests; the new current-byte golden is `1.53.0:deaeac72` with 145,245 prompt bytes, 530 numeric records and 77 citations. Its explicitly restored predecessor remains `1.52.0:4257f13c`, and all older hashes remain asserted. Audit deltas were first run dry, traced recursively to their owning tasks, then written under `audit-b6-financial-routes-20261027`; the fixture/release checks pass. Final exact-head replay, the unchanged nine-gate script and the fresh independent review are required before push; their results are recorded in the PR and ledger rather than inferred from these targeted runs.
+The local progress ledger records each RED/GREEN run, isolation, ruling, commit and replay attribution. Stamps are pinned in `report.versionStamps.test.ts`. The combined current-byte golden is `1.54.0:bd7359fe` with 145,640 prompt bytes, 530 numeric records and 77 citations. Its explicitly restored predecessor is B5a's `1.53.0:e5c9eae4` (financial hash `05d61d6c`), and B5a's complete older restoration chain remains asserted. The pre-integration B6 golden `1.53.0:deaeac72` remains historical execution evidence. Audit deltas are run dry and traced recursively before writing the integration group `audit-b6-financial-routes-d137-20261027`. Final exact-head replay, the unchanged nine-gate script and fresh independent review are required before merge; their results are recorded in the PR and ledger.
 
-Left for later: FIN-306, FIN-308, Task 5/FIN-309 pending B4b, Task 17/FIN-312, the ADR WACC-refusal portion of FIN-307, and unsupported newly eligible financial DCFs. Also deferred are longer buyback history, calibrated PP&E evidence for specialty REITs, SEC evidence for peer routing, actual stub-dividend treatment, full peer P/TBV explicit-common/NCI alignment, tax-adjusted item-level peer gains, and a price/diluted-EPS own-history series once fourth-quarter EPS is supported. B5a/B6 stamp and legacy-note integration is a merge responsibility. Live provider/model testing is outside this batch and remains for Claude after merge.
+The merge integration adds tests for spec 1.49–1.52 across classic, dossier, Markdown, print and audit readers. Both legacy adapters remain immutable and idempotent. Their already-stored convention notes are now included by the shared methodology-note presentation, fixing the previously hidden annualization disclosure without changing a stored figure. A coupled 14-week/53-week control confirms the annual-revenue refusal preserves quarterly DCF starting flows and independent capital/financial metrics; when no independent growth method remains, the existing critical growth refusal stays in force.
+
+Left for later: FIN-306, FIN-308, Task 5/FIN-309 pending B4b, Task 17/FIN-312, the ADR WACC-refusal portion of FIN-307, and unsupported newly eligible financial DCFs. Also deferred are longer buyback history, calibrated PP&E evidence for specialty REITs, SEC evidence for peer routing, actual stub-dividend treatment, full peer P/TBV explicit-common/NCI alignment, tax-adjusted item-level peer gains, and a price/diluted-EPS own-history series once fourth-quarter EPS is supported. Live provider/model testing is outside this batch and remains for Claude after merge.

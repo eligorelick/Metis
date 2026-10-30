@@ -2,7 +2,7 @@ import { expect } from "vitest";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import { fnv1a32, payloadFingerprint, serializePayloadForPrompt, type ContextPayload } from "@/pipeline/stageC/payload";
 
-// D-136, 2026-10-30 B6: pin the live bytes first, then restore ONLY enumerated
+// D-137, 2026-10-30 B6: pin the live bytes first, then restore ONLY enumerated
 // Task7/18/19/21/22/23/25 changes to preserve every pre-B6 golden assertion.
 // The fixture has no peer comparison or own P/E history; Tasks5A/20/24 do not fire.
 const wording = [
@@ -28,7 +28,7 @@ const wording = [
     "payload": 1
   },
   {
-    "task": "25 / D-136 stamps",
+    "task": "25 / D-137 stamps",
     "now": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
     "before": "SCORE_BANDS_2026_10_REGULATED_UTILITY",
     "computed": 1,
@@ -45,14 +45,14 @@ export function restoreB6Golden(input: { computed: ComputedMetrics; payload: Con
     provenanceIdsHash: fnv1a32(JSON.stringify(live.provenanceRegistry!.map(r=>r.id))), citationCount: live.citationRegistry.length,
     citationHash: fnv1a32(JSON.stringify(live.citationRegistry)), financeHash: fnv1a32(JSON.stringify(finance)),
   }).toEqual({
-  "fingerprint": "1.53.0:deaeac72",
-  "promptBytes": 145245,
+  "fingerprint": "1.54.0:bd7359fe",
+  "promptBytes": 145640,
   "provenanceCount": 530,
-  "provenanceHash": "09ed4d9d",
+  "provenanceHash": "3dd90c44",
   "provenanceIdsHash": "951b34ca",
   "citationCount": 77,
-  "citationHash": "78b87168",
-  "financeHash": "68685377"
+  "citationHash": "fc174a94",
+  "financeHash": "3e514a4d"
 });
   const restore = <T,>(value:T,scope:"computed"|"payload"):T => {
     const counts=wording.map(()=>0);
@@ -67,8 +67,8 @@ export function restoreB6Golden(input: { computed: ComputedMetrics; payload: Con
   // Task21 adds only an optional, unrounded share to this finance block.
   expect(c.scores.assessments!.businessQuality.evidenceCompleteness).toBe(0.8502008318478906);
   delete c.scores.assessments!.businessQuality.evidenceCompleteness;
-  // Task25 header; old exact fingerprint checks below still check1.52.0.
-  expect(payload.payloadVersion).toBe("1.53.0");payload.payloadVersion="1.52.0";
+  // Task25 header; old exact B5a fingerprint checks below still check1.53.0.
+  expect(payload.payloadVersion).toBe("1.54.0");payload.payloadVersion="1.53.0";
   // Task7: the sole priced repurchase year has no full-window price coverage.
   // Restore its old ungraded proxy, original record position and coverage note.
   const section=payload.computed[2],figure=section.figures[13];
@@ -112,8 +112,8 @@ export function restoreB6Golden(input: { computed: ComputedMetrics; payload: Con
   expect(section.notes[3]).toBe("Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric.");
   expect(section.notes).not.toContain("buyback price proxy covers 20.554% of buyback dollars (some years lack market-cap/share data)");
   section.notes.splice(3,0,"buyback price proxy covers 20.554% of buyback dollars (some years lack market-cap/share data)");
-  // Assert exact main bytes before any older restoration chain runs.
-  expect(payloadFingerprint(payload)).toBe("1.52.0:4257f13c");
-  expect(fnv1a32(JSON.stringify({scores:c.scores,projections:c.projections,valuation:c.valuation,fairValue:c.fairValue,scenarioTargets:c.scenarioTargets}))).toBe("e5b05d9e");
+  // Assert exact B5a bytes before any older restoration chain runs.
+  expect(payloadFingerprint(payload)).toBe("1.53.0:e5c9eae4");
+  expect(fnv1a32(JSON.stringify({scores:c.scores,projections:c.projections,valuation:c.valuation,fairValue:c.fairValue,scenarioTargets:c.scenarioTargets}))).toBe("05d61d6c");
   return { computed:c,payload };
 }

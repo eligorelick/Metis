@@ -4,6 +4,7 @@ import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSaf
 import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
 import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
+import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
@@ -765,7 +766,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withLegacyImpliedReturnShareBasis(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report))))));
+  report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {

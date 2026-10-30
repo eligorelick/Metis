@@ -11,6 +11,8 @@ import { describe, expect, it } from "vitest";
 
 import { MODEL_REGISTRY, isHighOrAboveEffort } from "@/models/registry";
 import { ANALYST_MAX_TOKENS, JUDGE_MAX_TOKENS } from "@/pipeline/stageC/passes";
+import { PAYLOAD_VERSION } from "@/pipeline/stageC/payload";
+import { REPORT_SPEC_VERSION } from "@/report/schema";
 import {
   PASS_MAX_REQUESTS,
   maximumRequestCostUsd,
@@ -82,6 +84,14 @@ describe("the README's generated blocks", () => {
       judgeMaxTokens: JUDGE_MAX_TOKENS,
     });
     expect(blockBetween(readme(), script.BEGIN_MARKER, script.END_MARKER)).toBe(expected);
+  });
+});
+
+describe("current documentation", () => {
+  it("keeps the changelog header's report and payload versions current", () => {
+    const header = readFileSync(path.join(ROOT, "CHANGELOG.md"), "utf8").split(/^## /m)[0];
+    expect(header).toContain(`report spec **${REPORT_SPEC_VERSION}**`);
+    expect(header).toContain(`payload **${PAYLOAD_VERSION}**`);
   });
 });
 

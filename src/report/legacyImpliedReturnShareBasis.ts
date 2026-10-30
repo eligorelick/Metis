@@ -1,8 +1,8 @@
 import type { Report } from "@/report/schema";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 
-// D-136 / FIN-506: frozen B6 cutoff, independent of B5a's parallel annualization changes.
-export const IMPLIED_RETURN_SHARE_BASIS_SPEC = "1.51.0";
+// D-137 / FIN-506: frozen B6 cutoff, independent of B5a's parallel annualization changes.
+export const IMPLIED_RETURN_SHARE_BASIS_SPEC = "1.52.0";
 export const IMPLIED_RETURN_SHARE_BASIS_FIELD = "presentation.legacyValuation.impliedReturnShareBasis";
 
 /** A view-only disclosure: preserve every stored valuation, score and audit field. */

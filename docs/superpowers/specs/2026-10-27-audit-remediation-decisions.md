@@ -866,14 +866,14 @@ Five independent reviewers checked every task the integration added (master plan
 
 ### 4.7 B6 execution rulings (2026-10-30)
 
-The owner authorized autonomous preserve-main rulings when the plan conflicts with its controls. [D-136](../../audit/DECISIONS.md) records the implemented scope; the [B6 disposition](../../audit/2026-10-27-audit-b6-financial-routes.md) names each finding, regression and measured replay. Earlier planning decisions remain history.
+The owner authorized autonomous preserve-main rulings when the plan conflicts with its controls. [D-137](../../audit/DECISIONS.md) records the implemented scope; the [B6 disposition](../../audit/2026-10-27-audit-b6-financial-routes.md) names each finding, regression and measured replay. Earlier planning decisions remain history.
 
 - OD-1: minor-unit comparisons withheld; main WACC/DCF compatibility preserved.
 - OD-2: seven-day fiscal-window start tolerance; no additional provider history.
 - OD-3: sector-wide FIN-OTHER OCF exemption, including fee-based firms; prior DCF withholding/publication state retained when required inputs remain absent.
 - OD-4: unresolved eligibility is applicable but missing valuation evidence.
 - OD-5: FIN-306 deferred because its required existing grade-transition control cannot be satisfied by the permitted fixture adjustment; no check weakened.
-- OD-6: structurally unavailable market equity uses calibrated Altman Z-prime, with merely missing cap still withheld; main ADR WACC/DCF retained with a scope warning. Altman's July 2000 course copy was fetched/read on 2026-10-30 after NYU failures; D-136 quotes the verified passage and records the 1.21/1.23 discrepancy.
+- OD-6: structurally unavailable market equity uses calibrated Altman Z-prime, with merely missing cap still withheld; main ADR WACC/DCF retained with a scope warning. Altman's July 2000 course copy was fetched/read on 2026-10-30 after NYU failures; D-137 quotes the verified passage and records the 1.21/1.23 discrepancy.
 - OD-7: FIN-308 deferred; saved O/NNN are undetermined, contrary to the plan's control description, and their figures remain pinned.
 - OD-8: bank trailing/FY insurer pairing dates corrected; forward insurer return unchanged.
 - OD-9: the confirmed annual revenue/margin mask reaches the enumerated consumers only.
@@ -883,5 +883,5 @@ The owner authorized autonomous preserve-main rulings when the plan conflicts wi
 - OD-13: the shared D-98 gain test excludes incompatible earnings comparisons without widening existing peer P/E admission.
 - OD-14: own-history P/E rank uses a matching construction; B-20 displayed P/E and B4a ownership refusals stay unchanged.
 - OD-15: the peer median remains context beside a withheld Company figure; class-sum sizing applies only when resolved.
-- FIN-506: Task 5A is implemented here against B4a's forward divisor and existing date factor. The legacy note is a separate client-safe helper; no B5 runtime dependency or B4b numerator change is introduced.
-- Stamps are the next after main `222f92a` at start: report 1.51.0, payload 1.53.0, Stage B ACCOUNTING_EVIDENCE_32, D-136. B5a and B6 were built in parallel; renumber one at merge. Existing history is not rewritten.
+- FIN-506: Task 5A is implemented here against B4a's forward divisor and existing date factor. The legacy note remains a separate client-safe helper and now composes with B5a's annualization adapter in every reader/export; no B4b numerator change is introduced.
+- Integration places B6 after B5a: report1.52.0, payload1.54.0, Stage B ACCOUNTING_EVIDENCE_33, D-137. B5a retains report1.51.0 and its frozen annualization cutoff; the financial implied-return cutoff is1.52.0. Existing history is not rewritten.

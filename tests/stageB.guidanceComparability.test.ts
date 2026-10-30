@@ -23,7 +23,7 @@ function inputs(guidance: DcfAssumptionInputs["guidance"], extra: Partial<DcfAss
     incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: 15.7 * B, operatingIncome: 2 * B, incomeBeforeTax: 1.8 * B, incomeTaxExpense: 0.36 * B },
     incomeHistory: [2023, 2024, 2025].map(year => ({ date: `${year}-12-31`, revenue: (year - 2010) * B, operatingIncome: 1.8 * B, incomeBeforeTax: 1.6 * B, incomeTaxExpense: 0.32 * B })),
     balance: { date: "2026-06-30", basis: "quarter", totalDebt: 4 * B, totalStockholdersEquity: 5 * B, cashAndShortTermInvestments: 3 * B },
-    quarterRevenue: { latest: { date: "2026-06-30", revenue: 4.32 * B }, yearAgo: { date: "2025-06-30", revenue: 3.79 * B } },
+    quarterRevenue: { latest: { date: "2026-06-30", revenue: 4.32 * B }, yearAgo: { date: "2025-06-30", revenue: 3.79 * B }, guidedYearAgo: { date: "2025-09-30", revenue: 4.41 * B } },
     marketCap: 20 * B, domicileCountry: "US", guidance, ...extra };
 }
 const assumptions = (i: DcfAssumptionInputs) => buildDcfAssumptions(i).assumptions!;
@@ -58,7 +58,8 @@ describe("quarterly guidance and annual-period comparability", () => {
     if (mode === "overlap") Object.assign(annual, { low: 18 * B, mid: 19 * B, high: 20 * B });
     const result = assumptions(inputs(dcfGuidance(bundle, "USD")));
     expect(result.revenueAnchor?.source).toBe("guidance");
-    expect(result.revenueAnchor?.basis).toContain("model extrapolation of quarterly guidance");
+    // 2026-10-29 D-136 / OD-1: preserve this guard-admission case with a filed year-ago quarter.
+    expect(result.revenueAnchor?.basis).toMatch(/trailing twelve months carried twelve months at the guided year-over-year pace 6\.58%/);
     expect(result.revenueAnchor?.evidence?.guidedPacePct).not.toBeNull();
   });
   it.each(["source", "date"])("does not apply comparison evidence from a different %s", mode => {

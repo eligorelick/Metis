@@ -14,7 +14,7 @@
 import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
-import { IMPLIED_RETURN_SHARE_BASIS_FIELD } from "@/report/legacyImpliedReturnShareBasis";
+import { LEGACY_VALUATION_NOTE_FIELD } from "@/report/legacyValuationNotes";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
@@ -203,6 +203,7 @@ const EXACT_LABELS: Record<string, string> = {
   // D-67: ids the NVDA final rerun cited under mechanical labels.
   "computed.valuation.dcf.perShare": "DCF value per share",
   "computed.valuation.guided-run-rate-growth-over-ttm-next-quarter-guidance-4": "Guided run-rate growth over TTM (next-quarter guidance × 4)",
+  "computed.valuation.guided-quarter-revenue-growth-year-over-year": "Guided-quarter revenue growth, year over year",
   "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
   "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
   "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",
@@ -1719,7 +1720,7 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
     notes.push("The judge pass ran on the same model family that wrote the bull and bear cases, so the adjudication is not an independent second opinion.");
   }
   for (const gap of report.appendix?.missingData ?? []) {
-    if (gap.field === PRINCIPAL_CORRECTION_FIELD || gap.field === IMPLIED_RETURN_SHARE_BASIS_FIELD) notes.push(gap.reason);
+    if (gap.field === PRINCIPAL_CORRECTION_FIELD || gap.field.startsWith(`${LEGACY_VALUATION_NOTE_FIELD}.`)) notes.push(gap.reason);
   }
   return notes;
 }

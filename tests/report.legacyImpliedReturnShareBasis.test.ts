@@ -24,7 +24,7 @@ function stored(version = "1.1.0", affected = true) {
 }
 
 describe("FIN-506: stored implied-return share-basis disclosure", () => {
-  it.each(["1.1.0", "1.50.0"])("adds a view-only note to an affected report at %s", version => {
+  it.each(["1.1.0", "1.50.0", "1.51.0"])("adds a view-only note to an affected report at %s", version => {
     const report = stored(version), before = JSON.stringify(report);
     const parsed = parseStoredReportWithSafety(before);
     expect(parsed).not.toBeNull();
@@ -39,7 +39,7 @@ describe("FIN-506: stored implied-return share-basis disclosure", () => {
     const twice = parseStoredReportWithSafety(JSON.stringify(view))!.report;
     expect(twice.appendix.missingData.filter(g => g.field === field)).toHaveLength(1);
   });
-  it.each(["1.51.0", "1.52.0"])("does not mark corrected reports at %s", version => {
+  it.each(["1.52.0", "1.53.0"])("does not mark corrected reports at %s", version => {
     expect(parseStoredReportWithSafety(JSON.stringify(stored(version)))!.report.appendix.missingData.some(g => g.field === field)).toBe(false);
   });
   it("does not mark a report without the affected signal", () => {
@@ -48,7 +48,7 @@ describe("FIN-506: stored implied-return share-basis disclosure", () => {
   it("the pure adapter preserves all existing fields and is immutable and idempotent", () => {
     const report = stored(), before = JSON.stringify(report);
     const view = withLegacyImpliedReturnShareBasis(report);
-    expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.51.0");
+    expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.52.0");
     expect(view.valuation).toBe(report.valuation);
     expect(view.scores).toBe(report.scores);
     expect(view.appendix.verificationLog).toBe(report.appendix.verificationLog);

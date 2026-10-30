@@ -66,8 +66,7 @@ export function buildThesisTriggers(
     const observable = impliedLevel === null || firstWindow === null ? "" :
       `; equivalent to revenue of ${money(impliedLevel)} for ${firstWindow.label} (${firstWindow.startDate} through ${firstWindow.endDate}), observable as reported quarters accumulate` +
       ` — against the base case's ${money(anchor?.yearOneRevenue ?? NaN)} (${anchor?.source ?? "model"})` +
-      `${finite(evidence?.consensusYearOne) ? `, consensus ${money(evidence.consensusYearOne)}` : ""}` +
-      `${finite(evidence?.guidedRunRate) ? ` and the guided run-rate ${money(evidence.guidedRunRate)}` : ""}`;
+      `${finite(evidence?.consensusYearOne) ? `, consensus ${money(evidence.consensusYearOne)}` : ""}`;
     triggers.push({
       id: "reverse-growth",
       metric: fades ? "Supported starting annual revenue growth" : "Supported constant annual revenue growth",

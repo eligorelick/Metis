@@ -27,6 +27,8 @@ const REQUIRED_RELEASE_FILES = [
   ".github/workflows/ci.yml",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
+  "docs/audit/2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md",
+  "docs/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md",
   "config/models.json",
   "scripts/check-dependency-shape.mjs",
   "scripts/models-refresh.mjs",
@@ -97,6 +99,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-22-audit-batch6-provider-failures.md",
   "docs/audit/2026-10-27-audit-b6-financial-routes.md",
   "docs/audit/2026-10-27-audit-batch-b4-equity-bridge.md",
+  "docs/audit/2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md",
   "docs/audit/2026-10-27-audit-batch-b13-edgar-derived-lines.md",
   "docs/audit/2026-10-27-audit-batch7-paid-spend-accounting.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
@@ -129,6 +132,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/superpowers/plans/2026-10-27-audit-fix-02-claim-verifier-numbers.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-03-payload-records.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-04-equity-bridge-and-invested-capital.md",
+  "docs/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-06-financial-routes-currency-and-grading.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-07-paid-spend-accounting.md",
   "docs/superpowers/plans/2026-10-27-audit-fix-14-edgar-derived-lines.md",
@@ -681,6 +685,17 @@ describe("public release contract", () => {
 
     expect(implementationText).not.toMatch(new RegExp(removedDocNames));
     expect(implementationText).not.toMatch(/research[\\/]/);
+  });
+
+  it("records every methodology and audited-delta decision in the decisions ledger", () => {
+    const decisions = readFileSync(path.join(ROOT, "docs/audit/DECISIONS.md"), "utf8");
+    const recorded = new Set([...decisions.matchAll(/^## D-(\d+)\b/gm)].map(match => Number(match[1])));
+    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/audit-intended-deltas.json"]) {
+      const text = readFileSync(path.join(ROOT, file), "utf8");
+      for (const match of text.matchAll(/\bD-(\d+)\b/g)) {
+        expect(recorded.has(Number(match[1])), `${file} cites unrecorded ${match[0]}`).toBe(true);
+      }
+    }
   });
 
   // Both documents said no live ChatGPT or Gemini inference had been verified,

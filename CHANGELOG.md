@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.51.0** and
-payload **1.53.0** (the financial-route currency, routing and grading corrections of the 2026-10-27 audit batch B6, following the equity-bridge, EV and invested-capital fixes of batch B4a). The
+Current source declares application **0.1.0**, report spec **1.52.0** and
+payload **1.54.0** (B6 financial-route fixes after B5a seasonality and calendar fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -20,7 +20,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - bank, insurer, REIT and ADR routes: currency, routing and grading (2026-10-27)
 
-Batch B6 uses D-136. B5a and B6 were built in parallel from the same main stamps; one batch must be renumbered at merge. This entry records the implemented scope, including the preserved behavior and deferred findings.
+Batch B6 uses D-137. B5a and B6 were built in parallel; this integration places B6 after B5a with distinct stamps and legacy cutoffs. This entry records the implemented scope, including the preserved behavior and deferred findings.
+
+- Both legacy adapters compose in screen and export views. The annualization cutoff stays at 1.51.0; financial implied-return notes apply before 1.52.0. Annualization notes now appear in the shared methodology presentation as well as the audit data, without altering stored figures. Combined regressions preserve period scaling alongside annual-revenue refusal and preserve B5a's exact payload golden chain.
 
 - Minor-unit quote codes such as GBp no longer pass as pounds. Comparisons without established matching units are withheld, with a reason; no conversion or new provider call is guessed. Existing WACC and intrinsic values retain their prior handling where changing it would remove a published value (FIN-107).
 - A bank or insurer's price/tangible-book ratio and premium to justified value are withheld when quote and statements are not in one known currency. Justified value and return on tangible equity remain available. This guard also applies when displaying a stored report (FIN-105).
@@ -43,7 +45,21 @@ Batch B6 uses D-136. B5a and B6 were built in parallel from the same main stamps
 - The same greater-than-25% non-operating-income test now applies to the company and its peers' earnings comparison. NVDA's 59.31× peer median is withheld in the affected saved-input replays because three peers remain and four are required. P/B and P/TBV remain eligible; stored reports retain their old median (FIN-503).
 - A P/E ranked against a market-cap/common-income history now uses that construction for the ranked operand. The displayed price/diluted-EPS multiple stays unchanged. NNN's saved-input rank moves from 25.07 to 37.12 and NVDA's from 1.685 to 1.484; their valuation grades are unchanged in these replays (FIN-505).
 - Piotroski route-applicable completeness (FIN-306) and undetermined-REIT grading (FIN-308) remain as on main: the plan's required controls contradict the proposed changes. Regression tests preserve O and NNN; the methodology now states these limits. Task 5's date-roll rewrite waits for B4b, and Task 17's Altman date-label rewrite remains its R1a tombstone. No such fix is claimed here.
-- Report **1.51.0**, payload **1.53.0**, Stage B **STAGE_B_2026_10_ACCOUNTING_EVIDENCE_32**, and score bands **SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE** (D-136). Stored reports and snapshots keep their bytes. The P/TBV currency display guard affects none of the stored corpus; the implied-return convention note affects JPM #21 alone. Stored Altman date labels are unchanged in this batch.
+- Report **1.52.0**, payload **1.54.0**, Stage B **STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33**, and score bands **SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE** (D-137). Stored reports and snapshots keep their bytes. The P/TBV currency display guard affects none of the stored corpus; the implied-return convention note affects JPM #21 alone. Stored Altman date labels are unchanged in this batch.
+
+## Unreleased - seasonality, 52/53-week calendars and the guided quarter on one basis (B5a, 2026-10-27)
+
+These changes address seven findings from the 2026-10-27 audit. The decision is D-136 in [DECISIONS](docs/audit/DECISIONS.md). The remaining DCF-input changes are B5b's.
+
+- A quarter with an exact whole-week length is put on a 13-week basis before annualising revenue or forecast interest. A 53-week DCF base is put on a 52-week basis. The report names the scaling; filed history, margin and tax ratios, sales-to-capital and scenario shocks retain their existing basis and precision (Task 1, with Task 29's regression).
+- A missing predecessor quarter leaves an inferred quarter length unknown; its gap is never treated as one long quarter. Filed starts and the separate annual-period fallback retain precedence and behavior (PR review correction to Task 1).
+- Future fiscal-year estimates follow an issuer's evidenced weekday calendar when at least three chained year ends identify one rule. Nearby vendor dates are moved to that year end; ambiguous calendars keep their dates and disclose the approximation (Task 2).
+- A guidance-led valuation removes the guided quarter's own season using the mean of up to three growth-adjusted yearly factors. Short histories use the guided year-over-year growth on trailing revenue; without a usable year-ago quarter, the existing run-rate stands with an explanation. The guidance floor combines the guided quarter with the other three quarters, instead of multiplying a peak or trough by four (Task 3).
+- Reverse-DCF context compares the guided quarter with the same quarter a year earlier. It no longer treats an annualised or sequential quarter pace as comparable evidence. A next-quarter guide also no longer sets a twelve-month revenue trigger (Task 4).
+- The growth rows carry the issuer's own outlook caveats, including calendar-shifted events such as Prime Day. A stated basis-point effect is disclosed separately; reported guidance and valuations are not adjusted for it (Task 3b).
+- The issuer-effect note identifies the effect as disclosure only; it no longer claims guidance sets year one when consensus leads or guidance is refused. Anchor sources and all modeled revenue levels stay exact (verification correction to Task 3b).
+- Stored reports keep every saved figure. Reports before spec 1.51.0 gain applicable display notes explaining quarter length, a guidance-times-four level or floor, or an approximate fiscal-year boundary. An illustrative normalised quarter uses its stored filed amount when available, avoiding rounding a rounded figure (Task 17).
+- Report 1.51.0, payload 1.53.0 and Stage B ACCOUNTING_EVIDENCE_32 are next after B4a (D-136; recheck numbering at merge). Fair-value, scenario-path, scenario-target, pipeline and score-band stamps are unchanged. Stored reports keep their bytes; legacy valuations carry a note on display.
 
 ## Unreleased - the equity bridge, EV and invested capital count every claim once (B4a, 2026-10-27)
 

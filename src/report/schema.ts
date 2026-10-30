@@ -142,10 +142,12 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.48.0 (D-133): a noncurrent-only vendor lease line completed from its filing, the vendor path's stakes and the refusal-naming diagnostics change WACC, the DCF, fair value, grades and the debt profile on identical inputs; the key data withholds a provider EV whose debt was refused or recomposed.
 // 1.49.0 (D-134, audit 2026-10-27 B13): `revenueGrowthNotes` joins the quarterly-trend row, and EDGAR-derived operating lines (derived EBIT, D&A, R&D, a bank's interest income, derived fourth quarters and year-to-date differences, growth cells and the FFO and one-time-items rules) mean the filer's total on one presentation, or a disclosed withholding; reports before 1.49.0 are shown through `withLegacyEdgarDerivedLines`.
 // 1.50.0 (D-135, audit 2026-10-27 B4a): the equity bridge, the market EV and invested capital count each claim once (redeemable equity, after-tax debt-like obligations, the covered operating lease in sales-to-capital, the loss-period divisor named); reports before 1.50.0 are shown through `withLegacyBridgeMethod`.
-// 1.51.0 (D-136, B6): financial-route currency/eligibility and reverse share basis, buyback coverage,
+// D136 / B5a Tasks 1-4, 3b and 17: comparable period lengths, guided season,
+// weekday calendars, YoY context, issuer caveats and the frozen legacy cutoff.
+// 1.52.0 (D-137, B6): financial-route currency/eligibility and reverse share basis, buyback coverage,
 // revenue refusal, ADR Altman scope, peer comparisons and P/E ranks; optional business evidence share
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
-export const REPORT_SPEC_VERSION = "1.51.0" as const;
+export const REPORT_SPEC_VERSION = "1.52.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

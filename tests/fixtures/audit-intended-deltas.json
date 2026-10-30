@@ -10155,16 +10155,16 @@
       ]
     },
     {
-      "name": "audit-b6-financial-routes-20261027",
+      "name": "audit-b6-financial-routes-d137-20261027",
       "decisions": [
-        "D-136"
+        "D-137"
       ],
-      "reason": "Task18 (FIN-126) names the common-equity P/B denominator and retains the positive reported-equity admission gate. Task19 (FIN-125) discloses that a profile-only peer route can be unconfirmed beside a SEC-refined subject. Task21 (RPT-101) adds the unrounded business-evidence share without changing any grade or threshold in this fixture. Task22 (FIN-504) names the issuer-common capitalization used by the Company comparison figure. Task23 (FIN-503) states the shared greater-than-25% non-operating-income exclusion for peer and company earnings comparisons. Task25 stamps report1.51.0 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE. No deferred Task5 or17 change is included; DEMO has no Task7 buyback-window movement, excess-return reverse solve, peer comparison or own-history P/E band.",
+      "reason": "Task18 (FIN-126) names the common-equity P/B denominator and retains the positive reported-equity admission gate. Task19 (FIN-125) discloses that a profile-only peer route can be unconfirmed beside a SEC-refined subject. Task21 (RPT-101) adds the unrounded business-evidence share without changing any grade or threshold in this fixture. Task22 (FIN-504) names the issuer-common capitalization used by the Company comparison figure. Task23 (FIN-503) states the shared greater-than-25% non-operating-income exclusion for peer and company earnings comparisons. Task25 stamps report1.52.0 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE. No deferred Task5 or17 change is included; DEMO has no Task7 buyback-window movement, excess-return reverse solve, peer comparison or own-history P/E band.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.51.0"
+          "after": "1.52.0"
         },
         {
           "path": "report.scores.assessments",

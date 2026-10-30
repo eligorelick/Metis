@@ -18,6 +18,8 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
+import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
@@ -35,6 +37,7 @@ import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } f
 import {
   contiguousQuarterWindows,
   normalizeQuarterRows,
+  quarterWindowViolation,
 } from "@/pipeline/stageB/quarterWindows";
 
 // ---------------------------------------------------------------------------
@@ -481,10 +484,20 @@ export function revenueRunRate(
   if (latest === null || yearAgo === null || days === null || days < YEAR_AGO_QUARTER_DAYS[0] || days > YEAR_AGO_QUARTER_DAYS[1]) {
     return null;
   }
-  const annualized = 4 * latest;
-  const seasonallyNeutral = ttmRevenue * Math.pow(latest / yearAgo, TTM_TO_LATEST_QUARTER_YEARS);
+  const latestFactor = thirteenWeekFactor(quarters.latest.days ?? null);
+  const yearAgoFactor = thirteenWeekFactor(quarters.yearAgo.days ?? null);
+  const latestQuarterWeeks = weeksOf(quarters.latest.days ?? null);
+  const lengthNotes = [quarters.latest, quarters.yearAgo].flatMap((quarter) => {
+    const weeks = weeksOf(quarter.days ?? null);
+    if (quarter.days == null) return [`the quarter ending ${quarter.date}: length not established; read as 13 weeks`];
+    return weeks !== null && weeks !== 13 ? [`the ${weeks}-week quarter ending ${quarter.date} on a 13-week basis (× 13/${weeks})`] : [];
+  });
+  const annualized = 4 * latest * latestFactor;
+  const ratio = (latest * latestFactor) / (yearAgo * yearAgoFactor);
+  const seasonallyNeutral = ttmRevenue * Math.pow(ratio, TTM_TO_LATEST_QUARTER_YEARS);
   const value = Math.min(Math.max(seasonallyNeutral, Math.min(annualized, ttmRevenue)), Math.max(annualized, ttmRevenue));
-  return { value, latestQuarterEnd: ttmEnd, latestQuarterAnnualized: annualized, seasonallyNeutral, yoyPct: (latest / yearAgo - 1) * 100 };
+  return { value, latestQuarterEnd: ttmEnd, latestQuarterAnnualized: annualized, seasonallyNeutral, yoyPct: (ratio - 1) * 100,
+    latestQuarterWeeks, lengthNote: lengthNotes.length > 0 ? lengthNotes.join("; ") : null };
 }
 
 /**
@@ -549,7 +562,7 @@ function seasonalFiscalYearShare(fyBegin: number, fyEnd: number, from: number, t
  * D-65: when the issuer has already reported part of a fiscal year that
  * overlaps the window, that year contributes its consensus LESS the reported
  * revenue, spread over its unreported days (NVDA FY2027: $409.80B − $177.84B
- * reported for H1 = $231.96B for 2026-07-27..2027-01-25, where an even spread
+ * reported for H1 = $231.96B for 2026-07-27..2027-01-31 on the filed weekday rule, where an even spread
  * gave $205.5B). A consensus at or below what is already reported is stale
  * and leaves the window uncovered.
  */
@@ -558,6 +571,7 @@ export function calendarizeConsensusWindow(
   window: { startDate: string; endDate: string },
   reported?: FiscalYearToDate | null,
   seasonality?: RevenueSeasonality | null,
+  calendar?: FiscalYearRule | null,
 ): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean; partialSpread: "seasonal" | "even" | null } {
   const empty = { value: null, fiscalYears: [], staleAgainstReported: false, partialSpread: null };
   // AMZN audit 2026-10-20 finding 19: the quarterly shape applies to estimates
@@ -576,7 +590,10 @@ export function calendarizeConsensusWindow(
   const byDate = new Map<string, AnalystEstimateRow & { revenueAvg: number }>();
   for (const row of rows) {
     const revenue = posOrNull(row.revenueAvg);
-    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) byDate.set(row.date.slice(0, 10), { ...row, revenueAvg: revenue });
+    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) {
+      const date = snapToFiscalYearEnd(calendar ?? null, row.date.slice(0, 10));
+      byDate.set(date, { ...row, date, revenueAvg: revenue });
+    }
   }
   const reportedEnd = reported && posOrNull(reported.revenue) !== null ? Date.parse(reported.through) : Number.NaN;
   let total = 0;
@@ -587,11 +604,17 @@ export function calendarizeConsensusWindow(
   for (const [date, row] of [...byDate].sort(([a], [b]) => a.localeCompare(b))) {
     const fy = forecastYearPeriod(date, 0, "fiscal-year");
     if (fy === null) continue;
-    // A 52/53-week year starts the day after the previous estimate's year
-    // end, not on a calendar anniversary, so adjacent years never share a day.
+    // Established 52/53-week dates use the issuer's weekday rule. Each year
+    // starts after the preceding snapped end, so adjacent years share no day.
     const span = previousEnd === null ? null : daysBetween(previousEnd, date);
     const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
-    let fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
+    // The first estimate (or one after a missing year) also needs the filed
+    // calendar's start, even without YTD. A December rule can end in January.
+    const endYear = Number(date.slice(0, 4));
+    const ruleYear = calendar ? [endYear, endYear - 1].find(year => fiscalYearEndFor(calendar, year) === date) : undefined;
+    const rulePreviousEnd = calendar && ruleYear !== undefined ? fiscalYearEndFor(calendar, ruleYear - 1) : null;
+    const priorEnd = chained ? previousEnd : rulePreviousEnd;
+    let fyStart = priorEnd === null ? Date.parse(fy.startDate) : Date.parse(priorEnd) + DAY_MS;
     const fyBegin = fyStart;
     previousEnd = date;
     const fyEnd = Date.parse(fy.endDate) + DAY_MS;
@@ -729,6 +752,8 @@ export interface ConsensusPathRow {
 /** Income-statement slice used by the DCF builder (FMP field names). */
 export interface DcfIncomeRow {
   date: string;
+  /** Inclusive filed duration, or the gap to the preceding period end. */
+  days?: number | null;
   /** Four-quarter TTM or the latest audited annual statement when TTM is unavailable. */
   basis?: "ttm" | "annual";
   revenue: number | null;
@@ -856,6 +881,8 @@ export interface DcfAssumptionInputs {
   unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
+  /** Unambiguous weekday year-end rule established from filed annual ends. */
+  fiscalCalendar?: FiscalYearRule | null;
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
   /**
@@ -906,18 +933,24 @@ export interface DcfAssumptionInputs {
 
 /** D-58: the run-rate quarters (revenue in the model currency). */
 export interface DcfQuarterRevenue {
-  latest: { date: string; revenue: number | null };
-  yearAgo: { date: string; revenue: number | null } | null;
+  latest: { date: string; revenue: number | null; days?: number | null };
+  yearAgo: { date: string; revenue: number | null; days?: number | null } | null;
   /** The same fiscal quarter a year before the guided quarter, model currency (AMZN audit 2026-10-20). */
-  guidedYearAgo?: { date: string; revenue: number | null } | null;
+  guidedYearAgo?: { date: string; revenue: number | null; days?: number | null } | null;
+  /** Newest first, ending at guidedYearAgo; eight quarters establish one yearly factor. */
+  guidedYearAgoWindow?: Array<{ date: string; revenue: number; days?: number | null }>;
 }
 
 /** D-58: management's outlook for the next fiscal quarter (an 8-K earnings release). */
 export interface DcfGuidance {
+  /** Raw issuing-release qualifiers; ex-item effects are disclosure only. */
+  qualifiers?: readonly string[];
   /** Guided revenue for the next fiscal quarter (midpoint), model currency. */
   revenue: number;
   /** Guided quarter's period end (ISO date). */
   periodEnd: string;
+  periodStart?: string;
+  periodEndBasis?: "calendar-quarter" | "13-week-quarter" | "fiscal-year-end-rule" | null;
   /** Date the guidance was published (ISO date). */
   asOf: string;
   /** Provenance tag of the release. */
@@ -943,8 +976,10 @@ export interface DcfGuidance {
 export interface RevenueRunRate {
   value: number;
   latestQuarterEnd: string;
-  /** Latest quarter × 4. */
+  /** Latest quarter on a 13-week basis × 4. */
   latestQuarterAnnualized: number;
+  latestQuarterWeeks: number | null;
+  lengthNote: string | null;
   /** TTM carried 4.5 months forward at the latest quarter's year-over-year growth. */
   seasonallyNeutral: number;
   /** Latest quarter's year-over-year revenue growth, percent. */
@@ -978,12 +1013,15 @@ export interface RevenueAnchor {
    * report can set the price against it. Absent on assumptions built before D-60.
    */
   evidence?: {
-    /** Next-quarter guidance × 4 (the guided run-rate). */
+    /** Guided quarter on a 13-week basis, out of its season, × 4; fallback TTM × (1 + g)^(7.5/12). */
     guidedRunRate: number | null;
+    guidedFloor?: number | null;
+    guidedSeasonalFactor?: number | null;
     /** Guided quarter over the latest reported quarter, annualized, percent. */
     guidedPacePct: number | null;
     /** Guided quarter over the same quarter a year earlier, percent; absent before the AMZN audit 2026-10-20. */
     guidedYoyPct?: number | null;
+    guidedYoyIssuerEffectPp?: number | null;
     /** Calendarized consensus for the year-one and year-two windows. */
     consensusYearOne: number | null;
     consensusYearTwo: number | null;
@@ -1450,34 +1488,32 @@ function nextQuarterGuidance(guidance: DcfGuidance | null | undefined, ttmEnd: s
   return published !== null && published >= 0 ? guidance : null;
 }
 
+/** R1: the quarter's share of its trailing year relative to constant-growth share. */
+function guidedSeasonalFactor(window: DcfQuarterRevenue["guidedYearAgoWindow"], yearAgo: string | null): { value: number; years: number } | null {
+  if (!window || yearAgo === null || window[0]?.date !== yearAgo) return null;
+  const factors: number[] = [];
+  for (let offset = 0; offset <= 8 && offset + 8 <= window.length; offset += 4) {
+    const eight = window.slice(offset, offset + 8);
+    if (eight.some(row => posOrNull(row.revenue) === null) ||
+        Array.from({ length: 5 }, (_, i) => quarterWindowViolation(eight.slice(i, i + 4))).some(reason => reason !== null)) break;
+    const revenue = eight.map(row => row.revenue * thirteenWeekFactor(row.days ?? null));
+    const ttm = revenue.slice(0, 4).reduce((a, b) => a + b, 0);
+    const previous = revenue.slice(4).reduce((a, b) => a + b, 0);
+    const rho = Math.pow(ttm / previous, .25);
+    const factor = (revenue[0] / ttm) / (rho ** 3 / (1 + rho + rho ** 2 + rho ** 3));
+    if (!Number.isFinite(factor) || factor <= 0) break;
+    factors.push(factor);
+  }
+  return factors.length === 0 ? null : { value: factors.reduce((a, b) => a + b, 0) / factors.length, years: factors.length };
+}
+
 /**
- * D-58/D-60: the year-one revenue level, and year two's.
- *
- * D-60 order of evidence:
- *  1. Calendarized consensus LEVELS for years one and two, when consensus
- *     covers year one and is consistent with guidance (no guidance, or a
- *     year-one consensus at or above the guided quarter's low end × 4: the
- *     window opens with the guided quarter, so a lower consensus predates or
- *     contradicts the outlook). Consensus covers all four quarters of the
- *     window; guidance covers one, and an issuer that beats its range each
- *     quarter makes the guided run-rate a floor rather than a central case.
- *     D-58 grew consensus year-two growth from a guidance year one, which put
- *     both years ~15% below the consensus levels without saying so.
- *  2. Next-quarter guidance × 4, carried to the year-one midpoint at the
- *     GUIDED year-over-year pace (guided quarter over the same quarter a year
- *     earlier), else the guided sequential pace (guided quarter over the latest
- *     reported quarter, annualized) — D-58 carried it at the clamped near-term
- *     rate, which is a statement about history, not about the guided
- *     trajectory. The sequential pace carries the season (AMZN audit
- *     2026-10-20: Q3 below Q2 read as −2.2% a year against a guided +9% to
- *     +12%), so it serves only without the year-ago quarter. Year two then
- *     takes consensus growth when covered, with the gap to the consensus
- *     level stated.
- *  3. The run-rate (or the TTM) carried at the near-term growth rate.
- * The house clamp bounds the result relative to the run-rate as a
- * broken-input guard. Its range is [−10%, +25%] widened to the evidenced pace
- * (the guided pace used and the latest quarter's year-over-year growth), so
- * it cannot overrule the issuer's own reported trajectory.
+ * D-136: consensus consistent with the seasonal twelve-month floor, then the
+ * guided quarter taken out of its growth-adjusted season and carried at its
+ * year-over-year pace, then the reported run-rate. Below eight quarters ending
+ * at the guided year-ago quarter, guidance carries TTM for one year at that pace.
+ * No guidance level without the same fiscal quarter a year earlier. Sequential
+ * pace is evidence only and never widens the broken-input guard.
  */
 function buildRevenueAnchor(args: {
   inputs: DcfAssumptionInputs;
@@ -1495,7 +1531,8 @@ function buildRevenueAnchor(args: {
   const levelText = runRate === null
     ? `${periodBasis} revenue ${fmtMoney(startRev)}`
     : `the seasonally neutral run-rate ${fmtMoney(runRate.value)} (latest quarter ending ${runRate.latestQuarterEnd} × 4 = ${fmtMoney(runRate.latestQuarterAnnualized)}; ` +
-      `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)`;
+      `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)` +
+      (runRate.lengthNote === null ? "" : `; ${runRate.lengthNote}`);
   // D-65: every explicit window against calendarized consensus. The first
   // window takes the current fiscal year's consensus less what is already
   // reported; each window then passes or fails the breadth and agreement gates.
@@ -1507,7 +1544,7 @@ function buildRevenueAnchor(args: {
   for (let k = 1; ttmEnd !== null && k <= DCF_HORIZON_YEARS; k++) {
     const w = forecastYearPeriod(ttmEnd, k, windowBasis);
     if (w === null) break;
-    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality);
+    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality, inputs.fiscalCalendar);
     if (cal.value !== null && cal.partialSpread !== null) spread = spread === "even" ? "even" : cal.partialSpread;
     const gate = cal.value === null
       ? cal.staleAgainstReported
@@ -1524,15 +1561,20 @@ function buildRevenueAnchor(args: {
     `; the fiscal year ending ${window1.fiscalYears.find((f) => f.reportedToDate !== undefined)?.date} contributes its consensus less the ${fmtMoney(reported.revenue)} ` +
     `already reported through ${reported.through} (${reported.quarters} quarter${reported.quarters === 1 ? "" : "s"}), spread over its unreported days`;
   const shares = seasonalQuarterShares(inputs.revenueSeasonality);
-  const spreadText = spread === "seasonal" && shares !== null
+  const annualWeekdays = inputs.incomeHistory.map(row => new Date(row.date).getUTCDay());
+  const approximate = inputs.fiscalCalendar === null && annualWeekdays.length >= 2 &&
+    annualWeekdays.every(day => day === annualWeekdays[0]);
+  const spreadText = (spread === "seasonal" && shares !== null
     ? `fiscal-year estimates spread by the quarterly shape of the fiscal year ending ${(inputs.revenueSeasonality as RevenueSeasonality).fiscalYearEnd} ` +
       `(${shares.slice(0, 3).map((x) => `${fmtNum(x * 100)}%`).join(", ")} and ${fmtNum(shares[3] * 100)}% of its reported revenue, each quarter's share over its three months)`
     : spread === "even"
       ? `fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because ${shares === null
         ? "the last complete fiscal year has no four reported quarterly revenues to shape it"
         : "its year end is not an anniversary of the fiscal year the quarterly shape was measured in"}`
-      : "fiscal-year estimates weighted by day overlap";
+      : "fiscal-year estimates weighted by day overlap") +
+      (approximate ? "; fiscal-year boundaries are the provider's dates, approximate by up to a week" : "");
   const statedGuide = nextQuarterGuidance(inputs.guidance, ttmEnd);
+  const fG = thirteenWeekFactor(statedGuide === null ? null : periodDays(statedGuide.periodStart, statedGuide.periodEnd));
   const annual = statedGuide?.annualRevenueComparison;
   const quarterLow = posOrNull(statedGuide?.revenueLow);
   const quarterHigh = posOrNull(statedGuide?.revenueHigh);
@@ -1540,10 +1582,10 @@ function buildRevenueAnchor(args: {
     annual.currency === statedGuide.currency && annual.source === statedGuide.source && annual.asOf === statedGuide.asOf &&
     posOrNull(annual.low) !== null && posOrNull(annual.high) !== null && annual.low <= annual.high &&
     quarterLow !== null && quarterHigh !== null && quarterLow <= statedGuide.revenue && statedGuide.revenue <= quarterHigh;
-  const refusedExtrapolation = comparable && (4 * quarterLow > annual.high || 4 * quarterHigh < annual.low);
+  const refusedExtrapolation = comparable && (4 * quarterLow * fG > annual.high || 4 * quarterHigh * fG < annual.low);
   const comparabilityText = !refusedExtrapolation ? "" :
-    ` Quarterly-guidance annualization withheld by the independent house comparability guard: the quarter range x 4 ` +
-    `${fmtMoney(4 * quarterLow)}-${fmtMoney(4 * quarterHigh)} lies entirely outside ${annual.periodLabel} revenue ` +
+    ` Quarterly-guidance annualization withheld by the independent house comparability guard: the quarter range${fG === 1 ? "" : " on a 13-week basis"} x 4 ` +
+    `${fmtMoney(4 * quarterLow * fG)}-${fmtMoney(4 * quarterHigh * fG)} lies entirely outside ${annual.periodLabel} revenue ` +
     `${fmtMoney(annual.low)}-${fmtMoney(annual.high)} from the same release (${annual.source}, ${annual.asOf}). ` +
     "This is a model comparability policy, not an accounting fact: the quarter is not an unconditional annual revenue floor. " +
     "Fiscal-year and next-twelve-month periods differ; fiscal-year guidance is not substituted for NTM. The quarterly floor, sequential pace and quarterly level extrapolation are withheld; the existing consensus, run-rate or TTM fallback is used.";
@@ -1552,21 +1594,28 @@ function buildRevenueAnchor(args: {
 
   // D-60: the guided sequential pace, annualized.
   const latestQuarter = inputs.quarterRevenue?.latest.date === ttmEnd ? posOrNull(inputs.quarterRevenue?.latest.revenue) : null;
-  const guidedPacePct = guide !== null && latestQuarter !== null ? (Math.pow(guide.revenue / latestQuarter, 4) - 1) * 100 : null;
+  const fL = thirteenWeekFactor(inputs.quarterRevenue?.latest.days ?? null);
+  const guidedPacePct = guide !== null && latestQuarter !== null ? (Math.pow(guide.revenue * fG / (latestQuarter * fL), 4) - 1) * 100 : null;
   // AMZN audit 2026-10-20: the guided quarter over the same quarter a year earlier.
   const yearAgoRow = inputs.quarterRevenue?.guidedYearAgo ?? null;
   const yearAgoRevenue = posOrNull(yearAgoRow?.revenue);
   const yearAgoDays = guide === null || yearAgoRow === null ? null : daysBetween(yearAgoRow.date, guide.periodEnd);
+  const baseGap = yearAgoRow === null || ttmEnd === null ? null : daysBetween(yearAgoRow.date, ttmEnd);
+  const fYA = thirteenWeekFactor(yearAgoRow?.days ?? null);
   const guidedYearAgo = guide !== null && yearAgoRow !== null && yearAgoRevenue !== null && yearAgoDays !== null &&
-    yearAgoDays >= YEAR_AGO_QUARTER_DAYS[0] && yearAgoDays <= YEAR_AGO_QUARTER_DAYS[1] ? { date: yearAgoRow.date, revenue: yearAgoRevenue } : null;
-  const guidedYoyPct = guide !== null && guidedYearAgo !== null ? (guide.revenue / guidedYearAgo.revenue - 1) * 100 : null;
-  const guidedRatePct = guidedYoyPct ?? guidedPacePct;
-  const guidedRunRate = guide === null ? null : 4 * guide.revenue;
-  const guidedFloor = guide === null ? null : 4 * (posOrNull(guide.revenueLow) ?? guide.revenue);
+    baseGap !== null && baseGap >= 250 && baseGap <= 300 &&
+    yearAgoDays >= YEAR_AGO_QUARTER_DAYS[0] && yearAgoDays <= YEAR_AGO_QUARTER_DAYS[1] ? { date: yearAgoRow.date, revenue: yearAgoRevenue * fYA } : null;
+  const guidedYoyPct = guide !== null && guidedYearAgo !== null ? (guide.revenue * fG / guidedYearAgo.revenue - 1) * 100 : null;
+  const seasonal = guidedSeasonalFactor(inputs.quarterRevenue?.guidedYearAgoWindow, guidedYearAgo?.date ?? null);
+  const guidedRunRate = guide === null || guidedYoyPct === null ? null : seasonal === null
+    ? startRev * Math.pow(1 + guidedYoyPct / 100, 7.5 / 12) : 4 * guide.revenue * fG / seasonal.value;
+  const guidedLow = guide === null ? null : (posOrNull(guide.revenueLow) ?? guide.revenue) * fG;
+  const guidedFloor = guidedLow === null || guidedYearAgo === null ? null
+    : guidedLow + (startRev - guidedYearAgo.revenue) * Math.min(1, guidedLow / guidedYearAgo.revenue);
   const consensusConsistent = ntm1 !== null && (guidedFloor === null || ntm1 >= guidedFloor);
 
   // Broken-input guard, widened to the evidenced pace.
-  const pace = [guidedRatePct, runRate?.yoyPct ?? null].filter((v): v is number => isNum(v));
+  const pace = [guidedYoyPct, runRate?.yoyPct ?? null].filter((v): v is number => isNum(v));
   const lo = Math.min(NEAR_TERM_GROWTH_CLAMP_PP[0], ...pace);
   const hi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], ...pace);
   const rangeText = lo === NEAR_TERM_GROWTH_CLAMP_PP[0] && hi === NEAR_TERM_GROWTH_CLAMP_PP[1]
@@ -1578,27 +1627,30 @@ function buildRevenueAnchor(args: {
   let rawText: string;
   let nearTermRateUsed = false;
   const guidanceText = guide === null ? "" :
-    `management guidance ${fmtMoney(guide.revenue)} for the quarter ending ${guide.periodEnd} (${guide.source}, ${guide.asOf}) × 4 = ${fmtMoney(4 * guide.revenue)}`;
+    `management guidance ${fmtMoney(guide.revenue)} for the quarter ending ${guide.periodEnd} (${guide.source}, ${guide.asOf})`;
+  const assumedLengthText = (() => {
+    if (guide?.periodEndBasis !== "13-week-quarter" || !inputs.fiscalCalendar) return "";
+    const year = Number(guide.periodEnd.slice(0, 4));
+    const end = [year - 1, year, year + 1].map(y => ({ y, end: fiscalYearEndFor(inputs.fiscalCalendar!, y) }))
+      .filter(row => row.end >= guide.periodEnd).sort((a, b) => a.end.localeCompare(b.end))[0];
+    return end !== undefined && daysBetween(fiscalYearEndFor(inputs.fiscalCalendar, end.y - 1), end.end) === 371
+      ? `; the guided quarter's length assumed to be 13 weeks: the fiscal year ending ${end.end} has 53 weeks and the release does not say which quarter holds the extra week` : "";
+  })();
   if (ntm1 !== null && window1 !== null && consensusConsistent) {
     source = "consensus";
     raw = ntm1;
     rawText = `analyst consensus calendarized to ${window1.label} (${spreadText}${reportedText})` +
-      (guide === null ? "" : `, at or above the guided run-rate (${guidanceText}${guidedFloor !== guidedRunRate ? `; low end × 4 = ${fmtMoney(guidedFloor as number)}` : ""}), so consistent with the outlook`);
-  } else if (guide !== null) {
+      (guidedFloor === null ? "" : `, at or above the twelve-month floor the guidance implies (low end ${fmtMoney(guidedLow as number)} plus the window's other three quarters at their year-ago level${guidedLow! < guidedYearAgo!.revenue ? ", reduced at the low-end year-over-year pace" : ""} = ${fmtMoney(guidedFloor)}; ${guidanceText}), so consistent with the outlook`);
+  } else if (guide !== null && guidedYoyPct !== null && guidedYearAgo !== null && guidedRunRate !== null) {
     source = "guidance";
-    const rate = guidedRatePct ?? gMid;
-    nearTermRateUsed = guidedRatePct === null;
-    raw = carry(4 * guide.revenue, GUIDED_QUARTER_TO_YEAR_ONE_YEARS, rate);
-    rawText = `model extrapolation of quarterly guidance: ${guidanceText}, carried 4.5 months to the year-one midpoint at ` +
-      (guidedYoyPct !== null && guidedYearAgo !== null
-        ? `the guided year-over-year pace ${fmtNum(guidedYoyPct)}% (guided quarter over the quarter ending ${guidedYearAgo.date}, ${fmtMoney(guidedYearAgo.revenue)}; ` +
-          `the sequential pace${guidedPacePct === null ? "" : ` ${fmtNum(guidedPacePct)}%/yr`} is not used because it carries the season)`
-        : guidedPacePct === null
-        ? `the near-term growth rate ${fmtNum(gMid)}% (no latest reported quarter to measure the guided pace against)`
-        : `the guided sequential pace ${fmtNum(guidedPacePct)}%/yr (guided quarter over the quarter ending ${ttmEnd}, ${fmtMoney(latestQuarter as number)}, annualized)`) +
+    raw = carry(guidedRunRate, GUIDED_QUARTER_TO_YEAR_ONE_YEARS, guidedYoyPct);
+    const comparison = `guided quarter over the quarter ending ${guidedYearAgo.date}, ${fmtMoney(guide.revenue * fG)} over ${fmtMoney(guidedYearAgo.revenue)}, both on a 13-week basis`;
+    rawText = (seasonal === null
+      ? `the trailing twelve months carried twelve months at the guided year-over-year pace ${fmtNum(guidedYoyPct)}% (${comparison}; fewer than eight quarters end at the year-ago quarter, so no seasonal factor; ${guidanceText})`
+      : `the guided quarter ${guidanceText} on a 13-week basis taken out of its season (÷ s = ${seasonal.value.toFixed(4)}, its share of its own trailing year against the share constant growth gives, the mean of ${seasonal.years} yearly factors) × 4 = ${fmtMoney(guidedRunRate)}, carried 4.5 months at the guided year-over-year pace ${fmtNum(guidedYoyPct)}% (${comparison})`) +
       (ntm1 === null
         ? window1?.consensus != null && window1.gate !== null ? `; consensus ${fmtMoney(window1.consensus)} for the window is not used: ${window1.gate}` : ""
-        : `; consensus ${fmtMoney(ntm1)} for the window sits below the guided run-rate and is not used for year one`);
+        : `; consensus ${fmtMoney(ntm1)} for the window sits below the twelve-month floor the guidance implies and is not used for year one`);
   } else {
     source = runRate === null ? "ttm" : "run-rate";
     nearTermRateUsed = true;
@@ -1608,6 +1660,8 @@ function buildRevenueAnchor(args: {
       ? `${periodBasis} revenue grown one year at the near-term growth rate ${fmtNum(gMid)}%`
       : `the run-rate carried 7.5 months to the year-one midpoint at the near-term growth rate ${fmtNum(gMid)}%`;
   }
+  if (guide !== null && guidedYearAgo === null) rawText += `; guidance ${fmtMoney(guide.revenue)} not used for year one: no same fiscal quarter a year earlier to put it on a twelve-month basis`;
+  rawText += assumedLengthText;
   const floor = level * (1 + lo / 100);
   const ceiling = level * (1 + hi / 100);
   const yearOneRevenue = Math.min(ceiling, Math.max(floor, raw));
@@ -1635,7 +1689,7 @@ function buildRevenueAnchor(args: {
     path[0].status = source === "consensus"
       ? "anchored: the year-one level"
       : path[0].gate !== null ? `not anchored: ${path[0].gate}`
-        : `not anchored: year one comes from ${source}${guidedFloor !== null && ntm1 !== null && ntm1 < guidedFloor ? " (consensus is below the guided run-rate floor)" : ""}`;
+        : `not anchored: year one comes from ${source}${guidedFloor !== null && ntm1 !== null && ntm1 < guidedFloor ? " (consensus is below the twelve-month floor the guidance implies)" : ""}`;
   }
   const anchoredGrowth = [yearOneGrowthPct];
   const consensusYears: number[] = source === "consensus" ? [1] : [];
@@ -1704,9 +1758,12 @@ function buildRevenueAnchor(args: {
     `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
   const gateText = !anyConsensus ? "" :
     ` House rule D-65: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
+  const guidedYoyIssuerEffectPp = statedGuide?.qualifiers?.map(parseIssuerGrowthEffect).find(effect => effect !== null)?.pp ?? null;
+  const issuerEffectText = guidedYoyIssuerEffectPp === null ? "" :
+    `; the issuer states that, excluding an item it names, the guided quarter's year-over-year growth would be about ${Math.abs(guidedYoyIssuerEffectPp).toFixed(2)}pp ${guidedYoyIssuerEffectPp < 0 ? "lower" : "higher"}; this issuer-stated effect is disclosed only and does not adjust any modeled revenue level`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
-    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}`;
+    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate).${gateText}${comparabilityText}${issuerEffectText}`;
   notes.push(`Year-one revenue anchor: ${basis}`);
   return {
     source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis,
@@ -1714,7 +1771,10 @@ function buildRevenueAnchor(args: {
     consensusYears,
     consensusPath: path.map((row) => ({ year: row.year, label: row.label, startDate: row.startDate, endDate: row.endDate,
       consensus: row.consensus, anchored: row.anchored, status: row.status, fiscalYears: row.fiscalYears })),
-    evidence: { guidedRunRate, guidedPacePct, ...(guidedYoyPct === null ? {} : { guidedYoyPct }), consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
+    evidence: { guidedRunRate, guidedPacePct,
+      // Preserve the pre-B5a evidence contract when there is no stated guide.
+      ...(statedGuide === null ? {} : { guidedYoyPct, guidedYoyIssuerEffectPp, guidedFloor, guidedSeasonalFactor: seasonal?.value ?? null }),
+      consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
       guidedQuarter: statedGuide === null ? null : { periodEnd: statedGuide.periodEnd, revenueLow: posOrNull(statedGuide.revenueLow) ?? statedGuide.revenue, revenueMid: statedGuide.revenue,
         grossMarginLowPct: isNum(statedGuide.grossMarginLowPct) ? statedGuide.grossMarginLowPct : null, source: statedGuide.source, asOf: statedGuide.asOf } },
   };
@@ -1783,7 +1843,16 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const gaps: ManifestEntry[] = [];
   const years = DCF_HORIZON_YEARS;
 
-  const ttm = inputs.incomeTtm;
+  const baseFactor = fiftyTwoWeekFactor(inputs.incomeTtm?.days ?? null);
+  const scaleFlow = (value: number | null | undefined) => value == null ? value : value * baseFactor;
+  const ttm = inputs.incomeTtm === null || baseFactor === 1 ? inputs.incomeTtm : {
+    ...inputs.incomeTtm,
+    revenue: scaleFlow(inputs.incomeTtm.revenue) as number | null,
+    operatingIncome: scaleFlow(inputs.incomeTtm.operatingIncome) as number | null,
+    grossProfit: scaleFlow(inputs.incomeTtm.grossProfit),
+    incomeBeforeTax: scaleFlow(inputs.incomeTtm.incomeBeforeTax),
+    incomeTaxExpense: scaleFlow(inputs.incomeTtm.incomeTaxExpense),
+  };
   const periodBasis = ttm?.basis === "annual" ? `latest annual FY ${ttm.date}` : "TTM";
   const startRev = posOrNull(zeroAsNull(ttm?.revenue));
   if (startRev === null) {
@@ -1796,6 +1865,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
     return { assumptions: null, notes, gaps };
   }
+
+  const filedRevenue = inputs.incomeTtm!.revenue as number;
 
   // --- Terminal growth: min(2.5, rf) — Damodaran g <= rf rule --------------
   // Computed first: the near-term anchor falls back to it when revenue
@@ -1973,10 +2044,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // Audit item 15 (FCX-9): a one-off inside operating income (FCX's $699m
   // insurance gain, an impairment) would set the margin for every year, so
   // the seed leaves tagged one-offs out, gains and charges alike.
-  const unusual = inputs.unusualOperatingItems ?? null;
+  const unusual = inputs.unusualOperatingItems == null ? null : {
+    ...inputs.unusualOperatingItems, value: inputs.unusualOperatingItems.value * baseFactor,
+  };
   const baseOperatingIncome = ttm?.operatingIncome ?? null;
   const normalizeUnusual = unusual !== null && unusual.value !== 0 && isNum(baseOperatingIncome);
-  const ttmMarginRaw = safeDiv(normalizeUnusual ? (baseOperatingIncome as number) - unusual.value : baseOperatingIncome, startRev);
+  // The 52/53 factor cancels in ratios. Use filed amounts so rounding cannot
+  // change an existing margin path or scenario shock (Task 29's invariant).
+  const filedOperatingIncome = inputs.incomeTtm?.operatingIncome ?? null;
+  const ttmMarginRaw = safeDiv(normalizeUnusual
+    ? (filedOperatingIncome as number) - inputs.unusualOperatingItems!.value
+    : filedOperatingIncome, filedRevenue);
   if (normalizeUnusual) {
     notes.push(
       `EBIT margin seed excludes tagged one-off items of ${fmtNum(unusual.value)} from ${periodBasis} operating income ${fmtNum(baseOperatingIncome as number)}: ${unusual.basis}`,
@@ -2081,7 +2159,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     // (today's gross margin less its leanest operating-expense ratio, the
     // scenario ceiling). Without a gross margin to bound it, it stays flat.
     const improvingCeiling = regime === "improving" && marginSlope !== null
-      ? scenarioMarginCeiling(ttm, inputs.incomeHistory)
+      ? scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory)
       : null;
     const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
     const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
@@ -2130,8 +2208,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   }
 
   // --- Tax rate path: company history, never a universal domicile assumption -
-  const pretax = zeroAsNull(ttm?.incomeBeforeTax);
-  const taxExp = ttm?.incomeTaxExpense ?? null;
+  const pretax = zeroAsNull(inputs.incomeTtm?.incomeBeforeTax);
+  const taxExp = inputs.incomeTtm?.incomeTaxExpense ?? null;
   const currentTaxRate =
     pretax !== null && pretax > 0 && isNum(taxExp) && taxExp >= 0
       ? clampWithNote((taxExp / pretax) * 100, 0, 35, "effective tax rate (pct)", notes)
@@ -2290,7 +2368,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
-  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : startRev / (operatingIc ?? ic);
+  // Task 29: capital efficiency stays on reported flows; only the DCF starting flows are annualised.
+  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : filedRevenue / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
@@ -2308,9 +2387,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (D-25), ` +
       `so the ${bal.basis} balance as of ${bal.date} cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65` : ""}`;
-  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
-  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
     `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
   else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
@@ -2346,7 +2425,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // D-60: the ceiling the bull/bear margin shocks may not cross. The scenario
   // construction text states it; it does not bind the base path.
-  const scenarioCeiling = scenarioMarginCeiling(ttm, inputs.incomeHistory);
+  const scenarioCeiling = scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory);
 
   // D-65: the explicit windows start the day after the statement date, so the
   // flows are discounted to that date; the price they are compared with is a
@@ -2402,7 +2481,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       anchorEndDate: ttm.date,
       anchorStartDate: forecastYearPeriod(ttm.date, 0, "rolling-12-month")?.startDate ?? null,
     } } : {}),
-    startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` },
+    startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` +
+      (baseFactor === 1 ? "" : `; 53-week ${periodBasis} on a 52-week basis (× 52/53), all base-period flows and tagged one-offs scaled together`) },
     years,
     wacc: {
       value: inputs.waccPct,
