@@ -139,6 +139,10 @@ The merge rule: no report that main publishes becomes Blocked, and no figure is 
 - M-9: an equal `PreferredStockValue` and temporary parent part is one series tagged twice. Round 1 zeroed `preferredStock` at the entry of `runStageB`, which leaked into the financial-route key data (basis text "preferred 0", TCE, ROTE, P/TBV); round 2 removes that and applies the rule inside `temporaryEquityClaims`, so every row stays as filed and main's figure stands. The info gap `valuation.preferredOverlap` appears once per date.
 - Replay (branch2 to branch3, 149 runs): no figure, score or band moves; the only difference is DUK's `rateRegulated` info text (M-8). Against main no run went from no critical gap to a critical one.
 
+### Codex review of PR #76, fix round 4
+
+- C1: the M-9 reduction cut `total` for the claim consumers, but invested capital, sales-to-capital and ROIC add no `preferredStock`, so a twice-tagged mezzanine preferred counted zero times in capital. `temporaryEquityClaims` now also returns `capitalTotal` (the reduced `total` plus the overlap left out of it) and `capitalBasis`; the three capital sums read them. The bridge, every EV and the guards keep `total`.
+
 ### What a reader will notice beyond the figures
 
 - Forecast EPS is withheld for issuers with temporary equity, as for permanent preferred (already withheld for UNH and WMT by their book NCI). P/FCF is withheld for a redeemable preferred, an unsplit amount or a refused operand at any size, but a redeemable NCI takes the book-NCI materiality floor: small beside a smaller book NCI, or beside a null book NCI, it does not withhold P/FCF (the floor above).

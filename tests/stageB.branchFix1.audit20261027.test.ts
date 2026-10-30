@@ -325,3 +325,31 @@ describe("M-9: mezzanine preferred tagged twice is deducted once, inside the tem
     expect(JSON.stringify(pair.financialMetrics)).not.toMatch(/preferred 0/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fix round 4, C1 (PR #76 Codex review)
+// ---------------------------------------------------------------------------
+
+describe("C1: a twice-tagged mezzanine preferred still counts once in invested capital", () => {
+  const capitalOf = (out: ReturnType<typeof runStageB>) => {
+    const v = out.valuation;
+    if (v.kind !== "dcf" || v.dcf === null) throw new Error("expected a DCF");
+    return { dcf: JSON.stringify({ ev: v.dcf.enterpriseValue, rows: v.dcf.yearRows }), roic: JSON.stringify(out.returns.roic) };
+  };
+
+  it("an equal pair's DCF reinvestment (sales-to-capital) and ROIC equal the same row filed once (temporary equity alone)", () => {
+    const pair = capitalOf(preferredRun(100 * M, 100 * M));
+    const once = capitalOf(preferredRun(0, 100 * M));
+    expect(pair.dcf).toBe(once.dcf); // yearRows carry the sales-to-capital reinvestment
+    expect(pair.roic).toBe(once.roic);
+    // control: the capital differs from a run with no mezzanine at all, so the figure is not vacuous
+    expect(pair.roic).not.toBe(capitalOf(preferredRun(0, 0)).roic);
+  });
+
+  it("the claim consumers still deduct the claim once", () => {
+    const v = (o: ReturnType<typeof runStageB>) => { if (o.valuation.kind !== "dcf" || o.valuation.dcf === null) throw new Error("dcf"); return o.valuation; };
+    const pair = v(preferredRun(100 * M, 100 * M));
+    expect(pair.dcf!.bridge.preferred).toBe(100 * M);
+    expect(pair.multiples!.enterpriseValue.value).toBe(v(preferredRun(100 * M, 0)).multiples!.enterpriseValue.value);
+  });
+});

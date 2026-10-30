@@ -31,8 +31,16 @@ export interface TemporaryEquityClaims {
   redeemableNoncontrolling: number;
   /** A filed total with no parent/NCI split: deducted beside preferred, never allocated. */
   unsplit: number;
+  /** The claim amount the bridge, every EV and the ownership guards deduct: net of a mezzanine preferred already counted as `preferredStock`. */
   total: number;
+  /**
+   * The temporary equity as financing capital (invested capital, sales-to-capital, ROIC). The capital sums add no
+   * `preferredStock`, so a mezzanine preferred filed twice is still counted here, once: `total` plus the overlap left out of it.
+   */
+  capitalTotal: number;
   basis: string;
+  /** The basis of `capitalTotal`: `basis` without the overlap clause. */
+  capitalBasis: string;
   /** Why the claims cannot be admitted (a refused operand, a non-finite value, a total that contradicts its parts); null when they can. */
   refusal: string | null;
   /** Set when the redeemable preferred was filed twice (as `preferredStock` too) and is left out here: it counts once, as preferred. */
@@ -70,7 +78,7 @@ export function temporaryEquityClaims(row: TemporaryEquityRow | null | undefined
   if (!finite(preferred) || preferred <= 0 || claims.redeemablePreferred <= 0) return claims;
   if (Math.abs(preferred - claims.redeemablePreferred) > Math.max(1, 1e-6 * claims.redeemablePreferred)) return claims;
   return {
-    ...claims, redeemablePreferred: 0, total: claims.total - claims.redeemablePreferred,
+    ...claims, redeemablePreferred: 0, total: claims.total - claims.redeemablePreferred, capitalTotal: claims.total, capitalBasis: claims.basis,
     basis: `${claims.basis}, less the parent part already filed as preferredStock`,
     overlap: `preferredStock (us-gaap/PreferredStockValue) ${millions(preferred)} equals temporary equity attributable to the parent ` +
       `(us-gaap/TemporaryEquityCarryingAmountAttributableToParent) ${millions(claims.redeemablePreferred)}: the same mezzanine series is tagged twice, so it is deducted once, as preferred stock`,
@@ -83,7 +91,7 @@ function admittedClaims(row: TemporaryEquityRow | null | undefined): TemporaryEq
   const filed = FIELDS.filter((field) => row[field] !== null && row[field] !== undefined);
   if (filed.length === 0 && refused.length === 0) return null;
   const withheld = (refusal: string): TemporaryEquityClaims =>
-    ({ redeemablePreferred: 0, redeemableNoncontrolling: 0, unsplit: 0, total: 0, basis: "temporary equity refused", refusal, overlap: null });
+    ({ redeemablePreferred: 0, redeemableNoncontrolling: 0, unsplit: 0, total: 0, capitalTotal: 0, basis: "temporary equity refused", capitalBasis: "temporary equity refused", refusal, overlap: null });
   if (refused.length > 0) {
     return withheld(`temporary-equity operand refused: ${refused.map((field) => `${field}${row.fieldConflicts?.[field]?.reason ? ` (${row.fieldConflicts[field]!.reason})` : ""}`).join("; ")}`);
   }
@@ -95,7 +103,7 @@ function admittedClaims(row: TemporaryEquityRow | null | undefined): TemporaryEq
   const nci = row.temporaryEquityAttributableToNoncontrollingInterest;
   const tolerated = (a: number, b: number) => Math.abs(a - b) <= Math.max(Math.abs(a), Math.abs(b), 1) * IDENTITY_TOLERANCE_PCT / 100;
   const make = (redeemablePreferred: number, redeemableNoncontrolling: number, unsplit: number, basis: string): TemporaryEquityClaims =>
-    ({ redeemablePreferred, redeemableNoncontrolling, unsplit, total: redeemablePreferred + redeemableNoncontrolling + unsplit, basis, refusal: null, overlap: null });
+    ({ redeemablePreferred, redeemableNoncontrolling, unsplit, total: redeemablePreferred + redeemableNoncontrolling + unsplit, capitalTotal: redeemablePreferred + redeemableNoncontrolling + unsplit, basis, capitalBasis: basis, refusal: null, overlap: null });
 
   if (finite(total)) {
     if (finite(parent) && finite(nci)) {

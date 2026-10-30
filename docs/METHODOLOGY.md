@@ -1089,7 +1089,9 @@ temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttri
 equals that parent part (within max(1, 1e-6 x amount), the same date) is one mezzanine series tagged
 twice. The temporary-equity reader (`temporaryEquityClaims`, behind the bridge, every EV, invested capital, the
 guards and the own-history windows) then leaves the parent part out and counts the claim once, as the preferred
-line main already deducts; every balance row stays as filed, so the financial-route key data, the displayed
+line main already deducts (the claim consumers: the bridge, every EV and the ownership guards); invested capital,
+sales-to-capital and ROIC add no preferred line, so they read the unreduced temporary equity (`capitalTotal`), counted once, and a
+duplicate tag changes no capital figure; every balance row stays as filed, so the financial-route key data, the displayed
 statements and the field provenance are unchanged. The info gap `valuation.preferredOverlap` names both tags
 once per date; unequal amounts are both deducted (B4b's overlap territory).
 Non-controlling interest is book NCI plus redeemable NCI

@@ -72,7 +72,7 @@ function valueOf(over: Partial<ValuationBundleInputs> = {}) {
 const dcfOf = valueOf;
 
 const claims = (c: Partial<TemporaryEquityClaims>): TemporaryEquityClaims =>
-  ({ redeemablePreferred: 0, redeemableNoncontrolling: 0, unsplit: 0, basis: "test", refusal: null, ...c, total: (c.redeemablePreferred ?? 0) + (c.redeemableNoncontrolling ?? 0) + (c.unsplit ?? 0) });
+  ({ redeemablePreferred: 0, redeemableNoncontrolling: 0, unsplit: 0, basis: "test", capitalBasis: "test", refusal: null, ...c, total: (c.redeemablePreferred ?? 0) + (c.redeemableNoncontrolling ?? 0) + (c.unsplit ?? 0), capitalTotal: (c.redeemablePreferred ?? 0) + (c.redeemableNoncontrolling ?? 0) + (c.unsplit ?? 0) });
 
 const KEY = { noncontrollingIncome: 30, consolidatedProfit: 100, asOf: "2025-12-31", basis: "ttm" as const };
 const hasGap = (v: { gaps: { field: string }[] }, field: string) => v.gaps.some((g) => g.field === field);

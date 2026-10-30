@@ -259,7 +259,7 @@ export function establishedSalesToCapital(
     if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
     const temporary = temporaryEquityClaims(row);
     if (temporary !== null && temporary.refusal !== null) { refused.push(`FY${date}`); continue; }
-    const ic = debt + equity + (temporary === null ? 0 : temporary.total) - row.cashAndShortTermInvestments;
+    const ic = debt + equity + (temporary === null ? 0 : temporary.capitalTotal) - row.cashAndShortTermInvestments;
     const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
     // FIN-304: a holding that meets or exceeds the year's capital leaves no operating capital; the ratio approaches the
     // house cap from below, so the year counts at the cap (never revenue over the full capital).
@@ -2223,10 +2223,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
   const temporary = temporaryEquityClaims(bal);
-  const temporaryText = temporary !== null && temporary.total !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.total)} [${temporary.basis}]` : "";
+  const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
-      ? icDebt + equity.value + (temporary === null ? 0 : temporary.total) - bal.cashAndShortTermInvestments
+      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments
       : null;
   const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
     "valuation.dcf.salesToCapital",

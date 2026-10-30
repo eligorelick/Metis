@@ -1471,9 +1471,9 @@ function investedCapital(
     refusals.push({ reason: temporary.refusal, kind: "temporary-equity" });
     return null;
   }
-  const temporaryTotal = temporary === null ? 0 : temporary.total;
+  const temporaryTotal = temporary === null ? 0 : temporary.capitalTotal;
   if (temporary !== null) {
-    notes.push(`${b.date}: temporary equity ${millions(temporary.total)} (${temporary.basis}) added to invested capital as financing capital (redeemable preferred and redeemable noncontrolling interests are claims outside the equity fields)`);
+    notes.push(`${b.date}: temporary equity ${millions(temporary.capitalTotal)} (${temporary.capitalBasis}) added to invested capital as financing capital (redeemable preferred and redeemable noncontrolling interests are claims outside the equity fields)`);
   }
 
   // Lease basis. Under ASC 842 operating-lease cost stays in operating
