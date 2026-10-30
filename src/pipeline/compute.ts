@@ -151,6 +151,7 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
+  adjacentQuarterEnds,
   normalizeQuarterRows,
   quarterWindowViolation,
   type FiscalDatedRow,
@@ -1189,8 +1190,8 @@ export function ttmIncome(
   return ttmIncomeFromNormalized(normalized, gaps, siblings);
 }
 
-/** Filed starts take precedence; otherwise the prior row establishes the next day's start. */
-function incomePeriod(row: FmpIncomeStatementRow, previous?: FmpIncomeStatementRow): {
+/** Filed starts take precedence; quarterly inference requires an adjacent predecessor. */
+function incomePeriod(row: FmpIncomeStatementRow, previous?: FmpIncomeStatementRow, basis: "quarter" | "annual" = "quarter"): {
   periodStart: string | null; periodStartBasis: "filed" | "prior-quarter-end" | null; days: number | null;
 } {
   const end = String(row.date ?? "");
@@ -1200,6 +1201,11 @@ function incomePeriod(row: FmpIncomeStatementRow, previous?: FmpIncomeStatementR
     return { periodStart: days === null ? null : filed, periodStartBasis: days === null ? null : "filed", days };
   }
   const prior = String(previous?.date ?? "");
+  // Missing earlier history does not establish a multi-quarter duration. Annual
+  // fallback is separate: its predecessor is the prior annual period, not a quarter.
+  if (basis === "quarter" && !adjacentQuarterEnds(end, prior)) {
+    return { periodStart: null, periodStartBasis: null, days: null };
+  }
   const span = periodDays(prior, end);
   if (span === null || span <= 1) return { periodStart: null, periodStartBasis: null, days: null };
   return { periodStart: new Date(Date.parse(prior) + SPREAD_DAYS).toISOString().slice(0, 10), periodStartBasis: "prior-quarter-end", days: span - 1 };
@@ -3483,7 +3489,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     : inc0
       ? {
           date: String(inc0.date ?? ""),
-          days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date))).days,
+          days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
           basis: "annual",
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),

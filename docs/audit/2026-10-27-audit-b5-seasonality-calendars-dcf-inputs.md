@@ -247,6 +247,16 @@ guidance. The actual anchor source appears earlier in the same basis. The
 wording follows the plan; clearer wording remains a polish item, with no
 change to a reported figure.
 
+PR #77 review comment 4421559444 identified a missing-quarter gap being read
+as a 182-day quarter. The correction requires an adjacent predecessor under
+the existing 70–135-day rule before inferring a quarterly start. A missing
+predecessor now leaves the length unknown; filed starts and the separate
+annual fallback are preserved. Regressions cover unchanged year-ago revenue
+(the defect produced 100% growth), an otherwise complete TTM with missing
+earlier history, an adjacent-quarter control and the 53-week annual fallback.
+The execution ledger and PR record the final-head replay, gates and follow-up
+Codex review results for this correction.
+
 The final acceptance requires the unchanged nine-gate script, the final-head
 offline replay and a fresh independent reviewer. Their exact results and head
 identity are recorded in the execution ledger and PR, rather than claiming a

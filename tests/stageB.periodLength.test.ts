@@ -164,6 +164,50 @@ describe("week counts (FIN-301)", () => {
     expect(ttmIncome(rows)).toMatchObject({ periodStart: "2025-08-29", periodStartBasis: "prior-quarter-end", days: 371 });
     expect(ttmIncome(rows.slice(0, 4))).toMatchObject({ periodStart: null, periodStartBasis: null, days: null });
   });
+  it("leaves the oldest quarter's inferred start unknown across a missing-quarter gap", () => {
+    const rows = quarters().map(r => ({ ...r, fieldProvenance: undefined }));
+    rows[4].date = "2025-05-29"; // August is absent; May does not start the November quarter.
+    const trailing = ttmIncome(rows);
+    expect(trailing).not.toBeNull(); // The latest four quarters themselves are contiguous.
+    expect(trailing).toMatchObject({ periodStart: null, periodStartBasis: null, days: null });
+    expect(trailing!.revenue).toBe(144 * B);
+  });
+  it.each([false, true])("keeps flat year-ago revenue flat with adjacent predecessor present=%s", (adjacent) => {
+    const bundle = completeCurrencyBundle({ estimates: false });
+    bundle.builtAt = "2026-10-01T00:00:00.000Z";
+    if (!bundle.statements.incomeQuarterly.ok || !bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const dates = ["2026-07-26", "2026-04-26", "2026-01-25", "2025-10-26", "2025-07-27",
+      ...(adjacent ? ["2025-04-27"] : []), "2025-01-26"];
+    bundle.statements.incomeQuarterly.value.data.rows = dates.map(date => ({
+      ...quarters()[0], date, revenue: 100 * B, operatingIncome: 20 * B,
+      grossProfit: 40 * B, incomeBeforeTax: 18 * B, incomeTaxExpense: 4 * B,
+      netIncome: 14 * B, fieldProvenance: undefined,
+    }));
+    bundle.statements.balanceQuarterly.value.data.rows[0].date = dates[0];
+    expect(ttmIncome(bundle.statements.incomeQuarterly.value.data.rows)).toMatchObject({ days: 364, revenue: 400 * B });
+    const c = runStageB(bundle);
+    expect(c.valuation.kind).toBe("dcf");
+    if (c.valuation.kind !== "dcf") throw new Error("fixture must reach DCF");
+    const rr = c.valuation.assumptions!.revenueAnchor!.runRate!;
+    expect(rr).not.toBeNull();
+    expect(rr.latestQuarterAnnualized).toBe(400 * B);
+    expect(rr.yoyPct).toBe(0); // A January-to-July gap is not a 26-week July quarter.
+    expect(rr.lengthNote).toBe(adjacent ? null : "the quarter ending 2025-07-27: length not established; read as 13 weeks");
+  });
+  it("retains the separate 53-week annual fallback from successive annual ends", () => {
+    const bundle = completeCurrencyBundle({ estimates: false });
+    bundle.builtAt = "2026-10-01T00:00:00.000Z";
+    if (!bundle.statements.incomeAnnual.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+    bundle.statements.incomeQuarterly.value.data.rows = [];
+    const rows = bundle.statements.incomeAnnual.value.data.rows;
+    rows[0] = { ...rows[0], date: "2026-01-31", revenue: 530e6, fieldProvenance: undefined };
+    rows[1] = { ...rows[1], date: "2025-01-25", fieldProvenance: undefined };
+    const c = runStageB(bundle);
+    expect(c.valuation.kind).toBe("dcf");
+    if (c.valuation.kind !== "dcf") throw new Error("fixture must reach DCF");
+    expect(c.valuation.assumptions!.startRevenue.value).toBe(520e6);
+    expect(c.valuation.assumptions!.startRevenue.basis).toMatch(/53-week .*52-week/);
+  });
   it("annualises a 14-week quarter's interest on a 13-week basis (interestRunRate)", () => {
     expect(interestRunRate({ date: "2026-09-03", interestExpense: 1.4e9, days: 98 }, null, null)!.value).toBeCloseTo(5.2e9, 0);
     const withDebt = interestRunRate({ date: "2026-09-03", interestExpense: 1.4e9, days: 98 }, { date: "2026-09-03", debt: 40e9 }, { date: "2026-05-28", debt: 30e9 })!;

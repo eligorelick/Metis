@@ -584,8 +584,11 @@ year-over-year comparison or annualisation: an exact w-week quarter is
 multiplied by 13/w. Calendar quarters of 90–92 days read as 13 weeks; other
 lengths that are not exact multiples of seven stay unscaled. An unknown
 length stays unscaled and is disclosed as "length not established; read as
-13 weeks". A filed start takes precedence; otherwise the preceding quarter's
-end establishes the next day's start. The run-rate basis names every scaled
+13 weeks". A filed start takes precedence; otherwise only an adjacent preceding
+quarter (the existing 70–135-day quarter-end window) establishes the next day's
+start. A missing quarter leaves the length unknown, rather than treating the
+whole gap as one quarter. Annual fallback periods separately use the preceding
+annual end when a filed start is absent. The run-rate basis names every scaled
 quarter. A **53-week DCF base period** (371 days) is put on a 52-week basis
 (× 52/53): revenue, operating income, gross profit, pretax income, tax and any
 tagged one-off are scaled together, preserving the base margins. The start
