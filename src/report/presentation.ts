@@ -21,6 +21,7 @@ import { displayedClaimCoverage, displayedFactualValidation, displayedValidation
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
+import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
@@ -831,10 +832,20 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
-    rows.push({
+    // The price label may fall back to model currency; a yield cannot use that
+    // fallback as evidence that a dividend and quote share one currency.
+    const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
+    const dividendCurrency = report.filingDisclosures?.currency;
+    const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
+    rows.push(yieldCurrency.comparable ? {
       label: "Dividend yield",
       value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
       note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+    } : {
+      label: "Dividend yield", value: "withheld",
+      note: yieldCurrency.mismatch
+        ? `dividend in ${dividendCurrency}, quote in ${quotedCurrency} — no FX conversion is attempted`
+        : yieldCurrency.reason,
     });
   }
 

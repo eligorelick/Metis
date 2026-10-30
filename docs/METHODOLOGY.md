@@ -1412,6 +1412,13 @@ the filed amount, the amount after tax and the filing. The scenario paths' fixed
 bridge keeps the words "after tax" on each line. When net debt itself does not bridge, no obligation is
 deducted.
 
+**Key-data dividend yield.** The yield is computed only when the dividend's
+currency and the quote's are one known currency; otherwise the row reads
+"withheld" with the reason. The quote must carry its own currency evidence;
+the model-currency fallback used for a price label cannot establish that
+comparison. The existing quarterly dividend × 4 annualisation is unchanged;
+payment-frequency handling remains B9's.
+
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
 (equity securities are not cash), and since D-65 the EV multiples (EV/EBITDA,
