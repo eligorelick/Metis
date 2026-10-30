@@ -17,6 +17,7 @@ import { debtLikeObligationsAt, type DebtLikeObligations } from "@/pipeline/stag
 import { valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import type { CompanyRoute } from "@/types/core";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 const route: CompanyRoute = { base: "general", overlays: [], evidence: { sector: null, industry: null } };
 
@@ -356,7 +357,7 @@ describe("FIN-305: the SIC wiring and the six utility codes", () => {
   });
   const run = (sic: string | null) => {
     const b = completeCurrencyBundle({ sic: sic ?? undefined });
-    (b.edgar as unknown as Record<string, unknown>).companyFacts = { ok: true, value: { data: pensionFacts } };
+    withIssuerFacts(b, pensionFacts); // read only for a confirmed issuer
     const out = runStageB(b, { evIncludeLeases: false });
     if (out.valuation.kind !== "dcf") throw new Error("expected the DCF route");
     return out.valuation;

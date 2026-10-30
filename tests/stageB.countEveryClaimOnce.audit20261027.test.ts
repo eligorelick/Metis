@@ -21,6 +21,7 @@ import { keyDataRows } from "@/report/presentation";
 import { ReportSchema } from "@/report/schema";
 
 import { M, completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
 const usd = (end: string, val: number) => ({ end, val, accn: "0000000042-26-000001", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-13" });
@@ -76,7 +77,7 @@ function bundleFor({ lease, caption, pension = true }: Shape) {
   const fy2025 = income.value.data.rows.find((r) => r.date === "2025-12-31");
   if (fy2025 === undefined) throw new Error("fixture has FY2025");
   Object.assign(fy2025, { netIncomeConsolidated: 155 * M, netIncomeAttributableToNoncontrollingInterest: 5 * M });
-  if (pension) (b.edgar as unknown as Record<string, unknown>).companyFacts = { ok: true, value: { data: PENSION_FACTS } };
+  if (pension) withIssuerFacts(b, PENSION_FACTS as never); // read only for a confirmed issuer
   return b;
 }
 
