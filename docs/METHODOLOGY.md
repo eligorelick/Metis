@@ -2444,6 +2444,11 @@ weighted by the share of the nine signals that were evaluable, and the
 shortfall counts against the quality aspect's data completeness — two
 coin-flip signals cannot swing the aspect the way nine do.
 
+Known limitation (FIN-306): for reduced financial or eligibility-held batteries,
+the completeness ceiling still includes tests withheld by route. Quality and
+composite coverage can therefore understate the evidence the route can use.
+The proposed correction remains deferred; existing scoring behavior is preserved.
+
 | Scale | Applies to | Signals withheld |
 | --- | --- | --- |
 | 9 | general route | none |
