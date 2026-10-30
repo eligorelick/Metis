@@ -47,7 +47,7 @@ import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptio
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
-import { consensusYearsText } from "@/pipeline/stageB/valuation";
+import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
@@ -461,6 +461,18 @@ function isoCurrency(v: unknown): string | null {
 
 type PayloadFigureInput = Omit<PayloadFigure, "currency" | "period"> &
   Partial<Pick<PayloadFigure, "currency" | "period">>;
+
+/** D136/R2: a guided-quarter level is not growth over the next twelve months. */
+export function reverseDcfContextFigures(anchor: RevenueAnchor | undefined, startRevenue: number | null, asOf: string | null): PayloadFigureInput[] {
+  const overStart = (level: number | null | undefined): number | null =>
+    startRevenue !== null && startRevenue > 0 && typeof level === "number" && Number.isFinite(level) ? (level / startRevenue - 1) * 100 : null;
+  return ([
+    { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf },
+    { label: "guided-quarter revenue growth, year over year", value: anchor?.evidence?.guidedYoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedYoy", asOf },
+    { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf },
+    { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf },
+  ] satisfies PayloadFigureInput[]).filter(figure => typeof figure.value === "number" && Number.isFinite(figure.value));
+}
 
 function payloadSection(
   input: Omit<PayloadSection, "figures"> & { figures: PayloadFigureInput[] },
@@ -1086,20 +1098,12 @@ function computedSections(
       { label: "reverse-DCF implied terminal margin", value: val.reverseDcf?.impliedTerminalMarginPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
     );
     // D-60 (P0-E): the price-implied year-one growth beside the evidence it
-    // must be read against, each as growth over the same TTM start revenue, so
+    // must be read against, with guided and latest quarters on a YoY basis, so
     // "demanding" or "undemanding" is a comparison, not an adjective.
     const anchor = val.assumptions?.revenueAnchor;
     const start = val.assumptions?.startRevenue.value ?? null;
     const anchorAsOf = val.assumptions?.asOf.statements ?? null;
-    const overStart = (level: number | null | undefined): number | null =>
-      start !== null && start > 0 && typeof level === "number" && Number.isFinite(level) ? (level / start - 1) * 100 : null;
-    valFigures.push(...([
-      { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf: anchorAsOf },
-      { label: "guided run-rate growth over TTM (next-quarter guidance × 4)", value: overStart(anchor?.evidence?.guidedRunRate), unit: "%", source: "computed.valuation.reverseDcfContext.guidedRunRate", asOf: anchorAsOf },
-      { label: "guided sequential pace, annualized", value: anchor?.evidence?.guidedPacePct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedPace", asOf: anchorAsOf },
-      { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf: anchorAsOf },
-      { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf: anchorAsOf },
-    ] satisfies PayloadFigureInput[]).filter((figure) => figure.value !== null));
+    valFigures.push(...reverseDcfContextFigures(anchor, start, anchorAsOf));
   } else if (val.kind === "excess-return") {
     // WS5 review (NIT 8): the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
@@ -1188,7 +1192,7 @@ function computedSections(
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
-      ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
+      ? ["Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures."]
       : []),
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
     ...(val.kind === "excess-return" && val.excessReturn.startCoeGrid !== undefined

@@ -2886,9 +2886,13 @@ See [report evaluation](REPORT-EVALUATION.md) for immutable snapshots and
 eligible realized-outcome comparisons.
 
 The payload sets the reverse-DCF implied year-one growth beside the base-case
-year one, the guided run-rate, the guided sequential pace, consensus year one
-and the latest quarter's year-over-year growth, all over the same TTM revenue,
-so "demanding" is a comparison rather than an adjective.
+year one, the guided quarter's year-over-year growth, consensus year one
+and the latest quarter's year-over-year growth. Base-case and consensus growth
+are measured over the same TTM start revenue; each quarter is compared with
+its own year-ago quarter. No guided run-rate or sequential row is sent: a level
+dated at the guided quarter is not twelve-month growth (D136). Stored reports
+keep their D-67 labels. The thesis trigger's year-one window likewise omits
+the guided-quarter run-rate. Thus "demanding" is a comparison rather than an adjective.
 
 `src/pipeline/stageB/fairValue.ts` resolves the deterministic route value:
 FCFF DCF for general companies and excess-return equity value for financial
