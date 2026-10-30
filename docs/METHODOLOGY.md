@@ -1435,7 +1435,7 @@ instruments as claims; the note names the amount taken out. When the issuer
 files a convertible carrying value (the families `ConvertibleNotesPayable`,
 `ConvertibleDebtNoncurrent`, `ConvertibleLongTermNotesPayable`,
 `ConvertibleDebtCurrent`, `ConvertibleNotesPayableCurrent`, `ConvertibleDebt`
-or the convertible-preferred option value) with a nonzero balance within 366
+or the convertible-preferred option value) with a nonzero balance, in any reporting currency, within 366
 days before the latest quarter, but no conversion increment is filed for the
 donor period, nothing is restored: the filed count divides and the note says the
 restored increment could hold conversion shares the bridge already deducts; a

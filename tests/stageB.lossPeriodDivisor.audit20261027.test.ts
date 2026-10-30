@@ -270,3 +270,15 @@ describe("FIN-404 carried minors (Task 9 review)", () => {
     expect(note).toMatch(/the diluted count is kept so the per-share value carries the dilution the market cap omits/);
   });
 });
+
+describe("PR #76 Codex review: a convertible filed in any reporting currency", () => {
+  it("a convertible balance filed in CAD or EUR counts, so the not-restored safeguard applies", () => {
+    expect(convertibleFiledNear(factsOf({ ConvertibleNotesPayable: { unit: "CAD", points: [point("2025-12-31", 500 * M)] } }), "2026-03-31")).toBe(true);
+    expect(convertibleFiledNear(factsOf({ ConvertibleDebtNoncurrent: { unit: "EUR", points: [point("2025-12-31", 200 * M)] } }), "2026-03-31")).toBe(true);
+  });
+
+  it("control: a zero balance, or one older than 366 days, in any currency does not count", () => {
+    expect(convertibleFiledNear(factsOf({ ConvertibleNotesPayable: { unit: "CAD", points: [point("2025-12-31", 0)] } }), "2026-03-31")).toBe(false);
+    expect(convertibleFiledNear(factsOf({ ConvertibleNotesPayable: { unit: "EUR", points: [point("2024-12-31", 500 * M)] } }), "2026-03-31")).toBe(false);
+  });
+});

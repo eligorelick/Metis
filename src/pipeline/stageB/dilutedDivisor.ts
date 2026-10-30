@@ -130,9 +130,15 @@ export function conversionSharesFiled(facts: CompanyFacts | null, date: string, 
   return total;
 }
 
-/** Whether a convertible instrument is filed with a nonzero balance at or within 366 days before `date`. */
+/**
+ * Whether a convertible instrument is filed with a nonzero balance at or within 366 days before `date`, in any
+ * reporting currency: only the balance's presence matters, so every monetary unit the concept carries is read.
+ */
 export function convertibleFiledNear(facts: CompanyFacts | null, date: string): boolean {
   if (facts === null || date === "") return false;
-  return CONVERTIBLE_TAGS.some((tag) => points(facts, tag, "USD").some((p) =>
-    p.start === undefined && p.val !== 0 && days(p.end, date) >= 0 && days(p.end, date) <= 366));
+  return CONVERTIBLE_TAGS.some((tag) => {
+    const units = (facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined)?.units ?? {};
+    return Object.keys(units).some((unit) => points(facts, tag, unit).some((p) =>
+      p.start === undefined && p.val !== 0 && days(p.end, date) >= 0 && days(p.end, date) <= 366));
+  });
 }
