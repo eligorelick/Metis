@@ -1958,7 +1958,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
   const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id));
   const revenueEligibilityReason = revenueConflict
-    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and growth-dependent valuation are withheld; raw source observations are retained.` : null;
+    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
 
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
@@ -2052,6 +2052,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
+  const incomeAnnualForRevenue = revenueConflict
+    ? incomeAnnual.map(row => ({ ...row, revenue: undefined })) : incomeAnnual;
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
@@ -2147,13 +2149,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // margin is a ratio within one row — one presentation currency, whatever it
   // is — so the margin series keeps every reported year.
   const growthCompatible = computeGrowth(
-    incomeAnnual.map(row=>toGrowthIncome(revenueConflict ? { ...row, revenue: undefined } : row)),
+    incomeAnnualForRevenue.map(toGrowthIncome),
     cashflowAnnual.map(toGrowthCashFlow),
     { period: "annual" },
   );
   const growth = {
     ...growthCompatible,
-    margins: computeGrowth(incomeAnnualReported.map(toGrowthIncome), [], { period: "annual" }).margins,
+    margins: computeGrowth((revenueConflict
+      ? incomeAnnualReported.map(row => ({ ...row, revenue: undefined })) : incomeAnnualReported)
+      .map(toGrowthIncome), [], { period: "annual" }).margins,
   };
   if(revenueEligibilityReason){
     growth.notes.push(revenueEligibilityReason);
@@ -2310,7 +2314,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
 
   // --- Forensics (route-aware; module handles financial suppression) --------
   const forensicContext = withFiledForensicContext(
-    { income: incomeAnnual.map(toForensicsIncome), cashFlow: cashflowAnnual.map(toForensicsCashFlow) },
+    { income: incomeAnnualForRevenue.map(toForensicsIncome), cashFlow: cashflowAnnual.map(toForensicsCashFlow) },
     companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
     str(inc0?.reportedCurrency),
   );
@@ -2354,6 +2358,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (forensicEquityScope.status === "unresolved") {
     forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
   }
+  if (revenueEligibilityReason) {
+    forensics.gaps.push({ field: "forensics.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
+  }
 
   // --- Technicals ------------------------------------------------------------
   // EOD rows are date DESC in the bundle; the module re-sorts ASC defensively.
@@ -2375,7 +2382,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
       (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
-    incomeAnnual: revenueConflict ? incomeAnnual.map(row=>({...row,revenue:undefined})) : incomeAnnual,
+    incomeAnnual: incomeAnnualForRevenue,
     balanceAnnual,
     cashflowAnnual,
     incomeQuarterly,
@@ -2567,12 +2574,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Removing the irregular-spacing veto left scenarioDispersion with no
   // protection against a duplicated period, which contributes a zero-length
   // interval and a repeated observation to the volatility estimate.
-  const projNorm = normalizeQuarterRows(incomeAnnual);
+  const projNorm = normalizeQuarterRows(incomeAnnualForRevenue);
   const projectionPeriodGaps: ManifestEntry[] = projNorm.rejected.map(({ period, reason }) => ({
     field: "projections.incomeStatement.period",
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
     severity: "warn" as const,
   }));
+  if (revenueEligibilityReason) {
+    projectionPeriodGaps.push({ field: "projections.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
+  }
   const disclosedProjectionInterest = (row: FmpIncomeStatementRow): boolean => {
     const evidence = row.fieldProvenance?.interestExpense;
     return evidence?.source === "edgar" && evidence.periodEnd === isoDay(row.date) && currencies.model !== null &&

@@ -152,6 +152,14 @@ that every field can enter a calculation. A failed fetch, a successful empty
 response, an unresolved share basis, an ambiguous restatement and an unsupported
 business-model metric have different reasons in the missing-data manifest.
 
+A failed annual revenue cross-check with unreconciled definitions withholds
+annual revenue from growth and margin series, scenario dispersion and projection
+history, revenue-based forensic inputs and growth-dependent valuation. The
+forensic and projection gaps name that refusal; raw source observations remain.
+This mask does not change quarterly revenue, independent financial-route metrics,
+capital allocation or returns calculations. Runs without a failed FY revenue
+check retain their existing inputs.
+
 The keyless layer in `src/pipeline/keyless.ts` requires EDGAR registrant
 confirmation before substituting issuer data. Under `auto`, usable FMP rows
 stand and EDGAR can append strictly older whole rows per statement family;
