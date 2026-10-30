@@ -181,9 +181,11 @@ export function issuerEconomicDilutedShares(
   scope: EconomicEquityScope,
   evidence: readonly EconomicShareEvidence[],
   counts: WeightedShareCounts,
+  /** `countNotFiled`: the count was substituted or is a loss period's basic count (FIN-404), so it is not called the filed count. A kept filed count (not restored) is filed. */
+  options: { countNotFiled?: boolean } = {},
 ): { shares: number; basis: string } | { shares: null; reason: string } | null {
   if (scope.status !== "resolved" || !evidence.some(row => row.classes.length > 1)) return null;
-  const refuse = (why: string) => ({ shares: null, reason: `The filed diluted count is not established on the all-class economic basis: ${why}.` });
+  const refuse = (why: string) => ({ shares: null, reason: `The ${options.countNotFiled === true ? "" : "filed "}diluted count is not established on the all-class economic basis: ${why}.` });
   const total = scope.economicShares;
   const countDay = scope.shareCountAsOf;
   const priceDay = scope.priceAsOf;
@@ -216,7 +218,7 @@ export function issuerEconomicDilutedShares(
   const scaled = unit === 1 ? "" : ` × ${unit} units per share`;
   return { shares: diluted * unit,
     basis: `Diluted shares on the issuer-economic basis: the basic weighted-average count ${count(basic)}${scaled} for the period ending ${periodEnd} ` +
-      `matches the all-class economic share total of ${count(total)} quoted-share units at ${countDay} within ${pct}, so the filed diluted count ` +
+      `matches the all-class economic share total of ${count(total)} quoted-share units at ${countDay} within ${pct}, so the ${options.countNotFiled === true ? "" : "filed "}diluted count ` +
       `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} spans every class (audit 2026-10-22 B-37).` };
 }
 

@@ -26,7 +26,9 @@ import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations"
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
-import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
+import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
@@ -62,6 +64,12 @@ export const S2C_HISTORY_MIN_YEARS = 3;
  * would repeat in every year, and the house floor stands.
  */
 export const S2C_HISTORY_MIN_RATIO = 0.1;
+/**
+ * D-65: the clause of the long-term-investments provenance that says what the sales-to-capital denominator does with
+ * the holding. `compute.ts` writes it into the filed provenance; the bridge swaps it for the exceed wording when the
+ * holding meets or exceeds invested capital (FIN-304), where it would be untrue.
+ */
+export const LONG_TERM_INVESTMENTS_REMOVED_CLAUSE = "the amount the sales-to-capital denominator removes as non-operating";
 export const TERMINAL_G_CAP_PCT = 2.5;
 
 /**
@@ -177,6 +185,24 @@ const fmtNum = (v: number): string => String(Math.round(v * 100) / 100);
 /** An exact amount for reader text, digits grouped ("42,783,000,000"), at fmtNum's two-decimal precision. */
 const fmtGrouped = (v: number): string => (Math.round(v * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
+/**
+ * Audit 2026-10-27 FIN-109: the lease total when it is wholly a filed finance-lease liability. No operating slice is
+ * tagged, and the finance-lease liability reconciles to the total within `leaseDebtConflict`'s tolerance, so there is
+ * nothing to remove and nothing unknown in the mix. Text only: the figures are those of a total with no operating slice.
+ */
+export function financeLeaseOnlyTotal(total: number | null, operating: number | null | undefined, finance: number | null | undefined, conflict: string | null): number | null {
+  if (total === null || total <= 0 || conflict !== null || isNum(operating) || !isNum(finance) || finance <= 0) return null;
+  return Math.abs(finance - total) <= Math.max(1, Math.abs(total) * 1e-6) ? total : null;
+}
+
+/**
+ * FIN-109: the EV basis clause for a finance-lease-only total. One wording for the live basis and for the display-time
+ * correction of a stored report (`withLegacyBridgeMethod`, D-67).
+ */
+export function financeLeaseOnlyEvClause(total: number): string {
+  return `a total lease liability of ${millions(total)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is`;
+}
+
 const gapEntry = (
   field: string,
   reason: string,
@@ -188,41 +214,77 @@ const gapEntry = (
  * newest five fiscal years with revenue and positive invested capital filed
  * for the same date. Invested capital is measured as the DCF measures the
  * current balance: debt (excluding operating leases when the current balance
- * does) + consolidated equity - cash and short-term investments - long-term
- * investments while capital remains. Fewer than three years: no ratio.
+ * does) + temporary equity (FIN-119-V1: redeemable preferred and redeemable
+ * NCI are financing capital) + consolidated equity - cash and short-term
+ * investments - long-term investments, a year whose holding meets or exceeds its
+ * capital counting at the house cap (FIN-304). A year whose
+ * temporary equity is refused is skipped with a note, never zero-filled.
+ * Fewer than three years: no ratio.
+ *
+ * FIN-303: one median is on one lease basis, the current balance's (D-25). The
+ * FCX-1 mode (`fcx1Excluded`) subtracts every row's disclosed operating lease
+ * and skips a row without one. Otherwise, with the lease-inclusive switch set
+ * or a current row that keeps its lease (its scope unproven), every row keeps
+ * its debt as reported; else each row subtracts `operatingLeaseOutOfDebt`, and
+ * a row with an operating lease the predicate cannot prove inside its total
+ * debt is left out with a note, never kept lease-inclusive beside
+ * lease-excluded years.
  */
-function establishedSalesToCapital(
+export function establishedSalesToCapital(
   incomeHistory: DcfIncomeRow[],
   capitalHistory: DcfBalanceRow[] | null,
-  leaseExcluded: boolean,
+  lease: { fcx1Excluded: boolean; includeLeasesInEv: boolean; currentRowExcludesLease: boolean },
 ): { ratio: number | null; basis: string } {
   const revenueByDate = new Map(incomeHistory.flatMap((r) => isNum(r.revenue) && r.revenue > 0 ? [[r.date.slice(0, 10), r.revenue] as const] : []));
   const years = new Map<string, number>();
+  const refused: string[] = [];
+  const unprovenLease = new Map<string, string>();
+  const cappedYears = new Set<string>();
+  const removeLease = !lease.includeLeasesInEv && lease.currentRowExcludesLease;
   for (const row of capitalHistory ?? []) {
     const date = row.date.slice(0, 10);
     const revenue = revenueByDate.get(date);
-    const debt = isNum(row.totalDebt) ? row.totalDebt - (leaseExcluded ? (isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN) : 0) : NaN;
+    let leaseOut = 0;
+    if (lease.fcx1Excluded) leaseOut = isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN;
+    else if (removeLease) {
+      const proof = operatingLeaseOutOfDebt(row, false);
+      if (proof.clause !== null) {
+        if (revenue !== undefined && !unprovenLease.has(date)) unprovenLease.set(date, proof.clause);
+        continue;
+      }
+      leaseOut = proof.amount;
+    }
+    const debt = isNum(row.totalDebt) ? row.totalDebt - leaseOut : NaN;
     const equity = resolveConsolidatedEquity(row).value;
     if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
-    const ic = debt + equity - row.cashAndShortTermInvestments;
+    const temporary = temporaryEquityClaims(row);
+    if (temporary !== null && temporary.refusal !== null) { refused.push(`FY${date}`); continue; }
+    const ic = debt + equity + (temporary === null ? 0 : temporary.capitalTotal) - row.cashAndShortTermInvestments;
     const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
-    const operating = ic - lti > 0 ? ic - lti : ic;
-    if (operating > 0) years.set(date, revenue / operating);
+    // FIN-304: a holding that meets or exceeds the year's capital leaves no operating capital; the ratio approaches the
+    // house cap from below, so the year counts at the cap (never revenue over the full capital).
+    if (ic > 0) {
+      years.set(date, ic - lti > 0 ? revenue / (ic - lti) : S2C_CLAMP[1]);
+      if (ic - lti <= 0) cappedYears.add(date);
+    }
   }
   const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
+  const atCap = (d: string) => cappedYears.has(d) ? " (house cap: holding >= capital, FIN-304)" : "";
+  const skipped = (refused.length === 0 ? "" : `; ${refused.join(", ")} left out: a temporary-equity operand was refused, so that year's invested capital is unknown (FIN-119-V1)`) +
+    [...unprovenLease].filter(([d]) => !years.has(d)).map(([d, note]) => `; FY${d} left out: ${note} - the year cannot be put on the current balance's lease-excluded basis, so it is not kept lease-inclusive beside lease-excluded years (FIN-303)`).join("");
   if (newest.length < S2C_HISTORY_MIN_YEARS) {
-    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)` };
+    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)${skipped}` };
   }
   const ratio = medianOf(newest.map(([, r]) => r)) as number;
-  const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x`).join(", ");
+  const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x${atCap(d)}`).join(", ");
   if (ratio < S2C_HISTORY_MIN_RATIO) {
-    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)` };
+    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)${skipped}` };
   }
   return {
     ratio,
     basis: ratio < S2C_CLAMP[0]
-      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)`
-      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)`,
+      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)${skipped}`
+      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)${skipped}`,
   };
 }
 
@@ -694,6 +756,13 @@ export interface DcfBalanceRow {
   /** Consolidated equity is used once; otherwise parent equity plus signed NCI. */
   totalEquity?: number | null;
   minorityInterest?: number | null;
+  /** FIN-119-V1: temporary equity is financing capital (read through `temporaryEquityClaims`; a refusal rides in `fieldConflicts`). */
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
+  /** The preferred line as filed; `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9). */
+  preferredStock?: number | null;
+  fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   cashAndShortTermInvestments: number | null;
   /** D-60: non-operating long-term investments, removed from the sales-to-capital denominator when reported. */
   longTermInvestments?: number | null;
@@ -722,6 +791,12 @@ export interface DcfRevenueTrend {
 }
 
 export interface DcfAssumptionInputs {
+  /**
+   * FIN-303 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s `evIncludeLeases`).
+   * Absent is false, the default: sales-to-capital and its A-2 history remove the proven operating-lease slice
+   * from debt exactly when the equity bridge does.
+   */
+  includeLeasesInEv?: boolean;
   /** 3y revenue CAGR in percent (computed upstream from statements); null when unavailable. */
   revenueCagr3yPct: number | null;
   /** 5y revenue CAGR in percent — one of the growth-anchor methods (D-18). */
@@ -783,6 +858,11 @@ export interface DcfAssumptionInputs {
   incomeHistory: DcfIncomeRow[];
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
+  /**
+   * FIN-103: why `balance` is not dated at the statement date, when it is not
+   * (`dcfBridgeRow`), so the basis and the info gap state only what was checked.
+   */
+  bridgeCause?: { cause: "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused"; detail: string | null };
   /**
    * Audit 2026-10-22 A-2: annual balance rows (any order), measured like
    * `balance`. With the income history they show whether the issuer's own
@@ -1197,8 +1277,15 @@ export interface DcfAssumptions {
    * D-65: long-term investments the sales-to-capital denominator removed as
    * non-operating (D-60). The equity bridge adds back exactly this amount, so
    * an asset left out of operating capital is never left out of value too.
+   * FIN-304: recorded whenever the balance carries a holding; `basis` is set
+   * only when the denominator does not remove the holding, and it replaces, in
+   * the bridge line's provenance, the clause saying it does. Either the holding
+   * meets or exceeds a positive invested capital, so nothing is left to remove
+   * from operating capital and sales-to-capital takes the house cap (the bridge
+   * still adds the holding back), or the lease-emptied path (capital already
+   * non-positive) takes the issuer's own history for the ratio.
    */
-  nonOperatingInvestments?: { value: number; balanceDate: string };
+  nonOperatingInvestments?: { value: number; balanceDate: string; basis?: string };
   /**
    * AMZN audit 2026-10-20: the rate at which the bridge taxes the non-operating
    * investments it adds — the marginal-rate floor the terminal tax converges
@@ -2126,43 +2213,102 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     return { assumptions: null, notes, gaps };
   }
   const leaseExcluded = leaseDebtScopeRefusal(bal, true) !== null && bal !== null && isNum(bal.operatingLeaseLiability);
-  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : 0) : null;
+  // FIN-303 / FIN-303-V1 (D-25, D-97 item 3): on the default switch the operating-lease slice leaves debt here exactly
+  // when the equity bridge removes it (`operatingLeaseOutOfDebt`: positive, inside total debt, scope proven). The
+  // FCX-1 partial-coverage path above is unchanged and runs first.
+  const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null, clause: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
+  const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
+  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
   const equity = resolveConsolidatedEquity(bal ?? {});
+  // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
+  // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
+  const temporary = temporaryEquityClaims(bal);
+  const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
-      ? icDebt + equity.value - bal.cashAndShortTermInvestments
+      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments
       : null;
-  if (bal === null || ic === null || ic <= 0) {
-    gaps.push(
-      gapEntry(
-        "valuation.dcf.salesToCapital",
-        `${ic === null ? "balance-sheet fields missing for invested capital" : "invested capital <= 0"} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
-        "critical",
-      ),
-    );
+  const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
+    "valuation.dcf.salesToCapital",
+    `${lead} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
+    "critical",
+  );
+  if (bal === null || ic === null) {
+    gaps.push(mainCapitalGap("balance-sheet fields missing for invested capital"));
+    return { assumptions: null, notes, gaps };
+  }
+  // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
+  // positive once the proven operating lease leaves debt) takes the issuer's own history on the same lease basis, or
+  // the DCF is withheld. It never falls back to the lease-inclusive (mixed) basis. A non-positive capital with no lease
+  // removed keeps main's gap text.
+  let emptiedHistory: ReturnType<typeof establishedSalesToCapital> | null = null;
+  if (ic <= 0) {
+    if (!(leaseOut.amount > 0 && ic + leaseOut.amount > 0)) {
+      gaps.push(mainCapitalGap("invested capital <= 0"));
+      return { assumptions: null, notes, gaps };
+    }
+    const history = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
+    if (history.ratio === null) {
+      // Warn, not critical (B4a final review I-1; D-135 OD-3): the DCF is withheld, but main published one on the
+      // lease-inclusive capital, and a critical gap would block the report.
+      gaps.push(gapEntry("valuation.dcf.salesToCapital",
+        `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
+        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn"));
+      return { assumptions: null, notes, gaps };
+    }
+    emptiedHistory = history;
+  }
+  // Only after main's critical checks (a refused claim is zero in `ic` above, so those read as at main): a refused
+  // temporary-equity operand withholds the DCF at warn, never critical (controller ruling, Task 3, 2026-10-29): the
+  // claim exists, only its amount is disputed, and a critical gap would block the report.
+  if (temporary !== null && temporary.refusal !== null) {
+    // B4a final review M-1: this return skips `valueCompany`'s bridge lease checks, which run only for a built DCF, so a
+    // row with a lease conflict or a lease-scope refusal as well keeps main's critical gaps beside the warn.
+    const leaseConflict = leaseDebtConflict(bal);
+    if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
+    const scopeRefusal = leaseDebtScopeRefusal(bal, inputs.includeLeasesInEv === true);
+    if (scopeRefusal) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", scopeRefusal, "critical"));
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
     return { assumptions: null, notes, gaps };
   }
   // D-60: long-term investments (strategic and non-marketable stakes, long
   // marketable securities) are non-operating: their income is below the EBIT
   // this DCF projects, so they are not capital the operating path earns on.
   // NVDA's $51.2B of them cut sales-to-capital from 2.58 to 1.80. When
-  // removing them would leave no operating capital the D-58 basis stands.
+  // removing them would leave no operating capital (FIN-304), the operating
+  // ratio is unbounded and takes the house cap, and the bridge still adds the
+  // holding back. (Capital emptied by the lease removal is `emptiedHistory`'s.)
   const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
-  const rawS2c = startRev / (operatingIc ?? ic);
+  const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
+  const exceedsBasis = holdingExceedsCapital
+    ? `operating invested capital ${millions(ic - (lti as number))} is not positive once long-term investments ${millions(lti as number)} are removed, so the operating ratio is unbounded and takes the house cap ${S2C_CLAMP[1]} (the limit it approaches from below); the holding is added back in the bridge (house rule D-135, FIN-304)`
+    : null;
+  const exceedsHoldingClause = `the holding meets or exceeds operating invested capital, so sales-to-capital takes the house cap ${S2C_CLAMP[1]} and the holding is added back here`;
+  const emptiedHoldingClause = "sales-to-capital takes the issuer's own history because invested capital is not positive once the operating lease leaves debt";
+  const capitalDefinition = `invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason})`;
   // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
   // so it yields to a lower ratio the issuer's own filings establish.
-  const s2cHistory = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseExcluded);
+  const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
+  const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : startRev / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
     : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
-  let s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
-    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
-      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
+  let s2cBasis = exceedsBasis !== null
+    ? `sales-to-capital is the house cap ${S2C_CLAMP[1]}, not a measured ratio; ${capitalDefinition} less long-term investments: ${exceedsBasis}`
+    : operatingIc !== null
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
+    : `${periodBasis} revenue / ${capitalDefinition}`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
-  if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+  else if (leaseOut.amount > 0) s2cBasis += ` The operating-lease liability ${millions(leaseOut.amount)} removed: its cost is inside the EBIT this DCF projects (ASC 842; D-25).`;
+  else if (leaseOut.clause !== null) s2cBasis += ` The operating lease is not removed from invested capital: ${leaseOut.clause}; total debt is used as reported.`;
+  else if (leaseBasis.includeLeasesInEv && isNum(bal.operatingLeaseLiability) && bal.operatingLeaseLiability > 0) s2cBasis += ` The operating lease ${millions(bal.operatingLeaseLiability)} is kept in invested capital: METIS_EV_INCLUDE_LEASES keeps it in debt, as the equity bridge does.`;
+  if (emptiedHistory !== null) {
+    s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (D-25), ` +
+      `so the ${bal.basis} balance as of ${bal.date} cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}` +
+      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65` : ""}`;
+  } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
   else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
@@ -2208,6 +2354,30 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // date. The bridge stays at the statement-date balance: cash generated since
   // then is inside the first window's flows, not double counted.
   const statementDate = ttm?.date ?? null;
+  // FIN-103: the bridge row is the statement-date balance when one exists
+  // (`dcfBridgeRow`); when none does, the text names the balance actually used
+  // and which side of the statement date it falls on, never the D-65 sentence.
+  const bridgeOffsetDays = statementDate !== null ? daysBetween(statementDate, bal.date.slice(0, 10)) : null;
+  const bridgeDate = bal.date.slice(0, 10);
+  const bridgeCause = inputs.bridgeCause?.cause;
+  const bridgeDetail = inputs.bridgeCause?.detail ?? null;
+  const keeps = bridgeCause === "statement-row-refused" || bridgeCause === "anchor-refused";
+  const dayClause = bridgeOffsetDays === null || bridgeOffsetDays === 0 ? null
+    : bridgeOffsetDays > 0
+      ? `${bridgeOffsetDays} days after the statement date; flows between the two dates are in both that balance and the first window`
+      : `${-bridgeOffsetDays} days before the statement date; flows between the two dates are in neither that balance nor the first window`;
+  const bridgeBalanceText = dayClause === null ? null : `the equity bridge ${keeps ? "keeps" : "uses"} the ${bridgeDate} balance, ${dayClause}`;
+  if (bridgeBalanceText !== null) {
+    const lead = bridgeCause === "none-filed" ? `no balance sheet is filed at the statement date ${statementDate}`
+      : bridgeCause === "incomplete" ? `the balance sheet at the statement date ${statementDate} lacks ${bridgeDetail ?? "an operand the bridge reads"}`
+      : bridgeCause === "statement-row-refused" ? `the balance sheet at the statement date ${statementDate} is withheld (${bridgeDetail ?? "refused"})`
+      : bridgeCause === "anchor-refused" ? null
+      : `the balance sheet the bridge reads is not dated at the statement date ${statementDate}`;
+    gaps.push(gapEntry("valuation.dcf.bridgeBalanceDate",
+      lead === null
+        ? `the market EV's balance (${bridgeDate}) is withheld${bridgeDetail ? ` (${bridgeDetail})` : ""}, so the equity bridge keeps it and the DCF stays withheld as before; that balance is ${dayClause}`
+        : `${lead}; ${bridgeBalanceText}`, "info"));
+  }
   const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
   let valuationDate: DcfAssumptions["valuationDate"] | undefined;
   if (elapsedDays !== null && elapsedDays > 0 && elapsedDays <= MAX_ROLL_FORWARD_DAYS) {
@@ -2217,12 +2387,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       value: inputs.valuationDate as string,
       elapsedYears,
       basis: `cash flows are discounted from the statement date ${statementDate} and rolled forward ${elapsedDays} days to the quote date ${inputs.valuationDate} ` +
-        `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; the equity bridge stays at the ${statementDate} balance, ` +
-        "whose later cash generation is inside the first window's flows (house rule D-65)",
+        `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; ${bridgeBalanceText ?? `the equity bridge stays at the ${statementDate} balance, ` +
+        "whose later cash generation is inside the first window's flows"} (house rule D-65)`,
     };
     notes.push(`Valuation date: ${valuationDate.basis}`);
   } else if (elapsedDays !== null && elapsedDays > MAX_ROLL_FORWARD_DAYS) {
-    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date (house rule D-65)`);
+    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date${bridgeBalanceText === null ? "" : `, and ${bridgeBalanceText}`} (house rule D-65)`);
     gaps.push(gapEntry("valuation.dcf.valuationDate", `quote ${elapsedDays} days after the statement date — value not rolled forward`, "info"));
   }
 
@@ -2285,7 +2455,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...(operatingIc !== null && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
+    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsHoldingClause } : emptiedHistory !== null ? { basis: emptiedHoldingClause } : {}) } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
@@ -2329,13 +2499,30 @@ export interface DcfRunOptions {
   nonOperatingAssets?: number | null;
   /** D-65: what `nonOperatingAssets` is made of, for the bridge disclosure; the engine reads only the total. */
   nonOperatingComponents?: NonOperatingAssetComponent[] | null;
+  /**
+   * FIN-119: the temporary-equity claims already folded into `preferred` and
+   * `minorityInterest`. Disclosure only, so every re-run of the bridge (D-26)
+   * carries what the base bridge deducted.
+   */
+  temporaryEquity?: TemporaryEquityDisclosure | null;
+}
+
+/** FIN-119: the redeemable claims inside a bridge's `preferred` and `minorityInterest` (never added again). */
+export interface TemporaryEquityDisclosure {
+  redeemablePreferred: number;
+  redeemableNoncontrolling: number;
+  unsplit: number;
+  basis: string;
 }
 
 /**
  * D-65: one non-operating asset the equity bridge adds, at its filed carrying
  * or fair value. The "investment-tax" line is negative: the tax a sale of the
  * others would owe (AMZN audit 2026-10-20). So is a "debt-like-obligation":
- * a filed asset-retirement or environmental liability (audit 2026-10-22 E-7).
+ * a filed asset-retirement, environmental, pension and OPEB, loss-contingency
+ * or contingent-consideration liability (audit 2026-10-22 E-7, audit 2026-10-27
+ * FIN-305), whose value is the AFTER-TAX claim: the filed amount times one
+ * minus the D-98 marginal rate.
  */
 export interface NonOperatingAssetComponent {
   kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
@@ -2396,6 +2583,8 @@ export interface DcfBridge {
   dilutedShares: number | null;
   minorityInterest: number | null;
   preferred: number | null;
+  /** FIN-119: the temporary-equity claims inside `preferred` / `minorityInterest` above (disclosure only). */
+  temporaryEquity?: TemporaryEquityDisclosure;
   /** D-60: present only when the bridge added a sourced non-operating asset. */
   nonOperatingAssets?: number;
   /** D-65: the components of `nonOperatingAssets`, when more than the D-60 equity securities are known. */
@@ -2446,6 +2635,12 @@ export interface DcfResult {
    * because NCI's earnings key is unestablished (no other gate had withheld it).
    */
   noncontrollingKeyWithheld?: string;
+  /**
+   * FIN-119: set only when the per-share value was withheld because a
+   * temporary-equity claim is refused, or an unsplit total meets the E-5
+   * earnings key (no earlier gate had withheld it).
+   */
+  temporaryEquityWithheld?: string;
 }
 
 /** A domain test the base DCF failed (audit 2026-10-22 B-29). */
@@ -2490,6 +2685,7 @@ export function dcfDomainFailure(dcf: DcfResult): DcfDomainFailure | null {
   const reason =
     `FCFF DCF outside its domain: ${failures.map((f) => f.detail).join("; ")}. ` +
     "The per-share value, sensitivity grids, reverse DCF and scenario targets are withheld, and the valuation grade does not use the DCF";
+  // `rawPerShare` is null when an unsplit temporary-equity total met the earnings key (the per share was already withheld); nothing reads it.
   return { status: "outside", failures, rawPerShare: dcf.perShare, reason };
 }
 
@@ -2671,7 +2867,8 @@ function bridgeToPerShare(
   preferred: number | null = null,
   nonOperatingAssets: number | null = null,
   noncontrollingEarningsShare: number | null = null,
-): { equityValue: number | null; perShare: number | null; noncontrollingDeducted: number; noncontrollingBasis: "book" | "earnings-share" } {
+  unsplitTemporaryEquity: number = 0,
+): { equityValue: number | null; perShare: number | null; noncontrollingDeducted: number; noncontrollingBasis: "book" | "earnings-share"; unsplitWithheld?: true } {
   const book = isNum(minorityInterest) ? minorityInterest : 0;
   if (!isNum(netDebt)) {
     gaps.push(
@@ -2691,7 +2888,24 @@ function bridgeToPerShare(
     );
     return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
   }
+  // FIN-119: an unsplit temporary-equity total may be NCI the earnings key already sizes, so
+  // wherever the deduction is on the earnings share (the base, a grid cell, a scenario path) it is withheld.
+  if (unsplitTemporaryEquity !== 0 && basis === "earnings-share") {
+    return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis, unsplitWithheld: true };
+  }
   return { equityValue, perShare: equityValue / shares, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
+}
+
+/** FIN-119: the sentence a grid, reverse DCF or scenario note carries when its own cells or paths were withheld by the unsplit rule. */
+export const UNSPLIT_CELLS_LEAD = "Cells where the noncontrolling deduction takes the profit share are withheld";
+export function unsplitCellsNote(unsplit: number): string {
+  return `${UNSPLIT_CELLS_LEAD}: the filed temporary-equity total of ${millions(unsplit)} is not split between redeemable preferred and redeemable noncontrolling interests, so it could be counted twice.`;
+}
+
+/** FIN-119: why the per share is withheld when an unsplit temporary-equity total meets the E-5 earnings key. */
+function unsplitEarningsKeyReason(unsplit: number): string {
+  return `The filed temporary equity of ${millions(unsplit)} has no parent/NCI split, and the noncontrolling interest is sized on its share of earnings, so the unsplit amount may be noncontrolling interest that the earnings key already counts. ` +
+    "The per-share value is withheld rather than deduct it twice (FIN-119).";
 }
 
 /**
@@ -2795,6 +3009,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     dilutedShares: opts.dilutedShares,
     minorityInterest: opts.minorityInterest ?? null,
     preferred: opts.preferred ?? null,
+    ...(opts.temporaryEquity ? { temporaryEquity: { ...opts.temporaryEquity } } : {}),
     ...(isNum(opts.noncontrollingEarningsShare) ? {
       noncontrollingEarningsShare: opts.noncontrollingEarningsShare,
       noncontrollingEarningsAsOf: opts.noncontrollingEarningsAsOf ?? null,
@@ -2822,7 +3037,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
       gaps: [gapEntry("valuation.dcf", "degenerate WACC input", "critical")],
     };
   }
-  const { equityValue, perShare, noncontrollingDeducted, noncontrollingBasis } = bridgeToPerShare(
+  const { equityValue, perShare, noncontrollingDeducted, noncontrollingBasis, unsplitWithheld } = bridgeToPerShare(
     core.enterpriseValue,
     opts.netDebt,
     opts.dilutedShares,
@@ -2831,8 +3046,14 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     opts.preferred ?? null,
     opts.nonOperatingAssets ?? null,
     opts.noncontrollingEarningsShare ?? null,
+    opts.temporaryEquity?.unsplit ?? 0,
   );
   const notes = [...core.notes];
+  let temporaryEquityWithheld: string | undefined;
+  if (unsplitWithheld === true) {
+    temporaryEquityWithheld = unsplitEarningsKeyReason(opts.temporaryEquity!.unsplit);
+    gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", temporaryEquityWithheld, "warn"));
+  }
   // E-5: book NCI, or a profit share valueCompany sized from positive NCI income (book may be zero).
   const noncontrollingClaim = (isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || isNum(opts.noncontrollingEarningsShare);
   if (noncontrollingClaim || (isNum(opts.preferred) && opts.preferred !== 0)) {
@@ -2857,6 +3078,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     yearRows: core.yearRows,
     notes,
     gaps,
+    ...(temporaryEquityWithheld !== undefined ? { temporaryEquityWithheld } : {}),
   };
 }
 
@@ -2931,6 +3153,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
     `terminal ROIC held at WACC ${terminalExcessPp >= 0 ? "+" : "−"} ${fmtNum(Math.abs(terminalExcessPp))}pp in every cell (the house convention defines it relative to the discount rate)`,
   );
   let withheld = 0;
+  let unsplitCells = 0;
   const perShare = waccPcts.map((w) => {
     const cellAssumptions: DcfAssumptions = {
       ...assumptions,
@@ -2951,7 +3174,9 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         base.preferred ?? null,
         base.nonOperatingAssets ?? null,
         base.noncontrollingEarningsShare ?? null,
+        base.temporaryEquity?.unsplit ?? 0,
       );
+      if (bridged.unsplitWithheld === true) unsplitCells += 1;
       if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
         withheld += 1;
         return null;
@@ -2960,6 +3185,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
     });
   });
   notes.push(...gridDomainNote(withheld));
+  if (unsplitCells > 0) notes.push(unsplitCellsNote(base.temporaryEquity!.unsplit));
   return { waccPcts, gTermPcts, perShare, notes, gaps };
 }
 
@@ -2998,6 +3224,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       : `cells whose margin would exceed ${fmtNum(ceiling)}% (gross margin less the leanest operating-expense ratio) above the base path are withheld`,
   ];
   let withheld = 0;
+  let unsplitCells = 0;
   const perShare = growthShiftsPp.map((dg) =>
     marginShiftsPp.map((dm) => {
       const margins = assumptions.ebitMarginPath.value.map((m) => m + dm);
@@ -3006,7 +3233,8 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       const core = dcfCore(assumptions, base.waccPct, { growthPathPct: growth, ebitMarginPathPct: margins, guardMode: "clamp" });
       if (core === null) return null;
       const bridged = bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
-        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null);
+        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null, base.temporaryEquity?.unsplit ?? 0);
+      if (bridged.unsplitWithheld === true) unsplitCells += 1;
       if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
         withheld += 1;
         return null;
@@ -3015,6 +3243,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
     }),
   );
   notes.push(...gridDomainNote(withheld));
+  if (unsplitCells > 0) notes.push(unsplitCellsNote(base.temporaryEquity!.unsplit));
   return { growthShiftsPp, marginShiftsPp, perShare, notes };
 }
 
@@ -3147,6 +3376,23 @@ export function reverseDcf(
   assumptions: DcfAssumptions,
   opts: DcfRunOptions,
 ): ReverseDcfResult {
+  const hit = { unsplit: false };
+  const result = reverseDcfCore(currentPrice, assumptions, opts, hit);
+  // FIN-119: a candidate path whose deduction takes the profit share while an unsplit total is deducted is withheld from the solve.
+  if (hit.unsplit) {
+    const note = unsplitCellsNote(opts.temporaryEquity!.unsplit);
+    result.notes.push(note);
+    result.gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", note, "warn"));
+  }
+  return result;
+}
+
+function reverseDcfCore(
+  currentPrice: number | null,
+  assumptions: DcfAssumptions,
+  opts: DcfRunOptions,
+  hit: { unsplit: boolean },
+): ReverseDcfResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   const none = (why: string): ReverseDcfResult => {
@@ -3172,7 +3418,7 @@ export function reverseDcf(
   const perShareAt = (overrides: Omit<DcfCoreOverrides, "guardMode">): number | null => {
     const core = dcfCore(assumptions, opts.waccPct, { ...overrides, guardMode: "clamp" });
     if (core === null) return null;
-    return bridgeToPerShare(
+    const bridged = bridgeToPerShare(
       core.enterpriseValue,
       opts.netDebt,
       opts.dilutedShares,
@@ -3181,7 +3427,10 @@ export function reverseDcf(
       opts.preferred ?? null,
       opts.nonOperatingAssets ?? null,
       opts.noncontrollingEarningsShare ?? null,
-    ).perShare;
+      opts.temporaryEquity?.unsplit ?? 0,
+    );
+    if (bridged.unsplitWithheld === true) hit.unsplit = true;
+    return bridged.perShare;
   };
 
   // Base-year FCFF sign check (negative-FCF companies skip the growth solve).
@@ -3418,6 +3667,13 @@ export interface MultiplesBalance {
   intangibleAssets: number | null;
   minorityInterest: number | null;
   preferredStock: number | null;
+  /**
+   * FIN-119: temporary equity (redeemable preferred and redeemable NCI), read
+   * through `temporaryEquityClaims`. Absent => none filed on this row.
+   */
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   commonEquity?: number | null;
   equityOwnershipBasis?: "parent" | "consolidated";
   /**
@@ -3492,6 +3748,11 @@ export interface QuarterlyFundamentalsRow extends CommonIncomeInputs {
   marketableEquitySecurities?: number | null;
   preferredStock?: number | null;
   minorityInterest?: number | null;
+  /** FIN-119: the quarter's temporary equity (read through `temporaryEquityClaims`) and any refusal of it. */
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
+  fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   /**
    * WS6 review (BLOCKER 2): the quarter's OPERATING lease liability, so the
    * own-history EV carries the SAME lease adjustment as the current one. A
@@ -3745,6 +4006,8 @@ interface OwnHistoryDerivation {
    */
   leaseBasisMismatchWindows: string[];
   leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }>;
+  /** FIN-119: windows whose temporary-equity operand is refused; their EV is dropped and the vendor EV ratios may not stand in. */
+  temporaryEquityRejectedWindows: Array<{ anchor: string; reason: string }>;
   cashOwnershipRejectedWindows: string[];
 }
 
@@ -3782,11 +4045,58 @@ function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; mi
   return Math.abs(row.minorityInterest) <= floor && isNum(noncontrollingIncome) && Math.abs(noncontrollingIncome) <= floor;
 }
 
-function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
-  const nciImmaterial = immaterialNoncontrollingInterest(row, row?.noncontrollingIncome);
+/** FIN-119: the redeemable preferred (and unsplit) part of a row's admitted temporary equity. */
+function temporaryParentLike(row: Parameters<typeof temporaryEquityClaims>[0]): number {
+  const claims = temporaryEquityClaims(row);
+  return claims !== null && claims.refusal === null ? claims.redeemablePreferred + claims.unsplit : 0;
+}
+
+function temporaryEquityRefused(row: Parameters<typeof temporaryEquityClaims>[0]): boolean {
+  return temporaryEquityClaims(row)?.refusal != null;
+}
+
+/** FIN-119: a filed (or refused) temporary-equity claim is a claim senior to common, like preferred and book NCI. */
+function hasTemporaryEquityClaim(row: Parameters<typeof temporaryEquityClaims>[0]): boolean {
+  const claims = temporaryEquityClaims(row);
+  return claims !== null && (claims.refusal !== null || claims.total !== 0);
+}
+
+/**
+ * FIN-119: temporary equity in the P/FCF cash-ownership guard. A refused operand, a redeemable
+ * preferred and an unsplit amount block with no floor, as permanent preferred does. A redeemable
+ * NCI is the same claim as book NCI, so it blocks unless the COMBINED NCI (book plus redeemable,
+ * each by magnitude) and the NCI income both pass the book-NCI materiality floor.
+ */
+function temporaryEquityBlocksCashOwnership(row: Parameters<typeof temporaryEquityClaims>[0] & { totalEquity?: number | null; minorityInterest?: number | null; noncontrollingIncome?: number | null }): boolean {
+  const claims = temporaryEquityClaims(row);
+  if (claims === null) return false;
+  if (claims.refusal !== null || claims.redeemablePreferred !== 0 || claims.unsplit !== 0) return true;
+  if (claims.redeemableNoncontrolling === 0) return false;
+  // A null book NCI is no claim at main; the floor then applies to the redeemable NCI alone (B4a final review M-7).
+  const book = isNum(row?.minorityInterest) ? Math.abs(row.minorityInterest) : 0;
+  return !immaterialNoncontrollingInterest(
+    { totalEquity: row?.totalEquity, minorityInterest: book + Math.abs(claims.redeemableNoncontrolling) },
+    row?.noncontrollingIncome,
+  );
+}
+
+/**
+ * `immaterialNoncontrollingInterest` for the cash-ownership guard. B4a final review M-7: a null book NCI beside a
+ * redeemable NCI is no book claim, so the NCI income meets the floor on its own and `temporaryEquityBlocksCashOwnership`
+ * bounds the redeemable NCI; with no redeemable NCI this is main's test, unchanged.
+ */
+function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & { totalEquity?: number | null; minorityInterest?: number | null }) | null, noncontrollingIncome?: number | null): boolean {
+  const redeemable = temporaryEquityClaims(row);
+  const redeemableOnly = !isNum(row?.minorityInterest) && redeemable !== null && redeemable.refusal === null && redeemable.redeemableNoncontrolling !== 0;
+  return immaterialNoncontrollingInterest(redeemableOnly ? { ...row, minorityInterest: 0 } : row, noncontrollingIncome);
+}
+
+function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
+  const nciImmaterial = bookNciImmaterial(row, row?.noncontrollingIncome);
   return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
+    temporaryEquityBlocksCashOwnership(row) ||
     (isNum(row?.preferredDividendsPaid) && row.preferredDividendsPaid !== 0);
 }
 
@@ -3817,12 +4127,14 @@ function deriveOwnHistory(
       unusableWindows: [],
       leaseBasisMismatchWindows: [],
       leaseScopeRejectedWindows: [],
+      temporaryEquityRejectedWindows: [],
       cashOwnershipRejectedWindows: [],
     };
   }
   const unusableWindows: Array<{ anchor: string; reason: string }> = [];
   const leaseBasisMismatchWindows: string[] = [];
   const leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }> = [];
+  const temporaryEquityRejectedWindows: Array<{ anchor: string; reason: string }> = [];
   const cashOwnershipRejectedWindows: string[] = [];
   const push = (key: MultipleKey, value: number): void => {
     const values = (series[key] ??= []);
@@ -3901,12 +4213,16 @@ function deriveOwnHistory(
     const leaseBasisMatches = !removeOperatingLease || windowOperatingLease !== null;
     if (!leaseBasisMatches) leaseBasisMismatchWindows.push(b.date);
     const historicalNetDebt = resolveNetDebt(b);
+    // FIN-119: the quarter's own redeemable claims, read as the current EV reads them; a refused one drops the EV multiples.
+    const windowTemporary = temporaryEquityClaims(b);
+    if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
-      leaseBasisMatches && leaseScopeRefusal === null && !unknownNoncontrollingAllocation(b) && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && leaseScopeRefusal === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
-          (isNum(b.minorityInterest) ? b.minorityInterest : 0) -
+          (isNum(b.minorityInterest) ? b.minorityInterest : 0) +
+          (windowTemporary?.total ?? 0) -
           (removeOperatingLease ? (windowOperatingLease as number) : 0)
         : null;
     // FFO/AFFO history on the net income + income-statement D&A construction
@@ -3966,6 +4282,7 @@ function deriveOwnHistory(
     unusableWindows,
     leaseBasisMismatchWindows,
     leaseScopeRejectedWindows,
+    temporaryEquityRejectedWindows,
     cashOwnershipRejectedWindows,
   };
 }
@@ -4134,13 +4451,24 @@ export function multiplesFramework(
   // liability, so the default (leases NOT in EV) subtracts it back out.
   const netDebt = resolveNetDebt(bal ?? {});
   const unknownNciAllocation = unknownNoncontrollingAllocation(bal);
+  // FIN-119 (OD-1): redeemable preferred and redeemable NCI sit in temporary
+  // equity, outside every equity field above, and are claims on the enterprise
+  // like permanent preferred and book NCI. A refused operand withholds the EV.
+  const temporaryClaims = financialsRoute ? null : temporaryEquityClaims(bal);
+  const temporaryRefusal = temporaryClaims?.refusal ?? null;
+  const temporaryTotal = temporaryClaims !== null && temporaryRefusal === null ? temporaryClaims.total : 0;
+  if (temporaryRefusal !== null) {
+    const reason = `${temporaryRefusal}; the redeemable preferred and redeemable noncontrolling claims cannot be added, and the EV-dependent multiples are withheld rather than zero-filled`;
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.enterpriseValue.temporaryEquity", reason, "warn"));
+  }
   // Inspect known ownership in every quarter that can contribute to the
   // current annual/TTM cash-flow year, including interests divested by its end.
   const cashEnd = cf?.date ?? "";
   const cashStart = /^\d{4}-\d{2}-\d{2}$/.test(cashEnd) ? `${Number(cashEnd.slice(0, 4)) - 1}${cashEnd.slice(4)}` : "";
   const currentCashRows = (inputs.quarterlyFundamentals ?? []).filter(row => cashStart && row.date > cashStart && row.date <= cashEnd);
   const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership({ ...bal, noncontrollingIncome: inc?.noncontrollingIncome })) ||
-    (!immaterialNoncontrollingInterest(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
+    (!bookNciImmaterial(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
     (isNum(inc?.preferredDividendsPaid) && inc.preferredDividendsPaid !== 0) || currentCashRows.some(unresolvedCashOwnership);
   const parentFcfScope = unresolvedParentFcf
     ? "Parent-common cash-flow attribution unresolved: the numerator is parent-common capitalization and the denominator is consolidated operating cash flow less capital expenditure before SBC. Retained disclosures do not allocate that cash flow among parent common holders, noncontrolling interests or preferred claims. P/FCF, its own-history rank and peer comparison are withheld as parent-common valuation measures."
@@ -4159,11 +4487,12 @@ export function multiplesFramework(
     notes.push(`EV withheld: ${netDebt.reason}. Equity-only multiples are evaluated separately.`);
   }
   const rawEvIncludingLeases =
-    mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation
+    mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation && temporaryRefusal === null
       ? mcap +
         netDebt.value +
         (isNum(bal.preferredStock) ? bal.preferredStock : 0) +
-        (isNum(bal.minorityInterest) ? bal.minorityInterest : 0)
+        (isNum(bal.minorityInterest) ? bal.minorityInterest : 0) +
+        temporaryTotal
       : null;
   // WS6 review (BLOCKER 1): ONLY the operating-lease liability may leave EV.
   // Under ASC 842 operating-lease cost sits in operating expenses, so EBIT and
@@ -4188,6 +4517,11 @@ export function multiplesFramework(
         : totalLeaseLiability !== null && leaseLiability !== null
           ? Math.max(0, totalLeaseLiability - leaseLiability)
           : null;
+  const financeOnlyTotal = evLeaseScope === null
+    ? financeLeaseOnlyTotal(totalLeaseLiability, bal?.operatingLeaseLiability, bal?.financeLeaseLiability, leaseDebtConflict(bal ?? {}))
+    : null;
+  // The vendor wording is for a vendor total: a row the SEC statements built never names the FMP route.
+  const vendorLeaseTotal = (bal?.fieldProvenance?.capitalLeaseObligations as { source?: string } | undefined)?.source !== "edgar";
   const includeLeases = inputs.includeLeasesInEv === true;
   const incompleteLeases = incompleteLeaseCoverage(bal);
   const inclusiveRefusal = leaseDebtScopeRefusal(bal, true);
@@ -4209,7 +4543,8 @@ export function multiplesFramework(
           : !priceCurrency.comparable ? priceCurrency.reason
             : mcap === null ? "market cap missing"
               : unknownNciAllocation ? unknownNciReason
-                : (includeLeases ? inclusiveRefusal : excludedRefusal) || "the enterprise value bridge did not resolve";
+                : temporaryRefusal !== null ? temporaryRefusal
+                  : (includeLeases ? inclusiveRefusal : excludedRefusal) || "the enterprise value bridge did not resolve";
   // Review m3: a reason that already ends a sentence keeps its one period.
   const evBridgeBasis = evWithheldReason !== null ? (evWithheldReason.endsWith(".") ? `EV withheld: ${evWithheldReason}` : `EV withheld: ${evWithheldReason}.`) :
     ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
@@ -4218,7 +4553,13 @@ export function multiplesFramework(
       : includeLeases
       ? `Enterprise value INCLUDES the operating-lease liability${EV_LEASE_SETTING_TEXT.included}. `
       : `Enterprise value EXCLUDES the OPERATING-lease liability${EV_LEASE_SETTING_TEXT.excluded}. `) +
-    "EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments" +
+    "EV = market cap + total debt + preferred stock + minority interest" +
+    (temporaryTotal !== 0 && temporaryClaims !== null
+      ? ` + ${[...(temporaryClaims.redeemablePreferred !== 0 ? ["temporary equity attributable to the parent"] : []),
+        ...(temporaryClaims.unsplit !== 0 ? ["temporary equity with no parent/NCI split"] : []),
+        ...(temporaryClaims.redeemableNoncontrolling !== 0 ? ["redeemable noncontrolling interest"] : [])].join(" + ")}`
+      : "") +
+    " − cash and short-term investments" +
     (netDebt.nonOperatingEquitySecurities !== undefined
       ? ` excluding ${fmtGrouped(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
       : "") +
@@ -4227,6 +4568,8 @@ export function multiplesFramework(
         ? `; ${evLeaseScope}, and EV is reported as-is`
         : totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
+        : financeOnlyTotal !== null
+        ? `; ${financeLeaseOnlyEvClause(financeOnlyTotal)}`
         : `; a total lease liability of ${fmtGrouped(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
       : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtGrouped(leaseLiability)}` +
         (financeLeaseLiability === null || financeLeaseLiability === 0
@@ -4242,6 +4585,9 @@ export function multiplesFramework(
     " Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed." +
     ` ${equityScope.basis} ` +
     (unknownNciAllocation ? `${unknownNciReason} ` : "") +
+    (temporaryClaims !== null && temporaryRefusal === null && temporaryClaims.redeemablePreferred + temporaryClaims.unsplit !== 0
+      ? "The temporary equity attributable to the parent can also hold redeemable common shares (for example shares subject to possible redemption or an ESOP put) that the quoted market cap already counts; the filed facts do not separate them, so such shares would be counted twice. "
+      : "") +
     (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 ? "Noncontrolling interest is a filed book-value proxy, not an established market value. " : "") +
     "Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value. " +
     (evIncludingLeases === null || evExcludingLeases === null
@@ -4264,6 +4610,8 @@ export function multiplesFramework(
   if (!financialsRoute && !(evWithheldReason !== null && netDebt.value === null)) notes.push(evBridgeBasis);
   if (!financialsRoute && ev === null) {
     gaps.push(gapEntry("valuation.multiples.enterpriseValue", `EV withheld: ${evWithheldReason} — EV multiples n/m`, "info"));
+  } else if (!financialsRoute && leaseLiability === null && financeOnlyTotal !== null) {
+    // FIN-109: a finance-lease-only total has no unknown mix; the basis states it, and no leases gap is raised.
   } else if (!financialsRoute && leaseLiability === null) {
     gaps.push(
       gapEntry(
@@ -4272,7 +4620,7 @@ export function multiplesFramework(
           ? `${evLeaseScope}; enterprise value is reported as-is`
           : totalLeaseLiability === null
           ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV under either lease setting"
-          : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
+          : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure${vendorLeaseTotal ? " (the FMP route publishes no split)" : ""} — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
         "info",
       ),
     );
@@ -4396,7 +4744,9 @@ export function multiplesFramework(
     historicalMarket,
     derivedKeys,
     removeOperatingLease,
-    { preferred: (bal?.preferredStock ?? 0) > 0, nci: isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 },
+    // A refused temporary-equity operand is a filed claim of unknown amount: it counts, as in the other two checks.
+    { preferred: (bal?.preferredStock ?? 0) > 0 || temporaryParentLike(bal) > 0 || temporaryEquityRefused(bal),
+      nci: (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0) || (temporaryEquityClaims(bal)?.redeemableNoncontrolling ?? 0) > 0 || temporaryEquityRefused(bal) },
     requiresHistoricalClassScope && price !== null && eps !== null ? "price-eps" : "capitalization-common-income",
   );
   const windowGap = ownHistoryWindowGap(derived);
@@ -4423,7 +4773,7 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.priceToFcf.historicalCashOwnership", historicalFcfScope, "warn"));
     notes.push(historicalFcfScope);
   }
-  const materialCommonAllocation = (bal?.preferredStock ?? 0) > 0 || (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0);
+  const materialCommonAllocation = (bal?.preferredStock ?? 0) > 0 || (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0) || hasTemporaryEquityClaim(bal);
   if (materialCommonAllocation && (vendor.priceToBook?.length || vendor.peTtm?.length)) {
     delete vendor.priceToBook;
     delete vendor.peTtm;
@@ -4444,6 +4794,16 @@ export function multiplesFramework(
       ". Affected raw-statement EV windows are excluded. Vendor EV/EBITDA and EV/sales history lacks the component evidence needed to cure these refusals and cannot restore an own-history band; supported raw-statement windows remain eligible.";
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.evLeaseScope", reason, "warn"));
+  }
+  // FIN-119 (PR #76 Codex review): the same rule for a quarter whose temporary-equity operand is refused. The vendor's EV
+  // ratios are built on its own claims and cannot resolve the disputed one, so they may not restore the dropped windows.
+  if (derived.temporaryEquityRejectedWindows.length) {
+    for (const key of vendorEvKeys) delete vendor[key];
+    const reason = `${derived.temporaryEquityRejectedWindows.length} historical quarter window(s) have a refused temporary-equity operand: ` +
+      derived.temporaryEquityRejectedWindows.slice(0, 3).map(({ anchor, reason }) => `${anchor}: ${reason}`).join("; ") +
+      ". Affected raw-statement EV windows are excluded. Vendor EV/EBITDA and EV/sales history lacks the component evidence needed to resolve the refused claim and cannot restore an own-history band; supported raw-statement windows remain eligible.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.ownHistory.evTemporaryEquity", reason, "warn"));
   }
   if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
     for (const key of vendorEvKeys) delete vendor[key];
@@ -5482,9 +5842,26 @@ export interface ReitInputs {
   ffoApprox: number | null;
   /** AFFO — recurring capex and straight-line rent when tagged, else FFO − all capex. */
   affoApprox: number | null;
+  /**
+   * The quote's price. The block does not price on it (the market cap below
+   * does); a null price withholds the market cap and EV here, so no caller can
+   * publish a P/FFO from a withheld price.
+   */
   sharePrice: number | null;
+  /** The weighted diluted count FFO and AFFO per share divide by. */
   shares: number | null;
-  netDebt: number | null;
+  /**
+   * FIN-311: the market cap the multiples framework priced P/FFO and P/AFFO on
+   * (the quote's admitted market cap), so a report carries one P/FFO.
+   */
+  marketCap?: number | null;
+  /**
+   * FIN-108, FIN-119-V2: the house enterprise value the multiples framework
+   * computed (`multiples.enterpriseValue.value`, with the lease scope proof,
+   * redeemable preferred and redeemable noncontrolling interest), and the
+   * claims it holds. Never rebuilt here.
+   */
+  enterpriseValue?: { value: number | null; basis: string } | null;
   /** NOI approx = operatingIncome + D&A, when derivable. */
   noiApprox?: number | null;
   asOf?: string | null;
@@ -5503,18 +5880,6 @@ export interface ReitInputs {
   submap?: "equity" | "mortgage" | "undetermined" | null;
   /** WS5: the routing reason for an undetermined sub-map, repeated on each withheld figure. */
   submapReason?: string | null;
-  /**
-   * Claims senior to common in the HOUSE enterprise value — the definition the
-   * multiples framework and the DCF bridge use. 0 when absent (the provider's
-   * convention). The sketch used market cap + net debt alone, so a UPREIT
-   * with OP-unit non-controlling interest and preferred carried two EVs in
-   * one report and its implied cap rate was overstated.
-   */
-  preferredStock?: number | null;
-  minorityInterest?: number | null;
-  /** The operating-lease slice inside net debt; removed unless `includeLeasesInEv` (the EV bridge's rule). */
-  operatingLeaseLiability?: number | null;
-  includeLeasesInEv?: boolean;
 }
 
 export interface ReitValuationResult {
@@ -5594,31 +5959,23 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
         "are not fully reconciled, so the reconstruction may be above or below the issuer's common-holder FFO.",
     );
   }
-  const price = posOrNull(inputs.sharePrice);
   const shares = posOrNull(inputs.shares);
-  const mcap = price !== null && shares !== null ? price * shares : null;
+  const mcap = posOrNull(inputs.sharePrice) !== null ? posOrNull(inputs.marketCap) : null;
   if (mcap === null) {
-    gaps.push(gapEntry("valuation.reit.marketCap", "share price or share count missing", "warn"));
+    gaps.push(gapEntry("valuation.reit.marketCap", "market cap withheld or unavailable (a currency, security-basis or per-share guard, or no admitted market cap)", "warn"));
   }
   const ffo = posOrNull(inputs.ffoApprox);
   const affo = posOrNull(inputs.affoApprox);
   if (ffo === null) {
     gaps.push(gapEntry("valuation.reit.ffo", "FFO missing or non-positive — P/FFO n/m", "warn"));
   }
-  const operatingLease =
-    isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability > 0 ? inputs.operatingLeaseLiability : 0;
-  const leaseRemoved = inputs.includeLeasesInEv === true ? 0 : operatingLease;
-  const preferred = isNum(inputs.preferredStock) ? inputs.preferredStock : 0;
-  const minority = isNum(inputs.minorityInterest) ? inputs.minorityInterest : 0;
-  const ev =
-    mcap !== null && isNum(inputs.netDebt) ? mcap + inputs.netDebt - leaseRemoved + preferred + minority : null;
+  // FIN-108: the block reads the multiples' EV as computed (one EV per report); a withheld multiples EV withholds this one.
+  const ev = mcap !== null && isNum(inputs.enterpriseValue?.value) ? inputs.enterpriseValue.value : null;
   if (ev === null) {
-    gaps.push(gapEntry("valuation.reit.enterpriseValue", "net debt or market cap missing — EV/implied cap rate unavailable", "info"));
+    gaps.push(gapEntry("valuation.reit.enterpriseValue", "the multiples' enterprise value or the market cap is unavailable — EV/implied cap rate unavailable", "info"));
   } else {
     notes.push(
-      `enterprise value = market cap ${fmtNum(mcap as number)} + net debt ${fmtNum(inputs.netDebt as number)}` +
-        (leaseRemoved > 0 ? ` − operating-lease liability ${fmtNum(leaseRemoved)}` : "") +
-        ` + preferred ${fmtNum(preferred)} + minority interest ${fmtNum(minority)} = ${fmtNum(ev)} — the house definition the multiples and the DCF bridge use`,
+      `enterprise value = ${millions(ev)}, the multiples' enterprise value (the house definition the multiples and the DCF bridge use, so a report carries one EV). Its basis: ${inputs.enterpriseValue?.basis ?? "the house enterprise value"}`,
     );
   }
   const noi = posOrNull(inputs.noiApprox);
@@ -5662,11 +6019,36 @@ export interface ValuationBundleInputs {
    * issuer-economic count, or the reason it was refused.
    */
   dilutedShareEconomicBasis?: string | null;
+  /**
+   * FIN-404: set only when the divisor row is a loss period, whose filed diluted
+   * count equals its basic count; `dilutedShares` already carries the substitution.
+   */
+  dilutedShareDivisor?:
+    | { basis: "loss-period-substituted"; donorDate: string; donorPeriod: "quarter" | "fiscal year"; note: string }
+    | { basis: "loss-period-basic" | "loss-period-withheld"; note: string };
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
+  /**
+   * FIN-103: the balance row the DCF equity bridge reads, the one dated at the
+   * DCF statement date (`dcfBridgeRow`). Absent ⇒ the bridge reads
+   * `multiples.balance`, the anchor the market EV uses.
+   */
+  bridgeBalance?: MultiplesBalance | null;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */
   minorityInterest?: number | null;
   preferred?: number | null;
+  /**
+   * FIN-119: the redeemable preferred and redeemable NCI filed in temporary
+   * equity at the bridge date. `valueCompany` folds them into `preferred` and
+   * `minorityInterest` before the E-5 block, so one claim is deducted once.
+   */
+  temporaryEquity?: TemporaryEquityClaims | null;
+  /**
+   * FIN-119 (a withheld enrichment is unknown, not absent): the issuer tags
+   * temporary equity at the bridge date but its SEC enrichment was withheld, so
+   * a claim may be missing. No claim is added and nothing is withheld; one warn gap says so.
+   */
+  temporaryEquityUnknown?: { bridge: { date: string; reason: string } | null; market: { date: string; reason: string } | null } | null;
   /**
    * Audit 2026-10-22 E-5: profit attributable to noncontrolling interests and
    * consolidated profit (ProfitLoss), the key the DCF bridge uses for NCI, over
@@ -5705,11 +6087,21 @@ export interface ValuationBundleInputs {
    */
   longTermInvestmentsBasis?: string | null;
   /**
-   * Audit 2026-10-22 E-7: asset-retirement and environmental obligations
-   * tagged at the bridge's balance date, and any assets legally restricted to
-   * settle the former. The DCF bridge deducts them. Null ⇒ none tagged.
+   * Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the asset-retirement,
+   * environmental, pension and OPEB, loss-contingency and contingent-consideration
+   * obligations tagged at the bridge's balance date (or within E-7's look-back),
+   * and any assets legally restricted to settle the retirement obligations. The
+   * DCF bridge deducts them after tax, except the pension and OPEB deficit of a
+   * rate-regulated utility, which it discloses. Null ⇒ none tagged.
    */
   debtLikeObligations?: DebtLikeObligations | null;
+  /**
+   * FIN-305 (pre-flight I7): the filer's SIC code, the one fact the utility rule reads. A code in
+   * `RATE_REGULATED_UTILITY_SIC` is read as a rate-regulated utility (ASC 980): the pension and OPEB deficit
+   * is disclosed, not deducted (a merchant generator under the code is overstated by it after tax); null or absent means not established, which is read as not a utility, and a deducted
+   * pension line then raises the `sicUnknown` info gap.
+   */
+  sicCode?: number | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -5785,7 +6177,34 @@ export type ValuationResult =
  * (NO DCF); equity REIT -> reitValuation + FFO multiples; pre-revenue overlay
  * -> null valuation (runway framing handled by a different module).
  */
+/**
+ * FIN-119 (a withheld enrichment is unknown, not absent): no claim is added and
+ * nothing is withheld, but the reader is told, for each consumer whose own
+ * balance date the withheld enrichment touched. The DCF bridge reads the
+ * statement-date row and the enterprise values the anchor row (FIN-103), so the
+ * dates can differ. A consumer that publishes no figure is not named.
+ */
 export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs): ValuationResult {
+  const result = valueCompanyCore(route, inputs);
+  const unknown = inputs.temporaryEquityUnknown ?? null;
+  if (unknown === null || route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage") return result;
+  const published = result.kind === "dcf" && result.dcf !== null && isNum(result.dcf.perShare);
+  const multiples = "multiples" in result ? result.multiples : null;
+  const enterpriseValues = multiples !== null && multiples !== undefined && isNum(multiples.enterpriseValue.value);
+  const dcfUnknown = published ? unknown.bridge : null;
+  const evUnknown = enterpriseValues ? unknown.market : null;
+  if (dcfUnknown === null && evUnknown === null) return result;
+  const missing = (u: { date: string; reason: string }, consumers: string) =>
+    `its SEC enrichment for the ${u.date} balance was withheld (${u.reason}); a redeemable preferred or redeemable noncontrolling claim at that date could not be established ` +
+    `and may be missing from ${consumers}, which keep their figures without it`;
+  const parts = dcfUnknown !== null && evUnknown !== null && dcfUnknown.date === evUnknown.date
+    ? [missing(dcfUnknown, "the DCF bridge and the enterprise values")]
+    : [...(dcfUnknown !== null ? [missing(dcfUnknown, "the DCF bridge")] : []), ...(evUnknown !== null ? [missing(evUnknown, "the enterprise values")] : [])];
+  result.gaps.push(gapEntry("valuation.temporaryEquity.unknown", `The issuer has tagged temporary equity in some period, but ${parts.join("; and ")}.`, "warn"));
+  return result;
+}
+
+function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): ValuationResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   if (route.modelEligibility?.status === "unresolved") {
@@ -5802,13 +6221,45 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     } };
   }
 
+  // FIN-119 (OD-1): redeemable preferred and redeemable NCI are claims senior to
+  // common, carried outside every equity field the bridge reads. Fold them into
+  // `preferred` and `minorityInterest` here, before the E-5 block, so the
+  // redeemable NCI joins book NCI as the floor of the E-5 test (never a second
+  // deduction) and every D-26 re-run inherits the claims.
+  const temporaryClaims = inputs.temporaryEquity ?? null;
+  const temporaryRefusal = temporaryClaims?.refusal ?? null;
+  const temporaryAdmitted = temporaryClaims !== null && temporaryRefusal === null && temporaryClaims.total !== 0 ? temporaryClaims : null;
+  const redeemableNoncontrolling = temporaryAdmitted?.redeemableNoncontrolling ?? 0;
+  let temporaryEquityDisclosure: TemporaryEquityDisclosure | null = null;
+  let temporaryEquityNote: string | null = null;
+  if (temporaryAdmitted !== null) {
+    const parentLike = temporaryAdmitted.redeemablePreferred + temporaryAdmitted.unsplit;
+    inputs = { ...inputs,
+      ...(parentLike !== 0 ? { preferred: (isNum(inputs.preferred) ? inputs.preferred : 0) + parentLike } : {}),
+      // A null book NCI is not a zero claim (E-5): it stays null and the redeemable amount is carried beside it.
+      ...(redeemableNoncontrolling !== 0 && isNum(inputs.minorityInterest) ? { minorityInterest: inputs.minorityInterest + redeemableNoncontrolling } : {}) };
+    temporaryEquityDisclosure = { redeemablePreferred: temporaryAdmitted.redeemablePreferred, redeemableNoncontrolling,
+      unsplit: temporaryAdmitted.unsplit, basis: temporaryAdmitted.basis };
+    const parts = [
+      ...(temporaryAdmitted.redeemablePreferred !== 0 ? [`temporary equity attributable to the parent (redeemable preferred and other redeemable parent equity) of ${millions(temporaryAdmitted.redeemablePreferred)}, deducted beside preferred`] : []),
+      ...(temporaryAdmitted.unsplit !== 0 ? [`temporary equity of ${millions(temporaryAdmitted.unsplit)} with no filed parent/NCI split, deducted beside preferred`] : []),
+      ...(redeemableNoncontrolling !== 0 ? [`redeemable noncontrolling interests of ${millions(redeemableNoncontrolling)}, added to the book noncontrolling interest as the floor of the larger-of test (E-5), never deducted twice`] : []),
+    ];
+    temporaryEquityNote = `DCF equity bridge deducts ${parts.join(" and ")}: filed in temporary equity outside every equity field, they are claims senior to common (${temporaryAdmitted.basis}; house rule, decisions D-135 OD-1).` +
+      (parentLike !== 0
+        ? " This caption can also hold redeemable common shares (for example shares subject to possible redemption or an ESOP put), which may already be in the diluted share count; " +
+          "the filed facts do not separate them from redeemable preferred, so such shares would be counted both as a claim and in the divisor."
+        : "");
+  }
   // Audit 2026-10-22 C-15: the critical DCF gap names this gate, not a missing caller input.
   let dcfWithheldCause: string | null = null;
-  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
+  // FIN-103: the DCF-only gates read the balance the bridge reads.
+  const bridgeBalance = inputs.bridgeBalance ?? inputs.multiples.balance;
+  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(bridgeBalance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
-    dcfWithheldCause = `DCF withheld: noncontrolling ownership unresolved at ${inputs.multiples.balance?.date ?? "the valuation balance date"} (the balance sheet carries consolidated equity without a filed parent/NCI split; see valuation.dcf.noncontrollingOwnership)`;
+    dcfWithheldCause = `DCF withheld: noncontrolling ownership unresolved at ${bridgeBalance?.date ?? "the valuation balance date"} (the balance sheet carries consolidated equity without a filed parent/NCI split; see valuation.dcf.noncontrollingOwnership)`;
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
   }
 
@@ -5824,13 +6275,20 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   const noncontrollingIncomeClaim = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome > 0;
   // A signed NCI income, profit or loss, shows outside holders exist.
   const noncontrollingIncomeSigned = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome !== 0;
-  if (!isNum(inputs.minorityInterest) && noncontrollingIncomeSigned) {
+  if (!isNum(inputs.minorityInterest) && (noncontrollingIncomeSigned || redeemableNoncontrolling > 0)) {
     // Neither book nor the larger of book and the profit share can be set
-    // without the book balance; a null book is not a zero claim.
-    const earnings = inputs.noncontrollingEarnings!;
-    noncontrollingKeyMissing = `Noncontrolling interests are allocated ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} net income, ` +
-      "but their book value is unavailable, so the deduction can be set neither at book nor at the larger of book and their profit share. " +
-      "The per-share value is withheld: the consolidated DCF would otherwise credit the outside holders' claim to common holders (audit 2026-10-22 E-5).";
+    // without the book balance; a null book is not a zero claim. A redeemable
+    // NCI is itself evidence of outside holders, as signed NCI income is.
+    const earnings = inputs.noncontrollingEarnings;
+    const allocated = noncontrollingIncomeSigned && earnings
+      ? `are allocated ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} net income`
+      : null;
+    const unavailable = "but their book value is unavailable, so the deduction can be set neither at book" +
+      `${redeemableNoncontrolling > 0 ? " (plus the redeemable amount)" : ""} nor at the larger of ${redeemableNoncontrolling > 0 ? "that" : "book"} and their profit share. `;
+    const withheld = "The per-share value is withheld: the consolidated DCF would otherwise credit the outside holders' claim to common holders (audit 2026-10-22 E-5).";
+    noncontrollingKeyMissing = redeemableNoncontrolling > 0
+      ? `Noncontrolling interests hold a redeemable noncontrolling interest of ${millions(redeemableNoncontrolling)} filed in temporary equity${allocated === null ? "" : ` and ${allocated}`}, ${unavailable}${withheld}`
+      : `Noncontrolling interests ${allocated}, ${unavailable}${withheld}`;
   } else if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {
     const earnings = inputs.noncontrollingEarnings ?? null;
     const period = earnings?.basis === "annual" ? `fiscal-year (${earnings.asOf ?? "date unavailable"})` : "trailing";
@@ -5893,6 +6351,14 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     notes.push(inputs.dilutedShareEconomicBasis);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
+  // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF, the excess-return route and the REIT FFO/AFFO per share).
+  const divisorDisclosure = (perShare: number | null | undefined): void => {
+    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(inputs.dilutedShares) || inputs.dilutedShares <= 0) return;
+    gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
+    if (inputs.dilutedShareDivisor.basis !== "loss-period-substituted" || !notes.some((n) => n.startsWith("Per-share values divide by the latest period's basic count plus"))) {
+      notes.push(inputs.dilutedShareDivisor.note);
+    }
+  };
   if (economicScope.status !== "unverified-vendor-scope") inputs = { ...inputs,
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
 
@@ -5901,7 +6367,6 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     const reason = "REIT enterprise value and implied cap rate withheld: consolidated equity establishes outside ownership but the NCI allocation is unavailable; no market NCI value is inferred from the book-equity difference. FFO figures are evaluated separately.";
     notes.push(reason);
     gaps.push(gapEntry("valuation.reit.noncontrollingOwnership", reason, "warn"));
-    inputs = { ...inputs, reit: { ...inputs.reit, netDebt: null } };
   }
   // The one rule every comparison with the quote obeys (priceCurrency.ts):
   // statements and quote in ONE KNOWN currency, or no comparison at all.
@@ -6022,6 +6487,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     // gaps.push(...built.gaps) — otherwise a suppressed model is invisible in
     // the report appendix.
     gaps.push(...er.gaps);
+    divisorDisclosure(er.perShare);
     return { kind: "excess-return", route: route.base, excessReturn: er, multiples, notes, gaps };
   }
 
@@ -6051,15 +6517,31 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ),
       );
     }
+    // The lease refusal is already in the multiples' EV (null), which the block reads; the gap stays.
     const reitDebtRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
     if (reitDebtRefusal) gaps.push(gapEntry("valuation.reit.enterpriseValue.leaseScope", reitDebtRefusal, "critical"));
-    const reit = inputs.reit
-      ? reitValuation({ ...inputs.reit, ...(!quoteComparison.comparable ? { sharePrice: null } : {}), ...(reitDebtRefusal ? { netDebt: null } : {}) })
-      : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null, netDebt: null });
+    // FIN-311, FIN-108: the market cap P/FFO was priced on and the house EV come from the multiples. Every guard that
+    // withholds the price (ADR security basis, unresolved class basis, price currency) withholds both with it.
+    const reitInputs: ReitInputs | null = inputs.reit && !quoteComparison.comparable ? { ...inputs.reit, sharePrice: null } : inputs.reit ?? null;
+    const reitBridge = multiples.enterpriseValue;
+    const reitMarketCap = reitInputs !== null && reitInputs.sharePrice !== null ? posOrNull(reitBridge.equityScope?.marketCap) : null;
+    const reit = reitInputs !== null
+      ? reitValuation({
+        ...reitInputs,
+        marketCap: reitMarketCap,
+        enterpriseValue: reitMarketCap === null ? null : {
+          value: reitBridge.value,
+          // The multiples' own basis, verbatim: every component and amount matches by construction (D-26).
+          basis: reitBridge.basis,
+        },
+      })
+      : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null });
     if (!inputs.reit) {
       gaps.push(gapEntry("valuation.reit", "REIT inputs not provided by caller", "critical"));
     }
     gaps.push(...reit.gaps);
+    // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
+    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
   }
 
@@ -6143,9 +6625,9 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         isNum(inputs.leaseLiability) && inputs.leaseLiability >= 0 ? inputs.leaseLiability : null;
       // Audit 2026-10-19 CODE-1: the operating lease leaves net debt only when
       // totalDebt is shown to hold it; otherwise net debt is used as reported.
-      const bridgeLeaseScope = operatingLeaseScopeUnproven({ ...inputs.multiples.balance,
-        capitalLeaseObligations: inputs.leaseLiability ?? inputs.multiples.balance?.capitalLeaseObligations,
-        operatingLeaseLiability: inputs.operatingLeaseLiability ?? inputs.multiples.balance?.operatingLeaseLiability });
+      const bridgeLeaseScope = operatingLeaseScopeUnproven({ ...bridgeBalance,
+        capitalLeaseObligations: inputs.leaseLiability ?? bridgeBalance?.capitalLeaseObligations,
+        operatingLeaseLiability: inputs.operatingLeaseLiability ?? bridgeBalance?.operatingLeaseLiability });
       if (bridgeLeaseScope !== null) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeLeaseScope, "warn"));
       const leaseLiability =
         bridgeLeaseScope === null && isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability >= 0
@@ -6157,13 +6639,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
           : null;
       const includeLeases = inputs.includeLeasesInEv === true;
       const leaseConflict = leaseDebtConflict({
-        totalDebt: inputs.multiples.balance?.totalDebt,
+        totalDebt: bridgeBalance?.totalDebt,
         capitalLeaseObligations: inputs.leaseLiability,
         operatingLeaseLiability: inputs.operatingLeaseLiability,
-        financeLeaseLiability: inputs.multiples.balance?.financeLeaseLiability,
+        financeLeaseLiability: bridgeBalance?.financeLeaseLiability,
       });
       if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
-      const bridgeScopeRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
+      const bridgeScopeRefusal = leaseDebtScopeRefusal(bridgeBalance, inputs.includeLeasesInEv === true);
       if (bridgeScopeRefusal) { notes.push(bridgeScopeRefusal); gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeScopeRefusal, "critical")); }
       const netDebtIncludingLeases = leaseConflict === null && bridgeScopeRefusal === null ? inputs.netDebt : null;
       const netDebtExcludingLeases =
@@ -6179,6 +6661,8 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
                 ? `${bridgeLeaseScope}.`
                 : totalLeaseLiability === null
                 ? "Lease liabilities were not disclosed separately, so they could not be separated from total debt; net debt is used as reported."
+                : financeLeaseOnlyTotal(totalLeaseLiability, inputs.operatingLeaseLiability, bridgeBalance?.financeLeaseLiability, leaseConflict) !== null
+                ? `A total lease liability of ${millions(totalLeaseLiability)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove; net debt is used as reported.`
                 : `A total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported.`
               : `Net debt as reported ${fmtNum(netDebtIncludingLeases)}; less the OPERATING lease liability ${fmtNum(netDebtExcludingLeases as number)}; ` +
                 `${includeLeases ? "KEEPING" : "REMOVING"} the operating-lease liability of ${fmtNum(leaseLiability)} (house default removes it; THESIS_EV_INCLUDE_LEASES=1 keeps it)` +
@@ -6190,8 +6674,11 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       }
       // D-60: equity securities left out of cash return as a non-operating
       // asset at their filed fair value, only when net debt itself bridges.
-      // D-65: so do the long-term investments the sales-to-capital
-      // denominator removed as non-operating, at their filed carrying value.
+      // D-65: so do the long-term investments the sales-to-capital denominator
+      // removed as non-operating, at their filed carrying value. FIN-304: a
+      // holding that met or exceeded invested capital is added back too.
+      // The exceed and lease-emptied cases keep the filed provenance and swap
+      // only the clause that says the denominator removes the amount.
       const components: NonOperatingAssetComponent[] = [];
       if (isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0) {
         components.push({ kind: "marketable-equity-securities", label: "marketable equity securities (filed fair value, not cash)",
@@ -6200,7 +6687,8 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       const lti = assumptions.nonOperatingInvestments ?? null;
       if (isNum(netDebtForBridge) && lti !== null && isNum(lti.value) && lti.value > 0) {
         components.push({ kind: "long-term-investments", label: "long-term investments (filed carrying value)", value: lti.value,
-          basis: inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
+          basis: (inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}`)
+            .replace(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE, lti.basis ?? LONG_TERM_INVESTMENTS_REMOVED_CLAUSE) });
       }
       for (const c of components) {
         notes.push(
@@ -6222,15 +6710,21 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         components.push({ kind: "investment-tax", label, value, basis });
         notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
       }
-      // Audit 2026-10-22 E-7: filed retirement and environmental obligations
-      // are claims the FCFF path never pays, so the bridge deducts them, before
-      // tax. Funds legally restricted to retirement settle those first, less
-      // any long-term investments already added above.
+      // Audit 2026-10-22 E-7, extended by audit 2026-10-27 FIN-305 (decisions spec 4.3): filed retirement,
+      // environmental, pension and OPEB, loss-contingency and contingent-consideration obligations are claims the FCFF
+      // path never pays, so the bridge deducts them, AFTER tax at the D-98 marginal rate the bridge already uses for
+      // the investments it adds. Funds legally restricted to retirement settle those first, less any long-term
+      // investments already added above; the relief is applied to the amount deducted, never to the offset.
       const obligations = isNum(netDebtForBridge) ? inputs.debtLikeObligations ?? null : null;
+      const taxRatePct = assumptions.investmentTax?.ratePct ?? 0;
+      const afterTax = taxRatePct > 0;
+      const keep = afterTax ? 1 - taxRatePct / 100 : 1;
       // A balance from an earlier filing is dated on its line; the bridge's
       // own balance-sheet date would otherwise be read as its date.
       const obligationLabel = (name: string, o: { asOf?: string }) =>
-        `${name} (filed, before tax${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
+        `${name} (filed, ${afterTax ? `after tax at ${fmtNum(taxRatePct)}%` : "before tax"}${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
+      const relief = (net: number) => (afterTax && net > 0 ? ` (${fmtNum(net * keep)} after the ${fmtNum(taxRatePct)}% tax relief)` : "");
+      let retirementDeducted = false;
       if (obligations !== null) {
         const aro = obligations.assetRetirement;
         if (aro !== null && aro.value > 0) {
@@ -6245,23 +6739,62 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
               (assetsAdded > 0 ? ` beyond the investments of ${fmtNum(assetsAdded)} the bridge already adds` : "") +
               `: an offset of ${fmtNum(offset)}`;
           if (aro.value - offset > 0) {
-            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
+            retirementDeducted = true;
+            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -((aro.value - offset) * keep), basis: `${aro.basis}${fundNote}` });
           }
           notes.push(fund === null
-            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}.`
-            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted.`);
+            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}${relief(aro.value)}: ${aro.basis}.`
+            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted${relief(aro.value - offset)}.`);
         }
-        const env = obligations.environmental;
-        if (env !== null && env.value > 0) {
-          components.push({ kind: "debt-like-obligation", label: obligationLabel("environmental remediation accruals", env), value: -env.value, basis: env.basis });
-          notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
+        const deduct = (name: string, o: { value: number; basis: string; asOf?: string } | null | undefined) => {
+          if (o === null || o === undefined || !(o.value > 0)) return;
+          components.push({ kind: "debt-like-obligation", label: obligationLabel(name, o), value: -(o.value * keep), basis: o.basis });
+          notes.push(`DCF equity bridge subtracts ${name} of ${fmtNum(o.value)}${relief(o.value)}: ${o.basis}.`);
+        };
+        deduct("environmental remediation accruals", obligations.environmental);
+        const pension = obligations.pension ?? null;
+        if (pension !== null && pension.value > 0) {
+          if (isNum(inputs.sicCode) && RATE_REGULATED_UTILITY_SIC.has(inputs.sicCode)) {
+            // FIN-305 (pre-flight I7): a rate-regulated utility recovers the cost through rates (ASC 980); the
+            // offsetting regulatory asset is dimensional XBRL, which companyfacts does not carry.
+            // B4a final review M-8: SIC 4911 also files merchant generators, so the text states the reading, never the recovery.
+            const reading = `SIC ${inputs.sicCode} is read as a rate-regulated utility (ASC 980): its pension and OPEB deficit is disclosed, not deducted; ` +
+              "a filer under this code whose rates do not recover the deficit (a merchant generator) is overstated by it after tax";
+            notes.push(`Pension and other postretirement benefit deficits of ${millions(pension.value)} (${pension.basis}): ${reading}. ` +
+              "The offsetting regulatory asset is reported only in dimensional XBRL, which the SEC companyfacts the bridge reads does not carry.");
+            gaps.push(gapEntry("valuation.dcf.debtLikeObligations.rateRegulated",
+              `Pension and OPEB deficit of ${millions(pension.value)}: ${reading}.`, "info"));
+          } else {
+            deduct("pension and other postretirement benefit deficits", pension);
+            if (!isNum(inputs.sicCode)) {
+              gaps.push(gapEntry("valuation.dcf.debtLikeObligations.sicUnknown",
+                "The filer's SIC code is not established, so it is read as not a rate-regulated utility and its pension and OPEB deficit is deducted.", "info"));
+            }
+          }
         }
+        deduct("loss-contingency accruals", obligations.lossContingencies);
+        deduct("business-combination contingent consideration", obligations.contingentConsideration);
         if (components.some((c) => c.kind === "debt-like-obligation")) {
           notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
-            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
-            "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either.");
+            (afterTax
+              ? `Each is deducted net of the tax relief a settlement would earn, at the ${fmtNum(taxRatePct)}% marginal-rate floor (${assumptions.investmentTax!.basis}; D-98, D-58). ` +
+                "The relief is approximate: the rate omits state and local taxes and assumes the deduction is taken against taxable income in the year the claim is paid, " +
+                "and a payment that is not deductible (a government fine or penalty, 26 U.S.C. §162(f)) or that only adds to tax basis (contingent consideration, which adds to the basis of the acquired assets or shares) " +
+                `is credited a relief it will not earn, or not for years, understating that claim by up to ${fmtNum(taxRatePct)}% of it.` +
+                (retirementDeducted ? " The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for it." : "")
+              : "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
+                "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either."));
+          // FIN-305 (OD-4): none of these joins the market EV; say so where the EV is stated.
+          // Only the families with a deducted line are named: a utility's disclosed pension deficit is not one.
+          const deductedFamilies = [
+            ["retirement", /^asset-retirement/], ["environmental", /^environmental/], ["pension and OPEB", /^pension/],
+            ["loss-contingency", /^loss-contingency/], ["contingent-consideration", /^business-combination contingent/],
+          ].filter(([, label]) => components.some((c) => c.kind === "debt-like-obligation" && (label as RegExp).test(c.label))).map(([name]) => name as string);
+          const named = deductedFamilies.length > 2 ? `${deductedFamilies.slice(0, -1).join(", ")} and ${deductedFamilies[deductedFamilies.length - 1]}` : deductedFamilies.join(" and ");
+          multiples.enterpriseValue.basis += ` The debt-like obligations the DCF equity bridge deducts (${named}) are not added to the market EV.`;
         }
       }
+      if (temporaryEquityNote !== null) notes.push(temporaryEquityNote);
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       const runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
@@ -6269,6 +6802,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         dilutedShares: inputs.dilutedShares,
         minorityInterest: inputs.minorityInterest ?? null,
         preferred: inputs.preferred ?? null,
+        ...(temporaryEquityDisclosure !== null ? { temporaryEquity: temporaryEquityDisclosure } : {}),
         ...(noncontrollingEarningsShare !== null ? { noncontrollingEarningsShare, noncontrollingEarningsAsOf, ...(noncontrollingEarningsBasis !== undefined ? { noncontrollingEarningsBasis } : {}) } : {}),
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
@@ -6288,12 +6822,29 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       // stays visible at book; nothing built from the per-share is published.
       // The NCI reason leads only when no earlier gate (shares, net debt)
       // had already withheld the per-share value.
-      if (noncontrollingKeyMissing !== null) {
-        if (dcf.perShare !== null) dcf.noncontrollingKeyWithheld = noncontrollingKeyMissing;
+      // FIN-119: a refused temporary-equity operand, or an unsplit total beside the
+      // E-5 earnings key (the unsplit amount may be NCI the key already sizes),
+      // leaves the claim unknown: the per share is withheld, never zero-filled (D-87).
+      // `runDcf` already withheld the unsplit-beside-earnings-key case (and put its gap in `dcf.gaps`).
+      const refusedReason = temporaryRefusal !== null
+        ? `Temporary equity cannot be admitted as a claim: ${temporaryRefusal}. The per-share value is withheld: the redeemable preferred and redeemable noncontrolling claims are unknown, not zero (FIN-119).`
+        : null;
+      const temporaryEquityWithheld = refusedReason ?? dcf.temporaryEquityWithheld ?? null;
+      if (noncontrollingKeyMissing !== null || temporaryEquityWithheld !== null) {
+        // Each reason is recorded as the cause only when no earlier gate (shares, net debt) had already withheld the per share.
+        if (noncontrollingKeyMissing !== null && dcf.perShare !== null) dcf.noncontrollingKeyWithheld = noncontrollingKeyMissing;
+        if (refusedReason !== null && dcf.perShare !== null) dcf.temporaryEquityWithheld = refusedReason;
         dcf.perShare = null;
         dcf.equityValue = null;
-        notes.push(noncontrollingKeyMissing);
-        gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", noncontrollingKeyMissing, "warn"), ...dcf.gaps);
+        if (noncontrollingKeyMissing !== null) {
+          notes.push(noncontrollingKeyMissing);
+          gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", noncontrollingKeyMissing, "warn"));
+        }
+        if (temporaryEquityWithheld !== null) {
+          notes.push(temporaryEquityWithheld);
+          if (refusedReason !== null) gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", refusedReason, "warn"));
+        }
+        gaps.push(...dcf.gaps);
         return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
       }
       // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader
@@ -6345,11 +6896,22 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
-          notes.push(
-            `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}; the quoted market cap implies ${fmtMoney(implied)} shares ` +
-              `outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. The gap is option and RSU dilution plus repurchases or issuance since the quarter; ` +
-              "the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).",
-          );
+          // FIN-404: the wording follows how the count was formed (filed or withheld: the filed count; a loss period's basic count plus a profitable period's award dilution; a loss period's basic count alone).
+          const divisor = inputs.dilutedShareDivisor;
+          const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
+          const basicOnly = divisor?.basis === "loss-period-basic";
+          const head = substituted !== null
+            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
+            : basicOnly
+              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
+              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`;
+          // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
+          const tail = basicOnly || divisor?.basis === "loss-period-withheld"
+            ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
+            : substituted !== null
+              ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
+              : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
+          notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. ${tail}`);
         }
       }
       // The reverse DCF solves for the growth the market cap implies, so it
@@ -6371,7 +6933,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       // unsolvable reverse DCF stayed invisible in the manifest — the same
       // defect, on the model that carries the headline number.
       gaps.push(...dcf.gaps, ...(reverse?.gaps ?? []));
+      // FIN-119: a grid cell withheld by the unsplit rule is said once for the run, even when the base per share published.
+      const cellNote = [sensitivity, growthMargin].flatMap((g) => g?.notes ?? []).find((n) => n.startsWith(UNSPLIT_CELLS_LEAD));
+      if (cellNote !== undefined && !gaps.some((g) => g.field === "valuation.dcf.temporaryEquityAllocation")) {
+        gaps.push(gapEntry("valuation.dcf.temporaryEquityAllocation", cellNote, "warn"));
+      }
     }
   }
+  divisorDisclosure(dcf?.perShare);
   return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, growthMarginGrid: growthMargin, reverseDcf: reverse, multiples, notes, gaps };
 }

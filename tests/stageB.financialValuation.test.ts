@@ -300,7 +300,8 @@ describe("reitValuation — the basis it prints is the basis it used", () => {
     affoApprox: 300,
     sharePrice: 50,
     shares: 100,
-    netDebt: 2_000,
+    marketCap: 5_000,
+    enterpriseValue: { value: 7_000, basis: "test" },
     noiApprox: 500,
   };
 
@@ -409,14 +410,15 @@ describe("valueCompany — financial routes state every withheld model", () => {
         ffoBasis: "FFO approximate: ownership and joint-venture reconciliation unavailable.",
         sharePrice: 50,
         shares: 100,
-        netDebt: 2_000,
         submap: "equity",
       },
     });
     expect(r.kind).toBe("reit");
     if (r.kind !== "reit") throw new Error("expected REIT output");
-    expect(r.reit.pToFfo).toBe(12.5);
-    expect(r.reit.pToAffo).toBeCloseTo(16.6666666667, 8);
+    // FIN-311 (audit 2026-10-27): this pin priced P/FFO on sharePrice 50 x shares 100 = 5,000 beside a quote of
+    // 100 x 100 = 10,000 (the multiples' market cap). The block now prices on the one market cap: 10,000 / 400 and 10,000 / 300.
+    expect(r.reit.pToFfo).toBe(25);
+    expect(r.reit.pToAffo).toBeCloseTo(33.3333333333, 8);
     const basis = [...r.notes, ...r.reit.notes, ...r.multiples.notes, ...r.gaps.map((g) => g.reason)].join(" ");
     expect(basis).toMatch(/ownership and joint-venture reconciliation unavailable/i);
     expect(r.reit.notes.find((note) => note.startsWith("AFFO"))).toMatch(/approximate FFO/i);
@@ -467,7 +469,6 @@ describe("valueCompany — financial routes state every withheld model", () => {
         affoApprox: 300,
         sharePrice: 50,
         shares: 100,
-        netDebt: 2_000,
       },
     });
 

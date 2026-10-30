@@ -148,6 +148,18 @@ export function fixedBridgeMinorityText(bridge: DcfBridge, claim: (v: number | n
     : claim(bridge.minorityInterest);
 }
 
+/** The minority-interest and preferred clauses of the fixed-bridge sentence, each naming its temporary-equity part (FIN-119). */
+export function fixedBridgeClaimsText(bridge: DcfBridge, claim: (v: number | null) => string, display: (v: number) => string): string {
+  const temporary = bridge.temporaryEquity;
+  return `minority interest ${fixedBridgeMinorityText(bridge, claim)}${temporaryEquityText(temporary?.redeemableNoncontrolling, "redeemable noncontrolling interests", display)}, ` +
+    `preferred equity ${claim(bridge.preferred)}${temporaryEquityText(temporary === undefined ? undefined : temporary.redeemablePreferred + temporary.unsplit, "redeemable preferred and other temporary equity", display)}`;
+}
+
+/** FIN-119: names the temporary-equity claim inside a bridge line, when there is one. */
+function temporaryEquityText(amount: number | undefined, label: string, display: (v: number) => string): string {
+  return amount === undefined || amount === 0 ? "" : ` (including ${label} of ${display(amount)})`;
+}
+
 /**
  * The non-operating lines each scenario path carries unchanged: assets added,
  * then the investment tax and any E-7 obligations subtracted.
@@ -156,10 +168,10 @@ export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: numb
   if (bridge.nonOperatingAssets === undefined) return "";
   const components = bridge.nonOperatingComponents ?? [];
   if (components.length === 0) return `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`;
-  // E-7: an obligation from an earlier filing keeps its balance date.
+  // E-7: an obligation from an earlier filing keeps its balance date; FIN-305: a line deducted after tax keeps saying so.
   const name = (label: string) => {
     const at = /; balance at (\d{4}-\d{2}-\d{2})/.exec(label);
-    return label.replace(/ \(.*\)$/, "") + (at === null ? "" : ` (balance at ${at[1]})`);
+    return label.replace(/ \(.*\)$/, "") + (/\(filed, after tax at /.test(label) ? " after tax" : "") + (at === null ? "" : ` (balance at ${at[1]})`);
   };
   const added = components.filter((c) => c.value >= 0).map((c) => `${name(c.label)} ${display(c.value)}`);
   return (added.length > 0 ? `, plus non-operating ${added.join(" and ")}` : "") +
@@ -192,7 +204,7 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
     `Revenue growth path (% per year, in horizon order): ${path(a.growthPath.value)}.`,
     `Operating-margin path (% per year, in horizon order): ${path(a.ebitMarginPath.value)}.`,
     `Fixed base inputs: starting revenue ${display(a.startRevenue.value)} reporting-currency units; WACC ${display(a.wacc.value)}%; terminal growth actually used ${display(valuation.dcf.gTermUsedPct)}%; terminal ROIC ${display(a.terminal.roicTermPct.value)}%; sales-to-capital ${display(a.salesToCapital.value)}x; tax path (%): ${path(a.taxRatePath.value)}; mid-year discounting ${a.midYear.value ? "on" : "off"}.`,
-    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${fixedBridgeMinorityText(bridge, claim)}, preferred equity ${claim(bridge.preferred)}` +
+    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, ${fixedBridgeClaimsText(bridge, claim, display)}` +
       `${fixedBridgeNonOperatingText(bridge, display)} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
       `${a.valuationDate === undefined ? "" : `; value stated at the quote date ${a.valuationDate.value}`}.`,
     target?.perShare != null

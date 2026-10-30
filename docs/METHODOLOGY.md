@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.49.0 / payload 1.51.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_30 (2026-10-29). Its bounded evidence fixes
+The current source declares report 1.50.0 / payload 1.52.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_31 (2026-10-29). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -356,8 +356,9 @@ matches the window they require.
 `src/pipeline/stageB/returns.ts` computes up to five annual return observations.
 ROIC is annual `EBIT × (1 − observed effective tax rate) / invested capital`,
 with the tax rate clamped to [0%, 35%], invested capital equal to debt plus
-stockholders' equity less cash and short-term investments, and the operating
-lease adjustment described below. An unavailable observed tax rate withholds
+temporary equity (redeemable preferred and redeemable non-controlling
+interests) plus stockholders' equity less cash and short-term investments, and
+the operating lease adjustment described below. An unavailable observed tax rate withholds
 that year's NOPAT/ROIC; non-positive invested capital is not interpreted as
 an exceptional return. This historical NOPAT is separate from the forward
 DCF's projected loss-carryforward logic.
@@ -368,12 +369,19 @@ combined cash/component values do not qualify for this fallback; they withhold
 the affected invested capital and return. A year withheld because a debt or
 capital input was refused (a total debt the admission refused, a lease
 conflict or lease-scope refusal, a negative total debt, or conflicting cash
-components) is listed in one `returns.roic` manifest entry that gives each
-year's refusal. It is critical only when the latest fiscal year's ROIC is
+components, or a temporary-equity operand the admission refused or whose total
+contradicts its parts) is listed in one `returns.roic` manifest entry that
+gives each year's refusal. It is critical only when the latest fiscal year's ROIC is
 withheld by the same balance's debt refusal that withholds the WACC (the
 balance the WACC names, refused for its debt rather than its cash), and a
 warning otherwise, including a latest year withheld while the WACC exists
-(audit 2026-10-29, KNW-03; review fix I-1).
+(audit 2026-10-29, KNW-03; review fix I-1). A year withheld for a refused
+temporary-equity operand is a warning, never critical, since the WACC does not read it.
+Where a balance date's temporary-equity enrichment was withheld (the SEC
+fill-in was refused or unavailable, so the claim is unknown rather than
+absent), the year keeps its invested capital without the claim and the ROIC
+notes say a redeemable claim at that date could not be established (audit
+2026-10-27 FIN-119-V1).
 
 ROTE is income available to common / average tangible common equity, with
 preferred allocations required when preferred equity is outstanding. Tangible
@@ -683,7 +691,29 @@ is compared with a later quote. Every discount exponent is reduced by the years
 elapsed from the statement date to the quote date, which rolls the whole value
 forward at the WACC (NVDA: 81 days, × 1.0279). The equity bridge keeps the
 statement-date balance: cash generated since then is inside the first window's
-flows, so it is not counted twice. A quote more than `MAX_ROLL_FORWARD_DAYS` =
+flows, so it is not counted twice. The bridge reads the balance sheet dated at
+the statement date, also when the DCF base falls back to the fiscal year while a
+newer quarterly balance exists, and also when the trailing window ends before a
+newer annual anchor (audit 2026-10-27 FIN-103). The market EV keeps its own
+anchor: the newest balance row, or the newest whole one when the newest lacks
+total debt, parent equity or cash and short-term investments.
+At the statement date the order follows the DCF's basis: a fiscal-year base takes
+the fiscal-year row first and then the quarter row, a trailing-twelve-month base
+the quarter row first and then the fiscal-year row (at a fiscal-year end they are
+the same instant). The first row at the statement date that carries all three operands, and that the
+ownership gate (see "EV bridge"), the parser's refusals, a lease conflict, a lease-scope
+refusal (on the run's own lease switch) and a refused temporary-equity operand do not withhold,
+is the bridge row, so the DCF never raises on the chosen row a refusal the anchor did not have. Otherwise the bridge keeps the market EV's anchor, which is the row and the
+figure the DCF had before this rule, for one of four causes, each stated in the
+info gap `valuation.dcf.bridgeBalanceDate` and in the valuation-date basis, which
+then names the balance used, how many days it falls after or before the statement
+date, and whether the flows between the two dates are in both that balance and the
+first window or in neither, instead of "stays at the statement-date balance":
+no balance sheet is filed at the statement date; the one filed lacks an operand
+(the gap names it); the one filed is withheld, so the bridge keeps the anchor and
+its figure; or the anchor itself is withheld, so the bridge keeps it and the DCF
+stays withheld, because another date's balance never cures a refusal on the
+newest one. A quote more than `MAX_ROLL_FORWARD_DAYS` =
 200 days after the statement is not rolled forward (a stale statement is a data
 problem, not a timing one), and a gap says so. The "valuation date" assumption
 row and the bridge's "value stated at" row print the date and factor.
@@ -922,6 +952,7 @@ label and adds no note.
 Per-share values use the weighted-average diluted count from the newer of the
 latest quarterly and latest annual income statement; when only the annual count
 is available, the report says the figure may lag recent buybacks or issuance.
+A loss period's count is replaced as "Share basis (D-65)" describes.
 
 ---
 
@@ -981,7 +1012,7 @@ tagged in companyfacts for both dates.
 source — EPS and share counts on the statement rows, the keyless market cap,
 market-cap history, enterprise values and free float — so no downstream
 calculation can rebuild them: EPS growth, P/E from EPS, DCF and excess-return
-per share, the reverse DCF, REIT price × shares (P/FFO, P/AFFO), the share-count
+per share, the reverse DCF, the REIT block's market cap (P/FFO, P/AFFO) and its FFO and AFFO per share, the share-count
 trend, dilution, the grades built on them, and the AI payload all read the empty
 value. Figures that need no share count (revenue, margins, free cash flow,
 capex, EV/sales on a vendor market cap) are unaffected.
@@ -1015,6 +1046,7 @@ EV = market capitalisation
    + total debt
    + preferred stock
    + minority interest (non-controlling interests)
+   + redeemable preferred and redeemable non-controlling interests (temporary equity)
    - cash and short-term investments
 ```
 
@@ -1032,13 +1064,109 @@ it; a zero final quarter alone does not show the earlier quarters held none.
 The row discloses the inference (audit
 SNOW-2), and the inferred figure counts as parent equity wherever parent equity
 is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
-value = EV − net debt − minority interest − preferred equity + non-operating
+value = EV − net debt − minority interest − preferred equity (each including its redeemable part, below) + non-operating
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
 on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
-asset-retirement and environmental obligations (audit 2026-10-22 E-7, below). Minority interest
+asset-retirement, environmental, pension and OPEB, loss-contingency and
+contingent-consideration obligations, each after tax at the marginal rate (audit
+2026-10-22 E-7 and audit 2026-10-27 FIN-305, below). Minority interest
 enters the market EV at its book carrying amount, not a market or earnings-share
-value.
+value. The market EV uses the balance anchor (the newest balance sheet that carries
+total debt, parent equity and cash and short-term investments), and the DCF's
+bridge the one dated at the DCF statement date (see "Valuation date (D-65)"). The
+two can differ even on a trailing-twelve-month base: a 10-K filed before its
+quarter reaches the quarterly feed makes the annual row the newer anchor, while
+the window still ends at the last quarter, and the bridge reads that quarter.
+
+**Redeemable preferred and redeemable NCI (temporary equity; audit 2026-10-27
+FIN-119).** Preferred stock and non-controlling interests that the holder can
+force the issuer to redeem are carried in temporary (mezzanine) equity, outside
+every equity field above, and their carrying amount is the redemption claim
+(ASC 480-10-S99). They are claims senior to common, so the house definition of
+"claims senior to common" has two parts. Preferred is permanent preferred plus
+temporary equity attributable to the parent (`TemporaryEquityCarryingAmountAttributableToParent`). A balance whose positive `PreferredStockValue`
+equals that parent part (within max(1, 1e-6 x amount), the same date) is one mezzanine series tagged
+twice. The temporary-equity reader (`temporaryEquityClaims`, behind the bridge, every EV, invested capital, the
+guards and the own-history windows) then leaves the parent part out and counts the claim once, as the preferred
+line main already deducts (the claim consumers: the bridge, every EV and the ownership guards); invested capital,
+sales-to-capital and ROIC add no preferred line, so they read the unreduced temporary equity (`capitalTotal`), counted once, and a
+duplicate tag changes no capital figure; every balance row stays as filed, so the financial-route key data, the displayed
+statements and the field provenance are unchanged. The info gap `valuation.preferredOverlap` names both tags
+once per date; unequal amounts are both deducted (B4b's overlap territory).
+Non-controlling interest is book NCI plus redeemable NCI
+(`RedeemableNoncontrollingInterestEquityCarryingAmount`). The DCF bridge deducts
+the parent part beside preferred, and the redeemable NCI joins book NCI as the
+book floor of the larger-of test in the next paragraph, so it is never deducted
+twice. A null book NCI beside a filed redeemable NCI is not a zero book: the
+per-share value is withheld, as E-5 withholds it, and the reason names the
+redeemable amount. A filed total with no parent/NCI split is deducted beside
+preferred; if the earnings key would also size the NCI, the per-share value is
+withheld (`valuation.dcf.temporaryEquityAllocation`), because the unsplit amount
+may be NCI the key already counts. The market EV and the own-history EV add the
+same claims. An operand Stage A refuses (a conflict between sources, a
+non-finite value, a total that contradicts its parts) withholds what it touches:
+the DCF and the EV multiples
+(`valuation.multiples.enterpriseValue.temporaryEquity`). It is never zero-filled.
+In the own history, a quarter window whose temporary-equity operand is refused drops its EV, and the vendor's
+EV/sales and EV/EBITDA history may not stand in for it, exactly as for a lease-scope refusal: the vendor ratios cannot
+resolve the disputed claim. The withheld bands carry the warn gap `valuation.multiples.ownHistory.evTemporaryEquity`,
+which names the refused operand; windows without a refusal and the equity-based vendor history are unchanged.
+On the DCF bridge row the refusal withholds the whole DCF, not only the per-share
+value: sales-to-capital (invested capital) cannot be established without the
+claim's amount, so the `valuation.dcf.salesToCapital` gap is raised at warn
+severity, never critical, and the fair value and scenario targets quote it with
+the refused operand and its balance date. The same refused operand withholds
+that fiscal year's ROIC, also at warn. These checks run after the existing
+critical ones: a row that is missing equity, debt or cash, or whose invested
+capital is not positive, keeps its critical gap. The vendor's balance sheet is
+not a second route to a double count of redeemable NCI: the SEC enrichment
+admits a temporary-equity field only when the vendor's `minorityInterest` equals
+SEC's `MinorityInterest` for the same filing, which excludes redeemable NCI, so
+a vendor NCI that already included it fails the match and the claim is treated
+as unknown (no claim added).
+The unsplit rule holds wherever the NCI deduction is decided: any sensitivity
+cell, growth/margin cell, reverse-DCF step or scenario path whose deduction is on
+the earnings share while an unsplit total is deducted is withheld, and cells on
+book publish as before. Each grid, the reverse DCF and the scenario targets say
+so in their own note when they withheld a cell or path this way, and one
+`valuation.dcf.temporaryEquityAllocation` gap says it once for the run. The same claims reach every guard that asks whether
+preferred or NCI exists. The P/FCF cash-ownership guard and the three
+own-history common-allocation checks count an admitted claim and a refused one (a
+refused operand is a filed claim of unknown amount). In the P/FCF guard alone (which
+also tests each retained TTM window), a redeemable NCI is the same claim as book NCI
+and takes the same 1% floor: it withholds P/FCF unless the book and redeemable NCI together,
+and the NCI income, are each at most 1% of consolidated equity (a null book NCI beside a
+redeemable NCI counts as none, so the floor applies to the redeemable NCI alone, with the income
+known; with no redeemable NCI a null book NCI is main's test). A redeemable preferred, an unsplit amount or a refused operand
+withholds at any size, as permanent preferred does. Forecast operating EPS is
+withheld, with the disclosure `projections.eps.ownershipScope`, when the DCF
+publishes beside an admitted temporary-equity claim above zero, and also through
+the deducted preferred and book NCI fields as for permanent preferred. A
+redeemable NCI beside a null book NCI, whose bridge fields stay null, is covered
+by the claim itself; at main the null-book case is withheld only when the
+period's NCI income is non-zero. When the DCF is withheld (a refused operand on
+the bridge row, above), no projection series is built at all, so there is no EPS
+series to carry the disclosure.
+
+When an issuer has tagged temporary equity in some period but the SEC enrichment
+for a balance date was withheld, the claim at that date is unknown, not absent:
+the bridge and the EVs keep their figures and one warn gap
+(`valuation.temporaryEquity.unknown`) says the claim may be missing. The gap
+reads each consumer's own balance date: the DCF bridge's (the statement-date row)
+and the enterprise values' (the anchor row, which can be newer), and names only
+the consumer whose date matched. It names no DCF bridge when there is no
+published DCF (an equity REIT, a suppressed or withheld DCF), and is not raised on
+bank, insurer or mortgage-REIT routes, which have neither. It reads only the
+enrichment's own withheld reasons (no vendor CIK, no compatible SEC period, an
+unknown vendor permanent-equity scope, operands that do not match). The
+SEC-silent refusal ("temporary carrying amounts are absent or explicitly refused
+for this SEC period") is excluded: it means the SEC period holds none. A residual
+is disclosed in the report itself, in the DCF bridge note and in the EV basis: the
+parent caption can also hold redeemable common shares (shares subject to
+possible redemption, an ESOP put) that the diluted share count (and the quoted
+market cap) may already include; companyfacts do not separate them, so such
+shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
@@ -1060,7 +1188,9 @@ reports zero without a filed fact cannot size it (the vendor feed can report an
 omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
 is positive: a zero book balance does not negate the claim the income shows.
 When NCI income is nonzero (a profit or a loss) but book NCI is unavailable,
-neither deduction can be set, so the per-share value is withheld.
+neither deduction can be set, so the per-share value is withheld. Book NCI here
+includes redeemable NCI (above), so the larger-of test floors at book plus the
+redeemable amount.
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -1089,26 +1219,133 @@ per-share value, that reason leads and the NCI warning only joins the manifest.
 Book NCI alone is not presented as the outside holders' claim. The market EV and
 the EV multiples still use book NCI.
 
-**Asset-retirement and environmental obligations in the DCF bridge (audit
-2026-10-22 E-7).** A mine, a power plant or a well must be retired, and a
+**Debt-like obligations in the DCF bridge (audit 2026-10-22 E-7, extended by
+audit 2026-10-27 FIN-305, D-135).** A mine, a power plant or a well must be retired, and a
 polluted site cleaned up. The filed liabilities for those costs are claims on
 the enterprise, but the FCFF path projects operating cash flow and capital
 spending only, so it never pays them. FCX's companyfacts carry a $3.84B
 asset-retirement obligation and $2.02B of environmental accruals at 2025-12-31,
-and the bridge had no line for either. The bridge now subtracts them when the
+and the bridge had no line for either. Audit 2026-10-27 FIN-305 added three more
+families of recognised liabilities that the FCFF path never pays (below).
+The bridge subtracts them when the
 issuer tags them: `AssetRetirementObligation`,
 else `AssetRetirementObligationsNoncurrent` plus `AssetRetirementObligationCurrent`;
 `AccrualForEnvironmentalLossContingencies`, else
 `AccruedEnvironmentalLossContingenciesNoncurrent` plus
 `AccruedEnvironmentalLossContingenciesCurrent`. The undiscounted
 `AccrualForEnvironmentalLossContingenciesGross` is not the recognised liability
-and is not read. Only facts filed by the run date count. When neither
-obligation is tagged, nothing changes. This is an owner decision.
+and is not read. Only facts filed by the run date count. When none of the
+obligations is tagged, nothing changes. This is an owner decision.
+
+Three families join them (audit 2026-10-27 FIN-305, an owner decision delegated
+to research, decisions spec 4.3). **Pension and OPEB deficits** are the filer's
+broadest recognised liability family at the date, never summed across families,
+in this order: (a) `PensionAndOtherPostretirementAndPostemploymentBenefitPlansLiabilities`
+(`Noncurrent` plus `Current`), (b)
+`PensionAndOtherPostretirementDefinedBenefitPlansLiabilities` (`Noncurrent` plus
+`Current`), (c) `DefinedBenefitPensionPlanLiabilities` plus
+`OtherPostretirementDefinedBenefitPlanLiabilities`, each noncurrent plus current.
+Postemployment benefits (ASC 712) count only when family (a) includes them, and
+are never read on their own. The look-back is date first: the bridge date, then
+each earlier balance within E-7's look-back, newest first, and at each date the
+families are tried in the order (a), (b), (c); the first date at which any family
+is filed gives the reading. A family filed as zero never blocks a positive family
+at the same date (as for E-7's own readings); a filed zero ends the look-back only
+when no family is positive at that date. Overfunded plans are not credited: a surplus is not equity value
+one-for-one (a US employer reversion pays a 20% excise tax, 50% unless a
+replacement plan or benefit increase applies, IRC 4980), and practitioners
+ignore it. **Loss-contingency accruals** are `LossContingencyAccrualAtCarryingValue`,
+else `LossContingencyAccrualCarryingValueNoncurrent` plus `...Current`; only the
+amount above any same-date environmental accrual, read as the environmental
+line reads it (`AccrualForEnvironmentalLossContingencies`, else its noncurrent
+plus current parts), is deducted, so an environmental accrual inside the total is
+never counted twice. An environmental accrual found only at an earlier date than
+the loss accrual is not netted.
+**Contingent consideration** is `BusinessCombinationContingentConsiderationLiability`,
+else its `Noncurrent` plus `Current` parts. For these two families a current
+portion filed alone counts as the whole balance: litigation accruals and earn-outs
+are commonly all current, and a current part alone can only understate the claim
+(for retirement, environmental and pension readings a current portion alone is
+still not the obligation). None of these obligations joins the market EV (nor
+did the retirement and environmental ones); the EV basis says so in one sentence
+whenever the bridge deducts one, naming only the families it deducted (never the
+pension deficit of a rate-regulated utility, which it discloses).
+
+**Rate-regulated utilities.** For a filer whose SIC code (the EDGAR submissions
+`sic`) is one of 4911, 4923, 4924, 4931, 4932 or 4941, the pension and OPEB
+deficit is disclosed, not deducted: the code is read as a rate-regulated utility (ASC 980), and the offsetting regulatory asset is
+reported only in dimensional XBRL, which the SEC companyfacts the bridge reads
+does not carry (`valuation.dcf.debtLikeObligations.rateRegulated`, info). These
+are exactly the codes the repository's SIC map sends to a regulated electric,
+gas or water utility or a diversified utility (`RATE_REGULATED_UTILITY_SIC`,
+`src/edgar/sic.ts`). 4922 (pipelines), 4953, 4955 and 4959 (waste) and 4991
+(cogeneration) are not among them, because those filers do not recover costs
+through rates, and the group-49 fallback (4900, 4950, 4961) does not count. A
+filer whose SIC is not established is read as not rate-regulated; when, and only
+when, a pension line is then deducted, the info gap
+`valuation.dcf.debtLikeObligations.sicUnknown` says so. A filer under one of these codes whose rates do not recover the deficit (a merchant generator under 4911) is overstated by it after tax; the note says so. Its loss contingencies,
+earn-outs and E-7 lines are deducted as for any filer. Residual, routed to the
+free-data-source batch: net the deficit against the pension regulatory asset
+once dimensional XBRL is available.
+
+**A successor registrant (audit 2026-10-27 FIN-403, D-135).** A holding company
+that succeeded an operating registrant in a reorganisation (ExxonMobil Holdings
+Corp, CIK 2115436, for Exxon Mobil Corporation, CIK 34088) has a companyfacts
+payload that begins at the reorganisation, so until its own first annual report
+its 10-Qs may tag only some of these families (ExxonMobil Holdings tags its
+pension and OPEB deficit, which is deducted, but no asset-retirement obligation),
+and the bridge deducted nothing for a family it does not tag.
+While the successor holds no 10-K, 20-F or 40-F balance sheet of its own dated on
+or before the bridge date, and only when its own filings re-present the
+predecessor's periods unchanged in net income and per-share basis (B-36, one
+reporting entity), each family it does not tag at all is read from the predecessor by the
+same rules (the predecessor supplies only the families the successor leaves
+untagged, the 12.518B asset-retirement obligation in the ExxonMobil case; a family
+the successor tags, a filed zero or an accrual that nets to nil included, is its
+statement and is never replaced), its basis prefixed "predecessor (CIK ..., one reporting entity under
+B-36)". The merge is per family: a family both registrants tag is read once, from
+the successor, never summed and never taken from the predecessor first; the
+settlement assets follow the retirement obligation they offset. The same-date
+environmental netting above also runs across the merge: when the loss-contingency total comes from one
+registrant and the environmental accrual from the other, the total is reduced by the environmental accrual the
+other registrant files for the total's own date (the total, else noncurrent plus current), floored at nil, so
+an accrual both filings repeat is deducted once. A date mismatch keeps the existing reading, with its recorded
+residual (D-135 OD-4). The predecessor's
+non-marketable equity carrying value is cited beside the long-term investments,
+under the same no-annual-report and continuity conditions but at the bridge date
+only (no look-back), with the predecessor's CIK named in the citation. Once the successor files an annual balance sheet of its own, the
+predecessor is no longer read. When a predecessor is present but continuity is not
+established, nothing is read from it and the info gap
+`valuation.dcf.debtLikeObligations.predecessor` says so.
+
+**After tax (decisions spec 4.3).** Every debt-like line, the two E-7 families
+included, is deducted after tax: `net × (1 − rate)`, where `net` is the amount
+deducted (an asset-retirement obligation after its settlement-fund offset; the
+relief is applied to the amount deducted, never to the offset) and `rate` is the
+marginal-rate floor the bridge already uses to tax the investments it adds
+(`investmentTax`, D-58 and D-98: 21% for a US domicile, the 26 U.S.C. §11(b)
+federal rate with state taxes excluded; 15%, the global minimum, elsewhere). It
+is not the filer's deferred-tax asset, which is not tagged per obligation. This
+revises E-7's original before-tax convention (D-104) and resolves known issue
+B2b-1. For a pension deficit it is the after-tax cost of funding the deficit at
+once: the deficit is discounted at a pretax high-quality bond rate (ASC 715), the
+contribution is deductible (26 U.S.C. §404), and the fund then earns that rate
+untaxed (Feldstein, "Private Pensions as Corporate Debt", NBER 1982, pp. 75-90:
+unverified (evidence lost 2026-10-28); FE Training and IB
+Interview Questions carry the same convention). A deficit funded later costs more
+in present value; the bridge does not model the funding schedule. The relief is
+approximate and the notes say so: the rate omits state and local taxes and assumes
+the deduction is taken against taxable income in the year the claim is paid (26
+U.S.C. §461(h)); a payment that is not deductible (a government fine or penalty,
+§162(f)) or that only adds to tax basis (contingent consideration) is credited a
+relief it will not earn, or not for years, so that claim is understated by up to
+the rate times the amount. If no marginal rate is resolved, a line is deducted at
+its full amount and labelled "before tax".
 
 Three house conventions sit beside it; they are project choices, not owner
 decisions. First, each obligation is read at the bridge's own balance date,
 else at the latest date in the year before it that tags it, and the bridge
-names that date: its line reads "(filed, before tax; balance at 2025-12-31, the
+names that date: its line reads "(filed, after tax at 21%; balance at 2025-12-31, the
 latest filed)" in the bridge table, "(balance at 2025-12-31)" in the scenario
 paths' fixed bridge, and the notes add "the latest filed balance, as the
 2026-06-30 balance sheet does not tag it". Many filers tag these only in the
@@ -1120,9 +1357,11 @@ it as their comparative column) that does not tag an obligation means the
 obligation is gone (settled or sold): when the bridge's own balance sheet is
 one, no earlier balance is read, and otherwise the look-back stops at the
 latest one before the bridge's date. A balance filed as zero (the total, or
-the noncurrent part with no current part) also means it is gone. A quarter
+the noncurrent part with no current part; for loss contingencies and contingent
+consideration a current part alone) also means it is gone. A quarter
 that omits it cannot be told apart from one where it was settled, so a
-settlement within the year is caught at the next annual report. When the parts are summed, the noncurrent part must be
+settlement within the year is caught at the next annual report. When the parts of a
+retirement, environmental or pension reading are summed, the noncurrent part must be
 among them: a current portion alone is not the obligation, and the look-back
 continues to the full balance.
 Second, assets the issuer tags as legally restricted to settle the retirement obligations
@@ -1136,18 +1375,23 @@ credited, so a trust is never counted twice. That is conservative when those
 investments are unrelated to the trust: the fund is then under-credited. The
 offset never goes below zero; a surplus fund adds nothing, and when the fund
 covers the whole obligation the notes say nothing is deducted. Third, the
-obligations are deducted at their recognised amount before tax. Settling them
-earns a tax deduction, so this overstates the claim a little. Filers also
+obligations are deducted after tax, as above, so the bridge adjusts for the tax
+relief a settlement earns. Filers also
 charge the retirement obligations' accretion to operating income, so the
 projected NOPAT already bears their time value, and deducting the obligation
-counts that time value twice. The bridge states both and adjusts for neither.
+counts that time value twice. The bridge adjusts for the tax and states the
+accretion, which it does not adjust for.
 
 The deduction sits inside the non-operating total, so the sensitivity grid,
 the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
 key all use the same bridge. The bridge table prints each line as "Less
-asset-retirement obligations (filed, before tax)" or "Less environmental
-remediation accruals (filed, before tax)", and the DCF notes give the tags,
-amounts and filing. When net debt itself does not bridge, no obligation is
+asset-retirement obligations (filed, after tax at 21%)", "Less environmental
+remediation accruals (filed, after tax at 21%)", "Less pension and other
+postretirement benefit deficits (filed, after tax at 21%)", "Less loss-contingency
+accruals (filed, after tax at 21%)" or "Less business-combination contingent
+consideration (filed, after tax at 21%)", and the DCF notes give the tags,
+the filed amount, the amount after tax and the filing. The scenario paths' fixed
+bridge keeps the words "after tax" on each line. When net debt itself does not bridge, no obligation is
 deducted.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
@@ -1166,7 +1410,9 @@ equivalents) and is shown only as provider data.
 **Long-term investments (D-65).** Sales-to-capital removes the balance sheet's
 long-term investments from invested capital as non-operating (D-60); the bridge
 now adds the same amount back at its filed carrying value, so an asset left out
-of operating capital is never left out of value too. Where the companyfacts
+of operating capital is never left out of value too; a holding that meets or exceeds
+invested capital is added back all the same (sales-to-capital takes the house cap,
+FIN-304). Where the companyfacts
 carry the issuer's non-marketable carrying value
 (`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`: cost less
 impairment, adjusted for observable price changes) it is cited beside the line
@@ -1179,9 +1425,43 @@ a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
 public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
-diluted count, which carries option and RSU dilution; the bridge table also
+diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides.
+
+*Loss periods (FIN-404).* A period with a loss from continuing operations files
+a diluted count equal to its basic count, because every potential share is
+antidilutive (ASC 260-10-45-17..20); that count is right for the period's EPS
+and carries no award dilution as a divisor. When the divisor row is such a
+period (`diluted <= basic + 1`, both counts positive, and continuing-operations
+income, else net income, below zero), the divisor is that row's basic count plus
+the award dilution of the newest profitable period among the four latest
+quarters and the latest fiscal year that shows one; the note names the donor as
+a quarter or a fiscal year with its date. Award dilution is the donor's diluted
+minus basic count, less the if-converted shares the filer reports for that exact
+period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+floored at 0, because the equity bridge already deducts those convertible
+instruments as claims; the note names the amount taken out. When the issuer
+files a convertible carrying value (the families `ConvertibleNotesPayable`,
+`ConvertibleDebtNoncurrent`, `ConvertibleLongTermNotesPayable`,
+`ConvertibleDebtCurrent`, `ConvertibleNotesPayableCurrent`, `ConvertibleDebt`
+or the convertible-preferred option value) with a nonzero balance, in any reporting currency, within 366
+days before the latest quarter, but no conversion increment is filed for the
+donor period, nothing is restored: the filed count divides and the note says the
+restored increment could hold conversion shares the bridge already deducts; a
+loss period's filed count equals its basic count, so that kept count carries no
+award dilution either, and the D-60 note's tail says so (as it does for the
+basic case). With no such donor the basic count divides, and the note says it carries no option or
+RSU dilution. A zero or missing count (FMP's undisclosed sentinel) is missing,
+not filed, so the annual-statement fallback and its note apply as before. The
+info gap `valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's
+wording on the DCF route) is raised only where a DCF, excess-return or REIT
+FFO/AFFO per share that divides by the count is published, in the substituted, basic and
+not-restored cases; an unprofitable report with no DCF gains neither. The DCF,
+the excess-return route, the REIT block, the scenario paths and forecast EPS
+(`dilutedSharesProj`, on its pre-B-37 count) read the same substituted divisor.
+A profitable divisor row is unchanged.
 
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
 the combined cash-and-short-term-investments field, or minus both separately
@@ -1237,7 +1517,12 @@ is made at all** — enterprise value is reported as-is and an info-level
 `valuation.multiples.enterpriseValue.leases` manifest entry says that removing
 the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
-guessed, and nothing unknown is netted.
+guessed, and nothing unknown is netted. The "FMP route publishes no split" wording
+is kept only for a total whose provenance is not the SEC filing. A total with no
+tagged operating slice whose finance-lease liability reconciles to it (within the
+lease-integrity tolerance) is a finance lease: the EV basis and the DCF bridge
+note say so ("a total lease liability of 2,387M is a finance lease, which stays in
+EV and net debt on both bases"), no leases entry is raised, and no figure moves.
 
 **The operating slice is removed only when total debt is shown to hold it.**
 The removal assumes the operating-lease liability is inside `totalDebt`. It is
@@ -1249,7 +1534,17 @@ warning-level `valuation.dcf.netDebt.leaseScope` entry says so (audit
 2026-10-19, CODE-1). The same proof applies to the WACC debt leg and to the key
 data net debt excluding operating leases. The entry names what it compared: no
 total lease liability, or one smaller than the operating slice, and borrowings
-that are not disclosed or do not reconcile.
+that are not disclosed or do not reconcile. The WACC debt leg, the DCF's
+sales-to-capital, its filed-history ratios and ROIC apply the same proof (audit
+2026-10-27, FIN-303 and FIN-303-V1; one shared predicate,
+`operatingLeaseOutOfDebt`): on the default switch the slice leaves their debt
+exactly when it leaves the bridge's. When the scope is unproven the current
+balance's sales-to-capital and ROIC keep total debt as reported, their basis or
+year note naming the unproven reason, and the A-2 history then keeps every year
+on that same lease-inclusive basis. On the default basis with a proven current
+row, an unproven history year is left out of the A-2 median with a note (below).
+With the switch set every consumer keeps total debt as reported, and the
+sales-to-capital basis says the operating lease is kept in invested capital.
 
 **A withheld value states its refusal (audit 2026-10-29, VAL-4, VAL-10,
 KNW-04).** When enterprise value cannot be built, its basis and the
@@ -1282,8 +1577,8 @@ follows the identical convention through net debt, so the two can never
 disagree.
 
 **Invested capital and the WACC's debt leg share the lease basis.** ROIC's
-invested capital (debt + equity − cash and short-term investments, with the
-disclosed cash-only fallback when investments are unreported) and the
+invested capital (debt + temporary equity + equity − cash and short-term
+investments, with the disclosed cash-only fallback when investments are unreported) and the
 average debt behind the effective cost of debt and the E/D weights remove the
 same operating-lease slice by default and keep it when the option is on, so
 the discount rate, the return on capital and the enterprise value are on one
@@ -1291,8 +1586,14 @@ basis: NOPAT and interest expense are both after operating-lease cost under
 ASC 842, and a lease-inclusive denominator understated ROIC for every
 lease-heavy issuer (a discount retailer: 6% on the inclusive base against 11%
 on the consistent one) and could push the effective rate below the acceptance
-band. Where no split is disclosed the ROIC notes say the provider's total
-debt, lease liabilities included, was used unadjusted.
+band. Where no split is disclosed, the ROIC notes say the provider's total debt,
+lease liabilities included, was used unadjusted. Where a split is disclosed but
+not shown to sit inside total debt (the proof above), the year's note names the
+unproven reason and says total debt is used as reported. The DCF's sales-to-capital denominator
+is the same capital: the proven operating-lease slice leaves its debt by default
+(its cost is inside the projected EBIT, so keeping its liability in the capital
+that reinvestment rebuilds would charge the lease twice, D-25), the basis naming
+the amount removed or the unproven reason.
 
 **Annual return denominators require adjacent balances.** ROIC, ROTE and
 DuPont average the closing balance with the balance matched to the next older
@@ -1950,10 +2251,32 @@ contains unconsolidated-entity and noncontrolling-interest adjustments. Even
 using its real-estate-only components, the app's unreconciled formula is
 USD 12.105 million below common FFO, disproving an unconditional upper bound.
 
-The implied cap rate divides NOI by the **house enterprise value** — market
-capitalisation + net debt + preferred + minority interest, less the
-operating-lease slice by default — the same definition the multiples and the
-DCF bridge use, so a report carries one EV. The own-history P/FFO and P/AFFO
+The REIT block takes its market cap and its enterprise value from the multiples
+framework (FIN-311, FIN-108, FIN-119-V2; it builds neither itself). P/FFO and
+P/AFFO are the quote's admitted market cap divided by FFO and AFFO, the same
+figures the multiples publish, so a report carries one P/FFO; FFO and AFFO per
+share divide by the weighted diluted count ("Share basis (D-65)"). The implied
+cap rate divides NOI by the **house enterprise value** — market capitalisation
++ total debt + preferred + redeemable preferred + minority interest +
+redeemable noncontrolling interest − cash and short-term investments, less the
+operating-lease slice only where its scope is proven (and by default) — the
+same definition the multiples and the DCF bridge use, so a report carries one
+EV ("EV bridge", above). The REIT EV note states that it is the multiples' EV
+and quotes the multiples' own basis text verbatim, so its components and
+amounts cannot differ from the multiples'. Operating
+partnership units, permanent or redeemable, are not common shares, so they enter
+the EV through the noncontrolling-interest terms and never double count against
+the quote's market cap. When the multiples withhold the EV (a partial lease
+maturity whose embedded slice cannot be proven, an unknown noncontrolling
+allocation, a refused temporary-equity operand), the REIT EV and cap rate are
+withheld with it; an unproven lease scope otherwise publishes the EV with the
+lease liability left in total debt. Every guard that withholds the price
+(currency, ADR or economic-class security basis) withholds the REIT market cap
+and EV too, inside the block itself, so P/FFO, P/AFFO, the EV and the cap rate
+are withheld together while FFO and AFFO per share stand. A REIT whose quote
+carries a price but no market cap withholds P/FFO and the EV with a warn gap
+(OD-8), where the earlier block priced on price × diluted shares.
+The own-history P/FFO and P/AFFO
 bands are built from net income + D&A per rolling four quarters, the only
 construction quarterly statements support; when the current FFO adjusts
 additional NAREIT components (a property-sale gain, an impairment or real-estate-only depreciation
@@ -1965,7 +2288,7 @@ resolves at that period end, so the statement fallbacks are read from the same
 fiscal year rather than from a trailing window — a fiscal-year net income against
 trailing depreciation is a hybrid of two periods, not a figure. The REIT
 valuation block carries that period end as its as-of, and the notes say that the
-share price in P/FFO is current while the FFO it divides is up to three quarters
+market cap in P/FFO is at the current quote while the FFO it divides is up to three quarters
 old.
 
 P/FFO and P/AFFO are computed from these figures. When the REIT sub-map is
@@ -2246,9 +2569,27 @@ conventions meet, not a forecast, and the terminal-reinvestment assumption row
 says so.
 
 Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
-total debt + equity − cash and short-term investments − long-term
-investments, whose income is below the EBIT the DCF projects. When removing
-them would leave no operating capital the D-58 basis stands and says why.
+total debt (less the proven operating-lease slice on the default lease switch,
+FIN-303) + temporary equity + equity − cash and short-term investments −
+long-term investments, whose income is below the EBIT the DCF projects. The
+temporary equity is the redeemable preferred and redeemable non-controlling
+interests the bridge deducts, which are financing capital whichever caption
+holds them; a refused operand
+withholds the DCF with a `valuation.dcf.salesToCapital` gap at warn severity,
+never critical (the claim exists, only its amount is disputed), rather than
+being zero-filled, and the basis names the added amount. When removing
+them would leave no operating capital (a holding at or above invested capital, FIN-304,
+house rule D-135), the operating ratio is unbounded and takes the house cap 5.0, the
+basis says why and names the cap as the limit the ratio approaches from below, and
+the bridge still adds the holding back at its carrying value less the investment tax
+(the line keeps its filed provenance and says the holding meets or exceeds operating
+capital). On the current-capital rule one more of long-term investments therefore never
+lowers the DCF value: the cap is the value the ratio reaches just below the boundary,
+and the holding is added back on both sides. The A-2 history median's 0.1 cutoff
+(below) predates this and can still step when the bridge row is also a history row. The
+A-2 history below counts a year whose holding meets or exceeds its capital at the same
+cap. Capital the lease removal itself emptied takes the issuer's own history instead
+(FIN-303), whatever the holding.
 
 **The issuer's own sales-to-capital (audit 2026-10-22 A-2).** The 0.5 floor is
 a guard against a mis-scaled input, not a view of capital intensity, and a
@@ -2256,21 +2597,40 @@ regulated utility turns over its capital about a quarter of a time a year
 (DUK 0.22, NEE 0.16, SO 0.27 in companyfacts). Forecasting its reinvestment at
 0.5 halved the capital its growth needs and doubled DUK's DCF. The floor now
 applies only when the issuer's own history does not establish a lower ratio:
-each fiscal year with filed revenue and positive operating invested capital at
-the same date (measured as above, with debt on the current balance's lease
-basis) gives a ratio, and with at least three such years the median of the
-newest five is the issuer's established ratio. When it is below 0.5 it is the
+each fiscal year with filed revenue and positive invested capital at
+the same date (a year whose holding meets or exceeds its capital counts at the house cap 5.0 and is listed as "house cap: holding >= capital", not as a measured ratio, FIN-304; measured as above, with debt on the current balance's lease
+basis and that year's own temporary equity) gives a ratio, and with at least three such years the median of the
+newest five is the issuer's established ratio. One median is on one lease basis,
+the current balance's: on the default switch a year whose operating lease is not
+shown to sit inside its total debt cannot be put on that basis, so it is left out
+of the median and the basis names it and why; it is never kept lease-inclusive
+beside lease-excluded years. With the switch set, or a current balance that keeps
+its lease because the scope is unproven, every year keeps its debt as reported. When it is below 0.5 it is the
 lower bound in place of 0.5, so a current ratio at or above it is used as
 filed and one below it is raised to it. With fewer than three years, or an
 established ratio of 0.5 or more, the house floor applies as before. The
 sales-to-capital basis lists the years and ratios, or says why the house floor
-stands. The median, rather than the newest year or the mean, and the
+stands. A year whose temporary-equity operand is refused is left out of the
+median, and the basis names it. The median, rather than the newest year or the mean, and the
 three-year minimum are project choices: one restated or acquisition year does
 not move the median, and fewer than three years do not establish a ratio. So
 is a lower bound of 0.1 on the established ratio. Capital-heavy filers sit
 near 0.15 to 0.25, so a median below 0.1 is read as a scale error, which
 would repeat in every year; the house floor then stands, and the basis says
 why.
+
+When removing the proven operating-lease slice makes invested capital not
+positive (a negative-equity lessee, FIN-303), the current balance cannot
+establish a ratio, and the lease is not put back (that would mix the bases). The
+DCF takes the issuer's own history on the same lease-excluded basis (at least three
+usable years with a median of at least 0.1, held to the house cap of 5.0) and says
+so in the basis, which still states that any long-term investment is non-operating
+and added back by the bridge; without an established history ratio (three usable
+years, median at least 0.1) it is withheld with a warn
+`valuation.dcf.salesToCapital` gap (lead `LEASE_EMPTIED_CAPITAL_LEAD`; warn because main
+published a DCF on the lease-inclusive capital and a critical gap would block the report) that
+names the invested capital and the lease basis; the fair value and scenario targets quote it. Capital that is already not positive before the lease is removed, or with
+no lease removed, keeps the plain "invested capital <= 0" gap.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the
@@ -2388,8 +2748,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D102 (D-102 added
-the domain test on each run), and the fair value FAIR_VALUE_2026_10_D102. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D135 (D-102 added
+the domain test on each run; D-135 moved the bridge each target re-runs), and the fair value FAIR_VALUE_2026_10_D135. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -3160,6 +3520,42 @@ A report carrying either class's text never gains the other's. A report at or af
 the since-version, or in neither class (an FMP-route report), is returned as the
 identical object.
 
+A stored DCF, excess-return or REIT value made before the equity-bridge batch
+(audit 2026-10-27 B4a, D-67) is shown through `withLegacyBridgeMethod`
+(`src/report/legacyBridgeMethod.ts`), which follows the EDGAR-derived-lines view
+above. It changes no figure and rewrites no stored byte. Its since-version is a
+frozen constant (`BRIDGE_METHOD_SINCE_SPEC_VERSION`, 1.50.0), never the current
+`REPORT_SPEC_VERSION`, compared numerically through `specVersionBefore`. Each
+clause carries its own cutoff and the wrapper has no module-wide early return, so
+a later batch's clauses still reach a report at this one's version. (a) When the
+fair value is available and its method is the FCFF DCF or the excess-return model,
+one line is added to its basis after any line the view above added: "Valued under
+the equity-bridge method before report spec 1.50.0: {clauses}. Re-run the report
+for the current method." Its clauses, in order: on the FCFF DCF route only, "the
+bridge did not read temporary-equity (redeemable) claims, pension and OPEB
+deficits, loss-contingency accruals or contingent consideration, so any the issuer
+filed were not deducted" (a condition, because no stored byte shows a claim); "it
+deducted the filed retirement and environmental obligations shown in its bridge at
+their full amount, before the tax relief a settlement earns" (only when a stored
+bridge component is labelled "(filed, before tax"); "sales-to-capital kept the
+{amount} operating lease the EV left out in invested capital" (only when the stored
+EV basis names that lease as left out of net debt AND a stored `sales-to-capital`
+assumption row exists whose basis does not affirmatively state the lease was
+removed or kept by the switch; with no such row the clause is absent); and, on both
+routes, always as a condition, "if the divisor period was a loss quarter, its
+divisor carried no award dilution". The excess-return route has no E-7 bridge and
+no sales-to-capital, so it carries only the divisor clause. (b) A REIT route report
+gets one line in its route notes: "Priced under the REIT method before report spec
+1.50.0: P/FFO, P/AFFO and the implied cap rate used price × weighted diluted shares
+and the block's own enterprise value, so they can differ from the multiples
+table." (c) A stored EV basis that says a total lease liability "is disclosed but
+its operating slice is not" is shown with the finance-lease sentence of the current
+EV basis when the stored lease amounts show the total is wholly a finance lease (no
+operating-lease amount, and the filed finance lease reconciles to the total, the
+rule of Stage B's `financeLeaseOnlyTotal`), and the stored "the FMP route publishes
+no split" entry is hidden. The wrapper is idempotent and returns the identical
+object when nothing applies.
+
 A computed figure Stage B takes from one fiscal year's statement rows carries
 that year's issuer label (for example FY2025) and its period end only when the
 annual income row for the date Stage B states for it carries a fiscal label
@@ -3452,7 +3848,8 @@ that, NCI cannot move the multiple (audit SNOW-2). A stake bought out before
 the balance date leaves a zero balance but still earned its share of the cash
 flow, so earnings above the floor still withhold P/FCF. A non-zero NCI balance
 with no NCI earnings figure also withholds it: an ending balance cannot bound
-the period's earnings.
+the period's earnings. A redeemable NCI (temporary equity) counts toward the same
+floor, added to the book balance (FIN-119).
 
 **A grade needs corroborating evidence.** No surface shows an aspect's letter
 when its score rests on less than half of its intended signal weight (D-67).
@@ -4436,7 +4833,12 @@ and within half the smallest class's share of that total, so a count that
 leaves out a class cannot pass; and that row ends within 120 days of the
 inventory date. The diluted count is then restated in quoted-share units (a
 count filed in Class A equivalents is multiplied by the Class A units per
-quoted share) and the basis is disclosed as an info entry. Otherwise the
+quoted share) and the basis is disclosed as an info entry. When that count was
+substituted or is a loss period's basic count (FIN-404, "Share basis (D-65)"),
+the entry (and its refusal text) calls it "the diluted count", not "the filed
+diluted count", in the substituted and loss-period-basic cases only; when the
+not-restored case keeps the filed count it stays "the filed diluted count", and
+every other filer's text is unchanged. Otherwise the
 per-share value stays withheld, and the warning names the test that failed.
 ADRs are out of scope: their per-share bridge needs a depositary ratio and
 dated security evidence that no data path supplies yet.

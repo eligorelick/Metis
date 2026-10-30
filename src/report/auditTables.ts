@@ -86,15 +86,21 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
   if (b) {
     const money = (v:number|null)=>v === null ? "unavailable" : formatFinancialValue(v,"currency",b.currency);
     const claim = (v:number|null)=>v === null ? "not disclosed; model uses 0" : money(v);
+    // FIN-119: the redeemable claims (temporary equity) inside the two lines below, named so the line is not read as permanent preferred or book NCI alone.
+    const temporary = b.temporaryEquity;
+    const temporaryPreferred = temporary === undefined ? 0 : temporary.redeemablePreferred + temporary.unsplit;
+    const preferredNote = temporaryPreferred === 0 ? "" : ` (includes ${money(temporaryPreferred)} of redeemable preferred and other temporary equity)`;
+    const minorityNote = temporary === undefined || temporary.redeemableNoncontrolling === 0 ? "" : ` (includes ${money(temporary.redeemableNoncontrolling)} of redeemable noncontrolling interests)`;
     // D-65: this is the DCF's value of the operating assets, not the market EV
     // the key-data box and the multiples use; the label says so.
     const components = b.nonOperatingComponents ?? (b.nonOperatingAssets === undefined ? [] : [{ label: "marketable equity securities (filed fair value, not cash)", value: b.nonOperatingAssets }]);
     result.push({heading:"Enterprise value to equity bridge",headers:["Component","Value"],rows:[
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
       ["Intrinsic enterprise value (DCF, operating assets)",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
-      [b.noncontrollingBasis === undefined ? "Less minority interest" : `Less minority interest (${b.noncontrollingBasis})`,claim(b.minorityInterest)],
-      ...(b.noncontrollingBook === undefined ? [] : [["Minority interest at book value (not deducted)", money(b.noncontrollingBook)]]),
-      ["Less preferred equity",claim(b.preferredEquity)],
+      // On an earnings-share bridge the deduction is a profit share, not a sum holding the redeemable part; that part sits in the book row.
+      [`${b.noncontrollingBasis === undefined ? "Less minority interest" : `Less minority interest (${b.noncontrollingBasis})`}${b.noncontrollingBook === undefined ? minorityNote : ""}`,claim(b.minorityInterest)],
+      ...(b.noncontrollingBook === undefined ? [] : [[`Minority interest at book value (not deducted)${minorityNote}`, money(b.noncontrollingBook)]]),
+      [`Less preferred equity${preferredNote}`,claim(b.preferredEquity)],
       ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
       ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),

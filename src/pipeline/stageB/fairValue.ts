@@ -27,13 +27,15 @@ import {
   type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
 } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
+import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD } from "@/pipeline/stageB/seniorClaims";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
 import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D102" as const;
+// D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D135" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */
@@ -56,9 +58,20 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  * model was not built, and why), then the equity bridge's own gap with the net
  * debt refusal behind it. Null when no gap says.
  */
+/**
+ * The warn gap that withheld the DCF for a refused temporary-equity operand (FIN-119-V1) or for invested capital the
+ * operating-lease removal emptied (FIN-303, I6); every other warn gap stays unquoted.
+ */
+export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
+  return gaps.find((g) => g.severity === "warn" && g.field === "valuation.dcf.salesToCapital" &&
+    (g.reason.startsWith(TEMPORARY_EQUITY_REFUSAL_LEAD) || g.reason.startsWith(LEASE_EMPTIED_CAPITAL_LEAD)));
+}
+
 function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
   if (critical !== undefined) return critical.reason;
+  const refusedClaim = dcfWithheldWarnGap(gaps);
+  if (refusedClaim !== undefined) return refusedClaim.reason;
   const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");
   if (bridge === undefined) return null;
   const upstream = bridge.field === "valuation.dcf.netDebt" ? gaps.find((g) => g.field === "valuation.netDebt")?.reason : undefined;
@@ -185,6 +198,14 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     return suppressed(
       [{ field: "valuation.dcf.noncontrollingEarningsKey", reason: nciKeyReason, severity: "warn" }],
       [`Intrinsic value per share unavailable: ${nciKeyReason}`],
+    );
+  }
+  // FIN-119: withheld because a temporary-equity claim is refused or may overlap the NCI earnings key.
+  const temporaryEquityReason = valuation.kind === "dcf" ? valuation.dcf?.temporaryEquityWithheld : undefined;
+  if (temporaryEquityReason !== undefined) {
+    return suppressed(
+      [{ field: "valuation.dcf.temporaryEquityAllocation", reason: temporaryEquityReason, severity: "warn" }],
+      [`Intrinsic value per share unavailable: ${temporaryEquityReason}`],
     );
   }
 
@@ -431,6 +452,8 @@ export interface DcfDisplay {
     noncontrollingBasis?: string;
     /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
     noncontrollingBook?: number;
+    /** FIN-119: the redeemable claims (temporary equity) already inside `preferredEquity` and `minorityInterest`. */
+    temporaryEquity?: { redeemablePreferred: number; redeemableNoncontrolling: number; unsplit: number };
   };
   /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
@@ -509,5 +532,8 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis !== undefined ? { noncontrollingBasis: noncontrollingBasisText(dcf.bridge) } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(dcf.bridge.minorityInterest) ? { noncontrollingBook: dcf.bridge.minorityInterest } : {}),
+    ...(dcf.bridge.temporaryEquity !== undefined ? { temporaryEquity: {
+      redeemablePreferred: dcf.bridge.temporaryEquity.redeemablePreferred, redeemableNoncontrolling: dcf.bridge.temporaryEquity.redeemableNoncontrolling,
+      unsplit: dcf.bridge.temporaryEquity.unsplit } } : {}),
   }, forecastRows: dcf.yearRows.map(mapRow), ...(consensusPath.length > 0 ? { consensusPath } : {}) };
 }

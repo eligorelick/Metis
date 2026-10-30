@@ -28,6 +28,8 @@ import type {
   FmpRawRow,
   FmpStatementRow,
 } from "@/providers/fmp";
+import { parseSicCode } from "@/edgar/sic";
+import { successorContinuity } from "@/edgar/successor";
 import { tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -123,13 +125,16 @@ import {
   type ExcessReturnInputs,
   type ReitInputs,
   noncontrollingEarningsInput,
+  LONG_TERM_INVESTMENTS_REMOVED_CLAUSE,
 } from "@/pipeline/stageB/valuation";
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
-import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
-import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
+import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type LeaseDebtInputs, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
+import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
+import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
@@ -526,6 +531,16 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
   return statementEquityOwnershipBasis(row) === "consolidated" ? null : num(row?.totalStockholdersEquity);
 }
 
+/** The three filed temporary-equity amounts of a balance row, without the refusals (those ride in the row's own `fieldConflicts`). */
+function temporaryEquityFields(row: FmpBalanceSheetRow) {
+  const operands = temporaryEquityOperands(row);
+  return {
+    ...(operands.temporaryEquity !== undefined ? { temporaryEquity: operands.temporaryEquity } : {}),
+    ...(operands.temporaryEquityAttributableToParent !== undefined ? { temporaryEquityAttributableToParent: operands.temporaryEquityAttributableToParent } : {}),
+    ...(operands.temporaryEquityAttributableToNoncontrollingInterest !== undefined ? { temporaryEquityAttributableToNoncontrollingInterest: operands.temporaryEquityAttributableToNoncontrollingInterest } : {}),
+  };
+}
+
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
@@ -552,6 +567,8 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     goodwill: num(r.goodwill),
     intangibleAssets: num(r.intangibleAssets),
     preferredStock: num(r.preferredStock),
+    // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
+    ...temporaryEquityFields(r),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     totalAssets: num(r.totalAssets),
   };
@@ -1646,10 +1663,9 @@ function bookDebtOnLeaseBasis(
   if (total === null) return { value: null, leaseRemoved: false };
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
-  const operatingLease = row ? num(row.operatingLeaseLiability) : null;
-  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total && operatingLeaseScopeUnproven(row ?? {}) === null) {
-    return { value: total - operatingLease, leaseRemoved: true };
-  }
+  // FIN-303 (D-25, D-97 item 3): the shared predicate, the same proof sales-to-capital and ROIC apply.
+  const leaseOut = operatingLeaseOutOfDebt(row ?? {}, includeOperatingLeases);
+  if (leaseOut.amount > 0) return { value: total - leaseOut.amount, leaseRemoved: true };
   return { value: total, leaseRemoved: false };
 }
 
@@ -2521,9 +2537,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const inc0Proj = incomeAnnual[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
-  const posSharesProj = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
-  const sharesQProj = posSharesProj(num(incomeQuarterly[0]?.weightedAverageShsOutDil));
-  const sharesAProj = posSharesProj(num(inc0Proj?.weightedAverageShsOutDil));
+  // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
+  const projDivisors = incomeDivisors(incomeQuarterly, inc0Proj, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
+  const sharesQProj = projDivisors.quarter.shares;
+  const sharesAProj = projDivisors.annual.shares;
   const dilutedSharesProj =
     projRowDate(incomeQuarterly[0]) >= projRowDate(inc0Proj) ? (sharesQProj ?? sharesAProj) : (sharesAProj ?? sharesQProj);
   // Collapse restated/duplicate fiscal years BEFORE the dispersion sees them.
@@ -2591,6 +2608,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const projectionOutsideOwnership = [num(projectionOwnershipBalance?.minorityInterest), num(projectionOwnershipIncome?.netIncomeAttributableToNoncontrollingInterest)]
     .some(value => value !== null && value !== 0);
+  // FIN-119 (OD-1, one definition of claims senior to common): a refused temporary-equity operand, or an
+  // admitted claim, also leaves a future common-earnings allocation unestablished. This covers a redeemable
+  // NCI beside a null book NCI, which the bridge fields cannot show. An unknown (withheld) enrichment withholds nothing.
+  const projectionTemporary = projectionOwnershipBalance === undefined ? null : temporaryEquityClaims({ ...temporaryEquityOperands(projectionOwnershipBalance), preferredStock: num(projectionOwnershipBalance.preferredStock) });
+  const projectionTemporaryClaim = projectionTemporary !== null && (projectionTemporary.refusal !== null || projectionTemporary.total > 0);
   // A rejected TTM can leave an older annual DCF anchor. Its EPS must not
   // import a newer quarter, or interest in an unestablished/different currency.
   const projectionInterest = latestIncomeQuarter !== undefined && projectionQuarterDate !== null && projectionAnchorDate !== null
@@ -2608,7 +2630,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     valuation,
     waccPct: returns.wacc.waccPct,
     dilutedShares: dilutedSharesProj,
-    ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." } : {}),
+    ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." }
+      : projectionTemporaryClaim ? { forecastEpsWithheldReason: "Temporary equity (redeemable preferred or redeemable noncontrolling interests) is filed, or refused, at the operating forecast anchor, but a future common-earnings allocation is unestablished. Its carrying amount is not a dividend or earnings forecast and is not subtracted from forecast operating earnings." } : {}),
     incomeHistory: projectionIncomeHistory,
     fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
@@ -3103,6 +3126,11 @@ function computeReturns(
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        // FIN-119-V1: the annual balance dates whose temporary-equity enrichment was withheld (the M11 matcher Task 2 uses for the bridge).
+        temporaryEquityUnknownDates: balanceAnnual.flatMap((r) => {
+          const unknown = temporaryEquityUnknownAt(r, isoDay(r.date), bundle.gaps);
+          return unknown === null ? [] : [unknown.date];
+        }),
         // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
         // that same balance refusal withholds the latest fiscal year's ROIC.
         waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
@@ -3243,6 +3271,86 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
   };
 }
 
+/**
+ * The `MultiplesBalance` view of one balance row: the market EV reads the
+ * newest row, and (FIN-103) the DCF equity bridge reads the row dated at the
+ * statement date. One mapping, so the two cannot drift.
+ */
+function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual" | null | undefined): MultiplesBalance {
+  return {
+    date: String(row.date ?? ""),
+    basis: basis ?? undefined,
+    totalDebt: num(row.totalDebt),
+    cashAndCashEquivalents: num(row.cashAndCashEquivalents),
+    shortTermInvestments: num(row.shortTermInvestments),
+    cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
+    // D-65: the multiples' EV nets the same canonical (D-60) net cash as the DCF bridge.
+    marketableEquitySecurities: num(row.marketableEquitySecurities),
+    totalStockholdersEquity: statementParentEquity(row),
+    totalEquity: num(row.totalEquity),
+    goodwill: num(row.goodwill),
+    intangibleAssets: num(row.intangibleAssets),
+    minorityInterest: num(row.minorityInterest),
+    preferredStock: num(row.preferredStock),
+    // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
+    ...temporaryEquityOperands(row),
+    equityOwnershipBasis: statementEquityOwnershipBasis(row),
+    // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
+    // disclosure context; only the OPERATING slice is netted out of EV
+    // (WS6 review, BLOCKER 1), and the EDGAR route is the only one that
+    // resolves the split — on the FMP route it is absent and EV is
+    // reported as-is with the leases gap raised.
+    capitalLeaseObligations: num(row.capitalLeaseObligations),
+    operatingLeaseLiability: num(row.operatingLeaseLiability),
+    financeLeaseLiability: num(row.financeLeaseLiability),
+    fieldProvenance: row.fieldProvenance,
+    ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
+    shortTermDebt: num(row.shortTermDebt), longTermDebt: num(row.longTermDebt),
+  };
+}
+
+/**
+ * FIN-404: the per-share divisor of the newest quarterly and the newest annual
+ * income row, each through `awardDilutedDivisor` (a loss period keeps the award
+ * dilution its filed count dropped). The four latest quarters and the latest
+ * year are the donor pool, so the DCF, the excess-return route, the REIT block
+ * and the scenario paths read one divisor. A literal 0 is FMP's
+ * zero-for-undisclosed sentinel, not a count (missing is not zero).
+ */
+function incomeDivisors(
+  incomeQuarterly: readonly FmpIncomeStatementRow[],
+  inc0: FmpIncomeStatementRow | undefined,
+  facts: CompanyFacts | null,
+): { quarter: DivisorResult; annual: DivisorResult } {
+  // FMP's 0 is its zero-for-undisclosed sentinel, never a filed count: a non-positive count is missing.
+  const pos = (v: unknown): number | null => { const n = num(v); return n !== null && n > 0 ? n : null; };
+  const divisorRow = (r: FmpIncomeStatementRow, period: "quarter" | "fiscal year"): DivisorRow => {
+    const date = typeof r.date === "string" ? r.date : "";
+    // The filed if-converted increment for this exact period is not award dilution (FIN-404; the bridge deducts the instrument).
+    const conversionShares = date === "" ? null : conversionSharesFiled(facts, date, period);
+    return {
+      date, period, basic: pos(r.weightedAverageShsOut), diluted: pos(r.weightedAverageShsOutDil),
+      netIncome: num(r.netIncome), continuingIncome: num(r.netIncomeFromContinuingOperations),
+      ...(conversionShares === null ? {} : { conversionShares }),
+    };
+  };
+  const rows = [...incomeQuarterly.slice(0, 4).map((r) => ({ r, period: "quarter" as const })), ...(inc0 === undefined ? [] : [{ r: inc0, period: "fiscal year" as const }])];
+  const anchor = typeof incomeQuarterly[0]?.date === "string" ? incomeQuarterly[0].date : typeof inc0?.date === "string" ? inc0.date : "";
+  const options = { convertiblesFiled: convertibleFiledNear(facts, anchor) };
+  const one = (row: FmpIncomeStatementRow | undefined, period: "quarter" | "fiscal year"): DivisorResult => {
+    if (row === undefined) return { shares: null, basis: "filed", donorDate: null, donorPeriod: null, note: null };
+    return awardDilutedDivisor(divisorRow(row, period), rows.filter((x) => x.r !== row).map((x) => divisorRow(x.r, x.period)), options);
+  };
+  return { quarter: one(incomeQuarterly[0], "quarter"), annual: one(inc0, "fiscal year") };
+}
+
+/** The valuation input that discloses a non-filed divisor (FIN-404); callers pass only a result whose basis is not "filed". */
+function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs["dilutedShareDivisor"]> {
+  const note = d.note ?? "";
+  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note };
+  return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
+}
+
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
@@ -3272,8 +3380,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // must not beat a fresher annual row. A literal 0 is FMP's
   // zero-for-undisclosed sentinel, not a real count (missing ≠ zero).
   const posShares = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
-  const sharesQuarterly = posShares(num(incomeQuarterly[0]?.weightedAverageShsOutDil));
-  const sharesAnnual = posShares(num(inc0?.weightedAverageShsOutDil));
+  // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
+  const divisors = incomeDivisors(incomeQuarterly, inc0, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
+  const sharesQuarterly = divisors.quarter.shares;
+  const sharesAnnual = divisors.annual.shares;
   const quarterlySharesFresh = rowDate(incomeQuarterly[0]) >= rowDate(inc0);
   const dilutedShares = quarterlySharesFresh ? (sharesQuarterly ?? sharesAnnual) : (sharesAnnual ?? sharesQuarterly);
   const dilutedSharesBasis: "quarter" | "annual" | null =
@@ -3282,9 +3392,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       : (quarterlySharesFresh && sharesQuarterly !== null) || sharesAnnual === null
         ? "quarter"
         : "annual";
+  const dilutedShareDivisor = dilutedSharesBasis === "quarter" ? divisors.quarter : dilutedSharesBasis === "annual" ? divisors.annual : null;
 
   const netDebtInfo = netDebtFromBalance(balPoint);
-  const netDebtDerived = netDebtInfo.value;
 
   // --- DCF inputs (general route) -------------------------------------------
   // The analyst-consensus growth case divides FY1 estimated revenue by the
@@ -3353,6 +3463,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         }
       : null;
 
+  // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
+  // date (D-65), not the newest row the market EV uses.
+  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
+  const bridgePoint = bridge.row;
+  const bridgePointBasis = bridge.basis;
+  const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
+
   // Same deduped rows the projection history uses: the DCF's near-term growth
   // path is fitted to this series, so a restated fiscal year appearing twice
   // biases the base case exactly as it biased the dispersion.
@@ -3376,10 +3493,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     totalStockholdersEquity: statementParentEquity(row),
     totalEquity: num(row.totalEquity),
     minorityInterest: num(row.minorityInterest),
+    // FIN-119-V1: temporary equity (and any refusal of it, in `fieldConflicts`) is financing capital in sales-to-capital.
+    ...temporaryEquityFields(row),
+    // The preferred line as filed: `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9).
+    preferredStock: num(row.preferredStock),
+    ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
     cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
     longTermInvestments: num(row.longTermInvestments),
   });
-  const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis ? toDcfBalance(balPoint, balPointBasis) : null;
+  const dcfBalance: DcfBalanceRow | null = bridgePoint && bridgePointBasis ? toDcfBalance(bridgePoint, bridgePointBasis) : null;
   // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
   const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => toDcfBalance(row, "annual"));
 
@@ -3521,6 +3643,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
+          // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
+          includeLeasesInEv: evIncludeLeases,
+          bridgeCause: { cause: bridge.cause, detail: bridge.detail },
           capitalHistory: dcfCapitalHistory,
           marketCap,
           // The terminal excess-return rule reads the same annual ROIC series
@@ -3643,36 +3768,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           depreciationAndAmortization: num(ctx.cashflowAnnual[0].depreciationAndAmortization),
         }
       : null;
-  const multiplesBalance: MultiplesBalance | null = balPoint
-    ? {
-        date: String(balPoint.date ?? ""),
-        basis: balPointBasis,
-        totalDebt: num(balPoint.totalDebt),
-        cashAndCashEquivalents: num(balPoint.cashAndCashEquivalents),
-        shortTermInvestments: num(balPoint.shortTermInvestments),
-        cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
-        // D-65: the multiples' EV nets the same canonical (D-60) net cash as the DCF bridge.
-        marketableEquitySecurities: num(balPoint.marketableEquitySecurities),
-        totalStockholdersEquity: statementParentEquity(balPoint),
-        totalEquity: num(balPoint.totalEquity),
-        goodwill: num(balPoint.goodwill),
-        intangibleAssets: num(balPoint.intangibleAssets),
-        minorityInterest: num(balPoint.minorityInterest),
-        preferredStock: num(balPoint.preferredStock),
-        equityOwnershipBasis: statementEquityOwnershipBasis(balPoint),
-        // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
-        // disclosure context; only the OPERATING slice is netted out of EV
-        // (WS6 review, BLOCKER 1), and the EDGAR route is the only one that
-        // resolves the split — on the FMP route it is absent and EV is
-        // reported as-is with the leases gap raised.
-        capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
-        operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
-        financeLeaseLiability: num(balPoint.financeLeaseLiability),
-        fieldProvenance: balPoint.fieldProvenance,
-        ...(balPoint.fieldConflicts !== undefined ? { fieldConflicts: balPoint.fieldConflicts } : {}),
-        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
-      }
-    : null;
+  const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis) : null;
+  // FIN-103: the DCF bridge's own row, mapped the same way.
+  const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis) : null;
 
   // The latest TTM gate does not establish the currency of older quarters.
   // Own-history bands roll over those older rows too, so apply the same
@@ -3812,6 +3910,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
+    // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
+    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
 
@@ -3884,7 +3984,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           affoApprox,
           sharePrice: currentPrice,
           shares: valuationDilutedShares,
-          netDebt: netDebtDerived,
           noiApprox,
           // The FFO computation's own period end, never the trailing income
           // date: labelling a fiscal-year FFO with a TTM as-of asserted a
@@ -3898,32 +3997,46 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           affoApproximate: nareitFfo.affoApproximate,
           submap: route.reitSubmap ?? null,
           submapReason: reitSubmapReason,
-          // The HOUSE enterprise value for the implied cap rate: the same
-          // senior claims and lease rule the multiples and the DCF bridge use.
-          preferredStock: balPoint ? num(balPoint.preferredStock) : null,
-          minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
-          operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
-          includeLeasesInEv: evIncludeLeases,
+          // FIN-311, FIN-108: the market cap and the house EV come from the
+          // multiples framework (`valueCompany`), never rebuilt here.
         }
       : null;
 
+  // FIN-403: a successor registrant with no annual report of its own bears its predecessor's filed obligations, when its
+  // filings re-present the predecessor's periods unchanged (B-36); without that continuity nothing is read from it.
+  // An FMP-supplied CIK that SEC answers for another registrant must not drive the successor read (PR #76 Codex review).
+  const ownCompanyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const predecessorEntry = bundle.edgar?.predecessor ?? null;
+  const successorPredecessor = predecessorEntry === null || ownCompanyFacts === null ? null : {
+    facts: predecessorEntry.facts, cik10: predecessorEntry.cik10, continuity: successorContinuity(ownCompanyFacts, predecessorEntry.facts) !== null,
+  };
   const bundleInputs: ValuationBundleInputs = {
     currentPrice,
     waccPct: wacc.waccPct,
     // VAL-10: the DCF gap quotes why the WACC is unavailable.
     waccUnavailableReason: wacc.waccPct !== null ? null
       : (wacc.gaps.find((g) => g.severity === "critical") ?? wacc.gaps.find((g) => g.severity === "warn"))?.reason ?? null,
-    netDebt: netDebtDerived,
+    // FIN-103: every DCF-bridge operand below reads the bridge row (`bridgePoint`: the
+    // statement-date row, else the anchor); `multiples.balance`, `reit` and
+    // `excessReturn` keep the anchor (`balPoint`).
+    bridgeBalance,
+    netDebt: bridgeNetDebtInfo.value,
     dilutedShares: valuationDilutedShares,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
-    noncontrollingOwnershipUnresolved: balPoint !== null && num(balPoint.minorityInterest) === null &&
-      (statementEquityOwnershipBasis(balPoint) === "consolidated" ||
-        (num(balPoint.totalEquity) !== null && num(balPoint.totalStockholdersEquity) !== null &&
-          Math.abs((num(balPoint.totalEquity) as number) - (num(balPoint.totalStockholdersEquity) as number)) >
-            1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)))),
-    minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
-    preferred: balPoint ? num(balPoint.preferredStock) : null,
+    // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
+    ...(dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(dilutedShareDivisor) } : {}),
+    noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
+    minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
+    preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
+    // FIN-119: temporary equity at the bridge date (redeemable preferred and redeemable NCI), folded into the two above by `valueCompany`.
+    temporaryEquity: bridgePoint ? temporaryEquityClaims({ ...temporaryEquityOperands(bridgePoint), preferredStock: num(bridgePoint.preferredStock) }) : null,
+    // The DCF bridge reads the statement-date row and the enterprise values the anchor row, so each is matched on its own date.
+    temporaryEquityUnknown: (() => {
+      const unknownAt = (row: FmpBalanceSheetRow | null | undefined) => temporaryEquityUnknownAt(row ?? null, row ? isoDay(row.date) : null, bundle.gaps);
+      const bridge = unknownAt(bridgePoint), market = unknownAt(balPoint);
+      return bridge === null && market === null ? null : { bridge, market };
+    })(),
     // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
     // Consolidated profit is the filed ProfitLoss, else net income on a
     // consolidated basis, else parent plus NCI income (as forensics does).
@@ -3942,30 +4055,36 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       },
     ),
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
-    leaseLiability: balPoint ? num(balPoint.capitalLeaseObligations) : null,
-    operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
+    leaseLiability: bridgePoint ? num(bridgePoint.capitalLeaseObligations) : null,
+    operatingLeaseLiability: bridgePoint ? num(bridgePoint.operatingLeaseLiability) : null,
     includeLeasesInEv: evIncludeLeases,
     // D-60: equity securities the house net debt left out of cash.
-    nonOperatingAssets: netDebtInfo.nonOperatingEquitySecurities !== undefined
-      ? { value: netDebtInfo.nonOperatingEquitySecurities, basis: str(balPoint?.marketableEquityBasis) ?? "marketable equity securities at filed fair value" }
+    nonOperatingAssets: bridgeNetDebtInfo.nonOperatingEquitySecurities !== undefined
+      ? { value: bridgeNetDebtInfo.nonOperatingEquitySecurities, basis: str(bridgePoint?.marketableEquityBasis) ?? "marketable equity securities at filed fair value" }
       : null,
     // D-65: the filed source of the long-term investments the DCF removes from operating capital.
     longTermInvestmentsBasis: (() => {
-      const lti = balPoint ? num(balPoint.longTermInvestments) : null;
-      const date = balPoint ? isoDay(balPoint.date) : null;
+      const lti = bridgePoint ? num(bridgePoint.longTermInvestments) : null;
+      const date = bridgePoint ? isoDay(bridgePoint.date) : null;
       if (lti === null || lti <= 0 || date === null) return null;
-      const filed = isoDay(balPoint?.filingDate) ?? (typeof balPoint?.acceptedDate === "string" ? isoDay(balPoint.acceptedDate.slice(0, 10)) : null);
-      const privateStakes = nonMarketableEquityCarrying(bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
-        date, ctx.modelCurrency, bundle.builtAt);
+      const filed = isoDay(bridgePoint?.filingDate) ?? (typeof bridgePoint?.acceptedDate === "string" ? isoDay(bridgePoint.acceptedDate.slice(0, 10)) : null);
+      // FIN-403: a successor with no annual report of its own cites its predecessor's filed stakes (same rule as the obligations).
+      // It is read at the bridge date only, and the citation names the predecessor's CIK.
+      const ownStakes = nonMarketableEquityCarrying(ownCompanyFacts, date, ctx.modelCurrency, bundle.builtAt);
+      const predecessorStakes = ownStakes !== null || successorPredecessor === null ? null
+        : nonMarketableEquityCarrying(predecessorFactsFor(ownCompanyFacts, successorPredecessor, date, ctx.modelCurrency, bundle.builtAt), date, ctx.modelCurrency, bundle.builtAt);
+      const privateStakes = ownStakes ?? predecessorStakes;
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
-      return `long-term investments ${b(lti)} on the ${date} ${balPointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — the amount the sales-to-capital denominator removes as non-operating` +
-        (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
+      return `long-term investments ${b(lti)} on the ${date} ${bridgePointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — ${LONG_TERM_INVESTMENTS_REMOVED_CLAUSE}` +
+        (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${predecessorStakes === null || successorPredecessor === null ? "" : `predecessor CIK ${successorPredecessor.cik10}, `}${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
-    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date, or in the year before it.
-    debtLikeObligations: balPoint === null ? null : debtLikeObligationsAt(
-      bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
-      isoDay(balPoint.date), ctx.modelCurrency, bundle.builtAt),
+    // Audit 2026-10-22 E-7 and audit 2026-10-27 FIN-305: the retirement, environmental, pension and OPEB, loss-contingency
+    // and contingent-consideration obligations filed at the bridge's balance date, or in the year before it.
+    debtLikeObligations: bridgePoint === null ? null : successorObligationsAt(
+      ownCompanyFacts, successorPredecessor, isoDay(bridgePoint.date), ctx.modelCurrency, bundle.builtAt),
+    // FIN-305 (pre-flight I7): the one SIC fact; valueCompany derives "rate-regulated utility" and "established" from it.
+    sicCode: parseSicCode(bundle.edgar?.sic),
     dcfInputs,
     multiples,
     excessReturn,
@@ -3975,6 +4094,31 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   void ratiosTtm; // reserved for future ratio cross-checks
   const result = valueCompany(route, bundleInputs);
   result.gaps.push(...estimateGaps);
+  // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
+  const overlapDates = new Set<string>();
+  for (const row of [bridgePoint, balPoint]) {
+    const overlap = row ? temporaryEquityClaims({ ...temporaryEquityOperands(row), preferredStock: num(row.preferredStock) })?.overlap ?? null : null;
+    const date = row ? isoDay(row.date) ?? "" : "";
+    if (row && overlap !== null && !overlapDates.has(date)) {
+      overlapDates.add(date);
+      result.gaps.push({ field: "valuation.preferredOverlap", reason: `balance ${date}: ${overlap}`, severity: "info" });
+    }
+  }
+  // FIN-403: on the DCF route, say when a predecessor would have supplied an obligation but continuity is not established.
+  if (result.kind === "dcf" && successorPredecessor !== null && !successorPredecessor.continuity && bridgePoint !== null) {
+    const bridgeDate = isoDay(bridgePoint.date);
+    const withheld = successorObligationsAt(ownCompanyFacts, { ...successorPredecessor, continuity: true }, bridgeDate, ctx.modelCurrency, bundle.builtAt);
+    const read = successorObligationsAt(ownCompanyFacts, successorPredecessor, bridgeDate, ctx.modelCurrency, bundle.builtAt);
+    if (JSON.stringify(withheld) !== JSON.stringify(read)) {
+      result.gaps.push({
+        field: "valuation.dcf.debtLikeObligations.predecessor",
+        reason: `a predecessor registrant (CIK ${successorPredecessor.cik10}) files obligations (retirement, environmental, pension, loss-contingency or contingent-consideration) ` +
+          "that the successor does not tag, but the successor's own filings do not re-present the predecessor's periods unchanged (net income and per-share basis), " +
+          "so the two are not shown to be one reporting entity and those obligations are not deducted in the equity bridge",
+        severity: "info",
+      });
+    }
+  }
   for (const history of [historyIncome, historyCashflow]) {
     if (history.gap !== null) result.gaps.push(history.gap);
   }
@@ -3987,7 +4131,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       `FFO, AFFO and everything derived from them (P/FFO, P/AFFO, the AFFO payout ratio) are measured on the latest ` +
         `FISCAL YEAR${nareitFfo.asOf !== null ? ` ending ${nareitFfo.asOf}` : ""}, not on a trailing twelve months: ` +
         "the NAREIT components resolve as annual XBRL facts, and mixing a fiscal-year net income with trailing " +
-        "depreciation would make the figure a hybrid of two periods. The share price in P/FFO is current, so for a " +
+        "depreciation would make the figure a hybrid of two periods. The market cap in P/FFO is at the current quote, so for a " +
         "REIT compounding FFO the multiple is measured against a figure up to three quarters old.",
     );
   }
@@ -4091,6 +4235,67 @@ function netDebtFromBalance(
 /** The balance fields the valuation anchors read: net debt, invested capital and the EV bridge. */
 const BALANCE_ANCHOR_FIELDS = ["totalDebt", "totalStockholdersEquity", "cashAndShortTermInvestments"] as const;
 
+/**
+ * A balance row the parser refused an anchor operand of, or whose equity is
+ * consolidated with no parent split. Such a refusal is not cured by moving to
+ * another date (`pickBalanceAnchor`, `dcfBridgeRow`).
+ */
+const REFUSABLE_ANCHOR_FIELDS = ["totalDebt", "netDebt", "cashAndCashEquivalents", "cashAndShortTermInvestments", "totalStockholdersEquity", "totalEquity"] as const;
+function balanceRowRefused(row: object): boolean {
+  const conflicts = (row as FmpBalanceSheetRow).fieldConflicts;
+  const refusedAnchor = REFUSABLE_ANCHOR_FIELDS.some(field => conflicts?.[field]?.usable === false);
+  return refusedAnchor || statementEquityOwnershipBasis(row as FmpBalanceSheetRow) === "consolidated";
+}
+
+/** The anchor operands a balance row lacks (empty means the row is whole). One completeness rule for both anchors. */
+function balanceRowMissing(row: object): string[] {
+  const r = row as Record<string, unknown>;
+  return BALANCE_ANCHOR_FIELDS.filter((field) => !(typeof r[field] === "number" && Number.isFinite(r[field] as number)));
+}
+function balanceRowWhole(row: object): boolean {
+  return balanceRowMissing(row).length === 0;
+}
+
+/**
+ * The ownership test the DCF's NCI gate applies (`noncontrollingOwnershipUnresolved`):
+ * no book NCI, and consolidated equity that has no parent split or differs from
+ * parent equity. One test for the gate and for the bridge row choice.
+ */
+function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): boolean {
+  return row !== null && num(row.minorityInterest) === null &&
+    (statementEquityOwnershipBasis(row) === "consolidated" ||
+      (num(row.totalEquity) !== null && num(row.totalStockholdersEquity) !== null &&
+        Math.abs((num(row.totalEquity) as number) - (num(row.totalStockholdersEquity) as number)) >
+          1e-9 * Math.max(1, Math.abs(num(row.totalEquity) as number), Math.abs(num(row.totalStockholdersEquity) as number))));
+}
+/**
+ * Why the DCF bridge cannot be built on this row (the refusal test, the gate's ownership test, or a lease or
+ * temporary-equity refusal the DCF raises on the row it reads); null when it can. The DCF reads the bridge row for the
+ * sales-to-capital lease scope, the bridge's lease integrity and scope, and the temporary-equity operands, so the row
+ * choice must refuse the same rows (B4a final review I-2): a refused candidate or anchor keeps main's row, never cured
+ * by another date.
+ */
+function balanceRowBlockReason(row: object, includeLeases = false): string | null {
+  // The refusal test lives once, in `balanceRowRefused`; this only words it.
+  if (balanceRowRefused(row)) {
+    const refused = REFUSABLE_ANCHOR_FIELDS.find(field => (row as FmpBalanceSheetRow).fieldConflicts?.[field]?.usable === false);
+    if (refused === undefined) return "consolidated equity with no filed parent/NCI split";
+    const why = (row as FmpBalanceSheetRow).fieldConflicts?.[refused]?.reason;
+    return `${refused} refused${why ? `: ${why}` : ""}`;
+  }
+  if (noncontrollingOwnershipUnresolvedAt(row as FmpBalanceSheetRow)) return "noncontrolling ownership unresolved";
+  const leaseConflict = leaseDebtConflict(row as LeaseDebtInputs);
+  if (leaseConflict !== null) return `lease inputs conflict: ${leaseConflict}`;
+  const leaseScope = leaseDebtScopeRefusal(row as FmpBalanceSheetRow, includeLeases);
+  if (leaseScope !== null) return `lease scope refused: ${leaseScope}`;
+  const temporaryRefusal = temporaryEquityClaims(temporaryEquityOperands(row))?.refusal ?? null;
+  if (temporaryRefusal !== null) return temporaryRefusal;
+  return null;
+}
+function balanceRowBlocksBridge(row: object, includeLeases = false): boolean {
+  return balanceRowBlockReason(row, includeLeases) !== null;
+}
+
 export interface BalanceAnchor<TRow> {
   row: TRow | null;
   basis: "quarter" | "annual" | undefined;
@@ -4117,8 +4322,7 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   const quarterly = quarterlyRow ?? null;
   const annual = annualRow ?? null;
   const date = (r: TRow | null): string => (typeof r?.date === "string" ? r.date : "");
-  const missing = (r: TRow): string[] =>
-    BALANCE_ANCHOR_FIELDS.filter((field) => !(typeof r[field] === "number" && Number.isFinite(r[field] as number)));
+  const missing = (r: TRow): string[] => balanceRowMissing(r);
   const newer: TRow | null = quarterly !== null && (annual === null || date(quarterly) >= date(annual)) ? quarterly : annual;
   const older: TRow | null = newer === quarterly ? annual : quarterly;
   if (newer === null) return { row: null, basis: undefined, fallback: null };
@@ -4126,11 +4330,7 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   // Missing coverage may justify a disclosed older whole row. A known
   // integrity or ownership refusal cannot be cured by changing the date:
   // doing so would restore EV/DCF inputs that the current filing withholds.
-  const conflicts = (newer as FmpBalanceSheetRow).fieldConflicts;
-  const refusedAnchor = ["totalDebt", "netDebt", "cashAndCashEquivalents", "cashAndShortTermInvestments", "totalStockholdersEquity", "totalEquity"]
-    .some(field => conflicts?.[field]?.usable === false);
-  const consolidatedOnly = statementEquityOwnershipBasis(newer as FmpBalanceSheetRow) === "consolidated";
-  if (refusedAnchor || consolidatedOnly) return { row: newer, basis: basisOf(newer), fallback: null };
+  if (balanceRowRefused(newer)) return { row: newer, basis: basisOf(newer), fallback: null };
   const lacking = missing(newer);
   if (older !== null && lacking.length > 0 && missing(older).length === 0) {
     const list = lacking.length === 1 ? lacking[0] : `${lacking.slice(0, -1).join(", ")} and ${lacking[lacking.length - 1]}`;
@@ -4144,6 +4344,52 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
     };
   }
   return { row: newer, basis: basisOf(newer), fallback: null };
+}
+
+export type BridgeRowCause = "statement-row" | "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused";
+
+/**
+ * FIN-103: the balance row the DCF equity bridge reads. D-65 promises "the
+ * equity bridge stays at the statement-date balance", but the market EV's
+ * anchor (`pickBalanceAnchor`: the newest row, or the newest whole one when the
+ * newest lacks an operand) ignores the DCF's income basis, so a DCF that fell
+ * back to the fiscal-year statement bridged on a newer quarter.
+ *
+ * Candidates are the rows dated at the statement date, in the order the
+ * statement's basis calls for: the fiscal-year row first on an annual base, the
+ * quarter row first on a trailing-twelve-month base (at a fiscal-year end both
+ * are the same instant). The first candidate that is whole (`balanceRowWhole`,
+ * the anchor's completeness rule, so a 10-Q that tags no debt line cannot
+ * suppress the DCF again) and not blocked (`balanceRowBlocksBridge`: a parser
+ * refusal, unresolved ownership, a lease conflict, a lease-scope refusal or a
+ * refused temporary-equity operand) is the row. Otherwise the anchor stands, which is main's row and main's figure, and
+ * `cause` says why. A blocked anchor always stands: its refusal is never cured
+ * by another date.
+ */
+export function dcfBridgeRow<TRow extends { date?: unknown } & Partial<Record<(typeof BALANCE_ANCHOR_FIELDS)[number], unknown>>>(
+  statementDate: string | null,
+  statementBasis: "annual" | "ttm" | null,
+  quarterly: readonly TRow[],
+  annual: readonly TRow[],
+  fallback: { row: TRow | null; basis: "quarter" | "annual" | null },
+  /** The run's own lease switch (`evIncludeLeases`), which the lease-scope refusal reads. */
+  includeLeases = false,
+): { row: TRow | null; basis: "quarter" | "annual" | null; matchesStatement: boolean; cause: BridgeRowCause; detail: string | null } {
+  const anchorAt = fallback.row !== null && statementDate !== null && isoDay(fallback.row.date) === statementDate;
+  const keep = (cause: BridgeRowCause, detail: string | null) =>
+    ({ row: fallback.row, basis: fallback.basis, matchesStatement: anchorAt, cause, detail });
+  if (fallback.row !== null && balanceRowBlocksBridge(fallback.row, includeLeases)) return keep("anchor-refused", balanceRowBlockReason(fallback.row, includeLeases));
+  if (statementDate === null) return keep("none-filed", null);
+  const q = quarterly.map((row) => ({ row, basis: "quarter" as const }));
+  const a = annual.map((row) => ({ row, basis: "annual" as const }));
+  const candidates = (statementBasis === "annual" ? [...a, ...q] : [...q, ...a]).filter((c) => isoDay(c.row.date) === statementDate);
+  const hit = candidates.find((c) => balanceRowWhole(c.row) && !balanceRowBlocksBridge(c.row, includeLeases));
+  if (hit !== undefined) return { row: hit.row, basis: hit.basis, matchesStatement: true, cause: "statement-row", detail: null };
+  const blocked = candidates.find((c) => balanceRowBlocksBridge(c.row, includeLeases));
+  if (blocked !== undefined) return keep("statement-row-refused", balanceRowBlockReason(blocked.row, includeLeases));
+  const incomplete = candidates[0];
+  if (incomplete !== undefined) return keep("incomplete", balanceRowMissing(incomplete.row).join(", "));
+  return keep("none-filed", null);
 }
 
 /**
@@ -4297,6 +4543,8 @@ function mergeQuarterly(
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
       preferredStock: bal ? num(bal.preferredStock) : null,
       minorityInterest: bal ? num(bal.minorityInterest) : null,
+      // FIN-119: each quarter's own redeemable claims, so the own-history EV and the P/FCF guard read them.
+      ...(bal ? temporaryEquityOperands(bal) : {}),
       // WS6 review (BLOCKER 2): the lease slice too, so a lease-adjusted current
       // EV is ranked against a lease-adjusted history.
       operatingLeaseLiability: bal ? num(bal.operatingLeaseLiability) : null,

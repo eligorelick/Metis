@@ -444,6 +444,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       preferred: baseDcf.bridge.preferred,
       nonOperatingAssets: baseDcf.bridge.nonOperatingAssets ?? null,
       noncontrollingEarningsShare: baseDcf.bridge.noncontrollingEarningsShare ?? null,
+      temporaryEquity: baseDcf.bridge.temporaryEquity ?? null,
     }, { sigmaGrowth: dg, sigmaMargin: DISPERSION_K * rawDisp.sigmaMargin, growthMarginCorrelation: shocks.growthMarginCorrelation });
   const bullRows = shared.bull.result.yearRows;
   const bearRows = shared.bear.result.yearRows;

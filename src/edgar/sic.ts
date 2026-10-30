@@ -173,6 +173,17 @@ const SPECIFIC: Readonly<Record<number, readonly [string, string]>> = {
   3334: ["Basic Materials", "Aluminum"],
 };
 
+/**
+ * SIC codes of rate-regulated electric, gas and water utilities and diversified
+ * utilities: exactly the codes `SPECIFIC` sends to "Utilities - Regulated ..." or
+ * "Utilities - Diversified" (4931). A filer here recovers pension and OPEB costs through rates
+ * (ASC 980), which the DCF bridge assumes (audit 2026-10-27 FIN-305, D-135). 4922
+ * (pipelines), 4953/4955/4959 (waste) and 4991 (cogeneration) are not rate-regulated this way,
+ * and the group-49 fallback (4900, 4950, 4961) does not count.
+ * `tests/edgar.sic.test.ts` ties this set to the map in both directions.
+ */
+export const RATE_REGULATED_UTILITY_SIC: ReadonlySet<number> = new Set([4911, 4923, 4924, 4931, 4932, 4941]);
+
 /** Two-digit SIC major group → sector and a descriptive industry. */
 const MAJOR_GROUP: Readonly<Record<number, readonly [string, string]>> = {
   1: ["Consumer Defensive", "Farm Products"],

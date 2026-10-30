@@ -45,7 +45,7 @@ const analystRefused: ManifestEntry = {
 const available: FairValue = {
   status: "available",
   method: "fcff-dcf",
-  methodVersion: "FAIR_VALUE_2026_10_D102",
+  methodVersion: "FAIR_VALUE_2026_10_D135",
   perShare: { value: 207.6, unit: "USD/share", source: "computed.valuation.dcf.perShare", asOf: "2026-10-22", verified: true },
   upsidePct: -38,
   basis: ["Intrinsic value per share = the deterministic FCFF DCF."],

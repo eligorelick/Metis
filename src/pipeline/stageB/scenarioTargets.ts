@@ -28,6 +28,7 @@
 
 import {
   dcfDomainFailure,
+  unsplitCellsNote,
   type DcfRunOptions,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
@@ -38,7 +39,7 @@ import {
 } from "@/pipeline/stageB/projections";
 import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
-import { perShareUnit } from "@/pipeline/stageB/fairValue";
+import { perShareUnit, dcfWithheldWarnGap } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
 import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/schema";
 
@@ -47,7 +48,8 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 /** Versioned method prior — bump when the construction changes. */
 // D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
 // D-102 (audit 2026-10-22 B-29, E-5): a run outside the DCF's domain withholds the fan; the bridge applies the NCI earnings key.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D102" as const;
+// D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D135" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -152,12 +154,15 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
+    // FIN-119-V1: a refused temporary-equity operand that withheld the DCF is named, as in the fair value.
+    const refusedClaim = dcfWithheldWarnGap(valuation.gaps);
     return suppressed(
       [
         {
           field: "valuation.scenarioTargets",
-          reason:
-            "base DCF per-share unavailable (assumptions/DCF not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge) — scenario targets suppressed rather than fabricated",
+          reason: refusedClaim !== undefined
+            ? `base DCF per-share unavailable: ${refusedClaim.reason} — scenario targets suppressed rather than fabricated`
+            : "base DCF per-share unavailable (assumptions/DCF not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge) — scenario targets suppressed rather than fabricated",
           severity: "warn",
         },
       ],
@@ -236,6 +241,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     preferred: baseDcf.bridge.preferred,
     nonOperatingAssets: baseDcf.bridge.nonOperatingAssets ?? null,
     noncontrollingEarningsShare: baseDcf.bridge.noncontrollingEarningsShare ?? null,
+    temporaryEquity: baseDcf.bridge.temporaryEquity ?? null,
   };
 
   const tn = (name: ScenarioTarget["name"], value: number): TracedNumber => ({
@@ -333,6 +339,13 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
 
+  // FIN-119: a path whose deduction takes the profit share while an unsplit temporary-equity total is deducted is withheld, and says why.
+  const unsplitPath = baseDcf.bridge.temporaryEquity !== undefined && baseDcf.bridge.temporaryEquity.unsplit !== 0 &&
+    (shared.bull.result.temporaryEquityWithheld !== undefined || shared.bear.result.temporaryEquityWithheld !== undefined);
+  if (unsplitPath) {
+    missingReasons.push({ field: "valuation.dcf.temporaryEquityAllocation", reason: unsplitCellsNote(baseDcf.bridge.temporaryEquity!.unsplit), severity: "warn" });
+  }
+
   const targets: ScenarioTarget[] = [
     mk("bull", optimistic.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
     mk("base", baseDcf.perShare, 0, 0),
@@ -352,6 +365,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     // D-65: the decay-and-cap paragraph is stated once, as the note of the
     // projections' scenario-construction table (it was printed three times).
     "The shock decay and the scenario margin cap are set out under the weighted projections' scenario construction.",
+    ...(unsplitPath ? [unsplitCellsNote(baseDcf.bridge.temporaryEquity!.unsplit)] : []),
   ];
 
   return {

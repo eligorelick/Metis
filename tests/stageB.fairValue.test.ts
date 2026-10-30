@@ -70,7 +70,7 @@ function excessReturnValuation(): ValuationResult {
 }
 
 function reitValuationResult(): ValuationResult {
-  const reit = reitValuation({ ffoApprox: 300, affoApprox: 250, sharePrice: 40, shares: 100, netDebt: 500 });
+  const reit = reitValuation({ ffoApprox: 300, affoApprox: 250, sharePrice: 40, shares: 100, marketCap: 4000, enterpriseValue: { value: 4500, basis: "test" } });
   return { kind: "reit", route: "reit", reit, multiples: MULTIPLES, notes: [], gaps: [] };
 }
 

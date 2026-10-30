@@ -1416,11 +1416,15 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
   // A discount retailer: EBIT 2,000 after operating-lease cost, equity 7,000,
   // financial debt 7,000, operating-lease liability 11,000 inside totalDebt,
   // cash 500, tax 25%.
+  // FIN-303-V1 (audit 2026-10-27): the slice leaves invested capital only when total debt is shown to hold it (CODE-1,
+  // D-97 item 3). The original fixture was an unproven row (no lease total, no short + long reconciliation); it is now
+  // proven by a total lease liability equal to the operating lease, as the EV bridge requires.
   const leaseBalance: ReturnsBalanceRow[] = [
     {
       date: "2025-12-31",
       totalDebt: 18_000,
       operatingLeaseLiability: 11_000,
+      capitalLeaseObligations: 11_000,
       totalStockholdersEquity: 7_000,
       cashAndCashEquivalents: 500,
       shortTermInvestments: 0,
@@ -1430,6 +1434,7 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
       date: "2024-12-31",
       totalDebt: 18_000,
       operatingLeaseLiability: 11_000,
+      capitalLeaseObligations: 11_000,
       totalStockholdersEquity: 7_000,
       cashAndCashEquivalents: 500,
       shortTermInvestments: 0,

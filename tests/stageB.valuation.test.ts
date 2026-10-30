@@ -1867,14 +1867,15 @@ describe("excessReturnModel (banks / insurers)", () => {
 
 describe("reitValuation", () => {
   it("computes P/FFO, P/AFFO, per-share, and implied cap rate (all approximate)", () => {
-    // price 50, shares 100 -> mcap 5000; netDebt 2000 -> EV 7000
+    // market cap 5000 and the multiples EV 7000 are inputs (FIN-311, FIN-108)
     // FFO 400, AFFO 300, NOI 500 -> capRate 500/7000 = 7.142857%
     const r = reitValuation({
       ffoApprox: 400,
       affoApprox: 300,
       sharePrice: 50,
       shares: 100,
-      netDebt: 2000,
+      marketCap: 5000,
+      enterpriseValue: { value: 7000, basis: "test" },
       noiApprox: 500,
       asOf: "2025-12-31",
     });
@@ -1893,7 +1894,8 @@ describe("reitValuation", () => {
       affoApprox: 300,
       sharePrice: 50,
       shares: 100,
-      netDebt: 2000,
+      marketCap: 5000,
+      enterpriseValue: { value: 7000, basis: "test" },
       noiApprox: null,
     });
     expect(r.impliedCapRatePct).toBeNull();
@@ -1906,7 +1908,8 @@ describe("reitValuation", () => {
       affoApprox: null,
       sharePrice: 50,
       shares: 100,
-      netDebt: 2000,
+      marketCap: 5000,
+      enterpriseValue: { value: 7000, basis: "test" },
     });
     expect(r.pToFfo).toBeNull();
     expect(r.gaps.some((g) => g.field === "valuation.reit.ffo")).toBe(true);
@@ -2045,7 +2048,6 @@ describe("valueCompany dispatch", () => {
         affoApprox: 300,
         sharePrice: 50,
         shares: 100,
-        netDebt: 2000,
         noiApprox: 500,
       },
     });
@@ -2487,18 +2489,24 @@ describe("buildDcfAssumptions — the margin cap and the tax basis (audit 2026-0
 });
 
 describe("reitValuation — the house enterprise value (audit 2026-09-06)", () => {
-  const base = { ffoApprox: 500, affoApprox: 400, sharePrice: 50, shares: 100, netDebt: 2000, noiApprox: 500, submap: "equity" as const };
+  const base = { ffoApprox: 500, affoApprox: 400, sharePrice: 50, shares: 100, noiApprox: 500, submap: "equity" as const };
 
-  it("adds preferred and minority interest and removes the operating-lease slice, like the multiples and the DCF bridge", () => {
-    const r = reitValuation({ ...base, preferredStock: 300, minorityInterest: 700, operatingLeaseLiability: 100 });
-    // 5,000 + 2,000 − 100 + 300 + 700
+  // FIN-108 / FIN-311 (audit 2026-10-27): this block used to pin a parallel formula (market cap + net debt - lease slice + preferred +
+  // minority). It now passes through the one EV the multiples framework computes (src/pipeline/stageB/valuation.ts, `valueCompany`),
+  // so the REIT block and the multiples cannot carry two EVs: the value and the cap rate on it come from the input unchanged.
+  it("passes the multiples' house enterprise value through, and the cap rate is NOI over it", () => {
+    const r = reitValuation({ ...base, marketCap: 5000, enterpriseValue: { value: 7900, basis: "house EV" } });
     expect(r.enterpriseValue).toBe(7900);
     expect(r.impliedCapRatePct).toBeCloseTo((500 / 7900) * 100, 9);
     expect(r.notes.some((n) => /the house definition the multiples and the DCF bridge use/.test(n))).toBe(true);
-    const kept = reitValuation({ ...base, preferredStock: 300, minorityInterest: 700, operatingLeaseLiability: 100, includeLeasesInEv: true });
-    expect(kept.enterpriseValue).toBe(8000);
-    // Undisclosed claims are zero, the provider's convention.
-    expect(reitValuation(base).enterpriseValue).toBe(7000);
+    expect(r.notes.some((n) => n.includes("house EV"))).toBe(true);
+    expect(r.pToFfo).toBeCloseTo(5000 / 500, 9);
+    // A withheld multiples EV (null value) withholds this one, with the gap.
+    const withheld = reitValuation({ ...base, marketCap: 5000, enterpriseValue: { value: null, basis: "house EV" } });
+    expect(withheld.enterpriseValue).toBeNull();
+    expect(withheld.gaps.some((g) => g.field === "valuation.reit.enterpriseValue")).toBe(true);
+    // No market cap, no EV.
+    expect(reitValuation({ ...base, enterpriseValue: { value: 7900, basis: "house EV" } }).enterpriseValue).toBeNull();
   });
 });
 

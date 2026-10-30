@@ -1,6 +1,6 @@
 // tests/edgar.sic.test.ts
 import { describe, expect, it } from "vitest";
-import { sectorIndustryForSic } from "@/edgar/sic";
+import { RATE_REGULATED_UTILITY_SIC, sectorIndustryForSic } from "@/edgar/sic";
 
 describe("sectorIndustryForSic", () => {
   it("retains broad SIC 6199 without promoting it to validated credit services or Technology", () => {
@@ -61,5 +61,22 @@ describe("sectorIndustryForSic", () => {
       const { industry } = sectorIndustryForSic(code);
       expect(industry ?? "").not.toMatch(/^(banks|insurance|reit)/i);
     }
+  });
+});
+
+describe("RATE_REGULATED_UTILITY_SIC (FIN-305, pre-flight I7)", () => {
+  it("holds exactly the six codes the SIC map sends to a regulated or diversified utility", () => {
+    expect([...RATE_REGULATED_UTILITY_SIC].sort()).toEqual([4911, 4923, 4924, 4931, 4932, 4941]);
+  });
+  it("ties the set to the map in both directions", () => {
+    for (const code of RATE_REGULATED_UTILITY_SIC) {
+      expect(sectorIndustryForSic(code).industry, String(code)).toMatch(/^Utilities - (Regulated|Diversified)/);
+    }
+    for (let code = 4900; code <= 4999; code++) {
+      if (/^Utilities - Regulated/.test(sectorIndustryForSic(code).industry ?? "")) expect(RATE_REGULATED_UTILITY_SIC.has(code), String(code)).toBe(true);
+    }
+    // 4931 is the only member in "Utilities - Diversified": the group-49 fallback also returns it for 4900, 4950 and 4961.
+    expect([...RATE_REGULATED_UTILITY_SIC].filter((c) => sectorIndustryForSic(c).industry === "Utilities - Diversified")).toEqual([4931]);
+    for (const code of [4900, 4950, 4961, 4953, 4922, 4991]) expect(RATE_REGULATED_UTILITY_SIC.has(code), String(code)).toBe(false);
   });
 });

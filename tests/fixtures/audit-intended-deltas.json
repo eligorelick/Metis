@@ -8873,7 +8873,7 @@
       "decisions": [
         "D-98"
       ],
-      "reason": "AMZN audit 2026-10-20 finding 1: the DCF equity bridge now subtracts an estimated tax on the non-operating investments it adds back, at the marginal-rate floor the terminal tax converges to (21% US federal) on a zero tax basis. The fixture's 0.50B of long-term investments carries a 105M tax line, so equity value falls by exactly 105M and every per-share cell (base, WACC x terminal-growth grid, growth x margin grid) by 105M / 205M diluted shares = 0.512195; upside and the dcfUpside valuation signal follow. The new assumptions.investmentTax leaf records the rate; stageB notes 8-11 move by one because the tax note is inserted after the investments note, and the sales-to-capital and investments bases are reworded. These paths were blessed by earlier groups and are reclassified here because their after values moved.",
+      "reason": "AMZN audit 2026-10-20 finding 1: the DCF equity bridge now subtracts an estimated tax on the non-operating investments it adds back, at the marginal-rate floor the terminal tax converges to (21% US federal) on a zero tax basis. The fixture's 0.50B of long-term investments carries a 105M tax line, so equity value falls by exactly 105M and every per-share cell (base, WACC x terminal-growth grid, growth x margin grid) by 105M / 205M diluted shares = 0.512195; upside and the dcfUpside valuation signal follow. The new assumptions.investmentTax leaf records the rate; stageB notes 8-11 move by one because the tax note is inserted after the investments note, and the sales-to-capital and investments bases are reworded. These paths were blessed by earlier groups and are reclassified here because their after values moved. Audit 2026-10-27 FIN-103 (B4a Task 1) then moved the word in both bases and in the bridge's long-term-investments basis from \"quarter\" to \"annual\" balance: this fixture's DCF is on the fiscal year, so the bridge reads the fiscal-year row dated at the statement date, ahead of the same-date quarter row; the two rows hold the same amounts, so no figure moves.",
       "deltas": [
         {
           "path": "report.fairValue.perShare.value",
@@ -8913,7 +8913,7 @@
           "after": {
             "name": "sales-to-capital",
             "value": "2.98",
-            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
           }
         },
         {
@@ -9167,7 +9167,7 @@
         {
           "path": "stageB.valuation.assumptions.salesToCapital.basis",
           "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
         },
         {
           "path": "stageB.valuation.dcf.bridge",
@@ -9183,7 +9183,7 @@
                 "kind": "long-term-investments",
                 "label": "long-term investments (filed carrying value)",
                 "value": 500000000,
-                "basis": "long-term investments 0.50B on the 2025-12-31 quarter balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
+                "basis": "long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
               },
               {
                 "kind": "investment-tax",
@@ -9270,7 +9270,7 @@
         {
           "path": "stageB.valuation.notes.7",
           "beforeMissing": true,
-          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 quarter balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
         },
         {
           "path": "stageB.valuation.notes.8",
@@ -9940,29 +9940,9 @@
       "reason": "Audit batch 2 of 2026-10-22 (valuation in and out of its domain, D-102), as it reaches this provider-free DEMO control: finding C-10 adds the trailing four-quarter common return to Stage B's returns block, which is null here because the control is a general-route issuer with no bank or insurer return (stageB.returns.commonReturnTtm, absent before); report spec 1.37.0, moved out of audit-batch1-headline-numbers-20261022, whose record stands for 1.36.0. The DCF domain tests (B-29), the excess-return start and grid (C-10, C-11), the NCI earnings key (E-5) and the house base rate (B-30) do not reach this fixture: its DCF is inside its domain, it carries no noncontrolling interest, and no other value moves. The fair-value and scenario-target method stamps move to FAIR_VALUE_2026_10_D102 and SCENARIO_TARGETS_2026_10_D102 (the Codex review of PR #49) because both resolutions changed; the scenario stamp is moved out of the D-99 group, whose record stands for SCENARIO_TARGETS_2026_10_D99. See docs/audit/2026-10-22-audit-batch2-valuation-domain.md.",
       "deltas": [
         {
-          "path": "report.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D102"
-        },
-        {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D102"
-        },
-        {
-          "path": "stageB.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D102"
-        },
-        {
           "path": "stageB.returns.commonReturnTtm",
           "beforeMissing": true,
           "after": null
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D102"
         }
       ]
     },
@@ -10264,16 +10244,36 @@
       ]
     },
     {
-      "name": "b13-edgar-derived-lines-20261029",
+      "name": "equity-bridge-b4a-2026-10-27",
       "decisions": [
-        "D-134"
+        "D-135"
       ],
-      "reason": "Audit 2026-10-27 batch 13 (EDGAR-derived operating lines on the filer's total and one presentation), as it reaches this provider-free DEMO control. Only the report stamp moves, to spec 1.49.0 (Task 11): derived EBIT, D&A, R&D, a bank's interest income, derived fourth quarters and year-to-date differences, the growth cells and the FFO and one-time-items rules now mean the filer's total on one presentation, or a disclosed withholding. DEMO is FMP-shaped with no EDGAR synonym resolution, no derived quarter and a filed totalOtherIncomeExpensesNet, so no value, availability flag, order, verified flag or verification-log leaf moves. The leaf comes out of amzn51-lease-scope-20261029, which took it to 1.48.0 (D-133); that group held only this leaf, so its record stands in DECISIONS and the CHANGELOG.",
+      "reason": "Audit 2026-10-27 B4a (the equity bridge, the market EV and invested capital count every claim once), as it reaches this provider-free DEMO control. Only version stamps move, all from Task 16: the report spec to 1.50.0 and the fair-value and scenario-target method stamps to ..._D135, each in the report and in the Stage B result. This DEMO balance carries no covered operating lease, no redeemable equity, no pension or OPEB deficit, no loss contingency and no earn-out, and it is not in a loss period, so no DCF per share, sales-to-capital, scenario, grid, reverse-DCF or bridge leaf, and no EV-basis or lease wording, moves. The previously classified leaves of these five paths (D-102's stamps and B13's spec stamp) are reclassified here because the regenerator assigns each path to one group, its latest.",
       "deltas": [
+        {
+          "path": "report.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D135"
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.49.0"
+          "after": "1.50.0"
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D135"
+        },
+        {
+          "path": "stageB.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D135"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D135"
         }
       ]
     }
