@@ -30,7 +30,8 @@ describe("TTM operating income incomplete (FIN-112)", () => {
     expect(c.capital.current!.ebitda).toBeNull();
     expect(c.capital.current!.interestCoverage).toBeNull();
     expect(c.capital.current!.netDebtToEbitda).toBeNull();
-    expect(c.scores.aspects.balanceSheet.signals.find(s => s.id === "interestCoverage")).toBeUndefined();
+    expect(c.scores.aspects.balanceSheet.signals).toBeDefined();
+    expect(c.scores.aspects.balanceSheet.signals!.find(s => s.id === "interestCoverage")).toBeUndefined();
     expect(c.gaps.some(g => g.field === "compute.ttmIncome.operatingIncome")).toBe(true);
   });
   it("control: complete quarters retain operating EBIT despite the higher vendor EBIT", () => {
