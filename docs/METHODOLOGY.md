@@ -2151,6 +2151,13 @@ every metric:
 
 #### Banks
 
+A fiscal year served twice is collapsed to the provably latest filing before
+any financial route metric is read, using the same period normalizer as growth,
+returns and capital. An ambiguous duplicate is dropped with a warning and its
+reason; it is not described as a resolved restatement. This applies to the
+annual balance and income rows on bank, insurer and mortgage-REIT routes. The
+independently selected share-count input retains its existing admission rule.
+
 | Metric | Definition | When withheld |
 | --- | --- | --- |
 | Net interest margin | net interest income / average **earning** assets | whenever the filer tags no earning-assets element. us-gaap carries no standard average-earning-assets concept, and total assets include premises, goodwill and other non-earning items, so dividing by them would understate the margin. |
