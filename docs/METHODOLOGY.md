@@ -585,6 +585,9 @@ quarter. A **53-week DCF base period** (371 days) is put on a 52-week basis
 (× 52/53): revenue, operating income, gross profit, pretax income, tax and any
 tagged one-off are scaled together, preserving the base margins. The start
 revenue basis says so.
+Margin and tax ratios are evaluated from the filed amounts (including the
+filed tagged one-off): the common 52/53 factor cancels, and evaluating the
+ratios before scaling preserves their existing precision and scenario shocks.
 Sales-to-capital retains the filed revenue numerator; this annualisation
 changes the DCF starting flows, not the observed capital-efficiency ratio.
 

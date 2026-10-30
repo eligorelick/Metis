@@ -1860,6 +1860,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     return { assumptions: null, notes, gaps };
   }
 
+  const filedRevenue = inputs.incomeTtm!.revenue as number;
+
   // --- Terminal growth: min(2.5, rf) — Damodaran g <= rf rule --------------
   // Computed first: the near-term anchor falls back to it when revenue
   // history shows no trend.
@@ -2041,7 +2043,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   };
   const baseOperatingIncome = ttm?.operatingIncome ?? null;
   const normalizeUnusual = unusual !== null && unusual.value !== 0 && isNum(baseOperatingIncome);
-  const ttmMarginRaw = safeDiv(normalizeUnusual ? (baseOperatingIncome as number) - unusual.value : baseOperatingIncome, startRev);
+  // The 52/53 factor cancels in ratios. Use filed amounts so rounding cannot
+  // change an existing margin path or scenario shock (Task 29's invariant).
+  const filedOperatingIncome = inputs.incomeTtm?.operatingIncome ?? null;
+  const ttmMarginRaw = safeDiv(normalizeUnusual
+    ? (filedOperatingIncome as number) - inputs.unusualOperatingItems!.value
+    : filedOperatingIncome, filedRevenue);
   if (normalizeUnusual) {
     notes.push(
       `EBIT margin seed excludes tagged one-off items of ${fmtNum(unusual.value)} from ${periodBasis} operating income ${fmtNum(baseOperatingIncome as number)}: ${unusual.basis}`,
@@ -2146,7 +2153,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     // (today's gross margin less its leanest operating-expense ratio, the
     // scenario ceiling). Without a gross margin to bound it, it stays flat.
     const improvingCeiling = regime === "improving" && marginSlope !== null
-      ? scenarioMarginCeiling(ttm, inputs.incomeHistory)
+      ? scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory)
       : null;
     const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
     const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
@@ -2195,8 +2202,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   }
 
   // --- Tax rate path: company history, never a universal domicile assumption -
-  const pretax = zeroAsNull(ttm?.incomeBeforeTax);
-  const taxExp = ttm?.incomeTaxExpense ?? null;
+  const pretax = zeroAsNull(inputs.incomeTtm?.incomeBeforeTax);
+  const taxExp = inputs.incomeTtm?.incomeTaxExpense ?? null;
   const currentTaxRate =
     pretax !== null && pretax > 0 && isNum(taxExp) && taxExp >= 0
       ? clampWithNote((taxExp / pretax) * 100, 0, 35, "effective tax rate (pct)", notes)
@@ -2356,7 +2363,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = emptiedHistory ?? establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseBasis);
   // Task 29: capital efficiency stays on reported flows; only the DCF starting flows are annualised.
-  const filedRevenue = inputs.incomeTtm!.revenue as number;
   const rawS2c = emptiedHistory !== null ? emptiedHistory.ratio as number : holdingExceedsCapital ? S2C_CLAMP[1] : filedRevenue / (operatingIc ?? ic);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
   const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
@@ -2413,7 +2419,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // D-60: the ceiling the bull/bear margin shocks may not cross. The scenario
   // construction text states it; it does not bind the base path.
-  const scenarioCeiling = scenarioMarginCeiling(ttm, inputs.incomeHistory);
+  const scenarioCeiling = scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory);
 
   // D-65: the explicit windows start the day after the statement date, so the
   // flows are discounted to that date; the price they are compared with is a

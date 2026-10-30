@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDcfAssumptions, revenueRunRate, type DcfAssumptionInputs } from "@/pipeline/stageB/valuation";
 import { fiftyTwoWeekFactor, periodDays, thirteenWeekFactor, weeksOf } from "@/pipeline/stageB/fiscalCalendar";
 import { interestRunRate } from "@/pipeline/stageB/projections";
+import { buildScenarioPaths } from "@/pipeline/stageB/scenarioPaths";
 import { runStageB, ttmIncome } from "@/pipeline/compute";
 import type { FmpIncomeStatementRow } from "@/providers/fmp";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -120,6 +121,27 @@ describe("week counts (FIN-301)", () => {
     expect(a.startRevenue.value).toBeCloseTo(302.97e9 * 52 / 53, -3);
     expect(a.ebitMarginPath.value).toEqual(b.ebitMarginPath.value);
     expect(JSON.stringify(base)).toBe(before);
+  });
+  it.each([0, -699e6, 699e6])("keeps filed margin ratios and scenario shocks exactly when scaling a 53-week base (one-off %s)", (oneOff) => {
+    // KO's four filed quarters ending 2026-04-03 total these flows. Scaling
+    // numerator and denominator first changed its capped bull shock by 1e-14pp.
+    // Task 29's must-not-move list requires exact preservation, not a tolerance.
+    const base = nvda({
+      incomeTtm: { date: "2026-04-03", basis: "ttm", revenue: 49_284e6,
+        operatingIncome: 14_462e6, grossProfit: 30_430e6,
+        incomeBeforeTax: 16_552e6, incomeTaxExpense: 2_784e6 },
+      quarterRevenue: null,
+      unusualOperatingItems: { value: oneOff, components: [], withheld: [], basis: "synthetic tagged item" },
+    });
+    const filed = buildDcfAssumptions(base).assumptions!;
+    const scaled = buildDcfAssumptions({ ...base, incomeTtm: { ...base.incomeTtm!, days: 371 } }).assumptions!;
+    const options = { waccPct: 9, netDebt: 0, dilutedShares: 1e9 };
+    const dispersion = { sigmaGrowth: 10.31287524719382, sigmaMargin: 2.879, growthMarginCorrelation: 0.2359325629433722 };
+    expect(buildScenarioPaths(scaled, options, dispersion).scenarioAssumptions)
+      .toEqual(buildScenarioPaths(filed, options, dispersion).scenarioAssumptions);
+    expect(scaled.ebitMarginPath).toEqual(filed.ebitMarginPath);
+    expect(scaled.taxRatePath).toEqual(filed.taxRatePath);
+    expect(scaled.startRevenue.value).toBe(49_284e6 * (52 / 53));
   });
   it("carries quarter lengths and the TTM window from the filed starts (compute wiring)", () => {
     const bundle = completeCurrencyBundle({ estimates: false });
