@@ -2748,6 +2748,18 @@ sales or operating response. See `tests/compute.runwayAnchor.test.ts`,
 
 ## Projections, scenario targets and intrinsic-value display
 
+**Stored valuations read under the 13-week convention (D136).** Reports built
+before the frozen `ANNUALIZATION_CONVENTION_SPEC` 1.51.0 gain display-time
+notes where their stored evidence identifies an extra-week quarter annualised
+times four, a guided quarter used times four for year one or its consistency
+floor, or a provider fiscal-year date on the wrong weekday. A note never
+invents an exact fiscal-year end from a single period. Quarter-length examples
+use the stored filed revenue before rounding when it matches the printed
+run-rate; otherwise they label the result as approximate. The shared numeric
+version comparator governs each row separately. These immutable, idempotent
+notes appear in the report and its exports; stored figures, prose and
+verification entries are never recomputed or rewritten.
+
 `src/pipeline/stageB/projections.ts` displays the first five years of the
 general-route DCF's explicit path, with up to four annual historical points.
 Revenue, operating margin and FCFF come from the DCF year rows. Forward EPS
