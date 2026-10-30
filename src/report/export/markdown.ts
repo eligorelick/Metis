@@ -120,7 +120,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
@@ -968,7 +968,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
     renderFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report, gradeContext(report, "fundamentals", completeness)),
     renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness)),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),
+    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),
     renderQuality(report.quality, gradeContext(report, "quality", completeness)),
     renderTechnicals(report, gradeContext(report, "technicals", completeness)),
     renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)),

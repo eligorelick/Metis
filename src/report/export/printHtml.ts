@@ -142,7 +142,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   REPORT_SECTION_MANIFEST,
@@ -772,7 +772,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
     fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
     balanceSheet: sectionBalanceSheet(report.balanceSheet, report),
-    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
+    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
     quality: sectionQuality(report.quality, report),
     technicals: sectionTechnicals(report),
     leadership: sectionLeadership(report.leadership, report),

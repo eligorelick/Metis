@@ -5149,6 +5149,11 @@ export interface PriceToTangibleBookVsRote {
   withheldReason: string | null;
 }
 
+function withholdPriceToTangibleBook(p: PriceToTangibleBookVsRote, reason: string): PriceToTangibleBookVsRote {
+  return { ...p, pTbv: null, premiumToJustified: null,
+    withheldReason: `${reason} — P/TBV sets the quote-currency market cap against statement-currency tangible equity, so it and its premium are withheld; justified P/TBV uses statement figures only` };
+}
+
 /** Audit 2026-10-22 C-10: the excess-return value from the start the model did not use. */
 export interface ExcessReturnStartAlternative {
   basis: "fiscal-year-rote" | "fiscal-year-common-roe";
@@ -6415,7 +6420,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     if (!inputs.excessReturn) {
       gaps.push(gapEntry("valuation.excessReturn", "excess-return inputs not provided by caller", "critical"));
     }
-    // ADR currency guard, the excess-return twin of the DCF guard below. The
+    // Currency guard, the excess-return twin of the DCF guard below. The
     // per-share value is in the statements' reportedCurrency while the price it
     // is graded against is the quote currency, so on a mismatch the upside is
     // off by the FX rate. Suppress the per-share (and the market-cap reverse
@@ -6423,25 +6428,21 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     // than publish a mixed-currency comparison. No FX conversion attempted.
     const erReported = inputs.multiples.reportedCurrency;
     const erQuote = inputs.multiples.quote.currency;
-    if (
-      typeof erReported === "string" &&
-      typeof erQuote === "string" &&
-      erReported.toUpperCase() !== erQuote.toUpperCase()
-    ) {
+    if (!quoteComparison.comparable && quoteComparison.mismatch) {
       notes.push(
-        `ADR/currency mismatch: statements in ${erReported}, quote in ${erQuote} — excess-return per-share and reverse solve suppressed ` +
-          `(per-share intrinsic value would be in ${erReported} against a ${erQuote} price; no FX conversion attempted). ` +
+        `${quoteComparison.reason} — excess-return per-share and reverse solve suppressed; ` +
           "See multiples (flagged) for relative valuation.",
       );
       gaps.push(
         gapEntry(
           "valuation.excessReturn.currency",
-          `reportedCurrency ${erReported} != quote currency ${erQuote} (ADR case) — excess-return per-share suppressed rather than comparing mixed-currency per-share vs price`,
+          `${quoteComparison.reason} — excess-return per-share suppressed rather than comparing a per-share value in one currency with a price in another`,
           "critical",
         ),
       );
       const guarded: ExcessReturnResult = {
         ...er,
+        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, quoteComparison.reason),
         perShare: null,
         startAlternative: undefined,
         startCoeGrid: undefined,
@@ -6475,6 +6476,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       gaps.push(...er.gaps);
       const withheld: ExcessReturnResult = {
         ...er,
+        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, quoteComparison.reason),
         reverseSolve: {
           impliedCurrentRoePct: null,
           notes: [...er.reverseSolve.notes, `reverse solve withheld: ${quoteComparison.reason}`],

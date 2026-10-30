@@ -47,6 +47,7 @@ import type {
   MoatAssessment,
   ProvenanceCoverage,
   Report,
+  RouteMetrics,
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
@@ -677,6 +678,14 @@ function newYorkClock(iso: string): { weekday: string; minutes: number; hhmm: st
   const minute = Number(get("minute"));
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
   return { weekday: get("weekday"), minutes: hour * 60 + minute, hhmm: `${get("hour")}:${get("minute")}` };
+}
+
+/** Reader-only correction; stored figures and audit exports retain their original bytes. */
+export function routeMetricsForDisplay(report: Pick<Report, "routeMetrics" | "appendix">): RouteMetrics | undefined {
+  const reason = report.appendix.missingData.find(g => g.field === "valuation.excessReturn.currency" || g.field === "valuation.excessReturn.reverseSolve.currency")?.reason;
+  if (!report.routeMetrics || !reason) return report.routeMetrics;
+  return { ...report.routeMetrics, metrics: report.routeMetrics.metrics.map(m =>
+    m.key === "pTbv" || m.key === "premiumToJustified" ? { ...m, value: null, withheldReason: reason } : m) };
 }
 
 /**

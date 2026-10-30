@@ -217,7 +217,8 @@ unknown. No FX series or automatic conversion is supplied.
 `src/pipeline/stageB/priceCurrency.ts` permits a model/quote comparison only
 when both currencies are known three-letter codes and equal. Unknown currency
 is an unproven comparison as well as a known mismatch. This withholds price
-multiples, market-cap reverse valuations, market-value capital weights and
+multiples, the financial-route P/TBV pairing and its premium to justified P/TBV,
+market-cap reverse valuations, market-value capital weights and
 upside calculations. An equity-only intrinsic figure that does not require
 the quote can remain in statement currency; FCFF valuation also depends on
 the WACC's market-value weights. Same-currency checks do not independently
@@ -2053,6 +2054,12 @@ the same denominator — equity less goodwill, other intangibles and preferred �
 because goodwill absorbs losses only after common equity is gone, and pairing a
 book-value multiple with a tangible-equity return would compare two different
 bases. A goodwill-heavy acquirer at 1.0× book can be at 2.0× tangible book.
+
+P/TBV and its premium are withheld unless quote and statement currency are
+both known and equal. Justified P/TBV and ROTE remain because they use
+statement figures, without the quote. Stored reports carrying the financial
+currency-refusal gap show the same withheld pair on the web page, Markdown
+and print views, without changing the stored report or audit export.
 
 The current multiple names its balance date; the annual return and model name
 their fiscal-year date. Preferred stock is deducted in both tangible bases.
