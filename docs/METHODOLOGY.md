@@ -1893,6 +1893,12 @@ interest spread and assets/equity leverage on the other — with the reason on t
 `route.reitSubmap` manifest entry. Publishing either set would assert a business
 model the evidence does not support.
 
+Known limitation (FIN-308): an undetermined sub-map still uses the existing
+industrial grading and forensic policy. A broader hold remains deferred because
+the plan's protected saved O and NNN cases also have undetermined sub-maps;
+their current figures are retained. This does not establish that industrial
+signals fit every undetermined REIT.
+
 ### Valuing a financial company
 
 #### What is withheld, and why
