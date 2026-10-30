@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-29",
+  "generatedAt": "2026-10-30",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -4459,16 +4459,6 @@
           "path": "stageB.valuation.multiples.notes.2",
           "beforeMissing": true,
           "after": "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.3",
-          "beforeMissing": true,
-          "after": "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.4",
-          "beforeMissing": true,
-          "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value."
         },
         {
           "path": "stageB.valuation.multiples.notes.6",
@@ -9532,24 +9522,6 @@
           ]
         },
         {
-          "path": "report.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 91.14,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.8381212121212122,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
           "path": "report.scores.composite.methodology",
           "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
           "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
@@ -9724,24 +9696,6 @@
               ]
             }
           ]
-        },
-        {
-          "path": "stageB.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 91.14,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.8381212121212122,
-            "calibration": "unbacktested-house-rules"
-          }
         },
         {
           "path": "stageB.scores.composite.methodology",
@@ -9947,25 +9901,6 @@
       ]
     },
     {
-      "name": "audit-batch2b-valuation-mediums-20261022",
-      "decisions": [
-        "D-104"
-      ],
-      "reason": "Audit batch 2b of 2026-10-22 (the deferred valuation items, D-104), as it reaches this provider-free DEMO control: only stamps move. The report stamp moves to spec 1.39.0 (the retirement and environmental bridge lines, the regulated-utility balance-sheet basis, the sales-to-capital floor basis and the cost-of-equity row without a WACC), out of audit-batch3a-priority-highs-20261022, whose record for 1.38.0 stands in its disposition note. The score-bands stamp moves to SCORE_BANDS_2026_10_REGULATED_UTILITY in the report and in Stage B (the band tables gain Moody's regulated-utility leverage ranges), out of expe-ownership-and-evidence, whose record stands for SCORE_BANDS_2026_10_FRESHNESS_AUDIT. This general-route fixture tags no retirement or environmental obligation, is not a utility, has no sales-to-capital floor in play and is not valued at the cost of equity, so no other value moves. See docs/audit/2026-10-22-audit-batch2b-valuation-mediums.md.",
-      "deltas": [
-        {
-          "path": "report.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_REGULATED_UTILITY"
-        },
-        {
-          "path": "stageB.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_REGULATED_UTILITY"
-        }
-      ]
-    },
-    {
       "name": "readable-note-figures-20261026",
       "decisions": [
         "D-107"
@@ -10159,30 +10094,6 @@
       "reason": "Audit 2026-10-27 batch 3 (payload records carry the right label, unit, currency and period), as it reaches this provider-free DEMO control. Task 1 (AI-301): the peer methodology sentence now says caps are compared only between established equal currencies or same-market listings, so the three leaves that carry the peer-coverage methodology text (the report's and Stage B's peerCoverage, and the Stage B multiples note that repeats it) move; they came out of valuation-r3-2026-10-16 (D-65), whose record for the earlier wording stands there. DEMO is a reserved symbol with no peer collection, so no peer figure, exclusion or median moves. Task 4 (AI-306): DEMO's share history spans two fiscal years, so Stage B now adds one capital note naming the short window (stageB.capital.notes.2); the later capital notes shift by one index and keep their text, and capital.shareCount values and the leadership score do not move. Task 5 (AI-410): Stage B now records how many fiscal years the capex/D&A average covers (stageB.capital.maintenanceVsGrowthCapex.capexToDAAvgYears, 2 for DEMO); the average itself does not move. Task 9: the report stamp moves to spec 1.45.0 (report.meta.specVersion); that leaf came out of nvda48-report-issues-20261026 (D-113), whose record for spec 1.44.0 stands in DECISIONS. The leaf is now recorded under claim-verifier-numbers-20261027, which moves it on to spec 1.47.0 (B1 and B2 of the same audit, one pull request).",
       "deltas": [
         {
-          "path": "report.valuation.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
-        },
-        {
           "path": "stageB.capital.maintenanceVsGrowthCapex.capexToDAAvgYears",
           "beforeMissing": true,
           "after": 2
@@ -10211,35 +10122,6 @@
           "path": "stageB.capital.notes.6",
           "beforeMissing": true,
           "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only."
-        },
-        {
-          "path": "stageB.valuation.multiples.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
         }
       ]
     },
@@ -10256,11 +10138,6 @@
           "after": "FAIR_VALUE_2026_10_D135"
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.50.0"
-        },
-        {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D135"
@@ -10274,6 +10151,131 @@
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D135"
+        }
+      ]
+    },
+    {
+      "name": "audit-b6-financial-routes-20261027",
+      "decisions": [
+        "D-136"
+      ],
+      "reason": "Task18 (FIN-126) names the common-equity P/B denominator and retains the positive reported-equity admission gate. Task19 (FIN-125) discloses that a profile-only peer route can be unconfirmed beside a SEC-refined subject. Task21 (RPT-101) adds the unrounded business-evidence share without changing any grade or threshold in this fixture. Task22 (FIN-504) names the issuer-common capitalization used by the Company comparison figure. Task23 (FIN-503) states the shared greater-than-25% non-operating-income exclusion for peer and company earnings comparisons. Task25 stamps report1.51.0 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE. No deferred Task5 or17 change is included; DEMO has no Task7 buyback-window movement, excess-return reverse solve, peer comparison or own-history P/E band.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.51.0"
+        },
+        {
+          "path": "report.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum.",
+              "evidenceCompleteness": 0.9174949494949495
+            },
+            "valuation": {
+              "score": 91.14,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.8381212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "report.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE"
+        },
+        {
+          "path": "report.valuation.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        },
+        {
+          "path": "stageB.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "evidenceCompleteness": 0.9174949494949495,
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 91.14,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.8381212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "stageB.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE"
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.1",
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.3",
+          "beforeMissing": true,
+          "after": "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8)."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.4",
+          "beforeMissing": true,
+          "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
+        },
+        {
+          "path": "stageB.valuation.multiples.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
         }
       ]
     }
