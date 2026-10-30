@@ -316,7 +316,7 @@ export function comparePeerFundamentals(opts: {
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
     methodology: [
-      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
+      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
@@ -356,6 +356,10 @@ export function comparePeerFundamentals(opts: {
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
   const commonValues: Array<{ symbol: string; value: number; economicEvidence?: PeerEconomicEvidence }> = [];
+  const subjectProfileRoute = routeCompany({ sector: opts.profile.sector ?? null, industry: opts.profile.industry ?? null,
+    currency: opts.profile.currency ?? null, country: opts.profile.country ?? null, isAdr: false, isEtf: false, isFund: false, ipoDate: null },
+    { incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null, availableQuarters: null },
+    { today: opts.now.toISOString().slice(0, 10) }).base;
   const ids = new Set([issuer(opts.profile.cik)]); const names = new Set([companyName(opts.profile.companyName)]);
   for (const [requested, candidate] of subjectEvidenceContrary ? [] : Object.entries(collection?.candidates ?? {})) {
     const peerSymbol = normalize(requested); const profile = rows(candidate.profile)[0];
@@ -367,7 +371,12 @@ export function comparePeerFundamentals(opts: {
     ids.add(id); if (name) names.add(name);
     const candidateRoute = routeCompany({ sector: profile.sector ?? null, industry: profile.industry ?? null, currency: profile.currency ?? null, country: profile.country ?? null, isAdr: false, isEtf: false, isFund: false, ipoDate: null },
       { incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null, availableQuarters: null }, { today: opts.now.toISOString().slice(0, 10) }).base;
-    if (candidateRoute !== opts.route) { exclude(peerSymbol, "valuation route differs from subject's resolved route"); continue; }
+    if (candidateRoute !== opts.route) {
+      exclude(peerSymbol, subjectProfileRoute !== opts.route && candidateRoute === subjectProfileRoute
+        ? "valuation route unconfirmed: the subject's route rests on SEC routing evidence (SIC and XBRL facts) that the peer screen does not have for this peer"
+        : "valuation route differs from subject's resolved route");
+      continue;
+    }
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;
     const sizeReason = peerSizeExclusion(subject.quote.marketCap, peerQuote.marketCap);
     if (sizeReason !== null) { exclude(peerSymbol, sizeReason); continue; }

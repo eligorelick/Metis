@@ -1765,6 +1765,11 @@ handling of explicit common equity or consolidated NCI is outside this fix.
 Peer comparisons provide context; they do not change scoring or intrinsic-value
 formulas.
 
+A subject whose route rests on SEC evidence (D-34) is compared only with peers
+the profile screen routes the same way; a same-label peer whose own routing
+evidence was not fetched is excluded as unconfirmed. Existing earlier industry
+and sector screens still apply, and no additional SEC request is made.
+
 ---
 
 ## Financial-company routes

@@ -48,6 +48,34 @@ function run(candidates: Record<string, PeerFundamentals>, target = subject()) {
 }
 
 describe("defensible peer comparables", () => {
+  function evidenceRefinedPeerCase(route: "bank" | "general") {
+    const input = peerCommonEquityCase(0);
+    input.route = route;
+    input.profile!.industry = "Financial - Capital Markets";
+    for (const peer of Object.values(input.collection!.candidates)) {
+      if (!peer.profile.ok) throw new Error("fixture profile missing");
+      peer.profile.value.data.rows[0]!.industry = "Financial - Capital Markets";
+    }
+    return input;
+  }
+  it("FIN-125 names same-label peers of an evidence-refined bank as unconfirmed", () => {
+    const result = comparePeerFundamentals(evidenceRefinedPeerCase("bank"));
+    expect(result.peerCoverage.exclusions.filter(e => /valuation route differs/.test(e.reason))).toEqual([]);
+    expect(result.peerCoverage.exclusions.filter(e => /valuation route unconfirmed/.test(e.reason)).map(e => e.symbol)).toEqual(["P2", "P3", "P4", "P5"]);
+    expect(result.peerCoverage.eligible).toEqual([]);
+  });
+  it("FIN-125 control: the same profiles remain eligible for a general subject", () => {
+    expect(comparePeerFundamentals(evidenceRefinedPeerCase("general")).peerCoverage.eligible).toEqual(["P2", "P3", "P4", "P5"]);
+  });
+  it("FIN-125 preserves the earlier industry screen for an insurance peer", () => {
+    const input = evidenceRefinedPeerCase("bank"), peer = input.collection!.candidates.P2;
+    if (!peer.profile.ok) throw new Error("fixture profile missing");
+    peer.profile.value.data.rows[0]!.industry = "Insurance - Life";
+    // B3 rejects this profile before route comparison. Keep that stronger
+    // existing screen rather than reorder it to reach the plan's stale control.
+    expect(comparePeerFundamentals(input).peerCoverage.exclusions.find(e => e.symbol === "P2")?.reason).toBe("industry does not exactly match the subject");
+  });
+
   it.each([0, 6e9])("FIN-126 peer P/B median matches the identical bank with preferred %s", preferred => {
     const input = peerCommonEquityCase(preferred), result = comparePeerFundamentals(input);
     const m = multiplesFramework("bank", { ...input.subject, ...result }).multiples;
