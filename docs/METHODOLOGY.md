@@ -1701,6 +1701,16 @@ unit `rank`, the valuation aspect note says rank, and the Stage C prompt
 instructs the model in the same terms, so the narrative cannot call it a
 percentile either.
 
+The P/E is ranked on the construction of the history actually selected. For a
+single-class issuer with a derived market-cap/common-income history, the P/E
+shown as price/diluted EPS is ranked using current market cap/common income.
+The history basis names that ranked figure and the difference between diluted
+and outstanding share counts. If common income is withheld, the displayed P/E
+remains but has no rank; grading can use EV/EBITDA, then Price/FCF instead.
+Multi-class price/quoted-unit-EPS histories and vendor P/E histories continue
+ranking the displayed price/EPS construction. Historical common-ownership and
+class-scope refusals still apply.
+
 The P/E is not ranked when non-operating income is more than 25% of pre-tax
 income: the earnings then rest on gains, not operations. `peOwnHistoryRank`
 then ranks the next multiple in its list (EV/EBITDA, then Price/FCF), the score
@@ -1761,7 +1771,7 @@ convention (RESEARCH §8).
 Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
 multiples. Those definitions can differ with changing share counts and are
-never silently combined. P/B and P/TBV require supported positive denominators.
+never silently combined in a peer median or an own-history rank. P/B and P/TBV require supported positive denominators.
 The company's own comparison figure uses the issuer-common market capitalization
 the multiples use (B-8): the class sum when established, the provider's cap when
 its scope is unverified, and none when unresolved. The latter row reads withheld

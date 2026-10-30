@@ -14,6 +14,16 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("score evidence follows the actual metric basis", () => {
+  it("names the figure a P/E own-history rank ranks", () => {
+    const i = inputs();
+    if (i.valuation.kind !== "dcf") throw new Error("general fixture");
+    i.valuation.multiples.multiples = [{ key:"peTtm",current:26,basis:"price / epsDiluted (TTM)",peers:null,
+      ownHistory:{percentileRank:50,observations:20,basis:"test",p5:null,p25:null,p50:25,p75:null,p95:null,
+        rankedCurrent:{value:25,construction:"capitalization-common-income"}} }];
+    const result = describeScoreEvidence(i,"valuation","peOwnHistoryRank");
+    expect(result.fallbackReason).toMatch(/ranked as market cap \/ common income 25x, the construction of its history; the P\/E shown is price \/ diluted EPS/);
+    expect(operand(result,"peTtm current multiple").value).toBe(26);
+  });
   it("labels the share trend's weighted-average denominator and limits the stewardship interpretation", () => {
     const i = inputs();
     const result = describeScoreEvidence(i, "leadership", "shareCountTrend");

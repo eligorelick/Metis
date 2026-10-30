@@ -3879,6 +3879,8 @@ export interface EnterpriseValueBridge {
 }
 
 export interface OwnHistoryBand {
+  /** Current value on the selected derived history's construction; optional on legacy results. */
+  rankedCurrent?: { value: number | null; construction: "capitalization-common-income" };
   /** Empirical percentile rank (0-100) in this finite sample, not an ordinal rank. */
   percentileRank: number | null;
   /**
@@ -4745,6 +4747,7 @@ export function multiplesFramework(
       stockPrice: historicalScope?.status === "resolved" ? row.stockPrice : null,
       sourceId: historicalScope?.status === "resolved" ? [row.sourceId, ...historicalScope.sourceIds].join("; ") : row.sourceId };
   }) : inputs.enterpriseValuesHistory;
+  const peHistoryConstruction = requiresHistoricalClassScope && price !== null && eps !== null ? "price-eps" : "capitalization-common-income";
   const derived = deriveOwnHistory(
     inputs.quarterlyFundamentals,
     historicalMarket,
@@ -4753,7 +4756,7 @@ export function multiplesFramework(
     // A refused temporary-equity operand is a filed claim of unknown amount: it counts, as in the other two checks.
     { preferred: (bal?.preferredStock ?? 0) > 0 || temporaryParentLike(bal) > 0 || temporaryEquityRefused(bal),
       nci: (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0) || (temporaryEquityClaims(bal)?.redeemableNoncontrolling ?? 0) > 0 || temporaryEquityRefused(bal) },
-    requiresHistoricalClassScope && price !== null && eps !== null ? "price-eps" : "capitalization-common-income",
+    peHistoryConstruction,
   );
   const windowGap = ownHistoryWindowGap(derived);
   if (windowGap) gaps.push(windowGap);
@@ -4862,10 +4865,12 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.ownHistory.economicClassBasis", reason, "warn"));
   }
   let usedVendor = false;
+  const derivedHistoryKeys = new Set<MultipleKey>();
   for (const key of historyKeys) {
     const ownValues = derived.series[key];
     const vendorValues = vendor[key];
     if ((ownValues?.length ?? 0) >= MIN_HISTORY_OBS_FOR_BAND) {
+      derivedHistoryKeys.add(key);
       history[key] = ownValues;
       historyDetails[key] = derived.details[key];
       historyBasisByKey[key] =
@@ -4966,6 +4971,15 @@ export function multiplesFramework(
         ownHistory: null, peers: null };
     }
     const cur = current[key] ?? null;
+    const rankedCurrent = key === "peTtm" && price !== null && eps !== null
+      && peHistoryConstruction === "capitalization-common-income" && derivedHistoryKeys.has(key)
+      ? { value: safeDiv(mcap, posOrNull(capital.commonIncome)), construction: "capitalization-common-income" as const } : null;
+    const rankBasis = rankedCurrent === null ? "" : rankedCurrent.value === null
+      ? `. Not ranked: common income is withheld (${capital.incomeWithheldReason ?? "positive common income unavailable"}), and price / diluted EPS is a different construction from this market cap / common income history`
+      : `. Rank construction: the P/E shown is price / diluted EPS; it is ranked as market cap / common income (${fmtNum(rankedCurrent.value)}x), the construction of every window in this history, because the diluted share count behind EPS and the outstanding count behind market cap differ`;
+    const ownHistory = priceCurrency.comparable && marketCapSecurityKnown
+      ? bandFor(history[key], rankedCurrent ? rankedCurrent.value : cur, (historyBasisByKey[key] ?? "no usable multiple history") + rankBasis, historyDetails[key]) : null;
+    if (ownHistory && rankedCurrent) ownHistory.rankedCurrent = rankedCurrent;
     const comparison = comparablePeers(inputs.subjectEconomicEvidence, inputs.peers ?? [], key, inputs.peerComparisonAsOf ?? null);
     if (comparison.excluded.length) {
       const disclosure = `${key}: economic/accounting comparability excluded ${comparison.excluded.map((peer) => `${peer.symbol} (${peer.reasons.join("; ")})`).join(", ")}; raw peer observations retained; no median uses excluded rows`;
@@ -4984,9 +4998,7 @@ export function multiplesFramework(
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
       ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
       ...(incomePeriod !== undefined && (key === "peTtm" || key === "evToEbitda" || key === "evToSales") ? { period: incomePeriod } : {}),
-      ownHistory: priceCurrency.comparable && marketCapSecurityKnown
-        ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
-        : null,
+      ownHistory,
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
@@ -5014,7 +5026,7 @@ export function multiplesFramework(
     const band = m.ownHistory;
     if (band === null) continue;
     if (band.percentileRank === null) {
-      notes.push(`${m.key}: own-history empirical percentile rank (${band.observations} observations) unavailable; ${percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
+      notes.push(`${m.key}: own-history empirical percentile rank (${band.observations} observations) unavailable; ${band.rankedCurrent?.value === null ? "not ranked: common income is withheld" : percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
       continue;
     }
     notes.push(
