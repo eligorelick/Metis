@@ -48,7 +48,8 @@ import type {
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_REGULATED_UTILITY" as const;
+// D-136: route evidence bookkeeping changes; numerical band thresholds do not.
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
