@@ -1767,6 +1767,15 @@ the multiples use (B-8): the class sum when established, the provider's cap when
 its scope is unverified, and none when unresolved. The latter row reads withheld
 with its reason, while the peer median remains context. The comparison's size
 screen uses the class sum when established, otherwise the provider's cap.
+The D-98 gain test also applies to both sides of this comparison: non-operating
+income above 25% of positive trailing pre-tax income excludes a peer from
+common-earnings and P/E medians, and withholds the subject's company figure.
+Every one of the four quarters must carry finite pre-tax and operating income;
+absent operands leave the test unknown. Exactly 25% and non-operating losses do
+not trigger it. A median still requires four surviving peers; P/B and P/TBV stay
+eligible under their existing rules. The stricter P/E construction gate also
+remains. Peer earnings carried by gains are excluded, not adjusted: the bounded
+peer fetch has no item-level one-off evidence to adjust them with.
 Peer P/B uses the subject's common-equity rule: explicit common equity when
 disclosed, otherwise parent stockholders' equity less preferred stock; a
 consolidated basis additionally requires a disclosed noncontrolling-equity

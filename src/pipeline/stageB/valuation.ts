@@ -3954,6 +3954,12 @@ export interface MultipleStat {
 /** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
 export const GAIN_INFLATED_NON_OPERATING_SHARE = 0.25;
 
+/** D-98 needs finite operating/pre-tax operands and positive pre-tax income. */
+export function nonOperatingShareOfPretax(pretax: unknown, operating: unknown): number | null {
+  return typeof pretax === "number" && Number.isFinite(pretax) && pretax > 0
+    && typeof operating === "number" && Number.isFinite(operating) ? (pretax - operating) / pretax : null;
+}
+
 export interface MultiplesResult {
   multiples: MultipleStat[];
   peerCoverage?: import("@/pipeline/peers").PeerCoverage;
@@ -4990,8 +4996,8 @@ export function multiplesFramework(
   // earnings). The P/E is still shown, flagged, and is not ranked.
   const pretaxTtm = inc?.incomeBeforeTax ?? null;
   const operatingTtm = inc?.operatingIncome ?? null;
-  if (isNum(pretaxTtm) && pretaxTtm > 0 && isNum(operatingTtm)) {
-    const share = (pretaxTtm - operatingTtm) / pretaxTtm;
+  const share = nonOperatingShareOfPretax(pretaxTtm, operatingTtm);
+  if (share !== null && isNum(pretaxTtm) && isNum(operatingTtm)) {
     const pe = multiples.find((m) => m.key === "peTtm");
     if (pe !== undefined && pe.current !== null && share > GAIN_INFLATED_NON_OPERATING_SHARE) {
       const basis = `pre-tax income ${fmtNum(pretaxTtm)} (${incomeBasisLabel}) includes non-operating income of ${fmtNum(pretaxTtm - operatingTtm)}, ` +

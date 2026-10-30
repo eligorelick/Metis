@@ -4,6 +4,7 @@ import type { FmpFetch } from "@/pipeline/types";
 import { establishedIsoCode as isoCode, ownRowCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
+import { GAIN_INFLATED_NON_OPERATING_SHARE, nonOperatingShareOfPretax } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
@@ -120,6 +121,7 @@ const issuer = (v: unknown): string => typeof v === "string" && /^\d+$/.test(v.t
 const companyName = (v: unknown): string => normalize(v).replace(/[^A-Z0-9]/g, "").replace(/(?:INCORPORATED|CORPORATION|CORP|INC|PLC|LTD)$/, "");
 const number = (v: unknown): number | null => typeof v === "number" && Number.isFinite(v) ? v : null;
 const positive = (v: unknown): number | null => number(v) !== null && (v as number) > 0 ? v as number : null;
+const isGainInflated = (share: number | null): share is number => share !== null && share > GAIN_INFLATED_NON_OPERATING_SHARE;
 function day(v: unknown): number | null {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
   const ms = Date.parse(`${v}T00:00:00Z`);
@@ -287,24 +289,27 @@ function evidenceForObservation(evidence: PeerEconomicEvidence | undefined, peri
 }
 
 /** Common-earnings proof is per quarter; latest balance alone cannot establish older preferred claims. */
-function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number): { value: number | null; date: string | null; reason: string | null } {
+function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number): { value: number | null; date: string | null; reason: string | null; nonOperatingShare: number | null } {
   const normalized = normalizeQuarterRows(income);
   const inc = normalized.rows.slice(0, 4);
   const violation = normalized.rejected.length ? "ambiguous/invalid quarterly periods" : quarterWindowViolation(inc, normalized.rows[4]);
-  if (violation) return { value: null, date: null, reason: violation };
+  if (violation) return { value: null, date: null, reason: violation, nonOperatingShare: null };
   const normalizedBalances = normalizeQuarterRows(balances).rows;
   let total = 0;
   for (const row of inc) {
-    if (typeof row.period !== "string" || !/^Q[1-4]$/.test(row.period)) return { value: null, date: null, reason: "quarterly fiscal period labels unproven (annual rows cannot form TTM)" };
+    if (typeof row.period !== "string" || !/^Q[1-4]$/.test(row.period)) return { value: null, date: null, reason: "quarterly fiscal period labels unproven (annual rows cannot form TTM)", nonOperatingShare: null };
     const reason = statementReason(row, currency, quoteDate);
-    if (reason) return { value: null, date: null, reason };
+    if (reason) return { value: null, date: null, reason, nonOperatingShare: null };
     const filedCommon = number(row.netIncomeAvailableToCommon);
     const bal = normalizedBalances.find(b => b.date === row.date);
     const common = filedCommon ?? (bal && !statementReason(bal, currency, quoteDate) && bal.preferredStock === 0 && bal.minorityInterest === 0 ? number(row.netIncome) : null);
-    if (common === null) return { value: null, date: null, reason: "common ownership unproven: require filed common earnings or zero preferred and minority claims in each same-date quarterly balance" };
+    if (common === null) return { value: null, date: null, reason: "common ownership unproven: require filed common earnings or zero preferred and minority claims in each same-date quarterly balance", nonOperatingShare: null };
     total += common;
   }
-  return { value: positive(total), date: String(inc[0].date), reason: positive(total) === null ? "nonpositive TTM common earnings" : null };
+  const pretax = inc.map(row => number(row.incomeBeforeTax)), operating = inc.map(row => number(row.operatingIncome));
+  const nonOperatingShare = pretax.every((v): v is number => v !== null) && operating.every((v): v is number => v !== null)
+    ? nonOperatingShareOfPretax(pretax.reduce((a,b) => a+b, 0), operating.reduce((a,b) => a+b, 0)) : null;
+  return { value: positive(total), date: String(inc[0].date), reason: positive(total) === null ? "nonpositive TTM common earnings" : null, nonOperatingShare };
 }
 
 export function comparePeerFundamentals(opts: {
@@ -319,7 +324,7 @@ export function comparePeerFundamentals(opts: {
       `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-      "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+      "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
       "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
     ], candidates: collection?.candidateCount ?? 0, evaluated: Object.keys(collection?.candidates ?? {}).length,
@@ -355,11 +360,15 @@ export function comparePeerFundamentals(opts: {
   if (subjectEvidenceContrary) exclude(symbol, "subject economic evidence does not describe the compared observation's period, currency or availability; no peer median is published");
   const subjectCommon = opts.subjectIncomeQuarterly && opts.subjectBalanceQuarterly && !sourceReason(opts.subjectIncomeQuarterly, symbol, now, targetCik) && !sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik)
     ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs)
-    : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable" };
+    : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable", nonOperatingShare: null };
   const targetIncomeEnd = day(subjectCommon.date);
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
-  if (commonValid && scopeWithheld) exclude(symbol, `Company figure withheld: ${scopeWithheld}`);
+  const gainWithheld = isGainInflated(subjectCommon.nonOperatingShare)
+    ? `non-operating income ${(subjectCommon.nonOperatingShare * 100).toFixed(1)}% of the subject's trailing pre-tax income (above 25%, house rule D-98): its earnings rest on gains, so its market cap / common earnings is not compared with peers, as its P/E is not ranked against its own history` : null;
+  const withheld = [scopeWithheld, gainWithheld].filter((reason): reason is string => reason !== null);
+  if (commonValid && withheld.length) exclude(symbol, `Company figure withheld: ${withheld.join("; ")}`);
+  const gainExclusions: string[] = [];
   const commonValues: Array<{ symbol: string; value: number; economicEvidence?: PeerEconomicEvidence }> = [];
   const subjectProfileRoute = routeCompany({ sector: opts.profile.sector ?? null, industry: opts.profile.industry ?? null,
     currency: opts.profile.currency ?? null, country: opts.profile.country ?? null, isAdr: false, isEtf: false, isFund: false, ipoDate: null },
@@ -417,12 +426,16 @@ export function comparePeerFundamentals(opts: {
       else exclude(peerSymbol, "priceToTbv: positive tangible common equity required");
     } else exclude(peerSymbol, "priceToTbv: goodwill, intangibles or preferred equity not explicitly disclosed");
     const incomeSourceReason = sourceReason(candidate.incomeQuarterly, peerSymbol, now, candidateCik);
-    const common = incomeSourceReason ? { value: null, date: null, reason: incomeSourceReason } : commonIncome(rows(candidate.incomeQuarterly), normalizedBalance.rows, currency, quoteMs);
+    const common = incomeSourceReason ? { value: null, date: null, reason: incomeSourceReason, nonOperatingShare: null } : commonIncome(rows(candidate.incomeQuarterly), normalizedBalance.rows, currency, quoteMs);
     const incomeEnd = day(common.date);
     const commonEligible = commonValid && common.value !== null && incomeEnd !== null && now - incomeEnd <= MAX_STATEMENT_AGE && Math.abs(incomeEnd - (targetIncomeEnd as number)) <= MAX_PERIOD_DIFFERENCE;
     const commonEvidence = evidenceForObservation(candidate.economicEvidence, common.date, currency, quoteMs);
     if (commonEligible && common.value !== null && candidate.economicEvidence && !commonEvidence) {
       exclude(peerSymbol, "common earnings: economic evidence does not describe this peer's trailing-earnings period");
+    } else if (commonEligible && common.value !== null && isGainInflated(common.nonOperatingShare)) {
+      const pct = (common.nonOperatingShare * 100).toFixed(1);
+      exclude(peerSymbol, `common earnings: non-operating income ${pct}% of trailing pre-tax income (above 25%, house rule D-98): its trailing earnings rest on gains, not operations, so it is left out of the common-earnings and P/E medians`);
+      gainExclusions.push(`${peerSymbol}: non-operating income ${pct}%`);
     } else if (commonEligible && common.value !== null) {
       commonValues.push({ symbol: peerSymbol, value: mcap / common.value, economicEvidence: commonEvidence });
       if (subject.incomeTtm?.basis === "ttm" && positive(subject.incomeTtm.epsDiluted) === null && subject.incomeTtm.netIncome === subjectCommon.value
@@ -467,10 +480,10 @@ export function comparePeerFundamentals(opts: {
   }
   const trimmed = survivors(screen(commonValues, "marketCapToTtmCommonEarnings"), "common earnings");
   peerCoverage.eligible = peers.filter(peer => eligibleSymbols.has(peer.symbol)).map(peer => peer.symbol);
-  peerCoverage.comparisons.push({ name: "Market cap / TTM common earnings", current: commonValid && subjectCap !== null ? subjectCap / (subjectCommon.value as number) : null,
-    ...(commonValid && scopeWithheld ? { currentWithheldReason: scopeWithheld } : {}),
+  peerCoverage.comparisons.push({ name: "Market cap / TTM common earnings", current: commonValid && subjectCap !== null && !withheld.length ? subjectCap / (subjectCommon.value as number) : null,
+    ...(commonValid && withheld.length ? { currentWithheldReason: withheld.join("; ") } : {}),
     peerMedian: commonValid && trimmed.length >= 4 ? quantile(trimmed, .5) : null, peerCount: trimmed.length,
     basis: "Issuer market capitalization / four contiguous quarters of filed common earnings (or net income only with zero preferred and minority claims in each same-date quarterly balance). Not price/diluted EPS. At least four issuers after 1.5×IQR filtering required." });
-  if (trimmed.length < 4) peerCoverage.methodology.push(`Common-earnings median withheld: ${trimmed.length} eligible peers after the IQR rule; four required.`);
+  if (trimmed.length < 4) peerCoverage.methodology.push(`Common-earnings median withheld: ${trimmed.length} eligible peers after the IQR rule${gainExclusions.length ? ` and the D-98 gain test (${gainExclusions.join(", ")})` : ""}; four required.`);
   return out;
 }

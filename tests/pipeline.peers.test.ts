@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { comparePeerFundamentals, loadPeerFundamentals, PEER_CANDIDATE_LIMIT, PEER_FETCH_BUDGET_MS, type PeerFundamentals } from "@/pipeline/peers";
-import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
+import { multiplesFramework, nonOperatingShareOfPretax, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
 import type { PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
@@ -90,6 +90,63 @@ describe("subject capitalization scope in the peer row", () => {
     expect(peerCoverageAuditLines(peers).join(" ")).toMatch(/company withheld \(Issuer-common economic share scope unresolved/);
     const legacy = { ...peers, comparisons: [{ name: "Market cap / TTM common earnings", current: null, peerMedian: 17.5, peerCount: 4, basis: "stored" }] };
     expect(valuationReviewBlocks({ peerCoverage: legacy, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!.rows[0][1]).toBe("n/m");
+  });
+});
+
+describe("one gain test for both sides of the peer comparison", () => {
+  const earning = (c: PeerFundamentals, pretax: number, operating?: number): PeerFundamentals => ({ ...c,
+    incomeQuarterly: data((c.incomeQuarterly.ok ? c.incomeQuarterly.value.data.rows : []).map(r => ({ ...r, incomeBeforeTax: pretax, ...(operating === undefined ? {} : { operatingIncome: operating }) }))) });
+  const clean = (s: string, cap: number) => earning(candidate(s, cap), 30, 28);
+  const four = () => ({ P2: clean("P2", 1000), P3: clean("P3", 1500), P4: clean("P4", 2000), P5: clean("P5", 2500) });
+  const runSubject = (income: PeerFundamentals["incomeQuarterly"], target = subject()) => comparePeerFundamentals({
+    symbol: "ROOT", profile, quote, route: "general", subject: target, now: NOW,
+    subjectIncomeQuarterly: income, subjectBalanceQuarterly: candidate("ROOT").balanceQuarterly,
+    collection: { candidates: four(), candidateCount: 4, exclusions: [], notes: [] },
+  });
+  it("excludes a gain-carried peer from common earnings and P/E while retaining P/B", () => {
+    const result = run({ ...four(), P6: earning(candidate("P6", 3000), 30, 15) });
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^common earnings: non-operating income 50\.0% of trailing pre-tax income \(above 25%, house rule D-98\)/);
+    const computed = multiplesFramework("general", { ...subject(), ...result });
+    expect(computed.multiples.find(m => m.key === "peTtm")?.peers?.median).toBe(17.5);
+    expect(computed.multiples.find(m => m.key === "priceToBook")?.peers?.count).toBe(5);
+  });
+  it("withholds a median left with three eligible peers", () => {
+    const result = run({ ...four(), P5: earning(candidate("P5", 2500), 30, 15) });
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: null, peerCount: 3 });
+    expect(result.peerCoverage.methodology.join(" ")).toMatch(/Common-earnings median withheld: 3 eligible peers .*D-98 gain test \(P5: non-operating income 50\.0%/);
+  });
+  it("withholds a gain-carried subject and combines a scope refusal once", () => {
+    const income = earning(candidate("ROOT"), 30, 10).incomeQuarterly;
+    const result = runSubject(income);
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: null, peerMedian: 17.5, peerCount: 4,
+      currentWithheldReason: expect.stringMatching(/^non-operating income 66\.7% of the subject's trailing pre-tax income \(above 25%, house rule D-98\)/) });
+    const both = runSubject(income, unresolvedTarget()).peerCoverage;
+    expect(both.comparisons[0].currentWithheldReason).toMatch(/^Issuer-common economic share scope unresolved.*; non-operating income 66\.7%/);
+    expect(both.exclusions.filter(e => e.symbol === "ROOT" && e.reason.startsWith("Company figure withheld:"))).toHaveLength(1);
+  });
+  it("respects the strict threshold and requires all four quarterly operands", () => {
+    const count = (pretax: number, operating?: number) => run({ ...four(), P5: earning(candidate("P5", 2500), pretax, operating) }).peerCoverage.comparisons[0].peerCount;
+    expect(count(40, 30)).toBe(4);
+    expect(count(40, 29.996)).toBe(3);
+    expect(count(-5, 10)).toBe(4);
+    expect(count(30)).toBe(4);
+    expect(count(20, 30)).toBe(4);
+    const partial = earning(candidate("P5", 2500), 30, 15);
+    if (!partial.incomeQuarterly.ok) throw new Error("fixture income missing");
+    delete partial.incomeQuarterly.value.data.rows[2].operatingIncome;
+    expect(run({ ...four(), P5: partial }).peerCoverage.comparisons[0].peerCount).toBe(4);
+    expect(nonOperatingShareOfPretax(100, 70)).toBeCloseTo(0.3, 12);
+    for (const [pretax, operating] of [[0,10],[100,null],[Infinity,10],[100,NaN]]) expect(nonOperatingShareOfPretax(pretax, operating)).toBeNull();
+  });
+  it("keeps peers with absent operands and the existing stricter P/E construction gate", () => {
+    const peers = { P2: candidate("P2",1000), P3: candidate("P3",1500), P4: candidate("P4",2000), P5: candidate("P5",2500) };
+    expect(run(peers).peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+    const target = subject(); target.incomeTtm!.epsDiluted = 1;
+    const result = run(four(), target);
+    expect(result.peerCoverage.comparisons[0].peerCount).toBe(4);
+    expect(result.peers.every(p => p.multiples.peTtm === undefined)).toBe(true);
+    expect(result.peerCoverage.exclusions.filter(e => /subject price\/diluted-EPS or annual basis differs/.test(e.reason))).toHaveLength(4);
   });
 });
 
