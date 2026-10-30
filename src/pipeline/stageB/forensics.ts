@@ -371,6 +371,8 @@ export interface AltmanInputs {
   income: ForensicsIncomeRow;
   /** Market value of equity, same currency as the statements. Required for `original` X4. */
   marketCap?: number | null;
+  /** Structural scope refusal, distinct from a missing market-cap observation. */
+  marketEquityWithheldReason?: string | null;
   /** As-of date of the market cap (should be same-period for historical trends). */
   marketCapAsOf?: string | null;
   /** Statements' reported currency (e.g. inc0.reportedCurrency). */
@@ -549,6 +551,9 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
           "warn",
         ),
       );
+    } else if (inputs.marketEquityWithheldReason) {
+      gaps.push(gapEntry("forensics.altman.marketEquityScope",
+        `original-variant X4 (market value of equity) withheld: ${inputs.marketEquityWithheldReason}`, "warn"));
     } else {
       equityNumerator = posOrNull(inputs.marketCap);
       if (equityNumerator === null) {
@@ -2481,6 +2486,7 @@ export interface ForensicsInputs {
   cashFlow: ForensicsCashFlowRow[];
   /** Market value of equity in statement currency (original-variant Altman X4). */
   marketCap?: number | null;
+  marketEquityWithheldReason?: string | null;
   marketCapAsOf?: string | null;
   /** Statements' reported currency; with quoteCurrency, flags the ADR mismatch for X4. */
   reportedCurrency?: string | null;
@@ -2779,6 +2785,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
         balance: cur.balance,
         income: cur.income,
         marketCap: inputs.marketCap ?? null,
+        marketEquityWithheldReason: inputs.marketEquityWithheldReason ?? null,
         marketCapAsOf: inputs.marketCapAsOf ?? null,
         reportedCurrency: inputs.reportedCurrency ?? null,
         quoteCurrency: inputs.quoteCurrency ?? null,
@@ -2791,13 +2798,14 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       // published before the SIC began arriving. Book equity and total
       // liabilities are both in the reporting currency, so the private variant
       // is computable and is the model's own designated substitute.
-      // Gated on the FX suppression SPECIFICALLY. Triggering on ANY null score
+      // Gated on currency or economic-scope refusal. Triggering on ANY null score
       // would substitute the private-firm Z' whenever market cap was merely
       // missing — a transient fetch outage, which must keep failing closed
-      // (the same reasoning as the X2 rule above). Only the currency mismatch
-      // is a permanent structural fact about the filings.
-      const fxSuppressed = altman.gaps.some((g) => g.field === "forensics.altman.currency");
-      if (altman.score === null && altmanSelection.variant === "original" && fxSuppressed) {
+      // (the same reasoning as the X2 rule above). Scope refusal is also a
+      // structural inability to form market equity, not a replacement for a
+      // missing input. Z-prime uses its own coefficients and boundaries.
+      const structural = altman.gaps.some((g) => g.field === "forensics.altman.currency" || g.field === "forensics.altman.marketEquityScope");
+      if (altman.score === null && altmanSelection.variant === "original" && structural) {
         const priv = computeAltman(altmanInputs, "private");
         if (priv.score !== null) {
           // Carry the original attempt's gaps and notes: they are the only

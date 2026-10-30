@@ -2315,11 +2315,17 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     str(inc0?.reportedCurrency),
   );
   const forensicClassAmbiguity = retainedCommonClassAmbiguity(bundle);
+  const adrQuote = route.overlays.includes("adr") || profile?.isAdr === true;
+  // Preserve this consumer's profile-cap precedence. A declaration on a
+  // different provider row does not establish the selected cap's scope.
+  const forensicCapRow = profile?.marketCap != null ? profile : quote;
   const forensicEquityScope = resolveEconomicEquityScope({
     price: num(quote?.price) ?? num(profile?.price), marketCap: num(profile?.marketCap ?? quote?.marketCap),
     currency: str(profile?.currency),
     priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
+    isAdr: adrQuote,
+    ...(adrQuote && forensicCapRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
   const forensics = runForensics(route, {
@@ -2327,6 +2333,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
     marketCap: forensicEquityScope.marketCap,
+    marketEquityWithheldReason: forensicEquityScope.status === "unresolved" ? forensicEquityScope.basis : null,
     // Derived class capitalization belongs to its admitted price session;
     // a vendor cap belongs to its own source row, never its fetch envelope.
     marketCapAsOf: forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
@@ -3033,13 +3040,14 @@ function computeReturns(
   const keylessBeta = profile !== null && num(profile.betaMonths) !== null;
 
   const classAmbiguity = retainedCommonClassAmbiguity(bundle);
-  const equityScope = resolveEconomicEquityScope({
+  const equityQuote = {
     price: num(quote?.price) ?? num(profile?.price), marketCap: num(quote?.marketCap ?? profile?.marketCap),
     currency: str(profile?.currency),
     priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
     ...(classAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: classAmbiguity } : {}),
-  }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+  };
+  const equityScope = resolveEconomicEquityScope(equityQuote, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
   const vendorTaxRate = num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
@@ -3123,6 +3131,20 @@ function computeReturns(
 
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
+  }
+  // FIN-307 pre-flight publication ruling: refusing this previously used cap
+  // would newly Block the DCF. Preserve the existing WACC, but disclose its
+  // unproven ADR scope. Existing currency/class refusals remain dominant.
+  if ((route.overlays.includes("adr") || profile?.isAdr === true)
+    && equityScope.status !== "unresolved" && wacc.waccPct !== null && wacc.weightEquity !== 1) {
+    const capRow = quote?.marketCap != null ? quote : profile;
+    const adrScope = resolveEconomicEquityScope({ ...equityQuote, isAdr: true,
+      ...(capRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
+    }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+    if (adrScope.status === "unresolved") {
+      wacc.gaps.push({ field: "returns.wacc.adrMarketEquityScope", severity: "warn", attemptedSources: adrScope.sourceIds,
+        reason: "ADR market-cap scope is not established as issuer-common. WACC retains the provided capitalization; its equity weight remains unverified. No depositary ratio is inferred." });
+    }
   }
 
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of

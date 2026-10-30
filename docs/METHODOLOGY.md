@@ -328,6 +328,13 @@ rate)` row) and in the report's computed-returns notes.
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
+**Retained ADR limitation (FIN-307).** The levered WACC retains its existing
+capitalization when ADR scope alone is unproven, with an explicit
+`returns.wacc.adrMarketEquityScope` warning that its equity weight is unverified.
+Refusing this previously used cap would newly block the DCF; that part of the
+scope correction is deferred. Currency mismatches and established class-scope
+refusals keep their existing guards. Debt-free WACC still equals cost of equity.
+
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
 rate by 0.5pp or more is disclosed in the manifest, because it materially
 changes the discount rate.
@@ -1589,8 +1596,8 @@ withheld, with the refusal, in net debt, invested capital and net debt/EBITDA;
 "missing" is kept for a value that is absent. A DCF withheld for want of a
 WACC says why the WACC is unavailable, and a suppressed fair value quotes the
 DCF gap, or the bridge gap and the net-debt refusal behind it. The generic
-reason remains only when no gap says. A market cap withheld because the
-issuer's share scope is unresolved is called withheld, with that reason, in
+reason remains only when no gap says. When the WACC refuses a market cap because
+the issuer's class scope is unresolved, it is called withheld, with that reason, in
 the WACC weights entry and so in the DCF and fair-value lines, and in the
 multiples' market-cap entry ("market cap withheld — most multiples not
 computable: ..."); "market cap missing" is kept for a quote that has none. The net-debt entry says the
@@ -2389,6 +2396,26 @@ accrual ratio still apply.
 SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
+
+**Altman market-equity scope (FIN-307).** The original model's X4 refuses an
+ADR capitalization whose issuer-common scope is unestablished. A structural
+currency or scope refusal permits substitution of Z-prime, using book equity
+and its separately calibrated coefficients (0.717, 0.847, 3.107, 0.420, 0.998)
+and 1.23/2.90 zones; a merely missing cap still fails closed. This is a disclosed
+house adaptation for a public issuer with unusable market equity, not a claim
+that the issuer is private or a book-equity substitution into the original
+coefficients. The calibration is described in [Altman's July 2000 paper,
+pages 25–26](https://moodle2.units.it/pluginfile.php/322514/mod_resource/content/0/Zscores.pdf).
+The source's prose and gray-zone row use 1.23; a separate footer prints 1.21.
+The existing 1.23/2.90 house zones remain unchanged.
+
+Forensics retains its profile-before-quote cap selection. An explicit
+issuer-common declaration is taken only from that selected cap's own row and,
+when admitted, retains unverified vendor-scope status; a declaration on another
+row cannot validate it. Existing filing-based class and economic-share evidence
+guards stay dominant. No ADS ratio
+is inferred, and this Altman correction does not claim to fix the deferred
+WACC scope limitation above.
 
 #### Accrual definition, Beneish and Piotroski decompositions (D-61)
 

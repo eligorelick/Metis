@@ -96,6 +96,7 @@ export function resolveEconomicEquityScope(
     ...(classAmbiguity ? { classAmbiguity: true as const } : {}),
     approximate: false, sourceIds: quote.marketCapScopeEvidence?.sourceIds ?? [], sourceHashes: [], shareCountAsOf: null,
     basis: "Issuer-common economic share scope unresolved: complete class coverage, outstanding counts and economic rights on the quoted security basis are required; aggregate equity and EV multiples withheld." +
+      (quote.isAdr === true ? " The quoted security is an ADR whose provider market cap is not established as issuer-common; no depositary ratio is guessed." : "") +
       (quote.marketCapScopeEvidence ? ` ${quote.marketCapScopeEvidence.reason}` : "") });
   if (evidence.length > 0) {
     // An ADS ratio requires its separate security evidence; class counts never establish it.
