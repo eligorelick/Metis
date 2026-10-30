@@ -3283,6 +3283,8 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
   return {
     revenue: outlook.mid,
     periodEnd: outlook.periodEnd,
+    ...(outlook.basePeriodEnd === null ? {} : { periodStart: new Date(Date.parse(outlook.basePeriodEnd) + SPREAD_DAYS).toISOString().slice(0, 10) }),
+    periodEndBasis: outlook.periodEndBasis,
     asOf: outlook.filingDate,
     source: `sec:8-K EX-99.1 ${outlook.accession}`,
     operatingMarginPct: outlook.impliedOperatingMarginPct,
@@ -3535,7 +3537,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // D-58: the run-rate quarters — the TTM window's newest quarter and the same
   // fiscal quarter a year earlier, the latter only when its own currency
   // evidence establishes the model currency.
-  const latestQuarter = ttmInc ? incomeQuarterly.find((r) => isoDay(r.date) === ttmInc.date) : undefined;
+  const basePeriodEnd = dcfIncomeTtm?.date ?? null;
+  const latestQuarter = incomeQuarterly.find((r) => isoDay(r.date) === basePeriodEnd);
   const yearAgoQuarter = latestQuarter === undefined ? undefined : incomeQuarterly.find((r) => {
     const days = (Date.parse(String(latestQuarter.date)) - Date.parse(String(r.date))) / SPREAD_DAYS;
     return days >= 350 && days <= 380;
@@ -3550,9 +3553,21 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     return days >= 350 && days <= 380;
   });
   const guidedYearAgoDate = guidedYearAgoQuarter === undefined ? null : isoDay(guidedYearAgoQuarter.date);
-  const dcfQuarterRevenue: DcfQuarterRevenue | null = ttmInc && latestQuarter
+  const guidedYearAgoWindow: NonNullable<DcfQuarterRevenue["guidedYearAgoWindow"]> = [];
+  if (guidedYearAgoQuarter !== undefined) {
+    for (const row of incomeQuarterly.slice(incomeQuarterly.indexOf(guidedYearAgoQuarter), incomeQuarterly.indexOf(guidedYearAgoQuarter) + 16)) {
+      const date = isoDay(row.date), revenue = num(row.revenue);
+      if (date === null || revenue === null || revenue <= 0 || establishedCurrencyOn([row], date, ctx.currencyEvidence) !== ctx.modelCurrency) break;
+      const candidate = { date, revenue, days: incomePeriod(row, incomeQuarterly[incomeQuarterly.indexOf(row) + 1]).days };
+      const window = [...guidedYearAgoWindow, candidate];
+      if (window.length >= 4 && quarterWindowViolation(window.slice(-4)) !== null) break;
+      guidedYearAgoWindow.push(candidate);
+    }
+  }
+  const dcfQuarterRevenue: DcfQuarterRevenue | null = basePeriodEnd !== null
     ? {
-        latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue), days: incomePeriod(latestQuarter, incomeQuarterly[incomeQuarterly.indexOf(latestQuarter) + 1]).days },
+        latest: latestQuarter === undefined ? { date: basePeriodEnd, revenue: null } :
+          { date: basePeriodEnd, revenue: num(latestQuarter.revenue), days: incomePeriod(latestQuarter, incomeQuarterly[incomeQuarterly.indexOf(latestQuarter) + 1]).days },
         yearAgo: yearAgoQuarter !== undefined && yearAgoDate !== null &&
           establishedCurrencyOn([yearAgoQuarter], yearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
           ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue), days: incomePeriod(yearAgoQuarter, incomeQuarterly[incomeQuarterly.indexOf(yearAgoQuarter) + 1]).days }
@@ -3561,6 +3576,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           establishedCurrencyOn([guidedYearAgoQuarter], guidedYearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
           ? { guidedYearAgo: { date: guidedYearAgoDate, revenue: num(guidedYearAgoQuarter.revenue), days: incomePeriod(guidedYearAgoQuarter, incomeQuarterly[incomeQuarterly.indexOf(guidedYearAgoQuarter) + 1]).days } }
           : {}),
+        guidedYearAgoWindow,
       }
     : null;
 

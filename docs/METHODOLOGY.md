@@ -499,7 +499,10 @@ first available of three sources:
 
 1. **Analyst consensus levels**, calendarized to the year-one window, when
    consensus is consistent with guidance: no guidance, or a year-one
-   consensus at or above the guided quarter's low end × 4. Each fiscal-year
+   consensus at or above the twelve-month floor the guidance implies: the
+   guided quarter's low end plus the other three quarters at their year-ago
+   level, reduced at the low-end year-over-year pace if it is negative.
+   Both compared quarters are on a 13-week basis. Each fiscal-year
    estimate is spread over its days and weighted by its overlap with the
    window. The spread follows the issuer's own seasonal shape when its last
    complete fiscal year has four reported quarters in the model currency
@@ -526,22 +529,32 @@ first available of three sources:
    even spread, which for a fast grower overstates its early quarters
    (disclosed in D-65; no within-year shape is assumed). Consensus covers the
    window's four quarters; guidance covers one, and an issuer that reports
-   above its own range each quarter makes the guided run-rate a floor rather
-   than a central case. A consensus below the guided run-rate predates or
+   above its own range each quarter makes this guidance-implied floor a lower
+   bound rather than a central case. A consensus below that floor predates or
    contradicts the outlook and is not used for year one. The same breadth and
    agreement gates as later years apply (below).
 2. **Management guidance** for the next fiscal quarter
    (`DcfAssumptionInputs.guidance`, from the 8-K earnings release). The guided
-   quarter is annualized (× 4) and carried 4.5 months, from the guided
-   quarter's midpoint to the year-one window's midpoint, at the **guided
-   year-over-year pace**: guided quarter over the same fiscal quarter a year
-   earlier (350–380 days before it, established in the model currency). Without
-   that quarter it carries at the **guided sequential pace**: guided quarter
-   over the latest reported quarter, annualized, which also carries the season
-   (see "AMZN audit fixes (October 20, 2026)"). D-58 carried it at the clamped
-   near-term rate, a statement about history rather than about the guided
-   trajectory. Guidance must end 80–100
-   days after the TTM and be published after it. A guided operating margin, if
+   quarter, on a 13-week basis, is divided by its **growth-adjusted seasonal
+   factor**, multiplied by four and carried 4.5 months at its year-over-year
+   pace. For each of up to three years, the same quarter's share of its own
+   trailing year is divided by the share constant growth would give it:
+   `s = (quarter / TTM) / (rho^3 / (1 + rho + rho^2 + rho^3))`, where
+   `rho = (TTM / prior TTM)^(1/4)`. Every quarter is on a 13-week basis;
+   the factor is the mean of those yearly factors. Below eight contiguous
+   quarters ending at the year-ago quarter, the fallback is the base revenue
+   carried twelve months at the guided year-over-year pace.
+   The compared quarter must end 350–380 days before the guided quarter and
+   250–300 days before the base period, in the model currency. Without it,
+   guidance sets no revenue level or floor. The sequential pace is retained
+   only as evidence; it carries the season. This applies to annual bases too.
+   Guidance must end 80–100 days after the base and be published after it.
+   A guided fourth quarter uses the established fiscal-year rule when its end
+   is 84–105 days after the reported base. Other weekly quarters are dated
+   base plus 91 days, even when the base happens to be a month end. In a
+   53-week fiscal year, that assumed 13-week length is disclosed because the
+   release does not establish which quarter holds the extra week.
+   A guided operating margin, if
    present, sets the year-one margin; a guided GAAP tax rate sets the year-one
    tax rate.
 3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
@@ -571,11 +584,15 @@ Sales-to-capital retains the filed revenue numerator; this annualisation
 changes the DCF starting flows, not the observed capital-efficiency ratio.
 
 **A broken-input guard bounds year-one revenue relative to the run-rate.** Its
-range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided pace
-the anchor uses and the latest quarter's year-over-year growth. It catches a
+range is [−10%, +25%], widened (D-60) to the guided year-over-year pace and
+the latest quarter's year-over-year growth, never the sequential pace. It catches a
 mis-scaled estimate without overruling the issuer's own reported trajectory.
 Without a run-rate it is measured against the TTM. When it binds, the anchor
 row prints both values.
+The independent quarterly-versus-annual comparability guard also reads the
+quarter's range on a 13-week basis before multiplying it by four. Its refusal
+rule is otherwise unchanged: an entirely non-overlapping range withholds the
+quarterly extrapolation; it does not substitute annual guidance for NTM.
 
 **Later years (D-65).** Every explicit year after the first takes consensus
 growth, window over window, while consensus covers it: the consensus level
@@ -621,7 +638,8 @@ an assumption row (its methods stay in the notes and the audit export), and the
 analyst-consensus method prints both of its legs so the average can be
 reproduced.
 
-On NVDA's 2026-10-15 inputs, consensus sits above guidance × 4 ($432B), so it
+On NVDA's 2026-10-15 illustrative inputs, consensus exceeds the guidance-implied
+floor ($353.96B with the year-ago quarter; no floor without it), so it
 sets year one: $578.3B for the 12 months to 2027-07-26 (+90.9% over TTM; D-60's
 even spread gave $551.8B). Consensus also covers the windows to 2028, 2029 and
 2030-07-26 ($810.5B, $1,013.9B, $1,133.7B: +40.1%, +25.1%, +11.8%), with 30–42
@@ -3993,11 +4011,13 @@ carries its own year, and the three prior quarters' outlooks are all scored.
 Year one then carried the guided quarter at its sequential pace: Q3 2026
 guidance of $199.5B over Q2's $200.6B, annualized, is −2.2% a year, though
 Amazon guided +9% to +12% over Q3 2025. Q3 is below Q2 every year, so the
-sequential pace read the season as a slowdown. Guidance × 4 now carries at the
-guided year-over-year pace, the guided quarter over the same quarter a year
-earlier: $199.5B over $180.2B, +10.7%. That puts year one at about $829B
-instead of $791B. The sequential pace is used only when the statements lack
-that quarter in the model currency.
+sequential pace read the season as a slowdown. D-136 takes the guided quarter
+out of its growth-adjusted season before multiplying by four and carrying it
+at its guided year-over-year pace ($199.5B over $180.2B, +10.7% in this
+example). With three yearly factors on the saved census inputs, year one is
+about $834.60B (the pre-flight's one-factor illustration was about $828B);
+below eight quarters the TTM-at-guided-growth fallback is about $858.8B.
+Without that year-ago quarter in the model currency, guidance sets no level.
 
 **Improving margins fade up to a bounded target.** A declining margin regime
 faded the margin down toward its five-year median, but an improving one was

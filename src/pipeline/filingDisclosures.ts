@@ -21,6 +21,7 @@ import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "
 import type { EdgarFiling } from "@/providers/edgar";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { fiscalYearRule, fiscalYearEndFor, type FiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
 import { orderedEarningsReleases } from "@/providers/currentReports";
 import { materialCreditSupportClauses, moneyMentions, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
@@ -274,10 +275,11 @@ export interface RevenueGuidanceAnchor {
   /**
    * The guided quarter's end. Releases do not print it: a calendar quarter
    * ends three month-ends after a month-end base; a 52/53-week quarter ends
-   * 13 weeks after its base (a 14-week fourth quarter would end a week later).
+   * 13 weeks after its base, except a fourth quarter established by the issuer's
+   * unambiguous weekday fiscal-year rule.
    */
   periodEnd: string | null;
-  periodEndBasis: "calendar-quarter" | "13-week-quarter" | null;
+  periodEndBasis: "calendar-quarter" | "13-week-quarter" | "fiscal-year-end-rule" | null;
   /**
    * Guided GAAP gross margin less guided GAAP operating expenses over guided
    * revenue (midpoints), percent; null unless all three are guided for the
@@ -295,11 +297,17 @@ export interface RevenueGuidanceAnchor {
   grossMarginLowPct?: number | null;
 }
 
-function guidedQuarterEnd(base: string | null): Pick<RevenueGuidanceAnchor, "periodEnd" | "periodEndBasis"> {
+function guidedQuarterEnd(base: string | null, fiscalQuarter: number, rule: FiscalYearRule | null): Pick<RevenueGuidanceAnchor, "periodEnd" | "periodEndBasis"> {
   if (base === null || !/^\d{4}-\d{2}-\d{2}$/.test(base)) return { periodEnd: null, periodEndBasis: null };
   const d = new Date(`${base}T00:00:00Z`);
   const monthEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate() === d.getUTCDate();
-  if (monthEnd) {
+  if (rule !== null && fiscalQuarter === 4) {
+    const ends = [d.getUTCFullYear(), d.getUTCFullYear() + 1].map(year => fiscalYearEndFor(rule, year));
+    const end = ends.find(end => { const span = (Date.parse(end) - d.getTime()) / 86400000; return span >= 84 && span <= 105; });
+    if (end !== undefined) return { periodEnd: end, periodEndBasis: "fiscal-year-end-rule" };
+  }
+  // A filed weekday calendar remains weekly when an end happens to be month-end.
+  if (monthEnd && rule === null) {
     const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 4, 0));
     return { periodEnd: next.toISOString().slice(0, 10), periodEndBasis: "calendar-quarter" };
   }
@@ -345,7 +353,8 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
     filingDate: release.filingDate,
     accession: release.accession,
     basePeriodEnd: release.reported.periodEnd,
-    ...guidedQuarterEnd(release.reported.periodEnd),
+    ...guidedQuarterEnd(release.reported.periodEnd, item.period.fiscalQuarter,
+      fiscalYearRule(normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)).rows.map(row => String(row.date)))),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,
     taxRatePct: tax?.mid ?? null,
     taxRatePeriod: tax?.period.label ?? null,
