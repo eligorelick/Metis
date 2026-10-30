@@ -5,6 +5,7 @@ import type { PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
 import type { FmpFetch } from "@/pipeline/types";
+import { peerCommonEquityCase, PEER_COMMON_CAP } from "./helpers/peerCommonEquityCase";
 
 const NOW = new Date("2026-10-13T18:00:00Z");
 function data<T extends FmpRawRow>(rows: T[]): FmpFetch<T> {
@@ -47,6 +48,53 @@ function run(candidates: Record<string, PeerFundamentals>, target = subject()) {
 }
 
 describe("defensible peer comparables", () => {
+  it.each([0, 6e9])("FIN-126 peer P/B median matches the identical bank with preferred %s", preferred => {
+    const input = peerCommonEquityCase(preferred), result = comparePeerFundamentals(input);
+    const m = multiplesFramework("bank", { ...input.subject, ...result }).multiples;
+    const pb = m.find(x => x.key === "priceToBook"), ptbv = m.find(x => x.key === "priceToTbv");
+    expect(result.peers).toHaveLength(4);
+    expect(ptbv?.peers?.median).toBeCloseTo(ptbv!.current!, 10);
+    expect(pb?.current).toBeCloseTo(80e9 / (60e9 - preferred), 10);
+    expect(pb?.peers?.median).toBeCloseTo(pb!.current!, 10);
+  });
+  it.each(["peer", "subject"] as const)("FIN-126 refuses nonpositive common equity on the %s side", side => {
+    const input = peerCommonEquityCase(6e9, side === "peer" ? { firstPeer: { preferredStock: 70e9 } } : { subject: { preferredStock: 70e9 } });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+    expect(result.peerCoverage.exclusions.some(e => e.symbol === "P2" && /priceToBook: positive.*common equity/.test(e.reason))).toBe(true);
+  });
+  it.each([
+    { name: "explicit common equity", balance: { commonEquity: 48e9 }, common: 48e9 },
+    { name: "consolidated equity with disclosed NCI", balance: { equityOwnershipBasis: "consolidated", minorityInterest: 6e9 }, common: 48e9 },
+    { name: "parent equity with NCI already outside it", balance: { equityOwnershipBasis: "parent", minorityInterest: 6e9 }, common: 54e9 },
+  ])("FIN-126 uses the subject's admitted $name basis", ({ balance, common }) => {
+    const input = peerCommonEquityCase(6e9, { subject: balance, allPeers: balance });
+    const result = comparePeerFundamentals(input), pb = multiplesFramework("bank", { ...input.subject, ...result }).multiples.find(m => m.key === "priceToBook");
+    expect(pb?.current).toBeCloseTo(PEER_COMMON_CAP / common, 10);
+    expect(pb?.peers?.median).toBeCloseTo(pb!.current!, 10);
+    // P/TBV is outside this correction: preserve its existing peer formula.
+    expect(result.peers[0]?.multiples.priceToTbv).toBeCloseTo(80e9 / 50e9, 10);
+  });
+  it("FIN-126 does not infer an undisclosed consolidated NCI allocation", () => {
+    const input = peerCommonEquityCase(6e9, { firstPeer: { equityOwnershipBasis: "consolidated", minorityInterest: undefined } });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+    expect(result.peerCoverage.exclusions.some(e => /noncontrolling-equity allocation/.test(e.reason))).toBe(true);
+  });
+  it.each(["peer", "subject"] as const)("FIN-126 does not widen the existing positive reported-equity gate on the %s", side => {
+    const missing = { totalStockholdersEquity: undefined, commonEquity: 48e9 };
+    const input = peerCommonEquityCase(6e9, side === "peer" ? { firstPeer: missing } : { subject: missing });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+  });
+  it("FIN-126 preserves the subject's zero fallback for undisclosed preferred in P/B only", () => {
+    const missing = { preferredStock: undefined };
+    const input = peerCommonEquityCase(6e9, { subject: missing, allPeers: missing });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers[0]?.multiples.priceToBook).toBeCloseTo(80e9 / 60e9, 10);
+    expect(result.peers[0]?.multiples.priceToTbv).toBeUndefined();
+  });
+
   it.each(["control", "subject", "candidate", "statement"])("keeps minor units out of peer medians: %s", (minorSide) => {
     const target = subject();
     target.reportedCurrency = "GBP";

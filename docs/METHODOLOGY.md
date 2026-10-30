@@ -1754,6 +1754,14 @@ Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
 multiples. Those definitions can differ with changing share counts and are
 never silently combined. P/B and P/TBV require supported positive denominators.
+Peer P/B uses the subject's common-equity rule: explicit common equity when
+disclosed, otherwise parent stockholders' equity less preferred stock; a
+consolidated basis additionally requires a disclosed noncontrolling-equity
+allocation. Undisclosed preferred reads as zero. Both sides retain the existing
+positive reported-stockholders-equity admission gate, so this correction does
+not admit a previously ineligible balance. Peer P/TBV retains its existing
+reported-equity-minus-goodwill/intangibles/explicit-preferred formula; its
+handling of explicit common equity or consolidated NCI is outside this fix.
 Peer comparisons provide context; they do not change scoring or intrinsic-value
 formulas.
 

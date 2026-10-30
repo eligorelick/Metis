@@ -8,6 +8,7 @@ import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
+import { commonHolderCapital } from "@/pipeline/stageB/securityBasis";
 import type { SectorRoute } from "@/types/core";
 
 // FMP discovery returns about ten names; six cut real competitors (NVDA report
@@ -317,7 +318,7 @@ export function comparePeerFundamentals(opts: {
     methodology: [
       `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-      "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+      "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
       "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
@@ -380,8 +381,20 @@ export function comparePeerFundamentals(opts: {
     const economicEvidence = evidenceForObservation(candidate.economicEvidence, bal.date, currency, quoteMs);
     if (candidate.economicEvidence && !economicEvidence) { exclude(peerSymbol, "economic evidence does not describe this peer's observation period, currency or availability"); continue; }
     const equity = positive(bal.totalStockholdersEquity);
-    if (equity !== null && positive(subject.balance.totalStockholdersEquity) !== null) multiples.priceToBook = mcap / equity;
-    else exclude(peerSymbol, "priceToBook: positive equity required for both issuer and peer");
+    if (equity !== null && positive(subject.balance.totalStockholdersEquity) !== null) {
+      const peerCapital = commonHolderCapital(null, {
+        totalStockholdersEquity: equity, preferredStock: number(bal.preferredStock),
+        minorityInterest: number(bal.minorityInterest), commonEquity: number(bal.commonEquity),
+        equityOwnershipBasis: bal.equityOwnershipBasis === "consolidated" ? "consolidated" : "parent",
+      });
+      const subjectCapital = commonHolderCapital(null, subject.balance);
+      const common = positive(peerCapital.commonEquity), targetCommon = positive(subjectCapital.commonEquity);
+      if (common !== null && targetCommon !== null) multiples.priceToBook = mcap / common;
+      else {
+        const reason = peerCapital.equityWithheldReason ?? subjectCapital.equityWithheldReason;
+        exclude(peerSymbol, `priceToBook: positive admitted common equity required for both issuer and peer${reason ? `; ${reason}` : ""}`);
+      }
+    } else exclude(peerSymbol, "priceToBook: positive equity required for both issuer and peer");
     const components = [bal.goodwill, bal.intangibleAssets, bal.preferredStock, subject.balance.goodwill, subject.balance.intangibleAssets, subject.balance.preferredStock];
     if (equity !== null && components.every(v => number(v) !== null && (v as number) >= 0)) {
       const tbv = equity - (bal.goodwill as number) - (bal.intangibleAssets as number) - (bal.preferredStock as number);
