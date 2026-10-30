@@ -124,4 +124,16 @@ describe("model-derived thesis revision triggers", () => {
     expect(revenue.metric).toContain("2026-10-25");
     expect(triggers.find((t) => t.id === "guided-quarter-gross-margin")?.threshold).toMatchObject({ value: 73.5, unit: "%" });
   });
+  it("never prints a guided-quarter level in the year-one window line (R2)", () => {
+    const horizon = (source: "guidance" | "consensus", guidedRunRate: number | null) => {
+      const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", unit: "USD", base: [] }] } });
+      if (data.valuation.kind !== "dcf") throw new Error("fixture");
+      Object.assign(data.valuation.assumptions!, { startRevenue: { value: 302.97e9 }, forecastPeriod: { anchorEndDate: "2026-07-26", basis: "rolling-12-month" },
+        revenueAnchor: { source, yearOneRevenue: 551.81e9, evidence: { consensusYearOne: 551.81e9, guidedRunRate } } });
+      return buildThesisTriggers(data).find(t => t.id === "reverse-growth")!.horizon;
+    };
+    expect(horizon("guidance", 432e9)).not.toMatch(/guided run-rate|\$432(\.00)?B/);
+    expect(horizon("consensus", 432e9)).toEqual(horizon("consensus", null));
+    expect(horizon("consensus", null)).toMatch(/consensus \$551\.81B/);
+  });
 });

@@ -491,6 +491,15 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
  * ------------------------------------------------------------------------ */
 
 describe("payload determinism + provenance", () => {
+  it("preserves main's evidence shape for an unguided consensus anchor (B5a Task 24)", () => {
+    const { computed } = buildInputs();
+    if (computed.valuation.kind !== "dcf") throw new Error("DCF fixture");
+    const anchor = computed.valuation.assumptions!.revenueAnchor!;
+    expect(anchor.source).toBe("consensus");
+    expect(anchor.evidence!.guidedQuarter).toBeNull();
+    for (const key of ["guidedYoyPct", "guidedFloor", "guidedSeasonalFactor", "guidedYoyIssuerEffectPp"])
+      expect(anchor.evidence).not.toHaveProperty(key);
+  });
   it("exposes qualified peer comparisons and their sample counts as independently citable evidence", () => {
     const { bundle, computed } = buildInputs();
     const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });
@@ -666,7 +675,8 @@ describe("payload determinism + provenance", () => {
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
     const financeText = JSON.stringify(precedingFinance);
     for (const [now, , count] of d99Restorations) expect(financeText.split(now).length - 1).toBe(count);
-    expect(fnv1a32(JSON.stringify(restoreD99(precedingFinance)))).toBe("666a1ab0");
+    // 2026-10-29 B5a Task 2: restored wording, new calendarized numeric path.
+    expect(fnv1a32(JSON.stringify(restoreD99(precedingFinance)))).toBe("f753dc38");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
     // registry, preserving every value, unit, identity, date and order.
@@ -759,7 +769,8 @@ describe("payload determinism + provenance", () => {
     const lastEstimate = registryWithoutPeers.reduce((last, record, index) => record.id.startsWith("payload.estimates.") ? index : last, -1);
     expect(lastEstimate).toBe(355);
     const precedingRegistry = [...registryWithoutPeers.slice(0, lastEstimate + 1), ...restoredPeerRecords as unknown as typeof registryWithoutPeers, ...registryWithoutPeers.slice(lastEstimate + 1)];
-    expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
+    // 2026-10-29 B5a Task 2: same records/ids, new calendarized figures.
+    expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4f799b1a");
     // Restoring only the preceding version must reproduce its whole prompt.
     // D-99 adds one payload note, the consensus-target reconciliation (AMZN
     // audit finding 18), and carries the reworded finance notes above.
@@ -773,6 +784,8 @@ describe("payload determinism + provenance", () => {
     // range in the scores note, and marks a 45–55 band letter neutral. Each
     // exact occurrence is asserted, then the preceding wording is restored.
     const f19Restorations: [string, string, number][] = [
+      // 2026-10-29 B5a Task 4 (D136/R2): restore exactly one context note.
+      ["Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures.", "Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures.", 1],
       [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
       [", neutral 45–55)", ")", 1],
       // Audit 2026-10-22 B-20 (D-112): the P/E note names only the formula that ran.
@@ -850,7 +863,8 @@ describe("payload determinism + provenance", () => {
       return text.replace(match![0], `${before}\n${(JSON.parse(match![1]!) as { content: string }).content}`);
     }, prompt);
     const precedingPrompt = unwrapF5(serializePayloadForPrompt({ ...precedingPayload, payloadVersion: "1.36.0" }));
-    expect(`1.36.0:${fnv1a32(precedingPrompt)}`).toBe("1.36.0:d0f49c1f");
+    // 2026-10-29 B5a: Task 4's wording restored above; Task 2's numbers remain.
+    expect(`1.36.0:${fnv1a32(precedingPrompt)}`).toBe("1.36.0:540e897a");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -1247,17 +1261,30 @@ describe("payload determinism + provenance", () => {
       // or earn-out tag and no loss-period divisor, so no DCF figure, EV-basis sentence or lease wording moves (Tasks 4 and 6
       // change none of its lines). Fingerprint 1.51.0:9120109f -> 1.52.0:4257f13c. The preceding-pin chain restores the
       // ..._D135 stamps to the earlier wording (d99Restorations) and is otherwise untouched.
-      fingerprint: "1.52.0:4257f13c",
-      promptBytes: 144_296,
+      // 2026-10-29 B5a (D136): payload 1.53.0, next after main 222f92a.
+      // Task 2 calendarizes on last-Saturday-of-September fiscal ends:
+      // FY2026 2026-09-26, FY2027 2027-09-25. Year one moves
+      // 451493150684.9315 -> 457291208791.2088; DCF/share
+      // 120.65687010874173 -> 125.54216204255545, with downstream
+      // growth, DCF, reverse DCF, grids, scenarios and their cited figures.
+      // Complete base / Task 1 / Task 2 / final dumps were compared:
+      // Task 1 changes no fixture leaf; all 257 changed finance numbers and
+      // 182 payload numbers are Task 2. Task 4 changes exactly one context
+      // note (counted/restored above); Task 23 changes the version header.
+      // This fixture is unguided and consensus-anchored: neither Task 3's
+      // level nor Task 3b's caveats fires. Its old evidence shape is pinned.
+      // Record/citation counts, ids, labels, periods and method stamps stay.
+      fingerprint: "1.53.0:e5c9eae4",
+      promptBytes: 144_691,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "8eccd2f0",
+      provenanceHash: "d39061ff",
       provenanceIdsHash: "fe7c2621",
       citationCount: 76,
-      citationHash: "77d52670",
+      citationHash: "d1514dcc",
       computedFigureLabelHash: "ec8c7355",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
@@ -1294,7 +1321,7 @@ describe("payload determinism + provenance", () => {
       // D-107: the grouped EV digits and the grid guard wording, restored above.
       // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "e5b05d9e",
+      financeHash: "05d61d6c",
     });
   });
 
@@ -1418,7 +1445,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.52.0");
+    expect(first.payloadVersion).toBe("1.53.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2947,7 +2974,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.50.0");
+    expect(report.meta.specVersion).toBe("1.51.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

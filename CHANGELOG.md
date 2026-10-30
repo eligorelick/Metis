@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.50.0** and
-payload **1.52.0** (the equity-bridge, EV and invested-capital fixes of the 2026-10-27 audit batch B4a, after the EDGAR-derived operating-line fixes of batch B13, the lease-line and stakes fixes from the 2026-10-29 audit of AMZN report #51, and the claim verifier and payload-record fixes of the 2026-10-27 audit). The
+Current source declares application **0.1.0**, report spec **1.51.0** and
+payload **1.53.0** (the seasonality, fiscal-calendar and guided-quarter fixes of audit batch B5a, following B4a's equity-bridge fixes and B13's EDGAR-derived operating-line fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,20 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - seasonality, 52/53-week calendars and the guided quarter on one basis (B5a, 2026-10-27)
+
+These changes address seven findings from the 2026-10-27 audit. The decision is D-136 in [DECISIONS](docs/audit/DECISIONS.md). The remaining DCF-input changes are B5b's.
+
+- A quarter with an exact whole-week length is put on a 13-week basis before annualising revenue or forecast interest. A 53-week DCF base is put on a 52-week basis. The report names the scaling; filed history, margin and tax ratios, sales-to-capital and scenario shocks retain their existing basis and precision (Task 1, with Task 29's regression).
+- A missing predecessor quarter leaves an inferred quarter length unknown; its gap is never treated as one long quarter. Filed starts and the separate annual-period fallback retain precedence and behavior (PR review correction to Task 1).
+- Future fiscal-year estimates follow an issuer's evidenced weekday calendar when at least three chained year ends identify one rule. Nearby vendor dates are moved to that year end; ambiguous calendars keep their dates and disclose the approximation (Task 2).
+- A guidance-led valuation removes the guided quarter's own season using the mean of up to three growth-adjusted yearly factors. Short histories use the guided year-over-year growth on trailing revenue; without a usable year-ago quarter, the existing run-rate stands with an explanation. The guidance floor combines the guided quarter with the other three quarters, instead of multiplying a peak or trough by four (Task 3).
+- Reverse-DCF context compares the guided quarter with the same quarter a year earlier. It no longer treats an annualised or sequential quarter pace as comparable evidence. A next-quarter guide also no longer sets a twelve-month revenue trigger (Task 4).
+- The growth rows carry the issuer's own outlook caveats, including calendar-shifted events such as Prime Day. A stated basis-point effect is disclosed separately; reported guidance and valuations are not adjusted for it (Task 3b).
+- The issuer-effect note identifies the effect as disclosure only; it no longer claims guidance sets year one when consensus leads or guidance is refused. Anchor sources and all modeled revenue levels stay exact (verification correction to Task 3b).
+- Stored reports keep every saved figure. Reports before spec 1.51.0 gain applicable display notes explaining quarter length, a guidance-times-four level or floor, or an approximate fiscal-year boundary. An illustrative normalised quarter uses its stored filed amount when available, avoiding rounding a rounded figure (Task 17).
+- Report 1.51.0, payload 1.53.0 and Stage B ACCOUNTING_EVIDENCE_32 are next after B4a (D-136; recheck numbering at merge). Fair-value, scenario-path, scenario-target, pipeline and score-band stamps are unchanged. Stored reports keep their bytes; legacy valuations carry a note on display.
 
 ## Unreleased - the equity bridge, EV and invested capital count every claim once (B4a, 2026-10-27)
 

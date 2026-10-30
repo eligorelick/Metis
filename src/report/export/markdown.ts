@@ -24,6 +24,7 @@ import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
 import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
+import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
@@ -950,7 +951,7 @@ function capitalize(s: string): string {
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))));
+  report = withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report))))));
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,

@@ -41,7 +41,8 @@ function nvda(over: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs {
     incomeHistory: HISTORY,
     balance: { date: "2026-07-26", basis: "quarter", totalDebt: 33.366 * B, totalStockholdersEquity: TTM / 1.8 - 33.366 * B + 99.37 * B, cashAndShortTermInvestments: 99.37 * B },
     marketCap: 5.28e12,
-    quarterRevenue: { latest: { date: "2026-07-26", revenue: 96.22 * B }, yearAgo: { date: "2025-07-27", revenue: 46.743 * B } },
+    // 2026-10-29 D-136: the guidance fallback requires the same fiscal quarter a year earlier.
+    quarterRevenue: { latest: { date: "2026-07-26", revenue: 96.22 * B }, yearAgo: { date: "2025-07-27", revenue: 46.743 * B }, guidedYearAgo: { date: "2025-10-26", revenue: 57.006 * B } },
     domicileCountry: "US",
     ...over,
   };
@@ -77,25 +78,24 @@ describe("year-one revenue anchor (D-58)", () => {
     const consensus = buildDcfAssumptions(nvda({ analystEstimates: estimates })).assumptions!;
     expect(consensus.revenueAnchor).toMatchObject({ source: "consensus", yearTwoGrowthPct: null, clampedFrom: null });
     expect(yearOneRevenue(nvda({ analystEstimates: estimates }))).toBeCloseTo(547.93 * B, -8);
-    // Q3 FY2027 guidance $108.0B: consensus sits above the guided run-rate
-    // (432B), so it is consistent with the outlook and sets year one.
+    // D-136: consensus exceeds the 353.96B twelve-month floor, so it sets year one.
     const guidance = { revenue: 108 * B, periodEnd: "2026-10-25", asOf: "2026-08-26", source: "8-K EX-99.1", operatingMarginPct: 65.5 };
     const both = buildDcfAssumptions(nvda({ analystEstimates: estimates, guidance })).assumptions!;
     expect(both.revenueAnchor).toMatchObject({ source: "consensus", clampedFrom: null });
-    expect(both.revenueAnchor!.evidence).toMatchObject({ guidedRunRate: 432 * B, consensusYearOne: expect.any(Number) });
+    expect(both.revenueAnchor!.evidence!.guidedRunRate).toBeCloseTo(451.689 * B, -7);
+    expect(both.revenueAnchor!.evidence!.consensusYearOne).toEqual(expect.any(Number));
     expect(both.ebitMarginPath.value[0]).toBe(65.5);
-    // Guidance alone carries at its own sequential pace, (108 / 96.22)^4 − 1 =
-    // 58.7% a year, not the clamped near-term rate: 432B × 1.587^0.375 = 513.7B.
+    // 2026-10-29 D-136: without eight older quarters, TTM carries at guided YoY.
     const guided = buildDcfAssumptions(nvda({ guidance })).assumptions!;
     expect(guided.revenueAnchor).toMatchObject({ source: "guidance", clampedFrom: null });
     expect(guided.revenueAnchor!.evidence!.guidedPacePct).toBeCloseTo(58.72, 2);
-    expect(yearOneRevenue(nvda({ guidance }))).toBeCloseTo(513.71 * B, -8);
+    expect(yearOneRevenue(nvda({ guidance }))).toBeCloseTo(573.988 * B, -8);
     expect(guided.growthAnchor.basis).toMatch(/does not set year one/);
-    // A consensus below the guided run-rate predates or contradicts the outlook.
-    const stale = [{ date: "2027-01-31", revenueAvg: 300 * B }, { date: "2028-01-30", revenueAvg: 420 * B }];
+    // A consensus below the twelve-month floor contradicts the outlook.
+    const stale = [{ date: "2027-01-31", revenueAvg: 250 * B }, { date: "2028-01-30", revenueAvg: 350 * B }];
     const contradicted = buildDcfAssumptions(nvda({ analystEstimates: stale, guidance })).assumptions!;
     expect(contradicted.revenueAnchor!.source).toBe("guidance");
-    expect(contradicted.revenueAnchor!.basis).toMatch(/below the guided run-rate/);
+    expect(contradicted.revenueAnchor!.basis).toMatch(/below the twelve-month floor the guidance implies/);
     // Guidance for some other quarter is not a next-quarter level.
     expect(buildDcfAssumptions(nvda({ guidance: { ...guidance, periodEnd: "2027-01-31" } })).assumptions!.revenueAnchor!.source).toBe("run-rate");
   });
@@ -204,22 +204,21 @@ describe("guided quarter carried at its year-over-year pace", () => {
   const yearAgo = { date: "2025-06-30", revenue: 167.7 * B };
   const yearOne = (inputs: DcfAssumptionInputs) => 775.7 * B * (1 + buildDcfAssumptions(inputs).assumptions!.growthPath.value[0] / 100);
 
-  it("carries guidance × 4 at the guided quarter's growth over the same quarter a year earlier", () => {
+  it("carries the TTM at the guided quarter's growth over the same quarter a year earlier", () => {
     const inputs = amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-09-30", revenue: 180.2 * B } });
     const anchor = buildDcfAssumptions(inputs).assumptions!.revenueAnchor!;
     expect(anchor.source).toBe("guidance");
-    // 199.5 / 180.2 − 1 = 10.71%; 798B × 1.1071^0.375 = 829.0B. Before: the
-    // sequential −2.18% gave 798B × 0.9782^0.375 = 791.4B.
+    // 2026-10-29 D-136: 775.7B TTM × (199.5 / 180.2) = 858.78B; no seasonal window.
     expect(anchor.evidence!.guidedYoyPct).toBeCloseTo(10.71, 2);
     expect(anchor.evidence!.guidedPacePct).toBeCloseTo(-2.18, 2);
-    expect(yearOne(inputs)).toBeCloseTo(829.04 * B, -9);
+    expect(yearOne(inputs)).toBeCloseTo(858.78 * B, -9);
     expect(anchor.basis).toMatch(/guided year-over-year pace 10\.71%/);
   });
 
-  it("falls back to the sequential pace without a year-ago quarter in the same currency and calendar", () => {
-    expect(yearOne(amzn({ latest, yearAgo }))).toBeCloseTo(791.4 * B, -9);
+  it("does not take a level from guidance without a year-ago quarter", () => {
+    expect(buildDcfAssumptions(amzn({ latest, yearAgo })).assumptions!.revenueAnchor!.source).toBe("run-rate");
     // A row 457 days before the guided quarter is not its year-ago quarter.
-    expect(yearOne(amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-06-30", revenue: 167.7 * B } }))).toBeCloseTo(791.4 * B, -9);
+    expect(buildDcfAssumptions(amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-06-30", revenue: 167.7 * B } })).assumptions!.revenueAnchor!.source).toBe("run-rate");
   });
 });
 

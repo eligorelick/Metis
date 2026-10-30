@@ -200,6 +200,7 @@ const EXACT_LABELS: Record<string, string> = {
   // D-67: ids the NVDA final rerun cited under mechanical labels.
   "computed.valuation.dcf.perShare": "DCF value per share",
   "computed.valuation.guided-run-rate-growth-over-ttm-next-quarter-guidance-4": "Guided run-rate growth over TTM (next-quarter guidance × 4)",
+  "computed.valuation.guided-quarter-revenue-growth-year-over-year": "Guided-quarter revenue growth, year over year",
   "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
   "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
   "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",

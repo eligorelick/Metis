@@ -45,6 +45,15 @@ function strictFiscalDay(value: unknown): StrictDay | null {
   return { label: value, epochMs: parsed.getTime() };
 }
 
+/** Whether two period ends establish adjacent quarters under the TTM rule. */
+export function adjacentQuarterEnds(newer: unknown, older: unknown): boolean {
+  const end = strictFiscalDay(newer);
+  const prior = strictFiscalDay(older);
+  if (end === null || prior === null) return false;
+  const days = (end.epochMs - prior.epochMs) / DAY_MS;
+  return days >= QUARTER_GAP_DAYS[0] && days <= QUARTER_GAP_DAYS[1];
+}
+
 function displayPeriod(value: unknown): string {
   if (typeof value === "string" && value.length > 0) return value;
   if (value === null || value === undefined || value === "") return "<missing>";
