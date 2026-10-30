@@ -3054,6 +3054,9 @@ contributes no score but reduces completeness; zero available evidence yields
 a null score. The composite first weights each available aspect by its route
 weight times that completeness. Its coverage ceiling excludes wholly
 route-inapplicable aspects and signal weight suppressed by route policy.
+A valuation withheld because model applicability is unresolved (D-96) is
+applicable but unscored: the signals the hold still treats as applicable
+count as missing evidence, and the section's confidence is capped low.
 If `R` is that evidence-weighted mean and `C` is available weight / the
 route-applicable ceiling, the published composite is `50 + (R − 50) × C`.
 Thus sparse favorable evidence shrinks toward neutral; full route-applicable

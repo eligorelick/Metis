@@ -861,7 +861,16 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     valuationSignals.push({ name: "dcfUpside", raw: null, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: null, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
+  } else if (valuation.kind === "ineligible") {
+    // The hold suppresses the DCF legs. The remaining price/history share is
+    // applicable but missing, because no multiples were admitted under it.
+    valuationSignals.push({ name: "dcfUpside", raw: null, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
+    valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: null, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
+    valuationSignals.push({ name: "peOwnHistoryRank", raw: null, unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
   }
+  const ineligibleValuationReason = valuation.kind === "ineligible"
+    ? "Valuation withheld: model applicability unresolved (see valuation.modelEligibility) — counted as missing evidence, not as a route without valuation"
+    : null;
   const valuationScore =
     valuation.kind === "pre-revenue"
       ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, "Valuation not modelled for pre-revenue companies (runway framing instead).", policy, "Pre-revenue: no meaningful intrinsic-value model.")
@@ -874,6 +883,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
             "multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile " +
             "of a distribution; N is published beside every rendered rank).",
           policy,
+          null,
+          ineligibleValuationReason,
         );
 
   if (valuation.kind !== "pre-revenue") {
