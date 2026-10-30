@@ -93,6 +93,16 @@ describe("current documentation", () => {
     expect(header).toContain(`report spec **${REPORT_SPEC_VERSION}**`);
     expect(header).toContain(`payload **${PAYLOAD_VERSION}**`);
   });
+  it("records every methodology and audited-delta decision in the decisions ledger", () => {
+    const decisions = readFileSync(path.join(ROOT, "docs/audit/DECISIONS.md"), "utf8");
+    const recorded = new Set([...decisions.matchAll(/^## D-(\d+)\b/gm)].map(match => Number(match[1])));
+    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/audit-intended-deltas.json"]) {
+      const text = readFileSync(path.join(ROOT, file), "utf8");
+      for (const match of text.matchAll(/\bD-(\d+)\b/g)) {
+        expect(recorded.has(Number(match[1])), `${file} cites unrecorded ${match[0]}`).toBe(true);
+      }
+    }
+  });
 });
 
 describe("the README's prose", () => {
