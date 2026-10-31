@@ -2,12 +2,33 @@
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import { perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
-import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
+import type { Report, Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
 import { computeDcfDisplay, type DcfDisplay } from "@/pipeline/stageB/fairValue";
 import { NCI_EARNINGS_KEY_MATERIALITY_PCT, noncontrollingProfitShareText, type DcfBridge } from "@/pipeline/stageB/valuation";
 import { projectionAvailability } from "@/report/surfaceManifest";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+/**
+ * Keep legacy synthetic sample targets from appearing as computed outputs.
+ * The stored fixture remains unchanged; only the demo's display copy is adjusted.
+ */
+export function prepareSampleReport(report: Report): Report {
+  if (report.scenarioTargets?.status === "available") return report;
+
+  return {
+    ...report,
+    valuation: {
+      ...report.valuation,
+      scenarios: report.valuation.scenarios.map((scenario) => ({
+        ...scenario,
+        priceTarget: null,
+        horizon: "n/a",
+      })),
+    },
+  };
+}
+
 /**
  * D-60: price targets carry no weight. A 25/50/25 weight beside each target
  * implied a weighted value (NVDA report #34: ≈$284, above the quote) that the

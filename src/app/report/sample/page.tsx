@@ -20,6 +20,7 @@ import { getConfig } from "@/config/env";
 import { FundamentalsChartGrid, TechnicalsChartPanel } from "@/components/charts/lazy";
 import { syntheticFundamentals, syntheticMarketData } from "@/components/charts/synthetic";
 import { ReportSchema, type Report } from "@/report/schema";
+import { prepareSampleReport } from "@/report/scenarioPresentation";
 
 // Reads from disk at request time — never statically pre-render.
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ function loadSampleReport(): LoadResult {
           .join("; ")}`,
       };
     }
-    return { report: parsed.data, error: null };
+    return { report: prepareSampleReport(parsed.data), error: null };
   } catch (err) {
     return {
       report: null,
