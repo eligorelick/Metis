@@ -37,6 +37,7 @@
 
 - [ ] Write RED for a controlled investment-rating safety violation currently displayed as generic invalid, alongside an empty mandatory evidence source. Keep an arbitrary custom-message control that must remain redacted.
 - [ ] Give the known validator a stable safe rule identifier/params and map only that identifier to a bounded diagnostic. Never echo rejected prose or reinterpret historical generic errors without the identifier.
+- [ ] Write RED for a retryable failed-side fallback whose failure kind is absent: its discarded charge must retain the existing generic reason, not acquire an inferred schema cause. Preserve explicit schema/parse/transport classifications and retry eligibility/costs. Make the existing schema-specific fixture supply an explicit schema kind rather than relying on the missing-kind default; keep its assertions intact. This is generic hardening, not an established cause of QCOM's three schema-labelled calls.
 - [ ] Prove two invalid bull attempts remain rejected/data-only with recorded usage, no synth/verifier and no extra retries; prove a valid repair is accepted and independent bear output is retained. Preserve native structured-output compatibility.
 - [ ] Run targeted tests/typecheck; log and commit `fix: retain safe reasons for known analyst schema failures`.
 
@@ -87,13 +88,14 @@
 - [ ] Controls: broken/duplicate/ambiguous anchors, wrong title, earlier references, missing next boundary, repeated page headers and existing ordinary/JPM note structures. Exclude signatures, schedules and exhibit lists; keep statement-prefix bounds. Do not bypass the original Item 8 refusal or promote an unvalidated whole-document scan.
 - [ ] Run extraction/data-bundle tests and typecheck; log actual structural-fixture versus raw-markup limits and commit `fix: follow validated financial-note appendix anchors`.
 
-## Task 8: Distinguish an unknown market-cap date from a missing value
+## Task 8: Clarify forensic date and observation context
 
-**Files:** `src/pipeline/stageB/scoringEvidence.ts`; `tests/stageB.scoringEvidence.test.ts`.
+**Files:** `src/pipeline/stageB/scoringEvidence.ts`, `src/pipeline/stageB/forensics.ts`; `tests/stageB.scoringEvidence.test.ts`, support-flag/Markdown report controls.
 
 - [ ] Write RED for a successfully computed original Altman score whose market-cap observation date is absent: the caption must say `market-cap observation date unavailable`, not imply the value was absent.
 - [ ] Controls: a recorded market-cap date remains displayed, another Altman variant is unaffected, and a genuinely missing market-cap value continues to refuse the original variant. Keep score values, variant admission, own-row source dating and FIN312 behavior unchanged.
-- [ ] Implement only the bounded presentation correction; run scoring-evidence/forensics tests and typecheck, log and commit `fix: clarify missing Altman market-cap observation dates`.
+- [ ] Write RED for discontinued results spanning several retained annual observations: report the observed count and retained dates, without asserting multiple portfolio transactions or recurring churn. Missing values are unknown, not zero. Preserve the existing trigger/count/severity and all numeric scores; a single disposal can span several years. Do not replace the original two-observation count with three without the selected input rows. Include positive/negative/nonzero, zero/missing and one-transaction controls through the data-only Markdown path.
+- [ ] Implement only bounded context corrections; run scoring-evidence/forensics/export tests and typecheck, log and commit `fix: qualify forensic dates and discontinued-result context`.
 
 ## Task 9: Align legacy readers, methodology and release evidence
 

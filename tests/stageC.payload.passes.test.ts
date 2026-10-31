@@ -68,6 +68,7 @@ import {
   runBullPass,
   runBearPass,
   runBullThenBear,
+  runAnalystRepairPass,
   runAnalystContinuationPass,
   isTransientSubscriptionFailure,
   runJudgePass,
@@ -3626,6 +3627,36 @@ describe("prompt manifest and report appendix agree (H4/L7)", () => {
  * ------------------------------------------------------------------------ */
 
 describe("mock-driven bull/bear/judge passes", () => {
+  it.each([false, true])("rejects a known rating rule and blank evidence source; repair valid=%s", async (validRepair) => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const invalid = analystCase("bull");
+    invalid.keyDrivers[0].text = "Buy this stock: PRIVATE REJECTED DRIVER";
+    invalid.evidence[0].source = "";
+    mock.onJson("llm.bull", invalid, { costUsd: 0.31 });
+    const rejected = await runBullPass(makeDeps(mock), payload);
+    expect(rejected.ok).toBe(false);
+    if (rejected.ok) return;
+    expect(rejected.error.kind).toBe("schema");
+    expect(rejected.validationError).toContain('"ruleId": "investment_rating_language"');
+    expect(rejected.validationError).toContain('"source"');
+    expect(rejected.validationError).not.toContain("PRIVATE REJECTED DRIVER");
+    expect(rejected.costUsd).toBe(0.31);
+
+    mock.onJson("llm.bull", validRepair ? analystCase("bull") : invalid, { costUsd: 0.2 });
+    const repaired = await runAnalystRepairPass(makeDeps(mock), payload, "bull", rejected.validationError!);
+    expect(repaired.ok).toBe(validRepair);
+    if (repaired.ok) expect(repaired.result.costUsd).toBe(0.2);
+    else {
+      expect(repaired.error.kind).toBe("schema");
+      expect(repaired.costUsd).toBe(0.2);
+      expect(repaired.validationError).toContain('"ruleId": "investment_rating_language"');
+      expect(repaired.validationError).toContain('"source"');
+    }
+    expect(mock.calls).toHaveLength(2);
+    expect(mock.calls.every((call) => call.outputSchema !== undefined)).toBe(true);
+  });
+
   it("runBullPass parses the structured output and records web searches", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();

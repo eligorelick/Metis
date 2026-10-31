@@ -182,6 +182,7 @@ import {
 } from "@/pipeline/events";
 import {
   ReportSchema,
+  ANALYST_CASE_SCHEMA,
   type AnalystCase,
   type JudgeOutput,
   type Report,
@@ -9519,6 +9520,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
       bearError: SCHEMA_ERROR,
       bearBilledAttempt,
       bearRetryable: retryable,
+      bearFailureKind: "schema",
       bearRawText: RAW,
     });
   }
@@ -9838,6 +9840,117 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(wasted?.discardedReason).toBe("its output was not valid JSON");
   });
 
+  it("keeps an unclassified retryable rejection generic without changing its repair or charge", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("bear output rejected; kind unavailable"), {
+        bull, bearError: "bear output rejected; kind unavailable",
+        bearBilledAttempt, bearRetryable: true, bearRawText: RAW,
+      });
+    };
+    const repairedSides: string[] = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch) => {
+      repairedSides.push(side);
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bear));
+      return bear;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    expect(repairedSides).toEqual(["bear"]);
+    const rejected = handle.db.select().from(jobPassArtifacts)
+      .where(eq(jobPassArtifacts.jobId, jobId)).all()
+      .filter((row) => row.pass === "bear")
+      .map((row) => parsePassArtifactEnvelope("bear", row.outcomeJson))
+      .find((envelope) => envelope.outcome === "failure");
+    expect(rejected?.outcome === "failure" && rejected.failure).toMatchObject({ retryable: true });
+    expect(rejected?.outcome === "failure" && rejected.failure.kind).toBeUndefined();
+    const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+    const wasted = report.appendix.costBreakdown.filter((entry) => entry.discarded === true);
+    expect(wasted).toHaveLength(1);
+    expect(wasted[0]).toMatchObject({ costUsd: 0.31, discardedReason: "the attempt did not produce a usable result" });
+    expect(report.appendix.missingData.find((entry) => entry.field === "llm.bear.discardedAttempt")?.reason)
+      .toContain("the attempt did not produce a usable result");
+    expect(result.totalCostUsd).toBeCloseTo(0.9 + 0.31 + 0.47 + 0.4 + 0.2, 6);
+  });
+
+  it("retains a valid bear and both failed bull charges without completing analysis", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes, calls } = mockPasses();
+    const bear = testAnalystPass("bear");
+    const bullAttempt = { ...testAnalystPass("bull", 0.31) };
+    const invalid = {
+      ...fakeAnalystCase(),
+      keyDrivers: [{ text: "Buy this stock: PRIVATE REJECTED DRIVER", label: "JUDGMENT", source: "payload", asOf: null }],
+      evidence: [{ value: 1, unit: "USD", source: "", asOf: null, verified: null }],
+    };
+    const checked = ANALYST_CASE_SCHEMA.safeParse(invalid);
+    expect(checked.success).toBe(false);
+    if (checked.success) throw new Error("invalid analyst fixture was accepted");
+    const detail = JSON.stringify(checked.error.issues);
+    const message = `bull pass failed (schema): schema-invalid structured output for llm.bull: ${detail}`;
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(message), {
+        bear, bullError: message, bullBilledAttempt: bullAttempt,
+        bullRetryable: true, bullFailureKind: "schema", bullRawText: JSON.stringify(invalid),
+      });
+    };
+    const repairedSides: string[] = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch) => {
+      repairedSides.push(side);
+      await beforeProviderLaunch?.();
+      await settlement?.({
+        outcome: "failure",
+        failure: { name: "PassRunError", message, detail, kind: "schema", retryable: true },
+        telemetry: testTelemetry(testAnalystPass("bull", 0.2)),
+      });
+      throw Object.assign(new Error(message), { kind: "schema", retryable: true });
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result).toMatchObject({ status: "done", dataOnly: true });
+    expect(repairedSides).toEqual(["bull"]);
+    expect(calls).not.toContain("runJudgePass");
+    expect(calls).not.toContain("runVerifyPass");
+    const steps = new Map((JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!.stepsJson!) as StepProgress[])
+      .map((step) => [step.step, step]));
+    expect(steps.get("bull")?.status).toBe("error");
+    expect(steps.get("bear")?.status).toBe("done");
+    expect(steps.get("synthesize")?.status).toBe("skipped");
+    expect(steps.get("verify")?.status).toBe("skipped");
+    const artifacts = handle.db.select().from(jobPassArtifacts).where(eq(jobPassArtifacts.jobId, jobId)).all();
+    expect(artifacts.filter((row) => row.pass === "bull")).toHaveLength(2);
+    const keptBear = artifacts.find((row) => row.pass === "bear")!;
+    expect(parsePassArtifactEnvelope("bear", keptBear.outcomeJson)).toMatchObject({ outcome: "success", data: bear.data });
+    const costRows = handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all();
+    expect(costRows.filter((row) => row.step === "bull").map((row) => row.costUsd).sort()).toEqual([0.2, 0.31]);
+    expect(costRows.filter((row) => row.step === "bull").every((row) => row.inputTokens === 15000 && row.outputTokens === 6000)).toBe(true);
+    expect(costRows.find((row) => row.step === "bear")).toMatchObject({ costUsd: 0.47, inputTokens: 14000, outputTokens: 5500 });
+    expect(result.totalCostUsd).toBeCloseTo(0.31 + 0.2 + 0.47, 6);
+    const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(report.meta.model).toBe("unavailable");
+    expect(report.appendix.costBreakdown.filter((entry) => entry.discarded)).toHaveLength(2);
+    const bearCosts = report.appendix.costBreakdown.filter((entry) => entry.step === "bear");
+    expect(bearCosts).toHaveLength(1);
+    expect(bearCosts[0]?.costUsd).toBe(0.47);
+    expect(bearCosts[0]?.discarded).toBeUndefined();
+    expect(report.appendix.missingData.some((gap) => gap.field === "llm.bear.discardedAttempt")).toBe(false);
+    const bullGap = report.appendix.missingData.find((gap) => gap.field === "llm.bull");
+    expect(bullGap?.reason).toContain("keyDrivers[0].text contains prohibited investment-rating language");
+    expect(bullGap?.reason).toContain("evidence[0].source is empty or too short");
+    expect(row.reportJson).not.toContain("PRIVATE REJECTED DRIVER");
+  });
+
   /**
    * The breakdown and total a resumed report shows span every generation the
    * job billed, so the marking of what bought nothing has to span the same
@@ -9967,10 +10080,12 @@ describe("analyst repair attempt after schema-invalid output", () => {
         bullError: rejected("bull"),
         bullBilledAttempt: { ...bearBilledAttempt, costUsd: 0.43 },
         bullRetryable: true,
+        bullFailureKind: "schema",
         bullRawText: RAW,
         bearError: rejected("bear"),
         bearBilledAttempt: { ...bearBilledAttempt, costUsd: 0.05 },
         bearRetryable: true,
+        bearFailureKind: "schema",
         bearRawText: RAW,
       });
     }
@@ -10095,6 +10210,25 @@ describe("analyst repair attempt after schema-invalid output", () => {
       expect(withPlainIssueList("bear pass failed (refusal): declined")).toBe("bear pass failed (refusal): declined");
     });
 
+    it("uses only the controlled rating rule identifier for a safe saved diagnostic", () => {
+      const result = ANALYST_CASE_SCHEMA.safeParse({
+        ...fakeAnalystCase(),
+        keyDrivers: [{ text: "Buy this stock: PRIVATE REJECTED DRIVER", label: "FACT", source: "payload", asOf: null }],
+        evidence: [{ value: 1, unit: "USD", source: "", asOf: null, verified: null }],
+      });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      const saved = withPlainIssueList(`rejected: ${JSON.stringify(result.error.issues)}`);
+      expect(saved).toContain("evidence[0].source is empty or too short");
+      expect(saved).toContain("keyDrivers[0].text contains prohibited investment-rating language");
+      expect(saved).not.toContain("PRIVATE REJECTED DRIVER");
+      expect(plainRejectionNote(JSON.stringify(result.error.issues)))
+        .toContain("keyDrivers[0].text contains prohibited investment-rating language");
+      const unknown = JSON.stringify([{ code: "custom", path: ["keyDrivers", 0, "text"],
+        params: { ruleId: "unknown" }, message: "Buy this stock: PRIVATE CUSTOM MESSAGE" }]);
+      expect(withPlainIssueList(unknown)).toBe("1 field failed the schema: keyDrivers[0].text is invalid");
+    });
+
     it("reads the issue list up to its own closing bracket and caps a long gap list", () => {
       const list = JSON.stringify([{ code: "too_small", path: ["keyDrivers"] }]);
       expect(plainRejectionNote(`rejected: ${list} (see [the schema])`)).toBe("1 field failed the schema: keyDrivers is empty or too short");
@@ -10149,6 +10283,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
           bullError: rejected("bull"),
           bullBilledAttempt: { ...bearBilledAttempt, costUsd: 0.43 },
           bullRetryable: true,
+          bullFailureKind: "schema",
           bullRawText: RAW,
           bearError: REFUSED,
           bearBilledAttempt: { ...bearBilledAttempt, costUsd: 0.05 },

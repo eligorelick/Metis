@@ -279,11 +279,14 @@ export function noBuySellHold(text: string): boolean {
  */
 export const NO_RATING_MESSAGE =
   "investment-rating language (buy, sell or hold used as a recommendation on the security) is prohibited (non-negotiable rule #3) — use probability-weighted scenarios and 'what would have to be true' framing instead";
+/** Stable identity for a controlled diagnostic; never derive it from rejected prose. */
+export const NO_RATING_RULE_ID = "investment_rating_language";
 
 /** Attach the buy/sell/hold refine to a string schema (save-time gate). */
 function ratingSafeString() {
   return z.string().refine((v) => lenientLegacyRead || noBuySellHold(v), {
     message: NO_RATING_MESSAGE,
+    params: { ruleId: NO_RATING_RULE_ID },
   });
 }
 
@@ -335,7 +338,7 @@ function enforceRecursiveRatingSafety(value: unknown, ctx: z.RefinementCtx): voi
         (field === null || !NON_NARRATIVE_STRING_KEYS.has(field)) &&
         !noBuySellHold(node)
       ) {
-        ctx.addIssue({ code: "custom", path, message: NO_RATING_MESSAGE });
+        ctx.addIssue({ code: "custom", path, message: NO_RATING_MESSAGE, params: { ruleId: NO_RATING_RULE_ID } });
       }
       return;
     }
