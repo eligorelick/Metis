@@ -27,6 +27,7 @@ import {
   formatMultiple,
   formatTracedValue,
 } from "@/components/report/primitives";
+import { prepareSampleReport } from "@/report/scenarioPresentation";
 
 const FIXTURE_PATH = path.join(
   process.cwd(),
@@ -187,6 +188,44 @@ describe("DEMO-sample.json fixture", () => {
         expect(pt.source.length).toBeGreaterThan(0);
         expect(pt.asOf).not.toBeNull();
       }
+    });
+  });
+
+  describe("prepareSampleReport", () => {
+    it("suppresses legacy fixture targets without changing the saved fixture", () => {
+      const raw = readFileSync(FIXTURE_PATH, "utf8");
+      const parsed = ReportSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success) throw new Error("sample fixture must parse");
+
+      const displayReport = prepareSampleReport(parsed.data);
+
+      expect(displayReport.valuation.scenarios).toHaveLength(3);
+      for (const scenario of displayReport.valuation.scenarios) {
+        expect(scenario.priceTarget).toBeNull();
+        expect(scenario.horizon).toBe("n/a");
+      }
+      expect(readFileSync(FIXTURE_PATH, "utf8")).toBe(raw);
+    });
+
+    it("preserves scenarios when the computed target block is available", () => {
+      const raw = readFileSync(FIXTURE_PATH, "utf8");
+      const parsed = ReportSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success) throw new Error("sample fixture must parse");
+
+      const report = {
+        ...parsed.data,
+        scenarioTargets: {
+          status: "available" as const,
+          method: "test",
+          methodVersion: "test",
+          targets: [],
+          basis: ["synthetic test basis"],
+          dispersion: null,
+          missingReasons: [],
+        },
+      };
+
+      expect(prepareSampleReport(report)).toBe(report);
     });
   });
 });
