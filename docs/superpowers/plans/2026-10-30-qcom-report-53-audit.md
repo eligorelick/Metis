@@ -74,7 +74,7 @@
 - [x] Controls: renamed issuer, old compact formats, ambiguous/duplicate/conflicting columns, reversed endpoints, wrong year/currency/scale and unsupported rows. Q4 remains usable while Q3 is latest reported and retires after Q4 is reported; reuse B5 logic unchanged. The 10.202B consensus Q4 implied by this report lies inside the filed range, so do not force an anchor override.
 - [x] Run guidance/parser/provider/comparability tests and typecheck; log and commit `fix: parse source-bound quarterly guidance tables`.
 
-Task 5 implementation evidence: 124 targeted tests across 8 files and typecheck pass; staged full product passes 541 files, 12,663 tests with 3 skipped. The inline raw HTML fixture is synthetic source-derived structure, not exact retained QCOM HTML or a report-53 replay. Independent Task 5 review and Task 9's final whole-batch release verification remain separate gates.
+Task 5 implementation evidence: initial 124 targeted tests across 8 files and typecheck passed; initial staged full product passed 541 files, 12,663 tests with 3 skipped at `e39f49f3`. Review correction requires positive immediate visible scope inside the bounded context, including paragraph/div labels and unknown/truncated refusal; its focused RED/GREEN run passes 147 tests across the same 8 files plus typecheck. The full product was not repeated for this narrow correction under the controller's scoped-verification ruling. The inline raw HTML fixture is synthetic source-derived structure, not exact retained QCOM HTML or a report-53 replay. Independent Task 5 re-review and Task 9's final whole-batch release verification remain separate gates.
 
 ## Task 6: Cover Item 3.02 and match the coverage disclosure
 

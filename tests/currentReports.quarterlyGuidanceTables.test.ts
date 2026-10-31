@@ -87,6 +87,57 @@ describe("source-bound single-quarter guidance tables", () => {
   });
 
   it.each([
+    ["paragraph segment after outlook", "<h2>Business Outlook</h2><p><b>Cedar Components</b></p>"],
+    ["standalone paragraph", "<p>Cedar Components</p>"],
+    ["standalone div", "<div>Cedar Components</div>"],
+    ["standalone strong", "<strong>Cedar Components</strong>"],
+    ["standalone bold", "<b>Cedar Components</b>"],
+    ["intervening div", "<h2>Business Outlook</h2><div>Cedar Components</div>"],
+    ["intervening strong", "<h2>Business Outlook</h2><strong>Cedar Components</strong>"],
+    ["intervening bold", "<h2>Business Outlook</h2><b>Cedar Components</b>"],
+    ["unscoped table", ""],
+    ["scope phrase inside unknown paragraph", "<p>Cedar Components Business Outlook</p>"],
+    ["scope phrase inside unknown div", "<div>Cedar Components <strong>Business Outlook</strong></div>"],
+    ["distant segment heading", `<h2>Cedar Components</h2><span data-padding="${"x".repeat(1_600)}"></span>`],
+    ["distant allowed heading", `<h2>Business Outlook</h2><span data-padding="${"x".repeat(1_600)}"></span>`],
+    ["truncated scope element", `<div data-padding="${"x".repeat(1_600)}">Business Outlook</div>`],
+    ["script-only scope", "<p>Cedar Components</p><script><p>Business Outlook</p></script>"],
+    ["style-only scope", "<p>Cedar Components</p><style><p>Business Outlook</p></style>"],
+    ["script opening outside lookback", `<p>Cedar Components</p><script data-padding="${"x".repeat(1_600)}"><p>Business Outlook</p></script>`],
+  ])("requires positive visible consolidated scope for %s", (_name, scope) => {
+    const markup = html.replace("<h2>Business Outlook</h2>", scope);
+    const release = record(markup);
+    expect(release.guidance).not.toBeNull();
+    expect(release.guidance?.items).toEqual([]);
+    expect(nextPeriodRevenueGuidance(bundleWith(release))).toBeNull();
+    expect(dcfGuidance(bundleWith(release), "USD")).toBeNull();
+  });
+
+  it.each([
+    "<p>Business Outlook</p>",
+    "<div>Business Outlook</div>",
+    "<p><strong>Financial Outlook</strong></p>",
+    "<div><b>Consolidated Guidance</b></div>",
+    "<div><p>Consolidated Outlook</p></div>",
+  ])("retains source rows under a proven visible scope %s", scope => {
+    const markup = html.replace("<h2>Business Outlook</h2>", scope);
+    const document = parseDocument(markup);
+    const release = record(markup);
+    expect(release.guidance?.items.map(i => [i.metric, i.basis, i.mid])).toEqual([
+      ["revenue", "unspecified", 10.1e9], ["eps", "gaap", 1.32], ["eps", "non-gaap", 2.15],
+    ]);
+    for (const item of release.guidance!.items) {
+      expect(document.fullText.slice(item.span!.start, item.span!.end)).toBe(item.span!.text);
+      expect(document.fullText.slice(item.headerSpan!.start, item.headerSpan!.end)).toBe("Q4 FY26 Estimates");
+    }
+  });
+
+  it("keeps scope refusal non-null instead of rescuing a nearby prose amount", () => {
+    const markup = html.replace("<h2>Business Outlook</h2>", "<h2>Business Outlook</h2><p>Cedar Components</p><p>We expect Q4 FY26 revenue to be $99 billion.</p>");
+    expect(record(markup).guidance).toMatchObject({ items: [] });
+  });
+
+  it.each([
     ["duplicate columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY26 Estimates</th>")],
     ["conflicting columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY27 Estimates</th>")],
     ["ambiguous column", html.replace("Q4 FY26 Estimates", "Previous Guidance Current Guidance")],

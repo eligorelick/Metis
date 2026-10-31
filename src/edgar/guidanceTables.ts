@@ -28,8 +28,22 @@ function parseQuarterlyDocumentTable(text: string, document: ParsedDocument): Is
   const scopeLabel = /^(?:(?:Business|Financial|Consolidated) Outlook|Consolidated Guidance)$/i;
   const captions = [...table[0].matchAll(/<caption\b[^>]*>([\s\S]*?)<\/caption\s*>/gi)];
   if (captions.length > 1 || captions.some(caption => !scopeLabel.test(htmlToText(caption[1]!)))) return refused();
-  const section = [...document.pre.slice(Math.max(0, table.index - 1_500), table.index).matchAll(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]\s*>/gi)].at(-1);
-  if (section !== undefined && !scopeLabel.test(htmlToText(section[0]))) return refused();
+  // Require a complete, immediately preceding visible scope label inside the
+  // bounded context. A missing/truncated label is not consolidated proof.
+  // Paragraph/div labels may contain emphasis; any intervening visible text
+  // (including standalone bold/strong segment labels) invalidates that proof.
+  const contextStart = Math.max(0, table.index - 1_500);
+  const context = document.pre.slice(contextStart, table.index);
+  const section = [...context.matchAll(/<(h[1-6]|p|div)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)].at(-1);
+  if (section === undefined || !scopeLabel.test(htmlToText(section[0])) ||
+      htmlToText(context.slice(section.index + section[0].length)) !== "") return refused();
+  // As with row/header spans below, the label must really occur at its
+  // flattened-source coordinate. Script/style content cannot prove visibility,
+  // even when its opening wrapper falls outside the scope lookback.
+  const scopePrefix = htmlToText(document.pre.slice(0, contextStart + section.index));
+  const scopeStart = scopePrefix.length + (scopePrefix.length === 0 ? 0 : 1);
+  const scopeText = htmlToText(section[0]);
+  if (text.slice(scopeStart, scopeStart + scopeText.length) !== scopeText) return refused();
   const rows = [...table[0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi)];
   if (rows.length < 2 || rows.length > 32) return refused();
   const cellsOf = (row: string): string[] | null => {

@@ -625,7 +625,14 @@ raw source header, row, issuer, date and currency text is not promoted into
 trusted model notes. Raw excerpts remain source evidence.
 
 The new route is bounded to one supported table, 60,000 markup characters,
-6,000 text characters and 32 rows. Duplicate/conflicting columns, metrics or
+6,000 text characters and 32 rows. Consolidated scope additionally requires a
+complete, immediately preceding supported outlook/guidance label in an HTML
+heading, paragraph or div within 1,500 markup characters. Inline emphasis is
+permitted inside that label; intervening visible text, an unknown label or a
+missing/truncated scope element causes local extraction refusal. The label
+must match its coordinate in the flattened visible source, so script/style
+content cannot establish scope even if its wrapper starts outside the window.
+Duplicate/conflicting columns, metrics or
 guidance tables, merged cells, unsupported scope captions/section headings,
 mixed endpoint scales/currencies and reversed ranges are refused. An
 unsupported row ends the supported consolidated run; a later bare revenue
