@@ -31,6 +31,12 @@ the include-dev/low audit remains unchanged. This changes no report figure,
 schema, convention stamp, payload or golden. Final new-head release checks
 remain a separate acceptance requirement.
 
+The historical fixture comparison retains its published lock fingerprint through
+a test-only, exact-byte inverse of the eleven reviewed tooling nodes. Both the
+current security lock and reconstructed pre-task lock are fully pinned; unknown
+changes are rejected. The installed lock, fixture provenance, generator identity,
+financial projection and intended deltas remain unchanged.
+
 The D-138 final-review correction limits the receivables repair note's accession
 display to a complete canonical hyphenated identifier, with fixed unavailable
 wording otherwise. Raw source evidence and filing identity, pair admission,
