@@ -54,6 +54,24 @@ async function acquireAnnual(item: "8" | "15", options: { prefix?: string; omitN
 
 describe("normal annual filing acquisition retains debt presentation evidence", () => {
   it.each([
+    '<p>Note 1 — as described in another document — is incorporated here by reference.',
+    '<h3>Note 1 Is Described In Another Document</h3><p>',
+  ])("retains the real producer warning for unproved punctuation/capitalization: %s", async opening => {
+    const { bundle, calls } = await acquireAnnual("8", { html: annualNotesIndexFixture().replace("<p>Note 1 - Organization.", opening) });
+    expect(bundle.edgar.tenKNotes).toMatchObject({ ok: false, gap: { severity: "warn" } });
+    expect(debtPresentationSections(bundle.edgar)).toEqual([]);
+    expect(calls.filter(url => url === documentUrl)).toHaveLength(1);
+  });
+  it.each(["Basis of Presentation", "Summary of Significant Accounting Policies"])("acquires the complete supported financial-note title %s through the producer", async title => {
+    const { bundle, calls } = await acquireAnnual("8", { html: annualNotesIndexFixture().replace("Note 1 - Organization.", `Note 1 - ${title}.`) });
+    expect(bundle.edgar.tenKNotes?.ok).toBe(true);
+    if (!bundle.edgar.tenKNotes?.ok) throw new Error("Financial-note heading missing");
+    expect(bundle.edgar.tenKNotes.value.data.text).toContain(`Note 1 - ${title}.`);
+    expect(bundle.edgar.tenKNotes.value.data.text).toContain("LATER_NOTE_SENTINEL");
+    expect(bundle.edgar.tenKNotes.value.data.method).toBe("annual-notes-index-redirect");
+    expect(calls.filter(url => url === documentUrl)).toHaveLength(1);
+  });
+  it.each([
     ["reference-only first note", annualNotesIndexFixture().replace("Note 1 - Organization.", "See Note 1 for details in another document.")],
     ["unlinked full schedule in notes", annualNotesIndexFixture().replace('<h2 id="schedule">', '<h2>SCHEDULE II Valuation and Qualifying Accounts</h2><p>UNLINKED_SCHEDULE_BODY</p><h2 id="schedule">')],
   ])("keeps the actual producer's warning and no debt evidence for %s", async (_name, html) => {

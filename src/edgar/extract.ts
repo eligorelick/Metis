@@ -1579,16 +1579,18 @@ export function extractAnnualNotesFromIndex(html: string): {
   // The legacy flattened helper also accepts "See Note 1 ...". Here the
   // first nonempty original block must itself OPEN the first note; a nearby
   // token in a reference cannot prove it. Inline spans retain their text-node
-  // origin. Bare title text is supported in explicit h1–h6 headings only.
+  // origin. Punctuation/capitalization is not proof: require a standalone
+  // named marker or a closed financial-note title with an actual terminator.
   const firstNoteBlock = headings.find(n => n.start >= start.heading.end && n.end <= end.target.start && nodeText(n) !== "");
   if (!firstNoteBlock || text(start.heading.end, firstNoteBlock.start) !== "") return null;
   const opening = nodeText(firstNoteBlock);
-  const namedNote = /^Note\s+(?:1|A|One)(?=\s|[.:–—-]|$)([\s\S]*)$/i.exec(opening);
-  const namedOpening = namedNote !== null && (
-    namedNote[1]!.trim() === "" || /^\s*[.:–—-]/.test(namedNote[1]!) ||
-    (/^h[1-6]$/.test(firstNoteBlock.tag) && /^\s+[A-Z]/.test(namedNote[1]!))
-  );
-  if (!namedOpening && !/^(?:1\s*[.:–—-]|\(1\))\s*[A-Z]/i.test(opening)) return null;
+  const standaloneMarker = /^Note\s+(?:1|A|One)\s*[.:]?$/i.test(opening);
+  const marker = /^(?:Note\s+(?:1|A|One)(?=\s|[.:–—-]|$)\s*(?:[.:–—-]\s*)?|1\s*[.:–—-]\s*|\(1\)\s*)([\s\S]*)$/i.exec(opening);
+  // This deliberately small supported-title set is generic across issuers.
+  // A block end or period/colon followed by whitespace/end must terminate it;
+  // "Organization is described ..." is not an Organization heading.
+  const financialTitle = /^(?:Organization(?: and Business)?|Description of Business|Basis of Presentation|(?:Organization and )?Summary of Significant Accounting Policies)(?:[.:](?:\s|$)|$)/i;
+  if (!standaloneMarker && (marker === null || !financialTitle.test(marker[1]!))) return null;
   // A linked schedule cannot authorize swallowing other appendices/signatures.
   // Exact standalone titles only: a paragraph beginning with a full title and
   // continuing "provides ..." is a reference, not another appendix boundary.

@@ -4,6 +4,31 @@ import { annualNotesIndexFixture } from "./helpers/annualNotesIndexFixture";
 
 describe("source-derived annual appendix index (synthetic markup)", () => {
   it.each([
+    '<p>Note 1 — as described in another document — is incorporated here by reference.',
+    '<h3>Note 1 Is Described In Another Document</h3><p>',
+    '<p>Note 1 - Organization is described in another document.',
+    '<h3>Note 1 Organization Is Described In Another Document</h3><p>',
+    '<p>Note 1 - Unsupported Capitalized Title.',
+    '<h3>Note 1 Unsupported Capitalized Title</h3><p>',
+    '<p>1. Organization is described elsewhere.',
+    '<p>(1) As described in another document.',
+  ])("declines unproved punctuated/capitalized first-note openings: %s", opening => {
+    const html = annualNotesIndexFixture().replace("<p>Note 1 - Organization.", opening);
+    expect(extractAnnualNotesFromIndex(html)).toBeNull();
+  });
+  it.each([
+    "Organization and Business",
+    "Description of Business",
+    "Basis of Presentation",
+    "Summary of Significant Accounting Policies",
+    "Organization and Summary of Significant Accounting Policies",
+  ])("recognizes the complete supported financial-note title %s", title => {
+    const paragraph = annualNotesIndexFixture().replace("Note 1 - Organization.", `Note 1 - ${title}.`);
+    const heading = annualNotesIndexFixture().replace("<p>Note 1 - Organization.", `<h3>Note 1 ${title}</h3><p>`);
+    expect(extractAnnualNotesFromIndex(paragraph)?.text).toContain("LATER_NOTE_SENTINEL");
+    expect(extractAnnualNotesFromIndex(heading)?.text).toContain("LATER_NOTE_SENTINEL");
+  });
+  it.each([
     "See Note 1 for details in another document.",
     "Refer to Note 1 in the incorporated financial statements.",
     "Additional details appear in Note 1 elsewhere.",
