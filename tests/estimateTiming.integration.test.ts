@@ -226,6 +226,23 @@ describe("estimate periods are not publication vintage", () => {
     expect(note).toContain("original acquisition not established");
   });
 
+  it.each(["", "[FIXTURE] "])("does not attach a timestamp from a truncated annual query with prefix %j", async prefix => {
+    const { report } = await consumers();
+    delete report.marketData!.estimateTiming;
+    report.appendix.sources = [
+      { provider: "fmp", endpoint: `${prefix}/stable/analyst-estimates?symbol=QCOM&period=annual?period=quarter`, asOf: "2026-09-28", fetchedAt: ACQUIRED },
+      { provider: "fmp", endpoint: "/stable/analyst-estimates?symbol=OTHER&period=annual", asOf: "2026-09-28", fetchedAt: NOW },
+      { provider: "fmp", endpoint: "/stable/quote?symbol=QCOM", asOf: "2026-10-30", fetchedAt: NOW },
+    ];
+    const saved = JSON.stringify(report);
+    const note = consensusTables(report)[0]!.note!;
+    expect(note).toContain("original acquisition not established");
+    expect(note).toContain("publication/update vintage not established");
+    expect(note).not.toContain(ACQUIRED);
+    expect(note).not.toContain(NOW);
+    expect(JSON.stringify(report)).toBe(saved);
+  });
+
   it("keeps raw invalid estimate envelope dates out of trusted model figure tags", async () => {
     const result = await retained();
     if (!result.ok) throw new Error("expected retained estimates");

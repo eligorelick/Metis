@@ -103,7 +103,10 @@ export function reportEstimateTiming(report: Report): EstimateTiming {
   const matches = (report.appendix?.sources ?? []).filter(source => {
     if (source.provider !== "fmp") return false;
     const endpoint = source.endpoint.replace(/^\[FIXTURE\] /, "");
-    const [pathname, query] = endpoint.split("?");
+    const delimiter = endpoint.indexOf("?");
+    const pathname = delimiter < 0 ? endpoint : endpoint.slice(0, delimiter);
+    // Later question marks belong to query values; never truncate source identity.
+    const query = delimiter < 0 ? "" : endpoint.slice(delimiter + 1);
     if (pathname !== "/stable/analyst-estimates") return false;
     const params = new URLSearchParams(query);
     return params.getAll("symbol").length === 1 && params.get("symbol") === report.meta?.symbol &&

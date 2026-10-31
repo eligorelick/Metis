@@ -58,6 +58,25 @@ describe("validated estimate date roles", () => {
     report.appendix.sources = [{ ...entry, endpoint: "/stable/analyst-estimates?symbol=QCOM" }];
     expect(reportEstimateTiming(report)).toEqual(unknown);
   });
+  describe.each(["", "[FIXTURE] "])("complete legacy query matching with prefix %j", prefix => {
+    it.each([
+      ["symbol=QCOM&period=annual?period=quarter", false],
+      ["period=annual&symbol=QCOM?symbol=OTHER", false],
+      ["symbol=QCOM&period=annual?ignored=yes", false],
+      ["symbol=QCOM&period=quarter", false],
+      ["symbol=QCOM&period=annual&period=quarter", false],
+      ["symbol=QCOM&symbol=OTHER&period=annual", false],
+      ["symbol=QCOM&period=annual&limit=10", true],
+      ["limit=10&period=annual&symbol=QCOM", true],
+      ["period=annual&symbol=QCOM&limit=10", true],
+    ] as const)("uses the full query %s to decide source identity", (query, matches) => {
+      const report = { meta: { symbol: "QCOM" }, appendix: { sources: [{ provider: "fmp",
+        endpoint: `${prefix}/stable/analyst-estimates?${query}`, asOf: "2026-09-28", fetchedAt: AT }] } } as unknown as Report;
+      expect(reportEstimateTiming(report)).toEqual(!matches ? unknown : prefix
+        ? { ...unknown, acquisitionOrigin: "fixture-load", fixtureLoadedAt: AT }
+        : { ...unknown, acquisitionOrigin: "legacy-recorded", recordedAt: AT });
+    });
+  });
   it("preserves unrelated supported non-FMP dated evidence and its provenance tag", () => {
     expect(formatFigure({ label: "filed revenue", value: 100, unit: "currency", currency: "USD", period: "2026-09-30", source: "edgar:10-Q", asOf: "2026-10-28" }))
       .toBe("filed revenue: 100 currency (USD) [edgar:10-Q · 2026-10-28]");
