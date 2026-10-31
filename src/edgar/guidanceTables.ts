@@ -23,6 +23,14 @@ function parseQuarterlyDocumentTable(text: string, document: ParsedDocument): Is
     }).filter(candidate => candidate.compact || candidate.current);
   if (!tables.some(candidate => candidate.current)) return null;
   if (tables.length !== 1) return refused();
+  // Local conservative fence for this new layout only. Flattened coordinates
+  // do not prove browser visibility; an explicit hidden ancestor may begin
+  // outside the positive-scope window. Even unrelated closed hidden elements
+  // decline this route. Legacy compact parsing and shared extraction stay intact.
+  if (document.pre.length > 2_000_000) return refused();
+  const visibilitySource = document.pre.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
+  const tags = /<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g;
+  if ([...visibilitySource.matchAll(tags)].some(([tag]) => /\shidden(?=[\s=/>])/i.test(tag.replace(/"[^"]*"|'[^']*'/g, '""')))) return refused();
   const table = tables[0]!.table;
   if (table[0].length > 60_000 || htmlToText(table[0]).length > 6_000 || /<table\b/i.test(table[0].slice(table[0].indexOf(">") + 1))) return refused();
   const scopeLabel = /^(?:(?:Business|Financial|Consolidated) Outlook|Consolidated Guidance)$/i;

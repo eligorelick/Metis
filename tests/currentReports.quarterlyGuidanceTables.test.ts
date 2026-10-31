@@ -138,6 +138,102 @@ describe("source-bound single-quarter guidance tables", () => {
   });
 
   it.each([
+    "<p hidden>Business Outlook</p>",
+    "<h2 hidden>Business Outlook</h2>",
+    "<div hidden>Business Outlook</div>",
+    "<div hidden><p>Business Outlook</p></div>",
+    "<p HIDDEN>Business Outlook</p>",
+    '<p hidden="">Business Outlook</p>',
+    "<p hidden='hidden'>Business Outlook</p>",
+    "<p hidden=false>Business Outlook</p>",
+    '<p hidden="false">Business Outlook</p>',
+    '<p hidden="until-found">Business Outlook</p>',
+    '<p title="an ordinary > value" hidden=false>Business Outlook</p>',
+    `<div hidden data-padding="${"x".repeat(1_600)}"><p>Business Outlook</p></div>`,
+    `<div data-padding="${"x".repeat(1_600)}" HIDDEN><p>Business Outlook</p></div>`,
+  ])("refuses explicit HTML hidden scope %s", scope => {
+    const markup = html.replace("QUALCOMM", "Juniper Logic").replace("<h2>Business Outlook</h2>", `<p>Spruce Components</p>${scope}`);
+    const release = record(markup);
+    expect(release.guidance).toMatchObject({ items: [] });
+    expect(nextPeriodRevenueGuidance(bundleWith(release))).toBeNull();
+    expect(dcfGuidance(bundleWith(release), "USD")).toBeNull();
+  });
+
+  it("refuses the minimal hidden-label reproducer through parsed-document guidance admission", () => {
+    const document = parseDocument('<p>Cedar Components</p><p hidden>Business Outlook</p><table><tr><th>Metric</th><th>Q4 FY26 Estimates</th></tr><tr><td>Revenues</td><td>$9.7B – $10.5B</td></tr></table>');
+    expect(parseGuidance(document.fullText, document)).toMatchObject({ items: [] });
+  });
+
+  it("refuses an explicitly hidden open ancestor beyond the positive-scope lookback", () => {
+    const markup = html.replace("<h2>Business Outlook</h2>", `<p>Maple Components</p><div hidden data-padding="${"x".repeat(1_600)}"><p>Business Outlook</p>`)
+      .replace("</table>", "</table></div>");
+    expect(record(markup).guidance).toMatchObject({ items: [] });
+  });
+
+  it.each(["before", "after"])("conservatively declines the new layout with unrelated closed hidden content %s the table", position => {
+    const markup = position === "before" ? html.replace("<h1>", "<div hidden>Unrelated cover note</div><h1>")
+      : html.replace("</table>", "</table><p hidden>Unrelated closing note</p>");
+    expect(record(markup).guidance).toMatchObject({ items: [] });
+  });
+
+  it("does not seek hidden-attribute evidence beyond the bounded source document", () => {
+    const markup = html.replace("<h1>", `<!--${"x".repeat(2_000_001)}--><h1>`);
+    expect(record(markup).guidance).toMatchObject({ items: [] });
+  });
+
+  it.each([
+    "data-hidden", 'data-hidden="true"', 'aria-hidden="true"', 'hiddenness="true"',
+    'title="hidden"', 'title="hidden=false"', "title='hidden=\"true\"'", "title=hidden",
+    'data-caption="a hidden keyword"', 'title="a > hidden=false"',
+    'data-srcdoc="<p hidden>shadow</p>"',
+  ])("keeps visible guidance when an ordinary attribute only resembles hidden: %s", attribute => {
+    const markup = html.replace("<h1>", `<span ${attribute}>Visible cover text</span><h1>`);
+    const document = parseDocument(markup);
+    const release = record(markup);
+    expect(release.guidance?.items.map(i => [i.metric, i.basis, i.mid])).toEqual([
+      ["revenue", "unspecified", 10.1e9], ["eps", "gaap", 1.32], ["eps", "non-gaap", 2.15],
+    ]);
+    for (const item of release.guidance!.items) {
+      expect(document.fullText.slice(item.span!.start, item.span!.end)).toBe(item.span!.text);
+      expect(document.fullText.slice(item.headerSpan!.start, item.headerSpan!.end)).toBe("Q4 FY26 Estimates");
+    }
+  });
+
+  it("does not interpret literal hidden markup in comment/script/style source text as an HTML attribute", () => {
+    const markup = html.replace("<h1>", '<!-- <p hidden>comment</p> --><script>"<p hidden>script</p>"</script><style>/* <p hidden>style</p> */</style><h1>');
+    expect(record(markup).guidance?.items.map(i => i.mid)).toEqual([10.1e9, 1.32, 2.15]);
+  });
+
+  it("keeps the explicit-hidden fence out of the legacy compact parser", () => {
+    const compact = '<div hidden>Unrelated cover</div><h2>Business Outlook</h2><table><tr><th>Metric</th><th>Q3 2026</th></tr><tr><td>Revenue</td><td>$4.2 - $4.4B</td></tr></table><p>Quarterly Dividend</p>';
+    expect(record(compact).guidance?.items[0]).toMatchObject({ period: { label: "Q3 FY2026" }, low: 4.2e9, mid: 4.3e9, high: 4.4e9 });
+    expect(parseGuidance("Business Outlook Metric Q3 2026 Revenue $4.2 - $4.4B Quarterly Dividend")?.items[0]?.mid).toBe(4.3e9);
+  });
+
+  it("preserves non-null hidden-scope refusal through the real offline collector without prose rescue", async () => {
+    const markup = html.replace("QUALCOMM", "Juniper Logic").replace("<h2>Business Outlook</h2>", '<h2>Business Outlook</h2><p>Spruce Components</p><p>We expect Q4 FY26 revenue to be $99 billion.</p><p hidden="false">Business Outlook</p>');
+    const ok = <T,>(data: T, endpoint: string) => ({ ok: true as const, value: { data, source: "edgar" as const, endpoint, asOf: filing.filingDate, fetchedAt: "2026-07-29T20:00:00Z" } });
+    const client = {
+      filingProblem: () => null,
+      filingIndexHeaders: async () => ok({ documents: [{ type: "EX-99.1", filename: "qcom062826erex991.htm", sequence: "1" }], typeByFilename: {} }, "offline-index"),
+      fetchFilingDocument: async (_cik: string, f: EdgarFiling) => {
+        if (f.primaryDocument !== "qcom062826erex991.htm") throw new Error("Unexpected offline document");
+        return ok(markup, sourceUrl);
+      },
+    } as unknown as EdgarClient;
+    const collected = await collectCurrentReports(client, "804328", [filing], "2026-10-30", "offline-submissions");
+    expect(collected.ok).toBe(true);
+    if (!collected.ok) throw new Error(collected.gap.reason);
+    const release = collected.value.data.releases[0]!;
+    expect(release).toMatchObject({ accession: filing.accessionNumber, releaseUrl: sourceUrl, guidance: { items: [] }, guidanceExhibit: null });
+    const bundle = bundleWith(release);
+    bundle.edgar.currentReports = collected;
+    expect(nextPeriodRevenueGuidance(bundle)).toBeNull();
+    expect(dcfGuidance(bundle, "USD")).toBeNull();
+    expect(buildFilingDisclosures(bundle)?.guidance).toBeNull();
+  });
+
+  it.each([
     ["duplicate columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY26 Estimates</th>")],
     ["conflicting columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY27 Estimates</th>")],
     ["ambiguous column", html.replace("Q4 FY26 Estimates", "Previous Guidance Current Guidance")],

@@ -632,6 +632,15 @@ permitted inside that label; intervening visible text, an unknown label or a
 missing/truncated scope element causes local extraction refusal. The label
 must match its coordinate in the flattened visible source, so script/style
 content cannot establish scope even if its wrapper starts outside the window.
+For this new route only, a quote-aware negative check of at most 2,000,000
+preprocessed source characters declines any document retaining an explicit HTML
+`hidden` attribute, including boolean `hidden=false`. Larger source documents
+also decline this route. This conservative fence includes unrelated closed
+hidden elements and ancestors beginning outside the scope window; it does not
+search farther for positive scope. Quoted values, `data-hidden` and other
+attribute lookalikes do not trigger it. Shared preprocessing and legacy compact
+parsing are unchanged. Coordinate consistency and this explicit-attribute fence
+do not attest general browser/CSS visibility or resolve external stylesheets.
 Duplicate/conflicting columns, metrics or
 guidance tables, merged cells, unsupported scope captions/section headings,
 mixed endpoint scales/currencies and reversed ranges are refused. An
