@@ -20,6 +20,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - saved-report scope clarifications (2026-10-30)
 
+The D-138 final-review correction limits the receivables repair note's accession
+display to a complete canonical hyphenated identifier, with fixed unavailable
+wording otherwise. Raw source evidence and filing identity, pair admission,
+financial results, grades and report state remain unchanged. Malicious-accession
+controls exercise the real extractor, forensics and serialized model payload.
+The same unpublished report 1.53/payload 1.55 stamps remain in use.
+
 D-138 Task 9 adds a pure read-time clarification section before affected report
 content in classic, dossier, Markdown, print/HTML and audit. The frozen cutoff
 is 1.53.0; older and unrecorded-version reports are qualified without recomputing
@@ -45,7 +52,7 @@ acceptance work. Report 1.53/payload 1.55/Stage B 34 stay unchanged.
 
 D-138 Task 11 separates forecast fiscal-period dates from the source response's acquisition and unknown publication/update vintage. New FMP estimate metadata records the actual envelope-selection branch and validates its acquisition origin; durable-cache acquisitions survive reads and failed/empty refreshes, while fixture-load clocks and missing-time fallbacks never become original provider acquisition. Reports retain exact source timestamps; model figures and numeric registry records carry explicitly labelled UTC days, preserving the existing prompt timestamp prohibition.
 
-Classic, dossier, Markdown, print and audit share the date-role disclosure. A legacy exact annual estimate source for the same symbol supplies only a recorded timestamp with unestablished acquisition origin (or explicit fixture load), never a recovered publication date or historical selection branch. Raw period metadata, generic `deriveAsOf`, forecast values/calendar mapping, admission, grades, state and stored report bytes remain unchanged. The report-53 export's 2026-10-30T23:21:15.748Z acquisition does not establish estimate vintage; no original snapshot replay is claimed. Reserved report 1.53/payload 1.55/Stage B 34 stamps are unchanged; independent task review is complete; final release verification remains pending.
+Classic, dossier, Markdown, print and audit share the date-role disclosure. A legacy exact annual estimate source for the same symbol supplies only a recorded timestamp with unestablished acquisition origin (or explicit fixture load), never a recovered publication date or historical selection branch. Raw period metadata, generic `deriveAsOf`, forecast values/calendar mapping, admission, grades, state and stored report bytes remain unchanged. The report-53 export records a response timestamp 2026-10-30T23:21:15.748Z; it does not establish original acquisition or publication vintage, and no original snapshot replay is claimed. Reserved report 1.53/payload 1.55/Stage B 34 stamps are unchanged; independent task review is complete; final release verification remains pending.
 
 ## Unreleased - forensic date and observation context (2026-10-30)
 
@@ -81,7 +88,7 @@ The offline collector/release/model control preserves Q4 FY2026 revenue 9.7–10
 
 D-138 (report-53 audit, Task 4) separates operating, finance and combined lease evidence from the existing debt convention. A provider zero or positive observation is not a complete filed liability. Exact-date, known-unit primary evidence and compatible filing/availability context support component descriptions; only compatible complete components and an existing reconciled combined observation support combined scope. Exact combined zero requires both explicit component zeros. Neutral debt captions retain existing numeric IDs and amounts.
 
-Current-capital, statement/payload provenance, diagnostics, EV, the actual DCF anchor and each WACC average/latest row share those descriptions. The DCF note names the amount actually subtracted and the resulting net debt separately. ROIC wording no longer infers lease inclusion or bias direction from unknown operating scope. Numeric admission/refusal, adjustments, ratios, grades and report state are unchanged; missing coverage is not a new refusal. Synthetic controls preserve debt 15,270M less liquidity 8,304M = 6,966M (6.97B displayed), without importing older 102M/730M lease balances. No exact report-53 replay is claimed. The reserved batch stamps advance once here to report 1.53.0, payload 1.55.0 and Stage B 34 because these source-scope descriptions change model context. Earlier convention cutoffs remain frozen. Task 9 retains final legacy qualification, whole-batch replay and release consistency; it does not advance these stamps again for the same batch.
+Current-capital, statement/payload provenance, diagnostics, EV, the actual DCF anchor and each WACC average/latest row share those descriptions. The DCF note names the amount actually subtracted and the resulting net debt separately. ROIC wording no longer infers lease inclusion or bias direction from unknown operating scope. Numeric admission/refusal, adjustments, ratios, grades and report state are unchanged; missing coverage is not a new refusal. Synthetic controls preserve debt 15,270M less liquidity 8,304M = 6,966M (6.97B displayed), without importing the synthetic fixture's older operating/finance fields (102M/730M). These assignments do not classify QCOM's FY2025 filed amounts: 102M current and 730M noncurrent are both operating leases. No exact report-53 replay is claimed. The reserved batch stamps advance once here to report 1.53.0, payload 1.55.0 and Stage B 34 because these source-scope descriptions change model context. Earlier convention cutoffs remain frozen. Task 9 retains final legacy qualification, whole-batch replay and release consistency; it does not advance these stamps again for the same batch.
 
 ## Unreleased - comparable receivables in forensic ratios (2026-10-30)
 

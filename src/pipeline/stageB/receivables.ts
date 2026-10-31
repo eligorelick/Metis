@@ -119,9 +119,14 @@ export function selectReceivablesPair(current: ForensicsBalanceRow | null | unde
         // contradictory/negative copy cannot be discarded to make a ratio work.
         if (c.value < 0 || p.value < 0 || currentContradictions.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== c.value) ||
             priorContradictions.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== p.value)) continue;
+        // The method note is trusted model context. Validate only its display:
+        // raw accessions still establish pair identity and remain in evidence.
+        const accn = c.evidence.filings[0]!.accn;
+        const displayAccn = accn.length === 20 && /^[0-9]{10}-[0-9]{2}-[0-9]{6}$/.test(accn)
+          ? accn : "identifier unavailable for display";
         return { status: "selected", basis: "filed-pair", field: chosen, concept: tag,
           current: { value: c.value, end: current.date, evidence: c.evidence }, prior: { value: p.value, end: prior.date, evidence: p.evidence },
-          notes: [`Receivables selected-concept discontinuity/conflict repaired for forensic comparisons only using ${tag} for both exact endpoints (${current.date}, ${prior.date}), filing ${c.evidence.filings[0]!.accn}; raw statements are unchanged.`],
+          notes: [`Receivables selected-concept discontinuity/conflict repaired for forensic comparisons only using ${tag} for both exact endpoints (${current.date}, ${prior.date}), filing ${displayAccn}; raw statements are unchanged.`],
         };
       }
     }

@@ -2751,6 +2751,8 @@ other operating assets and operating liabilities. Neither is graded.
 
 A selected concept discontinuity or explicit field conflict is not a comparable time series. A forensic-only repair replaces both observations together from already acquired, issuer-confirmed companyfacts, requiring exact balance endpoints, declared matching currency, instant/core-form facts, actual acquisition metadata and analytical-cutoff eligibility. A common filing must present both endpoints, with no ambiguous or superseding contradictory/negative copy silently ignored. Prefer the current selected concept, then the existing receivables tag order, never the more favorable score. QName continuity does not itself establish a trade-versus-total scope label. Without an admitted repair, DSRI uses its existing disclosed neutral 1.0 convention and the unsupported growth warning is withheld. Raw statements, revenue selection, capital inputs, coefficients and thresholds do not change.
 
+The repair method note is controlled model context. Its accession display accepts only the complete 10-digit, 2-digit, 6-digit hyphenated identifier; other source strings receive fixed unavailable-for-display wording. This display check does not normalize raw evidence, alter filing identity or tighten pair admission, and changes no financial result, grade or report state.
+
 **Beneish.** The report prints all eight indices and M with SGI at neutral
 1.0. When only SGI carries M over −1.78, the zone reads "flag (growth-led)"
 and the quality signal is graded on the SGI-neutral M. When M is above the

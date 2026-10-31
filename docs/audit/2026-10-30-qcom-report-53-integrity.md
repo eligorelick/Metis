@@ -38,7 +38,9 @@ illustration of the counting limitation, not a reconstruction of that program.
   the selected endpoints, identity, units, availability and concept continuity;
   otherwise existing local neutralization/refusal applies. No favorable-score
   selection, global tag reorder, new threshold or report-wide blocking rule is
-  introduced.
+  introduced. Repair notes display only canonical accession identifiers; an
+  unsupported identifier gets fixed unavailable-for-display wording. Raw filing
+  evidence, pair identity and admission, arithmetic, grades and state stay intact.
 - Lease evidence distinguishes operating, finance and combined scope. Exact
   period, units, source lineage and availability support component descriptions;
   complete combined zero requires both complete zero components and compatible
@@ -46,8 +48,10 @@ illustration of the counting limitation, not a reconstruction of that program.
   prove that perimeter. Neutral captions and source-specific notes reach current
   capital, historical statements, the actual DCF bridge and actual WACC averaging
   rows. Debt/EV/DCF/WACC/ROIC arithmetic and existing admission remain unchanged.
-  Structural controls retain 15,270M less 8,304M = 6,966M without importing older
-  102M operating/730M finance observations. A complete lease perimeter,
+  Structural controls retain 15,270M less 8,304M = 6,966M without importing the
+  synthetic fixture's older operating/finance fields (102M/730M). Those test
+  assignments are not filed lease classifications: QCOM's FY2025 102M current
+  and 730M noncurrent amounts are both operating leases. A complete lease perimeter,
   post-deal/equity-bridge reconstruction and the deferred B4b/B5b changes are not
   supplied by this batch.
 - Quarterly guidance tables require bounded actual source rows/cells and a
