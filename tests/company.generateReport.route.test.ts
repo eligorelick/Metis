@@ -9,7 +9,8 @@ import { RunsOn } from "@/app/company/[symbol]/GenerateReport";
 describe("GenerateReport — the route a report will run on", () => {
   it("names the route and links to Settings", () => {
     const html = renderToStaticMarkup(createElement(RunsOn, { route: { label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true } }));
-    expect(html).toContain("Runs on");
+    expect(html).toContain("Next run");
+    expect(html).not.toContain("Runs on");
     expect(html).toContain("ChatGPT plan · gpt-6.1-sol · max effort");
     expect(html).toContain('href="/settings"');
     expect(html).not.toContain("text-warn");

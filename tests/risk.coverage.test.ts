@@ -99,6 +99,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/sourceFacts.ts",
   "src/types/periodContext.ts",
   "src/report/execution.ts",
+  "src/report/modelEvidence.ts",
   "src/report/query.ts",
   "src/report/history.ts",
   "src/report/diff.ts",
