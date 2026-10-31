@@ -1,6 +1,7 @@
 import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import type { EdgarBundle } from "@/pipeline/types";
+import { establishedIsoCode } from "@/pipeline/estimateCurrency";
 
 export interface LeaseEvidenceContext {
   cutoff?: string | null;
@@ -126,19 +127,22 @@ export const LEASE_DEBT_LABELS: Readonly<Record<string, string>> = {
 /** The caller supplies the adjustment its existing calculation actually made. */
 export function leaseEvidenceNote(row: LeaseScopeRow | null | undefined, action?: { removed: number | null; result?: number | null }): string {
   const e = classifyLeaseEvidence(row);
+  // These notes enter trusted prompt text: never interpolate raw provider metadata.
+  const displayDate = validDay(row?.date) ? row.date : "Balance date unavailable";
+  const currency = establishedIsoCode(row?.reportedCurrency);
   const components = ([ ["Operating", e.operating], ["Finance", e.finance] ] as const).map(([kind, c]) => c.coverage === "complete"
     ? `${kind} lease coverage is complete from compatible filed evidence${c.verifiedZero ? " with an explicit zero liability" : ""}`
     : `${kind} lease coverage is ${c.coverage === "unverified" ? "unverified" : `${c.coverage} (other maturity unverified)`}`).join(". ");
   const observation = e.observedLeaseLine === "zero" ? "The provider records a lease-line observation of zero. "
     : e.observedLeaseLine === "positive" ? "The recorded lease line is a positive observation. " : "No valid combined lease-line observation is available. ";
   const applied = action === undefined ? "" : validAmount(action.removed) && action.removed > 0
-    ? ` The existing calculation subtracts the retained operating-lease observation ${action.removed.toLocaleString("en-US", { maximumFractionDigits: 2 })}${row?.reportedCurrency ? ` ${row.reportedCurrency}` : ""}${validAmount(action.result) || (typeof action.result === "number" && Number.isFinite(action.result)) ? `; net debt after adjustment ${action.result!.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : ""}.`
+    ? ` The existing calculation subtracts the retained operating-lease observation ${action.removed.toLocaleString("en-US", { maximumFractionDigits: 2 })}${currency ? ` ${currency}` : ""}${validAmount(action.result) || (typeof action.result === "number" && Number.isFinite(action.result)) ? `; net debt after adjustment ${action.result!.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : ""}.`
     : " The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.";
   const allUnverified = e.operating.coverage === "unverified" && e.finance.coverage === "unverified" && e.combined.coverage === "unverified";
   const scope = allUnverified ? "Operating, finance and combined lease coverage is unverified."
     : `${components}. Combined lease coverage is ${e.combined.coverage}${e.combined.verifiedZero ? "; both filed components and the compatible combined observation are exactly zero" : ""}.`;
   const debtScope = e.operating.coverage === "complete" || e.finance.coverage === "complete" ? " Debt inclusion is not independently established." : "";
-  return `${row?.date ?? "Balance date unavailable"}: ${observation}${scope}${debtScope}${applied}`;
+  return `${displayDate}: ${observation}${scope}${debtScope}${applied}`;
 }
 
 /** Missing finance maturities cannot leave financing debt. Operating portions
