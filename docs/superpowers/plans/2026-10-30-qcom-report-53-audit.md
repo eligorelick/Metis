@@ -14,6 +14,8 @@
 
 **Review focus:** fabricated source comparability, unsupported lease-zero claims, date/filing look-ahead, parser overcapture, failed-response acceptance, misleading model attribution, incomplete legacy-reader coverage and unowned numerical deltas.
 
+**Execution order:** Tasks 0–8, then Task 11, then Tasks 9–10. Task 11 was added after the companion audit export established an estimate-date labeling defect; existing task identifiers are retained for evidence continuity. Task 9 remains the final release/replay owner.
+
 ## Task 0: Register the specification and execution plan
 
 - [ ] Add this plan and its binding spec; stage only those named documents.
@@ -47,10 +49,11 @@
 
 - [ ] Define `filedReceivablesCandidates(facts, { periods, asOf, observedAt })` using existing tags/fact-point parsing, and `selectReceivablesPair(current, prior, { filedCandidates })`. Results distinguish selected same-concept/vendor-unverified/filed-pair from local unavailable, retaining evidence and notes.
 - [ ] Write RED for current 4,315M/prior 2,347M with differing evidenced concepts, revenues 44,284M/38,962M. A complete admitted total-basis pair 4,315M/3,929M must produce growth `100*(4315/3929-1)` and DSRI `(4315/44284)/(3929/38962)`, consistently in both consumers.
-- [ ] Controls: a selected consistent trade pair 2,855M/2,347M stays selected; genuinely adverse same-concept 200M/100M on revenue 1,100M/1,000M keeps DSRI 1.81818 and the adverse flag; unknown vendor behavior stays main's. Without a complete repair, an evidenced concept switch uses disclosed existing DSRI neutralization and no unsupported growth accusation.
+- [ ] Controls: a selected consistent trade pair 2,855M/2,347M stays selected; genuinely adverse same-concept 200M/100M on revenue 1,100M/1,000M keeps DSRI 1.81818 and the adverse flag; unknown vendor numbers and adverse flag presence/severity/thresholds stay main's, while warning text and notes disclose unverified scope without an unsupported company-specific channel-stuffing explanation or new critical gap. Missing metadata or unsupported multi-tag/derived shapes alone preserve unverified vendor numbers; explicit shared provenance units may supply a missing duplicate row currency. Without a complete repair, an evidenced concept switch uses disclosed existing DSRI neutralization and no unsupported growth accusation.
 - [ ] Test wrong issuer/currency/instant/form/date/cutoff, one-day endpoint mismatch, ambiguous and superseding conflicting copies, alias conflicts, incomplete pair, zero prior and input permutations. Do not label test QNames as actual QCOM mappings without retained proof.
 - [ ] Preserve provenance/conflicts/currency/CIK in `toForensicsBalance`; use issuer-confirmed already-acquired facts and exact selected annual endpoints. A forensic-only pair substitution must not mutate raw rows, capital inputs or source selection. Deep-freeze controls and assert unrelated outputs stay unchanged.
 - [ ] Run extraction/pair/forensic/compute tests and typecheck; log any original-run evidence limit and commit `fix: require comparable receivables bases in forensic ratios`.
+- Incremental release-evidence ruling: after the exact dry trace and note-sequence attribution, record only Task 3's D-138 note qualifier and positional shifts in `qcom53-task3-receivables-d138-20261030`; preserve every other group and pinned tuple, compare against the private dry candidate apart from this group's reason/decisions, then rerun the focused audit contract and full product suite. Final batch replay, stamps, goldens and legacy readers remain Task 9-owned.
 
 ## Task 4: Qualify unknown lease coverage without inventing debt adjustments
 
@@ -96,6 +99,16 @@
 - [ ] Controls: a recorded market-cap date remains displayed, another Altman variant is unaffected, and a genuinely missing market-cap value continues to refuse the original variant. Keep score values, variant admission, own-row source dating and FIN312 behavior unchanged.
 - [ ] Write RED for discontinued results spanning several retained annual observations: report the observed count and retained dates, without asserting multiple portfolio transactions or recurring churn. Missing values are unknown, not zero. Preserve the existing trigger/count/severity and all numeric scores; a single disposal can span several years. Do not replace the original two-observation count with three without the selected input rows. Include positive/negative/nonzero, zero/missing and one-transaction controls through the data-only Markdown path.
 - [ ] Implement only bounded context corrections; run scoring-evidence/forensics/export tests and typecheck, log and commit `fix: qualify forensic dates and discontinued-result context`.
+
+## Task 11: Separate forecast periods from estimate vintage
+
+**Files:** FMP estimate envelope/consumer typing only as needed; `src/pipeline/marketData.ts`, `src/report/presentation.ts`, `src/pipeline/stageC/payload.ts`, optional saved-report timing fields in `src/report/schema.ts`; `tests/fmp.client.test.ts`, `tests/marketData.integrity.test.ts`, `tests/stageC.provenance.test.ts`, consensus/export controls and optional pure date-presentation helper.
+
+- [ ] Write RED with estimate rows whose `date` is a forecast fiscal end, including mixed historical/future years: that date must not be labelled estimate publication/update/observation vintage. Record the estimate envelope's own acquisition time separately. The supplied export records acquisition 2026-10-30T23:21:15.748Z; it does not establish vintage.
+- [ ] Retain raw provider period metadata and all estimate values. Explicitly identify date roles in shared presentation and model/registry evidence timing. Unknown publication remains unknown; do not replace it with fetch, build, quote or another endpoint's date. Do not claim a cached response was newly acquired at the current build time.
+- [ ] Preserve generic `deriveAsOf` behavior and its unrelated-endpoint assertions; existing raw estimate envelope dates may remain for compatibility only with their basis explicit. Do not promote a plausible passthrough `publishedDate` into a supported vintage contract without source evidence. Caption-only correction is insufficient if registry timing still implies an established vintage.
+- [ ] Controls: future/expired fiscal dates, cached acquisitions, missing acquisition, legacy reports lacking date-role evidence, non-FMP dated source evidence where supported, and per-row forecast periods. Classic/dossier/Markdown/print/audit captions must agree. Pin financial values, calendar mapping, grade inputs and current source admission; no new stale/freshness policy or Blocked state.
+- [ ] Run targeted market-data/consensus/payload/export tests and typecheck; log source proof, observed RED/GREEN and legacy limits; commit `fix: distinguish estimate periods from publication dates`.
 
 ## Task 9: Align legacy readers, methodology and release evidence
 

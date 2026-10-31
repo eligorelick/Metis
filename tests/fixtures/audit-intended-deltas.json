@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-30",
+  "generatedAt": "2026-10-31",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -1864,41 +1864,6 @@
           "after": 67.13
         },
         {
-          "path": "stageB.forensics.notes.0",
-          "beforeMissing": true,
-          "after": "House heuristic: no SIC code available — manufacturer status inferred from sector/industry strings (non-manufacturer → Z″)."
-        },
-        {
-          "path": "stageB.forensics.notes.1",
-          "beforeMissing": true,
-          "after": "X5 (sales/TA) is dropped by the Z″ model to remove industry asset-turnover effects."
-        },
-        {
-          "path": "stageB.forensics.notes.2",
-          "beforeMissing": true,
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
-        },
-        {
-          "path": "stageB.forensics.notes.3",
-          "beforeMissing": true,
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
-        },
-        {
-          "path": "stageB.forensics.notes.4",
-          "beforeMissing": true,
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
-        },
-        {
-          "path": "stageB.forensics.notes.5",
-          "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
-        },
-        {
-          "path": "stageB.forensics.notes.6",
-          "beforeMissing": true,
-          "after": "ΔLEVER: prior-year average TA proxied by end-of-year TA (no t−2 balance sheet) — annotated proxy."
-        },
-        {
           "path": "stageB.growth.notes.0",
           "beforeMissing": true,
           "after": "Revenue 3y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
@@ -2251,26 +2216,6 @@
           "path": "report.scores.aspects.quality.drivers.2.source",
           "before": "computed.scores.quality.altmanZ",
           "after": "computed.scores.quality.altmanZOriginalScale"
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.0",
-          "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.1",
-          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.2",
-          "before": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting.",
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.3",
-          "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
         },
         {
           "path": "stageB.scores.aspects.quality.drivers.2.source",
@@ -6109,21 +6054,6 @@
           "path": "stageB.forensics.beneish.inventoryWriteDownPrior",
           "beforeMissing": true,
           "after": null
-        },
-        {
-          "path": "stageB.forensics.notes.7",
-          "beforeMissing": true,
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
-        },
-        {
-          "path": "stageB.forensics.notes.8",
-          "beforeMissing": true,
-          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
-        },
-        {
-          "path": "stageB.forensics.notes.9",
-          "beforeMissing": true,
-          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
         }
       ]
     },
@@ -6957,11 +6887,6 @@
         },
         {
           "path": "stageB.forensics.accruals.notes.3",
-          "beforeMissing": true,
-          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
-        },
-        {
-          "path": "stageB.forensics.notes.10",
           "beforeMissing": true,
           "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
         },
@@ -10276,6 +10201,100 @@
             ],
             "comparisons": []
           }
+        }
+      ]
+    },
+    {
+      "name": "qcom53-task3-receivables-d138-20261030",
+      "decisions": [
+        "D-138"
+      ],
+      "reason": "D-138 adds one unverified receivables-scope qualifier to Beneish notes and one to the combined forensic notes. The 17 exact leaves comprise two added note leaves and 15 positional shifts of already-listed note values; all prior notes remain byte-identical and in order, and no numeric leaf changes. DSRI and growth-warning numbers, presence, severity and thresholds remain unchanged for this unknown-scope fixture. Classified only after the isolated dry trace and full note-sequence attribution; this group does not authorize later release stamps, goldens or batch replay.",
+      "deltas": [
+        {
+          "path": "stageB.forensics.beneish.notes.0",
+          "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
+          "after": "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.1",
+          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.2",
+          "before": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting.",
+          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.3",
+          "beforeMissing": true,
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.4",
+          "beforeMissing": true,
+          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+        },
+        {
+          "path": "stageB.forensics.notes.0",
+          "beforeMissing": true,
+          "after": "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation."
+        },
+        {
+          "path": "stageB.forensics.notes.1",
+          "beforeMissing": true,
+          "after": "House heuristic: no SIC code available — manufacturer status inferred from sector/industry strings (non-manufacturer → Z″)."
+        },
+        {
+          "path": "stageB.forensics.notes.2",
+          "beforeMissing": true,
+          "after": "X5 (sales/TA) is dropped by the Z″ model to remove industry asset-turnover effects."
+        },
+        {
+          "path": "stageB.forensics.notes.3",
+          "beforeMissing": true,
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+        },
+        {
+          "path": "stageB.forensics.notes.4",
+          "beforeMissing": true,
+          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+        },
+        {
+          "path": "stageB.forensics.notes.5",
+          "beforeMissing": true,
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+        },
+        {
+          "path": "stageB.forensics.notes.6",
+          "beforeMissing": true,
+          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+        },
+        {
+          "path": "stageB.forensics.notes.7",
+          "beforeMissing": true,
+          "after": "ΔLEVER: prior-year average TA proxied by end-of-year TA (no t−2 balance sheet) — annotated proxy."
+        },
+        {
+          "path": "stageB.forensics.notes.8",
+          "beforeMissing": true,
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.notes.9",
+          "beforeMissing": true,
+          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
+        },
+        {
+          "path": "stageB.forensics.notes.10",
+          "beforeMissing": true,
+          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
+        },
+        {
+          "path": "stageB.forensics.notes.11",
+          "beforeMissing": true,
+          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
         }
       ]
     }

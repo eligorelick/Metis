@@ -201,6 +201,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/vendorAgreement.ts",
   "src/edgar/debtPresentation.ts",
   "src/edgar/issuerFacts.ts",
+  "src/edgar/receivables.ts",
   // Added 2026-10-26 (audit C-15): the 10-Q equity statement's NCI column feeds
   // the balance row's ownership split, so it keeps the enrichment floor.
   "src/edgar/equityStatementNci.ts",

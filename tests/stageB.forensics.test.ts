@@ -919,7 +919,8 @@ describe("computeSupportFlags", () => {
     expect(flag).toBeDefined();
     expect(flag!.severity).toBe("warn"); // gap 17pp: >15 warn, <=25 not yet flag
     expect(flag!.message).toContain("Receivables grew 25.0% while revenue grew 8.0%");
-    expect(flag!.message).toContain("channel stuffing");
+    expect(flag!.message).toContain("scope comparability is unverified");
+    expect(flag!.message).not.toContain("channel stuffing");
     expect(flag!.heuristic).toBe(true);
     expect(flag!.rule).toContain("15");
     expect(flag!.asOf).toEqual(["2024-12-31", "2025-12-31"]);

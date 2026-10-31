@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - comparable receivables in forensic ratios (2026-10-30)
+
+D-138 (report-53 audit, Task 3) makes DSRI and the receivables-growth warning share one comparable observation pair. A proved selected-concept conflict can be repaired only with a complete eligible filed pair for the exact balance endpoints; otherwise the existing disclosed DSRI neutralization applies and the unsupported growth warning is withheld. Unknown scope keeps existing numbers and warning severity/thresholds, with an explicit qualification instead of a company-specific accounting explanation. Genuinely adverse comparable pairs retain their warnings.
+
+Raw statements, stored snapshots, capital/valuation inputs and existing upstream admission gates are unchanged. Regression controls use synthetic provenance and do not claim an exact replay of the unavailable report-53 snapshot. Final batch replay, legacy views, goldens and version/release stamps remain with the later release task; this entry makes no release-completion claim.
+
 ## Unreleased - bank, insurer, REIT and ADR routes: currency, routing and grading (2026-10-27)
 
 Batch B6 uses D-137. B5a and B6 were built in parallel; this integration places B6 after B5a with distinct stamps and legacy cutoffs. This entry records the implemented scope, including the preserved behavior and deferred findings.

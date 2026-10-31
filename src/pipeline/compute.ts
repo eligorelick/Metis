@@ -147,6 +147,7 @@ import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
+import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
@@ -664,6 +665,10 @@ function toForensicsIncome(r: FmpIncomeStatementRow): ForensicsIncomeRow {
 
 function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
   return {
+    fieldProvenance: r.fieldProvenance,
+    fieldConflicts: r.fieldConflicts,
+    reportedCurrency: r.reportedCurrency,
+    cik: r.cik,
     date: String(r.date ?? ""),
     totalAssets: num(r.totalAssets),
     totalCurrentAssets: num(r.totalCurrentAssets),
@@ -2363,6 +2368,17 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
   const forensics = runForensics(route, {
+    filedReceivables: filedReceivablesCandidates(companyFacts, {
+      periods: balanceAnnual.flatMap(row => {
+        // A missing duplicate row label does not erase an explicit field unit.
+        // The shared selector still checks the chosen field and both endpoints.
+        const currencies = row.reportedCurrency ? [row.reportedCurrency] :
+          [row.fieldProvenance?.accountsReceivables?.unit, row.fieldProvenance?.netReceivables?.unit];
+        return [...new Set(currencies)].map(currency => ({ end: String(row.date ?? ""), currency }));
+      }),
+      asOf: bundle.builtAt,
+      observedAt: companyFactsResult?.ok === true ? companyFactsResult.value.fetchedAt : null,
+    }),
     income: forensicContext.income,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
