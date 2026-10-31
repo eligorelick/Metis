@@ -194,7 +194,10 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const altman = i.forensics.altman;
       dates(null, altman?.asOf.balanceSheet ?? altman?.asOf.incomeStatement);
       operand("original variant Z score before grade-scale mapping", altman?.score, "computed.forensics.altman.score");
-      result.period = `Balance ${day(altman?.asOf.balanceSheet) ?? "unavailable"}; income ${day(altman?.asOf.incomeStatement) ?? "unavailable"}; market cap ${day(altman?.asOf.marketCap) ?? "unavailable"}`;
+      const capDate = day(altman?.asOf.marketCap);
+      const capContext = altman?.variant === "original" && capDate === null
+        ? "market-cap observation date unavailable" : `market cap ${capDate ?? "unavailable"}`;
+      result.period = `Balance ${day(altman?.asOf.balanceSheet) ?? "unavailable"}; income ${day(altman?.asOf.incomeStatement) ?? "unavailable"}; ${capContext}`;
     } else {
       const metric = id === "beneishM" || id === "beneishMSgiNeutral" ? i.forensics.beneish : id === "piotroskiF" ? i.forensics.piotroski : id === "accrualsRatioAbs" ? i.forensics.accruals : null;
       const p = metric?.asOf;

@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - forensic date and observation context (2026-10-30)
+
+D-138 Task 8 distinguishes an unavailable market-cap observation date from an unavailable cap operand in original Altman score evidence. Supporting discontinued-result flags describe retained nonzero fiscal-year observations and validated own period ends, with a fixed unknown-date fallback. They no longer infer recurring portfolio churn from the count; one disposal can affect multiple periods. Missing amounts remain unknown. Counts, thresholds, severity, scores, selected variants, source-date admission and missing-cap refusals remain unchanged. Report 53's selected rows remain unavailable, so its two-observation count is not replaced from external filing years. Stored-report readers and final release evidence remain Task 9-owned.
+
 ## Unreleased - validated annual-note appendix redirects (2026-10-30)
 
 D-138 Task 7 adds a notes-only same-document Item 15 financial-index redirect after ordinary annual extraction fails. A unique linked F-page notes row and S-page Schedule II row must resolve forward to matching standalone headings, substantive notes and Note 1. The already-fetched source supplies both boundaries; signatures before the appendix, schedule tables and exhibits stay outside the notes. Schedule heading case variants work, while running headers and embedded full-title references preserve later notes. A statement prefix is retained only from a separately validated balance-sheet target in the same index, keeping its first 12,000 characters.

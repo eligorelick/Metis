@@ -14,6 +14,17 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("score evidence follows the actual metric basis", () => {
+  it.each(["2025-02-29", "provider USD date", "2026-06-30T00:00:00Z"])("keeps an invalid cap date unknown without borrowing a quote date: %s", date => {
+    const i = inputs();
+    i.forensics.altman!.variant = "original";
+    i.forensics.altman!.score = 5;
+    i.forensics.altman!.asOf = { balanceSheet: "2025-12-31", incomeStatement: "2025-12-31", marketCap: date };
+    i.quoteAsOf = "2026-07-02";
+    const evidence = describeScoreEvidence(i, "quality", "altmanZOriginalScale");
+    expect(evidence.period).toBe("Balance 2025-12-31; income 2025-12-31; market-cap observation date unavailable");
+    expect(evidence.asOf).toBe("2025-12-31");
+    expect(evidence.operands).toEqual([{ name: "original variant Z score before grade-scale mapping", value: 5, source: "computed.forensics.altman.score", asOf: "2025-12-31" }]);
+  });
   it("names the figure a P/E own-history rank ranks", () => {
     const i = inputs();
     if (i.valuation.kind !== "dcf") throw new Error("general fixture");

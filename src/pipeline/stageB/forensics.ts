@@ -2447,7 +2447,7 @@ export function computeSupportFlags(
     );
   }
 
-  // --- Discontinued operations recurring (research §5.4 companion rule) ---
+  // --- Retained nonzero discontinued results (research §5.4 companion rule) ---
   const discoYears = lookback
     .filter((r): r is ForensicsIncomeRow => {
       if (r === null) return false;
@@ -2456,10 +2456,17 @@ export function computeSupportFlags(
     })
     .map((r) => r.date);
   if (lookback.length > 0 && discoYears.length >= 2) {
+    // Display only: never promote raw provider date text into trusted notes,
+    // or alter the retained count/source metadata when a date is unknown.
+    const periodEnds = discoYears.map(date => {
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return "date unavailable";
+      const time = Date.parse(`${date}T00:00:00Z`);
+      return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === date ? date : "date unavailable";
+    });
     flags.push({
       id: "recurring-discontinued-ops",
       severity: "warn",
-      message: `Discontinued operations affected results in ${discoYears.length} of the last ${lookback.length} fiscal years — recurring portfolio churn complicates run-rate earnings.`,
+      message: `Nonzero discontinued-operation results were retained in ${discoYears.length} of the last ${lookback.length} fiscal-year observations (period ends: ${periodEnds.join(", ")}). The observation count does not establish the number or recurrence of portfolio transactions; one disposal can affect multiple periods. Missing amounts remain unknown.`,
       metrics: { discontinuedOpsYears: discoYears.length, lookbackYears: lookback.length },
       rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years",
       heuristic: true,

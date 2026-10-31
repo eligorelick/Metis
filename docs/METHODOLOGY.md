@@ -2646,6 +2646,24 @@ guards stay dominant. No ADS ratio
 is inferred, and this Altman correction does not claim to fix the deferred
 WACC scope limitation above.
 
+**Forensic observation context (D-138, Task 8).** An original Altman score can
+use a positive market-cap operand without a retained observation date. Its
+score-evidence caption then says `market-cap observation date unavailable`;
+the cap value, selected variant and existing source-date admission stay unchanged.
+A recorded cap date remains displayed; other variants and genuine missing-cap
+refusals retain their existing behavior. No quote, build or filing date fills
+an absent cap-observation date, and FIN-312's tombstoned date policy stays deferred.
+
+The discontinued-results supporting flag retains its existing nonzero count,
+five-year lookback, two-observation trigger, severity and scoring. It describes
+the retained fiscal-year observations and their own period ends, validating exact
+Gregorian dates for display and using `date unavailable` for each unknown or
+invalid date. Missing amounts remain unknown; no net-income difference derives
+them. The number of periods does not establish the number or recurrence of
+transactions: one disposal can affect several periods. This generic limitation
+does not label QCOM's actual two-disposal Veoneer program as one disposal, or
+replace report 53's unreconciled two-observation count with three filed years.
+
 #### Accrual definition, Beneish and Piotroski decompositions (D-61)
 
 **Accruals.** The cash-flow accrual ratio is financial-asset-adjusted
