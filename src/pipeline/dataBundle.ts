@@ -71,6 +71,7 @@ import {
   extractSection,
   notesToFinancialStatements,
   annualNotesToFinancialStatements,
+  extractAnnualNotesFromIndex,
   parseDocument,
   periodicSignatureText,
   periodicControlsText,
@@ -1038,6 +1039,16 @@ async function annualNotes(
     return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
       data: { ...section.value.data, text: notes.text, chars: notes.text.length,
         ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
+  }
+  const redirect = extractAnnualNotesFromIndex(html);
+  if (redirect !== null) {
+    const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
+    return { ok: true, value: { source: "edgar", asOf, fetchedAt,
+      endpoint: `${docUrl} (10-K notes via Item 15 same-document index)`,
+      data: { sectionName: "tenKNotes", text: redirect.text, chars: redirect.text.length, method: redirect.method,
+        accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf,
+        documentUrl: docUrl, annualNotesRedirect: redirect.evidence,
+        ...(redirect.statementsText ? { statementsText: redirect.statementsText } : {}) } } };
   }
   return gapResult(`edgar.tenKNotes(${symbol})`, `no notes to the financial statements were found in 10-K Item 8 or Item 15 (${tried.join("; ")})`, "warn", [docUrl]);
 }

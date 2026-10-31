@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - validated annual-note appendix redirects (2026-10-30)
+
+D-138 Task 7 adds a notes-only same-document Item 15 financial-index redirect after ordinary annual extraction fails. A unique linked F-page notes row and S-page Schedule II row must resolve forward to matching standalone headings, substantive notes and Note 1. The already-fetched source supplies both boundaries; signatures before the appendix, schedule tables and exhibits stay outside the notes. Schedule heading case variants work, while running headers and embedded full-title references preserve later notes. A statement prefix is retained only from a separately validated balance-sheet target in the same index, keeping its first 12,000 characters.
+
+Optional evidence records bounded identifiers, distinct F/S labels and original-HTML UTF-16 character offsets. Local quote-aware text-node parsing prevents hidden or attribute-only titles from establishing proof. This new route conservatively requires balanced explicit markup, standalone headings outside tables and simple fragment identifiers; it is not general DOM/CSS visibility support. Ordinary extraction, its 2,500-character stub refusal and elapsed acquisition budget remain unchanged. The ordinary flattened-text annual trimmer still has its existing case-sensitive and embedded-reference limitations. Tests use honestly synthetic source-derived structure plus existing JPM/Citi/AAPL/NVDA controls, not retained QCOM markup or an original report-53 replay. No financial arithmetic, report-state policy, batch stamp or stored snapshot changes; independent review and final batch gates remain pending.
+
 ## Unreleased - recorded material-event eligibility and Item 3.02 (2026-10-30)
 
 D-138 (report-53 audit, Task 6) admits Item 3.02-only 8-K/8-K/A candidates and retains bounded singular/plural unregistered-sale sections. Full-title prose references and false prefixes cannot create a section or truncate its enclosing item. The collector saves the same immutable eligible-item filter used for candidate and section admission, including existing 5.07. Optional controlled metadata flows through filing disclosures and the strict report schema; missing or unusable historical scope stays unknown, without inferring eligibility from date, version, event rows or today's filter.

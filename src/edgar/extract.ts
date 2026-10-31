@@ -57,6 +57,7 @@ export type ExtractMethod =
   | "header-regex"
   | "mini-toc-redirect"
   | "page-header-redirect"
+  | "annual-notes-index-redirect"
   | "crossref-toc"
   | "exhibit-toc"
   | "exhibit-header"
@@ -1391,6 +1392,209 @@ export function annualNotesToFinancialStatements(itemText: string): { text: stri
     if (end.index > 1_000) return { text: notes.text.slice(0, end.index).trimEnd(), start: notes.start };
   }
   return notes;
+}
+
+/** Compact optional evidence; offsets are JS UTF-16 indices in the original HTML. */
+export interface AnnualNotesRedirectEvidence {
+  coordinateSystem: "original-html-characters";
+  index: { start: number; end: number };
+  notes: { target: string; page: { namespace: "F"; number: number }; start: number };
+  schedule: { target: string; page: { namespace: "S"; number: number }; start: number };
+  statements?: { target: string; start: number; retainedChars: number };
+}
+
+interface AppendixElement {
+  tag: string;
+  start: number;
+  end: number;
+  attrs: Map<string, string>;
+  parent?: AppendixElement;
+  hidden: boolean;
+  blockChild: boolean;
+}
+
+/**
+ * Local lexical proof, BEFORE destructive preprocessing. Only balanced explicit
+ * markup is supported; no DOM repair, stylesheet visibility or global parser
+ * change. Actual text nodes, never quoted attribute contents, establish titles.
+ * Annual acquisition supplies the full source under its existing elapsed budget:
+ * the guidance/event collector's unrelated 2M cap does not apply here.
+ */
+function appendixStructure(source: string) {
+  const elements: AppendixElement[] = [];
+  const stack: AppendixElement[] = [];
+  const spans: { start: number; end: number; text: string }[] = [];
+  const blocks = /^(?:h[1-6]|p|div|td|th|tr|table|section)$/;
+  const voids = /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/;
+  let cursor = 0;
+  while (cursor < source.length) {
+    const start = source.indexOf("<", cursor);
+    const textEnd = start < 0 ? source.length : start;
+    if (!stack.at(-1)?.hidden && textEnd > cursor) spans.push({ start: cursor, end: textEnd, text: source.slice(cursor, textEnd) });
+    if (start < 0) { cursor = source.length; break; }
+    if (source.startsWith("<!--", start)) {
+      const end = source.indexOf("-->", start + 4);
+      if (end < 0) return null;
+      cursor = end + 3;
+      continue;
+    }
+    let quote = "";
+    let end = start + 1;
+    for (; end < source.length; end++) {
+      const ch = source[end]!;
+      if (quote) { if (ch === quote) quote = ""; }
+      else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === ">") break;
+      else if (ch === "<") return null;
+    }
+    if (end === source.length) return null;
+    const token = source.slice(start, end + 1);
+    cursor = end + 1;
+    if (/^<!doctype\s[^<>]*>$/i.test(token)) continue;
+    const close = /^<\/([a-z][\w:.-]*)\s*>$/i.exec(token);
+    if (close) {
+      const node = stack.pop();
+      if (!node || node.tag !== close[1]!.toLowerCase()) return null;
+      node.end = cursor;
+      continue;
+    }
+    const open = /^<([a-z][\w:.-]*)([\s\S]*?)\/?\s*>$/i.exec(token);
+    if (!open) return null;
+    const attrs = new Map<string, string>();
+    const tail = open[2]!;
+    const attrRe = /\s+([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`=]+)))?/y;
+    let at = 0;
+    while (at < tail.length && tail.slice(at).trim() !== "") {
+      attrRe.lastIndex = at;
+      const attr = attrRe.exec(tail);
+      if (!attr) return null;
+      const name = attr[1]!.toLowerCase();
+      if (attrs.has(name)) return null;
+      attrs.set(name, decodeEntities(attr[2] ?? attr[3] ?? attr[4] ?? ""));
+      at = attrRe.lastIndex;
+    }
+    const tag = open[1]!.toLowerCase();
+    // HTML ignores a self-closing slash on nonvoid elements. Treating it as
+    // an end could discard a hidden ancestor; this route does not repair HTML.
+    if (/\/\s*>$/.test(token) && !voids.test(tag)) return null;
+    // These raw-text/fallback modes require browser state or special end rules;
+    // never reinterpret their contents as ordinary element/text-node evidence.
+    if (/^(?:xmp|iframe|noembed|noframes|noscript|plaintext)$/.test(tag)) return null;
+    const parent = stack.at(-1);
+    const hidden = !!parent?.hidden || attrs.has("hidden") || /^(?:ix:hidden|ix:header|template|script|style)$/.test(tag) ||
+      /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))\s*(?:!important)?\s*(?:;|$)/i.test(attrs.get("style") ?? "");
+    const node: AppendixElement = { tag, start, end: cursor, attrs, parent, hidden, blockChild: false };
+    if (blocks.test(tag)) for (const ancestor of stack) ancestor.blockChild = true;
+    elements.push(node);
+    if (/^(?:script|style|textarea|title)$/.test(tag)) {
+      const rawEnd = new RegExp(`</${tag}\\s*>`, "gi");
+      rawEnd.lastIndex = cursor;
+      const match = rawEnd.exec(source);
+      if (!match) return null;
+      cursor = match.index + match[0].length;
+      node.end = cursor;
+    } else if (!voids.test(tag) && !/\/\s*>$/.test(token)) stack.push(node);
+  }
+  if (stack.length) return null;
+  // Binary-search source bounds, then flatten ONLY text nodes inside that slice.
+  const text = (start: number, end: number) => {
+    let lo = 0, hi = spans.length;
+    while (lo < hi) { const mid = (lo + hi) >>> 1; if (spans[mid]!.end <= start) lo = mid + 1; else hi = mid; }
+    const parts: string[] = [];
+    for (let i = lo; i < spans.length && spans[i]!.start < end; i++) {
+      const span = spans[i]!;
+      parts.push(span.text.slice(Math.max(0, start - span.start), Math.min(span.text.length, end - span.start)));
+    }
+    return decodeEntities(parts.join(" ")).replace(/\s+/g, " ").trim();
+  };
+  return { elements, text };
+}
+
+/** Notes-only redirect; null preserves the caller's existing warn-level gap. */
+export function extractAnnualNotesFromIndex(html: string): {
+  text: string; method: "annual-notes-index-redirect"; statementsText?: string; evidence: AnnualNotesRedirectEvidence;
+} | null {
+  const structure = appendixStructure(html);
+  if (!structure) return null;
+  const { elements, text } = structure;
+  const nodeText = (node: AppendixElement) => text(node.start, node.end);
+  const ancestor = (node: AppendixElement, tag: string): AppendixElement | undefined => {
+    for (let p = node.parent; p; p = p.parent) if (p.tag === tag) return p;
+  };
+  const headings = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) && !ancestor(n, "a") && !ancestor(n, "table"));
+  const item15 = headings.filter(n => /^Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules\.?$/i.test(nodeText(n)));
+  if (item15.length !== 1) return null;
+  const begin = item15[0]!;
+  const finish = headings.find(n => n.start > begin.end && /^Item\s+16\.?\s+Form\s+10-K\s+Summary\.?$/i.test(nodeText(n)));
+  if (!finish) return null;
+  const role = (title: string): "notes" | "schedule" | "statements" | null => {
+    if (/^Notes to (?:the )?(?:Condensed )?(?:Consolidated )?Financial (?:Statements|Information)$/i.test(title)) return "notes";
+    if (/^Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?$/i.test(title)) return "schedule";
+    if (/^Consolidated Balance Sheets$/i.test(title)) return "statements";
+    return null;
+  };
+  type Entry = { role: "notes" | "schedule" | "statements"; title: string; target: string; namespace: string; number: number; table: AppendixElement };
+  const entries: Entry[] = [];
+  for (const row of elements.filter(n => n.tag === "tr" && n.start > begin.end && n.end <= finish.start && !n.hidden)) {
+    const cells = elements.filter(n => /^(?:td|th)$/.test(n.tag) && n.parent === row && !n.hidden);
+    const titles = cells.map(n => nodeText(n)).filter(t => role(t) !== null);
+    if (!titles.length) continue;
+    if (titles.length !== 1) return null;
+    const title = titles[0]!, kind = role(title)!;
+    const pages = cells.filter(n => /^[FS]\s*-\s*\d{1,4}$/i.test(nodeText(n)));
+    if (pages.length !== 1) return null;
+    const pageCell = pages[0]!;
+    const links = elements.filter(n => n.tag === "a" && n.start >= row.start && n.end <= row.end && !n.hidden);
+    const hrefs = new Set(links.map(n => n.attrs.get("href")));
+    const href = [...hrefs][0];
+    // Strict, bounded identifiers only; percent decoding and sibling URLs are unsupported.
+    if (hrefs.size !== 1 || !href || !/^#[A-Za-z_][A-Za-z0-9_.:-]{0,199}$/.test(href) ||
+        !links.some(n => n.start > pageCell.start && n.end < pageCell.end)) return null;
+    const page = /^([FS])\s*-\s*(\d{1,4})$/i.exec(nodeText(pageCell))!;
+    const table = ancestor(row, "table");
+    if (!table || table.hidden || table.start < begin.end || table.end > finish.start || Number(page[2]) < 1) return null;
+    entries.push({ role: kind, title, target: href.slice(1), namespace: page[1]!.toUpperCase(), number: Number(page[2]), table });
+  }
+  const one = (kind: Entry["role"]) => {
+    const candidates = entries.filter(e => e.role === kind);
+    return candidates.length === 1 ? candidates[0]! : null;
+  };
+  const notes = one("notes"), schedule = one("schedule");
+  if (!notes || !schedule || notes.table !== schedule.table || notes.namespace !== "F" || schedule.namespace !== "S") return null;
+  const resolve = (entry: Entry) => {
+    const targets = elements.filter(n => n.attrs.get("id") === entry.target || n.attrs.get("name") === entry.target);
+    if (targets.length !== 1 || targets[0]!.hidden) return null;
+    const target = targets[0]!;
+    // An empty named anchor/wrapper may immediately precede its heading. No
+    // unbounded scan past a wrong title, reference, company prose or index.
+    const heading = headings.find(n => n.start >= target.start && n.start - target.start <= 1000 &&
+      text(target.start, n.start) === "" && normalizeTitle(nodeText(n)) === normalizeTitle(entry.title));
+    return heading ? { target, heading } : null;
+  };
+  const start = resolve(notes), end = resolve(schedule);
+  if (!start || !end || start.target.start <= finish.end || start.heading.end >= end.target.start) return null;
+  const body = text(start.heading.start, end.target.start);
+  const validated = notesToFinancialStatements(body);
+  if (!validated || validated.start !== 0 || detectStub(body).isStub) return null;
+  // A linked schedule cannot authorize swallowing other appendices/signatures.
+  // Exact standalone titles only: a paragraph beginning with a full title and
+  // continuing "provides ..." is a reference, not another appendix boundary.
+  const excludedHeading = /^(?:SIGNATURES|EXHIBIT INDEX|Item\s+16\.?\s+Form\s+10-K\s+Summary|Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules|Schedule\s+[IVX]+(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?)\.?$/i;
+  if (headings.some(n => n.start > start.heading.end && n.start < end.target.start && excludedHeading.test(nodeText(n)))) return null;
+  const evidence: AnnualNotesRedirectEvidence = {
+    coordinateSystem: "original-html-characters", index: { start: notes.table.start, end: notes.table.end },
+    notes: { target: notes.target, page: { namespace: "F", number: notes.number }, start: start.heading.start },
+    schedule: { target: schedule.target, page: { namespace: "S", number: schedule.number }, start: end.target.start },
+  };
+  let statementsText: string | undefined;
+  const statement = one("statements");
+  const statementStart = statement && statement.table === notes.table && statement.namespace === "F" && statement.number < notes.number ? resolve(statement) : null;
+  if (statement && statementStart && statementStart.target.start > finish.end && statementStart.heading.end < start.target.start &&
+      !headings.some(n => n.start > statementStart.heading.end && n.start < start.target.start && excludedHeading.test(nodeText(n)))) {
+    statementsText = text(statementStart.heading.start, start.target.start).slice(0, 12_000);
+    evidence.statements = { target: statement.target, start: statementStart.heading.start, retainedChars: statementsText.length };
+  }
+  return { text: body, method: "annual-notes-index-redirect", ...(statementsText ? { statementsText } : {}), evidence };
 }
 
 // ---------------------------------------------------------------------------

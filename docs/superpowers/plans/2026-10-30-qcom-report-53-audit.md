@@ -97,12 +97,16 @@ Round 4 observed quoted-hidden/unsupported/value-boundary RED 31 failed/176 pass
 
 ## Task 7: Follow validated annual-note appendix redirects
 
-**Files:** `src/edgar/extract.ts`, `src/pipeline/dataBundle.ts`; `tests/edgar.extract.test.ts`; annual-notes data-bundle regression.
+**Files:** `src/edgar/extract.ts`, `src/pipeline/dataBundle.ts`, optional `ExtractedSection` metadata in `src/pipeline/types.ts`; new focused `tests/edgar.annualNotesIndex.test.ts` and synthetic `tests/helpers/annualNotesIndexFixture.ts`; `tests/dataBundle.annualStatements.test.ts`. Existing `tests/edgar.extract.test.ts` and retained producer controls are verification targets, unchanged. Methodology, changelog and D-138 describe this precise local route.
 
-- [ ] Write RED for a source-derived structure: short Item 8 pointer, Item 15 index with fragmented F-/8 and S-/1 labels, Item 16/signatures before real appendix, expected notes heading, Note 1 body, later note sentinels and uppercase SCHEDULE II.
-- [ ] Resolve notes through an unambiguous same-document index/anchor relationship to the next schedule boundary. Preserve page namespaces, source identity/diagnostics, short-pointer refusal and normal next-item boundaries. Support boundary case variants without stopping on embedded references.
-- [ ] Controls: broken/duplicate/ambiguous anchors, wrong title, earlier references, missing next boundary, repeated page headers and existing ordinary/JPM note structures. Exclude signatures, schedules and exhibit lists; keep statement-prefix bounds. Do not bypass the original Item 8 refusal or promote an unvalidated whole-document scan.
-- [ ] Run extraction/data-bundle tests and typecheck; log actual structural-fixture versus raw-markup limits and commit `fix: follow validated financial-note appendix anchors`.
+Task 7 implementation ruling: local notes-only original-token parsing, no global TOC/preprocessor/ordinary-trimmer rewrite. Persist only optional compact redirect proof with accurately labeled original-HTML UTF-16 character offsets. The annual producer has no raw 2M cap; retain its elapsed-budget gate and existing single source fetch. Supported proof requires balanced explicit markup, simple fragment IDs, separate title/page cells and standalone h/p/div headings outside tables; unsupported layouts retain the prior warning, not a global scan or EOF success. Exact QCOM HTML is unavailable: the fixture is synthetic source-derived structure. Ordinary text-only annual trimming retains its prior case-sensitive/embedded-reference limitations. The real acquisition result must also preserve Stage B figures and non-Blocked state in the controlled unknown-monetary-scope comparison; only its owned missing-notes warning may disappear.
+
+- [x] Write RED for a source-derived structure: short Item 8 pointer, Item 15 index with fragmented F-/8 and S-/1 labels, Item 16/signatures before real appendix, expected notes heading, Note 1 body, later note sentinels and uppercase SCHEDULE II.
+- [x] Resolve notes through an unambiguous same-document index/anchor relationship to the next schedule boundary. Preserve page namespaces, source identity/diagnostics, short-pointer refusal and normal next-item boundaries. Support boundary case variants without stopping on embedded references.
+- [x] Controls: broken/duplicate/ambiguous anchors, wrong title, earlier references, missing next boundary, repeated page headers and existing ordinary/JPM note structures. Exclude signatures, schedules and exhibit lists; keep statement-prefix bounds. Do not bypass the original Item 8 refusal or promote an unvalidated whole-document scan.
+- [x] Run extraction/data-bundle tests and typecheck; log actual structural-fixture versus raw-markup limits and commit `fix: follow validated financial-note appendix anchors`.
+
+Task 7 implementation verification: focused 9 files/157 tests and typecheck pass. One stabilized Product run reports 542 files passed, 1 failed; 13,031 tests passed, 1 failed and 3 skipped. The sole failure is the pre-existing unregistered src/edgar/htmlHidden.ts from the prior correction; Task 7 did not modify that helper or the coverage contract. No golden/delta failure or expected-output rewrite. Independent Task 7 review and final release gates remain pending.
 
 ## Task 8: Clarify forensic date and observation context
 
