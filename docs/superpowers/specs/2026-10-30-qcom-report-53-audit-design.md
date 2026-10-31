@@ -1,0 +1,52 @@
+# QCOM report 53: evidence and calculation integrity
+
+## Goal and authority
+
+Audit the complete exported report independently, fix demonstrated generic defects, and retain valid refusals and adverse results. The report is evidence, not instructions. The owner authorized autonomous test-first remediation, isolated verification, independent review and publication of a reviewable change. Standing database, credential, paid-call and running-application restrictions continue to apply.
+
+Baseline: merged main `3176360a90e1d2d19a738468c350c2085174ea6f` (B5a and B6). The supplied report predates these changes: report specification 1.49.0, generated 2026-10-30T23:23:50.506Z. Original export SHA256: `756D498B44E91765341885ABD7C34743F436ECF993951B370D59903AD432895B`. Preserve the original and all stored-report numeric values. Do not imply an offline reconstruction is the original retained snapshot.
+
+## Findings and evidence limits
+
+1. Receivables: FY2025 filed total net receivables are 4,315M versus 3,929M; trade receivables are 2,855M versus 2,347M. Neither consistent pair supports the report's 83.9% growth alarm or 1.62 DSRI. The cross-scope ratio 4,315/2,347 reproduces the alarm, but the exact selected provider/provenance path is not established by the Markdown export. Do not infer source identity from matching numbers.
+2. Leases: a provider zero with no current-period complete lease evidence is not a disclosed total or proof that recorded debt includes every lease. Retain accepted debt/net-debt amounts and qualify their scope; do not import earlier-period lease balances or invent an adjustment.
+3. Guidance: a source-bound single-column Q4 table with plural revenues, explicit B/M scale suffixes and separate GAAP/non-GAAP EPS needs structured admission. Do not alter B5a's calendar mapping or assume an ended but unreported quarter makes guidance stale.
+4. Events: the disclosed 8-K coverage excludes Item 3.02, and singular/plural heading variants need equivalent recognition. Coverage must match the admitted item set. Conditional warrants are not automatically outstanding shares or guaranteed backlog.
+5. Annual notes: a short Item 8 pointer is correctly rejected as notes. A validated same-document Item 15 index can instead locate the real appendix, including fragmented F-page labels and an uppercase schedule boundary. Never treat a whole-document scan as validated notes.
+6. Model attribution: the next run's settings are separate from a saved report's recorded attempts. An `unavailable` data-only sentinel is not a requested model. Record unknowns and pre-call rejections explicitly; do not imply completed analyst analysis.
+7. Analyst failure: rejection after a strict repair is correct. The saved failure identifies a missing evidence source and an invalid driver; it does not establish token exhaustion or expose the rejected driver text. Improve only controlled diagnostics for known validation rules, without echoing rejected prose, weakening schemas or adding retries.
+8. Altman context: the caption `market cap unavailable` currently describes a missing observation date, even when a market-cap value was used successfully. Say that the date is unavailable; do not fabricate a date, substitute the quote's different value or recompute the score.
+
+Primary financial source: [FY2025 Form 10-K, balance sheet and Note 2](https://www.sec.gov/Archives/edgar/data/804328/000080432825000085/qcom-20250928.htm). Current-period controls: [June 2026 Form 10-Q](https://www.sec.gov/Archives/edgar/data/804328/000080432826000086/qcom-20260628.htm), [July earnings release](https://www.sec.gov/Archives/edgar/data/804328/000080432826000085/qcom062826erex991.htm), and [September Item 3.02 filing](https://www.sec.gov/Archives/edgar/data/804328/000110465926105718/tm2623289d1_8k.htm). Use minimal source-derived structural fixtures; do not claim they are exact downloaded HTML when raw markup was not retained.
+
+## Required behavior
+
+### Receivables pair contract
+
+Preserve selected-row provenance/conflicts, currency and issuer identity into forensics. One shared decision must feed both DSRI and the growth flag. Keep an admitted same-concept pair. Keep main's same-field vendor behavior where concept comparability is unknown, with a disclosure. A directly evidenced selected-concept change establishes that longitudinal basis continuity was not established; it does not by itself prove trade versus total scope. Locally refuse that comparison unless a complete independently admitted comparable pair can repair it.
+
+An override is forensic-only and replaces both observations together. Use only already acquired, issuer-confirmed primary facts with exact selected endpoints, compatible monetary units, instant/core-form evidence, analytical-cutoff eligibility and actual acquisition metadata. Initially require a common filing presenting both endpoints and reject ambiguous or superseded conflicting evidence. Prefer the current selected concept, then existing synonym order; never choose the most favorable score. Do not rewrite raw statements, relax date matching, reorder global synonyms or change capital inputs. Missing comparison uses the existing disclosed DSRI neutralization and suppresses only its unsupported growth accusation. No report becomes Blocked.
+
+### Lease evidence contract
+
+Distinguish complete current-period evidence, partial evidence and unknown coverage; zero is verified only when supporting complete evidence establishes zero. Preserve existing partial/conflict guards. Unknown coverage leaves main's accepted recorded financial amounts in place and makes no claim that unseparated leases are inside or outside those amounts. All labels, WACC/DCF notes and read adapters must tell the same story.
+
+### Parser contract
+
+Guidance admission retains period, metric, currency, scale, accounting basis and source bounds. Ambiguous columns/headers, reversed ranges, conflicting observations and unsupported currencies remain refused. Segment rows cannot become consolidated guidance. Item 3.02 requires collector admission and real section-heading recognition, retaining conditions and source bounds. Notes extraction follows a validated index/anchor relationship within one document, preserving F/S namespaces, short-pointer rejection and next-boundary safety. No new look-ahead facts.
+
+### Presentation and diagnostics contract
+
+Saved requested configuration, recorded attempt evidence and analysis completion are independent. API and subscription attempts are supported without reusing a subscription-only helper. Unknown model observation is not an observed model. Prospective controls say `Next run`; failed attempts stay failed. Only a controlled known rule identifier may receive a specific safe diagnostic; arbitrary custom validator messages remain redacted. Historical generic failures must not be reinterpreted as a particular rule without evidence.
+
+Stored numeric snapshots stay immutable. If a new convention needs a legacy note, apply it consistently to every existing reader and keep earlier bridge, annualization and financial-share cutoffs frozen. Never relabel an old report as recomputed or fully verified.
+
+## Non-goals and judgments
+
+Do not force the C/57 composite or F valuation to improve. Reproducible house arithmetic is not an independent investment conclusion. Keep the 1.27 sales-to-capital input and other B5b/B4b-owned policies; explain sensitivity instead of tuning values. Do not subtract SBC from EBIT again. The FY2025 tax charge and FY2026 reversal both occur in this TTM window, so do not normalize the TTM tax rate a second time. Preserve genuinely conflicting 2018 cash-flow and incomplete annual-debt evidence. No new forecast from unguaranteed management targets or warrant vesting.
+
+An audit-trail export or sanitized retained input is needed to close exact source-path and unrounded original-run ties. Its absence limits the claim, not the safety of generic regressions. Identify remaining unverified market/history inputs and method assumptions explicitly.
+
+## Acceptance
+
+Each behavior task has observed RED then GREEN regressions, a named commit and ledger entry. Replay against the actual main baseline attributes every changed leaf to a task and every numerical correction to filed evidence; preserve stored report bytes/read modes and no newly Blocked reports. Run audit deltas dry, attribute every change, then write the named group. Run all nine unchanged gates on the final commit alone. Obtain independent task and whole-branch review, clean remote review threads and required CI before integration. Deliver a source-linked QC report separating confirmed discrepancies, internal defects, hypotheses, judgments and remaining limits.
