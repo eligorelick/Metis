@@ -352,9 +352,9 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
   return <>{tables.map((t) => {
     if (!t) return null;
     const pruned = pruneTable(t.headers, t.rows);
-    if (!pruned) return null;
+    if (!pruned && !(t.headers.length === 0 && t.note)) return null;
     return <SubBlock key={"key" in t && t.key ? t.key : t.heading} label={t.heading}>
-      <AuditTable headers={pruned.headers} rows={pruned.rows.map((cells, index) => ({ key: `${t.heading}:${index}`, cells }))}/>
+      {pruned && <AuditTable headers={pruned.headers} rows={pruned.rows.map((cells, index) => ({ key: `${t.heading}:${index}`, cells }))}/>}
       {t.note && <p className="mt-2 text-[11px] leading-snug text-muted">{t.note}</p>}
     </SubBlock>;
   })}</>;

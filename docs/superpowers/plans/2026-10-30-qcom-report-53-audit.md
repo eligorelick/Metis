@@ -78,12 +78,14 @@ Task 5 implementation evidence: initial 124 targeted tests across 8 files and ty
 
 ## Task 6: Cover Item 3.02 and match the coverage disclosure
 
-**Files:** `src/edgar/currentReports.ts`, `src/providers/currentReports.ts`, `src/report/filingDisclosurePresentation.ts`; current-report/provider/material-event/presentation tests.
+**Files:** `src/edgar/currentReports.ts`, `src/providers/currentReports.ts`, `src/pipeline/filingDisclosures.ts`, the optional strict disclosure contract in `src/report/schema.ts`, `src/report/filingDisclosurePresentation.ts`, and its shared note-only rendering surfaces `src/components/report/sections.tsx`, `src/report/export/markdown.ts`, `src/report/export/printHtml.ts`, `src/report/export/auditMarkdown.ts`; `tests/currentReports.materialEventScope.test.ts` plus existing current-report/provider/material-event/presentation controls. Builder/schema and all reader integrations are necessary to retain actual collector-owned scope without backfilling old reports.
 
-- [ ] Write RED for a 3.02-only filing with a real singular `Unregistered Sale` heading; prove candidate fetch and section retention, plus plural and renamed-issuer controls.
-- [ ] Add 3.02 to the admitted material-item set and bounded singular/plural heading recognition. Embedded cross-references are not headings. Derive the reader's scope note from the actual admitted set, including existing 5.07.
-- [ ] Keep conditional warrant conditions, exercise terms and source bounds; no automatic dilution, warrant value or backlog. Preserve filing window/cutoff, document-count limits and unread-filing errors.
-- [ ] Run collector/section/payload/presentation tests and typecheck; log and commit `fix: include unregistered-sale filings in event coverage`.
+- [x] Write RED for a 3.02-only filing with a real singular `Unregistered Sale` heading; prove candidate fetch and section retention, plus plural and renamed-issuer controls.
+- [x] Add 3.02 to the admitted material-item set and bounded singular/plural heading recognition. Embedded full-title cross-references and false title prefixes are not headings. Capture the optional eligible-item list from the same immutable filter used by candidate and section admission, including existing 5.07; validate and copy it through the builder/schema. One pure formatter describes saved scope; absent/unusable legacy metadata stays unknown without date/version/current-filter/event-union inference.
+- [x] Keep conditional warrant conditions, exercise terms and source bounds; no automatic dilution, warrant value or backlog. Preserve filing window/cutoff, document-count limits and unread-filing errors. Classic/dossier, Markdown, print and audit deliberately show the same non-exhaustive scope note, including empty events or absent disclosures, without fabricated event/source/manifest rows.
+- [x] Run collector/section/payload/presentation tests and typecheck; log and commit `fix: include unregistered-sale filings in event coverage`.
+
+Task 6 implementation evidence: observed initial RED 18 failures and a later full-title-reference RED 2 failures. Focused gate: 16 files/545 tests passed plus typecheck; one stabilized full Product run: 542 files/12,708 passed, 3 existing skips. The final new integration suite has 22 cases; recorded filter metadata versus its absence leaves Stage B, the complete model payload, existing notes and event rows unchanged. Offline controls use real `EdgarClient` with an injected transport and honestly synthetic source-derived markup, not exact QCOM HTML or a historical report replay. Independent Task 6 review and Task 9's final replay/release gates remain pending.
 
 ## Task 7: Follow validated annual-note appendix redirects
 

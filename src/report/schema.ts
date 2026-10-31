@@ -2206,9 +2206,14 @@ export const CommitmentPaymentTimingSchema = z.object({
   reason: z.string().nullable(),
 }).strict();
 
+/** Controlled scope codes, independent of today's collector membership. Legacy absence stays unknown. */
+export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"])).min(1).max(10);
+
 export const FilingDisclosuresSchema = z
   .object({
     version: z.literal("1.0.0"),
+    /** Saved collector eligibility, not proof that every filing was read. */
+    materialEventItems: MaterialEventItemsSchema.optional(),
     /** ISO currency of every money figure below; null when not established. */
     currency: IsoCurrencySchema.nullable(),
     currencyBasis: z.string(),

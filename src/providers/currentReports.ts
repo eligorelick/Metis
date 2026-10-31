@@ -33,7 +33,7 @@ import {
   splitEightKItems,
   splitSentences,
   summarizeItem,
-  MATERIAL_EVENT_ITEMS,
+  MATERIAL_EVENT_ITEM_CODES,
   type CapitalReturnFacts,
   type CommitmentTable,
   type FreeCashFlowFact,
@@ -153,6 +153,8 @@ export interface MaterialEventFiling {
 
 export interface CurrentReports {
   version: typeof CURRENT_REPORTS_VERSION;
+  /** Actual eligible-item filter used by this collection; absent on legacy inputs. */
+  materialEventItems?: string[];
   /** Newest first. */
   releases: EarningsReleaseRecord[];
   /** Newest first. */
@@ -286,7 +288,7 @@ export function buildMaterialEventFiling(
   url: string,
 ): MaterialEventFiling {
   const sections = splitEightKItems(text)
-    .filter((s) => s.item in MATERIAL_EVENT_ITEMS)
+    .filter((s) => MATERIAL_EVENT_ITEM_CODES.includes(s.item))
     .map((s): MaterialEventSection => ({
       item: s.item,
       title: s.title,
@@ -531,7 +533,7 @@ export async function collectCurrentReports(
   }
   const newest = [...releases.map((r) => r.filingDate), ...events.map((e) => e.filingDate)].sort().at(-1) ?? today;
   const value: Sourced<CurrentReports> = {
-    data: { version: CURRENT_REPORTS_VERSION, releases, events, notes },
+    data: { version: CURRENT_REPORTS_VERSION, materialEventItems: [...MATERIAL_EVENT_ITEM_CODES], releases, events, notes },
     asOf: newest,
     source: "edgar",
     endpoint: `${submissionsEndpoint} (8-K EX-99 releases and material-event items)`,

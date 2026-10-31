@@ -275,7 +275,7 @@ function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], le
   return tables.map((t) => {
     if (!t) return "";
     const body = bodyTable(t.headers, t.rows);
-    return body ? `<${level}>${esc(t.heading)}</${level}>${body}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}` : "";
+    return body || (t.headers.length === 0 && t.note) ? `<${level}>${esc(t.heading)}</${level}>${body}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}` : "";
   }).join("");
 }
 

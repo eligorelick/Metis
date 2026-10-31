@@ -648,6 +648,37 @@ controls use synthetic source-derived structure, not exact retained QCOM HTML
 or a historical report replay. Stored reports are not reparsed at read time;
 unknown historical extraction coverage remains unknown.
 
+**Material current-report eligibility (D-138, report-53 Task 6, unreleased).**
+The collector uses one immutable filter for candidate reads and retained item
+sections: 1.01, 1.02, 2.01, 2.03, 2.05, 2.06, 3.02, 5.02, 5.07 and 8.01.
+Item 3.02 accepts bounded `Unregistered Sale of Equity Securities` and
+`Unregistered Sales of Equity Securities` titles and strips either printed
+title from the retained body. Full-title prose references and false prefixes
+do not establish headings or boundaries. The existing subsequent-item,
+signature, short incorporation-only and source-text retention boundaries remain.
+
+New collections save their actual eligible-item codes as optional structured
+metadata. The builder validates the controlled codes, copies a deduplicated,
+ordered list into the strict optional report contract, and never supplies the
+current filter for missing historical metadata. One pure formatter serves
+classic/dossier, Markdown, print and audit. A saved eligible list describes
+eligibility only; neither event-row items nor report date/version establish
+the scan filter. Missing, empty or unusable metadata means the filter was not
+recorded and completeness of SEC event review is not established. Empty events
+and absent disclosure evidence show that qualification with no invented event,
+source fact, recorded-evidence count or missing-data-manifest row. Saved report
+and input bytes remain unchanged by display.
+
+The existing annual-filing-based window (365-day fallback), analytical cutoff,
+8-K/8-K/A eligibility, ten-document cap, omitted unread identities and read,
+parse, no-heading and truncation notes remain in force. Eligibility never
+attests that every eligible filing was read. Conditional warrant exercise and
+vesting clauses and purchase ceilings remain bounded source evidence; they do
+not automatically change outstanding shares, dilution, warrant valuation,
+backlog, financial calculations, forecasts, grades or report state. The offline
+structural controls are synthetic source-derived markup, not exact retained
+QCOM HTML or an original-report replay.
+
 The **run-rate** is the latest quarter annualized, made seasonally neutral.
 Latest quarter × 4 overstates a seasonal peak quarter and understates a
 trough. So the run-rate is the TTM carried 4.5 months forward at the latest

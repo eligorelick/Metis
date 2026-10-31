@@ -23,7 +23,7 @@ import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTimin
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
 import { peerCoverageAuditLines } from "@/report/researchReview";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
-import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, materialEventTables } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
@@ -387,6 +387,9 @@ function renderBodyReading(report: Report): string {
   const facts = sourceFactAuditTables(report.sourceFactSummary, true)[0];
   if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
   const disclosures: FilingSupplements | undefined = report.filingDisclosures;
+  for (const events of materialEventTables(report.filingDisclosures)) {
+    lines.push(`### ${events.heading}`, "", ...(events.rows.length ? [table(events.headers, events.rows), ""] : []), markdownProse(events.note ?? ""), "");
+  }
   if (disclosures) {
     for (const timing of filingDisclosureTables(report.filingDisclosures, "balanceSheet").filter(item => item.heading.startsWith("Payment timing as reported"))) {
       lines.push(`### ${timing.heading}`, "", table(timing.headers, timing.rows), "", markdownProse(timing.note ?? ""), "");

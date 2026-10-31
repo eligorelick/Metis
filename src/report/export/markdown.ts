@@ -317,8 +317,8 @@ function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
 function auditTableBlocks(tables: readonly ReportAuditTable[], level = "###"): string[] {
   return tables.flatMap((block) => {
     const body = bodyTable(block.headers, block.rows);
-    if (!body) return [];
-    return [`${level} ${markdownHeading(block.heading)}`, "", body, "", ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : [])];
+    if (!body && !(block.headers.length === 0 && block.note)) return [];
+    return [`${level} ${markdownHeading(block.heading)}`, "", ...(body ? [body, ""] : []), ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : [])];
   });
 }
 
