@@ -234,6 +234,84 @@ describe("source-bound single-quarter guidance tables", () => {
   });
 
   it.each([
+    ["quoted comment", 'title="<!--" hidden data-end="-->"'],
+    ["quoted script", 'title="<script>" hidden data-end="</script>"'],
+    ["quoted style", 'title="<style>" hidden data-end="</style>"'],
+    ["single-quoted comment", "title='<!--' hidden=false data-end='-->'"],
+    ["single-quoted script", "title='<script>' HIDDEN data-end='</script>'"],
+    ["single-quoted style", "title='<style>' hidden='false' data-end='</style>'"],
+  ])("does not erase a real hidden attribute between %s delimiters", (_name, attributes) => {
+    const markup = html.replace("QUALCOMM", "Fir Logic").replace("<h2>Business Outlook</h2>", `<p>Aspen Components</p><div ${attributes}><p>Business Outlook</p>`)
+      .replace("</table>", "</table></div>");
+    const document = parseDocument(markup);
+    expect(parseGuidance(document.fullText, document)).toMatchObject({ items: [] });
+    const release = record(markup);
+    expect(release.guidance).toMatchObject({ items: [] });
+    expect(nextPeriodRevenueGuidance(bundleWith(release))).toBeNull();
+    expect(dcfGuidance(bundleWith(release), "USD")).toBeNull();
+  });
+
+  it("refuses the minimal hidden ancestor with quoted comment delimiters", () => {
+    const document = parseDocument('<p>Cedar Components</p><div title="<!--" hidden data-end="-->"><p>Business Outlook</p><table><tr><th>Metric</th><th>Q4 FY26 Estimates</th></tr><tr><td>Revenues</td><td>$9.7B – $10.5B</td></tr></table></div>');
+    expect(parseGuidance(document.fullText, document)).toMatchObject({ items: [] });
+  });
+
+  it.each(["title = hidden", "title= hidden", "title =hidden", "title\t=\thidden", "data-note = hidden data-hidden=true"])("does not confuse a spaced unquoted value with an attribute name: %s", attribute => {
+    const markup = html.replace("<h1>", `<span ${attribute}>Visible cover</span><h1>`);
+    const document = parseDocument(markup);
+    const release = record(markup);
+    expect(release.guidance?.items.map(i => [i.metric, i.basis, i.mid])).toEqual([
+      ["revenue", "unspecified", 10.1e9], ["eps", "gaap", 1.32], ["eps", "non-gaap", 2.15],
+    ]);
+    for (const item of release.guidance!.items) {
+      expect(document.fullText.slice(item.span!.start, item.span!.end)).toBe(item.span!.text);
+      expect(document.fullText.slice(item.headerSpan!.start, item.headerSpan!.end)).toBe("Q4 FY26 Estimates");
+    }
+  });
+
+  it.each([
+    '<span title="<!--" data-end="-->">Cover</span>',
+    '<span title="<script>" data-end="</script>">Cover</span>',
+    '<span title="<style>" data-end="</style>">Cover</span>',
+    '<!DOCTYPE html PUBLIC "visible hidden keyword" "source">',
+  ])("preserves ordinary quoted delimiter values and supported declarations: %s", prefix => {
+    expect(record(html.replace("<h1>", `${prefix}<h1>`)).guidance?.items.map(i => i.mid)).toEqual([10.1e9, 1.32, 2.15]);
+  });
+
+  it.each([
+    ["unterminated comment", "<!-- unclosed"],
+    ["unterminated quoted tag", '<aside title="unclosed'],
+    ["unterminated raw script", "<script>unclosed"],
+    ["unterminated raw style", "<style>unclosed"],
+  ])("declines unsupported lexical context: %s", (_name, tail) => {
+    expect(record(html.replace("</body>", `${tail}</body>`)).guidance).toMatchObject({ items: [] });
+  });
+
+  it.each(["<!--", "<script>", "<style>"])("keeps actual hidden attributes through offline collection when a quoted delimiter is %s", async opening => {
+    const closing = opening === "<!--" ? "-->" : opening === "<script>" ? "</script>" : "</style>";
+    const markup = html.replace("<h2>Business Outlook</h2>", `<p>Birch Components</p><div title="${opening}" hidden data-end="${closing}"><p>Business Outlook</p>`)
+      .replace("</table>", "</table></div>");
+    const ok = <T,>(data: T, endpoint: string) => ({ ok: true as const, value: { data, source: "edgar" as const, endpoint, asOf: filing.filingDate, fetchedAt: "2026-07-29T20:00:00Z" } });
+    const client = {
+      filingProblem: () => null,
+      filingIndexHeaders: async () => ok({ documents: [{ type: "EX-99.1", filename: "qcom062826erex991.htm", sequence: "1" }], typeByFilename: {} }, "offline-index"),
+      fetchFilingDocument: async (_cik: string, f: EdgarFiling) => {
+        if (f.primaryDocument !== "qcom062826erex991.htm") throw new Error("Unexpected offline document");
+        return ok(markup, sourceUrl);
+      },
+    } as unknown as EdgarClient;
+    const collected = await collectCurrentReports(client, "804328", [filing], "2026-10-30", "offline-submissions");
+    expect(collected.ok).toBe(true);
+    if (!collected.ok) throw new Error(collected.gap.reason);
+    const bundle = bundleWith(collected.value.data.releases[0]!);
+    bundle.edgar.currentReports = collected;
+    expect(collected.value.data.releases[0]).toMatchObject({ accession: filing.accessionNumber, releaseUrl: sourceUrl, guidance: { items: [] }, guidanceExhibit: null });
+    expect(nextPeriodRevenueGuidance(bundle)).toBeNull();
+    expect(dcfGuidance(bundle, "USD")).toBeNull();
+    expect(buildFilingDisclosures(bundle)?.guidance).toBeNull();
+  });
+
+  it.each([
     ["duplicate columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY26 Estimates</th>")],
     ["conflicting columns", html.replace("<th>Q4 FY26 Estimates</th>", "<th>Q4 FY26 Estimates</th><th>Q4 FY27 Estimates</th>")],
     ["ambiguous column", html.replace("Q4 FY26 Estimates", "Previous Guidance Current Guidance")],

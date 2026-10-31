@@ -1,5 +1,6 @@
 import type { FiscalPeriod, GuidanceItem, IssuerGuidance } from "@/edgar/currentReports";
 import { htmlToText, type ParsedDocument } from "@/edgar/extract";
+import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
 const CURRENT_QUARTER = /^Q([1-4])\s+FY\s*'?(20\d{2}|\d{2})\s+(?:Estimates|Current Guidance)$/i;
 const TABLE_COLUMN_CUE = /\b(?:Q[1-4]\b[^.]{0,60}\bEstimates|(?:Previous|Current) Guidance)\b/i;
@@ -27,10 +28,7 @@ function parseQuarterlyDocumentTable(text: string, document: ParsedDocument): Is
   // do not prove browser visibility; an explicit hidden ancestor may begin
   // outside the positive-scope window. Even unrelated closed hidden elements
   // decline this route. Legacy compact parsing and shared extraction stay intact.
-  if (document.pre.length > 2_000_000) return refused();
-  const visibilitySource = document.pre.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
-  const tags = /<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g;
-  if ([...visibilitySource.matchAll(tags)].some(([tag]) => /\shidden(?=[\s=/>])/i.test(tag.replace(/"[^"]*"|'[^']*'/g, '""')))) return refused();
+  if (explicitHtmlHiddenState(document.pre) !== "clear") return refused();
   const table = tables[0]!.table;
   if (table[0].length > 60_000 || htmlToText(table[0]).length > 6_000 || /<table\b/i.test(table[0].slice(table[0].indexOf(">") + 1))) return refused();
   const scopeLabel = /^(?:(?:Business|Financial|Consolidated) Outlook|Consolidated Guidance)$/i;

@@ -639,7 +639,12 @@ also decline this route. This conservative fence includes unrelated closed
 hidden elements and ancestors beginning outside the scope window; it does not
 search farther for positive scope. Quoted values, `data-hidden` and other
 attribute lookalikes do not trigger it. Shared preprocessing and legacy compact
-parsing are unchanged. Coordinate consistency and this explicit-attribute fence
+parsing are unchanged. The local lexical pass recognizes complete quoted tags
+and actual attribute-name/value boundaries before interpreting genuine comments
+or script/style bodies. Delimiter-like quoted values cannot erase a real
+attribute; `title = hidden` remains an ordinary value. Oversized, malformed or
+unsupported lexical states decline this new route without altering the source.
+Coordinate consistency and this explicit-attribute fence
 do not attest general browser/CSS visibility or resolve external stylesheets.
 Duplicate/conflicting columns, metrics or
 guidance tables, merged cells, unsupported scope captions/section headings,
