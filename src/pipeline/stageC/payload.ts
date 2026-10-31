@@ -1,3 +1,4 @@
+import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
  *
@@ -172,6 +173,8 @@ export const TRUNCATION_MARKER = "…[TRUNCATED";
  * date the figure is as-of, or null for a timeless/derived quantity.
  */
 export interface PayloadFigure {
+  /** Estimate date roles qualify the compatibility asOf; it is not publication vintage. */
+  estimateTiming?: EstimateModelTiming;
   /** Exact registry ID for numeric figures emitted by payload assembly. */
   provenanceId?: string;
   label: string;
@@ -577,8 +580,9 @@ export function formatFigure(f: PayloadFigure): string {
   const currency = monetary && canonical?.currency === null
     ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
     : "";
+  const estimateDates = f.estimateTiming === undefined ? "" : `; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
-  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}${periodContext}`;
+  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.estimateTiming === undefined ? f.asOf : estimateDay(f.asOf))}${periodContext}${estimateDates}`;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1726,6 +1730,7 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
+  const estimateTiming = estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined));
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
@@ -1734,8 +1739,8 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
     const period = isFullIsoDate(candidatePeriod) ? candidatePeriod : null;
     const periodLabel = period ?? "unknown";
     figures.push(
-      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
-      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
+      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
     );
   }
   const ptc = firstRow(bundle.priceTargetConsensus);
@@ -3172,6 +3177,7 @@ function attachProvenanceRegistry(
       ...(figure.subject === undefined ? {} : { subject: figure.subject }),
       asOf,
       origin: figure.source,
+      ...(figure.estimateTiming === undefined ? {} : { estimateTiming: figure.estimateTiming }),
       formulaVersion: kind === "computed" ? "stage-b-v1" : null,
       displayPrecision: 4,
     });

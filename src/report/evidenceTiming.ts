@@ -1,3 +1,4 @@
+import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { z } from "zod";
 import { QUOTE_STALE_DAYS } from "@/pipeline/stageA/validate";
 import type { FetchResult } from "@/types/core";
@@ -164,6 +165,7 @@ export function evidenceTimingRows(report: Report): EvidenceTimingRow[] {
     { label: "Report generated", value: dateText(timing.reportGeneratedAt, cutoff) },
     { label: "Disclosure cutoff", value: dateText(timing.cutoffAt, cutoff) },
   ];
+  if (report.marketData?.estimates.length) rows.push({ label: "Consensus estimate timing", value: estimateTimingText(reportEstimateTiming(report), report.marketData.estimatesAsOf) });
   if (!report.meta.evidenceTiming) {
     const quoteAsOf = Object.entries(report.meta.asOfMap).filter(([key]) => /^quote(?:\.|$)/.test(key));
     const envelope = quoteAsOf.map(([key, value]) => `${key}: ${dateText(value, cutoff)}`).join("; ");

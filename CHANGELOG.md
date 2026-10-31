@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - estimate periods and acquisition timing (2026-10-30)
+
+D-138 Task 11 separates forecast fiscal-period dates from the source response's acquisition and unknown publication/update vintage. New FMP estimate metadata records the actual envelope-selection branch and validates its acquisition origin; durable-cache acquisitions survive reads and failed/empty refreshes, while fixture-load clocks and missing-time fallbacks never become original provider acquisition. Reports retain exact source timestamps; model figures and numeric registry records carry explicitly labelled UTC days, preserving the existing prompt timestamp prohibition.
+
+Classic, dossier, Markdown, print and audit share the date-role disclosure. A legacy exact annual estimate source for the same symbol supplies only a recorded timestamp with unestablished acquisition origin (or explicit fixture load), never a recovered publication date or historical selection branch. Raw period metadata, generic `deriveAsOf`, forecast values/calendar mapping, admission, grades, state and stored report bytes remain unchanged. The report-53 export's 2026-10-30T23:21:15.748Z acquisition does not establish estimate vintage; no original snapshot replay is claimed. Reserved report 1.53/payload 1.55/Stage B 34 stamps are unchanged; independent review and final release verification remain pending.
+
 ## Unreleased - forensic date and observation context (2026-10-30)
 
 D-138 Task 8 distinguishes an unavailable market-cap observation date from an unavailable cap operand in original Altman score evidence. Supporting discontinued-result flags describe retained nonzero fiscal-year observations and validated own period ends, with a fixed unknown-date fallback. They no longer infer recurring portfolio churn from the count; one disposal can affect multiple periods. Missing amounts remain unknown. Counts, thresholds, severity, scores, selected variants, source-date admission and missing-cap refusals remain unchanged. Report 53's selected rows remain unavailable, so its two-observation count is not replaced from external filing years. Stored-report readers and final release evidence remain Task 9-owned.

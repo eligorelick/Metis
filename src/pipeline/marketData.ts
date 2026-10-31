@@ -15,6 +15,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies }
 import { admitHistoricalEnterpriseValue, DERIVED_EV_ENDPOINT } from "@/report/enterpriseValueSafety";
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import type { DataBundle } from "@/pipeline/types";
+import { readEstimateTiming } from "@/report/estimateTiming";
 import type { MarketData } from "@/report/schema";
 import { quotePriceObservationDay } from "@/providers/fmp";
 import { completedTotalOmission, leaseDebtConflict, millions, type LeaseDebtInputs } from "@/pipeline/stageB/netDebt";
@@ -219,6 +220,7 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
     ...historicalEv,
     estimates,
     estimatesAsOf: asOfOf(bundle.analystEstimates),
+    ...(bundle.analystEstimates?.ok ? { estimateTiming: readEstimateTiming(bundle.analystEstimates.value.data.estimateTiming, bundle.analystEstimates.value) } : {}),
     priceTarget,
     gradeCounts,
     shortInterest,

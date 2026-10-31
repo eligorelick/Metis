@@ -1,3 +1,4 @@
+import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
@@ -997,7 +998,7 @@ export function consensusTables(report: Report): BodyTable[] {
         ["Estimates (revenue / EPS)", ...md.estimates.map((e) => `${e.analystsRevenue ?? "—"} / ${e.analystsEps ?? "—"}`)],
         ["Price / provider EPS (basis unverified)", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
       ],
-      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
+      note: `Provider consensus; ${estimateTimingText(reportEstimateTiming(report), md.estimatesAsOf)}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
     });
   }
   const rows: string[][] = [];

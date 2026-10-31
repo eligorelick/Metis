@@ -87,6 +87,28 @@ timestamp together while retaining every input timestamp and calculation basis.
 Recovery preserves the original persisted generation time rather than dating
 old evidence as a fresh generation. Legacy timing omissions remain omissions.
 
+Consensus estimate dates have separate roles (D-138 Task 11). FMP row `date`
+remains the forecast fiscal-period end. The estimate producer records whether
+its compatible envelope `asOf` selected a fiscal end or used its fallback day;
+these dates do not establish publication/update vintage. The exact retained
+response's validated acquisition timestamp is separate: durable-cache store
+completion takes precedence over the loader response stamp, and old cached
+bodies retain their original recorded acquisition. A fixture load is identified
+as a load; missing/invalid acquisition remains unknown despite the generic
+clock fallback. Passthrough `publishedDate` supplies no publication contract.
+
+Saved market data and audit timing retain exact validated source timestamps.
+Model figures and numeric registry records carry the same roles with explicitly
+labelled UTC-day precision, without runtime timestamps in the model prompt.
+Generic envelope dates, raw rows, amounts, forecast-calendar selection, source
+admission, grades and state are unchanged. For legacy reports lacking role
+metadata, a unique exact FMP annual analyst-estimates endpoint for the report
+symbol can expose a recorded response timestamp with acquisition origin
+unestablished (or an explicit fixture load); it cannot reconstruct the old
+selection branch or publication. Other legacy dates remain unclassified. The
+shared classic/dossier/Markdown/print and audit disclosures do not rewrite saved
+report bytes or infer a fresh/stale eligibility rule.
+
 Two rules govern everything below. Reported numeric claims use provenance
 records with source and as-of information where established; missing dates,
 units or currency can prevent verification. Where a rule is a house convention rather than an established method, it

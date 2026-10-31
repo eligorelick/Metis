@@ -1,3 +1,4 @@
+import { EstimateTimingSchema } from "@/report/estimateTiming";
 /**
  * The Report Zod schema — THE contract for the entire Metis Report object.
  *
@@ -2523,6 +2524,8 @@ export const MarketDataSchema = z
       analystsRevenue: NullableNumber, analystsEps: NullableNumber,
     }).strict()),
     estimatesAsOf: z.string().nullable(),
+    /** Additive timing evidence; absent on old saved reports. */
+    estimateTiming: EstimateTimingSchema.optional(),
     priceTarget: z.object({
       consensus: NullableNumber, median: NullableNumber, high: NullableNumber, low: NullableNumber, asOf: z.string().nullable(),
       lastMonthCount: NullableNumber, lastMonthAverage: NullableNumber,

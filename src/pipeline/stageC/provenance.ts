@@ -1,3 +1,4 @@
+import type { EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Deterministic provenance primitives for Stage C.
  *
@@ -53,6 +54,8 @@ export type ProvenanceFailureReason =
   | "direction-mismatch";
 
 export interface NumericProvenanceRecord {
+  /** Optional qualifier on legacy-compatible asOf; no estimate publication contract is implied. */
+  estimateTiming?: EstimateModelTiming;
   id: string;
   /** Metric identity for numeric prose; omitted only by older payloads. */
   label?: string;
