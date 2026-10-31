@@ -206,6 +206,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/segmentPerformance.ts",
   "src/edgar/economicShares.ts",
   "src/edgar/guidanceTables.ts",
+  "src/edgar/htmlHidden.ts",
   "src/edgar/annualGeography.ts",
   "src/pipeline/financialComposition.ts",
   "src/pipeline/stageB/leaseScope.ts",
