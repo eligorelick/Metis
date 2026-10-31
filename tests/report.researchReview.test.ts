@@ -29,6 +29,37 @@ const surfaces = (report: Report) => ({
 });
 
 describe("research reliability report surfaces", () => {
+  it.each(["incomplete", "duplicate", "absent", "excess-return"])("withholds a saved robustness claim with %s grids on all surfaces without mutating the report", (kind) => {
+    const report = fixture();
+    const oldConclusion = "The valuation-versus-price conclusion is robust within the modeled grids: every valid cell remains above the current price.";
+    report.scenarioPresentation!.sensitivity = { status: "robust-above", conclusion: oldConclusion, validCells: 7, totalCells: 8, minPerShare: 110, maxPerShare: 140 };
+    const dcf = report.valuation.dcf;
+    dcf.sensitivityGrid = [110, 120, 115, 125].map((perShare, i) => ({ waccPct: 8 + Math.floor(i / 2), gTermPct: 2 + i % 2, perShare }));
+    dcf.growthMarginGrid = { growthShiftsPp: [-5, 5], marginShiftsPp: [-2, 2], perShare: [[110, null], [130, 140]], notes: [] };
+    if (kind === "duplicate") { dcf.growthMarginGrid.perShare[0][1] = 120; dcf.growthMarginGrid.growthShiftsPp = [5, 5]; }
+    if (kind === "absent") { dcf.sensitivityGrid = []; delete dcf.growthMarginGrid; }
+    if (kind === "excess-return") {
+      dcf.sensitivityGrid = []; delete dcf.growthMarginGrid;
+      dcf.excessReturnGrid = { rows: [{ label: "low", startReturnPct: 8, bookValue: 100 }, { label: "high", startReturnPct: 12, bookValue: 100 }], costOfEquityPcts: [8, 10], perShare: [[110, null], [130, 140]], notes: [] };
+    }
+    const before = structuredClone(report);
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).not.toContain(oldConclusion);
+      expect(rendered).toContain("Saved robustness conclusion withheld");
+      expect(rendered).toContain("complete modeled grids");
+    }
+    expect(report).toEqual(before);
+  });
+
+  it("retains a saved robustness conclusion backed by complete grids", () => {
+    const report = fixture();
+    report.scenarioPresentation!.sensitivity.status = "robust-below";
+    report.scenarioPresentation!.sensitivity.conclusion = "The retained grid remains below the original comparable price.";
+    report.valuation.dcf.sensitivityGrid = [80, 90, 85, 95].map((perShare, i) => ({ waccPct: 8 + Math.floor(i / 2), gTermPct: 2 + i % 2, perShare }));
+    delete report.valuation.dcf.growthMarginGrid;
+    for (const rendered of Object.values(surfaces(report))) expect(rendered).toContain(report.scenarioPresentation!.sensitivity.conclusion);
+  });
+
   it("shows actionable thresholds, fixed assumptions and provenance on every surface", () => {
     for (const rendered of Object.values(surfaces(fixture()))) {
       expect(rendered).toContain("What would change the assessment");

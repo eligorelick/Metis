@@ -34,6 +34,29 @@ const fixture = () => JSON.parse(readFileSync("fixtures/report/DEMO-sample.json"
 const row = (report: Report, label: string) => evidenceTimingRows(report).find((item) => item.label === label)!.value;
 
 describe("bounded report evidence timing", () => {
+  it("distinguishes contemporaneous capture, later-acquired inputs and unknown historical timing", () => {
+    const report = fixture();
+    report.meta.evidenceTiming = timing();
+    expect(row(report, "Analysis mode")).toContain("Contemporaneous capture");
+    expect(row(report, "Analysis mode")).toContain("does not certify point-in-time availability");
+    report.meta.evidenceTiming.calculationAsOf = "2026-10-13";
+    expect(row(report, "Analysis mode")).toContain("Later-acquired inputs");
+    expect(row(report, "Analysis mode")).toContain("historical point-in-time analysis is not established");
+    report.meta.evidenceTiming.calculationAsOf = "2026-10-14";
+    expect(row(report, "Analysis mode")).toContain("Contemporaneous capture");
+    delete report.meta.evidenceTiming;
+    expect(row(report, "Analysis mode")).toContain("Timing unverified");
+  });
+
+  it("does not describe unknown acquisitions or future publications as contemporaneous evidence", () => {
+    const report = fixture();
+    report.meta.evidenceTiming = timing();
+    report.meta.evidenceTiming.acquisitions[0].at = null;
+    expect(row(report, "Analysis mode")).toContain("Timing unverified");
+    report.meta.evidenceTiming = timing();
+    report.meta.evidenceTiming.publications.push({ source: "future-guidance", publishedAt: "2026-11-01" });
+    expect(row(report, "Analysis mode")).toContain("Later-published evidence");
+  });
   it("keeps quote observation, financial period, filing, acquisition and calculation basis distinct", () => {
     const input = bundle();
     const before = JSON.stringify(input);

@@ -21,6 +21,7 @@ import { LEGACY_VALUATION_NOTE_FIELD } from "@/report/legacyValuationNotes";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { attributeGradeReliability, type AttributeGradeReliability } from "@/report/gradeReliability";
 import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
@@ -1822,6 +1823,41 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`,
     }),
+  };
+}
+
+/** The same missing-input interpretation on the app, Markdown and print scorecards. */
+export function gradeReliabilityTable(scores: NonNullable<Report["scores"]>): BodyTable {
+  const reasons: Record<Extract<AttributeGradeReliability, { status: "unavailable" }>["reason"], string> = {
+    "unknown-coverage": "applicable coverage not recorded",
+    "route-inapplicable": "route-inapplicable attribute",
+    unscored: "attribute not scored",
+    "invalid-coverage": "invalid applicable coverage",
+    "invalid-score": "invalid recorded score",
+  };
+  // Outward display rounding never narrows an arithmetic range. Stabilize
+  // floating-point tails at exact hundredths before choosing each direction.
+  const endpoint = (value: number, side: "low" | "high") => String(
+    Math[side === "low" ? "floor" : "ceil"](Number((value * 100).toPrecision(14))) / 100,
+  );
+  return {
+    heading: "Attribute grade reliability",
+    headers: ["Attribute", "Applicable evidence", "Missing-input score range (0–100)", "Conditional band possibilities"],
+    rows: SCORE_ASPECT_ORDER.map(key => {
+      const aspect = scores.aspects[key];
+      const diagnostic = attributeGradeReliability(aspect);
+      const coverage = aspect.applicableCompleteness;
+      const evidence = diagnostic.status === "unavailable" && diagnostic.reason === "route-inapplicable" ? "Not applicable"
+        : coverage === undefined ? "Unknown"
+          : typeof coverage === "number" && Number.isFinite(coverage) && coverage >= 0 && coverage <= 1 ? evidencePercentText(coverage)
+            : "Unavailable";
+      const range = diagnostic.status === "unavailable" ? `Unavailable: ${reasons[diagnostic.reason]}`
+        : diagnostic.applicableCompleteness === 1 ? `${diagnostic.score}–${diagnostic.score}`
+          : `${endpoint(diagnostic.low, "low")}–${endpoint(diagnostic.high, "high")}`;
+      const bands = diagnostic.status === "available" ? `${diagnostic.lowBand}–${diagnostic.highBand}` : "Unavailable";
+      return [SCORE_ASPECT_LABEL[key], evidence, range, bands];
+    }),
+    note: "Missing-input sensitivity: hold the recorded score on observed signal weight fixed and let unobserved applicable weight score from 0 to 100. Route-inapplicable inputs are excluded. Ranges round outward to 0.01 points. Band possibilities apply house thresholds to unrounded endpoints; they are not assessed grades. This is not a probability interval or evidence of accuracy; observing every signal does not establish correctness. Recorded scores, grades and weights stay unchanged, including existing grade admission rules.",
   };
 }
 

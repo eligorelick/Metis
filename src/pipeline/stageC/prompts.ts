@@ -265,11 +265,16 @@ export function buildLeadershipGuidance(
  */
 export const CASE_STRENGTH_RUBRIC = [
   "CASE STRENGTH (required — set `case_strength` to an integer 1–5 for YOUR OWN side):",
-  "5 — several independent payload figures directly support the thesis and no material payload figure contradicts it.",
+  "5 — several distinct underlying facts in the retained evidence directly support the thesis and no material retained evidence contradicts it.",
   "4 — the payload supports the thesis; one or two figures cut against it and you address each one.",
   "3 — genuinely mixed: the payload supports part of the case and contradicts part, or the decisive figures are absent.",
-  "2 — thin: mostly interpretation, with one supporting figure or none, and the disclosed gaps cover the crux of the case.",
+  "2 — thin: mostly interpretation, with one distinct supporting fact or none, and the disclosed gaps cover the crux of the case.",
   "1 — the payload contains no evidence for this side; the case rests on judgment alone.",
+  "Count underlying evidence, not the number of cited rows: repeated disclosures, multiple excerpts of one disclosure, and ratios or metrics derived from the same operands are not independent support.",
+  "Apply that rule to the underlying observation: the same figure repeated in a filing, a release, or a provider feed is still one observation. Separate source labels do not establish independent corroboration.",
+  "Distinct facts from the same filing may each support the case. Derived metrics may help interpretation; explain what additional information they contribute without treating a restatement of the same inputs as corroboration.",
+  "The bull and bear analysts share retained evidence; their agreement is not independent factual corroboration.",
+  "This is a qualitative self-assessment of retained evidence, not a calibrated probability or a measure of forecast accuracy. State material evidence gaps; missing evidence is not evidence that contradictions do not exist.",
   "Score the EVIDENCE, not your confidence or your writing. A low score is not a failure — an honest 2",
   "is worth more than an inflated 4, and the judge is told it may discount a side whose cited evidence",
   "does not support the score it claimed.",

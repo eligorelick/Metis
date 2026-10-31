@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - prospective measurement and report reliability (2026-10-31)
+
+Adds predeclared offline forecast studies with immutable registration, complete cohort accounting and paired baseline errors. Scorecards show conditional missing-input ranges; incomplete grids cannot support valuation robustness, including in saved-report displays. Evidence timing distinguishes current capture from historical limitations. These mechanisms do not establish forecast accuracy or calibrate grades; strict measurement admission remains guarded. See [D-139](docs/audit/DECISIONS.md#d-139---prospective-measurement-and-report-reliability-2026-10-31) and [the study workflow](docs/REPORT-EVALUATION.md#prospective-report-studies).
+
 ## Unreleased - saved-report scope clarifications (2026-10-30)
 
 Release-check tooling remediation (2026-10-31): replace development-tooling

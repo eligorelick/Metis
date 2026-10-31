@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { restoreB6Golden } from "./helpers/b6PayloadGolden";
 import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
 import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
+import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityPayloadGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -557,7 +558,7 @@ describe("payload determinism + provenance", () => {
   });
 
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(buildInputs())));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(buildInputs()))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>

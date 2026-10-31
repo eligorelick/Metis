@@ -45,11 +45,50 @@ const pp = (v: number): string => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs
 
 /** "growth −20pp at margin −10pp to 0pp; growth −10pp at margin −10pp": the growth × margin cells on one side of the price. */
 function describeGrowthMarginCells(grid: GrowthMarginCells, pick: (v: number) => boolean): string {
+  const observations = growthMarginCoverage(grid).observations;
   return grid.growthShiftsPp.flatMap((g, i) => {
-    const margins = grid.marginShiftsPp.filter((_, j) => { const v = grid.perShare[i]?.[j]; return finite(v) && pick(v); });
+    const margins = observations.filter(cell => cell.row === i && pick(cell.value)).map(cell => grid.marginShiftsPp[cell.column]);
     if (margins.length === 0) return [];
     return [`growth ${pp(g)} at margin ${margins.length === 1 ? pp(margins[0]) : `${pp(margins[0])} to ${pp(margins[margins.length - 1])}`}`];
   }).join("; ");
+}
+
+/** Only cells with unique, finite axis identities are observations. Unlabelled extras are not evidence. */
+function matrixCoverage(rowKeys: (string | null)[], columnKeys: (string | null)[], matrix: (number | null)[][]) {
+  const unique = (keys: (string | null)[], key: string | null) => key !== null && keys.filter(k => k === key).length === 1;
+  const observations = rowKeys.flatMap((key, i) => !unique(rowKeys, key) ? [] : columnKeys.flatMap((column, j) => {
+    const value = matrix[i]?.[j];
+    return unique(columnKeys, column) && finite(value) ? [{ row: i, column: j, value }] : [];
+  }));
+  const values = observations.map(cell => cell.value);
+  const total = Math.max(rowKeys.length * columnKeys.length, matrix.reduce((n, row) => n + row.length, 0));
+  const complete = rowKeys.length >= 2 && columnKeys.length >= 2 && rowKeys.every(key => unique(rowKeys, key)) &&
+    columnKeys.every(key => unique(columnKeys, key)) && matrix.length === rowKeys.length &&
+    matrix.every(row => row.length === columnKeys.length) && values.length === rowKeys.length * columnKeys.length;
+  return { observations, values, total, complete };
+}
+const axisKeys = (values: number[]) => values.map(value => finite(value) ? String(value) : null);
+const growthMarginCoverage = (grid: GrowthMarginCells) => matrixCoverage(axisKeys(grid.growthShiftsPp), axisKeys(grid.marginShiftsPp), grid.perShare);
+const excessReturnCoverage = (grid: NonNullable<DcfDisplay["excessReturnGrid"]>) => matrixCoverage(
+  grid.rows.map(row => finite(row.startReturnPct) && finite(row.bookValue) && row.bookValue > 0 ? `${row.startReturnPct}:${row.bookValue}` : null),
+  axisKeys(grid.costOfEquityPcts), grid.perShare,
+);
+
+function waccCoverage(cells: SensitivityCell[]) {
+  const cellKey = (cell: SensitivityCell) => `${cell.waccPct}:${cell.gTermPct}`;
+  const duplicates = new Map<string, number>();
+  cells.forEach(cell => duplicates.set(cellKey(cell), (duplicates.get(cellKey(cell)) ?? 0) + 1));
+  const valid = cells.filter(cell => finite(cell.waccPct) && finite(cell.gTermPct) && finite(cell.perShare) && duplicates.get(cellKey(cell)) === 1);
+  const rows = new Set(valid.map(cell => cell.waccPct)).size;
+  const columns = new Set(valid.map(cell => cell.gTermPct)).size;
+  return { valid, complete: rows >= 2 && columns >= 2 && valid.length === cells.length && valid.length === rows * columns };
+}
+
+/** Read-time guard for older saved conclusions; never changes their retained figures or price basis. */
+export function hasCompleteSensitivityGrids(dcf: Valuation["dcf"] | undefined): boolean {
+  if (!dcf) return false;
+  if (dcf.sensitivityGrid.length === 0 && dcf.excessReturnGrid) return excessReturnCoverage(dcf.excessReturnGrid).complete;
+  return waccCoverage(dcf.sensitivityGrid).complete && (!dcf.growthMarginGrid || growthMarginCoverage(dcf.growthMarginGrid).complete);
 }
 
 /**
@@ -58,19 +97,20 @@ function describeGrowthMarginCells(grid: GrowthMarginCells, pick: (v: number) =>
  * "robust" because every WACC × terminal-growth cell sat above the price while
  * four year-one-growth × margin cells sat below it; the grid that varies the
  * decisive inputs now counts, and the conclusion names the cells that cross.
- * Growth × margin cells withheld above the scenario margin ceiling are not
- * part of that grid's tested range.
+ * A withheld growth × margin cell leaves an incomplete requested grid; agreeing
+ * surviving cells cannot establish robustness over that full range.
  */
 export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: number | null, growthMargin?: GrowthMarginCells | null): ScenarioPresentation["sensitivity"] {
-  const valid = cells.filter((cell) => finite(cell.waccPct) && finite(cell.gTermPct) && finite(cell.perShare));
-  const gmValues = growthMargin ? growthMargin.perShare.flat().filter((v): v is number => finite(v)) : [];
-  const gmTotal = growthMargin ? growthMargin.perShare.flat().length : 0;
+  const { valid, complete } = waccCoverage(cells);
+  const gm = growthMargin ? growthMarginCoverage(growthMargin) : null;
+  const gmValues = gm?.values ?? [];
+  const gmTotal = gm?.total ?? 0;
   const values = [...valid.map((cell) => cell.perShare as number), ...gmValues];
   const minPerShare = values.length ? Math.min(...values) : null;
   const maxPerShare = values.length ? Math.max(...values) : null;
   const common = { validCells: valid.length + gmValues.length, totalCells: cells.length + gmTotal, minPerShare, maxPerShare };
-  if (!finite(currentPrice) || currentPrice <= 0 || valid.length < 2 || new Set(valid.map((c) => c.waccPct)).size < 2 || new Set(valid.map((c) => c.gTermPct)).size < 2) {
-    return { ...common, status: "unavailable", conclusion: "Sensitivity conclusion unavailable: a comparable current price and valid values spanning both modeled grid axes are required. Missing or invalid cells are excluded." };
+  if (!finite(currentPrice) || currentPrice <= 0 || values.length < 2) {
+    return { ...common, status: "unavailable", conclusion: "Sensitivity conclusion unavailable: a comparable current price and at least two valid modeled cells are required. Missing or invalid cells are excluded." };
   }
   // Comparisons at the quote are sensitive; avoid a robustness claim at a
   // numerical boundary after reconstructing a comparable price from upside.
@@ -78,13 +118,11 @@ export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: num
   const above = (v: number) => v > currentPrice + tolerance;
   const below = (v: number) => v < currentPrice - tolerance;
   const status = values.every(above) ? "robust-above" : values.every(below) ? "robust-below" : "sensitive";
-  const expectedCells = new Set(cells.map((cell) => cell.waccPct)).size * new Set(cells.map((cell) => cell.gTermPct)).size;
-  const uniqueValidCells = new Set(valid.map((cell) => `${cell.waccPct}:${cell.gTermPct}`)).size;
-  if (status !== "sensitive" && (valid.length !== cells.length || uniqueValidCells !== expectedCells)) {
+  if (status !== "sensitive" && (!complete || (gm !== null && !gm.complete))) {
     return { ...common, status: "unavailable", conclusion: "All available modeled cells lie on the same side of the current price, but the incomplete grid prevents a robustness conclusion within the modeled grid. Missing or invalid cells are excluded." };
   }
   const waccBelow = valid.filter((c) => !above(c.perShare as number));
-  const waccText = waccBelow.length === 0
+  const waccText = valid.length === 0 ? "no valid WACC × terminal-growth cells are available" : waccBelow.length === 0
     ? `all ${valid.length} WACC × terminal-growth cells stay above the current price`
     : waccBelow.length === valid.length
       ? `all ${valid.length} WACC × terminal-growth cells sit at or below the current price`
@@ -98,7 +136,7 @@ export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: num
     ? `The valuation-versus-price conclusion is sensitive within the modeled grids: ${waccText}${gmText}.`
     : `The valuation-versus-price conclusion is robust within the modeled grids: every valid cell of ${gmValues.length > 0 ? "both grids" : "the grid"} remains ${status === "robust-above" ? "above" : "below"} the current price.`;
   const scope = gmValues.length > 0
-    ? `The WACC × terminal-growth and year-one growth × sustained-margin grids are assessed (growth × margin cells withheld above the scenario margin ceiling are excluded)`
+    ? `The WACC × terminal-growth and year-one growth × sustained-margin grids are assessed; missing or invalid cells cannot support robustness`
     : "Only available WACC-by-terminal-growth cells are assessed";
   return { ...common, status, conclusion: `${conclusion} ${scope}; this is not a statistical confidence interval or a future-price range.` };
 }
@@ -109,9 +147,9 @@ export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: num
  * claim needs every cell valid, and missing cells are excluded.
  */
 export function summarizeExcessReturnGrid(grid: NonNullable<DcfDisplay["excessReturnGrid"]>, currentPrice: number | null): ScenarioPresentation["sensitivity"] {
-  const all = grid.perShare.flat();
-  const values = all.filter((v): v is number => finite(v));
-  const common = { validCells: values.length, totalCells: all.length,
+  const coverage = excessReturnCoverage(grid);
+  const values = coverage.values;
+  const common = { validCells: values.length, totalCells: coverage.total,
     minPerShare: values.length ? Math.min(...values) : null, maxPerShare: values.length ? Math.max(...values) : null };
   if (!finite(currentPrice) || currentPrice <= 0 || values.length < 2) {
     return { ...common, status: "unavailable", conclusion: "Sensitivity conclusion unavailable: a comparable current price and at least two valid cells of the starting-return × cost-of-equity grid are required. Missing or invalid cells are excluded." };
@@ -119,7 +157,7 @@ export function summarizeExcessReturnGrid(grid: NonNullable<DcfDisplay["excessRe
   const tolerance = Math.max(1, Math.abs(currentPrice)) * 1e-10;
   const atOrBelow = values.filter((v) => v <= currentPrice + tolerance).length;
   const status = atOrBelow === 0 ? "robust-above" : values.every((v) => v < currentPrice - tolerance) ? "robust-below" : "sensitive";
-  if (status !== "sensitive" && values.length !== all.length) {
+  if (status !== "sensitive" && !coverage.complete) {
     return { ...common, status: "unavailable", conclusion: "All available cells of the starting-return × cost-of-equity grid lie on the same side of the current price, but the incomplete grid prevents a robustness conclusion. Missing or invalid cells are excluded." };
   }
   const conclusion = status === "sensitive"

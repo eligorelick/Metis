@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeSensitivity, applyScenarioPresentation, comparableScenarioPrice, buildScenarioPresentation } from "@/report/scenarioPresentation";
+import { summarizeSensitivity, summarizeExcessReturnGrid, applyScenarioPresentation, comparableScenarioPrice, buildScenarioPresentation } from "@/report/scenarioPresentation";
 import type { DataBundle } from "@/pipeline/types";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import type { SensitivityCell, Valuation } from "@/report/schema";
@@ -33,6 +33,48 @@ function computedFixture(): ComputedMetrics {
 }
 
 describe("modeled-grid sensitivity conclusions", () => {
+  it("retains observed growth/margin crossings without a usable WACC grid", () => {
+    const gm = { growthShiftsPp: [-5, 5], marginShiftsPp: [-2, 2], perShare: [[90, 110], [95, 115]] };
+    for (const dc of [[], grid([110]), grid([110, 120])]) {
+      const result = summarizeSensitivity(dc, 100, gm);
+      expect(result.status).toBe("sensitive");
+      expect(result.conclusion).toContain("2 of 4 valid year-one growth");
+      expect(result.conclusion).not.toContain("all 0 WACC");
+    }
+    expect(summarizeSensitivity([], 100, { ...gm, perShare: [[110, 120], [130, 140]] }).status).toBe("unavailable");
+  });
+
+  it("describes only the unique growth/margin coordinates counted as evidence", () => {
+    const result = summarizeSensitivity(grid([110, 120, 115, 125]), 100, {
+      growthShiftsPp: [-5, -5, 5], marginShiftsPp: [-2, 2], perShare: [[90, 110], [85, 115], [95, 120]],
+    });
+    expect(result.status).toBe("sensitive");
+    expect(result.conclusion).toContain("1 of 2 valid year-one growth");
+    expect(result.conclusion).toContain("growth +5pp at margin −2pp");
+    expect(result.conclusion).not.toContain("growth −5pp");
+  });
+
+  it("does not claim robustness from an incomplete or malformed growth/margin grid", () => {
+    const dc = grid([110, 120, 115, 125]);
+    const gm = { growthShiftsPp: [-5, 5], marginShiftsPp: [-2, 2], perShare: [[110, 120], [130, 140]] as (number | null)[][] };
+    expect(summarizeSensitivity(dc, 100, gm).status).toBe("robust-above");
+    expect(summarizeSensitivity(dc, 100, { ...gm, perShare: [[110, null], [130, 140]] }).status).toBe("unavailable");
+    expect(summarizeSensitivity(dc, 100, { ...gm, perShare: [[110, 120]] }).status).toBe("unavailable");
+    expect(summarizeSensitivity(dc, 100, { ...gm, growthShiftsPp: [5, 5] }).status).toBe("unavailable");
+    expect(summarizeSensitivity(dc, 100, { ...gm, marginShiftsPp: [NaN, 2] }).status).toBe("unavailable");
+    expect(summarizeSensitivity(dc, 100, { ...gm, perShare: [[90, null], [130, 140]] }).status).toBe("sensitive");
+    expect(summarizeSensitivity([...dc, dc[0]], 100).status).toBe("unavailable");
+  });
+
+  it("requires a complete two-axis excess-return grid, not just two numeric values", () => {
+    const g = { rows: [{ label: "low", startReturnPct: 8, bookValue: 100 }, { label: "high", startReturnPct: 12, bookValue: 100 }],
+      costOfEquityPcts: [8, 10], perShare: [[120, 110], [150, 140]], notes: [] };
+    expect(summarizeExcessReturnGrid(g, 100).status).toBe("robust-above");
+    expect(summarizeExcessReturnGrid({ ...g, perShare: [[120, 110]] }, 100).status).toBe("unavailable");
+    expect(summarizeExcessReturnGrid({ ...g, rows: [g.rows[0], g.rows[0]] }, 100).status).toBe("unavailable");
+    expect(summarizeExcessReturnGrid({ ...g, costOfEquityPcts: [8, 8] }, 100).status).toBe("unavailable");
+    expect(summarizeExcessReturnGrid({ ...g, rows: [g.rows[0]], perShare: [[120, 110]] }, 100).status).toBe("unavailable");
+  });
   it("retains fresh analyst text and citations that collide with the generated-condition prefix", () => {
     const computed = computedFixture();
     const input = narrativeValuation();

@@ -137,16 +137,15 @@ With AI off or unavailable, reports retain deterministic results and disclose
 missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
 ## AI analysis
 
-Two analysts build the bull and bear cases independently: neither sees the
-other's output, and the bear prompt forbids assuming a bull case exists. A
-judge pass then reads both and writes the report. Which case it reads first is
-drawn from the job id rather than fixed, so first position is not a standing
-advantage, and the order is printed in the report header. Both cases share one
-character target; actual lengths and protected-content excess are disclosed.
-Each analyst scores its own side 1-5 against a stated rubric, and
-the judge may discount a side that scored itself low.
-`METIS_JUDGE_ORDER=both` adds a second judge pass with the cases swapped and
-compares every section grade; a retry that keeps earlier sections skips it.
+Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.
+The rubric discourages double-counting repeated disclosures or derived metrics while allowing distinct facts from one filing.
+This is prompt guidance, not a deterministic evidence count or calibrated probability. Each analyst rates its case 1–5; a judge reads both, may discount a weak case, and writes the report.
+Judge order comes from the job id and appears in the header. Both cases share a character target; actual lengths and protected-content excess are disclosed. `METIS_JUDGE_ORDER=both` compares every section grade with case order swapped; retries retaining earlier sections skip it.
+
+The [prospective study workflow](docs/REPORT-EVALUATION.md#prospective-report-studies) predeclares slots and baselines, freezes reports before deadlines and retains every planned issuer, including missing reports and outcomes.
+It groups descriptive errors by sector and exact horizon with paired baseline comparisons. Neither the rubric nor local registration establishes forecast accuracy or historical source truth. Strict forecast admission still requires an upstream producer of complete typed measurement definitions; predefined cohorts, point-in-time inputs and later outcomes are needed to assess accuracy.
+
+Scorecards show each attribute's missing-input score range and conditional bands from recorded applicable coverage: arithmetic sensitivity, not probabilities. Valuation robustness requires complete modeled grids, including when displaying saved reports. Evidence timing distinguishes contemporaneous capture, later-acquired inputs and unverified historical timing.
 
 The verification pass makes no model call. It measures citation coverage — can
 each figure be traced to the record it cites — and separately checks the prose

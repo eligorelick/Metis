@@ -1,6 +1,19 @@
 # Research validation status
 
-Updated 2026-10-16 for report 1.19.4 / payload 1.24.2.
+Updated 2026-10-31 for the D-139 prospective study workflow. No new matured-outcome
+accuracy estimate or grade calibration is established by this implementation.
+
+The [report study commands](REPORT-EVALUATION.md#prospective-report-studies)
+predeclare slots and baselines, register reports before deadlines and evaluate
+every planned issuer, including missing registrations and outcomes. Local custody
+is unwitnessed and measurement dimensions remain operator-declared; strict V2
+admission still requires complete upstream definitions. Attribute grade ranges are
+conditional missing-input sensitivities, not accuracy estimates. The October 14
+monitoring cohort below remains a historical record; it has not been retrospectively
+enrolled in a new prospective protocol.
+
+The following historical verification entries were last updated 2026-10-16 for
+report 1.19.4 / payload 1.24.2; their dates and version claims remain unchanged.
 
 D-77 separates saved research from live acquisition. A readable saved company
 report opens directly from the database; live analysis is an explicit,

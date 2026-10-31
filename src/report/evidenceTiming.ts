@@ -127,6 +127,31 @@ function legacyTiming(report: Report): EvidenceTiming {
   };
 }
 
+/** A description of retained timing, never certification of a historical information set. */
+function analysisModeText(timing: EvidenceTiming): string {
+  const basis = stampMs(timing.calculationAsOf);
+  const generated = stampMs(timing.reportGeneratedAt);
+  if (basis === null || generated === null || basis > generated) {
+    return "Timing unverified: a valid analysis cutoff and report-generation time are required to distinguish current capture from historical reconstruction.";
+  }
+  // A day-only calculation basis has daily precision, not a midnight execution time.
+  const cutoff = Math.min(generated, basis + (timing.calculationAsOf!.length === 10 ? 86_399_999 : 0));
+  const publications = [...timing.filings.map(f => f.filedAt), ...timing.publications.map(p => p.publishedAt)];
+  if (publications.some(value => { const at = stampMs(value); return at !== null && at > cutoff; })) {
+    return "Later-published evidence is present relative to the analysis cutoff; historical point-in-time analysis is not established.";
+  }
+  const acquisitions = [...timing.acquisitions.map(a => a.at), ...(timing.quote.acquiredAt === null ? [] : [timing.quote.acquiredAt])];
+  if (acquisitions.some(value => { const at = stampMs(value); return at !== null && at > cutoff; })) {
+    return "Later-acquired inputs are present relative to the analysis cutoff; historical point-in-time analysis is not established. Earlier period labels do not establish that these data were available then.";
+  }
+  if (!acquisitions.length || acquisitions.some(value => stampMs(value) === null)) {
+    return "Timing unverified: at least one input acquisition time is absent or invalid; historical point-in-time analysis is not established.";
+  }
+  return timing.calculationAsOf!.slice(0, 10) === timing.reportGeneratedAt!.slice(0, 10)
+    ? "Contemporaneous capture relative to the report's analysis date; this does not certify point-in-time availability, restatement history or forecast accuracy."
+    : "Retained earlier inputs: the calculation basis predates report generation. Acquisition dates alone do not establish a complete historical point-in-time information set.";
+}
+
 /** Shared unescaped wording. React, Markdown and print apply their own context-safe escaping. */
 export function evidenceTimingRows(report: Report): EvidenceTimingRow[] {
   const timing = report.meta.evidenceTiming ?? legacyTiming(report);
@@ -154,6 +179,7 @@ export function evidenceTimingRows(report: Report): EvidenceTimingRow[] {
     : `${dateText(datedAcquisitions[0], cutoff)} to ${dateText(datedAcquisitions[datedAcquisitions.length - 1], cutoff)}`;
   const acquisitionText = [acquisitionRange, ...invalidAcquisitions.map((at) => dateText(at, cutoff))].filter(Boolean).join("; ") || "not supplied";
   const rows: EvidenceTimingRow[] = [
+    { label: "Analysis mode", value: analysisModeText(timing) },
     { label: "Quote observation", value: observation },
     { label: "Quote acquisition", value: dateText(timing.quote.acquiredAt, cutoff) },
     { label: "Financial period ends", value: timing.financialPeriods.map((item) => `${item.source}: ${dateText(item.periodEnd, cutoff)}`).join("; ") || "not supplied" },

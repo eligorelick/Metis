@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { EvaluationStudyProtocolSchema, StudyOutcomesSchema } from "./evaluationStudy";
+import { initializeEvaluationStudy, enrollEvaluationStudyReport, evaluateStoredStudy, writeNewEvaluationJson } from "./evaluationStudyStore";
 
 import {
   createEvaluationSnapshot,
@@ -16,6 +18,9 @@ const HELP = `Offline report evaluation (no provider calls or database writes)
   reports:evaluate freeze --report report.json --definition definition.json [--out-dir directory]
   reports:evaluate evaluate --snapshot snapshot.json --outcomes outcomes.json --as-of YYYY-MM-DD [--out result.json]
   reports:evaluate schema
+  reports:evaluate study-init --protocol protocol.json --dir study-directory
+  reports:evaluate study-register --dir study-directory --slot slot-id --report report.json
+  reports:evaluate study-evaluate --dir study-directory --outcomes study-outcomes.json --as-of YYYY-MM-DD [--out result.json]
 
 Snapshots default to data/evaluations/snapshots/<content-hash>.json.
 Results default to data/evaluations/results/<snapshot-hash>-<as-of>-<outcomes-hash>.json.
@@ -29,13 +34,20 @@ Actual outcome metadata must match the registered identity, period, unit, curren
 Market startDate must follow report asOf; choose the actual session dates explicitly.
 Price returns and total-return indices must use consistent adjustments for both legs.
 DCF present values are never registered as future price forecasts.
+Studies predeclare every report slot and optional baseline before report generation.
+Study registration uses the local clock, rejects late or retrospective reports, and is never overwritten.
+Study evaluation includes missing registrations and pending outcomes. Local custody and matched
+operator-declared dimensions do not certify historical inputs or forecasting accuracy.
 `;
 
 export interface EvaluationCliSummary {
-  command: "freeze" | "evaluate" | "schema" | "help";
+  command: "freeze" | "evaluate" | "schema" | "help" | "study-init" | "study-register" | "study-evaluate";
   outputPath?: string;
   snapshotHash?: string;
   counts?: ReturnType<typeof evaluateReportSnapshot>["counts"];
+  studyHash?: string;
+  registrationHash?: string;
+  studyCounts?: ReturnType<typeof evaluateStoredStudy>["counts"];
 }
 
 function parseOptions(args: readonly string[], allowed: readonly string[]): Map<string, string> {
@@ -100,8 +112,37 @@ export function runEvaluationCli(
     io.writeStdout(`${JSON.stringify({
       definition: z.toJSONSchema(EvaluationDefinitionSchema),
       outcomes: z.toJSONSchema(EvaluationOutcomesSchema.extend({ outcomes: z.array(EvaluationOutcomeSchema) })),
+      studyProtocol: z.toJSONSchema(EvaluationStudyProtocolSchema),
+      studyOutcomes: z.toJSONSchema(StudyOutcomesSchema),
     }, null, 2)}\n`);
     return { command: "schema" };
+  }
+  if (command === "study-init") {
+    const options = parseOptions(args, ["--protocol", "--dir"]);
+    const directory = path.resolve(cwd, required(options, "--dir"));
+    const study = initializeEvaluationStudy(directory, readJson(path.resolve(cwd, required(options, "--protocol"))), now);
+    const summary: EvaluationCliSummary = { command, outputPath: path.join(directory, "protocol.json"), studyHash: study.studyHash };
+    io.writeStdout(`${JSON.stringify(summary, null, 2)}\n`);
+    return summary;
+  }
+  if (command === "study-register") {
+    const options = parseOptions(args, ["--dir", "--slot", "--report"]);
+    const { registration, outputPath } = enrollEvaluationStudyReport(path.resolve(cwd, required(options, "--dir")),
+      required(options, "--slot"), readJson(path.resolve(cwd, required(options, "--report"))), now);
+    const summary: EvaluationCliSummary = { command, outputPath, studyHash: registration.studyHash, registrationHash: registration.registrationHash };
+    io.writeStdout(`${JSON.stringify(summary, null, 2)}\n`);
+    return summary;
+  }
+  if (command === "study-evaluate") {
+    const options = parseOptions(args, ["--dir", "--outcomes", "--as-of", "--out"]);
+    const directory = path.resolve(cwd, required(options, "--dir"));
+    const result = evaluateStoredStudy(directory, readJson(path.resolve(cwd, required(options, "--outcomes"))), required(options, "--as-of"));
+    // Identity includes the registration set and evaluation instant: today's deadlines can still be open.
+    const outputPath = path.resolve(cwd, options.get("--out") ?? path.join(directory, "results", `${result.asOf}-${result.evaluationHash}.json`));
+    writeNewEvaluationJson(outputPath, result);
+    const summary: EvaluationCliSummary = { command, outputPath, studyHash: result.studyHash, studyCounts: result.counts };
+    io.writeStdout(`${JSON.stringify(summary, null, 2)}\n`);
+    return summary;
   }
   if (command === "freeze") {
     const options = parseOptions(args, ["--report", "--definition", "--out-dir"]);

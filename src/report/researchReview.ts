@@ -2,11 +2,13 @@ import type { Report, Valuation } from "@/report/schema";
 import { formatFinancialValue, formatMultiple } from "@/report/format";
 import { sourceLabel } from "@/report/presentation";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
+import { hasCompleteSensitivityGrids } from "@/report/scenarioPresentation";
 
 export interface ValuationReviewInputs {
   scenarioPresentation?: Report["scenarioPresentation"];
   thesisTriggers?: Report["thesisTriggers"];
   peerCoverage?: Valuation["peerCoverage"];
+  valuation?: Valuation;
   /** The subject's symbol: its own comparability exclusions are not a candidate's. */
   symbol?: string;
 }
@@ -75,9 +77,13 @@ export function peerCoverageAuditLines(peers: PeerCoverage): string[] {
 export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock[] {
   const blocks: ReviewBlock[] = [];
   if (input.scenarioPresentation) {
+    const sensitivity = input.scenarioPresentation.sensitivity;
+    const unsupportedRobustness = (sensitivity.status === "robust-above" || sensitivity.status === "robust-below") && !hasCompleteSensitivityGrids(input.valuation?.dcf);
     blocks.push({
       title: "Valuation sensitivity assessment",
-      paragraphs: [input.scenarioPresentation.sensitivity.conclusion, input.scenarioPresentation.interpretation],
+      paragraphs: [unsupportedRobustness
+        ? "Saved robustness conclusion withheld: complete modeled grids with unique coordinates and valid values are not available. Retained figures are unchanged; no statistical confidence or future-price range is established."
+        : sensitivity.conclusion, input.scenarioPresentation.interpretation],
       items: [],
     });
   }

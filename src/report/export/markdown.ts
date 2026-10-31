@@ -114,6 +114,7 @@ import {
   runSummary,
   scoreDriverTable,
   scorecardTable,
+  gradeReliabilityTable,
   sourceLabel,
   splitCommonLines,
   evidenceScopeSummary,
@@ -420,6 +421,7 @@ function renderScores(scores: Scoring): string {
     table(card.headers, card.rows),
     "",
     ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
+    ...auditTableBlocks([gradeReliabilityTable(scores)]),
     ...(drivers ? auditTableBlocks([drivers]) : []),
     ...(exposure ? auditTableBlocks([exposure]) : []),
     ...auditTableBlocks([factorContributionSensitivityTable(scores)]),
@@ -606,7 +608,7 @@ function renderValuation(
       lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
     }
   }
-  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage, symbol: review.report?.meta.symbol })) {
+  for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: review.report?.meta.symbol })) {
     lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [prose(p), ""]));
     for (const item of block.items) {
       lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [prose(p), ""]));
