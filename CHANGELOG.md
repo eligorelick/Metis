@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.52.0** and
-payload **1.54.0** (B6 financial-route fixes after B5a seasonality and calendar fixes). The
+Current source declares application **0.1.0**, report spec **1.53.0** and
+payload **1.55.0** (the D-138 report-53 batch; final release verification is pending). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - descriptive lease coverage without debt restatement (2026-10-30)
+
+D-138 (report-53 audit, Task 4) separates operating, finance and combined lease evidence from the existing debt convention. A provider zero or positive observation is not a complete filed liability. Exact-date, known-unit primary evidence and compatible filing/availability context support component descriptions; only compatible complete components and an existing reconciled combined observation support combined scope. Exact combined zero requires both explicit component zeros. Neutral debt captions retain existing numeric IDs and amounts.
+
+Current-capital, statement/payload provenance, diagnostics, EV, the actual DCF anchor and each WACC average/latest row share those descriptions. The DCF note names the amount actually subtracted and the resulting net debt separately. ROIC wording no longer infers lease inclusion or bias direction from unknown operating scope. Numeric admission/refusal, adjustments, ratios, grades and report state are unchanged; missing coverage is not a new refusal. Synthetic controls preserve debt 15,270M less liquidity 8,304M = 6,966M (6.97B displayed), without importing older 102M/730M lease balances. No exact report-53 replay is claimed. The reserved batch stamps advance once here to report 1.53.0, payload 1.55.0 and Stage B 34 because these source-scope descriptions change model context. Earlier convention cutoffs remain frozen. Task 9 retains final legacy qualification, whole-batch replay and release consistency; it does not advance these stamps again for the same batch.
 
 ## Unreleased - comparable receivables in forensic ratios (2026-10-30)
 

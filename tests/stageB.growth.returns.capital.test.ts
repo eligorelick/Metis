@@ -1462,13 +1462,13 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     const r = computeRoic(leaseIncome, leaseBalance, { includeOperatingLeases: true });
     const latest = r.series[r.series.length - 1]!;
     expect(latest.investedCapitalAvg).toBeCloseTo(24_500, 9);
-    expect(r.notes.join(" ")).toMatch(/kept inside invested capital \(THESIS_EV_INCLUDE_LEASES=1\)/);
+    expect(r.notes.join(" ")).toMatch(/retained totalDebt basis \(THESIS_EV_INCLUDE_LEASES=1\)/);
   });
 
   it("says when no balance sheet discloses the split, and states the basis that actually ran", () => {
     const r = computeRoic(roicIncome, roicBalance);
     const notes = r.notes.join(" ");
-    expect(notes).toMatch(/no balance sheet discloses an operating-lease liability/);
+    expect(notes).toMatch(/no separate operating-lease observation is available/);
     expect(notes).toMatch(/cash \+ short-term investments/);
     // Re-pinned for D-60: the net-debt convention is versioned V3.
     expect(notes).toMatch(/NET_DEBT_V3/);

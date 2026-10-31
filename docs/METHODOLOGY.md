@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.52.0 / payload 1.54.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33 (2026-10-30, D-137). Its bounded evidence fixes
+The current source declares report 1.53.0 / payload 1.55.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_34 (2026-10-30, D-138; final release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -1651,6 +1651,12 @@ row, an unproven history year is left out of the A-2 median with a note (below).
 With the switch set every consumer keeps total debt as reported, and the
 sales-to-capital basis says the operating lease is kept in invested capital.
 
+**Lease evidence is descriptive, not a new debt guard (D-138, report-53 Task 4, unreleased).** Operating, finance and combined coverage are classified separately from the existing arithmetic and refusal rules. A provider lease-line zero is an observation, not a disclosed all-lease zero. A complete operating total or zero establishes neither finance nor combined completeness. The XBRL `CapitalLeaseObligations` concept is finance-only even though the similarly named provider field can hold a combined observation.
+
+Complete component descriptions require finite nonnegative retained amounts, no explicit field refusal, supported direct total or disjoint current/noncurrent tags, primary SEC evidence for the exact balance date and known currency, valid filed dates, the actual confirmed company-facts envelope acquisition timestamp at or before the analytical bundle cutoff, and one compatible filing lineage. The optional descriptive context carries the cutoff and acquisition timestamp separately. Field `observedAt` is not assumed to be acquisition time: the parser records actual acquisition there, but enrichment records its analytical cutoff. A missing context, wrong issuer, or future-to-snapshot acquisition remains unverified; no present-day clock or filing date is substituted. Reconstructed, calculated, overlapping, unsupported or incomplete provenance remains unverified. The existing combined observation must reconcile to both independently complete components with compatible evidence; the classifier never constructs a replacement amount. Combined zero additionally requires all three retained amounts to be exactly zero. No evidence classification certifies all-lease inclusion in debt.
+
+Debt captions therefore say "Debt used in this report" and "Net debt on the retained basis," while explicitly partial-maturity captions remain distinct. Existing numeric property names, citation IDs, monetary values, refusal priorities, model eligibility and grades are retained. Current-capital, statement/payload and diagnostic notes use the same evidence wording. EV and DCF describe adjustments actually made; the DCF classifies its actual bridge balance and distinguishes the amount removed from net debt after adjustment. WACC describes each actual averaged balance and its separate latest balance independently. ROIC notes describe the retained basis without inferring lease inclusion or bias direction from missing operating scope. The convention switch, source name, equal amounts, absent finance tags and a noncurrent-line completion marker do not by themselves establish complete lease coverage. Unknown coverage introduces no refusal or Blocked state. Older balances are never imported to fill it.
+
 **A withheld value states its refusal (audit 2026-10-29, VAL-4, VAL-10,
 KNW-04).** When enterprise value cannot be built, its basis and the
 `valuation.multiples.enterpriseValue` entry read "EV withheld:" with the actual
@@ -1691,8 +1697,8 @@ basis: NOPAT and interest expense are both after operating-lease cost under
 ASC 842, and a lease-inclusive denominator understated ROIC for every
 lease-heavy issuer (a discount retailer: 6% on the inclusive base against 11%
 on the consistent one) and could push the effective rate below the acceptance
-band. Where no split is disclosed, the ROIC notes say the provider's total debt,
-lease liabilities included, was used unadjusted. Where a split is disclosed but
+band. Where no split is disclosed, the ROIC notes say total debt on the retained
+basis was used without a separate operating-lease adjustment; lease coverage and the direction of any ROIC bias are unverified. Where a split is disclosed but
 not shown to sit inside total debt (the proof above), the year's note names the
 unproven reason and says total debt is used as reported. The DCF's sales-to-capital denominator
 is the same capital: the proven operating-lease slice leaves its debt by default

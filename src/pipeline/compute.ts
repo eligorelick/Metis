@@ -138,7 +138,7 @@ import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/d
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
-import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
@@ -613,8 +613,10 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
   };
 }
 
-function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
+function toCapitalBalance(r: FmpBalanceSheetRow, leaseEvidenceContext: LeaseEvidenceContext): CapitalBalanceRow {
   return {
+    reportedCurrency: r.reportedCurrency,
+    leaseEvidenceContext,
     fieldProvenance: r.fieldProvenance,
     fieldConflicts: r.fieldConflicts,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
@@ -1770,6 +1772,7 @@ function totalDebtSnapshot(
   includeOperatingLeases: boolean,
   /** Other statements' rows: filing-linked currency evidence for an unlabelled balance row. */
   currencyEvidence: readonly CurrencyEvidenceRow[] = [],
+  leaseEvidenceContext?: LeaseEvidenceContext,
 ): {
   average: number | null;
   negativeObservation: number | null;
@@ -1829,13 +1832,11 @@ function totalDebtSnapshot(
   }
   const a = bookDebtOnLeaseBasis(pair[0], includeOperatingLeases);
   const b = bookDebtOnLeaseBasis(pair[1], includeOperatingLeases);
-  const leaseText =
-    a.leaseRemoved || b.leaseRemoved
-      ? "book totalDebt less the operating-lease liability (the EV bridge's lease rule)"
-      : includeOperatingLeases
-        ? "book totalDebt with the operating-lease liability kept in (THESIS_EV_INCLUDE_LEASES=1)"
-        : "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it)";
-  const scopeNotes = pair.flatMap(row => { const coverage = incompleteLeaseCoverage(row); return coverage ? [`${isoDay(row?.date)}: ${coverage.note}`] : []; });
+  const leaseText = "book totalDebt on the retained calculation basis";
+  const scopeNotes = pair.flatMap((row, index) => row === undefined ? [] : [
+    leaseEvidenceNote({ ...row, leaseEvidenceContext }, { removed: (index === 0 ? a : b).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
+    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : []),
+  ]);
   const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
     .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
   // The newest balance is the debt weight's (D-60). Outside the pair, a lease
@@ -1844,7 +1845,7 @@ function totalDebtSnapshot(
   const newestRefusal = newestInPair ? null : leaseRefusal([newestBalance]);
   const newestNote = newestRefusal === null ? ""
     : `; the newest balance (${isoDay(newestBalance!.date)}) is not used for the debt weight, which uses this average: ${newestRefusal}`;
-  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? `; retained lease coverage: ${scopeNotes.join(" ")}` : ""}${newestNote}`;
+  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? ` (retained lease coverage: ${scopeNotes.join(" ").replace(/\.$/, "")})` : ""}${newestNote}`;
   const used = [a.value !== null ? pair[0] : undefined, b.value !== null ? pair[1] : undefined].filter(
     (row): row is FmpBalanceSheetRow => row !== undefined,
   );
@@ -1884,7 +1885,7 @@ function totalDebtSnapshot(
   const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
   const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
   const latest = newestRefusal === null && newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
-    ? { latest: newestDebt, latestBasis: `${leaseText}, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note}` : ""}` }
+    ? { latest: newestDebt, latestBasis: `book totalDebt on the retained calculation basis, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets (lease evidence: ${leaseEvidenceNote({ ...newestRow, leaseEvidenceContext }, { removed: newestRow && bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).leaseRemoved ? num(newestRow.operatingLeaseLiability) : null }).replace(/\.$/, "")}${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note.replace(/\.$/, "")}` : ""})` }
     : {};
   if (a.value !== null && b.value !== null) {
     return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency, ...latest };
@@ -2253,7 +2254,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const annualCapital = computeCapital(
     incomeAnnual.map(toCapitalIncome),
     cashflowAnnual.map(toCapitalCashFlow),
-    balanceAnnual.map(toCapitalBalance),
+    balanceAnnual.map(row => toCapitalBalance(row, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt))),
     rowsOf(bundle.marketCapHistory).map<MarketCapPoint>((r) => ({
       date: String(r.date ?? ""),
       marketCap: num(r.marketCap),
@@ -2296,10 +2297,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),
       financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
     } : null,
-    balance: currentBalance ? toCapitalBalance(currentBalance) : null,
+    balance: currentBalance ? toCapitalBalance(currentBalance, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
     currency: currencies.model,
     annualCashFlow: cashflowAnnual[0] ? toCapitalCashFlow(cashflowAnnual[0]) : null,
-    annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0]) : null,
+    annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
 
   // --- SEC 8-K forensic events -------------------------------------------
@@ -3023,7 +3024,7 @@ function computeReturns(
     ...rowsOf(bundle.statements.cashflowAnnual),
   ];
   const ttmDebtCurrency = ttmInc
-    ? totalDebtSnapshot(balanceAnnual, balanceQuarterly, "ttm", includeOperatingLeases, statementEvidence).currency
+    ? totalDebtSnapshot(balanceAnnual, balanceQuarterly, "ttm", includeOperatingLeases, statementEvidence, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)).currency
     : null;
   const ttmDebtComparable = ttmInc !== null && ttmInc.reportedCurrency !== null && ttmDebtCurrency === ttmInc.reportedCurrency;
   if (ttmInc && !ttmDebtComparable && (ttmInc.interestExpense !== null || ttmInc.ebit !== null || ttmInc.operatingIncome !== null)) {
@@ -3083,7 +3084,7 @@ function computeReturns(
       );
     }
   }
-  const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence);
+  const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt));
 
   // D-60: the beta's regression window, frequency and fit. A vendor beta
   // publishes none, so the same 60-month OLS the keyless route uses runs on the
@@ -3373,8 +3374,10 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
  * newest row, and (FIN-103) the DCF equity bridge reads the row dated at the
  * statement date. One mapping, so the two cannot drift.
  */
-function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual" | null | undefined): MultiplesBalance {
+function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual" | null | undefined, leaseEvidenceContext: LeaseEvidenceContext): MultiplesBalance {
   return {
+    reportedCurrency: row.reportedCurrency,
+    leaseEvidenceContext,
     date: String(row.date ?? ""),
     basis: basis ?? undefined,
     totalDebt: num(row.totalDebt),
@@ -3882,9 +3885,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           depreciationAndAmortization: num(ctx.cashflowAnnual[0].depreciationAndAmortization),
         }
       : null;
-  const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis) : null;
+  const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
   // FIN-103: the DCF bridge's own row, mapped the same way.
-  const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis) : null;
+  const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
 
   // The latest TTM gate does not establish the currency of older quarters.
   // Own-history bands roll over those older rows too, so apply the same

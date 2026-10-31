@@ -33,7 +33,7 @@ describe("reader labels and one source marker", () => {
   it("names registry ids for a reader and leaves unknown labels untouched", () => {
     expect(metricLabel("computed.deterministic-aspect-scores.fundamentals-score")).toBe("Fundamentals score");
     expect(metricLabel("computed.current-capital.net-debt-to-ebitda")).toBe("Net debt to EBITDA");
-    expect(metricLabel("computed.capital.current.debtBridge.totalDebtIncludingLeases")).toBe("Total debt including leases");
+    expect(metricLabel("computed.capital.current.debtBridge.totalDebtIncludingLeases")).toBe("Debt used in this report");
     expect(metricLabel("payload.statements.income-statement-quarterly.2026-07-26.revenue")).toBe("Revenue (quarter ended 2026-07-26)");
     expect(metricLabel("computed.technicals.rsi-14")).toBe("RSI (14-day)");
     expect(metricLabel("computed.forensics.flags.serial-one-time-items")).toBe("Material other income/expense");
@@ -52,7 +52,7 @@ describe("reader labels and one source marker", () => {
     ]);
     expect(rows.map((row) => [row.label, row.value])).toEqual([
       ["Interest coverage", "426.7×"],
-      ["Total debt including leases", "$38.86B"],
+      ["Debt used in this report", "$38.86B"],
     ]);
   });
 

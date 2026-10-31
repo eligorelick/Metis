@@ -15,7 +15,7 @@
 
 import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { leaseDebtScopeRefusal } from "./leaseScope";
+import { leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import {
@@ -78,7 +78,9 @@ export interface CapitalBalanceRow {
   fieldConflicts?: FmpStatementRow["fieldConflicts"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
-  fieldProvenance?: Record<string, { tags: string[]; calculation?: string; filings?: { accn: string; form: string }[] }>;
+  reportedCurrency?: string | null;
+  leaseEvidenceContext?: LeaseEvidenceContext;
+  fieldProvenance?: Record<string, LeaseFieldEvidence>;
   /** Wording only: the vendor's own split of its lease line, which the lease guard's reason names (D-133). */
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
@@ -730,6 +732,7 @@ export function computeCapital(
     else if (leaseExcluded) ndNotes.push(`net debt excludes the operating-lease liability ${fmt(operatingLease as number)}, as enterprise value does (EBITDA is already after operating-lease cost)`);
     else if (leaseScope !== null) ndNotes.push(`${leaseScope}, as enterprise value is`);
     ndNotes.push(`${resolution.version}: ${resolution.reason}`);
+    ndNotes.push(leaseEvidenceNote(latestBal, { removed: netDebt !== null && leaseExcluded ? operatingLease ?? null : null }).replace(/\.$/, ""));
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
     const cfMatch = latestInc !== undefined ? rowForDate(cf, latestInc.date) : undefined;

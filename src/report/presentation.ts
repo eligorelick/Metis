@@ -1,3 +1,4 @@
+import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -148,6 +149,7 @@ const ASPECT_LABEL: Record<string, string> = {
 
 const EXACT_LABELS: Record<string, string> = {
   ...Object.fromEntries([
+    ...Object.entries(LEASE_DEBT_LABELS),
     ["debtIncludingDisclosedLeasePortion", "Debt including disclosed lease portion (full coverage unverified)"],
     ["operatingLeasesNoncurrent", "Operating leases (noncurrent only)"],
     ["operatingLeasesCurrent", "Operating leases (current only)"],

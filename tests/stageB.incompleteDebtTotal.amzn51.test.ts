@@ -81,7 +81,7 @@ describe("the current-capital bridge never publishes a refused total (FIG-2)", (
     const completed = admitDebtFields(vendorRow(Q2), companyFacts(FILED_FACTS), "USD", OBSERVED).row;
     const bridge = bridgeOf(completed);
     expect(bridge.totalDebtIncludingLeases).toBe(242_320 * M);
-    expect(bridge.compositionNote).toMatch(/^Total debt including leases 242,320M is composed from the 10-Q 0000000042-26-000026 filing/);
+    expect(bridge.compositionNote).toMatch(/^Debt on the recomposed reported basis 242,320M is composed from the 10-Q 0000000042-26-000026 filing/);
     expect(bridge.compositionNote).toMatch(/leaving out current debt and current lease liabilities\. It is a composed figure, not a vendor-reported total\.$/);
   });
 
@@ -127,7 +127,7 @@ describe("the provider EV is withheld at a date whose debt the run refused or re
     const completed = admitDebtFields(vendorRow(Q2), companyFacts(FILED_FACTS), "USD", OBSERVED).row;
     const md = buildMarketData(bundleWith(completed, 223_232 * M))!;
     expect(md.enterpriseValue).toBeNull();
-    expect(md.enterpriseValueNote).toMatch(/debt operand 223,232M differs from the same-date total debt including leases 242,320M/);
+    expect(md.enterpriseValueNote).toMatch(/debt operand 223,232M differs from the same-date debt on the recomposed reported basis 242,320M/);
   });
 
   it("control: a provider EV whose debt matches an unrefused balance is shown as served", () => {

@@ -51,10 +51,11 @@ describe("FIN-109: a finance-lease-only lease total", () => {
 
   it("the EV basis and the bridge note say the lease is a finance lease that stays in EV", () => {
     const { ev, dcfNote } = build(edgarFinance, 2_387);
-    expect(ev.basis).toMatch(/lease liability of 2,387M is a finance lease, which stays in EV and net debt on both bases/);
+    expect(ev.basis).toMatch(/recorded finance-lease observation of 2,387M stays in EV and net debt on both bases/);
     expect(ev.basis).not.toMatch(/its operating slice is not/);
-    expect(dcfNote).toMatch(/lease liability of 2,387M is a finance lease, which stays in EV and net debt on both bases/);
-    expect(dcfNote).not.toMatch(/its operating slice is not/);
+    expect(dcfNote).toMatch(/recorded finance-lease observation of 2,387M stays in EV and net debt on both bases/);
+    expect(dcfNote).not.toMatch(/its operating slice is not|no operating slice to remove/);
+    expect(dcfNote).toMatch(/operating-lease coverage remains unverified/);
   });
 
   it("EV is unchanged: the whole lease total stays in EV as the finance lease", () => {
@@ -65,11 +66,11 @@ describe("FIN-109: a finance-lease-only lease total", () => {
     expect(ev.value).toBe(ev.includingLeases);
   });
 
-  it("a vendor total with no split keeps the FMP wording", () => {
+  it("a vendor total with no split retains its unknown operating and finance scope", () => {
     const { gaps, ev, dcfNote } = build({ source: "fmp", tags: [] }, null);
-    expect(gaps.some((g) => /combined operating \+ finance figure \(the FMP route publishes no split\)/.test(g))).toBe(true);
-    expect(ev.basis).toMatch(/its operating slice is not/);
-    expect(dcfNote).toMatch(/its operating slice is not/);
+    expect(gaps.some((g) => /combined lease coverage is unverified/.test(g))).toBe(true);
+    expect(ev.basis).toMatch(/Operating(?:, finance and combined)? lease coverage is unverified/);
+    expect(dcfNote).toMatch(/Operating(?:, finance and combined)? lease coverage is unverified/);
     expect(ev.basis).not.toMatch(/is a finance lease/);
   });
 

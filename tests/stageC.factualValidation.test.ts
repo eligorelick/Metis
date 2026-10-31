@@ -504,7 +504,7 @@ describe("factual prose numeric validation", () => {
     const context = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     const record = context.provenanceRegistry!.find(entry => entry.origin === "computed.capital.current.debtBridge.totalDebtIncludingLeases" && entry.id.startsWith("computed.current-capital."))!;
     expect(record).toBeDefined();
-    const text = `Total debt including leases was ${record.currency} ${(record.value / 1e6).toFixed(3)} million at the latest quarter end.`;
+    const text = `Debt used in this report was ${record.currency} ${(record.value / 1e6).toFixed(3)} million at the latest quarter end.`;
     const result = await runVerifyPass({} as PassDeps, context, { commentary: [{ label: "FACT", text, source: record.id, asOf: record.asOf }] });
     expect(result.log[0]).toMatchObject({ validationStatus: "validated" });
   });

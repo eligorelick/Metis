@@ -147,7 +147,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.52.0 (D-137, B6): financial-route currency/eligibility and reverse share basis, buyback coverage,
 // revenue refusal, ADR Altman scope, peer comparisons and P/E ranks; optional business evidence share
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
-export const REPORT_SPEC_VERSION = "1.52.0" as const;
+// D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
+export const REPORT_SPEC_VERSION = "1.53.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

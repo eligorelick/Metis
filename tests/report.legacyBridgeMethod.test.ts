@@ -27,7 +27,7 @@ const E7 = /deducted the filed retirement and environmental obligations shown in
 const LEASE = /sales-to-capital kept the 5,494M operating lease the EV left out in invested capital/;
 const DIVISOR_IF = /if the divisor period was a loss quarter, its divisor carried no award dilution/;
 const REIT_NOTE = /Priced under the REIT method before report spec .*P\/FFO, P\/AFFO and the implied cap rate used price × weighted diluted shares/;
-const FINANCE_SENTENCE = /a total lease liability of 2,387M is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is/;
+const FINANCE_SENTENCE = /the recorded finance-lease observation of 2,387M stays in EV and net debt on both bases under the retained convention; operating-lease coverage remains unverified/;
 const FIN109_OLD = "a total lease liability of 2387000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is";
 
 const EV_HEAD = "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments";
@@ -237,7 +237,7 @@ describe("legacy equity-bridge method note", () => {
     expect(view.valuation.multiplesBasis).not.toContain(FIN109_OLD);
     expect(view.appendix.missingData.some((e) => /publishes no split/.test(e.reason))).toBe(false);
     for (const surface of surfaces(report)) {
-      expect(surface.replace(/\s+/g, " ")).toMatch(/is a finance lease, which stays in EV/);
+      expect(surface.replace(/\s+/g, " ")).toMatch(/recorded finance-lease observation of 2,387M stays in EV/);
       expect(surface).not.toMatch(/publishes no split/);
     }
     // Control: a mixed-lease legacy basis (the finance lease is only part of the total) is shown unchanged.

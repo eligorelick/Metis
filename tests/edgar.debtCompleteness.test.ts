@@ -136,7 +136,7 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     const record = payload.provenanceRegistry?.find((entry) => entry.id === id);
     expect(record).toBeUndefined();
     const block = payload.statements.find((entry) => entry.title === "Balance sheet — quarterly")!;
-    expect(block.lineItems.find((line) => line.lineItem === "total debt")?.byPeriod[0]?.value).toBeNull();
+    expect(block.lineItems.find((line) => line.lineItem === "Debt used in this report")?.byPeriod[0]?.value).toBeNull();
     expect(validateClaimNumericSupport({ text: "Total debt as of 2026-06-30 was USD 22.724 billion.", label: "FACT", source: id, asOf: "2026-06-30" },
       { record, sourceId: id, excerpts: [], reportingCurrency: "USD" }).status).not.toBe("validated");
     expect(row.totalDebt).toBe(22_724 * M); // Admission is immutable; preserve raw snapshot evidence.

@@ -78,7 +78,7 @@ function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseVa
     const provenance = (row.fieldProvenance as Record<string, { calculation?: string; tags?: string[] }> | undefined)?.totalDebt;
     const composed = provenance?.calculation === "noncurrent-lease-line-completed";
     if (composed && total !== null && (ev.totalDebt === null || Math.abs(total - ev.totalDebt) > Math.max(1, Math.abs(total) * 1e-6))) {
-      return `its debt operand ${operand} differs from the same-date total debt including leases ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
+      return `its debt operand ${operand} differs from the same-date debt on the recomposed reported basis ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
     }
   }
   return null;
