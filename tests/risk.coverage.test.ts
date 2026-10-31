@@ -113,6 +113,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/legacyPayloadRecordSafety.ts",
   "src/report/legacyEdgarDerivedLines.ts",
   "src/report/legacyBridgeMethod.ts",
+  "src/report/legacyScopeQualifications.ts",
   "src/report/legacyImpliedReturnShareBasis.ts",
   "src/report/legacyValuationNotes.ts",
   "src/report/sectionManifest.ts",

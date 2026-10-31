@@ -28,6 +28,7 @@
  * chart module stays decoupled from this renderer.
  */
 
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { MetisLogo } from "@/brand/MetisLogo";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -185,7 +186,8 @@ export function ReportView({
   layout?: "classic" | "dossier";
   selectedReportId?: number;
 }) {
-  const report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))));
+  const report = withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))))))));
+  const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.
   indexVerificationMarks(report);
   const reportId = presentationReportId(report,{selectedReportId});
@@ -251,6 +253,15 @@ export function ReportView({
       {newerFilingBanner(report.filingDisclosures) && <NewerResultsBanner text={newerFilingBanner(report.filingDisclosures)!} label="newer filing not reflected" />}
 
       {layout === "classic" && <KeyDataBox report={report} />}
+
+      {scopeQualifications.length > 0 && (
+        <section className="border border-edge bg-panel p-3" aria-label={LEGACY_SCOPE_HEADING}>
+          <h2 className="font-semibold">{LEGACY_SCOPE_HEADING}</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
+            {scopeQualifications.map(note => <li key={note}>{note}</li>)}
+          </ul>
+        </section>
+      )}
 
       <div className="report-columns flex gap-4">
         {/* Main column */}

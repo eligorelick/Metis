@@ -10,6 +10,36 @@ rules; final independent review and report acceptance remain gates. The historic
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
 
+## Saved-report scope qualifications (D-138)
+
+Reports before the frozen 1.53.0 convention display a separate read-time
+clarification section before the affected body in classic, dossier, Markdown,
+print and audit. The sidecar is not recorded evidence or a manifest entry; it
+changes no stored figures, flags/severities, grades, trust counts, source/date
+identities, verification or report state. Missing/malformed versions get
+unrecorded-version wording without broader parser admission. Current/future
+versions get no historical migration notes. If a current/future report contains
+an exact owned older receivables/discontinued flag wrapper, only a fixed
+non-migration interpretation caveat appears; the flag is not rewritten. Normal
+current/future reports and near/analyst matches receive no such caveat. This
+covers current assembly from older computed inputs whose scope notes were not
+saved with the flag. No new lease matcher or saved-proof schema is inferred.
+Absent collector/estimate metadata still means unknown through their shared
+formatters.
+
+Only exact generated receivables-growth and discontinued-observation quality
+flag templates at their owning sources are rewritten, preserving their amounts,
+counts, rule and severity. Arbitrary analyst prose survives with a separate
+limitation. Legacy Altman periods and lease/DCF boilerplate remain recorded and
+must be read with the caveat; scores and rounded ratios cannot recover missing
+scope, dates or operands. Earlier 1.50/1.51/1.52 safety conventions retain their
+order and cutoffs, including bridge EXCLUDES evidence. Repeated parser/reader
+composition is immutable and idempotent. Audit distinguishes recorded model
+labels from the shared saved-execution summary; its existing omission of
+historical fair-value basis prose remains unchanged. The [report-53 disposition](audit/2026-10-30-qcom-report-53-integrity.md)
+records implemented source changes, all evidence limits and separate release
+acceptance work. No original report-53 snapshot replay is claimed.
+
 Company analysis requires established security classification: an explicit equity
 type, or both provider fund flags explicitly false when no explicit type is given.
 An explicit unsupported or unrecognized type cannot be erased by false flags;

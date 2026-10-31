@@ -35,7 +35,7 @@ function exportsOf(bundle: ReturnType<typeof fixture>, computed = runStageB(bund
 
 const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "recurring-discontinued-ops");
 
-// Freeze the entire Stage B result, permitting only the two Task 8 text fields.
+// Freeze the entire Stage B result, permitting only two Task 8 descriptions at three exact output paths.
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
   const pinned = structuredClone(c);

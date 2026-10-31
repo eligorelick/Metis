@@ -10,6 +10,7 @@
  * same input → byte-identical output (sorted as-of keys, no clock, no locale).
  */
 
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { formatExecutionMetadata } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -29,7 +30,7 @@ import {
   formatCostUsd,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { runSummary, displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import { figureCitationStatus, indexVerificationMarks } from "@/report/verificationMarks";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
@@ -118,10 +119,11 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
     ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
     ["Recorded usage", usageSummary(report)],
     ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
-    ["Model", m.model],
+    ["Recorded model label", m.model],
+    ["Saved model evidence", runSummary(report)],
     ["Spec version", m.specVersion],
     ["Pipeline version", m.pipelineVersion],
-    ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
+    ...(m.verifyModel !== undefined ? [["Recorded verify-model label", m.verifyModel]] : []),
     ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
   ]), "");
   if (m.judgeProtocol !== undefined) lines.push("### Judgement protocol", "", markdownProse(m.judgeProtocol.note), "");
@@ -467,6 +469,8 @@ function renderOwnHistory(report: Report): string {
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
+  report = withLegacyScopeQualifications(report);
+  const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const m = report.meta;
   const blocks = [
@@ -480,6 +484,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
     ].join("\n"),
     renderRun(report,context),
+    scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => markdownProse(note)).join("\n\n")}` : "",
     report.marketData?.enterpriseValueNote ? `## Historical enterprise-value presentation\n\n${markdownProse(report.marketData.enterpriseValueNote)}` : "",
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
