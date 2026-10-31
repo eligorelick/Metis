@@ -26,6 +26,7 @@
 
 import { parseGuidanceTables } from "@/edgar/guidanceTables";
 import { htmlToText, type ParsedDocument } from "@/edgar/extract";
+import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
 // ---------------------------------------------------------------------------
 // Shared text helpers
@@ -1261,7 +1262,7 @@ export function hasMaterialEventItem(items: string | undefined): boolean {
  */
 export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocument): EightKItemSection[] {
   const text = normalizeFilingText(rawText);
-  const boundaries = itemHeadingBoundaries(rawText, sourceDocument);
+  const { boundaries, tagText } = itemHeadingBoundaries(rawText, sourceDocument);
   const heads: { item: string; start: number; bodyStart: number }[] = [];
   for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})\s*[.:–—-]?\s*/gi)) {
     const item = m[1]!;
@@ -1281,6 +1282,9 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
     const separator = /^\s*[.:–—-]+/.exec(following)?.[0].length ?? 0;
     const titleAt = bodyStart + titleEnd;
+    // Known tag-origin text is not an item title, even if the plain-text
+    // fallback would admit it. These spans exist only for an exact projection.
+    if (tagText.some(([start, end]) => m.index < end && titleAt > start)) continue;
     const standaloneHeading = boundaries.has(m.index) && (boundaries.has(titleAt) || boundaries.has(titleAt + separator));
     if (!standaloneHeading) {
       const before = text.slice(Math.max(0, m.index - 120), m.index);
@@ -1313,18 +1317,40 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
 }
 
 /** Same-text line/block coordinates, used only as optional standalone-heading proof. */
-function itemHeadingBoundaries(rawText: string, document?: ParsedDocument): Set<number> {
+function itemHeadingBoundaries(rawText: string, document?: ParsedDocument): { boundaries: Set<number>; tagText: [number, number][] } {
   const marker = "\u0000";
-  if (rawText.includes(marker)) return new Set();
+  const tagText: [number, number][] = [];
+  if (rawText.includes(marker)) return { boundaries: new Set(), tagText };
   let marked = rawText.replace(/\r\n?|\n/g, marker);
-  if (document?.fullText === rawText && !document.pre.includes(marker) && htmlToText(document.pre) === rawText) {
-    // Match the existing text projection's visibility, without changing global
-    // extraction. HTML hidden attributes are not removed there: decline proof
-    // for that document rather than relabel retained hidden text as visible.
-    const source = document.pre.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
-    const tags = /<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g;
-    const hidden = [...source.matchAll(tags)].some(([tag]) => /\shidden(?=[\s=/>])/i.test(tag.replace(/"[^"]*"|'[^']*'/g, '""')));
-    if (!hidden) marked = htmlToText(source.replace(tags, tag => /^<\/?(?:h[1-6]|p|div|tr|td|th|li|br)(?=[\s/>])/i.test(tag) ? `${marker}${tag}${marker}` : tag));
+  if (document?.fullText === rawText && !document.pre.includes(marker) &&
+      explicitHtmlHiddenState(document.pre) === "clear" && htmlToText(document.pre) === rawText) {
+    // Check original attributes before the lossy text projection can erase
+    // hidden evidence. Hidden/unsupported documents supply no optional proof.
+    // Mark original tags, consuming comments/raw-text bodies as whole tokens:
+    // stripping quoted delimiters first could expose attribute text as tags.
+    const tokens = /<!--[\s\S]*?-->|<(script|style)(?=[\s/>])(?:[^"'<>]|"[^"]*"|'[^']*')*>[\s\S]*?<\/\1\s*>|<(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
+    marked = "";
+    let sourceLength = 0;
+    const append = (source: string, fromTag: boolean) => {
+      const part = normalizeFilingText(htmlToText(source));
+      if (!part) return;
+      if (sourceLength) { marked += " "; sourceLength++; }
+      // Shared extraction may leak quoted attribute text. Keep its coordinates
+      // for compatibility, but it cannot supply any part of an item title.
+      if (fromTag) tagText.push([sourceLength, sourceLength + part.length]);
+      marked += part;
+      sourceLength += part.length;
+    };
+    let cursor = 0;
+    for (const token of document.pre.matchAll(tokens)) {
+      append(document.pre.slice(cursor, token.index), false);
+      const block = /^<\/?(?:h[1-6]|p|div|tr|td|th|li|br)(?=[\s/>])/i.test(token[0]);
+      if (block) marked += marker;
+      append(token[0], true);
+      if (block) marked += marker;
+      cursor = token.index + token[0].length;
+    }
+    append(document.pre.slice(cursor), false);
   }
   let projected = "";
   const boundaries = new Set<number>();
@@ -1336,7 +1362,7 @@ function itemHeadingBoundaries(rawText: string, document?: ParsedDocument): Set<
     projected += part;
     boundaries.add(projected.length);
   }
-  return projected === normalizeFilingText(rawText) ? boundaries : new Set();
+  return projected === normalizeFilingText(rawText) ? { boundaries, tagText } : { boundaries: new Set(), tagText: [] };
 }
 
 function matchTitleEnd(printed: string, title: string): number {

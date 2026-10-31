@@ -252,6 +252,146 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
     expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);
   });
 
+  const quotedMarkerAttributes = [
+    'title="<!--" hidden data-end="-->"',
+    'title="<script>" hidden data-end="</script>"',
+    'title="<style>" hidden data-end="</style>"',
+    "title='<!--' hidden data-end='-->'",
+    "title='<script>' hidden data-end='</script>'",
+    "title='<style>' hidden data-end='</style>'",
+  ];
+  const quotedMarkerCases = quotedMarkerAttributes.flatMap(attributes => [
+    [attributes, "Unregistered Sale of Equity Securities"],
+    [attributes, "Unregistered Sales of Equity Securities"],
+  ]);
+  it.each(quotedMarkerCases)("declines hidden source proof before projecting %s / %s", (attributes, title) => {
+    const reference = `The disclosures required by Item 3.02 ${title} below are incorporated by reference.`;
+    const source = `<p>The disclosures required by</p><div ${attributes}><p>Item 3.02 ${title}</p></div><p>below are incorporated by reference.</p>`;
+    const standalone = parseDocument(source);
+    // Both shared projections retain the reference; agreeing bytes do not
+    // establish that its title was visible or a genuine section boundary.
+    expect(standalone.fullText).toBe(reference);
+    expect(splitEightKItems(standalone.fullText)).toEqual([]);
+    expect(splitEightKItems(standalone.fullText, standalone)).toEqual([]);
+    const enclosing = parseDocument(`<h2>Item 1.01 Entry into a Material Definitive Agreement.</h2><p>Agreement before.</p>${source}<p>Agreement after.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`);
+    expect(splitEightKItems(enclosing.fullText, enclosing).map(s => [s.item, s.text])).toEqual([
+      ["1.01", `Agreement before. ${reference} Agreement after.`], ["8.01", "Other body."],
+    ]);
+  });
+
+  it.each(quotedMarkerCases)("retains the enclosing agreement through actual offline collection for %s / %s", async (attributes, title) => {
+    const row = filing(1, { items: "1.01,3.02,8.01" });
+    const reference = `The disclosures required by Item 3.02 ${title} below are incorporated by reference.`;
+    const source = `<p>Form 8-K Current Report.</p><h2>Item 1.01 Entry into a Material Definitive Agreement.</h2><p>Agreement before.</p><p>The disclosures required by</p><div ${attributes}><p>Item 3.02 ${title}</p></div><p>below are incorporated by reference.</p><p>Agreement after.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events).toHaveLength(1);
+    expect(data.events[0]).toMatchObject({ accession: row.accessionNumber, url: "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/event.htm" });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([
+      ["1.01", `Agreement before. ${reference} Agreement after.`], ["8.01", "Other body."],
+    ]);
+    expect(data.materialEventItems).toEqual(eligible);
+    expect(data.notes.join(" ")).not.toContain("no item heading could be read");
+  });
+
+  it.each([
+    ...quotedMarkerAttributes.map(attributes => attributes.replace(" hidden ", " ")),
+    "title = hidden", "title= hidden", "title =hidden", "title\t=\thidden data-hidden=true",
+  ])("preserves genuine source-heading overrides with ordinary attribute values: %s", attributes => {
+    const document = parseDocument(`<h2>Item 1.01 Entry into a Material Definitive Agreement.</h2><p>Agreement before. The disclosures required by</p><div ${attributes}><p>Item 3.02 Unregistered Sales of Equity Securities</p></div><p>below are incorporated by reference.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`);
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([
+      ["1.01", "Agreement before. The disclosures required by"],
+      ["3.02", "below are incorporated by reference."], ["8.01", "Other body."],
+    ]);
+  });
+
+  it.each(["<!-- unclosed", '<aside title="unclosed', "<script>unclosed", "<style>unclosed"])("does not grant optional heading proof for unsupported original source: %s", tail => {
+    const document = parseDocument(`<p>The disclosures required by</p><p>Item 3.02 Unregistered Sales of Equity Securities</p><p>below are incorporated by reference.</p>${tail}`);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["<!--", "<script>", "<style>"])("does not invent block boundaries from quoted markup exposed by removing %s", opening => {
+    const closing = opening === "<!--" ? "-->" : opening === "<script>" ? "</script>" : "</style>";
+    // The apparent paragraph is wholly inside an ordinary quoted attribute.
+    // Removing the marker pair first makes it look like an actual element,
+    // even though both the original and altered tags are lexically supported.
+    const document = parseDocument(`<p>The disclosures required by</p><span title='${opening}' data-end="${closing}'><p>Item 3.02 Unregistered Sales of Equity Securities</p>below are incorporated by reference.">Ordinary tail.</span>`);
+    expect(document.fullText).toBe('The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.">Ordinary tail.');
+    expect(splitEightKItems(document.fullText)).toEqual([]);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["<!--", "<script>", "<style>"])("does not use an attribute-leaked title between actual block boundaries: %s", opening => {
+    const closing = opening === "<!--" ? "-->" : opening === "<script>" ? "</script>" : "</style>";
+    const document = parseDocument(`<p>The disclosures required by</p><div title='${opening}' data-end="${closing}'><p>Item 3.02 Unregistered Sales of Equity Securities</p><span title='">below are incorporated by reference.</div>`);
+    expect(document.fullText).toBe("The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.");
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["Sale", "Sales"])("does not prove a title whose middle word %s came from an attribute", sale => {
+    const document = parseDocument(`<p>The disclosures required by</p><p>Item 3.02 Unregistered <span title='<!--' data-end="-->'>${sale}<span title='"></span> of Equity Securities</p><p>below are incorporated by reference.</p>`);
+    expect(document.fullText).toBe(`The disclosures required by Item 3.02 Unregistered ${sale} of Equity Securities below are incorporated by reference.`);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["Sale", "Sales"])("rejects a known attribute-origin %s title even without reference cues", sale => {
+    const document = parseDocument(`<div title='<!--' data-end="-->'>Item 3.02 Unregistered ${sale} of Equity Securities<span title='">A retained prose continuation.</div>`);
+    expect(document.fullText).toBe(`Item 3.02 Unregistered ${sale} of Equity Securities A retained prose continuation.`);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["Sale", "Sales"])("does not admit attribute-origin %s headings through the collector's plain fallback", async sale => {
+    const row = filing(1, { items: "1.01,3.02,8.01" });
+    const source = `<p>Form 8-K Current Report.</p><h2>Item 1.01 Entry into a Material Definitive Agreement.</h2><p>Agreement before.</p><div title='<!--' data-end="-->'>Item 3.02 Unregistered ${sale} of Equity Securities<span title='">A retained prose continuation.</div><p>Agreement after.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([
+      ["1.01", `Agreement before. Item 3.02 Unregistered ${sale} of Equity Securities A retained prose continuation. Agreement after.`],
+      ["8.01", "Other body."],
+    ]);
+  });
+
+  it("discards unaligned tag-origin ranges together with mismatched optional projection", () => {
+    const document = parseDocument('<span title="<!--">padding</span><span title="-->"></span><p>Item 3.02 Unregistered Sales of Equity Securities</p><p>A retained prose continuation.</p>');
+    expect(document.fullText).toBe("Item 3.02 Unregistered Sales of Equity Securities A retained prose continuation.");
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "A retained prose continuation."]]);
+  });
+
+  it.each(["<!--", "<script>", "<style>"].flatMap(opening => ["fake-paragraph", "actual-block"].map(shape => [opening, shape])))("keeps attribute-only titles out of actual offline collection: %s / %s", async (opening, shape) => {
+    const closing = opening === "<!--" ? "-->" : opening === "<script>" ? "</script>" : "</style>";
+    const tag = shape === "actual-block" ? "div" : "span";
+    const reference = "The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.";
+    const attribute = shape === "actual-block"
+      ? `${closing}'><p>Item 3.02 Unregistered Sales of Equity Securities</p><span title='`
+      : `${closing}'><p>Item 3.02 Unregistered Sales of Equity Securities</p>below are incorporated by reference.`;
+    const leaked = `<p>The disclosures required by</p><${tag} title='${opening}' data-end="${attribute}">${shape === "actual-block" ? "below are incorporated by reference." : "Ordinary tail."}</${tag}>`;
+    const referenceText = shape === "actual-block" ? reference : `${reference}">Ordinary tail.`;
+    const row = filing(1, { items: "1.01,3.02,8.01" });
+    const source = `<p>Form 8-K Current Report.</p><h2>Item 1.01 Entry into a Material Definitive Agreement.</h2><p>Agreement before.</p>${leaked}<p>Agreement after.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([
+      ["1.01", `Agreement before. ${referenceText} Agreement after.`], ["8.01", "Other body."],
+    ]);
+    expect(data.events[0]).toMatchObject({ accession: row.accessionNumber, url: "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/event.htm" });
+  });
+
+  it.each([
+    '<!-- " <p>Not a heading</p> -->',
+    '<script>const text = "<p>Not a heading</p>";</script>',
+    '<style>p::after { content: "<p>Not a heading</p>"; }</style>',
+  ])("preserves actual headings after complete comment/raw-text tokens: %s", prefix => {
+    const document = parseDocument(`${prefix}<p>The disclosures required by</p><p>Item 3.02 Unregistered Sales of Equity Securities</p><p>below are incorporated by reference.</p>`);
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);
+  });
+
+  it("preserves the real collector's existing raw-source cap before optional proof", async () => {
+    const row = filing(1);
+    const prefix = '<p>Form 8-K Current Report.</p><p>The disclosures required by</p><p>Item 3.02 Unregistered Sales of Equity Securities</p><p>below are incorporated by reference.</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p><h2>SIGNATURES</h2>';
+    const source = prefix + "x".repeat(2_000_000 - prefix.length) + '<div hidden>Beyond the existing fetched-source cap.</div>';
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([
+      ["3.02", "below are incorporated by reference."], ["8.01", "Other body."],
+    ]);
+  });
+
   it("preserves inline title markup inside a standalone paragraph without inventing boundaries from quoted tags", () => {
     const document = parseDocument('<p>The disclosures required by</p><p title="quoted <div> tag"><b>Item 3.02</b><span>Unregistered Sales of Equity Securities</span></p><p>below are incorporated by reference.</p>');
     expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);

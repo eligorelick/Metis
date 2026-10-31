@@ -673,12 +673,25 @@ signature, short incorporation-only and source-text retention boundaries remain.
 Title-ending punctuation and original text-line boundaries stay available
 during reference recognition. The real collector retains the same parsed
 document as optional boundary context, with the existing two-million-character
-document cap. Exact text and projected coordinate agreement can establish a
+raw fetched-source cap applied before parsing. Exact text and projected
+coordinate agreement can establish a
 standalone title in heading/paragraph/table blocks; mismatched context supplies
 no proof. Comment/script/style labels cannot establish visible boundaries.
 Documents containing an actual HTML `hidden` attribute supply no optional block
 proof because global preprocessing does not remove that attribute's text; this
 local rule does not change global extraction or claim that text is visible.
+The lexical check reads original preprocessed tags before lossy text projection,
+so quoted comment/script/style delimiters cannot erase a real hidden attribute.
+Hidden, unsupported or over-two-million-character preprocessed context supplies
+no optional block proof; the latter limit also applies to direct parser callers.
+Original comment/raw-text tokens are consumed whole and only actual block tags
+supply boundaries. Any text shared extraction leaks from tag attributes retains
+its coordinates but cannot supply any part of an admitted item title, even
+without reference wording. Ordinary quoted
+values and spaced unquoted values such as `title = hidden` remain supported.
+Token projection must still agree exactly with the supplied normalized text;
+a mismatch discards both optional boundaries and tag-origin ranges. This is not DOM repair or general CSS/browser
+visibility evidence, and the existing ambiguous-role fallback remains unchanged.
 
 Without standalone-heading evidence, bounded passive/perfect predicate grammar
 distinguishes references, including relative-position modifiers. An auxiliary
