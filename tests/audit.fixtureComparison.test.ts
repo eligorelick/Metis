@@ -38,6 +38,10 @@
  * guarded package-name fields and two first-party license fields are restored
  * to historical values before hashing. Dependency/version/integrity/license
  * bytes and historical evidence remain pinned.
+ * D-138 Task 12 first proves the exact current security-tooling lock and
+ * reverses its eleven counted nodes to exact pre-task bytes in memory. The
+ * published comparison pin, generator identity and five-field normalization
+ * below remain unchanged; no installed dependency is rolled back.
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -45,6 +49,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { restoreQcom53Task12Lock } from "./helpers/qcom53Task12Lock";
 
 import {
   type AuditJsonValue,
@@ -277,7 +282,7 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       "src/report/schema.ts": "891d66275b154aa2b4f1f1b32961382eaa0e72ad",
     });
     expect(
-      comparisonLockBlob(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")),
+      comparisonLockBlob(restoreQcom53Task12Lock(readFileSync(path.join(ROOT, "package-lock.json"), "utf8"))),
     ).toBe(baseline.provenance.generator.comparisonPackageLockBlob);
     expect(sha256File(GENERATOR_PATH)).toBe(
       baseline.provenance.generator.helperSha256,

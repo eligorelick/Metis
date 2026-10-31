@@ -15,6 +15,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies }
 import { admitHistoricalEnterpriseValue, DERIVED_EV_ENDPOINT } from "@/report/enterpriseValueSafety";
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import type { DataBundle } from "@/pipeline/types";
+import { readEstimateTiming } from "@/report/estimateTiming";
 import type { MarketData } from "@/report/schema";
 import { quotePriceObservationDay } from "@/providers/fmp";
 import { completedTotalOmission, leaseDebtConflict, millions, type LeaseDebtInputs } from "@/pipeline/stageB/netDebt";
@@ -78,7 +79,7 @@ function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseVa
     const provenance = (row.fieldProvenance as Record<string, { calculation?: string; tags?: string[] }> | undefined)?.totalDebt;
     const composed = provenance?.calculation === "noncurrent-lease-line-completed";
     if (composed && total !== null && (ev.totalDebt === null || Math.abs(total - ev.totalDebt) > Math.max(1, Math.abs(total) * 1e-6))) {
-      return `its debt operand ${operand} differs from the same-date total debt including leases ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
+      return `its debt operand ${operand} differs from the same-date debt on the recomposed reported basis ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
     }
   }
   return null;
@@ -219,6 +220,7 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
     ...historicalEv,
     estimates,
     estimatesAsOf: asOfOf(bundle.analystEstimates),
+    ...(bundle.analystEstimates?.ok ? { estimateTiming: readEstimateTiming(bundle.analystEstimates.value.data.estimateTiming, bundle.analystEstimates.value) } : {}),
     priceTarget,
     gradeCounts,
     shortInterest,

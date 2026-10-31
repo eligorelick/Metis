@@ -23,12 +23,14 @@ describe("refined research reading sequence",()=>{
     expect(links.map(link=>link.getAttribute("href"))).toEqual(["#report-fundamentals","#report-valuation","#report-technicals","#report-balanceSheet","#report-quality","#report-leadership","#report-competitive"]);
     void window.happyDOM.close();
   });
-  it("labels the rail model as a request and keeps actual-pass unknowns separate",()=>{
+  it("keeps a legacy model label separate from unknown requested and execution evidence",()=>{
     const report=loadTask28Fixture();report.meta.model="requested-model-only";
+    delete report.meta.execution;
     const text=readableHtml(renderToStaticMarkup(createElement(ReportEvidenceRail,{report}))).text;
-    expect(text).toContain("Requested model");
+    expect(text).toContain("Saved model evidence");
     expect(text).toContain("requested-model-only");
-    expect(text).toContain("actual pass models and unknowns");
+    expect(text).toContain("request and execution unknown");
+    expect(text).toContain("no per-pass requested configuration was recorded");
   });
   it("makes all fourteen report destinations focusable for keyboard contents jumps",()=>{
     const html=renderToStaticMarkup(createElement(ReportView,{report:loadTask28Fixture(),layout:"dossier"}));

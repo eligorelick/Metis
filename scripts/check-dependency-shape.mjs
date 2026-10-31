@@ -10,7 +10,9 @@ export const APPROVED_VERSIONS = {
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
-  "brace-expansion": ["1.1.21", "5.0.12"],
+  "brace-expansion": ["5.0.12"],
+  minimatch: ["11.0.1"],
+  "@metis/legacy-minimatch": ["1.0.0"],
 };
 
 const TARGET_NAMES = Object.keys(APPROVED_VERSIONS);
@@ -21,6 +23,8 @@ const AUDITED_NPM_PACKAGES = [
   "sharp",
   "brace-expansion",
   "js-yaml",
+  "minimatch",
+  "minimatch-modern",
 ];
 
 function emptyVersionSets() {
@@ -46,13 +50,18 @@ export function collectLockVersions(lock) {
   const versions = emptyVersionSets();
 
   for (const [packagePath, rawEntry] of Object.entries(packages)) {
-    const name = TARGET_NAMES.find(
+    let entry = objectRecord(rawEntry, `lock entry ${packagePath}`);
+    if (entry.link === true) {
+      // Local compatibility packages retain their own identity. Audit their
+      // target and real upstream dependencies, never call the link "minimatch".
+      entry = objectRecord(packages[entry.resolved], `lock link ${packagePath}`);
+    }
+    const name = TARGET_NAMES.includes(entry.name) ? entry.name : TARGET_NAMES.find(
       (candidate) =>
         packagePath === `node_modules/${candidate}` ||
         packagePath.endsWith(`/node_modules/${candidate}`),
     );
     if (!name) continue;
-    const entry = objectRecord(rawEntry, `lock entry ${packagePath}`);
     if (typeof entry.version !== "string" || entry.version.length === 0) {
       throw new Error(`lock ${name} entry is missing a version`);
     }
@@ -76,11 +85,13 @@ export function collectInstalledVersions(tree) {
       record.dependencies,
       `npm tree dependencies ${location}`,
     );
-    for (const [name, rawDependency] of Object.entries(dependencies)) {
+    for (const [edgeName, rawDependency] of Object.entries(dependencies)) {
       const dependency = objectRecord(
         rawDependency,
-        `npm tree dependency ${location}/${name}`,
+        `npm tree dependency ${location}/${edgeName}`,
       );
+      // npm ls --long reports the real manifest name behind aliases/links.
+      const name = TARGET_NAMES.includes(dependency.name) ? dependency.name : edgeName;
       if (Object.hasOwn(APPROVED_VERSIONS, name)) {
         if (
           typeof dependency.version !== "string" ||
@@ -90,7 +101,7 @@ export function collectInstalledVersions(tree) {
         }
         versions[name].add(dependency.version);
       }
-      visit(dependency, `${location}/${name}`);
+      visit(dependency, `${location}/${edgeName}`);
     }
   }
 
@@ -221,6 +232,7 @@ export function runDependencyShape({
     ...AUDITED_NPM_PACKAGES,
     "--all",
     "--json",
+    "--long",
     "--include=dev",
   ];
   const result = runNpm(process.execPath, args, { cwd: root, encoding: "utf8" });

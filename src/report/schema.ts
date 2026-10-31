@@ -1,3 +1,4 @@
+import { EstimateTimingSchema } from "@/report/estimateTiming";
 /**
  * The Report Zod schema — THE contract for the entire Metis Report object.
  *
@@ -147,7 +148,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.52.0 (D-137, B6): financial-route currency/eligibility and reverse share basis, buyback coverage,
 // revenue refusal, ADR Altman scope, peer comparisons and P/E ranks; optional business evidence share
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
-export const REPORT_SPEC_VERSION = "1.52.0" as const;
+// D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
+export const REPORT_SPEC_VERSION = "1.53.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -279,11 +281,14 @@ export function noBuySellHold(text: string): boolean {
  */
 export const NO_RATING_MESSAGE =
   "investment-rating language (buy, sell or hold used as a recommendation on the security) is prohibited (non-negotiable rule #3) — use probability-weighted scenarios and 'what would have to be true' framing instead";
+/** Stable identity for a controlled diagnostic; never derive it from rejected prose. */
+export const NO_RATING_RULE_ID = "investment_rating_language";
 
 /** Attach the buy/sell/hold refine to a string schema (save-time gate). */
 function ratingSafeString() {
   return z.string().refine((v) => lenientLegacyRead || noBuySellHold(v), {
     message: NO_RATING_MESSAGE,
+    params: { ruleId: NO_RATING_RULE_ID },
   });
 }
 
@@ -335,7 +340,7 @@ function enforceRecursiveRatingSafety(value: unknown, ctx: z.RefinementCtx): voi
         (field === null || !NON_NARRATIVE_STRING_KEYS.has(field)) &&
         !noBuySellHold(node)
       ) {
-        ctx.addIssue({ code: "custom", path, message: NO_RATING_MESSAGE });
+        ctx.addIssue({ code: "custom", path, message: NO_RATING_MESSAGE, params: { ruleId: NO_RATING_RULE_ID } });
       }
       return;
     }
@@ -2202,9 +2207,14 @@ export const CommitmentPaymentTimingSchema = z.object({
   reason: z.string().nullable(),
 }).strict();
 
+/** Controlled scope codes, independent of today's collector membership. Legacy absence stays unknown. */
+export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"])).min(1).max(10);
+
 export const FilingDisclosuresSchema = z
   .object({
     version: z.literal("1.0.0"),
+    /** Saved collector eligibility, not proof that every filing was read. */
+    materialEventItems: MaterialEventItemsSchema.optional(),
     /** ISO currency of every money figure below; null when not established. */
     currency: IsoCurrencySchema.nullable(),
     currencyBasis: z.string(),
@@ -2514,6 +2524,8 @@ export const MarketDataSchema = z
       analystsRevenue: NullableNumber, analystsEps: NullableNumber,
     }).strict()),
     estimatesAsOf: z.string().nullable(),
+    /** Additive timing evidence; absent on old saved reports. */
+    estimateTiming: EstimateTimingSchema.optional(),
     priceTarget: z.object({
       consensus: NullableNumber, median: NullableNumber, high: NullableNumber, low: NullableNumber, asOf: z.string().nullable(),
       lastMonthCount: NullableNumber, lastMonthAverage: NullableNumber,

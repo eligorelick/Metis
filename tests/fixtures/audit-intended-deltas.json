@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-30",
+  "generatedAt": "2026-10-31",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -1864,41 +1864,6 @@
           "after": 67.13
         },
         {
-          "path": "stageB.forensics.notes.0",
-          "beforeMissing": true,
-          "after": "House heuristic: no SIC code available — manufacturer status inferred from sector/industry strings (non-manufacturer → Z″)."
-        },
-        {
-          "path": "stageB.forensics.notes.1",
-          "beforeMissing": true,
-          "after": "X5 (sales/TA) is dropped by the Z″ model to remove industry asset-turnover effects."
-        },
-        {
-          "path": "stageB.forensics.notes.2",
-          "beforeMissing": true,
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
-        },
-        {
-          "path": "stageB.forensics.notes.3",
-          "beforeMissing": true,
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
-        },
-        {
-          "path": "stageB.forensics.notes.4",
-          "beforeMissing": true,
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
-        },
-        {
-          "path": "stageB.forensics.notes.5",
-          "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
-        },
-        {
-          "path": "stageB.forensics.notes.6",
-          "beforeMissing": true,
-          "after": "ΔLEVER: prior-year average TA proxied by end-of-year TA (no t−2 balance sheet) — annotated proxy."
-        },
-        {
           "path": "stageB.growth.notes.0",
           "beforeMissing": true,
           "after": "Revenue 3y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
@@ -2099,23 +2064,9 @@
           "after": 1.0113507377979574
         },
         {
-          "path": "stageB.valuation.gaps.0",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
-            "severity": "info"
-          }
-        },
-        {
           "path": "stageB.valuation.multiples.gaps.0.field",
           "before": "valuation.multiples.ownHistory",
           "after": "valuation.multiples.enterpriseValue.leases"
-        },
-        {
-          "path": "stageB.valuation.multiples.gaps.0.reason",
-          "before": "insufficient history (need ≥8 quarters) to build own-history percentile bands (up to 5y)",
-          "after": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix"
         }
       ]
     },
@@ -2253,26 +2204,6 @@
           "after": "computed.scores.quality.altmanZOriginalScale"
         },
         {
-          "path": "stageB.forensics.beneish.notes.0",
-          "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.1",
-          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.2",
-          "before": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting.",
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
-        },
-        {
-          "path": "stageB.forensics.beneish.notes.3",
-          "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
-        },
-        {
           "path": "stageB.scores.aspects.quality.drivers.2.source",
           "before": "computed.scores.quality.altmanZ",
           "after": "computed.scores.quality.altmanZOriginalScale"
@@ -2287,11 +2218,6 @@
       "reason": "The 2026-09-06 audit of the returns and capital modules (D-25). The WACC now uses the single Blume constant pair betaEstimate.ts owns (2/3 and 1/3 instead of the rounded 0.67 and 0.33), so this fixture's adjusted beta moves from 1.067 to 1.0667, the cost of equity from 9.335 to 9.3333 and the WACC from 9.2559 to 9.2545, and with it the terminal ROIC, the terminal reinvestment rate, every DCF discount factor and every column of the WACC sensitivity grid. The WACC result carries a debtBasis string and its notes print the Blume formula to three decimals and the debt basis actually averaged (this fixture discloses no operating-lease split and no quarter-end balance four quarters back, so the fiscal-year-end pair is used unadjusted). The ROIC notes state the basis that ran — cash plus short-term investments, NET_DEBT_V1, the lease rule — and add that no balance sheet discloses an operating-lease liability, replacing a note that described a cash-only definition and cited a methodology section that does not exist.",
       "deltas": [
         {
-          "path": "stageB.returns.roic.notes.1",
-          "beforeMissing": true,
-          "after": "no balance sheet discloses an operating-lease liability separately (the provider publishes no split) — invested capital carries totalDebt, lease liabilities included, unadjusted; for a lease-heavy issuer ROIC is understated against the lease-consistent basis"
-        },
-        {
           "path": "stageB.returns.wacc.betaAdjusted",
           "before": 1.0670000000000002,
           "after": 1.0666666666666667
@@ -2305,11 +2231,6 @@
           "path": "stageB.returns.wacc.costOfEquityPct",
           "before": 9.335,
           "after": 9.333333333333332
-        },
-        {
-          "path": "stageB.returns.wacc.debtBasis",
-          "beforeMissing": true,
-          "after": "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances"
         },
         {
           "path": "stageB.returns.wacc.notes.0",
@@ -4890,11 +4811,6 @@
           "after": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
         },
         {
-          "path": "stageB.valuation.notes.6",
-          "beforeMissing": true,
-          "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. A total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported."
-        },
-        {
           "path": "stageB.valuation.reverseDcf.baseRevenueGrowthPct",
           "beforeMissing": true,
           "after": 8.000000000000007
@@ -5582,11 +5498,6 @@
           "after": "vendor profile beta; the vendor publishes no regression window or fit"
         },
         {
-          "path": "stageB.returns.wacc.debtWeightBasis",
-          "beforeMissing": true,
-          "after": "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets"
-        },
-        {
           "path": "stageB.returns.wacc.weightDebt",
           "before": 0.13513513513513514,
           "after": 0.13043478260869565
@@ -5795,19 +5706,9 @@
           "after": null
         },
         {
-          "path": "stageB.capital.netDebtToEbitda.note",
-          "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
-          "after": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
-        },
-        {
           "path": "stageB.capital.netDebtToEbitda.resolution.version",
           "before": "NET_DEBT_V1",
           "after": "NET_DEBT_V3"
-        },
-        {
-          "path": "stageB.returns.notes.0",
-          "beforeMissing": true,
-          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
         },
         {
           "path": "stageB.returns.roicVsWacc.note",
@@ -5820,11 +5721,6 @@
           "after": 30.806856135117066
         },
         {
-          "path": "stageB.returns.wacc.notes.2",
-          "before": "debt weight uses book totalDebt (avg of latest two periods) as market-value proxy",
-          "after": "debt weight uses book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances"
-        },
-        {
           "path": "stageB.returns.wacc.waccPct",
           "before": 9.255946000000002,
           "after": 9.257246428985505
@@ -5833,45 +5729,6 @@
           "path": "stageB.returns.wacc.waccRawPct",
           "before": 9.255946000000002,
           "after": 9.257246428985505
-        },
-        {
-          "path": "stageB.returns.waccInputs",
-          "beforeMissing": true,
-          "after": {
-            "waccPct": 9.257246428985505,
-            "riskFree": {
-              "pct": 4,
-              "seriesId": "fmp:treasury-rates.year10",
-              "asOf": "2025-12-31"
-            },
-            "erp": {
-              "pct": 5,
-              "source": "FMP market-risk-premium (US totalEquityRiskPremium)",
-              "asOf": "2026-07-06"
-            },
-            "beta": {
-              "raw": 1.1,
-              "adjusted": 1.0666666666666667,
-              "final": 1.0666666666666667,
-              "method": "Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2]"
-            },
-            "costOfEquityPct": 9.333333333333332,
-            "costOfDebt": {
-              "pct": 12,
-              "method": "effective",
-              "syntheticRating": null
-            },
-            "taxRate": {
-              "fraction": 0.2708333,
-              "basis": "FMP ratios effectiveTaxRate (observed effective rate)"
-            },
-            "weights": {
-              "equity": 0.8695652173913043,
-              "debt": 0.13043478260869565,
-              "basis": "market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances"
-            },
-            "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
-          }
         },
         {
           "path": "stageB.scores.aspects.quality.drivers.0.value",
@@ -5902,14 +5759,6 @@
           "path": "stageB.valuation.assumptions.terminal.roicTermPct.value",
           "before": 9.255946000000002,
           "after": 9.257246428985505
-        },
-        {
-          "path": "stageB.valuation.assumptions.wacc",
-          "beforeMissing": true,
-          "after": {
-            "value": 9.257246428985505,
-            "basis": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
-          }
         },
         {
           "path": "stageB.valuation.dcf.yearRows.0.discountFactor",
@@ -6109,21 +5958,6 @@
           "path": "stageB.forensics.beneish.inventoryWriteDownPrior",
           "beforeMissing": true,
           "after": null
-        },
-        {
-          "path": "stageB.forensics.notes.7",
-          "beforeMissing": true,
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
-        },
-        {
-          "path": "stageB.forensics.notes.8",
-          "beforeMissing": true,
-          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
-        },
-        {
-          "path": "stageB.forensics.notes.9",
-          "beforeMissing": true,
-          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
         }
       ]
     },
@@ -6148,11 +5982,6 @@
           "path": "report.valuation.dcf.assumptions.2.value",
           "before": "20.0% → 20.0%",
           "after": "years 1–5 of 10"
-        },
-        {
-          "path": "report.valuation.dcf.assumptions.3.basis",
-          "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
         },
         {
           "path": "report.valuation.dcf.assumptions.3.name",
@@ -6909,59 +6738,12 @@
           }
         },
         {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            }
-          }
-        },
-        {
           "path": "stageB.capital.fcf.basis",
           "beforeMissing": true,
           "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
         {
           "path": "stageB.forensics.accruals.notes.3",
-          "beforeMissing": true,
-          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
-        },
-        {
-          "path": "stageB.forensics.notes.10",
           "beforeMissing": true,
           "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
         },
@@ -8246,15 +8028,6 @@
           }
         },
         {
-          "path": "report.appendix.missingData.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
-            "severity": "info"
-          }
-        },
-        {
           "path": "report.appendix.missingData.54",
           "beforeMissing": true,
           "after": {
@@ -8498,15 +8271,6 @@
           "after": {
             "field": "valuation.dcf.terminalRoic.waccBasis",
             "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.52",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
             "severity": "info"
           }
         },
@@ -9795,98 +9559,6 @@
       ]
     },
     {
-      "name": "audit-batch1-headline-numbers-20261022",
-      "decisions": [
-        "D-73",
-        "D-76",
-        "D-100"
-      ],
-      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md.",
-      "deltas": [
-        {
-          "path": "report.marketData",
-          "beforeMissing": true,
-          "after": {
-            "version": "1",
-            "currency": "USD",
-            "estimateCurrency": "USD",
-            "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
-            "quote": {
-              "price": 40,
-              "marketCap": 8000000000,
-              "yearHigh": 44,
-              "yearLow": 28,
-              "volume": 1200000,
-              "priceAvg50": 39,
-              "priceAvg200": 36,
-              "asOf": "2025-12-31",
-              "marketCapOrigin": "provider"
-            },
-            "shares": {
-              "outstanding": 200000000,
-              "float": 180000000,
-              "freeFloatPct": 90,
-              "asOf": "2025-12-31",
-              "floatAsOf": "2025-12-31"
-            },
-            "enterpriseValue": {
-              "value": 7200000000,
-              "periodEnd": "2025-12-31",
-              "marketCap": 8000000000,
-              "totalDebt": 1200000000,
-              "cash": 2000000000
-            },
-            "enterpriseValueOrigin": "provider",
-            "estimates": [
-              {
-                "fiscalYearEnd": "2026-12-31",
-                "revenueAvg": 13500000000,
-                "revenueLow": 13200000000,
-                "revenueHigh": 13800000000,
-                "epsAvg": 9.1,
-                "epsLow": 8.19,
-                "epsHigh": 10.01,
-                "analystsRevenue": 8,
-                "analystsEps": 7
-              },
-              {
-                "fiscalYearEnd": "2027-12-31",
-                "revenueAvg": 14550000000,
-                "revenueLow": 14100000000,
-                "revenueHigh": 15000000000,
-                "epsAvg": 10,
-                "epsLow": 9,
-                "epsHigh": 11,
-                "analystsRevenue": 7,
-                "analystsEps": 6
-              }
-            ],
-            "estimatesAsOf": "2026-07-06",
-            "priceTarget": {
-              "consensus": 44,
-              "median": 45,
-              "high": 52,
-              "low": 36,
-              "asOf": "2026-07-06",
-              "lastMonthCount": 2,
-              "lastMonthAverage": 44,
-              "lastQuarterCount": 5,
-              "lastQuarterAverage": 43
-            },
-            "gradeCounts": {
-              "strongPositive": 2,
-              "positive": 3,
-              "neutral": 4,
-              "negative": 1,
-              "strongNegative": 0,
-              "asOf": "2026-07-06"
-            },
-            "shortInterest": null
-          }
-        }
-      ]
-    },
-    {
       "name": "audit-batch2-valuation-domain-20261022",
       "decisions": [
         "D-102"
@@ -9917,69 +9589,6 @@
           ]
         },
         {
-          "path": "report.valuation.marketValueScope",
-          "beforeMissing": true,
-          "after": {
-            "status": "unverified-vendor-scope",
-            "marketCap": 8000000000,
-            "economicShares": null,
-            "currency": null,
-            "shareCountAsOf": null,
-            "priceAsOf": "2025-12-31",
-            "approximate": false,
-            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
-            "enterpriseValue": 6700000000,
-            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
-          }
-        },
-        {
-          "path": "report.valuation.multiplesBasis",
-          "beforeMissing": true,
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
-        },
-        {
-          "path": "stageB.valuation.multiples.enterpriseValue",
-          "beforeMissing": true,
-          "after": {
-            "equityScope": {
-              "status": "unverified-vendor-scope",
-              "marketCap": 8000000000,
-              "priceAsOf": "2025-12-31",
-              "economicShares": null,
-              "approximate": false,
-              "sourceIds": [],
-              "sourceHashes": [],
-              "shareCountAsOf": null,
-              "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope."
-            },
-            "noncontrollingInterestBasis": "none-disclosed",
-            "nonOperatingHoldingsScope": "not-comprehensively-resolved",
-            "value": 6700000000,
-            "excludingLeases": 6700000000,
-            "includingLeases": 6700000000,
-            "leaseLiability": null,
-            "totalLeaseLiability": 100000000,
-            "financeLeaseLiability": null,
-            "includeLeases": false,
-            "basis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
-          }
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.1.basis",
-          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31."
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.2.basis",
-          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.0",
-          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
-        },
-        {
           "path": "stageB.valuation.sensitivity.notes.1",
           "beforeMissing": true,
           "after": "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
@@ -9998,16 +9607,6 @@
           "beforeMissing": true,
           "after": {
             "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "JUDGMENT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        },
-        {
-          "path": "report.balanceSheet.debtProfile.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.",
             "label": "JUDGMENT",
             "source": "computed.capital.current",
             "asOf": "2025-12-31"
@@ -10162,11 +9761,6 @@
       "reason": "Task18 (FIN-126) names the common-equity P/B denominator and retains the positive reported-equity admission gate. Task19 (FIN-125) discloses that a profile-only peer route can be unconfirmed beside a SEC-refined subject. Task21 (RPT-101) adds the unrounded business-evidence share without changing any grade or threshold in this fixture. Task22 (FIN-504) names the issuer-common capitalization used by the Company comparison figure. Task23 (FIN-503) states the shared greater-than-25% non-operating-income exclusion for peer and company earnings comparisons. Task25 stamps report1.52.0 and SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE. No deferred Task5 or17 change is included; DEMO has no Task7 buyback-window movement, excess-return reverse solve, peer comparison or own-history P/E band.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.52.0"
-        },
-        {
           "path": "report.scores.assessments",
           "beforeMissing": true,
           "after": {
@@ -10275,6 +9869,466 @@
               }
             ],
             "comparisons": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "qcom53-task3-receivables-d138-20261030",
+      "decisions": [
+        "D-138"
+      ],
+      "reason": "D-138 adds one unverified receivables-scope qualifier to Beneish notes and one to the combined forensic notes. The 17 exact leaves comprise two added note leaves and 15 positional shifts of already-listed note values; all prior notes remain byte-identical and in order, and no numeric leaf changes. DSRI and growth-warning numbers, presence, severity and thresholds remain unchanged for this unknown-scope fixture. Classified only after the isolated dry trace and full note-sequence attribution; this group does not authorize later release stamps, goldens or batch replay.",
+      "deltas": [
+        {
+          "path": "stageB.forensics.beneish.notes.0",
+          "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
+          "after": "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.1",
+          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.2",
+          "before": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting.",
+          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.3",
+          "beforeMissing": true,
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+        },
+        {
+          "path": "stageB.forensics.beneish.notes.4",
+          "beforeMissing": true,
+          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+        },
+        {
+          "path": "stageB.forensics.notes.0",
+          "beforeMissing": true,
+          "after": "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation."
+        },
+        {
+          "path": "stageB.forensics.notes.1",
+          "beforeMissing": true,
+          "after": "House heuristic: no SIC code available — manufacturer status inferred from sector/industry strings (non-manufacturer → Z″)."
+        },
+        {
+          "path": "stageB.forensics.notes.2",
+          "beforeMissing": true,
+          "after": "X5 (sales/TA) is dropped by the Z″ model to remove industry asset-turnover effects."
+        },
+        {
+          "path": "stageB.forensics.notes.3",
+          "beforeMissing": true,
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+        },
+        {
+          "path": "stageB.forensics.notes.4",
+          "beforeMissing": true,
+          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+        },
+        {
+          "path": "stageB.forensics.notes.5",
+          "beforeMissing": true,
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+        },
+        {
+          "path": "stageB.forensics.notes.6",
+          "beforeMissing": true,
+          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+        },
+        {
+          "path": "stageB.forensics.notes.7",
+          "beforeMissing": true,
+          "after": "ΔLEVER: prior-year average TA proxied by end-of-year TA (no t−2 balance sheet) — annotated proxy."
+        },
+        {
+          "path": "stageB.forensics.notes.8",
+          "beforeMissing": true,
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.notes.9",
+          "beforeMissing": true,
+          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
+        },
+        {
+          "path": "stageB.forensics.notes.10",
+          "beforeMissing": true,
+          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
+        },
+        {
+          "path": "stageB.forensics.notes.11",
+          "beforeMissing": true,
+          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
+        }
+      ]
+    },
+    {
+      "name": "qcom53-task4-lease-scope-d138-20261030",
+      "decisions": [
+        "D-138"
+      ],
+      "reason": "D-138 Task 4: distinguish operating, finance and combined lease evidence from the retained debt basis; qualify unverified scope, use neutral debt captions, and describe actual EV/DCF/WACC/ROIC adjustments without changing numeric results or refusals. The report-53 batch spec advances once to 1.53.0 for the changed source-scope context; earlier cutoffs and historical tuples remain unchanged.",
+      "deltas": [
+        {
+          "path": "report.appendix.missingData.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.balanceSheet.debtProfile.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.53.0"
+        },
+        {
+          "path": "report.valuation.dcf.assumptions.3.basis",
+          "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
+          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+        },
+        {
+          "path": "report.valuation.marketValueScope",
+          "beforeMissing": true,
+          "after": {
+            "status": "unverified-vendor-scope",
+            "marketCap": 8000000000,
+            "economicShares": null,
+            "currency": null,
+            "shareCountAsOf": null,
+            "priceAsOf": "2025-12-31",
+            "approximate": false,
+            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
+            "enterpriseValue": 6700000000,
+            "enterpriseValueBasis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+          }
+        },
+        {
+          "path": "report.valuation.multiplesBasis",
+          "beforeMissing": true,
+          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "leaseEvidence": {
+                "operating": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "finance": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "combined": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "observedLeaseLine": "positive"
+              },
+              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            }
+          }
+        },
+        {
+          "path": "stageB.capital.netDebtToEbitda.note",
+          "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
+          "after": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
+        },
+        {
+          "path": "stageB.gaps.52",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.returns.notes.0",
+          "beforeMissing": true,
+          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+        },
+        {
+          "path": "stageB.returns.roic.notes.1",
+          "beforeMissing": true,
+          "after": "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established"
+        },
+        {
+          "path": "stageB.returns.wacc.debtBasis",
+          "beforeMissing": true,
+          "after": "book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+        },
+        {
+          "path": "stageB.returns.wacc.debtWeightBasis",
+          "beforeMissing": true,
+          "after": "book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+        },
+        {
+          "path": "stageB.returns.wacc.notes.2",
+          "before": "debt weight uses book totalDebt (avg of latest two periods) as market-value proxy",
+          "after": "debt weight uses book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+        },
+        {
+          "path": "stageB.returns.waccInputs",
+          "beforeMissing": true,
+          "after": {
+            "waccPct": 9.257246428985505,
+            "riskFree": {
+              "pct": 4,
+              "seriesId": "fmp:treasury-rates.year10",
+              "asOf": "2025-12-31"
+            },
+            "erp": {
+              "pct": 5,
+              "source": "FMP market-risk-premium (US totalEquityRiskPremium)",
+              "asOf": "2026-07-06"
+            },
+            "beta": {
+              "raw": 1.1,
+              "adjusted": 1.0666666666666667,
+              "final": 1.0666666666666667,
+              "method": "Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2]"
+            },
+            "costOfEquityPct": 9.333333333333332,
+            "costOfDebt": {
+              "pct": 12,
+              "method": "effective",
+              "syntheticRating": null
+            },
+            "taxRate": {
+              "fraction": 0.2708333,
+              "basis": "FMP ratios effectiveTaxRate (observed effective rate)"
+            },
+            "weights": {
+              "equity": 0.8695652173913043,
+              "debt": 0.13043478260869565,
+              "basis": "market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
+            },
+            "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          }
+        },
+        {
+          "path": "stageB.valuation.assumptions.wacc",
+          "beforeMissing": true,
+          "after": {
+            "value": 9.257246428985505,
+            "basis": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          }
+        },
+        {
+          "path": "stageB.valuation.gaps.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.enterpriseValue",
+          "beforeMissing": true,
+          "after": {
+            "equityScope": {
+              "status": "unverified-vendor-scope",
+              "marketCap": 8000000000,
+              "priceAsOf": "2025-12-31",
+              "economicShares": null,
+              "approximate": false,
+              "sourceIds": [],
+              "sourceHashes": [],
+              "shareCountAsOf": null,
+              "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope."
+            },
+            "noncontrollingInterestBasis": "none-disclosed",
+            "nonOperatingHoldingsScope": "not-comprehensively-resolved",
+            "value": 6700000000,
+            "excludingLeases": 6700000000,
+            "includingLeases": 6700000000,
+            "leaseLiability": null,
+            "totalLeaseLiability": 100000000,
+            "financeLeaseLiability": null,
+            "includeLeases": false,
+            "basis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.gaps.0.reason",
+          "before": "insufficient history (need ≥8 quarters) to build own-history percentile bands (up to 5y)",
+          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.1.basis",
+          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31."
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.2.basis",
+          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
+          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.0",
+          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+        },
+        {
+          "path": "stageB.valuation.notes.6",
+          "beforeMissing": true,
+          "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
+        }
+      ]
+    },
+    {
+      "name": "qcom53-task11-estimate-timing-d138-20261031",
+      "decisions": [
+        "D-73",
+        "D-76",
+        "D-100",
+        "D-138"
+      ],
+      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md. Task 11 / D-138: distinguish analyst-estimate forecast-period/fallback dates, recorded acquisition origins and unknown publication vintage. The single atomic report.marketData delta adds exactly seven estimateTiming metadata scalars; every prior field, amount, period, score and state is unchanged. This controlled fixture records its fixed 2026-07-06 fixture-load timestamp, not original provider acquisition or publication. Model/registry timing separately projects validated UTC days to preserve the unchanged cache-safe no-timestamp check. Evidence: actual dry task11-actual-dry-20261031-a and seven-leaf attribution before the named write; no monetary figure moved.",
+      "deltas": [
+        {
+          "path": "report.marketData",
+          "beforeMissing": true,
+          "after": {
+            "version": "1",
+            "currency": "USD",
+            "estimateCurrency": "USD",
+            "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
+            "quote": {
+              "price": 40,
+              "marketCap": 8000000000,
+              "yearHigh": 44,
+              "yearLow": 28,
+              "volume": 1200000,
+              "priceAvg50": 39,
+              "priceAvg200": 36,
+              "asOf": "2025-12-31",
+              "marketCapOrigin": "provider"
+            },
+            "shares": {
+              "outstanding": 200000000,
+              "float": 180000000,
+              "freeFloatPct": 90,
+              "asOf": "2025-12-31",
+              "floatAsOf": "2025-12-31"
+            },
+            "enterpriseValue": {
+              "value": 7200000000,
+              "periodEnd": "2025-12-31",
+              "marketCap": 8000000000,
+              "totalDebt": 1200000000,
+              "cash": 2000000000
+            },
+            "enterpriseValueOrigin": "provider",
+            "estimates": [
+              {
+                "fiscalYearEnd": "2026-12-31",
+                "revenueAvg": 13500000000,
+                "revenueLow": 13200000000,
+                "revenueHigh": 13800000000,
+                "epsAvg": 9.1,
+                "epsLow": 8.19,
+                "epsHigh": 10.01,
+                "analystsRevenue": 8,
+                "analystsEps": 7
+              },
+              {
+                "fiscalYearEnd": "2027-12-31",
+                "revenueAvg": 14550000000,
+                "revenueLow": 14100000000,
+                "revenueHigh": 15000000000,
+                "epsAvg": 10,
+                "epsLow": 9,
+                "epsHigh": 11,
+                "analystsRevenue": 7,
+                "analystsEps": 6
+              }
+            ],
+            "estimatesAsOf": "2026-07-06",
+            "estimateTiming": {
+              "version": "1",
+              "asOfRole": "fallback-day",
+              "acquisitionOrigin": "fixture-load",
+              "acquiredAt": null,
+              "fixtureLoadedAt": "2026-07-06T00:00:00.000Z",
+              "recordedAt": null,
+              "publishedAt": null
+            },
+            "priceTarget": {
+              "consensus": 44,
+              "median": 45,
+              "high": 52,
+              "low": 36,
+              "asOf": "2026-07-06",
+              "lastMonthCount": 2,
+              "lastMonthAverage": 44,
+              "lastQuarterCount": 5,
+              "lastQuarterAverage": 43
+            },
+            "gradeCounts": {
+              "strongPositive": 2,
+              "positive": 3,
+              "neutral": 4,
+              "negative": 1,
+              "strongNegative": 0,
+              "asOf": "2026-07-06"
+            },
+            "shortInterest": null
           }
         }
       ]

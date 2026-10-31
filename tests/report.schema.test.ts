@@ -606,6 +606,27 @@ describe("buy/sell/hold rating refine", () => {
 });
 
 describe("the rating gate's own diagnostic", () => {
+  it("identifies the known analyst rating rule while still rejecting an empty evidence source", () => {
+    const result = ANALYST_CASE_SCHEMA.safeParse({
+      thesis: [claim()],
+      keyDrivers: [claim("Buy this stock: PRIVATE REJECTED DRIVER")],
+      risksToCase: [],
+      catalysts: [],
+      priceTarget: { value: 240, horizon: "12 months", assumptions: [] },
+      evidence: [{ ...num(), source: "   " }],
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "custom", path: ["keyDrivers", 0, "text"],
+        params: { ruleId: "investment_rating_language" },
+      }),
+      expect.objectContaining({ code: "too_small", path: ["evidence", 0, "source"] }),
+    ]));
+    expect(JSON.stringify(result.error.issues)).not.toContain("PRIVATE REJECTED DRIVER");
+  });
+
   /**
    * The message is quoted back into pass-failure text that the runner files
    * as a manifest reason; a message that tripped the gate sterilised every

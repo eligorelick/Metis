@@ -1,0 +1,9 @@
+{
+  "name": "@metis/legacy-minimatch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scoped ESLint 9 compatibility facade over the patched minimatch engine",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "main": "index.mjs",
+  "dependencies": { "minimatch-modern": "npm:minimatch@11.0.1" }
+}

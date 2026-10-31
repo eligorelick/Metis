@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.52.0** and
-payload **1.54.0** (B6 financial-route fixes after B5a seasonality and calendar fixes). The
+Current source declares application **0.1.0**, report spec **1.53.0** and
+payload **1.55.0** (the D-138 report-53 batch; final release verification is pending). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,101 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - saved-report scope clarifications (2026-10-30)
+
+Release-check tooling remediation (2026-10-31): replace development-tooling
+minimatch 3/10 engines with genuine upstream 11.0.1 for
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+The six legacy ESLint consumers use the scoped `@metis/legacy-minimatch`
+callable/class/predicate adapter; TypeScript's consumer retains upstream named
+exports. The adapter delegates matching to the patched engine and does not
+reintroduce regexp compilation. No lint rule or file coverage is removed;
+the include-dev/low audit remains unchanged. This changes no report figure,
+schema, convention stamp, payload or golden. Final new-head release checks
+remain a separate acceptance requirement.
+
+The historical fixture comparison retains its published lock fingerprint through
+a test-only, exact-byte inverse of the eleven reviewed tooling nodes. Both the
+current security lock and reconstructed pre-task lock are fully pinned; unknown
+changes are rejected. The installed lock, fixture provenance, generator identity,
+financial projection and intended deltas remain unchanged.
+
+The D-138 final-review correction limits the receivables repair note's accession
+display to a complete canonical hyphenated identifier, with fixed unavailable
+wording otherwise. Raw source evidence and filing identity, pair admission,
+financial results, grades and report state remain unchanged. Malicious-accession
+controls exercise the real extractor, forensics and serialized model payload.
+The same unpublished report 1.53/payload 1.55 stamps remain in use.
+
+D-138 Task 9 adds a pure read-time clarification section before affected report
+content in classic, dossier, Markdown, print/HTML and audit. The frozen cutoff
+is 1.53.0; older and unrecorded-version reports are qualified without recomputing
+figures or adding recorded manifest/evidence rows. Only exact owned generated
+receivables/discontinued flag templates are rewritten; embedded amounts, counts,
+rules and severity stay intact. Analyst prose, legacy Altman periods, lease
+boilerplate and DCF operands remain recorded with a separate caveat. Repeated
+reads preserve stored bytes/read modes and previous safety-adapter conventions.
+Current/future reports containing the exact owned older flag wrappers receive
+only a fixed interpretation caveat, without rewriting the flag or calling the
+report historical; ordinary current reports receive no migration notes.
+Audit identifies recorded model labels and uses the shared saved-model summary;
+its existing historical fair-value-basis omission is unchanged.
+
+The [disposition](docs/audit/2026-10-30-qcom-report-53-integrity.md) records the
+missing original snapshot/selected rows, unproved receivables cause, incomplete
+lease perimeter, bounded HTML support and unknown historical rejection/vintage.
+Prior task reviews are complete; archived-source replay, leaf attribution,
+final delta record and exact-head independent release gates remain separate
+acceptance work. Report 1.53/payload 1.55/Stage B 34 stay unchanged.
+
+## Unreleased - estimate periods and acquisition timing (2026-10-30)
+
+D-138 Task 11 separates forecast fiscal-period dates from the source response's acquisition and unknown publication/update vintage. New FMP estimate metadata records the actual envelope-selection branch and validates its acquisition origin; durable-cache acquisitions survive reads and failed/empty refreshes, while fixture-load clocks and missing-time fallbacks never become original provider acquisition. Reports retain exact source timestamps; model figures and numeric registry records carry explicitly labelled UTC days, preserving the existing prompt timestamp prohibition.
+
+Classic, dossier, Markdown, print and audit share the date-role disclosure. A legacy exact annual estimate source for the same symbol supplies only a recorded timestamp with unestablished acquisition origin (or explicit fixture load), never a recovered publication date or historical selection branch. Raw period metadata, generic `deriveAsOf`, forecast values/calendar mapping, admission, grades, state and stored report bytes remain unchanged. The report-53 export records a response timestamp 2026-10-30T23:21:15.748Z; it does not establish original acquisition or publication vintage, and no original snapshot replay is claimed. Reserved report 1.53/payload 1.55/Stage B 34 stamps are unchanged; independent task review is complete; final release verification remains pending.
+
+## Unreleased - forensic date and observation context (2026-10-30)
+
+D-138 Task 8 distinguishes an unavailable market-cap observation date from an unavailable cap operand in original Altman score evidence. Supporting discontinued-result flags describe retained nonzero fiscal-year observations and validated own period ends, with a fixed unknown-date fallback. They no longer infer recurring portfolio churn from the count; one disposal can affect multiple periods. Missing amounts remain unknown. Counts, thresholds, severity, scores, selected variants, source-date admission and missing-cap refusals remain unchanged. Report 53's selected rows remain unavailable, so its two-observation count is not replaced from external filing years. Saved-reader behavior is documented in the Task 9 entry; final release acceptance remains separate.
+
+## Unreleased - validated annual-note appendix redirects (2026-10-30)
+
+D-138 Task 7 adds a notes-only same-document Item 15 financial-index redirect after ordinary annual extraction fails. A unique linked F-page notes row and S-page Schedule II row must resolve forward to matching standalone headings, substantive notes and Note 1. The already-fetched source supplies both boundaries; signatures before the appendix, schedule tables and exhibits stay outside the notes. Schedule heading case variants work, while running headers and embedded full-title references preserve later notes. A statement prefix is retained only from a separately validated balance-sheet target in the same index, keeping its first 12,000 characters.
+
+Optional evidence records bounded identifiers, distinct F/S labels and original-HTML UTF-16 character offsets. Local quote-aware text-node parsing prevents hidden or attribute-only titles from establishing proof. This new route conservatively requires balanced explicit markup, standalone headings outside tables and simple fragment identifiers; it is not general DOM/CSS visibility support. Ordinary extraction, its 2,500-character stub refusal and elapsed acquisition budget remain unchanged. The ordinary flattened-text annual trimmer still has its existing case-sensitive and embedded-reference limitations. Tests use honestly synthetic source-derived structure plus existing JPM/Citi/AAPL/NVDA controls, not retained QCOM markup or an original report-53 replay. No financial arithmetic, report-state policy, batch stamp or stored snapshot changes; independent task review is complete; final batch gates remain pending.
+
+Task 7's review corrections require the first nonempty original block after the notes title to contain a standalone Note 1/A/One marker or a marker followed by a complete supported financial-note title. Punctuation and capitalization alone proved insufficient and no longer establish admission. The closed title set covers Organization, Organization and Business, Description of Business, Basis of Presentation, Summary of Significant Accounting Policies, and Organization and Summary of Significant Accounting Policies. A title must end at the original block boundary or a period/colon followed by whitespace or end; numeric openings use the same title check. Arbitrary titles and continuing reference clauses retain the warning. A standalone full `Schedule II Valuation and Qualifying Accounts` title with whitespace alone refuses an intervening notes interval or omits an intervening statement prefix; complete-title anchoring preserves continuing prose. Ordinary helpers and financial/state policies remain unchanged. The latest reference regressions have observed parser/real-producer REDs followed by 198 focused passing tests and typecheck; independent re-review is complete; final release gates remain pending.
+
+## Unreleased - recorded material-event eligibility and Item 3.02 (2026-10-30)
+
+D-138 (report-53 audit, Task 6) admits Item 3.02-only 8-K/8-K/A candidates and retains bounded singular/plural unregistered-sale sections. Full-title prose references and false prefixes cannot create a section or truncate its enclosing item. The collector saves the same immutable eligible-item filter used for candidate and section admission, including existing 5.07. Optional controlled metadata flows through filing disclosures and the strict report schema; missing or unusable historical scope stays unknown, without inferring eligibility from date, version, event rows or today's filter.
+
+Classic/dossier, Markdown, print and audit now share the recorded-filter/non-exhaustive scope note. Empty events and absent disclosures show a qualification with no invented filing, source or manifest row. Eligibility does not establish successful review: filing window/cutoff, ten-document cap, omitted identities, unreadable/no-heading/truncated evidence remain disclosed. Conditional warrant exercise/vesting terms and a purchase ceiling remain source text; no automatic shares, dilution, warrant value, backlog, forecast, grade or state change is added. Offline integration uses synthetic source-derived markup, not exact retained QCOM HTML or an original-run replay. Existing reserved batch stamps stay unchanged; independent task review is complete; final batch verification remains pending.
+
+The Task 6 review corrections retain sentence/line boundaries and optional context from the same parsed source document at the real collector. Exact text/coordinate agreement can establish standalone heading blocks; mismatched or hidden-attribute context cannot confer that proof, and global extraction remains unchanged. Bounded predicate/link evidence distinguishes references from date/name and Above/Below/In bodies, including genuine Below-passive introductions, while ambiguous inline modifier roles keep the existing heading. Focused checks cover both 3.02 titles, existing items, real producer p/h/table boundaries and hidden-label controls. The earlier full Product result belongs to `524ecc7f`, with final whole-batch verification pending.
+
+Strong preceding reference context also preserves irregular passive/perfect references without an irregular-word list. Unknown irregular inline roles retain the existing heading. A strengthened collector control has an observed source-forwarding mutation failure; the earlier p/h/table cases demonstrate compatible output, not that forwarding dependency.
+
+The local heading proof now checks original preprocessed attributes before lossy normalization and derives boundaries from original block tokens. Quoted comment/script/style values cannot erase real hidden attributes or turn attribute text into heading proof. Text leaked from attributes by shared extraction keeps its coordinates but cannot supply any part of an admitted item title, even without reference wording. Ordinary quoted values and `title = hidden` remain supported. Hidden, unsupported or over-2M preprocessed context supplies no optional block proof; the collector still caps raw fetched source at 2M before parsing. Exact text/coordinate checks, ambiguous-role fallback, shared extraction and Task 5 behavior remain unchanged. These are synthetic parser/collector regressions, not evidence of affected real filings.
+
+## Unreleased - source-bound quarterly guidance tables (2026-10-30)
+
+D-138 (report-53 audit, Task 5) adds bounded current-only quarterly tables using actual source rows/cells retained during document parsing. Explicit endpoint scales and plural revenue labels are supported; GAAP and non-GAAP diluted EPS stay distinct. Validated fields generate metric/period labels, while raw excerpts stay source evidence. Consolidated scope requires a complete immediate visible outlook/guidance label inside the bounded context; paragraph/div labels can use inline emphasis, while intervening unknown labels, missing/truncated scope and script/style text cannot establish that scope. A local lexical fence declines the new route for any actual HTML `hidden` attribute anywhere in a source of at most 2,000,000 preprocessed characters, including `hidden=false`, or for a larger source. It recognizes quoted tags and attribute-name/value boundaries before genuine comments or script/style bodies, so quoted delimiters cannot erase a real attribute and `title = hidden` is an ordinary value. Unsupported/malformed lexical states decline this route. This intentionally includes unrelated closed hidden elements; quoted values and attribute lookalikes remain supported. It does not attest general CSS/browser visibility. Ambiguous or conflicting columns/tables, segment/adjustment scope, crossed row boundaries, mixed scales/currencies and reversed endpoints cannot supply consolidated guidance. Shared extraction, existing compact formats and release/commentary priority remain supported.
+
+The offline collector/release/model control preserves Q4 FY2026 revenue 9.7–10.5B (midpoint 10.1B), GAAP EPS 1.22–1.42 (1.32) and non-GAAP EPS 2.05–2.25 (2.15), with exact source spans. Its markup and IDs are synthetic source-derived structure, not exact retained QCOM HTML or a report-53 replay. Existing B5 calendar, retirement and consensus-admission rules are reused unchanged; a 10.202B implied consensus quarter inside the filed corridor is not forced to the midpoint. No stored report is reparsed at display time. Report 1.53.0, payload 1.55.0 and Stage B 34 remain the single reserved batch stamps; final whole-batch release verification remains pending.
+
+## Unreleased - descriptive lease coverage without debt restatement (2026-10-30)
+
+D-138 (report-53 audit, Task 4) separates operating, finance and combined lease evidence from the existing debt convention. A provider zero or positive observation is not a complete filed liability. Exact-date, known-unit primary evidence and compatible filing/availability context support component descriptions; only compatible complete components and an existing reconciled combined observation support combined scope. Exact combined zero requires both explicit component zeros. Neutral debt captions retain existing numeric IDs and amounts.
+
+Current-capital, statement/payload provenance, diagnostics, EV, the actual DCF anchor and each WACC average/latest row share those descriptions. The DCF note names the amount actually subtracted and the resulting net debt separately. ROIC wording no longer infers lease inclusion or bias direction from unknown operating scope. Numeric admission/refusal, adjustments, ratios, grades and report state are unchanged; missing coverage is not a new refusal. Synthetic controls preserve debt 15,270M less liquidity 8,304M = 6,966M (6.97B displayed), without importing the synthetic fixture's older operating/finance fields (102M/730M). These assignments do not classify QCOM's FY2025 filed amounts: 102M current and 730M noncurrent are both operating leases. No exact report-53 replay is claimed. The reserved batch stamps advance once here to report 1.53.0, payload 1.55.0 and Stage B 34 because these source-scope descriptions change model context. Earlier convention cutoffs remain frozen. Task 9 retains final legacy qualification, whole-batch replay and release consistency; it does not advance these stamps again for the same batch.
+
+## Unreleased - comparable receivables in forensic ratios (2026-10-30)
+
+D-138 (report-53 audit, Task 3) makes DSRI and the receivables-growth warning share one comparable observation pair. A proved selected-concept conflict can be repaired only with a complete eligible filed pair for the exact balance endpoints; otherwise the existing disclosed DSRI neutralization applies and the unsupported growth warning is withheld. Unknown scope keeps existing numbers and warning severity/thresholds, with an explicit qualification instead of a company-specific accounting explanation. Genuinely adverse comparable pairs retain their warnings.
+
+Raw statements, stored snapshots, capital/valuation inputs and existing upstream admission gates are unchanged. Regression controls use synthetic provenance and do not claim an exact replay of the unavailable report-53 snapshot. The later Task 4/9 entries record reserved stamps and saved-reader behavior. Final batch replay and release acceptance remain separate; this entry makes no release-completion claim.
 
 ## Unreleased - bank, insurer, REIT and ADR routes: currency, routing and grading (2026-10-27)
 

@@ -1,3 +1,5 @@
+import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
+import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -13,6 +15,7 @@
 
 import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
+import { deriveReportModelEvidence } from "@/report/modelEvidence";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { LEGACY_VALUATION_NOTE_FIELD } from "@/report/legacyValuationNotes";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -147,6 +150,7 @@ const ASPECT_LABEL: Record<string, string> = {
 
 const EXACT_LABELS: Record<string, string> = {
   ...Object.fromEntries([
+    ...Object.entries(LEASE_DEBT_LABELS),
     ["debtIncludingDisclosedLeasePortion", "Debt including disclosed lease portion (full coverage unverified)"],
     ["operatingLeasesNoncurrent", "Operating leases (noncurrent only)"],
     ["operatingLeasesCurrent", "Operating leases (current only)"],
@@ -994,7 +998,7 @@ export function consensusTables(report: Report): BodyTable[] {
         ["Estimates (revenue / EPS)", ...md.estimates.map((e) => `${e.analystsRevenue ?? "—"} / ${e.analystsEps ?? "—"}`)],
         ["Price / provider EPS (basis unverified)", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
       ],
-      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
+      note: `Provider consensus; ${estimateTimingText(reportEstimateTiming(report), md.estimatesAsOf)}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
     });
   }
   const rows: string[][] = [];
@@ -1429,16 +1433,32 @@ export function withoutChartReferences(text: string): string {
 /** "bull, bear and judge on chatgpt/gpt-6.1-sol (medium effort)" plus any fallback/floor/same-family note. */
 export function runSummary(report: Pick<Report, "meta">): string {
   const m = report.meta;
-  const execution = modelPasses(m.execution);
-  if (execution.length === 0) return m.model;
+  const evidence = deriveReportModelEvidence(report);
+  const execution = evidence.attempts;
+  if (execution.length === 0) return evidence.legacyModelLabel !== null
+    ? `saved model label ${evidence.legacyModelLabel}; request and execution unknown`
+    : evidence.analysisCompletion === "not-completed"
+      ? "Data-only snapshot; no usable analysis was completed; model execution unknown"
+      : "Saved model request and execution unknown";
   const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
   const byModel = new Map<string, string[]>();
+  const attemptParts: string[] = [];
   for (const entry of execution) {
+    const step = stepName(entry.step);
+    if (entry.completion === "not-called") {
+      attemptParts.push(`${step}: ${entry.adjustments.includes("model-rejected") ? "rejected before a model call" : "no model call recorded"}`);
+      continue;
+    }
+    const model = entry.models.join(" + ");
+    if (entry.modelEvidence === "unknown" || entry.completion === "failed") {
+      attemptParts.push(`${step}: ${entry.modelEvidence === "unknown" ? "model observation unknown" : `recorded attempt on ${model}`}${entry.completion === "failed" ? "; no usable analysis was completed" : ""}`);
+      continue;
+    }
     const key = `${entry.effectiveModel}${entry.effectiveEffort ? ` (${entry.effectiveEffort} effort)` : ""}`;
     byModel.set(key, [...(byModel.get(key) ?? []), stepName(entry.step)]);
   }
   const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-  const parts = [...byModel.entries()].map(([model, steps]) => `${list(steps)} on ${model}`);
+  const parts = [...byModel.entries()].map(([model, steps]) => `${list(steps)} on ${model}`).concat(attemptParts);
   const adjusted = execution.filter((entry) => entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
   if (adjusted.length > 0) parts.push(`adjusted — ${adjusted.join("; ")}`);
   if (m.judgeProtocol?.sharedModelFamily.shared) parts.push("the judge shares the analysts' model family");

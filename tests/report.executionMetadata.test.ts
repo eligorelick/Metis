@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { annotateSharedModelFamily, buildExecutionMetadataEntry, formatExecutionMetadata, sharedModelFamilyOf, subscriptionExecutionModels, type ProviderExecution } from "@/report/execution";
+import { annotateSharedModelFamily, buildExecutionMetadataEntry, executionCompleted, failedPassNote, formatExecutionMetadata, sharedModelFamilyOf, subscriptionExecutionModels, type ProviderExecution } from "@/report/execution";
 import { ExecutionMetadataEntrySchema, ProviderExecutionSchema } from "@/report/schema";
 import { explainAnalysisModel } from "@/settings/contracts";
 
 describe("per-step execution metadata", () => {
+  it("keeps a failed observed attempt distinct from a completed pass and a never-called rejection", () => {
+    const completed = buildExecutionMetadataEntry({ step: "bull", requestedModel: "claude-sonnet-5-5", effectiveModel: "claude-sonnet-5-5",
+      requestedEffort: "high", fallbackUsed: false });
+    const failed = { ...completed, step: "bull attempt 2", note: failedPassNote("bull attempt 2") };
+    const rejected = buildExecutionMetadataEntry({ step: "bear", requestedModel: "unsupported-model", effectiveModel: "none",
+      requestedEffort: "high", fallbackUsed: false, rejectedReason: "Unsupported model" });
+    expect(executionCompleted(completed)).toBe(true);
+    expect(executionCompleted(failed)).toBe(false);
+    expect(executionCompleted(rejected)).toBe(false);
+    expect(ExecutionMetadataEntrySchema.parse(failed).effectiveModel).toBe("claude-sonnet-5-5");
+    expect(ExecutionMetadataEntrySchema.parse(rejected).adjustments).toEqual(["model-rejected"]);
+  });
+
   it("keeps requested subscription controls but does not turn unreported model and usage into observed execution", () => {
     const entry = buildExecutionMetadataEntry({ step: "bull", requestedModel: "chatgpt/gpt-6.1-sol", effectiveModel: "chatgpt/gpt-6.1-sol",
       requestedEffort: null, fallbackUsed: false, usage: { input_tokens: 0, output_tokens: 0 },

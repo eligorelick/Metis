@@ -9,8 +9,9 @@
  *      off-balance-sheet obligations, 5.02 officer changes, 8.01 other events
  *      and their close relatives), as dated events.
  *
- * Every parser here reads the plain text `parseDocument(html).fullText` makes
- * of a filing and is deliberately conservative: a sentence is read only when
+ * Parsers read the plain text `parseDocument(html).fullText` makes of a filing;
+ * current-only guidance tables also require that parsed document's source
+ * structure. They are deliberately conservative: a sentence is read only when
  * its numbers can be assigned without guessing (a "respectively" pairs values
  * with bases only when the counts agree; a scale word must be printed). What
  * cannot be read is left out and the caller discloses it — a wrong guidance
@@ -24,6 +25,8 @@
  */
 
 import { parseGuidanceTables } from "@/edgar/guidanceTables";
+import { htmlToText, type ParsedDocument } from "@/edgar/extract";
+import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
 // ---------------------------------------------------------------------------
 // Shared text helpers
@@ -429,8 +432,8 @@ export function parseIssuerGrowthEffect(sentence: string): { pp: number } | null
 }
 
 /** Guidance from a release or commentary; null when it prints no outlook. */
-export function parseGuidance(rawText: string): IssuerGuidance | null {
-  const table = parseGuidanceTables(rawText);
+export function parseGuidance(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
+  const table = parseGuidanceTables(rawText, document);
   if (table !== null) return table;
   const block = outlookBlock(normalizeFilingText(rawText));
   if (block === null) return null;
@@ -1198,19 +1201,23 @@ export function releaseNarrative(rawText: string): string {
  * forensic notes (compute.ts); 2.02 is the earnings release itself; 7.01 and
  * 9.01 only furnish exhibits.
  */
-export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = {
+export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.freeze({
   "1.01": "Entry into a Material Definitive Agreement",
   "1.02": "Termination of a Material Definitive Agreement",
   "2.01": "Completion of Acquisition or Disposition of Assets",
   "2.03": "Creation of a Direct Financial Obligation or an Obligation under an Off-Balance Sheet Arrangement of a Registrant",
   "2.05": "Costs Associated with Exit or Disposal Activities",
   "2.06": "Material Impairments",
+  "3.02": "Unregistered Sales of Equity Securities",
   "5.02": "Departure of Directors or Certain Officers; Election of Directors; Appointment of Certain Officers; Compensatory Arrangements of Certain Officers",
   // D-63 (NVDA audit P1-J): the annual meeting's votes — director elections
   // and say-on-pay — are governance evidence the leadership section needs.
   "5.07": "Submission of Matters to a Vote of Security Holders",
   "8.01": "Other Events",
-};
+});
+
+/** One immutable admission filter for candidate reads, retained sections and saved scope. */
+export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS));
 
 /** Official titles, for recognising a heading as opposed to a cross-reference. */
 const ITEM_TITLES: Readonly<Record<string, string>> = {
@@ -1245,28 +1252,55 @@ export function itemsOf(items: string | undefined): string[] {
 }
 
 export function hasMaterialEventItem(items: string | undefined): boolean {
-  return itemsOf(items).some((item) => item in MATERIAL_EVENT_ITEMS);
+  return itemsOf(items).some((item) => MATERIAL_EVENT_ITEM_CODES.includes(item));
 }
 
 /**
  * Split an 8-K primary document into its item sections. A heading is
- * "Item N.NN" followed by the first two words of that item's official title;
- * "incorporated by reference into this Item 2.03" is not a heading.
+ * "Item N.NN" followed by bounded title words. References to a titled item
+ * inside prose are not headings; 3.02 accepts both Sale and Sales.
  */
-export function splitEightKItems(rawText: string): EightKItemSection[] {
+export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocument): EightKItemSection[] {
   const text = normalizeFilingText(rawText);
+  const { boundaries, tagText } = itemHeadingBoundaries(rawText, sourceDocument);
   const heads: { item: string; start: number; bodyStart: number }[] = [];
   for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})\s*[.:–—-]?\s*/gi)) {
     const item = m[1]!;
-    const title = ITEM_TITLES[item];
+    const officialTitle = ITEM_TITLES[item];
+    if (!officialTitle) continue;
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 200);
+    const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle];
+    const title = variants.find(t => {
+      const words = item === "3.02" ? t.split(/\s+/) : t.split(/\s+/).slice(0, 2);
+      return new RegExp(`^${words.join("\\s+")}\\b`, "i").test(after);
+    });
     if (!title) continue;
-    const lead = title.split(/\s+/).slice(0, 2).join(" ").replace(/[^A-Za-z ]/g, "").toLowerCase();
-    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 200).replace(/[^A-Za-z ]/g, "").toLowerCase();
-    if (!after.startsWith(lead)) continue;
     // Skip the official title as printed, up to its end or the first sentence start.
     let bodyStart = m.index + m[0].length;
     const printed = text.slice(bodyStart, bodyStart + title.length + 40);
     const titleEnd = matchTitleEnd(printed, title);
+    const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
+    const separator = /^\s*[.:–—-]+/.exec(following)?.[0].length ?? 0;
+    const titleAt = bodyStart + titleEnd;
+    // Known tag-origin text is not an item title, even if the plain-text
+    // fallback would admit it. These spans exist only for an exact projection.
+    if (tagText.some(([start, end]) => m.index < end && titleAt > start)) continue;
+    const standaloneHeading = boundaries.has(m.index) && (boundaries.has(titleAt) || boundaries.has(titleAt + separator));
+    if (!standaloneHeading) {
+      const before = text.slice(Math.max(0, m.index - 120), m.index);
+      if (/["“‘]\s*$/.test(before)) continue;
+      if (/(?:\b(?:see|under|in|into|to|of|entitled|titled|references?|refer(?:s|red)?\s+to)|\b(?:in|into)\s+this)\s*["'“”‘’(]*\s*$/i.test(before)) continue;
+      // Require a predicate, not merely an auxiliary-shaped date or name.
+      // Optional above/below needs a preceding passive-link clause as well;
+      // otherwise an inline body's role remains ambiguous and is kept.
+      // Sentence/heading punctuation is not skipped by this bounded grammar.
+      const reference = /^[\s"'“”‘’)\],]*(?:(above|below)\s+)?(?:(?:is|are|was|were)\s+(?:not\s+)?(?:being\s+)?|(?:has|have|had)\s+(?:not\s+)?(?:been\s+)?(?:being\s+)?|(?:will|would|shall|should|can|could|may|might|must)\s+(?:not\s+)?be\s+(?:being\s+)?)([a-z]+(?:\s+forth)?)\b/i.exec(following);
+      const passiveLink = /\b(?:[a-z]+ed|set\s+forth)\s+by\s*$/i.test(before);
+      // A passive-link clause establishes the reference role even when the
+      // following predicate is irregular; no irregular-word catalogue is used.
+      // Without that context retain the preceding bounded regular fallback.
+      if (reference && (passiveLink || (!reference[1] && /^(?:[a-z]+ed|set\s+forth)$/i.test(reference[2]!)))) continue;
+    }
     bodyStart += titleEnd;
     heads.push({ item, start: m.index, bodyStart });
   }
@@ -1282,6 +1316,55 @@ export function splitEightKItems(rawText: string): EightKItemSection[] {
   });
 }
 
+/** Same-text line/block coordinates, used only as optional standalone-heading proof. */
+function itemHeadingBoundaries(rawText: string, document?: ParsedDocument): { boundaries: Set<number>; tagText: [number, number][] } {
+  const marker = "\u0000";
+  const tagText: [number, number][] = [];
+  if (rawText.includes(marker)) return { boundaries: new Set(), tagText };
+  let marked = rawText.replace(/\r\n?|\n/g, marker);
+  if (document?.fullText === rawText && !document.pre.includes(marker) &&
+      explicitHtmlHiddenState(document.pre) === "clear" && htmlToText(document.pre) === rawText) {
+    // Check original attributes before the lossy text projection can erase
+    // hidden evidence. Hidden/unsupported documents supply no optional proof.
+    // Mark original tags, consuming comments/raw-text bodies as whole tokens:
+    // stripping quoted delimiters first could expose attribute text as tags.
+    const tokens = /<!--[\s\S]*?-->|<(script|style)(?=[\s/>])(?:[^"'<>]|"[^"]*"|'[^']*')*>[\s\S]*?<\/\1\s*>|<(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
+    marked = "";
+    let sourceLength = 0;
+    const append = (source: string, fromTag: boolean) => {
+      const part = normalizeFilingText(htmlToText(source));
+      if (!part) return;
+      if (sourceLength) { marked += " "; sourceLength++; }
+      // Shared extraction may leak quoted attribute text. Keep its coordinates
+      // for compatibility, but it cannot supply any part of an item title.
+      if (fromTag) tagText.push([sourceLength, sourceLength + part.length]);
+      marked += part;
+      sourceLength += part.length;
+    };
+    let cursor = 0;
+    for (const token of document.pre.matchAll(tokens)) {
+      append(document.pre.slice(cursor, token.index), false);
+      const block = /^<\/?(?:h[1-6]|p|div|tr|td|th|li|br)(?=[\s/>])/i.test(token[0]);
+      if (block) marked += marker;
+      append(token[0], true);
+      if (block) marked += marker;
+      cursor = token.index + token[0].length;
+    }
+    append(document.pre.slice(cursor), false);
+  }
+  let projected = "";
+  const boundaries = new Set<number>();
+  for (const chunk of marked.split(marker)) {
+    const part = normalizeFilingText(chunk);
+    if (!part) continue;
+    if (projected) projected += " ";
+    boundaries.add(projected.length);
+    projected += part;
+    boundaries.add(projected.length);
+  }
+  return projected === normalizeFilingText(rawText) ? { boundaries, tagText } : { boundaries: new Set(), tagText: [] };
+}
+
 function matchTitleEnd(printed: string, title: string): number {
   // Walk the official title's words through the printed text; stop at the
   // first word that differs (issuers abbreviate: "Regulation FD", "Other Events.").
@@ -1290,12 +1373,14 @@ function matchTitleEnd(printed: string, title: string): number {
     const parts = word.split(/[^A-Za-z0-9]+/).filter((part) => part !== "");
     if (parts.length === 0) continue;
     // "Off-Balance" and "Registrant's" match whatever joiner the issuer printed.
-    const re = new RegExp(`^[\\s.;,:–—-]*${parts.join("[^A-Za-z0-9]{0,2}")}`, "i");
+    const re = new RegExp(`^[\\s.;,:–—-]*${parts.join("[^A-Za-z0-9]{0,2}")}(?=$|[^A-Za-z0-9])`, "i");
     const m = re.exec(printed.slice(at));
     if (!m) break;
     at += m[0].length;
   }
-  return at + (/^\s*\./.exec(printed.slice(at))?.[0].length ?? 0);
+  // Preserve a terminating period for the heading/reference distinction.
+  // The section-body cleanup removes it after admission, as for other separators.
+  return at;
 }
 
 /** The event's "Date of Report (Date of earliest event reported)". */

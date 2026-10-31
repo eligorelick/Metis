@@ -1,7 +1,7 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
-import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "./leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, type LeaseEvidenceClassification } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
 export interface CashFlowBridge {
@@ -10,6 +10,8 @@ export interface CashFlowBridge {
   afterSbcStandardizedFcf: number | null; afterSbcIssuerFcf: number | null; definition: string;
 }
 export interface DebtBridge {
+  leaseEvidence?: LeaseEvidenceClassification;
+  leaseEvidenceNote?: string;
   leaseScopeNote?: string;
   /**
    * Audit 2026-10-29, AMZN #51 (FIG-2; D-133): why the lease-inclusive total is
@@ -61,6 +63,7 @@ export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   };
 }
 export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
+  const descriptive = { leaseEvidence: classifyLeaseEvidence(row), leaseEvidenceNote: leaseEvidenceNote(row) };
   const debt = finite(row?.totalDebt), operating = finite(row?.operatingLeaseLiability), finance = finite(row?.financeLeaseLiability);
   const combined = finite(row?.cashAndShortTermInvestments), cash = finite(row?.cashAndCashEquivalents), sti = finite(row?.shortTermInvestments);
   const liquidity = combined ?? (cash !== null && sti !== null ? cash + sti : null);
@@ -71,19 +74,19 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const conflict = leaseDebtConflict(row ?? {});
   const refusal = debt === null && row?.fieldConflicts?.totalDebt?.usable === false ? row.fieldConflicts.totalDebt.reason : null;
   if (conflict !== null || refusal !== null) return {
-    totalDebtIncludingLeases: null, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
+    ...descriptive, totalDebtIncludingLeases: null, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
     compositionNote: closeSentence(`Total debt including leases withheld at ${row?.date ?? "the balance date"}: ${refusal ?? conflict}`),
   };
   const composed = row?.fieldProvenance?.totalDebt?.calculation === "noncurrent-lease-line-completed" ? row.fieldProvenance.totalDebt : undefined;
   const compositionNote = composed === undefined || debt === null ? undefined
-    : `Total debt including leases ${millions(debt)} is composed from the ${composed.filings?.map((f) => `${f.form} ${f.accn}`).join(", ") ?? "same"} filing ` +
+    : `Debt on the recomposed reported basis ${millions(debt)} is composed from the ${composed.filings?.map((f) => `${f.form} ${f.accn}`).join(", ") ?? "same"} filing ` +
       `(${composed.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(" + ")}): the vendor's own total held only the noncurrent lease liabilities, ` +
       `leaving out ${completedTotalOmission(composed.tags)}. It is a composed figure, not a vendor-reported total.`;
   const incomplete = incompleteLeaseCoverage(row);
   if (incomplete !== null) return {
-    totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,
+    ...descriptive, totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,
     financeLeases: incomplete.finance === null ? finance : null, cashAndShortTermInvestments: liquidity,
     debtIncludingDisclosedLeasePortion: debt, netDebtIncludingDisclosedLeasePortion: net,
     ...(incomplete.operating === "noncurrent" ? { operatingLeasesNoncurrent: operating } : incomplete.operating === "current" ? { operatingLeasesCurrent: operating } : {}),
@@ -93,7 +96,7 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
     netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null && leaseDebtScopeRefusal(row, false) === null && operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null,
     leaseScopeNote: incomplete.note,
   };
-  return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
+  return { ...descriptive, totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null,
     ...(compositionNote !== undefined ? { compositionNote } : {}) };

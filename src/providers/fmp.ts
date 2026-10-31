@@ -26,6 +26,7 @@
  */
 
 import "server-only";
+import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
 
@@ -762,6 +763,8 @@ export interface FmpPayload<TRow extends FmpRawRow = FmpRawRow> {
   rows: TRow[];
   raw: unknown;
   planLimit?: FmpPlanLimit;
+  /** Estimate-only date roles; raw provider rows and generic asOf remain unchanged. */
+  estimateTiming?: EstimateTiming;
   /**
    * Split events the price source listed for these rows' sessions (Yahoo's
    * daily chart). Absent on FMP payloads: FMP's EOD endpoint lists none.
@@ -1788,12 +1791,13 @@ export class FmpClient {
     if (timestampProblem !== null) return gap(spec.gapField, timestampProblem, "warn", [endpointPath]);
     const rows = validation.rows.map(row => spec.method === "quote" || spec.method === "batchQuote"
       ? { ...row, priceAsOf: quotePriceObservationDay(row) } : row);
+    const estimateFallback = spec.method === "analystEstimates" ? fetchedAt ?? this.now().toISOString() : null;
     const sourced: Sourced<FmpPayload<TRow>> = {
-      data: { rows, raw: body, ...(planLimit === undefined ? {} : { planLimit }) },
-      asOf: deriveAsOf(rows, fetchedAt ?? this.now().toISOString()),
+      data: { rows, raw: body, ...(estimateFallback === null ? {} : { estimateTiming: buildEstimateTiming(rows, estimateFallback, { cacheFetchedAt: exchange.fetchedAt, responseFetchedAt: exchange.value.fetchedAt }) }), ...(planLimit === undefined ? {} : { planLimit }) },
+      asOf: deriveAsOf(rows, estimateFallback ?? fetchedAt ?? this.now().toISOString()),
       source: "fmp",
       endpoint: endpointPath,
-      fetchedAt: fetchedAt ?? this.now().toISOString(),
+      fetchedAt: estimateFallback ?? fetchedAt ?? this.now().toISOString(),
       ...(exchange.stale ? { stale: true } : {}),
       ...(exchange.staleReason ? { staleReason: exchange.staleReason } : {}),
     };
@@ -1854,7 +1858,7 @@ export class FmpClient {
       const rows = validation.rows;
       const nowIso = this.now().toISOString();
       const sourced: Sourced<FmpPayload<TRow>> = {
-        data: { rows, raw: body },
+        data: { rows, raw: body, ...(spec.method === "analystEstimates" ? { estimateTiming: buildEstimateTiming(rows, nowIso, { fixtureLoadedAt: nowIso }) } : {}) },
         asOf: deriveAsOf(rows, nowIso),
         source: "fmp",
         endpoint: `[FIXTURE] ${endpointPath}`,

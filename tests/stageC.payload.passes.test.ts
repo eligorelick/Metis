@@ -10,6 +10,8 @@
 
 import { describe, expect, it } from "vitest";
 import { restoreB6Golden } from "./helpers/b6PayloadGolden";
+import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
+import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -68,6 +70,7 @@ import {
   runBullPass,
   runBearPass,
   runBullThenBear,
+  runAnalystRepairPass,
   runAnalystContinuationPass,
   isTransientSubscriptionFailure,
   runJudgePass,
@@ -554,7 +557,7 @@ describe("payload determinism + provenance", () => {
   });
 
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
-    const { computed, payload } = restoreB6Golden(buildInputs());
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(buildInputs())));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1463,7 +1466,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.54.0");
+    expect(first.payloadVersion).toBe("1.55.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2992,7 +2995,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.52.0");
+    expect(report.meta.specVersion).toBe("1.53.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -3626,6 +3629,36 @@ describe("prompt manifest and report appendix agree (H4/L7)", () => {
  * ------------------------------------------------------------------------ */
 
 describe("mock-driven bull/bear/judge passes", () => {
+  it.each([false, true])("rejects a known rating rule and blank evidence source; repair valid=%s", async (validRepair) => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const invalid = analystCase("bull");
+    invalid.keyDrivers[0].text = "Buy this stock: PRIVATE REJECTED DRIVER";
+    invalid.evidence[0].source = "";
+    mock.onJson("llm.bull", invalid, { costUsd: 0.31 });
+    const rejected = await runBullPass(makeDeps(mock), payload);
+    expect(rejected.ok).toBe(false);
+    if (rejected.ok) return;
+    expect(rejected.error.kind).toBe("schema");
+    expect(rejected.validationError).toContain('"ruleId": "investment_rating_language"');
+    expect(rejected.validationError).toContain('"source"');
+    expect(rejected.validationError).not.toContain("PRIVATE REJECTED DRIVER");
+    expect(rejected.costUsd).toBe(0.31);
+
+    mock.onJson("llm.bull", validRepair ? analystCase("bull") : invalid, { costUsd: 0.2 });
+    const repaired = await runAnalystRepairPass(makeDeps(mock), payload, "bull", rejected.validationError!);
+    expect(repaired.ok).toBe(validRepair);
+    if (repaired.ok) expect(repaired.result.costUsd).toBe(0.2);
+    else {
+      expect(repaired.error.kind).toBe("schema");
+      expect(repaired.costUsd).toBe(0.2);
+      expect(repaired.validationError).toContain('"ruleId": "investment_rating_language"');
+      expect(repaired.validationError).toContain('"source"');
+    }
+    expect(mock.calls).toHaveLength(2);
+    expect(mock.calls.every((call) => call.outputSchema !== undefined)).toBe(true);
+  });
+
   it("runBullPass parses the structured output and records web searches", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();

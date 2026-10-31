@@ -4,6 +4,7 @@ import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationS
 import { decimalRound, formatFinancialValue } from "@/report/format";
 import { issuerReconciliationTables } from "@/report/reconciliationPresentation";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
+import { MaterialEventItemsSchema } from "@/report/schema";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 
 /**
@@ -298,14 +299,23 @@ function segmentPerformanceTables(d: FilingDisclosures): ReportAuditTable[] {
     note: "Issuer segment adjusted EBITDA divided by the same segment's revenue for matching quarterly columns, currency and scale. Prior margin uses the comparative column in the same filing. These are not consolidated GAAP margins and do not establish that investment spending will succeed.",
   }];
 }
-function eventTable(d: FilingDisclosures): ReportAuditTable[] {
-  if (d.events.length === 0) return [];
+/** Only saved eligibility is described; neither current configuration nor event-row items establish scope. */
+export function materialEventScopeNote(d: Pick<FilingDisclosures, "materialEventItems"> | undefined): string {
+  const saved = MaterialEventItemsSchema.safeParse(d?.materialEventItems);
+  const scope = saved.success
+    ? `Recorded eligible material-event item filter: Items ${[...new Set(saved.data)].sort().join(", ")}.`
+    : "The saved report did not record its material-event item filter.";
+  return `${scope} Only retained filing rows, if any, are shown; completeness of SEC event review is not established. Eligibility remains subject to the filing window and analytical cutoff, document-count limits, omitted unread filings, read/parse failures and text truncation. Earnings releases (Item 2.02) appear under guidance.`;
+}
+
+export function materialEventTables(d: FilingDisclosures | undefined): ReportAuditTable[] {
+  if (!d?.events.length) return [{ heading: "Material SEC current-report scope", headers: [], rows: [], note: materialEventScopeNote(d) }];
   const corrected = d.events.some((e) => e.summaryCorrection !== undefined || withoutLegacyPrincipalAnnotation(e.summary) !== e.summary);
   return [{
     heading: "Material SEC current reports (Form 8-K, last 12 months)",
     headers: ["Filed", "Event date", "Items", "Summary", "Accession"],
     rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutLegacyPrincipalAnnotation(e.summary), e.accession]),
-    note: "Items 1.01 (material agreement), 1.02, 2.01, 2.03 (off-balance-sheet or direct financial obligation), 2.05, 2.06, 5.02 (officers and directors) and 8.01 (other events). Earnings releases (Item 2.02) appear under guidance." + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
+    note: materialEventScopeNote(d) + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
   }];
 }
 
@@ -358,7 +368,7 @@ export function newerFilingBanner(d: FilingDisclosures | undefined): string | nu
 }
 
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
-  if (!d) return [];
+  if (!d) return section === "catalystsRisks" ? materialEventTables(d) : [];
   switch (section) {
     case "business": return [...segmentTables(d), ...segmentPerformanceTables(d)];
     case "fundamentals": return trendTables(d);
@@ -374,6 +384,6 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
       return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No structured guidance rows were extracted; see separately sourced narrative guidance where available."]], note: notes }] : [];
     }
-    case "catalystsRisks": return [...eventTable(d), ...companyStatementTables(d)];
+    case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
   }
 }

@@ -1780,11 +1780,11 @@ export function computeRoic(
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
     notes.push(
-      "operating-lease liability kept inside invested capital (THESIS_EV_INCLUDE_LEASES=1), matching the enterprise-value bridge",
+      "invested capital uses the retained totalDebt basis (THESIS_EV_INCLUDE_LEASES=1); no separate operating-lease amount is subtracted, matching the enterprise-value convention",
     );
   } else if (!leaseDisclosed) {
     notes.push(
-      "no balance sheet discloses an operating-lease liability separately (the provider publishes no split) — invested capital carries totalDebt, lease liabilities included, unadjusted; for a lease-heavy issuer ROIC is understated against the lease-consistent basis",
+      "no separate operating-lease observation is available on these balance sheets; invested capital uses the retained totalDebt basis without a separate operating-lease adjustment. Operating-lease coverage is unverified; no direction of ROIC bias is established",
     );
   }
 

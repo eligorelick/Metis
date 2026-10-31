@@ -1,3 +1,4 @@
+import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
  *
@@ -36,7 +37,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, 
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
-import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
+import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -172,6 +173,8 @@ export const TRUNCATION_MARKER = "…[TRUNCATED";
  * date the figure is as-of, or null for a timeless/derived quantity.
  */
 export interface PayloadFigure {
+  /** Estimate date roles qualify the compatibility asOf; it is not publication vintage. */
+  estimateTiming?: EstimateModelTiming;
   /** Exact registry ID for numeric figures emitted by payload assembly. */
   provenanceId?: string;
   label: string;
@@ -435,7 +438,8 @@ export interface ContextPayload {
 // guided-quarter season, like-for-like context and issuer caveats. No old resume.
 // 1.54.0 (D-137, B6): financial-route currency and evidence, buyback coverage, revenue refusals,
 // common-equity/gain/scope peer comparisons and same-construction P/E ranking alter admitted context.
-export const PAYLOAD_VERSION = "1.54.0" as const;
+// D-138 report-53 batch: source-scope qualifications and neutral debt captions change model context.
+export const PAYLOAD_VERSION = "1.55.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -576,8 +580,9 @@ export function formatFigure(f: PayloadFigure): string {
   const currency = monetary && canonical?.currency === null
     ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
     : "";
+  const estimateDates = f.estimateTiming === undefined ? "" : `; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
-  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}${periodContext}`;
+  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.estimateTiming === undefined ? f.asOf : estimateDay(f.asOf))}${periodContext}${estimateDates}`;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1042,7 +1047,7 @@ function computedSections(
       // The bridge group is structure, not the metric: "total debt including
       // leases", never "debt Bridge total Debt Including Leases", which no
       // prose naming the metric could match (NVDA report 34).
-      const label = key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      const label = (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
     };
@@ -1066,6 +1071,7 @@ function computedSections(
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
       ...(currentCapital.debtBridge.compositionNote ? [currentCapital.debtBridge.compositionNote] : []),
       ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
+      ...(currentCapital.debtBridge.leaseEvidenceNote ? [currentCapital.debtBridge.leaseEvidenceNote] : []),
     ] }));
   }
 
@@ -1562,6 +1568,7 @@ function extractStatement<TRow extends FmpRawRow>(
   lineItems: { key: keyof TRow; label: string; unit: string }[],
   source: string,
   periodKind: "instant" | "duration" = "duration",
+  leaseEvidenceContext?: LeaseEvidenceContext,
 ): StatementExtractBlock | null {
   const kept = rows.slice(0, periods);
   if (kept.length === 0) return null;
@@ -1574,7 +1581,7 @@ function extractStatement<TRow extends FmpRawRow>(
   const fiscalLabels = kept.map((r) => issuerFiscalLabel(r));
   const lines: StatementLineExtract[] = lineItems.map((li) => ({
     lineItem: periodKind === "instant" && li.key === "totalDebt" && kept.some(r => incompleteLeaseCoverage(r as FmpBalanceSheetRow) !== null)
-      ? "debt including disclosed lease portion (full lease coverage unverified; see period notes)" : li.label,
+      ? "debt including disclosed lease portion (full lease coverage unverified; see period notes)" : periodKind === "instant" && li.key === "totalDebt" ? "Debt used in this report" : li.label,
     unit: li.unit,
     source,
     byPeriod: kept.map((r, i) => {
@@ -1593,7 +1600,7 @@ function extractStatement<TRow extends FmpRawRow>(
   }));
   return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? [] : kept.flatMap(r => {
     const coverage = incompleteLeaseCoverage(r as FmpBalanceSheetRow);
-    return coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`];
+    return [...(coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`]), leaseEvidenceNote({ ...(r as FmpBalanceSheetRow), leaseEvidenceContext })];
   }) };
 }
 
@@ -1652,8 +1659,8 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const cashQ = oneRowPerPeriod(rowsOf(bundle.statements.cashflowQuarterly), Q);
   push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
   push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
-  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"), bal.notes);
-  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"), balQ.notes);
+  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
+  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
   push(extractStatement("Cash flow — annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow — quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   return blocks;
@@ -1723,6 +1730,7 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
+  const estimateTiming = estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined));
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
@@ -1731,8 +1739,8 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
     const period = isFullIsoDate(candidatePeriod) ? candidatePeriod : null;
     const periodLabel = period ?? "unknown";
     figures.push(
-      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
-      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
+      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
     );
   }
   const ptc = firstRow(bundle.priceTargetConsensus);
@@ -3146,7 +3154,10 @@ function attachProvenanceRegistry(
       return;
     }
 
-    const id = uniqueId(`${prefix}.${semanticSlug(figure.label)}`);
+    // Display-only lease captions must not rename existing numeric citations.
+    const leaseField = /^computed\.capital\.current\.debtBridge\.(\w+)$/.exec(figure.source)?.[1];
+    const registryLabel = leaseField && LEASE_DEBT_LABELS[leaseField] ? leaseField.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : figure.label;
+    const id = uniqueId(`${prefix}.${semanticSlug(registryLabel)}`);
     figure.provenanceId = id;
     figure.currency = resolvedCurrency;
     figure.period ??= periodFromLabel(figure.label);
@@ -3166,6 +3177,7 @@ function attachProvenanceRegistry(
       ...(figure.subject === undefined ? {} : { subject: figure.subject }),
       asOf,
       origin: figure.source,
+      ...(figure.estimateTiming === undefined ? {} : { estimateTiming: figure.estimateTiming }),
       formulaVersion: kind === "computed" ? "stage-b-v1" : null,
       displayPrecision: 4,
     });
@@ -3264,7 +3276,7 @@ function attachProvenanceRegistry(
           continue;
         }
         const id = uniqueId(
-          `payload.statements.${blockName}.${cell.period}.${semanticSlug(line.lineItem)}`,
+          `payload.statements.${blockName}.${cell.period}.${semanticSlug(line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases ? "total debt" : line.lineItem)}`,
         );
         cell.provenanceId = id;
         registry.push({

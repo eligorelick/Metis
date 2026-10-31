@@ -35,7 +35,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // calendars, guided-quarter season and twelve-month floor, ex-item disclosure.
 // D-137 (B6): financial-route currency/eligibility, admitted reverse-return share basis, buyback coverage,
 // revenue refusal, ADR Altman scope, common-equity/gain/scope peer comparisons and same-construction P/E ranking.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33" as const;
+// D-138 report-53 batch: receivables continuity and descriptive lease evidence on the retained debt basis.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_34" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -3,12 +3,42 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.52.0 / payload 1.54.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33 (2026-10-30, D-137). Its bounded evidence fixes
+The current source declares report 1.53.0 / payload 1.55.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_34 (2026-10-30, D-138; final release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
+
+## Saved-report scope qualifications (D-138)
+
+Reports before the frozen 1.53.0 convention display a separate read-time
+clarification section before the affected body in classic, dossier, Markdown,
+print and audit. The sidecar is not recorded evidence or a manifest entry; it
+changes no stored figures, flags/severities, grades, trust counts, source/date
+identities, verification or report state. Missing/malformed versions get
+unrecorded-version wording without broader parser admission. Current/future
+versions get no historical migration notes. If a current/future report contains
+an exact owned older receivables/discontinued flag wrapper, only a fixed
+non-migration interpretation caveat appears; the flag is not rewritten. Normal
+current/future reports and near/analyst matches receive no such caveat. This
+covers current assembly from older computed inputs whose scope notes were not
+saved with the flag. No new lease matcher or saved-proof schema is inferred.
+Absent collector/estimate metadata still means unknown through their shared
+formatters.
+
+Only exact generated receivables-growth and discontinued-observation quality
+flag templates at their owning sources are rewritten, preserving their amounts,
+counts, rule and severity. Arbitrary analyst prose survives with a separate
+limitation. Legacy Altman periods and lease/DCF boilerplate remain recorded and
+must be read with the caveat; scores and rounded ratios cannot recover missing
+scope, dates or operands. Earlier 1.50/1.51/1.52 safety conventions retain their
+order and cutoffs, including bridge EXCLUDES evidence. Repeated parser/reader
+composition is immutable and idempotent. Audit distinguishes recorded model
+labels from the shared saved-execution summary; its existing omission of
+historical fair-value basis prose remains unchanged. The [report-53 disposition](audit/2026-10-30-qcom-report-53-integrity.md)
+records implemented source changes, all evidence limits and separate release
+acceptance work. No original report-53 snapshot replay is claimed.
 
 Company analysis requires established security classification: an explicit equity
 type, or both provider fund flags explicitly false when no explicit type is given.
@@ -86,6 +116,28 @@ Final runner metadata reconciles the disclosure cutoff and report-generation
 timestamp together while retaining every input timestamp and calculation basis.
 Recovery preserves the original persisted generation time rather than dating
 old evidence as a fresh generation. Legacy timing omissions remain omissions.
+
+Consensus estimate dates have separate roles (D-138 Task 11). FMP row `date`
+remains the forecast fiscal-period end. The estimate producer records whether
+its compatible envelope `asOf` selected a fiscal end or used its fallback day;
+these dates do not establish publication/update vintage. The exact retained
+response's validated acquisition timestamp is separate: durable-cache store
+completion takes precedence over the loader response stamp, and old cached
+bodies retain their original recorded acquisition. A fixture load is identified
+as a load; missing/invalid acquisition remains unknown despite the generic
+clock fallback. Passthrough `publishedDate` supplies no publication contract.
+
+Saved market data and audit timing retain exact validated source timestamps.
+Model figures and numeric registry records carry the same roles with explicitly
+labelled UTC-day precision, without runtime timestamps in the model prompt.
+Generic envelope dates, raw rows, amounts, forecast-calendar selection, source
+admission, grades and state are unchanged. For legacy reports lacking role
+metadata, a unique exact FMP annual analyst-estimates endpoint for the report
+symbol can expose a recorded response timestamp with acquisition origin
+unestablished (or an explicit fixture load); it cannot reconstruct the old
+selection branch or publication. Other legacy dates remain unclassified. The
+shared classic/dossier/Markdown/print and audit disclosures do not rewrite saved
+report bytes or infer a fresh/stale eligibility rule.
 
 Two rules govern everything below. Reported numeric claims use provenance
 records with source and as-of information where established; missing dates,
@@ -612,6 +664,127 @@ first available of three sources:
    tax rate.
 3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
    the year-one midpoint at the near-term growth rate.
+
+**Annual-note appendix redirects (D-138, report-53 Task 7, unreleased).** Ordinary annual Item 8/15 extraction keeps priority and its existing stub and next-item bounds. When it fails, a notes-only route can follow one Item 15 table bounded by the real Item 16 heading. Exactly one notes row with an F-page label and one Schedule II row with an S-page label must resolve to unique forward same-document targets and matching standalone headings, with a first note and at least the existing 2,500-character substantive-body threshold. F-8 and S-1 remain distinct namespaces. Raw HTML character bounds are validated before flattening their actual text nodes; signatures before the appendix, the linked schedule and exhibits do not enter the result. Repeated notes headers and prose references, including paragraphs beginning with full schedule/exhibit/Item 16 titles, do not terminate the validated interval. A first-12,000-character statement prefix is optional and requires a separately proved Consolidated Balance Sheets target from that same index, after Item 16 and before notes, without intervening signature/appendix headings.
+
+The distinct `annual-notes-index-redirect` method and optional `annualNotesRedirect` record retain validated identifiers, namespaced page labels and source bounds as **original HTML UTF-16 character offsets**, not bytes or preprocessed-text positions. Legacy sections need no new field. Original quote-aware tokens are read before comments/script/style removal; hidden attributes/ancestors, simple inline display/visibility hiding, attribute-only titles and missing/broken/duplicate/ambiguous relationships cannot confer redirect proof. This deliberately narrow route requires balanced explicit markup, headings in h1–h6/p/div outside tables, separate title/page cells, simple fragment IDs and no nonvoid self-closing or unsupported raw/fallback modes. It does not repair HTML, evaluate stylesheets or claim universal browser visibility; unsupported cases retain the existing warn-level gap. It uses already acquired primary HTML, with no extra fetch or new 2M source cap, under the unchanged annual elapsed-budget gates. Shared preprocessing, numeric TOCs and existing successful producer routes are unchanged. The older ordinary text-only annual trimmer retains its case-sensitive schedule regex and possible embedded-reference truncation; this fix makes no universal ordinary-path boundary claim. Regression markup is synthetic source-derived structure, not an exact retained QCOM filing or original report-53 replay. No financial arithmetic or report-state policy changes are made.
+
+For this redirect only, the first nonempty original h1–h6/p/div block after the notes title must itself open the first note, with no intervening visible text. Admission requires either a standalone Note 1/A/One label (optionally ending in a period or colon), or a named/numeric first-note marker followed by one of these complete titles: Organization; Organization and Business; Description of Business; Basis of Presentation; Summary of Significant Accounting Policies; Organization and Summary of Significant Accounting Policies. Matching is case-insensitive. A title must end at the original block boundary or at a period/colon followed by whitespace or end. The named marker may have a punctuation separator; numeric markers require `1` plus punctuation or `(1)`. The same closed-title rule applies to numeric text, explicit headings and paragraphs, including inline spans. Punctuation or capitalized words alone are not proof. Arbitrary titles, unsupported introductory furniture and continuing clauses such as `Note 1 Organization Is Described In Another Document` retain the warning. This is a deliberately narrow structural admission rule, not a general semantic classifier of note contents, and leaves the ordinary flattened helper unchanged. A standalone full intervening schedule title recognizes whitespace alone as well as dash/colon separators before `Valuation and Qualifying Accounts`, case-insensitively. It refuses a crossed notes interval and omits a crossed statement prefix; paragraphs continuing after the full title remain references, not boundaries.
+
+**Source-bound quarterly guidance tables (D-138, report-53 Task 5, unreleased).**
+New collection can retain the already-parsed release/commentary document as
+optional extraction evidence. A current-only table must have one explicit
+`Qn FYyy Estimates` or `Qn FYyyyy Current Guidance` column and two cells per
+row. Revenue endpoints each state a supported million/billion scale; diluted
+EPS retains its separately stated GAAP or non-GAAP basis and unscaled per-share
+endpoints. Currency symbols, fiscal fields and exact source row/header spans
+are retained. Metric and period labels are generated from validated fields;
+raw source header, row, issuer, date and currency text is not promoted into
+trusted model notes. Raw excerpts remain source evidence.
+
+The new route is bounded to one supported table, 60,000 markup characters,
+6,000 text characters and 32 rows. Consolidated scope additionally requires a
+complete, immediately preceding supported outlook/guidance label in an HTML
+heading, paragraph or div within 1,500 markup characters. Inline emphasis is
+permitted inside that label; intervening visible text, an unknown label or a
+missing/truncated scope element causes local extraction refusal. The label
+must match its coordinate in the flattened visible source, so script/style
+content cannot establish scope even if its wrapper starts outside the window.
+For this new route only, a quote-aware negative check of at most 2,000,000
+preprocessed source characters declines any document retaining an explicit HTML
+`hidden` attribute, including boolean `hidden=false`. Larger source documents
+also decline this route. This conservative fence includes unrelated closed
+hidden elements and ancestors beginning outside the scope window; it does not
+search farther for positive scope. Quoted values, `data-hidden` and other
+attribute lookalikes do not trigger it. Shared preprocessing and legacy compact
+parsing are unchanged. The local lexical pass recognizes complete quoted tags
+and actual attribute-name/value boundaries before interpreting genuine comments
+or script/style bodies. Delimiter-like quoted values cannot erase a real
+attribute; `title = hidden` remains an ordinary value. Oversized, malformed or
+unsupported lexical states decline this new route without altering the source.
+Coordinate consistency and this explicit-attribute fence
+do not attest general browser/CSS visibility or resolve external stylesheets.
+Duplicate/conflicting columns, metrics or
+guidance tables, merged cells, unsupported scope captions/section headings,
+mixed endpoint scales/currencies and reversed ranges are refused. An
+unsupported row ends the supported consolidated run; a later bare revenue
+row cannot inherit segment or adjustment scope. Endpoints cannot be joined
+across rows or tables, and a recognized structural refusal cannot be rescued
+by flattened prose scanning. Existing compact formats and release-before-
+commentary source priority retain their previous behavior. Statement-currency,
+scale, B5 fiscal-calendar and guidance-retirement checks remain unchanged: an
+ended Q4 stays usable while Q3 is latest reported and retires when Q4 is
+reported. A consensus inside the filed corridor is not replaced mechanically
+by the midpoint. The Q4 FY2026 9.7–10.5B revenue and 1.22–1.42/2.05–2.25 EPS
+controls use synthetic source-derived structure, not exact retained QCOM HTML
+or a historical report replay. Stored reports are not reparsed at read time;
+unknown historical extraction coverage remains unknown.
+
+**Material current-report eligibility (D-138, report-53 Task 6, unreleased).**
+The collector uses one immutable filter for candidate reads and retained item
+sections: 1.01, 1.02, 2.01, 2.03, 2.05, 2.06, 3.02, 5.02, 5.07 and 8.01.
+Item 3.02 accepts bounded `Unregistered Sale of Equity Securities` and
+`Unregistered Sales of Equity Securities` titles and strips either printed
+title from the retained body. Full-title prose references and false prefixes
+do not establish headings or boundaries. The existing subsequent-item,
+signature, short incorporation-only and source-text retention boundaries remain.
+Title-ending punctuation and original text-line boundaries stay available
+during reference recognition. The real collector retains the same parsed
+document as optional boundary context, with the existing two-million-character
+raw fetched-source cap applied before parsing. Exact text and projected
+coordinate agreement can establish a
+standalone title in heading/paragraph/table blocks; mismatched context supplies
+no proof. Comment/script/style labels cannot establish visible boundaries.
+Documents containing an actual HTML `hidden` attribute supply no optional block
+proof because global preprocessing does not remove that attribute's text; this
+local rule does not change global extraction or claim that text is visible.
+The lexical check reads original preprocessed tags before lossy text projection,
+so quoted comment/script/style delimiters cannot erase a real hidden attribute.
+Hidden, unsupported or over-two-million-character preprocessed context supplies
+no optional block proof; the latter limit also applies to direct parser callers.
+Original comment/raw-text tokens are consumed whole and only actual block tags
+supply boundaries. Any text shared extraction leaks from tag attributes retains
+its coordinates but cannot supply any part of an admitted item title, even
+without reference wording. Ordinary quoted
+values and spaced unquoted values such as `title = hidden` remain supported.
+Token projection must still agree exactly with the supplied normalized text;
+a mismatch discards both optional boundaries and tag-origin ranges. This is not DOM repair or general CSS/browser
+visibility evidence, and the existing ambiguous-role fallback remains unchanged.
+
+Without standalone-heading evidence, bounded passive/perfect predicate grammar
+distinguishes references, including relative-position modifiers. An auxiliary
+plus arbitrary text is insufficient: dates and proper names remain section
+bodies. A modifier also requires a preceding passive-link clause to establish
+the reference. A strong preceding passive-link clause establishes that role
+for irregular predicate continuations without an irregular-word catalogue;
+without that context, unknown irregular inline roles keep the existing heading.
+Otherwise an ambiguous modifier-led inline heading is also kept. Genuine
+Above/Below/In introductions, including `Below are set forth the conditions`,
+retain their exact bodies. Plain/inline callers remain supported without
+inventing source structure; this is bounded recognition, not a general language
+parser or an exhaustive event-review claim.
+
+New collections save their actual eligible-item codes as optional structured
+metadata. The builder validates the controlled codes, copies a deduplicated,
+ordered list into the strict optional report contract, and never supplies the
+current filter for missing historical metadata. One pure formatter serves
+classic/dossier, Markdown, print and audit. A saved eligible list describes
+eligibility only; neither event-row items nor report date/version establish
+the scan filter. Missing, empty or unusable metadata means the filter was not
+recorded and completeness of SEC event review is not established. Empty events
+and absent disclosure evidence show that qualification with no invented event,
+source fact, recorded-evidence count or missing-data-manifest row. Saved report
+and input bytes remain unchanged by display.
+
+The existing annual-filing-based window (365-day fallback), analytical cutoff,
+8-K/8-K/A eligibility, ten-document cap, omitted unread identities and read,
+parse, no-heading and truncation notes remain in force. Eligibility never
+attests that every eligible filing was read. Conditional warrant exercise and
+vesting clauses and purchase ceilings remain bounded source evidence; they do
+not automatically change outstanding shares, dilution, warrant valuation,
+backlog, financial calculations, forecasts, grades or report state. The offline
+structural controls are synthetic source-derived markup, not exact retained
+QCOM HTML or an original-report replay.
 
 The **run-rate** is the latest quarter annualized, made seasonally neutral.
 Latest quarter × 4 overstates a seasonal peak quarter and understates a
@@ -1651,6 +1824,12 @@ row, an unproven history year is left out of the A-2 median with a note (below).
 With the switch set every consumer keeps total debt as reported, and the
 sales-to-capital basis says the operating lease is kept in invested capital.
 
+**Lease evidence is descriptive, not a new debt guard (D-138, report-53 Task 4, unreleased).** Operating, finance and combined coverage are classified separately from the existing arithmetic and refusal rules. A provider lease-line zero is an observation, not a disclosed all-lease zero. A complete operating total or zero establishes neither finance nor combined completeness. The XBRL `CapitalLeaseObligations` concept is finance-only even though the similarly named provider field can hold a combined observation.
+
+Complete component descriptions require finite nonnegative retained amounts, no explicit field refusal, supported direct total or disjoint current/noncurrent tags, primary SEC evidence for the exact balance date and known currency, valid filed dates, the actual confirmed company-facts envelope acquisition timestamp at or before the analytical bundle cutoff, and one compatible filing lineage. The optional descriptive context carries the cutoff and acquisition timestamp separately. Field `observedAt` is not assumed to be acquisition time: the parser records actual acquisition there, but enrichment records its analytical cutoff. A missing context, wrong issuer, or future-to-snapshot acquisition remains unverified; no present-day clock or filing date is substituted. Reconstructed, calculated, overlapping, unsupported or incomplete provenance remains unverified. The existing combined observation must reconcile to both independently complete components with compatible evidence; the classifier never constructs a replacement amount. Combined zero additionally requires all three retained amounts to be exactly zero. No evidence classification certifies all-lease inclusion in debt.
+
+Debt captions therefore say "Debt used in this report" and "Net debt on the retained basis," while explicitly partial-maturity captions remain distinct. Existing numeric property names, citation IDs, monetary values, refusal priorities, model eligibility and grades are retained. Current-capital, statement/payload and diagnostic notes use the same evidence wording. EV and DCF describe adjustments actually made; the DCF classifies its actual bridge balance and distinguishes the amount removed from net debt after adjustment. WACC describes each actual averaged balance and its separate latest balance independently. ROIC notes describe the retained basis without inferring lease inclusion or bias direction from missing operating scope. The convention switch, source name, equal amounts, absent finance tags and a noncurrent-line completion marker do not by themselves establish complete lease coverage. Unknown coverage introduces no refusal or Blocked state. Older balances are never imported to fill it.
+
 **A withheld value states its refusal (audit 2026-10-29, VAL-4, VAL-10,
 KNW-04).** When enterprise value cannot be built, its basis and the
 `valuation.multiples.enterpriseValue` entry read "EV withheld:" with the actual
@@ -1691,8 +1870,8 @@ basis: NOPAT and interest expense are both after operating-lease cost under
 ASC 842, and a lease-inclusive denominator understated ROIC for every
 lease-heavy issuer (a discount retailer: 6% on the inclusive base against 11%
 on the consistent one) and could push the effective rate below the acceptance
-band. Where no split is disclosed, the ROIC notes say the provider's total debt,
-lease liabilities included, was used unadjusted. Where a split is disclosed but
+band. Where no split is disclosed, the ROIC notes say total debt on the retained
+basis was used without a separate operating-lease adjustment; lease coverage and the direction of any ROIC bias are unverified. Where a split is disclosed but
 not shown to sit inside total debt (the proof above), the year's note names the
 unproven reason and says total debt is used as reported. The DCF's sales-to-capital denominator
 is the same capital: the proven operating-lease slice leaves its debt by default
@@ -2519,6 +2698,24 @@ guards stay dominant. No ADS ratio
 is inferred, and this Altman correction does not claim to fix the deferred
 WACC scope limitation above.
 
+**Forensic observation context (D-138, Task 8).** An original Altman score can
+use a positive market-cap operand without a retained observation date. Its
+score-evidence caption then says `market-cap observation date unavailable`;
+the cap value, selected variant and existing source-date admission stay unchanged.
+A recorded cap date remains displayed; other variants and genuine missing-cap
+refusals retain their existing behavior. No quote, build or filing date fills
+an absent cap-observation date, and FIN-312's tombstoned date policy stays deferred.
+
+The discontinued-results supporting flag retains its existing nonzero count,
+five-year lookback, two-observation trigger, severity and scoring. It describes
+the retained fiscal-year observations and their own period ends, validating exact
+Gregorian dates for display and using `date unavailable` for each unknown or
+invalid date. Missing amounts remain unknown; no net-income difference derives
+them. The number of periods does not establish the number or recurrence of
+transactions: one disposal can affect several periods. This generic limitation
+does not label QCOM's actual two-disposal Veoneer program as one disposal, or
+replace report 53's unreconciled two-observation count with three filed years.
+
 #### Accrual definition, Beneish and Piotroski decompositions (D-61)
 
 **Accruals.** The cash-flow accrual ratio is financial-asset-adjusted
@@ -2549,6 +2746,12 @@ when the row carries it in other investing) and the acquired share of the NOA
 increase. With that note or the growth note, a second note splits the NOA
 increase into receivables, inventory, net PP&E, goodwill and intangibles,
 other operating assets and operating liabilities. Neither is graded.
+
+**Receivables comparability.** DSRI and the receivables-versus-revenue growth flag share one pair selected after annual statement alignment and continuity checks. A selected same-concept pair stays in place. Where vendor concept scope is unknown, the same-field numerical comparison, warning thresholds and severity remain unchanged; warnings and notes qualify the unverified scope without attributing a company-specific accounting explanation. Missing metadata or unsupported multi-tag/derived shapes alone preserve the unverified comparison; matching explicit provenance units can establish currency when a duplicate row label is absent. Explicit contradictory units, issuer identities, endpoints, duration-versus-instant evidence or field conflicts require repair or local refusal. This qualification is methodological, not a critical data gap.
+
+A selected concept discontinuity or explicit field conflict is not a comparable time series. A forensic-only repair replaces both observations together from already acquired, issuer-confirmed companyfacts, requiring exact balance endpoints, declared matching currency, instant/core-form facts, actual acquisition metadata and analytical-cutoff eligibility. A common filing must present both endpoints, with no ambiguous or superseding contradictory/negative copy silently ignored. Prefer the current selected concept, then the existing receivables tag order, never the more favorable score. QName continuity does not itself establish a trade-versus-total scope label. Without an admitted repair, DSRI uses its existing disclosed neutral 1.0 convention and the unsupported growth warning is withheld. Raw statements, revenue selection, capital inputs, coefficients and thresholds do not change.
+
+The repair method note is controlled model context. Its accession display accepts only the complete 10-digit, 2-digit, 6-digit hyphenated identifier; other source strings receive fixed unavailable-for-display wording. This display check does not normalize raw evidence, alter filing identity or tighten pair admission, and changes no financial result, grade or report state.
 
 **Beneish.** The report prints all eight indices and M with SGI at neutral
 1.0. When only SGI carries M over −1.78, the zone reads "flag (growth-led)"

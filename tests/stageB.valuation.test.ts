@@ -2565,16 +2565,16 @@ describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => 
     expect(r.enterpriseValue.leaseLiability).toBe(220);
     expect(r.enterpriseValue.totalLeaseLiability).toBe(300);
     expect(r.enterpriseValue.financeLeaseLiability).toBe(80);
-    expect(r.enterpriseValue.basis).toContain("EXCLUDES the OPERATING-lease liability");
-    expect(r.enterpriseValue.basis).toContain("the finance-lease liability of 80 STAYS in EV on both bases");
-    expect(r.enterpriseValue.basis).toContain("EV excluding the operating-lease liability 11,430");
-    expect(r.enterpriseValue.basis).toContain("EV as reported 11,650");
+    expect(r.enterpriseValue.basis).toContain("subtracts the retained operating-lease observation 220");
+    expect(r.enterpriseValue.basis).toContain("recorded finance-lease observation 80 is retained on both bases");
+    expect(r.enterpriseValue.basis).toContain("EV on the operating-lease adjustment basis 11,430");
+    expect(r.enterpriseValue.basis).toContain("EV on retained debt basis 11,650");
     // Both earnings frames are stated, and it is the SAME EV the multiple divides.
     expect(r.enterpriseValue.basis).toContain("EBIT and EBITDA are already AFTER it");
     expect(r.enterpriseValue.basis).toContain("Finance-lease right-of-use amortisation is included in EBIT");
     const evEbitda = r.multiples.find((m) => m.key === "evToEbitda");
     expect(evEbitda?.current).toBeCloseTo(EV_EX / 1200, 12);
-    expect(evEbitda?.basis).toContain("EXCLUDES the OPERATING-lease liability");
+    expect(evEbitda?.basis).toContain("subtracts the retained operating-lease observation 220");
     const evSales = r.multiples.find((m) => m.key === "evToSales");
     expect(evSales?.current).toBeCloseTo(EV_EX / 5000, 12);
   });
@@ -2585,7 +2585,7 @@ describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => 
     expect(r.enterpriseValue.value).toBe(EV_INC);
     const evEbitda = r.multiples.find((m) => m.key === "evToEbitda");
     expect(evEbitda?.current).toBeCloseTo(EV_INC / 1200, 12);
-    expect(r.enterpriseValue.basis).toContain("INCLUDES the operating-lease liability");
+    expect(r.enterpriseValue.basis).toContain("no separate operating-lease amount was subtracted");
     expect(r.enterpriseValue.basis).toContain("not comparable to the default basis");
     const gap = r.gaps.find((g) => g.field === "valuation.multiples.enterpriseValue.leases");
     expect(gap?.severity).toBe("warn");
@@ -2604,7 +2604,7 @@ describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => 
     expect(r.enterpriseValue.totalLeaseLiability).toBe(300);
     const gap = r.gaps.find((g) => g.field === "valuation.multiples.enterpriseValue.leases");
     expect(gap?.severity).toBe("info");
-    expect(gap?.reason).toContain("combined operating + finance figure");
+    expect(gap?.reason).toContain("combined lease coverage is unverified");
   });
 
   it("discloses that leases could not be separated when they are undisclosed", () => {
@@ -2617,7 +2617,7 @@ describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => 
     expect(r.enterpriseValue.leaseLiability).toBeNull();
     expect(r.enterpriseValue.value).toBe(EV_INC);
     expect(r.enterpriseValue.excludingLeases).toBe(EV_INC);
-    expect(r.enterpriseValue.basis).toContain("could not be separated from totalDebt");
+    expect(r.enterpriseValue.basis).toContain("no separate operating-lease amount was subtracted");
     const gap = r.gaps.find((g) => g.field === "valuation.multiples.enterpriseValue.leases");
     expect(gap?.severity).toBe("info");
   });
@@ -2669,10 +2669,10 @@ describe("valueCompany — the DCF equity bridge follows the same lease conventi
     // Net debt 500 as reported, 410 less the 90 of OPERATING leases, over 100
     // shares. The 30 of finance leases stays as financing debt.
     expect(b - a).toBeCloseTo(90 / 100, 9);
-    expect(exLeases.notes.some((n) => n.includes("REMOVING the operating-lease liability of 90"))).toBe(true);
-    expect(withLeases.notes.some((n) => n.includes("KEEPING the operating-lease liability of 90"))).toBe(true);
-    expect(exLeases.notes.some((n) => n.includes("Net debt as reported 500; less the OPERATING lease liability 410"))).toBe(true);
-    expect(exLeases.notes.some((n) => n.includes("the finance-lease liability of 30 stays in net debt on both bases"))).toBe(true);
+    expect(exLeases.notes.some((n) => n.includes("subtracts the retained operating-lease observation 90"))).toBe(true);
+    expect(withLeases.notes.some((n) => n.includes("no separate operating-lease amount was subtracted"))).toBe(true);
+    expect(exLeases.notes.some((n) => n.includes("operating-lease observation 90; net debt after adjustment 410"))).toBe(true);
+    expect(exLeases.notes.some((n) => n.includes("retains a finance-lease amount of 30 under both conventions"))).toBe(true);
     expect(exLeases.notes.some((n) => n.includes("right-of-use amortisation is inside EBIT"))).toBe(true);
   });
 
@@ -2681,13 +2681,13 @@ describe("valueCompany — the DCF equity bridge follows the same lease conventi
     const plain = valueCompany(route, bundle({ leaseLiability: null, operatingLeaseLiability: null }));
     if (r.kind !== "dcf" || plain.kind !== "dcf") throw new Error("expected the DCF route");
     expect(r.dcf?.perShare).toBeCloseTo(plain.dcf?.perShare as number, 9);
-    expect(r.notes.some((n) => n.includes("its operating slice is not, so no lease adjustment was made"))).toBe(true);
+    expect(r.notes.some((n) => n.includes("no separate operating-lease amount was subtracted"))).toBe(true);
   });
 
   it("says so when leases are not disclosed separately", () => {
     const r = valueCompany(route, bundle({ leaseLiability: null }));
     if (r.kind !== "dcf") throw new Error("expected the DCF route");
-    expect(r.notes.some((n) => n.includes("could not be separated from total debt"))).toBe(true);
+    expect(r.notes.some((n) => n.includes("No valid combined lease-line observation is available"))).toBe(true);
   });
 });
 

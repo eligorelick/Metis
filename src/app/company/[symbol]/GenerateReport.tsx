@@ -655,12 +655,12 @@ function asGrade(g: string | null): Grade | null {
 /** The AI route a report will run on, computed on the server (never a secret). */
 export interface RunRoute { label: string; ready: boolean }
 
-/** "Runs on: <route>" with a link to Settings; says plainly when the route is not ready. */
+/** Prospective next-run route with a link to Settings and its readiness. */
 export function RunsOn({ route }: { route?: RunRoute | null }) {
   if (!route) return null;
   return (
     <span className="text-[12px] text-muted">
-      Runs on: <span className={`mono ${route.ready ? "" : "text-warn"}`}>{route.label}</span>
+      Next run: <span className={`mono ${route.ready ? "" : "text-warn"}`}>{route.label}</span>
       {" · "}
       <Link href="/settings" className="text-accent hover:underline">
         Settings

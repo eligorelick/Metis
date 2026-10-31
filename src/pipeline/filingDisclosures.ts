@@ -42,7 +42,7 @@ import {
   parseTradingArrangements,
   type FilingFact,
 } from "@/edgar/filingFacts";
-import { CommitmentPaymentTimingSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
+import { CommitmentPaymentTimingSchema, MaterialEventItemsSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
 
 const SYMBOL_CURRENCY: Readonly<Record<string, string>> = { "US$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY" };
 const TREND_QUARTERS = 8;
@@ -686,6 +686,7 @@ export function residualNote(axisLabel: string, cells: number): string {
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
 export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | undefined {
   const reports = currentReportsOf(bundle);
+  const materialEventItems = MaterialEventItemsSchema.safeParse(reports?.materialEventItems);
   const segmentsRes = bundle.edgar?.quarterlySegments;
   const segments = segmentsRes?.ok ? segmentsRes.value.data : null;
   const currency = statementReportingCurrency(bundle);
@@ -1001,6 +1002,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
 
   return {
     version: "1.0.0",
+    ...(materialEventItems.success ? { materialEventItems: [...new Set(materialEventItems.data)].sort() } : {}),
     currency,
     currencyBasis: currency === null
       ? "The current statement reporting currency is not established, so no amount printed in an 8-K exhibit is given a currency; those amounts are left out."

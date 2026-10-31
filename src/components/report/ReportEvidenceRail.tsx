@@ -1,7 +1,8 @@
 import type { Report } from "@/report/schema";
 import type { ReactNode } from "react";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
-import { dataStateText } from "@/report/presentation";
+import { dataStateText, runSummary } from "@/report/presentation";
+import { deriveReportModelEvidence } from "@/report/modelEvidence";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 import { sectionAnchorId } from "./primitives";
 import { generatedTimeText } from "@/components/report/ReportSnapshotHeader";
@@ -10,6 +11,7 @@ import { generatedTimeText } from "@/components/report/ReportSnapshotHeader";
 export function ReportEvidenceRail({ report, inspector, selectedReportId }: { report: Report; inspector?: ReactNode; selectedReportId?: number }) {
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const dates = Object.entries(report.meta.asOfMap);
+  const models = deriveReportModelEvidence(report);
   return (
     <aside className="workspace-evidence-rail" aria-label="Report evidence and gaps">
       <h2 className="text-[14px] font-semibold">Evidence &amp; gaps</h2>
@@ -17,7 +19,14 @@ export function ReportEvidenceRail({ report, inspector, selectedReportId }: { re
       <p className="mt-2 text-[12px] text-muted">Report snapshot · {report.meta.symbol}{selectedReportId !== undefined ? ` / #${selectedReportId}` : ""}</p>
       <dl className="mt-2 space-y-2 text-[12px]">
         <div><dt className="text-faint">Generated</dt><dd className="mono break-words"><time dateTime={report.meta.generatedAt}>{generatedTimeText(report.meta.generatedAt)}</time></dd></div>
-        <div><dt className="text-faint">Requested model</dt><dd className="break-words">{report.meta.model}</dd><dd className="text-faint">Requested configuration; see run details for actual pass models and unknowns.</dd></div>
+        <div><dt className="text-faint">Saved model evidence</dt><dd className="break-words">{runSummary(report)}</dd></div>
+        <div><dt className="text-faint">Saved requested configuration</dt><dd className="break-words">{models.requestedConfiguration.length === 0
+          ? "Unknown; no per-pass requested configuration was recorded."
+          : models.requestedConfiguration.map(config => `${config.step}: ${config.model}${config.effort ? ` / ${config.effort} effort` : ""}${config.serviceTier ? ` / ${config.serviceTier} speed` : ""}`).join("; ")}</dd></div>
+        <div><dt className="text-faint">Analysis completion</dt><dd>{models.analysisCompletion === "completed" ? "Completed bull, bear and judge passes were recorded."
+          : models.analysisCompletion === "partial" ? "Only some completed analysis passes were recorded."
+            : models.analysisCompletion === "not-completed" ? "No usable analyst analysis was completed."
+              : "Unknown; analysis completion was not established by saved execution metadata."}</dd></div>
       </dl>
       <p className="mt-3 text-[12px] text-muted">{dataStateText(completeness)}</p>
       <p className="mt-2 text-[12px] text-faint">Grouped data issues and recorded entries use different counts. <a className="text-accent underline" href="#report-trust-details">Open reconciliation and definitions</a>.</p>

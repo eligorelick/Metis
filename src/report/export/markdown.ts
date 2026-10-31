@@ -19,6 +19,7 @@
  * Pure and dependency-free — safe to call from a route handler or a test.
  */
 
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -317,8 +318,8 @@ function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
 function auditTableBlocks(tables: readonly ReportAuditTable[], level = "###"): string[] {
   return tables.flatMap((block) => {
     const body = bodyTable(block.headers, block.rows);
-    if (!body) return [];
-    return [`${level} ${markdownHeading(block.heading)}`, "", body, "", ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : [])];
+    if (!body && !(block.headers.length === 0 && block.note)) return [];
+    return [`${level} ${markdownHeading(block.heading)}`, "", ...(body ? [body, ""] : []), ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : [])];
   });
 }
 
@@ -953,6 +954,8 @@ function capitalize(s: string): string {
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
+  report = withLegacyScopeQualifications(report);
+  const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
@@ -961,6 +964,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   );
   const blocks: string[] = [
     renderHeader(report, completeness, context),
+    scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "",
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
     newerResultsBanner(report.filingDisclosures) ? blockquote(newerResultsBanner(report.filingDisclosures)!, "Newer results not reflected.") : "",
     newerFilingBanner(report.filingDisclosures) ? blockquote(newerFilingBanner(report.filingDisclosures)!, "Newer filing not reflected.") : "",

@@ -1,3 +1,4 @@
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -275,7 +276,7 @@ function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], le
   return tables.map((t) => {
     if (!t) return "";
     const body = bodyTable(t.headers, t.rows);
-    return body ? `<${level}>${esc(t.heading)}</${level}>${body}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}` : "";
+    return body || (t.headers.length === 0 && t.note) ? `<${level}>${esc(t.heading)}</${level}>${body}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}` : "";
   }).join("");
 }
 
@@ -767,6 +768,8 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
+  report = withLegacyScopeQualifications(report);
+  const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
@@ -787,6 +790,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   };
   const body = [
     headerBlock(report, completeness, context),
+    scopeQualifications.length ? `<section class="block"><h2>${esc(LEGACY_SCOPE_HEADING)}</h2><ul>${scopeQualifications.map(note => `<li>${esc(note)}</li>`).join("")}</ul></section>` : "",
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
     newerFilingBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer filing not reflected.</strong> ${esc(newerFilingBanner(report.filingDisclosures)!)}</aside>` : "",

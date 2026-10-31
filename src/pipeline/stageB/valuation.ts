@@ -23,7 +23,7 @@ import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYear
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "@/pipeline/stageB/leaseScope";
 import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
@@ -203,7 +203,7 @@ export function financeLeaseOnlyTotal(total: number | null, operating: number | 
  * correction of a stored report (`withLegacyBridgeMethod`, D-67).
  */
 export function financeLeaseOnlyEvClause(total: number): string {
-  return `a total lease liability of ${millions(total)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove and EV is reported as-is`;
+  return `the recorded finance-lease observation of ${millions(total)} stays in EV and net debt on both bases under the retained convention; operating-lease coverage remains unverified and EV uses the retained debt basis`;
 }
 
 const gapEntry = (
@@ -3718,7 +3718,9 @@ export interface MultiplesCashFlowTtm {
 export interface MultiplesBalance {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
-  fieldProvenance?: Record<string, { tags: string[] }>;
+  reportedCurrency?: string | null;
+  leaseEvidenceContext?: LeaseEvidenceContext;
+  fieldProvenance?: Record<string, LeaseFieldEvidence>;
   /** The admission's refusals, so a refused total debt is named (KNW-04). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
   date: string;
@@ -4608,8 +4610,6 @@ export function multiplesFramework(
   const financeOnlyTotal = evLeaseScope === null
     ? financeLeaseOnlyTotal(totalLeaseLiability, bal?.operatingLeaseLiability, bal?.financeLeaseLiability, leaseDebtConflict(bal ?? {}))
     : null;
-  // The vendor wording is for a vendor total: a row the SEC statements built never names the FMP route.
-  const vendorLeaseTotal = (bal?.fieldProvenance?.capitalLeaseObligations as { source?: string } | undefined)?.source !== "edgar";
   const includeLeases = inputs.includeLeasesInEv === true;
   const incompleteLeases = incompleteLeaseCoverage(bal);
   const inclusiveRefusal = leaseDebtScopeRefusal(bal, true);
@@ -4636,11 +4636,8 @@ export function multiplesFramework(
   // Review m3: a reason that already ends a sentence keeps its one period.
   const evBridgeBasis = evWithheldReason !== null ? (evWithheldReason.endsWith(".") ? `EV withheld: ${evWithheldReason}` : `EV withheld: ${evWithheldReason}.`) :
     ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
-    (incompleteLeases !== null
-      ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
-      : includeLeases
-      ? `Enterprise value INCLUDES the operating-lease liability${EV_LEASE_SETTING_TEXT.included}. `
-      : `Enterprise value EXCLUDES the OPERATING-lease liability${EV_LEASE_SETTING_TEXT.excluded}. `) +
+    leaseEvidenceNote(bal, { removed: !includeLeases && evExcludingLeases !== null ? leaseLiability : null }) + " " +
+    (incompleteLeases !== null ? `${incompleteLeases.note} ` : "") +
     "EV = market cap + total debt + preferred stock + minority interest" +
     (temporaryTotal !== 0 && temporaryClaims !== null
       ? ` + ${[...(temporaryClaims.redeemablePreferred !== 0 ? ["temporary equity attributable to the parent"] : []),
@@ -4651,26 +4648,11 @@ export function multiplesFramework(
     (netDebt.nonOperatingEquitySecurities !== undefined
       ? ` excluding ${fmtGrouped(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
       : "") +
-    (leaseLiability === null
-      ? evLeaseScope !== null
-        ? `; ${evLeaseScope}, and EV is reported as-is`
-        : totalLeaseLiability === null
-        ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
-        : financeOnlyTotal !== null
-        ? `; ${financeLeaseOnlyEvClause(financeOnlyTotal)}`
-        : `; a total lease liability of ${fmtGrouped(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
-      : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtGrouped(leaseLiability)}` +
-        (financeLeaseLiability === null || financeLeaseLiability === 0
-          ? ""
-          : `; the finance-lease liability of ${fmtGrouped(financeLeaseLiability)} STAYS in EV on both bases`) +
-        " (both already inside totalDebt under FMP's definition)") +
-    ". EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it" +
-    (incompleteLeases !== null
-      ? ", with the disclosed operating-lease portion treated on that convention; unverified maturities prevent a claim of complete lease coverage."
-      : includeLeases
-      ? ", and keeping the operating-lease liability in EV pairs a lease-INCLUSIVE numerator with a lease-EXPENSED denominator — not comparable to the default basis, and the caller's explicit choice."
-      : ", so removing the operating-lease liability keeps numerator and denominator on the same basis.") +
-    " Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed." +
+    (evLeaseScope !== null ? `; ${evLeaseScope}` : "") +
+    (financeOnlyTotal !== null ? `; ${financeLeaseOnlyEvClause(financeOnlyTotal)}` : "") +
+    ". EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation." +
+    (financeLeaseLiability !== null && financeLeaseLiability > 0 ? ` The recorded finance-lease observation ${fmtGrouped(financeLeaseLiability)} is retained on both bases.` : "") +
+    (includeLeases && leaseLiability !== null && leaseLiability > 0 ? " EV/EBITDA is not comparable to the default basis that subtracts this operating-lease observation." : "") +
     ` ${equityScope.basis} ` +
     (unknownNciAllocation ? `${unknownNciReason} ` : "") +
     (temporaryClaims !== null && temporaryRefusal === null && temporaryClaims.redeemablePreferred + temporaryClaims.unsplit !== 0
@@ -4680,7 +4662,7 @@ export function multiplesFramework(
     "Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value. " +
     (evIncludingLeases === null || evExcludingLeases === null
       ? ""
-      : ` EV excluding ${incompleteLeases === null ? "the operating-lease liability" : "the disclosed operating-lease portion"} ${fmtGrouped(evExcludingLeases)}; ${incompleteLeases === null ? "EV as reported" : "EV on retained debt basis"} ${fmtGrouped(evIncludingLeases)}.`);
+      : ` EV on the operating-lease adjustment basis ${fmtGrouped(evExcludingLeases)}; EV on retained debt basis ${fmtGrouped(evIncludingLeases)}.`);
   const enterpriseValue: EnterpriseValueBridge = {
     equityScope,
     noncontrollingInterestBasis: unknownNciAllocation ? "unknown-allocation" : isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 ? "book-value-proxy" : "none-disclosed",
@@ -4704,11 +4686,7 @@ export function multiplesFramework(
     gaps.push(
       gapEntry(
         "valuation.multiples.enterpriseValue.leases",
-        evLeaseScope !== null
-          ? `${evLeaseScope}; enterprise value is reported as-is`
-          : totalLeaseLiability === null
-          ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV under either lease setting"
-          : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure${vendorLeaseTotal ? " (the FMP route publishes no split)" : ""} — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
+        (evLeaseScope !== null ? `${evLeaseScope}; ` : "") + leaseEvidenceNote(bal, { removed: null }),
         "info",
       ),
     );
@@ -4716,7 +4694,7 @@ export function multiplesFramework(
     gaps.push(
       gapEntry(
         "valuation.multiples.enterpriseValue.leases",
-        `THESIS_EV_INCLUDE_LEASES=1: enterprise value keeps the operating-lease liability of ${fmtNum(leaseLiability)} while EBITDA remains after operating-lease cost (ASC 842) — EV/EBITDA is not comparable to the default basis`,
+        `THESIS_EV_INCLUDE_LEASES=1: no operating-lease adjustment is subtracted from enterprise value; the retained operating-lease observation is ${fmtNum(leaseLiability)}. EBITDA remains after operating-lease cost (ASC 842).${leaseLiability > 0 ? " EV/EBITDA is not comparable to the default basis that subtracts this observation." : ""} ${leaseEvidenceNote(bal)}`,
         "warn",
       ),
     );
@@ -6785,23 +6763,22 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           ? netDebtIncludingLeases - leaseLiability
           : netDebtIncludingLeases;
       const netDebtForBridge = includeLeases ? netDebtIncludingLeases : netDebtExcludingLeases;
+      // A caller override is not the filed observation the row's provenance describes.
+      // This only limits prose; the guard and bridge arithmetic above remain unchanged.
+      const bridgeEvidence = { ...bridgeBalance, fieldProvenance: { ...bridgeBalance?.fieldProvenance },
+        capitalLeaseObligations: inputs.leaseLiability ?? bridgeBalance?.capitalLeaseObligations,
+        operatingLeaseLiability: inputs.operatingLeaseLiability ?? bridgeBalance?.operatingLeaseLiability };
+      if (inputs.leaseLiability != null && inputs.leaseLiability !== bridgeBalance?.capitalLeaseObligations) delete bridgeEvidence.fieldProvenance.capitalLeaseObligations;
+      if (inputs.operatingLeaseLiability != null && inputs.operatingLeaseLiability !== bridgeBalance?.operatingLeaseLiability) delete bridgeEvidence.fieldProvenance.operatingLeaseLiability;
       if (isNum(netDebtIncludingLeases)) {
         notes.push(
           `DCF equity bridge: EV − net debt − minority interest − preferred equity. ` +
-            (leaseLiability === null
-              ? bridgeLeaseScope !== null
-                ? `${bridgeLeaseScope}.`
-                : totalLeaseLiability === null
-                ? "Lease liabilities were not disclosed separately, so they could not be separated from total debt; net debt is used as reported."
-                : financeLeaseOnlyTotal(totalLeaseLiability, inputs.operatingLeaseLiability, bridgeBalance?.financeLeaseLiability, leaseConflict) !== null
-                ? `A total lease liability of ${millions(totalLeaseLiability)} is a finance lease, which stays in EV and net debt on both bases, so there is no operating slice to remove; net debt is used as reported.`
-                : `A total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported.`
-              : `Net debt as reported ${fmtNum(netDebtIncludingLeases)}; less the OPERATING lease liability ${fmtNum(netDebtExcludingLeases as number)}; ` +
-                `${includeLeases ? "KEEPING" : "REMOVING"} the operating-lease liability of ${fmtNum(leaseLiability)} (house default removes it; THESIS_EV_INCLUDE_LEASES=1 keeps it)` +
-                (financeLeaseLiability === null || financeLeaseLiability === 0
-                  ? ". "
-                  : `; the finance-lease liability of ${fmtNum(financeLeaseLiability)} stays in net debt on both bases. `) +
-                "Operating-lease cost is inside the EBIT this DCF projects (ASC 842), so its liability is not debt here; finance-lease right-of-use amortisation is inside EBIT, while its interest is below EBIT, and its liability remains financing debt."),
+            leaseEvidenceNote(bridgeEvidence,
+              { removed: !includeLeases ? leaseLiability : null, result: netDebtForBridge }) +
+            (bridgeLeaseScope !== null ? ` ${bridgeLeaseScope}.` : "") +
+            (financeLeaseLiability !== null && financeLeaseLiability > 0 ? ` The existing bridge retains a finance-lease amount of ${fmtNum(financeLeaseLiability)} under both conventions; this arithmetic is not a source-completeness attestation. Finance-lease right-of-use amortisation is inside EBIT, while its interest is below EBIT.` : "") +
+            (financeLeaseOnlyTotal(totalLeaseLiability, inputs.operatingLeaseLiability, bridgeBalance?.financeLeaseLiability, leaseConflict) !== null
+              ? ` ${financeLeaseOnlyEvClause(totalLeaseLiability!)}.` : ""),
         );
       }
       // D-60: equity securities left out of cash return as a non-operating

@@ -63,6 +63,7 @@ import {
   FRED_ATTRIBUTION_TEXT,
   REPORT_SPEC_VERSION,
   ReportSchema,
+  NO_RATING_RULE_ID,
   type Report,
   type AnalystCase,
   type CostBreakdownEntry,
@@ -1052,15 +1053,20 @@ function zodIssueList(text: string): ZodIssueList | null {
 
 /**
  * The issues in words: "2 fields failed the schema: thesis[0].sourceId is
- * empty or too short; …". `ruleMessages` adds a custom rule's own message,
- * for the run panel only: the date rule quotes the rejected value and the
- * rating rule names the words it bans, and neither belongs in a saved report.
+ * empty or too short; …". `ruleMessages` preserves custom-rule details on the
+ * run panel only (the date rule quotes the rejected value). The known rating
+ * rule has a controlled fixed diagnostic in both consumers. Arbitrary custom
+ * messages remain excluded from saved reports.
  */
 function issueListInWords(list: ZodIssueList, ruleMessages: boolean): string {
-  const fields = list.issues.map(({ path, code, message }) => {
+  const fields = list.issues.map(({ path, code, message, params }) => {
     const where = Array.isArray(path) && path.length > 0
       ? path.map((part, i) => typeof part === "number" ? `[${part}]` : `${i === 0 ? "" : "."}${String(part)}`).join("")
       : "the output";
+    if (code === "custom" && params !== null && typeof params === "object" &&
+      (params as Record<string, unknown>).ruleId === NO_RATING_RULE_ID) {
+      return `${where} contains prohibited investment-rating language`;
+    }
     if (ruleMessages && code === "custom" && typeof message === "string" && message.trim() !== "") {
       return `${where}: ${oneLine(message, 80)}`;
     }
@@ -4110,16 +4116,12 @@ export async function runJob<TPayload = unknown>(
           failureSettlement(
             new Error(sideError ?? errMessage(err)),
             telemetryFromAttempt(billed ?? null, analysisModel),
-            // `retryable` on this path means exactly one thing: the output was
-            // RECEIVED and rejected — by the schema, or because it was not
-            // JSON at all. The adapter names which (`kind` "schema" or
-            // "parse"); recording it keeps the artifact's classification the
-            // same on both settlement paths, so the discarded-attempt
-            // disclosure does not depend on which one a run took. An adapter
-            // that reports retryable without a kind is classified "schema".
+            // Retry eligibility does not identify the failure cause. Preserve
+            // the adapter's explicit classification, or leave it unknown so
+            // the discarded-attempt disclosure uses its generic fallback.
             {
               retryable: retryable === true,
-              ...(retryable === true ? { kind: failureKind ?? "schema" } : {}),
+              ...(failureKind === undefined ? {} : { kind: failureKind }),
             },
           ),
         );

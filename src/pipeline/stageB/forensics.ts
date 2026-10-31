@@ -20,6 +20,8 @@
  * - Annual statements only. Rows are expected newest-first (FMP default order).
  */
 
+import { selectReceivablesPair, type ReceivablesPair } from "@/pipeline/stageB/receivables";
+import type { FiledReceivablesCandidates } from "@/edgar/receivables";
 import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import type { CompanyRoute, ManifestEntry } from "@/types/core";
@@ -66,6 +68,10 @@ export interface ForensicsIncomeRow {
 
 /** Annual balance-sheet row (FMP `balance-sheet-statement`). Levels, not deltas. */
 export interface ForensicsBalanceRow {
+  fieldProvenance?: FmpStatementRow["fieldProvenance"];
+  fieldConflicts?: FmpStatementRow["fieldConflicts"];
+  reportedCurrency?: string | null;
+  cik?: string | null;
   /** Fiscal period end (FMP `date`), ISO string. */
   date: string;
   totalAssets?: number | null;
@@ -874,6 +880,8 @@ export interface BeneishResult {
  * suppression happens in runForensics.
  */
 export interface BeneishOptions extends ForensicTextOptions {
+  receivablesPair?: ReceivablesPair;
+  filedReceivables?: FiledReceivablesCandidates;
   /**
    * Revenue floor (reporting-currency units) below which the indices are
    * withheld in either year (research §6.1). Defaults to the house floor;
@@ -940,24 +948,13 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
 
   // --- raw index construction (null = not computable) ---
 
-  // DSRI — same receivables field in BOTH years (accountsReceivables preferred)
-  let recT: number | null = null;
-  let recP: number | null = null;
-  const arT = nv(current.balance?.accountsReceivables);
-  const arP = nv(prior.balance?.accountsReceivables);
-  if (arT !== null && arP !== null) {
-    recT = arT;
-    recP = arP;
-  } else {
-    const nrT = nv(current.balance?.netReceivables);
-    const nrP = nv(prior.balance?.netReceivables);
-    if (nrT !== null && nrP !== null) {
-      recT = nrT;
-      recP = nrP;
-      notes.push(
-        "DSRI computed on netReceivables (accountsReceivables unavailable in both years) — same field used in both years.",
-      );
-    }
+  // Both DSRI and the growth flag use the same resolved observation pair.
+  const receivables = options?.receivablesPair ?? selectReceivablesPair(current.balance, prior.balance, { filedCandidates: options?.filedReceivables });
+  notes.push(...receivables.notes);
+  const recT = receivables.status === "selected" ? receivables.current.value : null;
+  const recP = receivables.status === "selected" ? receivables.prior.value : null;
+  if (receivables.status === "selected" && receivables.field === "netReceivables") {
+    notes.push("DSRI computed on netReceivables (accountsReceivables unavailable in both years) — same field used in both years.");
   }
   const dsriRaw = div(div(recT, salesT), div(recP, salesP));
 
@@ -1187,7 +1184,7 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
       "RED flag: negative gross margin in at least one year — economically worse than any GMI reading; GMI neutralized (research §6.1).",
     );
   }
-  indices.dsri = resolveIndex("DSRI", dsriRaw);
+  indices.dsri = resolveIndex("DSRI", dsriRaw, receivables.status === "unavailable" && receivables.cause === "incomparable" ? receivables.reason : undefined);
   indices.gmi = resolveIndex("GMI", gmiRaw, gmiNegative ? "negative gross margin" : undefined);
   indices.aqi = resolveIndex(
     "AQI",
@@ -2242,6 +2239,8 @@ export interface SupportFlagsInputs {
 }
 
 export interface SupportFlagsOptions {
+  receivablesPair?: ReceivablesPair;
+  filedReceivables?: FiledReceivablesCandidates;
   /** Base-year revenue floor below which growth flags are suppressed. */
   revenueFloor?: number;
   /** Whether the first two aligned periods are consecutive fiscal years. */
@@ -2312,12 +2311,10 @@ export function computeSupportFlags(
     if (revGrowth === null && revBaseGap !== null) {
       gaps.push(gapEntry("forensics.flags.revenueBase", revBaseGap, "info"));
     }
-    let arT = nv(balT.accountsReceivables);
-    let arP = nv(balP.accountsReceivables);
-    if (arT === null || arP === null) {
-      arT = nv(balT.netReceivables);
-      arP = nv(balP.netReceivables);
-    }
+    const receivables = options?.receivablesPair ?? selectReceivablesPair(balT, balP, { filedCandidates: options?.filedReceivables });
+    notes.push(...receivables.notes);
+    const arT = receivables.status === "selected" ? receivables.current.value : null;
+    const arP = receivables.status === "selected" ? receivables.prior.value : null;
     const arGrowth = growthPct(arT, arP);
     if (arGrowth !== null && revGrowth !== null) {
       const gapPp = arGrowth - revGrowth;
@@ -2325,7 +2322,7 @@ export function computeSupportFlags(
         flags.push({
           id: "receivables-vs-revenue",
           severity: gapPp > H.growthGapFlagPp ? "flag" : "warn",
-          message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% — possible channel stuffing or loosened credit terms.`,
+          message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% — ${receivables.status === "selected" && receivables.basis === "vendor-unverified" ? "scope comparability is unverified; review the underlying receivables definitions before drawing an accounting conclusion" : "possible channel stuffing or loosened credit terms"}.`,
           metrics: { receivablesGrowthPct: arGrowth, revenueGrowthPct: revGrowth, gapPp },
           rule: `house rule: receivables growth − revenue growth > ${H.growthGapWarnPp}pp (warn) / > ${H.growthGapFlagPp}pp (flag), with receivables growth > ${H.minGrowthPct}%`,
           heuristic: true,
@@ -2336,7 +2333,7 @@ export function computeSupportFlags(
       gaps.push(
         gapEntry(
           "forensics.flags.receivables",
-          "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
+          receivables.status === "unavailable" && receivables.cause === "incomparable" ? `${receivables.reason} Receivables-vs-revenue flag not evaluated.` : "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
           "info",
         ),
       );
@@ -2450,7 +2447,7 @@ export function computeSupportFlags(
     );
   }
 
-  // --- Discontinued operations recurring (research §5.4 companion rule) ---
+  // --- Retained nonzero discontinued results (research §5.4 companion rule) ---
   const discoYears = lookback
     .filter((r): r is ForensicsIncomeRow => {
       if (r === null) return false;
@@ -2459,10 +2456,17 @@ export function computeSupportFlags(
     })
     .map((r) => r.date);
   if (lookback.length > 0 && discoYears.length >= 2) {
+    // Display only: never promote raw provider date text into trusted notes,
+    // or alter the retained count/source metadata when a date is unknown.
+    const periodEnds = discoYears.map(date => {
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return "date unavailable";
+      const time = Date.parse(`${date}T00:00:00Z`);
+      return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === date ? date : "date unavailable";
+    });
     flags.push({
       id: "recurring-discontinued-ops",
       severity: "warn",
-      message: `Discontinued operations affected results in ${discoYears.length} of the last ${lookback.length} fiscal years — recurring portfolio churn complicates run-rate earnings.`,
+      message: `Nonzero discontinued-operation results were retained in ${discoYears.length} of the last ${lookback.length} fiscal-year observations (period ends: ${periodEnds.join(", ")}). The observation count does not establish the number or recurrence of portfolio transactions; one disposal can affect multiple periods. Missing amounts remain unknown.`,
       metrics: { discontinuedOpsYears: discoYears.length, lookbackYears: lookback.length },
       rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years",
       heuristic: true,
@@ -2478,6 +2482,7 @@ export function computeSupportFlags(
 // ===========================================================================
 
 export interface ForensicsInputs {
+  filedReceivables?: FiledReceivablesCandidates;
   /** Annual income statements, newest first (FMP order). */
   income: ForensicsIncomeRow[];
   /** Annual balance sheets, newest first. */
@@ -2838,6 +2843,8 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     }
   }
 
+  const receivablesPair = selectReceivablesPair(cur.balance, pri.balance, { filedCandidates: inputs.filedReceivables });
+
   // --- Beneish ---
   let beneish: BeneishResult | null = null;
   if (suppressed) {
@@ -2863,7 +2870,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       ),
     );
   } else {
-    beneish = computeBeneish(cur, pri, { revenueFloor: inputs.revenueFloor, currency: inputs.reportedCurrency ?? null });
+    beneish = computeBeneish(cur, pri, { receivablesPair, revenueFloor: inputs.revenueFloor, currency: inputs.reportedCurrency ?? null });
   }
 
   // --- Piotroski (still computed for financials, with a caveat) ---
@@ -2933,7 +2940,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       income: periods.map((period) => period.income ?? null),
       balance: periods.map((period) => period.balance ?? null),
     },
-    { periodsConsecutive: priorConsecutive, revenueFloor: inputs.revenueFloor },
+    { receivablesPair, periodsConsecutive: priorConsecutive, revenueFloor: inputs.revenueFloor },
   );
   const flags = [...support.flags];
   // Mirror the gaps aggregation below. `notes` is the ONLY notes channel the
@@ -2945,7 +2952,10 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     ...support.notes,
     ...altmanSelection.notes,
     ...(altman?.notes ?? []),
-    ...(beneish?.notes ?? []),
+    // Each standalone consumer discloses the shared decision. In the combined
+    // report keep that new pair disclosure once, without deduplicating any
+    // unrelated model notes or changing their order/content.
+    ...(beneish?.notes.filter(note => !receivablesPair.notes.includes(note) || !support.notes.includes(note)) ?? []),
     ...(piotroski?.notes ?? []),
     ...(accruals?.notes ?? []),
   );
@@ -2960,7 +2970,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     flags.push({
       id: "dsri-elevated",
       severity: "warn",
-      message: `Days-sales-in-receivables index (DSRI) is ${beneish.indices.dsri.toFixed(2)} — above the manipulator-sample mean of ${FORENSICS_HOUSE_RULES.dsriAmberLevel} (Beneish Table 2), even independent of the overall M-score.`,
+      message: `Days-sales-in-receivables index (DSRI) is ${beneish.indices.dsri.toFixed(2)} — above the manipulator-sample mean of ${FORENSICS_HOUSE_RULES.dsriAmberLevel} (Beneish Table 2), even independent of the overall M-score.${receivablesPair.status === "selected" && receivablesPair.basis === "vendor-unverified" ? " Receivables scope comparability is unverified; confirm the underlying definitions before interpreting the warning." : ""}`,
       metrics: { dsri: beneish.indices.dsri },
       rule: `DSRI > ${FORENSICS_HOUSE_RULES.dsriAmberLevel} (manipulator-sample mean, Beneish 1999 Table 2)`,
       heuristic: true,
