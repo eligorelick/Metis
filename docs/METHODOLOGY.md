@@ -3443,6 +3443,18 @@ provider/XBRL, citation and consistency coverage measures. Since 2026-10-13
 record (`<aspect> evidence completeness`, a fraction), not inside the score
 row's unit, so a number citing the score record is read as the score.
 
+**Attribute grade reliability (D-139).** Scorecards show a conditional missing-input
+range using the recorded score `s` and explicit applicable coverage `c`:
+`[s × c, s × c + 100 × (1 − c)]`. This holds the observed signal score fixed and
+lets missing applicable signal weight score anywhere from zero to 100. For example,
+80 at 50% applicable coverage gives 40–90. It does not account for erroneous
+observations, unsuitable transforms, dependence between signals or model validity.
+Ranges round outward to hundredths; conditional bands use unrounded endpoints and
+the house thresholds. They are not assessed grades or probability intervals.
+Absent legacy applicable coverage remains unknown; null coverage is route-inapplicable,
+and an unscored attribute remains unavailable. No grade admission floor, stored
+score, composite formula or production weight changes.
+
 Altman values are mapped onto the original model's 1.81/2.99 zones before
 scoring, so different variants share comparable grade bands. Scoring growth
 prefers a genuine 5Y CAGR, then 3Y, then 1Y; a span differing by more than

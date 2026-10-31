@@ -72,6 +72,7 @@ import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdow
 import { reportToPrintHtml } from "@/report/export/printHtml";
 import {
   assembleReport,
+  buildAnalystRunPassArgs,
   buildJudgeRunPassArgs,
   checkCarriedJudgeSections,
   type RunPassArgs,
@@ -1351,6 +1352,22 @@ describe("analyst case_strength", () => {
     expect(judge).toContain("You MAY DISCOUNT A");
     expect(judge).toContain("WEAK SIDE");
     expect(judge).toContain(CASE_STRENGTH_RUBRIC);
+
+    // Verify delivery at the provider boundary for BOTH analysts and the judge.
+    // This guards prompt wiring; it does not measure whether a model obeys it.
+    const { payload } = buildInputs();
+    const deps = makeDeps(new MockRunPass());
+    const turns = [
+      buildAnalystRunPassArgs(deps, payload, "bull").messages,
+      buildAnalystRunPassArgs(deps, payload, "bear").messages,
+      judgeUserTurns(payload, analystCase("bull"), analystCase("bear")),
+    ];
+    for (const messages of turns) {
+      const text = messages.map(({ content }) => typeof content === "string"
+        ? content
+        : content.map((block) => "text" in block ? block.text : "").join("\n")).join("\n");
+      expect(text).toContain(CASE_STRENGTH_RUBRIC);
+    }
   });
 
   it("carries both scores into the judge turn and the report metadata", async () => {

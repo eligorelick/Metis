@@ -142,6 +142,8 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/superpowers/specs/2026-10-27-audit-remediation-decisions.md",
   "docs/superpowers/specs/2026-10-30-qcom-report-53-audit-design.md",
   "docs/superpowers/plans/2026-10-30-qcom-report-53-audit.md",
+  "docs/superpowers/specs/2026-10-31-research-reliability-design.md",
+  "docs/superpowers/plans/2026-10-31-research-reliability.md",
   "docs/superpowers/plans/2026-10-24-production-ui-integration.md",
   "docs/superpowers/plans/2026-10-13-research-reliability.md",
   "docs/superpowers/plans/2026-10-14-evidence-reliability-roadmap.md",

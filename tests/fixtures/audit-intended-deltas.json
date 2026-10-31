@@ -8640,23 +8640,6 @@
           "after": 286.15000000000003
         },
         {
-          "path": "report.scenarioPresentation",
-          "beforeMissing": true,
-          "after": {
-            "methodVersion": "SCENARIO_PRESENTATION_2026_10",
-            "weightBasis": "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. No weighted operating projections are available; no projection weights are applied.",
-            "interpretation": "Entity DCF is available; numerical operating scenario paths are unavailable; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.",
-            "sensitivity": {
-              "status": "robust-above",
-              "conclusion": "The valuation-versus-price conclusion is robust within the modeled grids: every valid cell of both grids remains above the current price. The WACC × terminal-growth and year-one growth × sustained-margin grids are assessed (growth × margin cells withheld above the scenario margin ceiling are excluded); this is not a statistical confidence interval or a future-price range.",
-              "validCells": 40,
-              "totalCells": 50,
-              "minPerShare": 49.69660401600141,
-              "maxPerShare": 249.59942163499355
-            }
-          }
-        },
-        {
           "path": "report.scores.aspects.valuation.drivers.0.value",
           "before": 265.58,
           "after": 286.1499526042018
@@ -10329,6 +10312,30 @@
               "asOf": "2026-07-06"
             },
             "shortInterest": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "research-reliability-d139-20261031",
+      "decisions": ["D-139"],
+      "reason": "The retained fixture has 40 valid cells out of 50 requested cells. D-139 withholds its former robust-above conclusion because the growth/margin grid is incomplete; status and explanation change while every valuation, grade, provenance value and observed grid extremum remains pinned.",
+      "deltas": [
+        {
+          "path": "report.scenarioPresentation",
+          "beforeMissing": true,
+          "after": {
+            "methodVersion": "SCENARIO_PRESENTATION_2026_10",
+            "weightBasis": "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. No weighted operating projections are available; no projection weights are applied.",
+            "interpretation": "Entity DCF is available; numerical operating scenario paths are unavailable; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.",
+            "sensitivity": {
+              "status": "unavailable",
+              "conclusion": "All available modeled cells lie on the same side of the current price, but the incomplete grid prevents a robustness conclusion within the modeled grid. Missing or invalid cells are excluded.",
+              "validCells": 40,
+              "totalCells": 50,
+              "minPerShare": 49.69660401600141,
+              "maxPerShare": 249.59942163499355
+            }
           }
         }
       ]

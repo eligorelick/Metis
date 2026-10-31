@@ -26,6 +26,146 @@ a new destination for a retry.
 
 For cohorts across reports, `npm run research:evaluate -- frozen-evaluation.json result.json` adds paired baselines, chronological holdouts, issuer-cluster uncertainty, missingness and ablation diagnostics. Its separate contract is described in [methodology](METHODOLOGY.md#offline-outcome-evaluation). `research:replay` reproduces deterministic calculations from the acquired-input snapshot; `reports:evaluate` freezes the final report and its explicit comparison definitions. These snapshots serve different purposes and neither supplies missing historical outcomes.
 
+## Prospective report studies
+
+Use the study commands to predeclare the cohort and comparisons **before generating
+reports**, then register each report before its fixed deadline. This extends the
+same snapshot/evaluation engine. It does not lift the strict V2 admission guard.
+
+```sh
+npm run reports:evaluate -- schema
+npm run reports:evaluate -- study-init --protocol data/study-protocol.json --dir data/evaluations/studies/my-study
+npm run reports:evaluate -- study-register --dir data/evaluations/studies/my-study --slot test-nov --report data/report.json
+npm run reports:evaluate -- study-evaluate --dir data/evaluations/studies/my-study --outcomes data/study-outcomes.json --as-of 2026-11-02
+```
+
+The last command can run before horizons mature: it reports pending observations.
+Repeat with a later evaluation date and actual outcome evidence when available.
+The CLI uses its own clock for creation and registration; there is no backdating
+option. An occupied study directory or registration file is never overwritten.
+Incomplete writes are retained for inspection, not silently discarded. Protocol
+and registration hashes are checked on every evaluation.
+Registration filenames use SHA-256 hashes of slot IDs, preserving distinct IDs
+on case-insensitive filesystems and avoiding Windows reserved filenames. The
+original slot ID remains in the protocol and registration record.
+
+A protocol looks like this (synthetic names and numbers; choose future report
+dates, deadlines, exact model windows and a real predeclared universe):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "operating-forecasts-2026",
+  "description": "Predeclared revenue forecast study",
+  "universe": {
+    "source": "Dated retained membership list and inclusion rules",
+    "selection": "point_in_time",
+    "includesDelisted": true
+  },
+  "slots": [{
+    "id": "test-nov",
+    "sector": "Technology",
+    "registerBy": "2026-11-01T23:00:00.000Z",
+    "definition": {
+      "schemaVersion": 1,
+      "issuer": { "scheme": "cik", "id": "0000000123", "symbol": "TEST" },
+      "identitySource": "Retained issuer filing",
+      "asOf": "2026-11-01",
+      "methodVersion": "predeclared-model-version",
+      "operating": [{
+        "id": "revenue-year1",
+        "metric": "revenue",
+        "scenario": "base",
+        "periodLabel": "12M ending 2027-09-30",
+        "periodStart": "2026-10-01",
+        "periodEnd": "2027-09-30",
+        "unit": "USD",
+        "currency": "USD",
+        "basis": "US-GAAP-consolidated-as-reported"
+      }],
+      "market": []
+    },
+    "baselines": [{
+      "selectionId": "revenue-year1",
+      "name": "flat prior twelve months",
+      "value": 100,
+      "unit": "USD",
+      "currency": "USD",
+      "basis": "US-GAAP-consolidated-as-reported",
+      "availableAt": "2026-10-30T12:00:00.000Z",
+      "source": "Retained source supporting this illustrative baseline"
+    }]
+  }]
+}
+```
+
+All intended issuers, report dates, selection definitions and optional baselines
+must be declared up front. Only one report slot per issuer/date is allowed.
+Baselines must already be available when the study is initialized and must match
+the selected forecast's unit, currency and measurement basis. A flat baseline's
+value is a *forecast* of the target period made from earlier data, not an actual
+for that future period. The report's saved dates must match the definition
+exactly; changing a target after seeing a report requires a new disclosed study.
+
+Registration freezes the whole report through the existing snapshot API. It
+rejects reports predating study creation, reports generated after registration,
+late submissions, mismatched issuer symbols, unknown periods and incompatible
+units. Operating periods must end after the registration deadline; daily market
+windows must start after it. No DCF current fair value is a future-price forecast.
+Projected operating EPS is withheld from study enrollment because it is not a
+GAAP diluted-EPS forecast. Revenue, operating margin and unlevered FCFF use the
+existing exact-definition comparisons; conventional CFO minus capex cannot stand
+in for unlevered FCFF. Rolling windows may not match fiscal actuals, and those
+unavailable comparisons must remain missing rather than interpolated.
+
+The outcome packet uses the existing outcome format inside each slot:
+
+```json
+{
+  "schemaVersion": 1,
+  "slots": [{
+    "slotId": "test-nov",
+    "outcomes": { "schemaVersion": 1, "outcomes": [] }
+  }]
+}
+```
+
+An empty array means no actuals supplied. Add matching operating or market
+outcomes using the contracts below when they become available. Duplicate or
+unplanned slot packets are rejected. Malformed or dimension-mismatched actuals
+remain explicitly excluded. Individual unmatched outcome rows remain in the
+per-report audit output. Outcome files and stored reports are never modified.
+
+Study evaluation reads **every planned slot** from its directory. Results retain
+missing registrations, pending outcomes, missing matured outcomes and excluded
+comparisons. A failed or delisted issuer remains in the denominator. Market
+observations include zero ending wealth when supported; distributions, corporate
+actions and delisting proceeds must already be incorporated in the supplied basis.
+Declared delisting coverage is not independent verification of lifecycle data.
+
+Operating errors are grouped separately by sector, exact days from report to
+period end, exact days from registration to period end, period length, full versus
+partial-year forecast, metric, scenario, unit, currency, accounting basis, method
+version, pipeline version and baseline name. Each group reports observation and
+issuer counts, MAE, RMSE, signed bias (`forecast - actual`), issuer-balanced MAE,
+and mean absolute percentage error with its own usable count. Actual zero has no
+percentage error. Paired baseline improvement is `baseline MAE - model MAE` on
+the same observations; a negative value means the model did worse. Baseline
+comparisons never mix paired and unpaired sample sets. Raw currency errors depend
+on issuer size; percentages can be unstable near zero. Market returns remain
+separate from forecast errors.
+
+These are descriptive results. Outputs explicitly carry
+`predictiveValidation: false`, `measurementStatus: "operator-declared-dimensions"`
+and `custodyStatus: "local-unwitnessed"`. The workflow fixes predeclaration and
+cohort accounting within the local application; files can still be deleted or
+reconstructed by someone controlling the machine. Hashes cannot attest time,
+source truth, accounting semantics or omitted historical revisions. No cohort is
+automatically enrolled, no actuals are fabricated, and no grades or scenario
+weights are fitted from these results. Independently sourced outcomes, complete
+input retention, appropriate sample size and a prespecified held-out study are
+still needed before claiming improved predictive accuracy.
+
 ## Snapshot definition
 
 The report input is the saved report object itself, including its `meta` object. This example registers one revenue projection and one market-return window. The examples are synthetic and do not claim actual results for a real issuer.

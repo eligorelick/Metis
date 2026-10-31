@@ -53,6 +53,7 @@ import {
   runSummary,
   scoreDriverTable,
   scorecardTable,
+  gradeReliabilityTable,
   seeAlsoText,
   splitCommonLines,
   evidenceScopeSummary,
@@ -423,6 +424,7 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
         <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
+        <ExtraAuditTables tables={[gradeReliabilityTable(scores)]} />
         {mode === "cover" ? <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p className="mono">Band policy: {scores.bandsVersion}</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
           : <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />}
       </div>
@@ -1065,7 +1067,7 @@ export function ValuationSection({
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
-      <ValuationReview scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
+      <ValuationReview valuation={valuation} scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
       <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
         <p className="mb-2 text-[11px] leading-snug text-faint">

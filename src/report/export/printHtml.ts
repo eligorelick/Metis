@@ -133,6 +133,7 @@ import {
   runSummary,
   scoreDriverTable,
   scorecardTable,
+  gradeReliabilityTable,
   seeAlsoText,
   sourceLabel,
   splitCommonLines,
@@ -404,7 +405,7 @@ function sectionScores(scores: Scoring): string {
     <p class="faint">${esc(compositeNote(scores))}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
-    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
+    ${bodyTables([gradeReliabilityTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
     <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
 
@@ -544,7 +545,7 @@ function sectionValuation(
       ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
       : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
   }
-  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage, symbol: report.meta.symbol })) {
+  for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: report.meta.symbol })) {
     parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));
