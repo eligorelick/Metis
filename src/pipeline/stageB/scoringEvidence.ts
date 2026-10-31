@@ -229,6 +229,8 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const cashStat = stats.find(m => m.key === "priceToFcf");
       const cashOwnershipScope = [cashStat?.ownershipScope, cashStat?.historyScope].filter(Boolean).join(" ");
       result.fallbackReason = selected ? [
+        selected.key === "peTtm" && finite(selected.ownHistory?.rankedCurrent?.value)
+          ? `P/E ranked as market cap / common income ${selected.ownHistory.rankedCurrent.value}x, the construction of its history; the P/E shown is price / diluted EPS.` : null,
         cashOwnershipScope ?? null,
         completeSample ? null : "Historical sample dates unavailable or incomplete.",
         completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,

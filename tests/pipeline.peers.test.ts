@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { comparePeerFundamentals, loadPeerFundamentals, PEER_CANDIDATE_LIMIT, PEER_FETCH_BUDGET_MS, type PeerFundamentals } from "@/pipeline/peers";
-import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
+import { multiplesFramework, nonOperatingShareOfPretax, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
 import type { PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
 import type { FmpFetch } from "@/pipeline/types";
+import { peerCommonEquityCase, PEER_COMMON_CAP } from "./helpers/peerCommonEquityCase";
+import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
+import { peerCoverageAuditLines, valuationReviewBlocks } from "@/report/researchReview";
 
 const NOW = new Date("2026-10-13T18:00:00Z");
 function data<T extends FmpRawRow>(rows: T[]): FmpFetch<T> {
@@ -46,7 +49,204 @@ function run(candidates: Record<string, PeerFundamentals>, target = subject()) {
     collection: { candidates, candidateCount: Object.keys(candidates).length, exclusions: [], notes: [] } });
 }
 
+function unresolvedTarget() {
+  const target = subject();
+  target.quote = { ...target.quote, marketCapSecurityBasis: "unresolved",
+    marketCapScopeEvidence: { reason: "The retained 10-Q names Class A and Class B common stock.", sourceIds: ["edgar:10-Q:capital"] } };
+  return target;
+}
+
+describe("subject capitalization scope in the peer row", () => {
+  const four = () => ({ P2: candidate("P2", 1000), P3: candidate("P3", 1500), P4: candidate("P4", 2000), P5: candidate("P5", 2500) });
+  const twoClass = (): EconomicShareEvidence => ({ issuerId: "1", securityId: "ROOT", asOf: "2026-06-30", filed: "2026-08-01",
+    effectiveFrom: "2026-06-30", effectiveTo: null, complete: true, sourceIds: ["filing:share-capital"], sourceHash: "synthetic-hash",
+    classes: [
+      { classId: "ROOT", shares: 100, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "quoted-market-price" },
+      { classId: "ROOT-B", shares: 20, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" },
+    ] });
+  it("withholds unresolved Company capitalization while retaining the peer context", () => {
+    const target = unresolvedTarget(), result = run(four(), target);
+    expect(multiplesFramework("general", { ...target, ...result }).multiples.find(m => m.key === "priceToBook")?.current ?? null).toBeNull();
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: null, peerMedian: 17.5, peerCount: 4,
+      currentWithheldReason: expect.stringMatching(/^Issuer-common economic share scope unresolved.*Class A and Class B/) });
+    expect(result.peerCoverage.exclusions).toContainEqual({ symbol: "ROOT", reason: expect.stringMatching(/^Company figure withheld: Issuer-common economic share scope unresolved/) });
+  });
+  it("uses resolved issuer-common capitalization for the Company figure and size screen", () => {
+    const target = subject();
+    target.quote = { ...target.quote, priceAsOf: "2026-10-13", issuerId: "1", securityId: "ROOT", marketCapSecurityBasis: "quoted-security" };
+    target.securityBasisAsOf = "2026-10-13"; target.economicShareEvidence = [twoClass()];
+    const result = run({ ...four(), P6: candidate("P6", 11) }, target);
+    expect(result.peerCoverage.comparisons[0].current).toBeCloseTo(12, 10);
+    expect(result.peerCoverage.comparisons[0].currentWithheldReason).toBeUndefined();
+    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^size screen: .*outside the 100× comparable-size band/);
+  });
+  it("keeps the unverified vendor capitalization control", () => {
+    expect(run(four()).peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+  });
+  it("labels withheld Company figures and retains the legacy missing display", () => {
+    const peers = run(four(), unresolvedTarget()).peerCoverage;
+    const table = valuationReviewBlocks({ peerCoverage: peers, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!;
+    expect(table.rows[0]).toEqual(["Market cap / TTM common earnings", "withheld", "17.5×", "4"]);
+    expect(peerCoverageAuditLines(peers).join(" ")).toMatch(/company withheld \(Issuer-common economic share scope unresolved/);
+    const legacy = { ...peers, comparisons: [{ name: "Market cap / TTM common earnings", current: null, peerMedian: 17.5, peerCount: 4, basis: "stored" }] };
+    expect(valuationReviewBlocks({ peerCoverage: legacy, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!.rows[0][1]).toBe("n/m");
+  });
+});
+
+describe("one gain test for both sides of the peer comparison", () => {
+  const earning = (c: PeerFundamentals, pretax: number, operating?: number): PeerFundamentals => ({ ...c,
+    incomeQuarterly: data((c.incomeQuarterly.ok ? c.incomeQuarterly.value.data.rows : []).map(r => ({ ...r, incomeBeforeTax: pretax, ...(operating === undefined ? {} : { operatingIncome: operating }) }))) });
+  const clean = (s: string, cap: number) => earning(candidate(s, cap), 30, 28);
+  const four = () => ({ P2: clean("P2", 1000), P3: clean("P3", 1500), P4: clean("P4", 2000), P5: clean("P5", 2500) });
+  const runSubject = (income: PeerFundamentals["incomeQuarterly"], target = subject()) => comparePeerFundamentals({
+    symbol: "ROOT", profile, quote, route: "general", subject: target, now: NOW,
+    subjectIncomeQuarterly: income, subjectBalanceQuarterly: candidate("ROOT").balanceQuarterly,
+    collection: { candidates: four(), candidateCount: 4, exclusions: [], notes: [] },
+  });
+  it("excludes a gain-carried peer from common earnings and P/E while retaining P/B", () => {
+    const result = run({ ...four(), P6: earning(candidate("P6", 3000), 30, 15) });
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+    expect(result.peerCoverage.exclusions.find(e => e.symbol === "P6")?.reason).toMatch(/^common earnings: non-operating income 50\.0% of trailing pre-tax income \(above 25%, house rule D-98\)/);
+    const computed = multiplesFramework("general", { ...subject(), ...result });
+    expect(computed.multiples.find(m => m.key === "peTtm")?.peers?.median).toBe(17.5);
+    expect(computed.multiples.find(m => m.key === "priceToBook")?.peers?.count).toBe(5);
+  });
+  it("withholds a median left with three eligible peers", () => {
+    const result = run({ ...four(), P5: earning(candidate("P5", 2500), 30, 15) });
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: null, peerCount: 3 });
+    expect(result.peerCoverage.methodology.join(" ")).toMatch(/Common-earnings median withheld: 3 eligible peers .*D-98 gain test \(P5: non-operating income 50\.0%/);
+  });
+  it("withholds a gain-carried subject and combines a scope refusal once", () => {
+    const income = earning(candidate("ROOT"), 30, 10).incomeQuarterly;
+    const result = runSubject(income);
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ current: null, peerMedian: 17.5, peerCount: 4,
+      currentWithheldReason: expect.stringMatching(/^non-operating income 66\.7% of the subject's trailing pre-tax income \(above 25%, house rule D-98\)/) });
+    const both = runSubject(income, unresolvedTarget()).peerCoverage;
+    expect(both.comparisons[0].currentWithheldReason).toMatch(/^Issuer-common economic share scope unresolved.*; non-operating income 66\.7%/);
+    expect(both.exclusions.filter(e => e.symbol === "ROOT" && e.reason.startsWith("Company figure withheld:"))).toHaveLength(1);
+  });
+  it("respects the strict threshold and requires all four quarterly operands", () => {
+    const count = (pretax: number, operating?: number) => run({ ...four(), P5: earning(candidate("P5", 2500), pretax, operating) }).peerCoverage.comparisons[0].peerCount;
+    expect(count(40, 30)).toBe(4);
+    expect(count(40, 29.996)).toBe(3);
+    expect(count(-5, 10)).toBe(4);
+    expect(count(30)).toBe(4);
+    expect(count(20, 30)).toBe(4);
+    const partial = earning(candidate("P5", 2500), 30, 15);
+    if (!partial.incomeQuarterly.ok) throw new Error("fixture income missing");
+    delete partial.incomeQuarterly.value.data.rows[2].operatingIncome;
+    expect(run({ ...four(), P5: partial }).peerCoverage.comparisons[0].peerCount).toBe(4);
+    expect(nonOperatingShareOfPretax(100, 70)).toBeCloseTo(0.3, 12);
+    for (const [pretax, operating] of [[0,10],[100,null],[Infinity,10],[100,NaN]]) expect(nonOperatingShareOfPretax(pretax, operating)).toBeNull();
+  });
+  it("keeps peers with absent operands and the existing stricter P/E construction gate", () => {
+    const peers = { P2: candidate("P2",1000), P3: candidate("P3",1500), P4: candidate("P4",2000), P5: candidate("P5",2500) };
+    expect(run(peers).peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
+    const target = subject(); target.incomeTtm!.epsDiluted = 1;
+    const result = run(four(), target);
+    expect(result.peerCoverage.comparisons[0].peerCount).toBe(4);
+    expect(result.peers.every(p => p.multiples.peTtm === undefined)).toBe(true);
+    expect(result.peerCoverage.exclusions.filter(e => /subject price\/diluted-EPS or annual basis differs/.test(e.reason))).toHaveLength(4);
+  });
+});
+
 describe("defensible peer comparables", () => {
+  function evidenceRefinedPeerCase(route: "bank" | "general") {
+    const input = peerCommonEquityCase(0);
+    input.route = route;
+    input.profile!.industry = "Financial - Capital Markets";
+    for (const peer of Object.values(input.collection!.candidates)) {
+      if (!peer.profile.ok) throw new Error("fixture profile missing");
+      peer.profile.value.data.rows[0]!.industry = "Financial - Capital Markets";
+    }
+    return input;
+  }
+  it("FIN-125 names same-label peers of an evidence-refined bank as unconfirmed", () => {
+    const result = comparePeerFundamentals(evidenceRefinedPeerCase("bank"));
+    expect(result.peerCoverage.exclusions.filter(e => /valuation route differs/.test(e.reason))).toEqual([]);
+    expect(result.peerCoverage.exclusions.filter(e => /valuation route unconfirmed/.test(e.reason)).map(e => e.symbol)).toEqual(["P2", "P3", "P4", "P5"]);
+    expect(result.peerCoverage.eligible).toEqual([]);
+  });
+  it("FIN-125 control: the same profiles remain eligible for a general subject", () => {
+    expect(comparePeerFundamentals(evidenceRefinedPeerCase("general")).peerCoverage.eligible).toEqual(["P2", "P3", "P4", "P5"]);
+  });
+  it("FIN-125 preserves the earlier industry screen for an insurance peer", () => {
+    const input = evidenceRefinedPeerCase("bank"), peer = input.collection!.candidates.P2;
+    if (!peer.profile.ok) throw new Error("fixture profile missing");
+    peer.profile.value.data.rows[0]!.industry = "Insurance - Life";
+    // B3 rejects this profile before route comparison. Keep that stronger
+    // existing screen rather than reorder it to reach the plan's stale control.
+    expect(comparePeerFundamentals(input).peerCoverage.exclusions.find(e => e.symbol === "P2")?.reason).toBe("industry does not exactly match the subject");
+  });
+
+  it.each([0, 6e9])("FIN-126 peer P/B median matches the identical bank with preferred %s", preferred => {
+    const input = peerCommonEquityCase(preferred), result = comparePeerFundamentals(input);
+    const m = multiplesFramework("bank", { ...input.subject, ...result }).multiples;
+    const pb = m.find(x => x.key === "priceToBook"), ptbv = m.find(x => x.key === "priceToTbv");
+    expect(result.peers).toHaveLength(4);
+    expect(ptbv?.peers?.median).toBeCloseTo(ptbv!.current!, 10);
+    expect(pb?.current).toBeCloseTo(80e9 / (60e9 - preferred), 10);
+    expect(pb?.peers?.median).toBeCloseTo(pb!.current!, 10);
+  });
+  it.each(["peer", "subject"] as const)("FIN-126 refuses nonpositive common equity on the %s side", side => {
+    const input = peerCommonEquityCase(6e9, side === "peer" ? { firstPeer: { preferredStock: 70e9 } } : { subject: { preferredStock: 70e9 } });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+    expect(result.peerCoverage.exclusions.some(e => e.symbol === "P2" && /priceToBook: positive.*common equity/.test(e.reason))).toBe(true);
+  });
+  it.each([
+    { name: "explicit common equity", balance: { commonEquity: 48e9 }, common: 48e9 },
+    { name: "consolidated equity with disclosed NCI", balance: { equityOwnershipBasis: "consolidated", minorityInterest: 6e9 }, common: 48e9 },
+    { name: "parent equity with NCI already outside it", balance: { equityOwnershipBasis: "parent", minorityInterest: 6e9 }, common: 54e9 },
+  ])("FIN-126 uses the subject's admitted $name basis", ({ balance, common }) => {
+    const input = peerCommonEquityCase(6e9, { subject: balance, allPeers: balance });
+    const result = comparePeerFundamentals(input), pb = multiplesFramework("bank", { ...input.subject, ...result }).multiples.find(m => m.key === "priceToBook");
+    expect(pb?.current).toBeCloseTo(PEER_COMMON_CAP / common, 10);
+    expect(pb?.peers?.median).toBeCloseTo(pb!.current!, 10);
+    // P/TBV is outside this correction: preserve its existing peer formula.
+    expect(result.peers[0]?.multiples.priceToTbv).toBeCloseTo(80e9 / 50e9, 10);
+  });
+  it("FIN-126 does not infer an undisclosed consolidated NCI allocation", () => {
+    const input = peerCommonEquityCase(6e9, { firstPeer: { equityOwnershipBasis: "consolidated", minorityInterest: undefined } });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+    expect(result.peerCoverage.exclusions.some(e => /noncontrolling-equity allocation/.test(e.reason))).toBe(true);
+  });
+  it.each(["peer", "subject"] as const)("FIN-126 does not widen the existing positive reported-equity gate on the %s", side => {
+    const missing = { totalStockholdersEquity: undefined, commonEquity: 48e9 };
+    const input = peerCommonEquityCase(6e9, side === "peer" ? { firstPeer: missing } : { subject: missing });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers.find(p => p.symbol === "P2")?.multiples.priceToBook).toBeUndefined();
+  });
+  it("FIN-126 preserves the subject's zero fallback for undisclosed preferred in P/B only", () => {
+    const missing = { preferredStock: undefined };
+    const input = peerCommonEquityCase(6e9, { subject: missing, allPeers: missing });
+    const result = comparePeerFundamentals(input);
+    expect(result.peers[0]?.multiples.priceToBook).toBeCloseTo(80e9 / 60e9, 10);
+    expect(result.peers[0]?.multiples.priceToTbv).toBeUndefined();
+  });
+
+  it.each(["control", "subject", "candidate", "statement"])("keeps minor units out of peer medians: %s", (minorSide) => {
+    const target = subject();
+    target.reportedCurrency = "GBP";
+    target.quote.currency = minorSide === "subject" ? "GBp" : "GBP";
+    target.subjectEconomicEvidence = undefined;
+    const londonPeer = (symbol: string) => {
+      const peer = candidate(symbol);
+      peer.economicEvidence = undefined;
+      if (!peer.profile.ok || !peer.incomeQuarterly.ok || !peer.balanceQuarterly.ok) throw new Error("fixture");
+      peer.profile.value.data.rows[0].currency = symbol === "P2" && minorSide === "candidate" ? "GBp" : "GBP";
+      for (const row of peer.incomeQuarterly.value.data.rows) row.reportedCurrency = "GBP";
+      for (const row of peer.balanceQuarterly.value.data.rows) row.reportedCurrency = symbol === "P2" && minorSide === "statement" ? "GBp" : "GBP";
+      return peer;
+    };
+    const own = londonPeer("ROOT");
+    const result = comparePeerFundamentals({ symbol: "ROOT", profile: { ...profile, currency: target.quote.currency }, quote, route: "general", subject: target, now: NOW,
+      subjectIncomeQuarterly: own.incomeQuarterly, subjectBalanceQuarterly: own.balanceQuarterly,
+      collection: { candidates: { P2: londonPeer("P2") }, candidateCount: 1, exclusions: [], notes: [] } });
+    expect(result.peerCoverage.eligible).toEqual(minorSide === "control" ? ["P2"] : []);
+  });
+
   it("uses four independent issuers and independently calculated same-definition medians", () => {
     const result = run({ P2: candidate("P2", 1000), P3: candidate("P3", 1500), P4: candidate("P4", 2000), P5: candidate("P5", 2500) });
     const computed = multiplesFramework("general", { ...subject(), ...result });

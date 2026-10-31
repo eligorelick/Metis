@@ -48,7 +48,8 @@ import type {
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_REGULATED_UTILITY" as const;
+// D-136: route evidence bookkeeping changes; numerical band thresholds do not.
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
@@ -861,7 +862,16 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     valuationSignals.push({ name: "dcfUpside", raw: null, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: null, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
+  } else if (valuation.kind === "ineligible") {
+    // The hold suppresses the DCF legs. The remaining price/history share is
+    // applicable but missing, because no multiples were admitted under it.
+    valuationSignals.push({ name: "dcfUpside", raw: null, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
+    valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: null, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
+    valuationSignals.push({ name: "peOwnHistoryRank", raw: null, unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
   }
+  const ineligibleValuationReason = valuation.kind === "ineligible"
+    ? "Valuation withheld: model applicability unresolved (see valuation.modelEligibility) — counted as missing evidence, not as a route without valuation"
+    : null;
   const valuationScore =
     valuation.kind === "pre-revenue"
       ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, "Valuation not modelled for pre-revenue companies (runway framing instead).", policy, "Pre-revenue: no meaningful intrinsic-value model.")
@@ -874,6 +884,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
             "multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile " +
             "of a distribution; N is published beside every rendered rank).",
           policy,
+          null,
+          ineligibleValuationReason,
         );
 
   if (valuation.kind !== "pre-revenue") {
@@ -1218,7 +1230,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     bandsVersion: SCORE_BANDS_VERSION,
     factorExposure: [...exposures.values()].sort((a,b)=>b.weightPct-a.weightPct),
     assessments: {
-      businessQuality: { score: businessScore, band: businessScore === null ? null : scoreToBand(businessScore), basis: "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum." },
+      businessQuality: { score: businessScore, band: businessScore === null ? null : scoreToBand(businessScore),
+        evidenceCompleteness: businessCeiling > 0 ? businessWeight / businessCeiling : 0,
+        basis: "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum." },
       valuation: { score: aspects.valuation.score, band: aspects.valuation.band, basis: "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary." },
       evidenceCompleteness: overallCompleteness, calibration: "unbacktested-house-rules",
     },

@@ -3,6 +3,7 @@ import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
 import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
+import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
 import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
@@ -143,7 +144,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   REPORT_SECTION_MANIFEST,
@@ -765,7 +766,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report))))));
+  report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
@@ -773,7 +774,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
     fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
     balanceSheet: sectionBalanceSheet(report.balanceSheet, report),
-    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
+    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
     quality: sectionQuality(report.quality, report),
     technicals: sectionTechnicals(report),
     leadership: sectionLeadership(report.leadership, report),

@@ -58,8 +58,11 @@ describe("DCF and Stage B ownership propagation", () => {
     expect(computed.returns.wacc.waccPct).toBeNull();
     expect(computed.returns.wacc.gaps.some(g => g.field === "returns.wacc.economicClassBasis")).toBe(true);
     expect(computed.returns.roic.latestRoicPct).not.toBeNull();
-    expect(computed.forensics.altman?.variant).toBe("original");
-    expect(computed.forensics.altman?.score).toBeNull();
+    // FIN-307 / OD-6: structurally refused market equity uses calibrated
+    // Z-prime book equity; the WACC/class-refusal assertions stay unchanged.
+    expect(computed.forensics.altman?.variant).toBe("private");
+    expect(computed.forensics.altman?.score).toBeCloseTo(1.1843, 10);
+    expect(computed.forensics.gaps.some(g => g.field === "forensics.altman.marketEquityScope")).toBe(true);
     expect(computed.forensics.gaps.some(g => g.field === "forensics.economicClassBasis")).toBe(true);
   });
 

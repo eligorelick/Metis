@@ -25,7 +25,7 @@
 import type { ManifestEntry } from "@/types/core";
 import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
-import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
@@ -850,7 +850,20 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
 
   // --- Weights + final WACC -------------------------------------------------------
   const mcap = isFiniteNumber(inputs.marketCap) && inputs.marketCap > 0 ? inputs.marketCap : null;
-  const weightCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
+  let weightCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
+  const minorQuote = minorUnitQuote(inputs.quoteCurrency);
+  // B6 pre-flight publication ruling: preserve only a weight admitted by the
+  // previous case-folding comparison. Do not admit an existing FX/unknown-unit
+  // refusal, rescale the cap, or replace WACC with CoE. Price comparisons still refuse it.
+  if (hasDebt && mcap !== null && !weightCurrency.comparable && minorQuote !== null &&
+      minorQuote.code.toUpperCase() === minorQuote.major &&
+      comparePriceCurrency(inputs.reportedCurrency, minorQuote.major).comparable) {
+    weightCurrency = { comparable: true, currency: minorQuote.major };
+    const reason = `Legacy market-cap weighting retained for ${minorQuote.code}: the provider's market-cap unit is unproven for this minor-unit quote. ` +
+      "WACC and DCF retain their previous basis; price comparisons are withheld and no unit conversion is inferred.";
+    notes.push(reason);
+    gaps.push({ field: "returns.wacc.weights.unit", reason, severity: "warn" });
+  }
   let weightEquity: number | null;
   let weightDebt: number | null;
   if (!hasDebt) {

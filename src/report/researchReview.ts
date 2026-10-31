@@ -66,7 +66,7 @@ export function peerCoverageAuditLines(peers: PeerCoverage): string[] {
   return [
     ...peers.methodology,
     `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated. Eligible issuers: ${peers.eligible.join(", ") || "none"}. Eligibility does not guarantee a usable value for every multiple.`,
-    ...(peers.comparisons ?? []).map((row) => `${row.name}: company ${formatMultiple(row.current)}; peer median ${formatMultiple(row.peerMedian)}; ${row.peerCount} comparable peers. ${row.basis}`),
+    ...(peers.comparisons ?? []).map((row) => `${row.name}: company ${row.currentWithheldReason ? `withheld (${row.currentWithheldReason})` : formatMultiple(row.current)}; peer median ${formatMultiple(row.peerMedian)}; ${row.peerCount} comparable peers. ${row.basis}`),
     ...peers.exclusions.map((exclusion) => `Excluded — ${exclusion.symbol}: ${exclusion.reason}`),
   ];
 }
@@ -110,7 +110,7 @@ export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock
       ...(comparisons.length === 0 ? {} : {
         table: {
           headers: ["Comparison", "Company", "Peer median", "Comparable peers"],
-          rows: comparisons.map((row) => [row.name, formatMultiple(row.current), row.peerMedian === null ? "withheld" : formatMultiple(row.peerMedian), String(row.peerCount)]),
+          rows: comparisons.map((row) => [row.name, row.current === null && row.currentWithheldReason ? "withheld" : formatMultiple(row.current), row.peerMedian === null ? "withheld" : formatMultiple(row.peerMedian), String(row.peerCount)]),
         },
       }),
     });

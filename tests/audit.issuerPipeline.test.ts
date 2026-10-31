@@ -302,6 +302,19 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
     expect(run("SNOW").out.valuation.multiples!.enterpriseValue.noncontrollingInterestBasis).toBe("none-disclosed");
   });
 
+  it.each([
+    { ticker: "O" as const, composite: 44.2, beneish: -2.596362634549579 },
+    { ticker: "NNN" as const, composite: 50.73, beneish: -2.5589578643944697 },
+  ])("FIN-308: preserve $ticker's protected figures while its sub-map acceptance conflict remains unresolved", ({ ticker, composite, beneish }) => {
+    const c = run(ticker).out;
+    // The plan's named unchanged controls are actually undetermined on these
+    // filed inputs. Its universal hold would erase their existing figures;
+    // retain them pending a scope ruling rather than invent asset evidence.
+    expect(c.route.reitSubmap).toBe("undetermined");
+    expect(c.forensics.beneish?.score).toBe(beneish);
+    expect(c.scores.composite.score).toBe(composite);
+  });
+
   it("keep long-term debt that holds current notes out of LVGI, and score Piotroski leverage on the composed basis when the tags match", () => {
     // O and NNN compose debt from inclusive class totals (NotesPayable, LoansPayable).
     for (const ticker of ["O", "NNN"] as const) expect(run(ticker).out.forensics.beneish?.neutralized, ticker).toContain("LVGI");

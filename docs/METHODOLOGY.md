@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.51.0 / payload 1.53.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_32 (2026-10-29, D136). Its bounded evidence fixes
+The current source declares report 1.52.0 / payload 1.54.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33 (2026-10-30, D-137). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -24,7 +24,11 @@ model eligibility unresolved until consolidated scope is reconciled. Source fact
 remain visible, while industrial FCFF, debt-based WACC, leverage, EV multiples,
 ROIC, forward scenarios and related grades are withheld. No financial-company
 model is substituted by guessing. Weak single-tag evidence does not trigger this
-hold. REIT historical P/AFFO comparisons separately require compatible AFFO
+hold. Under unresolved model eligibility, Altman Z, Beneish M and the accrual
+ratios are withheld and Piotroski is reported on its eligibility-unresolved
+scale; the reasons name unresolved eligibility, not an established financial
+classification. The exclusion is not evidence of financial health.
+REIT historical P/AFFO comparisons separately require compatible AFFO
 construction; compatible FFO alone does not establish AFFO comparability. The
 current approximate AFFO may remain visible without a historical percentile.
 These are implementation safeguards, not issuer-specific model validation. See
@@ -148,6 +152,14 @@ that every field can enter a calculation. A failed fetch, a successful empty
 response, an unresolved share basis, an ambiguous restatement and an unsupported
 business-model metric have different reasons in the missing-data manifest.
 
+A failed annual revenue cross-check with unreconciled definitions withholds
+annual revenue from growth and margin series, scenario dispersion and projection
+history, revenue-based forensic inputs and growth-dependent valuation. The
+forensic and projection gaps name that refusal; raw source observations remain.
+This mask does not change quarterly revenue, independent financial-route metrics,
+capital allocation or returns calculations. Runs without a failed FY revenue
+check retain their existing inputs.
+
 The keyless layer in `src/pipeline/keyless.ts` requires EDGAR registrant
 confirmation before substituting issuer data. Under `auto`, usable FMP rows
 stand and EDGAR can append strictly older whole rows per statement family;
@@ -217,12 +229,30 @@ unknown. No FX series or automatic conversion is supplied.
 `src/pipeline/stageB/priceCurrency.ts` permits a model/quote comparison only
 when both currencies are known three-letter codes and equal. Unknown currency
 is an unproven comparison as well as a known mismatch. This withholds price
-multiples, market-cap reverse valuations, market-value capital weights and
+multiples, the financial-route P/TBV pairing and its premium to justified P/TBV,
+market-cap reverse valuations, market-value capital weights and
 upside calculations. An equity-only intrinsic figure that does not require
 the quote can remain in statement currency; FCFF valuation also depends on
 the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
+
+A minor-unit quote code (`GBp`, `GBX`, `GBx` pence; `ZAc`, `ZAC` cents;
+`ILA`, `ILa` agorot) is never treated as its major currency in a price
+comparison, technical-price label or admitted peer multiple. The raw code
+and unit explain the refusal; no price or market cap is rescaled because the
+provider's market-cap unit for that listing is unproven. Unknown-currency
+technical levels cannot become verified monetary indicators. Lowercase ISO
+codes such as `gbp` still mean GBP. B3's preliminary same-market discovery
+size heuristic is unchanged; discovery does not establish peer comparability.
+
+**B6 publication compatibility.** For a levered issuer whose `GBp` quote was
+previously case-folded to the same GBP as its statements, WACC retains the
+previous market-cap weighting and DCF, with an explicit unproven-unit warning.
+This narrow exception avoids newly blocking an existing report. It does not
+admit a previously refused currency pair, infer a cap conversion, or replace
+WACC with cost of equity. The market-cap unit for that retained weighting
+remains unresolved; price comparisons are still withheld.
 
 **Provider rows without a currency (D-57).** FMP's analyst-estimate,
 price-target, executive-compensation and stock-peer rows carry no currency
@@ -305,6 +335,13 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+
+**Retained ADR limitation (FIN-307).** The levered WACC retains its existing
+capitalization when ADR scope alone is unproven, with an explicit
+`returns.wacc.adrMarketEquityScope` warning that its equity weight is unverified.
+Refusing this previously used cap would newly block the DCF; that part of the
+scope correction is deferred. Currency mismatches and established class-scope
+refusals keep their existing guards. Debt-free WACC still equals cost of equity.
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
 rate by 0.5pp or more is disclosed in the manifest, because it materially
@@ -440,7 +477,11 @@ fiscal year.
   average price is excluded as a basis or tagging mismatch. Timing is
   withheld below 50% coverage of repurchase dollars.
 - **Missing side (D-68).** The year's average price is the market cap over
-  the fiscal window ÷ basic weighted shares. When timing is not measured,
+  the fiscal window ÷ basic weighted shares. A year is priced only when the
+  market-cap history starts no more than seven days after the window opens;
+  a partial window is unpriced, like an empty window. Left-out years and their
+  reasons are named even when the remaining timing coverage clears 50%.
+  When timing is not measured,
   the capital note names the side that is missing: the years whose tagged
   execution price has no year-average price (and why, e.g. no market-cap
   history inside the fiscal window), the years outside the plausibility band,
@@ -1451,6 +1492,13 @@ the filed amount, the amount after tax and the filing. The scenario paths' fixed
 bridge keeps the words "after tax" on each line. When net debt itself does not bridge, no obligation is
 deducted.
 
+**Key-data dividend yield.** The yield is computed only when the dividend's
+currency and the quote's are one known currency; otherwise the row reads
+"withheld" with the reason. The quote must carry its own currency evidence;
+the model-currency fallback used for a price label cannot establish that
+comparison. The existing quarterly dividend × 4 annualisation is unchanged;
+payment-frequency handling remains B9's.
+
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
 (equity securities are not cash), and since D-65 the EV multiples (EV/EBITDA,
@@ -1613,8 +1661,8 @@ withheld, with the refusal, in net debt, invested capital and net debt/EBITDA;
 "missing" is kept for a value that is absent. A DCF withheld for want of a
 WACC says why the WACC is unavailable, and a suppressed fair value quotes the
 DCF gap, or the bridge gap and the net-debt refusal behind it. The generic
-reason remains only when no gap says. A market cap withheld because the
-issuer's share scope is unresolved is called withheld, with that reason, in
+reason remains only when no gap says. When the WACC refuses a market cap because
+the issuer's class scope is unresolved, it is called withheld, with that reason, in
 the WACC weights entry and so in the DCF and fair-value lines, and in the
 multiples' market-cap entry ("market cap withheld — most multiples not
 computable: ..."); "market cap missing" is kept for a quote that has none. The net-debt entry says the
@@ -1710,6 +1758,16 @@ unit `rank`, the valuation aspect note says rank, and the Stage C prompt
 instructs the model in the same terms, so the narrative cannot call it a
 percentile either.
 
+The P/E is ranked on the construction of the history actually selected. For a
+single-class issuer with a derived market-cap/common-income history, the P/E
+shown as price/diluted EPS is ranked using current market cap/common income.
+The history basis names that ranked figure and the difference between diluted
+and outstanding share counts. If common income is withheld, the displayed P/E
+remains but has no rank; grading can use EV/EBITDA, then Price/FCF instead.
+Multi-class price/quoted-unit-EPS histories and vendor P/E histories continue
+ranking the displayed price/EPS construction. Historical common-ownership and
+class-scope refusals still apply.
+
 The P/E is not ranked when non-operating income is more than 25% of pre-tax
 income: the earnings then rest on gains, not operations. `peOwnHistoryRank`
 then ranks the next multiple in its list (EV/EBITDA, then Price/FCF), the score
@@ -1770,9 +1828,36 @@ convention (RESEARCH §8).
 Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
 multiples. Those definitions can differ with changing share counts and are
-never silently combined. P/B and P/TBV require supported positive denominators.
+never silently combined in a peer median or an own-history rank. P/B and P/TBV require supported positive denominators.
+The company's own comparison figure uses the issuer-common market capitalization
+the multiples use (B-8): the class sum when established, the provider's cap when
+its scope is unverified, and none when unresolved. The latter row reads withheld
+with its reason, while the peer median remains context. The comparison's size
+screen uses the class sum when established, otherwise the provider's cap.
+The D-98 gain test also applies to both sides of this comparison: non-operating
+income above 25% of positive trailing pre-tax income excludes a peer from
+common-earnings and P/E medians, and withholds the subject's company figure.
+Every one of the four quarters must carry finite pre-tax and operating income;
+absent operands leave the test unknown. Exactly 25% and non-operating losses do
+not trigger it. A median still requires four surviving peers; P/B and P/TBV stay
+eligible under their existing rules. The stricter P/E construction gate also
+remains. Peer earnings carried by gains are excluded, not adjusted: the bounded
+peer fetch has no item-level one-off evidence to adjust them with.
+Peer P/B uses the subject's common-equity rule: explicit common equity when
+disclosed, otherwise parent stockholders' equity less preferred stock; a
+consolidated basis additionally requires a disclosed noncontrolling-equity
+allocation. Undisclosed preferred reads as zero. Both sides retain the existing
+positive reported-stockholders-equity admission gate, so this correction does
+not admit a previously ineligible balance. Peer P/TBV retains its existing
+reported-equity-minus-goodwill/intangibles/explicit-preferred formula; its
+handling of explicit common equity or consolidated NCI is outside this fix.
 Peer comparisons provide context; they do not change scoring or intrinsic-value
 formulas.
+
+A subject whose route rests on SEC evidence (D-34) is compared only with peers
+the profile screen routes the same way; a same-label peer whose own routing
+evidence was not fetched is excluded as unconfirmed. Existing earlier industry
+and sector screens still apply, and no additional SEC request is made.
 
 ---
 
@@ -1917,6 +2002,12 @@ interest spread and assets/equity leverage on the other — with the reason on t
 `route.reitSubmap` manifest entry. Publishing either set would assert a business
 model the evidence does not support.
 
+Known limitation (FIN-308): an undetermined sub-map still uses the existing
+industrial grading and forensic policy. A broader hold remains deferred because
+the plan's protected saved O and NNN cases also have undetermined sub-maps;
+their current figures are retained. This does not establish that industrial
+signals fit every undetermined REIT.
+
 ### Valuing a financial company
 
 #### What is withheld, and why
@@ -2045,13 +2136,27 @@ with, all printed as assumptions in their own right:
   unavailable without sufficient separate cash-distribution evidence; ROTE and
   tangible book metrics remain available when their own inputs are established.
 
-The model also reverse-solves the **starting** ROE that reproduces the current
-market cap, under the same fade the forward path uses. Inverting a *different*
+The model also reverse-solves the **starting** ROE at which its value per share
+equals the quote price, on the exact admitted diluted share count the forward
+per share uses and under the same fade. Market cap is only a disclosed fallback
+when price or that divisor is unavailable. The basis is named even when the
+quote lies outside the return bracket. Currency, ADS and economic-class guards
+still apply; this share-basis correction adds no date roll or conversion bridge.
+Inverting a *different*
 model (a flat ROE, as an earlier version did) made the solved figure
 systematically low, because a flat path is worth more than a fading one, and
 biased every financial toward "the market is too pessimistic". A clean property
 follows from the identity: an issuer priced at book solves to exactly the cost
 of equity.
+
+**Stored implied-return signals (FIN-506).** A report built before spec 1.52.0
+with the `roeImpliedVsAchievable` valuation driver gains a display-only note:
+its implied return used market cap rather than the price times the forward
+divisor. At the tested price-to-book ratios, a 1% share-count gap moved the
+implied return by about 0.3pp, downward when the diluted count was larger and
+upward when it was smaller. The separate frozen cutoff is independent of B5a's
+annualization disclosure. All stored figures, scores and audit fields remain
+unchanged; the note is composed into the screen, exports and stored-report view.
 
 **What the reader sees of the start (audit 2026-10-22 C-11).** The trailing
 four-quarter return is a row of its own in the returns block and in the LLM
@@ -2094,8 +2199,17 @@ because goodwill absorbs losses only after common equity is gone, and pairing a
 book-value multiple with a tangible-equity return would compare two different
 bases. A goodwill-heavy acquirer at 1.0× book can be at 2.0× tangible book.
 
-The current multiple names its balance date; the annual return and model name
-their fiscal-year date. Preferred stock is deducted in both tangible bases.
+P/TBV and its premium are withheld unless quote and statement currency are
+both known and equal. Justified P/TBV and ROTE remain because they use
+statement figures, without the quote. Stored reports carrying the financial
+currency-refusal gap show the same withheld pair on the web page, Markdown
+and print views, without changing the stored report or audit export.
+
+Each P/TBV row is dated at the balance its tangible equity comes from, and the
+ROTE row at the period its return covers: the trailing window's end for a bank
+using its trailing four quarters, otherwise the fiscal-year end. An insurer's
+pairing retains its fiscal-year basis even when its forward model starts from
+a trailing common-equity return. Preferred stock is deducted in both tangible bases.
 Undisclosed preferred is treated as zero and that convention is disclosed.
 From EDGAR companyfacts, preferred is the carrying value
 (`PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount`, then
@@ -2155,6 +2269,13 @@ every metric:
    it stands in for, and is marked `proxy`.
 
 #### Banks
+
+A fiscal year served twice is collapsed to the provably latest filing before
+any financial route metric is read, using the same period normalizer as growth,
+returns and capital. An ambiguous duplicate is dropped with a warning and its
+reason; it is not described as a resolved restatement. This applies to the
+annual balance and income rows on bank, insurer and mortgage-REIT routes. The
+independently selected share-count input retains its existing admission rule.
 
 | Metric | Definition | When withheld |
 | --- | --- | --- |
@@ -2378,6 +2499,26 @@ SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
 
+**Altman market-equity scope (FIN-307).** The original model's X4 refuses an
+ADR capitalization whose issuer-common scope is unestablished. A structural
+currency or scope refusal permits substitution of Z-prime, using book equity
+and its separately calibrated coefficients (0.717, 0.847, 3.107, 0.420, 0.998)
+and 1.23/2.90 zones; a merely missing cap still fails closed. This is a disclosed
+house adaptation for a public issuer with unusable market equity, not a claim
+that the issuer is private or a book-equity substitution into the original
+coefficients. The calibration is described in [Altman's July 2000 paper,
+pages 25–26](https://moodle2.units.it/pluginfile.php/322514/mod_resource/content/0/Zscores.pdf).
+The source's prose and gray-zone row use 1.23; a separate footer prints 1.21.
+The existing 1.23/2.90 house zones remain unchanged.
+
+Forensics retains its profile-before-quote cap selection. An explicit
+issuer-common declaration is taken only from that selected cap's own row and,
+when admitted, retains unverified vendor-scope status; a declaration on another
+row cannot validate it. Existing filing-based class and economic-share evidence
+guards stay dominant. No ADS ratio
+is inferred, and this Altman correction does not claim to fix the deferred
+WACC scope limitation above.
+
 #### Accrual definition, Beneish and Piotroski decompositions (D-61)
 
 **Accruals.** The cash-flow accrual ratio is financial-asset-adjusted
@@ -2437,6 +2578,11 @@ composite score the Piotroski signal is banded on the fraction achieved but
 weighted by the share of the nine signals that were evaluable, and the
 shortfall counts against the quality aspect's data completeness — two
 coin-flip signals cannot swing the aspect the way nine do.
+
+Known limitation (FIN-306): for reduced financial or eligibility-held batteries,
+the completeness ceiling still includes tests withheld by route. Quality and
+composite coverage can therefore understate the evidence the route can use.
+The proposed correction remains deferred; existing scoring behavior is preserved.
 
 | Scale | Applies to | Signals withheld |
 | --- | --- | --- |
@@ -2719,10 +2865,19 @@ neutral). See `tests/stageB.valuation.test.ts`,
 `src/pipeline/stageB/sectorRouting.ts` composes overlays with the base business
 route. **Unprofitable** means negative selected net income or negative selected
 operating cash flow, with dated annual fallbacks when TTM is unavailable.
-For banks, insurers and mortgage REITs, negative OCF alone cannot trigger it:
-funding flows are operating cash flows on those balance sheets. The overlay
+For banks, insurers, mortgage REITs and FIN-OTHER issuers (sector Financial
+Services on the general map), negative OCF alone cannot trigger it: trading
+assets, loans held for sale and funding flows are operating cash flows on
+those balance sheets (ASC 230-10-45-20 and -21). The overlay
 suppresses the general FCFF DCF; it is a house applicability rule and does not
 establish that every future cash flow will be negative.
+
+When removing the FIN-OTHER OCF-only overlay would introduce a critical DCF
+failure, the prior withheld valuation is retained if that prior treatment had
+no critical valuation failure. The disclosure names the unsupported inputs
+without labelling the issuer unprofitable. Existing eligibility holds, input
+checks and gap severities remain unchanged. This compatibility exception
+defers those DCFs; it does not supply missing inputs or perform an FX conversion.
 
 **Pre-revenue** means selected revenue below USD 10 million. The threshold is
 evaluated only on established USD statements; a foreign-currency amount is
@@ -3072,6 +3227,9 @@ contributes no score but reduces completeness; zero available evidence yields
 a null score. The composite first weights each available aspect by its route
 weight times that completeness. Its coverage ceiling excludes wholly
 route-inapplicable aspects and signal weight suppressed by route policy.
+A valuation withheld because model applicability is unresolved (D-96) is
+applicable but unscored: the signals the hold still treats as applicable
+count as missing evidence, and the section's confidence is capped low.
 If `R` is that evidence-weighted mean and `C` is available weight / the
 route-applicable ceiling, the published composite is `50 + (R − 50) × C`.
 Thus sparse favorable evidence shrinks toward neutral; full route-applicable
@@ -3778,7 +3936,16 @@ produced.
 
 Fresh reports distinguish business quality, price attractiveness and evidence availability. Score bands, scenario display weights and forensic thresholds remain unbacktested house rules. They are not calibrated probabilities of returns or accounting misstatement. The score audit records each signal's measured dates, raw value, transformation, effective weight, missingness and contribution. Correlated signals are grouped into factor families so overlapping ROIC evidence is visible.
 
-Capital metrics use complete compatible TTM flows and a matching balance sheet when available, with an explicit annual fallback. Annual history remains available. Cash bridges distinguish operating cash flow minus cash capital expenditure, lease-principal-adjusted FCF, an explicitly supplied issuer definition, and after-SBC economic adjustments. Historical levered FCF and forecast unlevered FCFF are different measures. Debt, liquidity, lease liabilities, enterprise value, equity and diluted shares are reconciled separately.
+Business quality shows its letter only when the business aspects carry at least
+half of their route-applicable evidence, the same floor as the composite. The
+unrounded evidence share is stored separately (zero when no applicable weight
+exists); the summary line, Markdown and dossier cover show the score and
+"not graded: evidence N.N%" below that floor. The audit table retains the recorded
+band. Legacy reports without the optional share keep their recorded presentation.
+This display rule does not change scores, bands or their weighting, including the
+reduced-battery denominator limitation disclosed under FIN-306.
+
+Capital metrics use complete compatible TTM flows and a matching balance sheet when available, with an explicit annual fallback. Annual history remains available. Within a selected TTM snapshot, incomplete operating income withholds EBIT, EBITDA, interest coverage and net debt/EBITDA: vendor EBIT, which can include non-operating gains, and annual operating income are never substituted for that trailing flow (D-31, FIN-112). Cash bridges distinguish operating cash flow minus cash capital expenditure, lease-principal-adjusted FCF, an explicitly supplied issuer definition, and after-SBC economic adjustments. Historical levered FCF and forecast unlevered FCFF are different measures. Debt, liquidity, lease liabilities, enterprise value, equity and diluted shares are reconciled separately.
 
 Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Since D-60 scenario shocks decay to the base path by year 10 and scenario margins stay below gross margin less the leanest operating-expense ratio on record (the decaying shock is the main construction, so no alternative is listed). EPS uses flat shares because an authorization is not a committed schedule; the authorization-funded share change is stated and an unfunded historical-share-trend sensitivity is labeled hypothetical.
 
@@ -4338,10 +4505,17 @@ ordinary shares one quoted share represents. A Form 40-F filer is a Canadian
 issuer whose listed security is its common share, so its market cap stands. A
 20-F filer that lists its ordinary shares directly loses the keyless figure
 too, because the filed facts read here do not say which security is quoted.
-Métis does not compute the figure from the static ADR table or guess a ratio. A market cap Métis computed from a
+Métis does not guess a depositary ratio or apply a static ratio table. A market cap Métis computed from a
 quote and a filed count is now labelled "derived" in Key data and the market
 data table, with the note "quote price × filed share count, computed by
 Métis", instead of "raw provider observation".
+
+ADR disclosures describe the path that runs: dividend yield is gross of foreign
+withholding tax and depositary pass-through fees, with no withholding rate
+applied. A currency annotation names the statement and quote currencies only
+when both are known and different; it says price comparisons are withheld and
+no depositary ratio or FX rate is applied. Unknown or minor-unit currencies
+retain their existing valuation gaps without an invented currency mismatch.
 
 **Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
 `LongTermNotesAndLoans` and its current notes as `NotesPayableCurrent`. No

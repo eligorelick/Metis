@@ -33,7 +33,9 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-135 (audit 2026-10-27 B4a): the equity bridge, the market EV and invested capital count each claim once. Redeemable equity, pension and OPEB deficits, loss contingencies and contingent consideration enter the bridge, debt-like lines are deducted after tax, the covered operating lease enters sales-to-capital, and the divisor in a loss period is named; a stored Stage B result is recomputed.
 // D136 / B5a Tasks 1, 2, 3 and 3b: 13/52-week flow bases, filed weekday
 // calendars, guided-quarter season and twelve-month floor, ex-item disclosure.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_32" as const;
+// D-137 (B6): financial-route currency/eligibility, admitted reverse-return share basis, buyback coverage,
+// revenue refusal, ADR Altman scope, common-equity/gain/scope peer comparisons and same-construction P/E ranking.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

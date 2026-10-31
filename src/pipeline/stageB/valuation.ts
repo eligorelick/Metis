@@ -3959,6 +3959,8 @@ export interface EnterpriseValueBridge {
 }
 
 export interface OwnHistoryBand {
+  /** Current value on the selected derived history's construction; optional on legacy results. */
+  rankedCurrent?: { value: number | null; construction: "capitalization-common-income" };
   /** Empirical percentile rank (0-100) in this finite sample, not an ordinal rank. */
   percentileRank: number | null;
   /**
@@ -4033,6 +4035,12 @@ export interface MultipleStat {
 
 /** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
 export const GAIN_INFLATED_NON_OPERATING_SHARE = 0.25;
+
+/** D-98 needs finite operating/pre-tax operands and positive pre-tax income. */
+export function nonOperatingShareOfPretax(pretax: unknown, operating: unknown): number | null {
+  return typeof pretax === "number" && Number.isFinite(pretax) && pretax > 0
+    && typeof operating === "number" && Number.isFinite(operating) ? (pretax - operating) / pretax : null;
+}
 
 export interface MultiplesResult {
   multiples: MultipleStat[];
@@ -4819,6 +4827,7 @@ export function multiplesFramework(
       stockPrice: historicalScope?.status === "resolved" ? row.stockPrice : null,
       sourceId: historicalScope?.status === "resolved" ? [row.sourceId, ...historicalScope.sourceIds].join("; ") : row.sourceId };
   }) : inputs.enterpriseValuesHistory;
+  const peHistoryConstruction = requiresHistoricalClassScope && price !== null && eps !== null ? "price-eps" : "capitalization-common-income";
   const derived = deriveOwnHistory(
     inputs.quarterlyFundamentals,
     historicalMarket,
@@ -4827,7 +4836,7 @@ export function multiplesFramework(
     // A refused temporary-equity operand is a filed claim of unknown amount: it counts, as in the other two checks.
     { preferred: (bal?.preferredStock ?? 0) > 0 || temporaryParentLike(bal) > 0 || temporaryEquityRefused(bal),
       nci: (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0) || (temporaryEquityClaims(bal)?.redeemableNoncontrolling ?? 0) > 0 || temporaryEquityRefused(bal) },
-    requiresHistoricalClassScope && price !== null && eps !== null ? "price-eps" : "capitalization-common-income",
+    peHistoryConstruction,
   );
   const windowGap = ownHistoryWindowGap(derived);
   if (windowGap) gaps.push(windowGap);
@@ -4936,10 +4945,12 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.ownHistory.economicClassBasis", reason, "warn"));
   }
   let usedVendor = false;
+  const derivedHistoryKeys = new Set<MultipleKey>();
   for (const key of historyKeys) {
     const ownValues = derived.series[key];
     const vendorValues = vendor[key];
     if ((ownValues?.length ?? 0) >= MIN_HISTORY_OBS_FOR_BAND) {
+      derivedHistoryKeys.add(key);
       history[key] = ownValues;
       historyDetails[key] = derived.details[key];
       historyBasisByKey[key] =
@@ -5040,6 +5051,15 @@ export function multiplesFramework(
         ownHistory: null, peers: null };
     }
     const cur = current[key] ?? null;
+    const rankedCurrent = key === "peTtm" && price !== null && eps !== null
+      && peHistoryConstruction === "capitalization-common-income" && derivedHistoryKeys.has(key)
+      ? { value: safeDiv(mcap, posOrNull(capital.commonIncome)), construction: "capitalization-common-income" as const } : null;
+    const rankBasis = rankedCurrent === null ? "" : rankedCurrent.value === null
+      ? `. Not ranked: common income is withheld (${capital.incomeWithheldReason ?? "positive common income unavailable"}), and price / diluted EPS is a different construction from this market cap / common income history`
+      : `. Rank construction: the P/E shown is price / diluted EPS; it is ranked as market cap / common income (${fmtNum(rankedCurrent.value)}x), the construction of every window in this history, because the diluted share count behind EPS and the outstanding count behind market cap differ`;
+    const ownHistory = priceCurrency.comparable && marketCapSecurityKnown
+      ? bandFor(history[key], rankedCurrent ? rankedCurrent.value : cur, (historyBasisByKey[key] ?? "no usable multiple history") + rankBasis, historyDetails[key]) : null;
+    if (ownHistory && rankedCurrent) ownHistory.rankedCurrent = rankedCurrent;
     const comparison = comparablePeers(inputs.subjectEconomicEvidence, inputs.peers ?? [], key, inputs.peerComparisonAsOf ?? null);
     if (comparison.excluded.length) {
       const disclosure = `${key}: economic/accounting comparability excluded ${comparison.excluded.map((peer) => `${peer.symbol} (${peer.reasons.join("; ")})`).join(", ")}; raw peer observations retained; no median uses excluded rows`;
@@ -5058,9 +5078,7 @@ export function multiplesFramework(
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
       ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
       ...(incomePeriod !== undefined && (key === "peTtm" || key === "evToEbitda" || key === "evToSales") ? { period: incomePeriod } : {}),
-      ownHistory: priceCurrency.comparable && marketCapSecurityKnown
-        ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
-        : null,
+      ownHistory,
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
@@ -5070,8 +5088,8 @@ export function multiplesFramework(
   // earnings). The P/E is still shown, flagged, and is not ranked.
   const pretaxTtm = inc?.incomeBeforeTax ?? null;
   const operatingTtm = inc?.operatingIncome ?? null;
-  if (isNum(pretaxTtm) && pretaxTtm > 0 && isNum(operatingTtm)) {
-    const share = (pretaxTtm - operatingTtm) / pretaxTtm;
+  const share = nonOperatingShareOfPretax(pretaxTtm, operatingTtm);
+  if (share !== null && isNum(pretaxTtm) && isNum(operatingTtm)) {
     const pe = multiples.find((m) => m.key === "peTtm");
     if (pe !== undefined && pe.current !== null && share > GAIN_INFLATED_NON_OPERATING_SHARE) {
       const basis = `pre-tax income ${fmtNum(pretaxTtm)} (${incomeBasisLabel}) includes non-operating income of ${fmtNum(pretaxTtm - operatingTtm)}, ` +
@@ -5088,7 +5106,7 @@ export function multiplesFramework(
     const band = m.ownHistory;
     if (band === null) continue;
     if (band.percentileRank === null) {
-      notes.push(`${m.key}: own-history empirical percentile rank (${band.observations} observations) unavailable; ${percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
+      notes.push(`${m.key}: own-history empirical percentile rank (${band.observations} observations) unavailable; ${band.rankedCurrent?.value === null ? "not ranked: common income is withheld" : percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
       continue;
     }
     notes.push(
@@ -5173,7 +5191,9 @@ export interface ExcessReturnInputs {
   /** Dividend + buyback payout as % of net income; missing history suppresses. */
   payoutRatioPct?: number | null;
   dilutedShares?: number | null;
-  /** Reverse-solve target (market cap in same currency units as bookValue). */
+  /** Quote price, on the same currency and admitted share basis as the forward per share. */
+  price?: number | null;
+  /** Reverse-solve fallback when price or diluted shares is unavailable; same currency as bookValue. */
   marketCap?: number | null;
   asOf?: string | null;
   /**
@@ -5183,8 +5203,12 @@ export interface ExcessReturnInputs {
    * value, which would flatter a goodwill-heavy acquirer.
    */
   tangibleCommonEquity?: number | null;
+  /** Balance date of the tangible equity used in the P/TBV pairing. */
+  tangibleCommonEquityAsOf?: string | null;
   /** WS5: return on tangible common equity, percent — the return P/TBV is read against. */
   rotePct?: number | null;
+  roteAsOf?: string | null;
+  roteSource?: "computed.returns.commonReturnTtm" | "computed.returns.rote";
   /**
    * Risk-free rate, percent, for the sustainable-growth cap in the justified
    * P/TBV cross-check. The house rule (same one the DCF terminal value obeys)
@@ -5208,6 +5232,10 @@ export interface ExcessReturnInputs {
 
 /** WS5: the multiple a financial's price is actually read on, beside the return that justifies it. */
 export interface PriceToTangibleBookVsRote {
+  /** Optional for callers and legacy results predating explicit pairing dates. */
+  asOf?: string | null;
+  roteAsOf?: string | null;
+  roteSource?: string;
   /** market cap / tangible common equity. */
   pTbv: number | null;
   /** Return on tangible common equity, percent. */
@@ -5227,6 +5255,11 @@ export interface PriceToTangibleBookVsRote {
   basis: string;
   /** Non-null when the pairing (or the justified multiple) was withheld. */
   withheldReason: string | null;
+}
+
+function withholdPriceToTangibleBook(p: PriceToTangibleBookVsRote, reason: string): PriceToTangibleBookVsRote {
+  return { ...p, pTbv: null, premiumToJustified: null,
+    withheldReason: `${reason} — P/TBV sets the quote-currency market cap against statement-currency tangible equity, so it and its premium are withheld; justified P/TBV uses statement figures only` };
 }
 
 /** Audit 2026-10-22 C-10: the excess-return value from the start the model did not use. */
@@ -5288,7 +5321,7 @@ export interface ExcessReturnResult {
   terminalExcess: number | null;
   /** Additive: legacy objects may not retain these forward parameters. */
   financialAssumptions?: FinancialValuationAssumptions;
-  reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
+  reverseSolve: { impliedCurrentRoePct: number | null; notes: string[]; basis?: "price-per-diluted-share" | "market-cap" };
   /** Audit 2026-10-22 C-10: present when the model started from the trailing four quarters and a fiscal-year start exists. */
   startAlternative?: ExcessReturnStartAlternative;
   /** Audit 2026-10-22 C-11: start-return × cost-of-equity sensitivity; absent without a per-share denominator. */
@@ -5364,7 +5397,8 @@ function excessReturnValue(
  * valuation; JPM's price "required" a 54% starting ROTE). A caller MAY override the terminal ROE
  * (analystImpliedRoePct) to assert persistent excess; the override is reflected
  * honestly in `terminalExcess` and the basis string. Also reverse-solves the
- * constant steady-state ROE that reproduces the current market cap.
+ * starting ROE under that same fade at which value per diluted share equals
+ * the quote price, with market cap as the fallback when price or shares is unavailable.
  */
 /**
  * WS5: P/TBV read against ROTE — the pair a bank, insurer or mortgage REIT is
@@ -5404,7 +5438,10 @@ function priceToTangibleBookVsRote(
   const tce = posOrNull(inputs.tangibleCommonEquity);
   const mcap = posOrNull(inputs.marketCap);
   const rotePct = isNum(inputs.rotePct) ? inputs.rotePct : null;
+  const dating = { asOf: inputs.tangibleCommonEquityAsOf, roteAsOf: inputs.roteAsOf, roteSource: inputs.roteSource };
+  const equityDateBasis = inputs.tangibleCommonEquityAsOf ? `; tangible common equity at ${inputs.tangibleCommonEquityAsOf}` : "";
   const empty = (reason: string, basis: string): PriceToTangibleBookVsRote => ({
+    ...dating,
     pTbv: null,
     rotePct,
     justifiedPTbv: null,
@@ -5435,11 +5472,12 @@ function priceToTangibleBookVsRote(
           ? "cost of equity"
           : "payout history (needed for the retention rate in g)";
     return {
+      ...dating,
       pTbv,
       rotePct,
       justifiedPTbv: null,
       premiumToJustified: null,
-      basis: `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x`,
+      basis: `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x${equityDateBasis}`,
       withheldReason: `${missing} unavailable — the justified multiple (ROTE − g)/(CoE − g) was not computed, so the multiple is shown without the return that would justify it`,
     };
   }
@@ -5461,12 +5499,13 @@ function priceToTangibleBookVsRote(
   const spread = coePct - g;
   if (spread < JUSTIFIED_PTBV_MIN_SPREAD_PP) {
     return {
+      ...dating,
       pTbv,
       rotePct,
       justifiedPTbv: null,
       premiumToJustified: null,
       basis:
-        `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%`,
+        `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%${equityDateBasis}`,
       withheldReason:
         `growth g = ${fmtNum(g)}% (${gCapped ? `ROTE ${fmtNum(rotePct)}% x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, capped by ${gCapBasis}` : `ROTE ${fmtNum(rotePct)}% x retention ${fmtNum(retention * 100)}%, below ${gCapBasis}`}) ` +
         `leaves only ${fmtNum(spread)}pp below the cost of equity ${fmtNum(coePct)}% (floor ${JUSTIFIED_PTBV_MIN_SPREAD_PP}pp) — ` +
@@ -5475,12 +5514,13 @@ function priceToTangibleBookVsRote(
   }
   const justifiedPTbv = (rotePct - g) / spread;
   return {
+    ...dating,
     pTbv,
     rotePct,
     justifiedPTbv,
     premiumToJustified: pTbv - justifiedPTbv,
     basis:
-      `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%. ` +
+      `P/TBV = market cap ${mcap} / tangible common equity ${tce} = ${fmtNum(pTbv)}x, against ROTE ${fmtNum(rotePct)}%${equityDateBasis}. ` +
       `Justified P/TBV = (ROTE ${fmtNum(rotePct)}% − g ${fmtNum(g)}%) / (CoE ${fmtNum(coePct)}% − g ${fmtNum(g)}%) = ` +
       `${fmtNum(justifiedPTbv)}x, where g = ${gCapped ? `${gCapBasis} (ROTE x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, capped)` : `ROTE x retention ${fmtNum(retention * 100)}% = ${fmtNum(gSustainable)}%, within ${gCapBasis}`}. ` +
       "This is a STABLE-GROWTH cross-check: it assumes ROTE persists in perpetuity. The forward excess-return " +
@@ -5704,7 +5744,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
 
   const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   const shares = posOrNull(inputs.dilutedShares);
-  const perShare = shares !== null ? equityValue / shares : null;
+  // FIN-506: the reverse solve must invert the exact admitted forward divisor.
+  const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
+  const perShare = perShareOf(equityValue);
   if (shares === null) {
     gaps.push(gapEntry("valuation.excessReturn.dilutedShares", "diluted shares missing — per-share value unavailable", "info"));
   }
@@ -5789,7 +5831,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
 
   // Reverse solve: the STARTING ROE which, under this model's own competitive
-  // fade, reproduces the market cap. Monotone in the starting ROE.
+  // fade and admitted divisor, reproduces the quote price (market cap only on
+  // the disclosed fallback). Monotone in the starting ROE.
   //
   // It previously held ROE CONSTANT for `years` and then stopped accruing
   // residual income — neither a fade (what the forward model assumes) nor a
@@ -5812,27 +5855,38 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   // solves to CoE. The solve fades to the same target and carries the same
   // continuing value as the forward path, so the comparison stays like for like.
   let impliedCurrentRoePct: number | null = null;
+  let reverseBasis: ExcessReturnResult["reverseSolve"]["basis"];
   const mcap = posOrNull(inputs.marketCap);
-  if (mcap === null) {
-    reverseNotes.push("skipped: market cap not provided");
+  const price = posOrNull(inputs.price);
+  const usePrice = price !== null && shares !== null;
+  const target = usePrice ? price : mcap;
+  if (target === null) {
+    reverseNotes.push("skipped: market cap not provided (price or diluted shares unavailable)");
   } else {
+    reverseBasis = usePrice ? "price-per-diluted-share" : "market-cap";
+    const targetLabel = usePrice ? "the price per diluted share" : "market cap";
     const [lo, hi] = REVERSE_ROE_RANGE_PCT;
-    const f = (roe: number): number =>
+    const f = (roe: number): number => {
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue - mcap;
+      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue;
+      return (usePrice ? perShareOf(value)! : value) - target;
+    };
     const fLo = f(lo);
     const fHi = f(hi);
     if (fLo > 0) {
-      reverseNotes.push(`market cap below the ${lo}% starting-ROE value — implied ROE < ${lo}%`);
+      reverseNotes.push(`${targetLabel} below the ${lo}% starting-ROE value — implied ROE < ${lo}%`);
     } else if (fHi < 0) {
-      reverseNotes.push(`market cap above the ${hi}% starting-ROE value — implied ROE > ${hi}% (price not justifiable on book returns)`);
+      reverseNotes.push(`${targetLabel} above the ${hi}% starting-ROE value — implied ROE > ${hi}% (price not justifiable on book returns)`);
     } else {
-      const root = bisect(f, { lo, hi, fLo, fHi }, mcap);
+      const root = bisect(f, { lo, hi, fLo, fHi }, target);
       impliedCurrentRoePct = root;
       if (root !== null) {
-        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
+        const targetBasis = usePrice
+          ? `the price per diluted share (${price} on ${shares} shares, the count the value per share divides by)`
+          : "market cap (price or diluted shares unavailable)";
+        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching ${targetBasis} — comparable to the current ROE, same dynamics as the forward path`);
       }
     }
   }
@@ -5901,7 +5955,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     bookValuePath,
     terminalExcess,
     financialAssumptions,
-    reverseSolve: { impliedCurrentRoePct, notes: reverseNotes },
+    reverseSolve: { impliedCurrentRoePct, notes: reverseNotes, ...(reverseBasis === undefined ? {} : { basis: reverseBasis }) },
     ...(startAlternative !== undefined ? { startAlternative } : {}),
     ...(startCoeGrid !== undefined ? { startCoeGrid } : {}),
     asOf: inputs.asOf ?? null,
@@ -6237,14 +6291,15 @@ export type ValuationResult =
     }
   | {
       /**
-       * General route, but metricPolicy suppresses fcfDcf for this route's
-       * overlays (currently: "unprofitable" — structurally negative FCF makes
-       * an FCFF-based intrinsic-value model unreliable). Unlike "pre-revenue",
-       * multiples ARE still meaningful here (only pe/peg/fcfDcf/dividendSafety/
-       * piotroskiF/beneishM are suppressed, not multiples generally), so
+       * General route with an overlay-suppressed DCF, or a FIN-OTHER prior
+       * suppression retained because newly applicable model inputs fail.
+       * Multiples remain available; metricPolicy separately decides which
+       * ones are applicable for the actual route/overlays. Unlike pre-revenue,
        * `multiples` is a real MultiplesResult, not null.
        */
       kind: "dcf-suppressed";
+      /** Specific disclosure when prior suppression is retained for unsupported FIN-OTHER inputs. */
+      suppressionReason?: string;
       route: SectorRoute;
       multiples: MultiplesResult;
       notes: string[];
@@ -6472,7 +6527,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       ),
       gapEntry(
         "valuation.reverseDcf",
-        `FCFF reverse DCF withheld on the '${route.base}' route: it inverts the same FCFF model, so the growth or margin it would solve for inherits the same category error — the excess-return model's reverse solve (the starting ROE that reproduces the market cap) is reported instead`,
+        `FCFF reverse DCF withheld on the '${route.base}' route: it inverts the same FCFF model, so the growth or margin it would solve for inherits the same category error — the excess-return model's reverse solve (the starting ROE at which the model's value per share equals the price, with market cap only as a disclosed fallback) is reported instead`,
         "info",
       ),
       gapEntry(
@@ -6495,33 +6550,29 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     if (!inputs.excessReturn) {
       gaps.push(gapEntry("valuation.excessReturn", "excess-return inputs not provided by caller", "critical"));
     }
-    // ADR currency guard, the excess-return twin of the DCF guard below. The
+    // Currency guard, the excess-return twin of the DCF guard below. The
     // per-share value is in the statements' reportedCurrency while the price it
     // is graded against is the quote currency, so on a mismatch the upside is
-    // off by the FX rate. Suppress the per-share (and the market-cap reverse
-    // solve, which compares equity value to a quote-currency market cap) rather
+    // off by the FX rate. Suppress the per-share (and the reverse solve,
+    // which compares the statement-currency model to the quote) rather
     // than publish a mixed-currency comparison. No FX conversion attempted.
     const erReported = inputs.multiples.reportedCurrency;
     const erQuote = inputs.multiples.quote.currency;
-    if (
-      typeof erReported === "string" &&
-      typeof erQuote === "string" &&
-      erReported.toUpperCase() !== erQuote.toUpperCase()
-    ) {
+    if (!quoteComparison.comparable && quoteComparison.mismatch) {
       notes.push(
-        `ADR/currency mismatch: statements in ${erReported}, quote in ${erQuote} — excess-return per-share and reverse solve suppressed ` +
-          `(per-share intrinsic value would be in ${erReported} against a ${erQuote} price; no FX conversion attempted). ` +
+        `${quoteComparison.reason} — excess-return per-share and reverse solve suppressed; ` +
           "See multiples (flagged) for relative valuation.",
       );
       gaps.push(
         gapEntry(
           "valuation.excessReturn.currency",
-          `reportedCurrency ${erReported} != quote currency ${erQuote} (ADR case) — excess-return per-share suppressed rather than comparing mixed-currency per-share vs price`,
+          `${quoteComparison.reason} — excess-return per-share suppressed rather than comparing a per-share value in one currency with a price in another`,
           "critical",
         ),
       );
       const guarded: ExcessReturnResult = {
         ...er,
+        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, quoteComparison.reason),
         perShare: null,
         startAlternative: undefined,
         startCoeGrid: undefined,
@@ -6529,7 +6580,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           impliedCurrentRoePct: null,
           notes: [
             ...er.reverseSolve.notes,
-            `reverse solve suppressed: market cap is in ${erQuote} while book value is in ${erReported}`,
+            `reverse solve suppressed: the quote is in ${erQuote} while book value is in ${erReported}`,
           ],
         },
       };
@@ -6544,17 +6595,18 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     if (!quoteComparison.comparable) {
       // Currency unknown on one side: the per-share value (book value and ROE,
       // all statements) stands in its own currency, but the reverse solve sets
-      // the equity value against the market cap and is withheld.
+      // the statement-currency model against the quote and is withheld.
       gaps.push(
         gapEntry(
           "valuation.excessReturn.reverseSolve.currency",
-          `${quoteComparison.reason} — the market-implied ROE sets the market cap against book value, so it is withheld`,
+          `${quoteComparison.reason} — the market-implied ROE sets the quote against book value, so it is withheld`,
           "warn",
         ),
       );
       gaps.push(...er.gaps);
       const withheld: ExcessReturnResult = {
         ...er,
+        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, quoteComparison.reason),
         reverseSolve: {
           impliedCurrentRoePct: null,
           notes: [...er.reverseSolve.notes, `reverse solve withheld: ${quoteComparison.reason}`],

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.51.0** and
-payload **1.53.0** (the seasonality, fiscal-calendar and guided-quarter fixes of audit batch B5a, following B4a's equity-bridge fixes and B13's EDGAR-derived operating-line fixes). The
+Current source declares application **0.1.0**, report spec **1.52.0** and
+payload **1.54.0** (B6 financial-route fixes after B5a seasonality and calendar fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,35 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - bank, insurer, REIT and ADR routes: currency, routing and grading (2026-10-27)
+
+Batch B6 uses D-137. B5a and B6 were built in parallel; this integration places B6 after B5a with distinct stamps and legacy cutoffs. This entry records the implemented scope, including the preserved behavior and deferred findings.
+
+- Both legacy adapters compose in screen and export views. The annualization cutoff stays at 1.51.0; financial implied-return notes apply before 1.52.0. Annualization notes now appear in the shared methodology presentation as well as the audit data, without altering stored figures. Combined regressions preserve period scaling alongside annual-revenue refusal and preserve B5a's exact payload golden chain.
+
+- Minor-unit quote codes such as GBp no longer pass as pounds. Comparisons without established matching units are withheld, with a reason; no conversion or new provider call is guessed. Existing WACC and intrinsic values retain their prior handling where changing it would remove a published value (FIN-107).
+- A bank or insurer's price/tangible-book ratio and premium to justified value are withheld when quote and statements are not in one known currency. Justified value and return on tangible equity remain available. This guard also applies when displaying a stored report (FIN-105).
+- The dividend-yield row now requires the price's own currency evidence to match the dividend's currency; the valuation model's currency cannot supply that proof (FIN-105-V1).
+- The tangible-book pairing and its return now show their actual measurement dates: a qualifying bank trailing period, or the fiscal-year pairing otherwise. The insurer's separate trailing return and forward value are unchanged (FIN-106, FIN-310).
+- Banks' and insurers' implied starting returns now invert the same price and diluted-share mapping used by their forward value, including its existing date factor. Market capitalization is a disclosed fallback when the quote cannot be used. Stored JPM report #21 gains a note explaining its older convention; its numbers and grade remain unchanged. The separate date-roll rewrite waits for B4b (FIN-506; FIN-309 deferred).
+- TTM EBIT uses operating income for all four quarters. Incomplete evidence withholds that TTM figure and its dependent ratios instead of mixing in vendor EBIT or annual amounts; the separate annual WACC fallback stays (FIN-112).
+- Buyback years whose market-cap history begins more than seven days after the fiscal window begins no longer receive a whole-year price proxy. Coverage and timing identify the excluded year; actual cash spent and shares repurchased stay as filed (FIN-117).
+- Bank route metrics and the adjacent capital adapter collapse restatements by filing date before choosing an annual row. Independently selected share counts keep their own source (FIN-122).
+- Bank forensic wording names the capital, credit and funding signals that actually run. It no longer presents unavailable regulatory capital as a grade or recommends gathering inapplicable industrial scores (FIN-120).
+- ADR notes describe an unproved depositary ratio and a gross dividend before withholding. The unused static ratio table and its misleading promise are removed (FIN-313).
+- A profitable general-route Financial Services issuer is no longer called unprofitable solely because operating cash flow is negative. Net income remains the trigger, including for fee-based firms. Where a newly eligible DCF still lacks required inputs, its previous withholding and publication state remain with an explanation (FIN-121).
+- Unresolved model eligibility withholds Altman Z without calling the business a confirmed financial company. Its withheld valuation counts as applicable but missing evidence, so the confidence calculation no longer treats the uncertainty as a designed route exemption (FIN-124, FIN-123).
+- Altman uses the calibrated book-equity Z-prime model when currency or ADR/class scope structurally prevents using market equity. Merely missing market cap still fails closed. An ADR's existing levered WACC and DCF are retained with a scope warning; the planned WACC refusal is deferred to protect main's published values (FIN-307, partial).
+- Peer P/B uses common equity, with preferred and noncontrolling interests treated consistently with the subject. The existing positive reported-equity admission gate and peer P/TBV treatment stay unchanged (FIN-126).
+- When SEC evidence refines the subject's route, a peer the profile-only screen cannot establish is described as unconfirmed. No extra SEC request or broader admission rule is added (FIN-125).
+- Annual revenue refused by its cross-check is also withheld from the dependent growth margins, forensic inputs, projection history and scenario dispersion. The missing inputs and reasons are explicit; independent cash-flow, capital and quarterly figures stay unchanged (FIN-110).
+- A business-quality summary with less than 50% of its applicable evidence reads “not graded” on the classic report and dossier cover. The new share is unrounded; legacy reports without it and the audit table retain their recorded band (RPT-101).
+- The peer table's Company figure uses the same issuer-common capitalization as the valuation framework. An unresolved class scope reads “withheld” with a reason, while the peer median remains context. A resolved class sum also drives the comparison-time size screen (FIN-504).
+- The same greater-than-25% non-operating-income test now applies to the company and its peers' earnings comparison. NVDA's 59.31× peer median is withheld in the affected saved-input replays because three peers remain and four are required. P/B and P/TBV remain eligible; stored reports retain their old median (FIN-503).
+- A P/E ranked against a market-cap/common-income history now uses that construction for the ranked operand. The displayed price/diluted-EPS multiple stays unchanged. NNN's saved-input rank moves from 25.07 to 37.12 and NVDA's from 1.685 to 1.484; their valuation grades are unchanged in these replays (FIN-505).
+- Piotroski route-applicable completeness (FIN-306) and undetermined-REIT grading (FIN-308) remain as on main: the plan's required controls contradict the proposed changes. Regression tests preserve O and NNN; the methodology now states these limits. Task 5's date-roll rewrite waits for B4b, and Task 17's Altman date-label rewrite remains its R1a tombstone. No such fix is claimed here.
+- Report **1.52.0**, payload **1.54.0**, Stage B **STAGE_B_2026_10_ACCOUNTING_EVIDENCE_33**, and score bands **SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE** (D-137). Stored reports and snapshots keep their bytes. The P/TBV currency display guard affects none of the stored corpus; the implied-return convention note affects JPM #21 alone. Stored Altman date labels are unchanged in this batch.
 
 ## Unreleased - seasonality, 52/53-week calendars and the guided quarter on one basis (B5a, 2026-10-27)
 

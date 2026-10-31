@@ -371,6 +371,8 @@ export interface AltmanInputs {
   income: ForensicsIncomeRow;
   /** Market value of equity, same currency as the statements. Required for `original` X4. */
   marketCap?: number | null;
+  /** Structural scope refusal, distinct from a missing market-cap observation. */
+  marketEquityWithheldReason?: string | null;
   /** As-of date of the market cap (should be same-period for historical trends). */
   marketCapAsOf?: string | null;
   /** Statements' reported currency (e.g. inc0.reportedCurrency). */
@@ -549,6 +551,9 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
           "warn",
         ),
       );
+    } else if (inputs.marketEquityWithheldReason) {
+      gaps.push(gapEntry("forensics.altman.marketEquityScope",
+        `original-variant X4 (market value of equity) withheld: ${inputs.marketEquityWithheldReason}`, "warn"));
     } else {
       equityNumerator = posOrNull(inputs.marketCap);
       if (equityNumerator === null) {
@@ -679,6 +684,9 @@ export function selectAltmanVariant(
   classification?: AltmanClassification,
   isEmergingMarket = false,
 ): AltmanVariantSelection {
+  if (route.modelEligibility?.status === "unresolved") {
+    return { variant: null, notes: [`Altman Z eligibility unresolved: ${route.modelEligibility.reason} The exclusion is not evidence of financial health.`] };
+  }
   const notes: string[] = [];
   const sector = classification?.sector ?? route.evidence.sector;
   const industry = classification?.industry ?? route.evidence.industry;
@@ -1449,6 +1457,8 @@ export interface PiotroskiOptions {
   financialsSuppressed?: boolean;
   /** Same conservative battery, without asserting a financial business model. */
   eligibilityUnresolved?: boolean;
+  /** Why eligibility is unresolved; defaults to the historical broad-SIC6199 basis. */
+  eligibilityBasis?: string;
   /**
    * True only for the deposit-, float- or repo-funded routes (bank, insurer,
    * mortgage REIT). Withholds ΔLEVER and ΔTURN on top of the four above,
@@ -1524,7 +1534,9 @@ export function computePiotroski(
   // 2. F_CFO — CFO / beginning-of-year TA > 0
   const finSuppressed = options?.financialsSuppressed === true;
   const eligibilityUnresolved = finSuppressed && options?.eligibilityUnresolved === true;
-  const unresolvedSignal = "operating-method eligibility unresolved: broad SIC 6199 alone does not validate this signal; withheld pending methodology review";
+  const eligibilityBasis = options?.eligibilityBasis ?? "broad SIC 6199 alone";
+  const eligibilitySubject = eligibilityBasis === "broad SIC 6199 alone" ? eligibilityBasis : `${eligibilityBasis}; this`;
+  const unresolvedSignal = `operating-method eligibility unresolved: ${eligibilitySubject} does not validate this signal; withheld pending methodology review`;
   const ocfWithheld = eligibilityUnresolved ? unresolvedSignal :
     "operating cash flow is not a profitability or accrual signal for a financial company (loan, deposit, trading and reserve flows dominate it) — signal withheld";
   const cfoScaled = div(cfoT, taBeginT);
@@ -1747,7 +1759,7 @@ export function computePiotroski(
     ? `Piotroski F (financial variant, ${outOf} of 9 signals — ${missing.length} withheld: ${missing.join(", ")})`
     : `Piotroski F (${outOf} signals)`;
   if (eligibilityUnresolved) {
-    notes.push(`Piotroski F eligibility unresolved: broad SIC 6199 alone does not validate the operating business model. The current-ratio, gross-margin and both operating-cash-flow signals remain withheld pending methodology review; ${outOf} of 9 signals are evaluable. Retained signals do not establish a fee-based or financial business model. The score is not comparable to a 9-point F-score.`);
+    notes.push(`Piotroski F eligibility unresolved: ${eligibilitySubject} does not validate the operating business model. The current-ratio, gross-margin and both operating-cash-flow signals remain withheld pending methodology review; ${outOf} of 9 signals are evaluable. Retained signals do not establish a fee-based or financial business model. The score is not comparable to a 9-point F-score.`);
   } else if (finSuppressed) {
     notes.push(
       `Piotroski F is reported on the FINANCIAL variant: ${outOf} of the paper's 9 signals. The current ratio, gross ` +
@@ -2474,6 +2486,7 @@ export interface ForensicsInputs {
   cashFlow: ForensicsCashFlowRow[];
   /** Market value of equity in statement currency (original-variant Altman X4). */
   marketCap?: number | null;
+  marketEquityWithheldReason?: string | null;
   marketCapAsOf?: string | null;
   /** Statements' reported currency; with quoteCurrency, flags the ADR mismatch for X4. */
   reportedCurrency?: string | null;
@@ -2738,10 +2751,13 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     sicCode: route.evidence.sic ?? null,
   };
   const suppressed = isFinancialForensicsSuppressed(route, classification);
-  const eligibilityUnresolved = route.base === "general"
+  const eligibilityUnresolved = route.modelEligibility?.status === "unresolved" || (route.base === "general"
     && Number(classification.sicCode ?? route.evidence.sic) === 6199
     && !(classification.sector ?? route.evidence.sector)?.trim()
-    && !(classification.industry ?? route.evidence.industry)?.trim();
+    && !(classification.industry ?? route.evidence.industry)?.trim());
+  const eligibilityBasis = route.modelEligibility?.status === "unresolved"
+    ? "the filer's funding evidence conflicts with its classification (model applicability unresolved)" : "broad SIC 6199 alone";
+  const eligibilitySubject = eligibilityBasis === "broad SIC 6199 alone" ? eligibilityBasis : `${eligibilityBasis}; this`;
 
   // --- Altman ---
   const altmanSelection = selectAltmanVariant(
@@ -2769,6 +2785,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
         balance: cur.balance,
         income: cur.income,
         marketCap: inputs.marketCap ?? null,
+        marketEquityWithheldReason: inputs.marketEquityWithheldReason ?? null,
         marketCapAsOf: inputs.marketCapAsOf ?? null,
         reportedCurrency: inputs.reportedCurrency ?? null,
         quoteCurrency: inputs.quoteCurrency ?? null,
@@ -2781,13 +2798,14 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       // published before the SIC began arriving. Book equity and total
       // liabilities are both in the reporting currency, so the private variant
       // is computable and is the model's own designated substitute.
-      // Gated on the FX suppression SPECIFICALLY. Triggering on ANY null score
+      // Gated on currency or economic-scope refusal. Triggering on ANY null score
       // would substitute the private-firm Z' whenever market cap was merely
       // missing — a transient fetch outage, which must keep failing closed
-      // (the same reasoning as the X2 rule above). Only the currency mismatch
-      // is a permanent structural fact about the filings.
-      const fxSuppressed = altman.gaps.some((g) => g.field === "forensics.altman.currency");
-      if (altman.score === null && altmanSelection.variant === "original" && fxSuppressed) {
+      // (the same reasoning as the X2 rule above). Scope refusal is also a
+      // structural inability to form market equity, not a replacement for a
+      // missing input. Z-prime uses its own coefficients and boundaries.
+      const structural = altman.gaps.some((g) => g.field === "forensics.altman.currency" || g.field === "forensics.altman.marketEquityScope");
+      if (altman.score === null && altmanSelection.variant === "original" && structural) {
         const priv = computeAltman(altmanInputs, "private");
         if (priv.score !== null) {
           // Carry the original attempt's gaps and notes: they are the only
@@ -2824,7 +2842,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   let beneish: BeneishResult | null = null;
   if (suppressed) {
     notes.push(
-      eligibilityUnresolved ? "Beneish M-score eligibility unresolved: broad SIC 6199 alone does not validate operating-method applicability; withheld pending methodology review." : "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
+      eligibilityUnresolved ? `Beneish M-score eligibility unresolved: ${eligibilitySubject} does not validate operating-method applicability; withheld pending methodology review.` : "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
     );
     // WS5 (criterion g): the reason reaches the MANIFEST, not only the notes.
     // A battery that silently produces nothing reads as missing data; this says
@@ -2832,7 +2850,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     gaps.push(
       gapEntry(
         "forensics.beneishM",
-        eligibilityUnresolved ? "Beneish M-score eligibility unresolved: broad SIC 6199 alone does not validate the operating business model; withheld pending methodology review." : "Beneish M-score withheld for a financial company: Beneish (1999) excluded financial institutions from the estimation sample (paper p.5), and its eight indices read receivables, gross margin, asset quality and depreciation — none of which carries the same meaning on a bank, insurer or mortgage-REIT balance sheet",
+        eligibilityUnresolved ? `Beneish M-score eligibility unresolved: ${eligibilitySubject} does not validate the operating business model; withheld pending methodology review.` : "Beneish M-score withheld for a financial company: Beneish (1999) excluded financial institutions from the estimation sample (paper p.5), and its eight indices read receivables, gross margin, asset quality and depreciation — none of which carries the same meaning on a bank, insurer or mortgage-REIT balance sheet",
         "info",
       ),
     );
@@ -2866,6 +2884,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       // everywhere else, and the two operating-cash-flow tests.
       financialsSuppressed: suppressed,
       eligibilityUnresolved,
+      eligibilityBasis,
       // ΔLEVER and ΔTURN go only on the deposit-, float- or repo-funded routes.
       // A FIN-OTHER issuer (asset manager, exchange, insurance broker) is
       // fee-based with ordinary debt and an ordinary asset base, so falling
@@ -2876,7 +2895,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     });
     if (suppressed) {
       notes.push(
-        eligibilityUnresolved ? "Piotroski F-score eligibility unresolved: broad SIC 6199 alone does not validate the operating business model; the current-ratio, gross-margin and both operating-cash-flow signals remain withheld, and the score uses only the remaining signals." : "Piotroski F-score shown for a financial company — the model was validated on non-financial value stocks (research §6.3); " +
+        eligibilityUnresolved ? `Piotroski F-score eligibility unresolved: ${eligibilitySubject} does not validate the operating business model; the current-ratio, gross-margin and both operating-cash-flow signals remain withheld, and the score uses only the remaining signals.` : "Piotroski F-score shown for a financial company — the model was validated on non-financial value stocks (research §6.3); " +
           "the current-ratio, gross-margin and both operating-cash-flow signals are withheld and the score is reported out of the signals that remain.",
       );
     }
@@ -2886,13 +2905,13 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   let accruals: AccrualsResult | null = null;
   if (suppressed) {
     notes.push(
-      eligibilityUnresolved ? "Accrual ratios eligibility unresolved: broad SIC 6199 alone does not validate operating accrual methodology; withheld pending methodology review." : "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
+      eligibilityUnresolved ? `Accrual ratios eligibility unresolved: ${eligibilitySubject} does not validate operating accrual methodology; withheld pending methodology review.` : "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
     );
     // WS5 (criterion g): reason to the manifest as well as the notes.
     gaps.push(
       gapEntry(
         "forensics.accrualsRatio",
-        eligibilityUnresolved ? "Accrual ratios eligibility unresolved: broad SIC 6199 alone does not validate the operating business model or the Sloan scaler; withheld pending methodology review." : "accrual ratios withheld for a financial company: the Sloan scaler is net operating assets, which subtracts (total liabilities − total debt) — for a bank that is its deposits, i.e. its raw material, so the ratio measures funding mix rather than earnings quality",
+        eligibilityUnresolved ? `Accrual ratios eligibility unresolved: ${eligibilitySubject} does not validate the operating business model or the Sloan scaler; withheld pending methodology review.` : "accrual ratios withheld for a financial company: the Sloan scaler is net operating assets, which subtracts (total liabilities − total debt) — for a bank that is its deposits, i.e. its raw material, so the ratio measures funding mix rather than earnings quality",
         "info",
       ),
     );

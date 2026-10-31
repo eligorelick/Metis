@@ -217,5 +217,3 @@ describe("week counts (FIN-301)", () => {
     expect(interestRunRate({ date: "2026-06-30", interestExpense: 1e9 }, null, null)!.value).toBe(4e9);
   });
 });
-
-

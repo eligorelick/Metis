@@ -42,6 +42,7 @@ import { belowComponentFloor } from "@/edgar/synonymFloor";
 import { DEPRECIATION_COMPONENT_TAGS, tagFloorsFor } from "@/edgar/tagSynonyms";
 import { shareCountOnBasis, type StockSplits } from "@/edgar/splits";
 import { tangibleCommonEquity } from "@/pipeline/stageB/returns";
+import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import type { FetchResult, ManifestEntry, SectorRoute } from "@/types/core";
 
 // ---------------------------------------------------------------------------
@@ -90,6 +91,8 @@ export interface FinancialMetricsResult {
 /** Balance-sheet slice (FMP field names; the same rows Stage B already builds). */
 export interface FinancialMetricsBalanceRow {
   date: string;
+  acceptedDate?: string | null;
+  filingDate?: string | null;
   /** The statement row's own reportedCurrency. */
   reportedCurrency?: string | null;
   totalAssets?: number | null;
@@ -103,6 +106,8 @@ export interface FinancialMetricsBalanceRow {
 /** Income slice (FMP field names). */
 export interface FinancialMetricsIncomeRow {
   date: string;
+  acceptedDate?: string | null;
+  filingDate?: string | null;
   reportedCurrency?: string | null;
   revenue?: number | null;
   netIncome?: number | null;
@@ -2062,6 +2067,22 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
 // Entry point
 // ---------------------------------------------------------------------------
 
+function normalizeFinancialAnnual<T extends { date: string }>(
+  rows: readonly T[], statement: "balance" | "income", notes: string[], gaps: ManifestEntry[],
+): T[] {
+  const normalized = normalizeQuarterRows(rows);
+  for (const { period, reason } of normalized.rejected) gaps.push({
+    field: `financialMetrics.${statement}.period`,
+    reason: `annual ${statement} period ${period} dropped: ${reason}`,
+    severity: "warn",
+  });
+  // Rejected ambiguities were not resolved to a latest filing; count only retained periods.
+  const retained = new Set(normalized.rows.map(row => row.date));
+  const collapsed = rows.filter(row => retained.has(row.date)).length - normalized.rows.length;
+  if (collapsed > 0) notes.push(`${collapsed} restated/duplicate annual ${statement} period${collapsed === 1 ? "" : "s"} collapsed to the latest filing`);
+  return normalized.rows;
+}
+
 /**
  * Route metrics for a financial company. Returns an empty metric list for
  * routes that have none (general, equity REIT — the latter's FFO/AFFO come
@@ -2073,6 +2094,14 @@ export function computeFinancialMetrics(
 ): FinancialMetricsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+
+  // These are the routes that consume the rows. Do not invent financial gaps elsewhere.
+  if (route === "bank" || route === "insurer" || route === "reit-mortgage") {
+    inputs = { ...inputs,
+      balance: normalizeFinancialAnnual(inputs.balance, "balance", notes, gaps),
+      income: normalizeFinancialAnnual(inputs.income, "income", notes, gaps),
+    };
+  }
 
   const factsResult = inputs.companyFacts;
   const facts =

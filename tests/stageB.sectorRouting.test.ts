@@ -6,7 +6,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  ADR_RATIOS,
   BURN_WINDOW_MAX_QUARTERS,
   DAYS_PER_QUARTER,
   PRE_REVENUE_TTM_REVENUE_FLOOR_USD,
@@ -16,7 +15,6 @@ import {
   SPY_BENCHMARK,
   computeRunway,
   degradationPlan,
-  lookupAdrRatio,
   lookupSectorEtf,
   metricPolicy,
   routeCompany,
@@ -243,6 +241,41 @@ describe("routeCompany overlays", () => {
         industry,
       ).toBe(true);
     }
+  });
+
+  it("negative OCF alone does not trigger unprofitable on a FIN-OTHER issuer", () => {
+    for (const industry of ["Financial - Capital Markets", "Capital Markets", "Credit Services", "Asset Management"]) {
+      const r = route({ sector: "Financial Services", industry }, {
+        incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: 3_000_000_000, reportedCurrency: "USD" },
+        cashflowTtm: { date: "2026-06-30", operatingCashFlow: -4_000_000_000 },
+      });
+      expect(r.base, industry).toBe("general");
+      expect(r.overlays, industry).not.toContain("unprofitable");
+      expect(r.notes.some(n => /^unprofitable overlay not applied: .*FIN-OTHER/.test(n)), industry).toBe(true);
+    }
+  });
+
+  it("a FIN-OTHER loss still triggers unprofitable and non-financial negative OCF still does", () => {
+    const s = {
+      incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: -1, reportedCurrency: "USD" },
+      cashflowTtm: { date: "2026-06-30", operatingCashFlow: -4_000_000_000 },
+    };
+    const loss = route({ sector: "Financial Services", industry: "Asset Management" }, s);
+    expect(loss.overlays).toContain("unprofitable");
+    expect(loss.notes.join(" ")).toContain("net income only for a FIN-OTHER issuer");
+    expect(route({ sector: "Technology", industry: "Software" }, {
+      ...s, incomeTtm: { ...s.incomeTtm, netIncome: 1 },
+    }).overlays).toContain("unprofitable");
+  });
+
+  it("FIN-OTHER without net income does not infer a loss from OCF", () => {
+    const r = route({ sector: "Financial", industry: "Credit Services" }, {
+      incomeTtm: { date: "2026-06-30", revenue: 20_000_000_000, netIncome: null, reportedCurrency: "USD" },
+      incomeAnnual: null,
+      cashflowTtm: { date: "2026-06-30", operatingCashFlow: -1 },
+    });
+    expect(r.overlays).not.toContain("unprofitable");
+    expect(r.gaps.some(g => g.field === "route.overlays.unprofitable")).toBe(true);
   });
 
   it("negative net income still triggers unprofitable on the bank route, and a positive bank OCF adds no note", () => {
@@ -643,35 +676,6 @@ describe("routeCompany pre-revenue invalid revenue gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ADR ratio map + lookup
-// ---------------------------------------------------------------------------
-
-describe("ADR_RATIOS / lookupAdrRatio", () => {
-  it("TSM: 1 ADS = 5 ordinary shares, 21% withholding, TSMC IR source", () => {
-    const res = lookupAdrRatio("tsm");
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.symbol).toBe("TSM");
-      expect(res.ratio.ordinarySharesPerAds).toBe(5);
-      expect(res.ratio.withholdingPct).toBe(21);
-      expect(res.ratio.country).toBe("TW");
-      expect(res.ratio.source).toBe("TSMC IR Jan-2026");
-    }
-    expect(ADR_RATIOS.TSM.ordinarySharesPerAds).toBe(5);
-  });
-
-  it("unknown ADR -> gap path (never throws)", () => {
-    const res = lookupAdrRatio("NVO");
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.gap.field).toBe("adr.ratio");
-      expect(res.gap.severity).toBe("warn");
-      expect(res.gap.reason).toContain("NVO");
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Sector ETF map
 // ---------------------------------------------------------------------------
 
@@ -774,10 +778,10 @@ describe("degradationPlan", () => {
   });
 
   it("adr overlay yields gross-yield / currency / cadence annotations", () => {
-    const plan = degradationPlan("general", ["adr"], 40);
+    const plan = degradationPlan("general", ["adr"], 40, null, { statements: "EUR", quote: "USD" });
     const all = plan.items.map((i) => i.disclosure).join("\n");
     expect(all).toContain("GROSS");
-    expect(all).toContain("reportedCurrency");
+    expect(all).toContain("Statements are in EUR while the ADR quotes in USD");
     expect(all).toContain("20-F");
   });
 

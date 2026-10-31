@@ -14,6 +14,7 @@
 import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
+import { LEGACY_VALUATION_NOTE_FIELD } from "@/report/legacyValuationNotes";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
@@ -21,6 +22,7 @@ import { displayedClaimCoverage, displayedFactualValidation, displayedValidation
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
+import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
@@ -47,6 +49,7 @@ import type {
   MoatAssessment,
   ProvenanceCoverage,
   Report,
+  RouteMetrics,
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
@@ -680,6 +683,14 @@ function newYorkClock(iso: string): { weekday: string; minutes: number; hhmm: st
   return { weekday: get("weekday"), minutes: hour * 60 + minute, hhmm: `${get("hour")}:${get("minute")}` };
 }
 
+/** Reader-only correction; stored figures and audit exports retain their original bytes. */
+export function routeMetricsForDisplay(report: Pick<Report, "routeMetrics" | "appendix">): RouteMetrics | undefined {
+  const reason = report.appendix.missingData.find(g => g.field === "valuation.excessReturn.currency" || g.field === "valuation.excessReturn.reverseSolve.currency")?.reason;
+  if (!report.routeMetrics || !reason) return report.routeMetrics;
+  return { ...report.routeMetrics, metrics: report.routeMetrics.metrics.map(m =>
+    m.key === "pTbv" || m.key === "premiumToJustified" ? { ...m, value: null, withheldReason: reason } : m) };
+}
+
 /**
  * How to name the quoted price (audit P3): "last close" when the quote was
  * observed at or after the 16:00 New York close (or on a weekend), "latest
@@ -823,10 +834,20 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
-    rows.push({
+    // The price label may fall back to model currency; a yield cannot use that
+    // fallback as evidence that a dividend and quote share one currency.
+    const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
+    const dividendCurrency = report.filingDisclosures?.currency;
+    const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
+    rows.push(yieldCurrency.comparable ? {
       label: "Dividend yield",
       value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
       note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+    } : {
+      label: "Dividend yield", value: "withheld",
+      note: yieldCurrency.mismatch
+        ? `dividend in ${dividendCurrency}, quote in ${quotedCurrency} — no FX conversion is attempted`
+        : yieldCurrency.reason,
     });
   }
 
@@ -1698,7 +1719,9 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
   if (report.meta.judgeProtocol?.sharedModelFamily.shared) {
     notes.push("The judge pass ran on the same model family that wrote the bull and bear cases, so the adjudication is not an independent second opinion.");
   }
-  for (const gap of report.appendix?.missingData ?? []) if (gap.field === PRINCIPAL_CORRECTION_FIELD) notes.push(gap.reason);
+  for (const gap of report.appendix?.missingData ?? []) {
+    if (gap.field === PRINCIPAL_CORRECTION_FIELD || gap.field.startsWith(`${LEGACY_VALUATION_NOTE_FIELD}.`)) notes.push(gap.reason);
+  }
   return notes;
 }
 
@@ -1782,12 +1805,18 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
   };
 }
 
+/** Absent evidence shares retain legacy presentation; compare the unrounded share. */
+export function businessQualityGraded(a: NonNullable<Report["scores"]>["assessments"]): boolean {
+  return typeof a?.businessQuality.evidenceCompleteness !== "number"
+    || a.businessQuality.evidenceCompleteness >= MIN_HEADLINE_EVIDENCE;
+}
+
 /** The business-quality / price-attractiveness split beside the composite, when recorded. */
 export function assessmentLine(scores: NonNullable<Report["scores"]>): string | null {
   const a = scores.assessments;
   if (!a) return null;
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${!businessQualityGraded(a) ? `not graded: evidence ${evidencePercentText(a.businessQuality.evidenceCompleteness!)}` : a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
     `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
     `evidence available for ${evidencePercentText(a.evidenceCompleteness)} of the signal weight`,

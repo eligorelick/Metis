@@ -863,3 +863,25 @@ Five independent reviewers checked every task the integration added (master plan
 - **B8-OD-2 and -OD-10 (2.10)** also cover the in-stream `rate_limit_exceeded` error. **B11's density-cookie task (Task 9)** also covers the local report notes: the same gap, widened to its class, with no decision changed.
 - **New target for the post-fix audit (verification plan V7):** FCX's keyless 2024-12-31 row carries fiscal year "2023", possibly a keyless-builder defect in B9's area. A probe proves or clears it.
 - **Values the executor re-measures on the branch before pinning:** B6 Task 5's per-share values (12.4676 → 12.7378) and its 200/201-day boundary; B9 Task 21A Step 2's values, observed at HEAD without B3, B1 or B9's own Tasks 8 and 20. TDD requires this anyway, and it is recorded here so nobody pins a stale value.
+
+### 4.7 B6 execution rulings (2026-10-30)
+
+The owner authorized autonomous preserve-main rulings when the plan conflicts with its controls. [D-137](../../audit/DECISIONS.md) records the implemented scope; the [B6 disposition](../../audit/2026-10-27-audit-b6-financial-routes.md) names each finding, regression and measured replay. Earlier planning decisions remain history.
+
+- OD-1: minor-unit comparisons withheld; main WACC/DCF compatibility preserved.
+- OD-2: seven-day fiscal-window start tolerance; no additional provider history.
+- OD-3: sector-wide FIN-OTHER OCF exemption, including fee-based firms; prior DCF withholding/publication state retained when required inputs remain absent.
+- OD-4: unresolved eligibility is applicable but missing valuation evidence.
+- OD-5: FIN-306 deferred because its required existing grade-transition control cannot be satisfied by the permitted fixture adjustment; no check weakened.
+- OD-6: structurally unavailable market equity uses calibrated Altman Z-prime, with merely missing cap still withheld; main ADR WACC/DCF retained with a scope warning. Altman's July 2000 course copy was fetched/read on 2026-10-30 after NYU failures; D-137 quotes the verified passage and records the 1.21/1.23 discrepancy.
+- OD-7: FIN-308 deferred; saved O/NNN are undetermined, contrary to the plan's control description, and their figures remain pinned.
+- OD-8: bank trailing/FY insurer pairing dates corrected; forward insurer return unchanged.
+- OD-9: the confirmed annual revenue/margin mask reaches the enumerated consumers only.
+- OD-10: profile-only peer routes described as unconfirmed where appropriate; no new SEC calls.
+- OD-11: Task 5/FIN-309 skipped pending B4b; the existing forward date factor governs FIN-506.
+- OD-12: currency, TTM EBIT, restatement collapse, peer common equity, truthful ADR notes and the confirmed dossier evidence floor adopted; Task 17/FIN-312 stays an R1a tombstone, including its proposed legacy display change.
+- OD-13: the shared D-98 gain test excludes incompatible earnings comparisons without widening existing peer P/E admission.
+- OD-14: own-history P/E rank uses a matching construction; B-20 displayed P/E and B4a ownership refusals stay unchanged.
+- OD-15: the peer median remains context beside a withheld Company figure; class-sum sizing applies only when resolved.
+- FIN-506: Task 5A is implemented here against B4a's forward divisor and existing date factor. The legacy note remains a separate client-safe helper and now composes with B5a's annualization adapter in every reader/export; no B4b numerator change is introduced.
+- Integration places B6 after B5a: report1.52.0, payload1.54.0, Stage B ACCOUNTING_EVIDENCE_33, D-137. B5a retains report1.51.0 and its frozen annualization cutoff; the financial implied-return cutoff is1.52.0. Existing history is not rewritten.

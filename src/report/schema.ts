@@ -144,7 +144,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.50.0 (D-135, audit 2026-10-27 B4a): the equity bridge, the market EV and invested capital count each claim once (redeemable equity, after-tax debt-like obligations, the covered operating lease in sales-to-capital, the loss-period divisor named); reports before 1.50.0 are shown through `withLegacyBridgeMethod`.
 // D136 / B5a Tasks 1-4, 3b and 17: comparable period lengths, guided season,
 // weekday calendars, YoY context, issuer caveats and the frozen legacy cutoff.
-export const REPORT_SPEC_VERSION = "1.51.0" as const;
+// 1.52.0 (D-137, B6): financial-route currency/eligibility and reverse share basis, buyback coverage,
+// revenue refusal, ADR Altman scope, peer comparisons and P/E ranks; optional business evidence share
+// and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
+export const REPORT_SPEC_VERSION = "1.52.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1194,7 +1197,7 @@ export const PeerCoverageSchema = z.object({
   eligible: z.array(z.string()),
   exclusions: z.array(z.object({ symbol: z.string(), reason: z.string() }).strict()),
   comparisons: z.array(z.object({
-    name: z.string(), current: z.number().nullable(), peerMedian: z.number().nullable(),
+    name: z.string(), current: z.number().nullable(), currentWithheldReason: z.string().optional(), peerMedian: z.number().nullable(),
     peerCount: z.number().int().nonnegative(), basis: z.string(),
   }).strict()),
 }).strict();
@@ -1827,7 +1830,7 @@ export const ScoringSchema = z
     /** Versioned band table id (e.g. "SCORE_BANDS_2026_01"). */
     bandsVersion: z.string(),
     assessments: z.object({
-      businessQuality: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
+      businessQuality: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string(), evidenceCompleteness: z.number().min(0).max(1).optional() }).strict(),
       valuation: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
       evidenceCompleteness: z.number().min(0).max(1),
       calibration: z.literal("unbacktested-house-rules"),

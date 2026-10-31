@@ -327,4 +327,3 @@ describe("guidance on a seasonal and period-comparable basis", () => {
     expect(seven.valuation.assumptions!.revenueAnchor!.evidence!.guidedSeasonalFactor).toBeNull();
   });
 });
-

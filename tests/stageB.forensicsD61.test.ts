@@ -131,7 +131,8 @@ describe("buyback timing: the price actually paid against the same year's averag
     { date: "2024-12-31", netIncome: 90, operatingCashFlow: 100, capitalExpenditure: -30, commonStockRepurchased: -50 },
   ];
   // Year average prices 10 (2025) and 16 (2024).
-  const caps = [{ date: "2025-06-30", marketCap: 1000 }, { date: "2024-06-30", marketCap: 1600 }];
+  // FIN-117: establish history before the oldest window; its in-window averages stay exact.
+  const caps = [{ date: "2025-06-30", marketCap: 1000 }, { date: "2024-06-30", marketCap: 1600 }, { date: "2023-12-29", marketCap: 1600 }];
   const execution = (periodEnd: string, shares: number, value: number) => ({
     periodEnd, shares, value, sharesTag: "StockRepurchasedDuringPeriodShares", valueTag: "StockRepurchasedDuringPeriodValue",
     filed: "2026-02-20", accn: "0000000000-26-000001", basisFactor: 1,
@@ -172,7 +173,7 @@ describe("buyback timing recency", () => {
   const cashFlow = (repurchased: Record<string, number>): CapitalCashFlowRow[] =>
     years.map((date) => ({ date, netIncome: 100, operatingCashFlow: 110, capitalExpenditure: -30, commonStockRepurchased: -(repurchased[date] ?? 0) }));
   // Every year's average price is 10.
-  const caps = years.map((date) => ({ date: `${date.slice(0, 4)}-06-30`, marketCap: 1000 }));
+  const caps = [...years.map((date) => ({ date: `${date.slice(0, 4)}-06-30`, marketCap: 1000 })), { date: "2020-12-30", marketCap: 1000 }];
   const execution = (periodEnd: string, shares: number, value: number) => ({
     periodEnd, shares, value, sharesTag: "StockRepurchasedDuringPeriodShares", valueTag: "StockRepurchasedDuringPeriodValue",
     filed: "2026-02-20", accn: "0000000000-26-000001", basisFactor: 1,

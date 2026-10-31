@@ -618,6 +618,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
     fieldConflicts: r.fieldConflicts,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
+    acceptedDate: str(r.acceptedDate),
+    filingDate: str(r.filingDate),
     totalDebt: num(r.totalDebt),
     capitalLeaseObligations: num(r.capitalLeaseObligations),
     ...(num(r.capitalLeaseObligationsCurrent) !== null ? { capitalLeaseObligationsCurrent: num(r.capitalLeaseObligationsCurrent) } : {}),
@@ -1986,7 +1988,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
   const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id));
   const revenueEligibilityReason = revenueConflict
-    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and growth-dependent valuation are withheld; raw source observations are retained.` : null;
+    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
 
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
@@ -2080,6 +2082,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
+  const incomeAnnualForRevenue = revenueConflict
+    ? incomeAnnual.map(row => ({ ...row, revenue: undefined })) : incomeAnnual;
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
@@ -2167,6 +2171,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route.overlays,
     incomeQuarterly.length,
     route.reitSubmap ?? null,
+    { statements: currencies.model, quote: str(profile?.currency) },
   );
 
   // --- Growth ----------------------------------------------------------------
@@ -2174,13 +2179,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // margin is a ratio within one row — one presentation currency, whatever it
   // is — so the margin series keeps every reported year.
   const growthCompatible = computeGrowth(
-    incomeAnnual.map(row=>toGrowthIncome(revenueConflict ? { ...row, revenue: undefined } : row)),
+    incomeAnnualForRevenue.map(toGrowthIncome),
     cashflowAnnual.map(toGrowthCashFlow),
     { period: "annual" },
   );
   const growth = {
     ...growthCompatible,
-    margins: computeGrowth(incomeAnnualReported.map(toGrowthIncome), [], { period: "annual" }).margins,
+    margins: computeGrowth((revenueConflict
+      ? incomeAnnualReported.map(row => ({ ...row, revenue: undefined })) : incomeAnnualReported)
+      .map(toGrowthIncome), [], { period: "annual" }).margins,
   };
   if(revenueEligibilityReason){
     growth.notes.push(revenueEligibilityReason);
@@ -2276,7 +2283,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,
-    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc } : null,
+    // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
+    // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, ebit: ttmInc.operatingIncome } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
       stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),
@@ -2335,16 +2344,22 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
 
   // --- Forensics (route-aware; module handles financial suppression) --------
   const forensicContext = withFiledForensicContext(
-    { income: incomeAnnual.map(toForensicsIncome), cashFlow: cashflowAnnual.map(toForensicsCashFlow) },
+    { income: incomeAnnualForRevenue.map(toForensicsIncome), cashFlow: cashflowAnnual.map(toForensicsCashFlow) },
     companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
     str(inc0?.reportedCurrency),
   );
   const forensicClassAmbiguity = retainedCommonClassAmbiguity(bundle);
+  const adrQuote = route.overlays.includes("adr") || profile?.isAdr === true;
+  // Preserve this consumer's profile-cap precedence. A declaration on a
+  // different provider row does not establish the selected cap's scope.
+  const forensicCapRow = profile?.marketCap != null ? profile : quote;
   const forensicEquityScope = resolveEconomicEquityScope({
     price: num(quote?.price) ?? num(profile?.price), marketCap: num(profile?.marketCap ?? quote?.marketCap),
     currency: str(profile?.currency),
     priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
+    isAdr: adrQuote,
+    ...(adrQuote && forensicCapRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
   const forensics = runForensics(route, {
@@ -2352,6 +2367,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
     marketCap: forensicEquityScope.marketCap,
+    marketEquityWithheldReason: forensicEquityScope.status === "unresolved" ? forensicEquityScope.basis : null,
     // Derived class capitalization belongs to its admitted price session;
     // a vendor cap belongs to its own source row, never its fetch envelope.
     marketCapAsOf: forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
@@ -2372,6 +2388,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (forensicEquityScope.status === "unresolved") {
     forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
   }
+  if (revenueEligibilityReason) {
+    forensics.gaps.push({ field: "forensics.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
+  }
 
   // --- Technicals ------------------------------------------------------------
   // EOD rows are date DESC in the bundle; the module re-sorts ASC defensively.
@@ -2389,7 +2408,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
-    incomeAnnual: revenueConflict ? incomeAnnual.map(row=>({...row,revenue:undefined})) : incomeAnnual,
+    // FIN-121: use the SAME selected routing flow, before model-currency filtering.
+    finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
+      ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
+      (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
+    incomeAnnual: incomeAnnualForRevenue,
     balanceAnnual,
     cashflowAnnual,
     incomeQuarterly,
@@ -2428,6 +2451,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     companyFacts: bundle.edgar?.companyFacts ?? null,
     balance: balanceAnnual.map((r) => ({
       date: String(r.date ?? ""),
+      acceptedDate: str(r.acceptedDate),
+      filingDate: str(r.filingDate),
       reportedCurrency: str(r.reportedCurrency),
       totalAssets: num(r.totalAssets),
       totalStockholdersEquity: num(r.totalStockholdersEquity),
@@ -2438,6 +2463,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     })),
     income: incomeAnnual.map((r) => ({
       date: String(r.date ?? ""),
+      acceptedDate: str(r.acceptedDate),
+      filingDate: str(r.filingDate),
       reportedCurrency: str(r.reportedCurrency),
       revenue: num(r.revenue),
       netIncome: num(r.netIncome),
@@ -2499,7 +2526,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // sets a model value against the quote. Without one known currency on both
   // sides there is no such figure, so the price is withheld from all of them;
   // the per-share values themselves do not use it and stand.
-  const quoteComparison = comparePriceCurrency(currencies.model, currencies.trading);
+  const quoteComparison = comparePriceCurrency(currencies.model, str(profile?.currency));
   const currentPrice = quoteComparison.comparable ? num(quote?.price) : null;
   if (!quoteComparison.comparable) {
     ttmGaps.push({
@@ -2577,12 +2604,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Removing the irregular-spacing veto left scenarioDispersion with no
   // protection against a duplicated period, which contributes a zero-length
   // interval and a repeated observation to the volatility estimate.
-  const projNorm = normalizeQuarterRows(incomeAnnual);
+  const projNorm = normalizeQuarterRows(incomeAnnualForRevenue);
   const projectionPeriodGaps: ManifestEntry[] = projNorm.rejected.map(({ period, reason }) => ({
     field: "projections.incomeStatement.period",
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
     severity: "warn" as const,
   }));
+  if (revenueEligibilityReason) {
+    projectionPeriodGaps.push({ field: "projections.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
+  }
   const disclosedProjectionInterest = (row: FmpIncomeStatementRow): boolean => {
     const evidence = row.fieldProvenance?.interestExpense;
     return evidence?.source === "edgar" && evidence.periodEnd === isoDay(row.date) && currencies.model !== null &&
@@ -2839,7 +2869,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.pTbv,
         basis: p.basis,
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.pTbv === null ? unavailable : null,
         proxy: false,
       },
@@ -2850,8 +2880,8 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.rotePct,
         basis:
           "net income available to common / average tangible common equity — the return the P/TBV multiple above is read against, on the SAME tangible denominator",
-        sources: ["computed.returns.rote"],
-        asOf: computed.returns?.rote?.asOf ?? null,
+        sources: [p.roteSource ?? "computed.returns.rote"],
+        asOf: p.roteAsOf ?? computed.returns?.rote?.asOf ?? null,
         withheldReason:
           p.rotePct === null
             ? "return on tangible common equity unavailable — see the returns block for the reason"
@@ -2865,7 +2895,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         value: p.justifiedPTbv,
         basis: p.basis,
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.justifiedPTbv === null ? unavailable : null,
         proxy: false,
       },
@@ -2877,7 +2907,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
         basis:
           "P/TBV − justified P/TBV; positive means the market pays more than the return supports under the stable-growth cross-check, which rests on a different assumption than the fading forward model",
         sources: src,
-        asOf: er.asOf,
+        asOf: p.asOf ?? er.asOf,
         withheldReason: p.premiumToJustified === null ? unavailable : null,
         proxy: false,
       },
@@ -3051,13 +3081,14 @@ function computeReturns(
   const keylessBeta = profile !== null && num(profile.betaMonths) !== null;
 
   const classAmbiguity = retainedCommonClassAmbiguity(bundle);
-  const equityScope = resolveEconomicEquityScope({
+  const equityQuote = {
     price: num(quote?.price) ?? num(profile?.price), marketCap: num(quote?.marketCap ?? profile?.marketCap),
     currency: str(profile?.currency),
     priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
     ...(classAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: classAmbiguity } : {}),
-  }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+  };
+  const equityScope = resolveEconomicEquityScope(equityQuote, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
   const vendorTaxRate = num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
@@ -3141,6 +3172,20 @@ function computeReturns(
 
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
+  }
+  // FIN-307 pre-flight publication ruling: refusing this previously used cap
+  // would newly Block the DCF. Preserve the existing WACC, but disclose its
+  // unproven ADR scope. Existing currency/class refusals remain dominant.
+  if ((route.overlays.includes("adr") || profile?.isAdr === true)
+    && equityScope.status !== "unresolved" && wacc.waccPct !== null && wacc.weightEquity !== 1) {
+    const capRow = quote?.marketCap != null ? quote : profile;
+    const adrScope = resolveEconomicEquityScope({ ...equityQuote, isAdr: true,
+      ...(capRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
+    }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+    if (adrScope.status === "unresolved") {
+      wacc.gaps.push({ field: "returns.wacc.adrMarketEquityScope", severity: "warn", attemptedSources: adrScope.sourceIds,
+        reason: "ADR market-cap scope is not established as issuer-common. WACC retains the provided capitalization; its equity weight remains unverified. No depositary ratio is inferred." });
+    }
   }
 
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of
@@ -3243,6 +3288,8 @@ function computeReturns(
 
 interface ValuationCtx {
   route: CompanyRouteResult;
+  /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
+  finOtherOcfExemption: boolean;
   incomeAnnual: FmpIncomeStatementRow[];
   balanceAnnual: FmpBalanceSheetRow[];
   cashflowAnnual: FmpCashFlowRow[];
@@ -3994,12 +4041,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
           marketCap,
+          price: currentPrice,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
           tangibleCommonEquity: route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          tangibleCommonEquityAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
+          roteAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
+          roteSource: route.base === "bank" && ttmStart !== null ? "computed.returns.commonReturnTtm" : "computed.returns.rote",
           // The justified-P/TBV cross-check caps its growth rate at the same
           // ceiling the DCF terminal value uses: nothing grows faster than the
           // risk-free rate forever. Null leaves the house terminal-growth cap
@@ -4143,7 +4194,29 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
 
   void ratiosTtm; // reserved for future ratio cross-checks
-  const result = valueCompany(route, bundleInputs);
+  let result = valueCompany(route, bundleInputs);
+  // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
+  // report main published. Retain its prior withheld valuation only when the
+  // new attempt fails critically and the actual prior treatment did not.
+  // Existing model-eligibility holds and every ordinary DCF check still run.
+  if (ctx.finOtherOcfExemption && !route.modelEligibility && result.kind === "dcf" &&
+      result.gaps.some(g => g.severity === "critical")) {
+    const prior = valueCompany({ ...route, overlays: ["unprofitable", ...route.overlays] }, bundleInputs);
+    if (prior.kind === "dcf-suppressed" && !prior.gaps.some(g => g.severity === "critical")) {
+      const reason = "Prior DCF suppression retained for this FIN-OTHER financial issuer: the required model inputs do not support a value (" +
+        result.gaps.filter(g => g.severity === "critical").map(g => g.reason).join("; ") +
+        "). Negative operating cash flow alone is not a profitability signal; the issuer is not labelled unprofitable.";
+      result = {
+        ...prior,
+        suppressionReason: reason,
+        notes: [...prior.notes.filter(n => !n.startsWith("fcfDcf suppressed by metric policy (unprofitable overlay)")), reason],
+        // Keep the prior suppression's classification; no input check or gap
+        // severity is changed. Replace its obsolete profitability explanation.
+        gaps: prior.gaps.map(g => g.field === "valuation.dcf" && g.reason.startsWith("DCF suppressed for unprofitable overlay")
+          ? { ...g, reason } : g),
+      };
+    }
+  }
   result.gaps.push(...estimateGaps);
   // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
   const overlapDates = new Set<string>();

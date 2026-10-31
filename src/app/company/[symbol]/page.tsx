@@ -602,9 +602,9 @@ function ValuationPanel({ computed, bundle }: { computed: ComputedMetrics; bundl
       ) : null}
       {v.kind === "dcf-suppressed" ? (
         <div className="text-[11px] text-muted">
-          DCF suppressed — unprofitable overlay: free cash flow is structurally negative, making an FCFF-based
+          {v.suppressionReason ?? <>DCF suppressed — unprofitable overlay: free cash flow is structurally negative, making an FCFF-based
           intrinsic-value model unreliable. See multiples below for relative valuation; cash-runway/burn framing
-          appears elsewhere in this report.
+          appears elsewhere in this report.</>}
         </div>
       ) : null}
 

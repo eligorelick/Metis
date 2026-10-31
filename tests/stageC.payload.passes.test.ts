@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { restoreB6Golden } from "./helpers/b6PayloadGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -491,6 +492,23 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
  * ------------------------------------------------------------------------ */
 
 describe("payload determinism + provenance", () => {
+  it("names a withheld peer Company figure beside its null figure", () => {
+    const { bundle, computed } = buildInputs();
+    const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });
+    if (computed.valuation.kind === "pre-revenue") throw new Error("fixture needs multiples");
+    const reason = "Issuer-common economic share scope unresolved: synthetic.";
+    computed.valuation.multiples.peerCoverage = {
+      methodology: ["same currency and issuer-common earnings basis"], candidates: 4, evaluated: 4,
+      eligible: ["P1", "P2", "P3", "P4"], exclusions: [{ symbol: "ROOT", reason: `Company figure withheld: ${reason}` }],
+      comparisons: [{ name: "Market cap / TTM common earnings", current: null, currentWithheldReason: reason, peerMedian: 15, peerCount: 4, basis: "b" }],
+    };
+    const payload = assembleContextPayload(bundle, computed, validation);
+    const section = payload.computed.find(entry => entry.title === "Comparable peers (computed)");
+    expect(section?.figures.map(figure => figure.value)).toEqual([null, 15, 4]);
+    expect(section?.notes.join(" ")).toContain(`Company figure withheld: ${reason}`);
+    expect(payload.peerScreen?.notes).toContain(`ROOT: Company figure withheld: ${reason}`);
+    expect(section?.notes.join(" ")).not.toContain("ROOT:");
+  });
   it("preserves main's evidence shape for an unguided consensus anchor (B5a Task 24)", () => {
     const { computed } = buildInputs();
     if (computed.valuation.kind !== "dcf") throw new Error("DCF fixture");
@@ -536,7 +554,7 @@ describe("payload determinism + provenance", () => {
   });
 
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
-    const { computed, payload } = buildInputs();
+    const { computed, payload } = restoreB6Golden(buildInputs());
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1445,7 +1463,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.53.0");
+    expect(first.payloadVersion).toBe("1.54.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2974,7 +2992,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.51.0");
+    expect(report.meta.specVersion).toBe("1.52.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

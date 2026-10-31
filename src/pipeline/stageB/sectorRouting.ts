@@ -33,6 +33,7 @@ import type {
 } from "@/types/core";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { isFinancialForensicsSuppressed } from "@/pipeline/stageB/forensics";
 import {
@@ -208,8 +209,9 @@ function normStr(v: string | null | undefined): string | null {
   return t.length > 0 ? t : null;
 }
 
-/** Canonical three-letter ISO-like statement currency, consistent with Stage C payload identity. */
+/** Canonical statement/trading currency; minor-unit quote codes never establish a major currency. */
 export function normalizeReportedCurrency(value: unknown): string | null {
+  if (minorUnitQuote(value) !== null) return null;
   const currency = typeof value === "string" ? value.trim().toUpperCase() : null;
   return currency !== null && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
@@ -711,9 +713,10 @@ export function routeCompany(
   // profitability. Those routes evaluate the overlay on net income alone;
   // otherwise a profitable bank was labelled unprofitable, its headline metrics
   // replaced by cash runway and burn, and the analyst passes briefed on a
-  // loss-maker. Same balance-sheet gate as the ROTE/ROIC switch in
-  // `metricPolicy`.
-  const ocfIsProfitSignal = !(base === "bank" || base === "insurer" || base === "reit-mortgage");
+  // loss-maker. FIN-OTHER general-map financials also carry trading-asset,
+  // loan and customer-balance flows in OCF; net income is their trigger too.
+  const finOther = base === "general" && (sectorLc === "financial services" || sectorLc === "financial");
+  const ocfIsProfitSignal = !(base === "bank" || base === "insurer" || base === "reit-mortgage" || finOther);
   const ocfCounts = ocf !== null && ocfIsProfitSignal;
 
   if (ni === null && !ocfCounts) {
@@ -722,7 +725,7 @@ export function routeCompany(
       reason:
         ocf === null
           ? "netIncome and operatingCashFlow unavailable on both TTM and annual bases — overlay not evaluated"
-          : `netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal on the '${base}' route — overlay not evaluated`,
+          : `netIncome unavailable on both TTM and annual bases, and operatingCashFlow is not a profitability signal ${finOther ? "for a FIN-OTHER issuer" : `on the '${base}' route`} — overlay not evaluated`,
       severity: "warn",
       attemptedSources: ["fmp:/stable/income-statement(-ttm)", "fmp:/stable/cash-flow-statement(-ttm)"],
     });
@@ -732,12 +735,14 @@ export function routeCompany(
       `unprofitable overlay applied: netIncome=${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}), ` +
         `operatingCashFlow=${ocf === null ? "n/a" : ocf} (${ocfBasis ?? "n/a"}). ` +
         "Trigger (house rule): TTM netIncome < 0 OR TTM operatingCashFlow < 0" +
-        (ocfIsProfitSignal ? "." : ` (net income only on the '${base}' route).`),
+        (ocfIsProfitSignal ? "." : finOther ? " (net income only for a FIN-OTHER issuer)." : ` (net income only on the '${base}' route).`),
     );
   } else if (!ocfIsProfitSignal && ocf !== null && ocf < 0) {
     notes.push(
-      `unprofitable overlay not applied: operating cash flow ${ocf} (${ocfBasis ?? "n/a"}) is negative, but on the '${base}' route ` +
-        "OCF is dominated by loan, deposit, trading-asset and reserve flows and is not a profitability signal (house rule); " +
+      `unprofitable overlay not applied: operating cash flow ${ocf} (${ocfBasis ?? "n/a"}) is negative, but ` +
+        (finOther
+          ? "for a FIN-OTHER financial issuer (sector Financial Services on the general map) OCF carries trading-asset, loan and customer-balance flows and is not a profitability signal (house rule); "
+          : `on the '${base}' route OCF is dominated by loan, deposit, trading-asset and reserve flows and is not a profitability signal (house rule); `) +
         `net income ${ni === null ? "n/a" : ni} (${niBasis ?? "n/a"}) is the only trigger there.`,
     );
   }
@@ -868,8 +873,8 @@ export function routeCompany(
   if (profile.isAdr === true) {
     overlays.push("adr");
     notes.push(
-      "adr overlay applied (profile.isAdr). ADR ratio comes from the static ADR_RATIOS map " +
-        "(no FMP field exists); unknown ADRs are disclosed as gaps.",
+      "adr overlay applied (profile.isAdr). No depositary ratio is applied: per-ADS figures need verified, " +
+        "effective-dated security evidence (B-19), otherwise they are withheld.",
     );
   } else {
     const country = normStr(profile.country)?.toUpperCase() ?? null;
@@ -930,60 +935,6 @@ export function routeCompany(
       cashflowAnnual: statements.cashflowAnnual?.date ?? null,
     },
   };
-}
-
-// ---------------------------------------------------------------------------
-// ADR_RATIOS — static, research-verified map (house table)
-// ---------------------------------------------------------------------------
-
-export interface AdrRatioEntry {
-  /** Ordinary (home-market) shares represented by 1 ADS. TSM: 1 ADS = 5 ordinary. */
-  ordinarySharesPerAds: number;
-  /** Home-jurisdiction dividend withholding percent (indicative; verify per treaty). */
-  withholdingPct: number | null;
-  /** Home country (ISO-ish label). */
-  country: string;
-  /** Provenance of the ratio. */
-  source: string;
-}
-
-/**
- * Only ratios verified against primary sources belong here. Everything else
- * goes through the lookupAdrRatio gap path (LLM/F-6/depositary lookup later).
- */
-export const ADR_RATIOS: Readonly<Record<string, AdrRatioEntry>> = {
-  TSM: {
-    ordinarySharesPerAds: 5,
-    withholdingPct: 21,
-    country: "TW",
-    source: "TSMC IR Jan-2026",
-  },
-};
-
-export type AdrRatioLookup =
-  | { ok: true; symbol: string; ratio: AdrRatioEntry }
-  | { ok: false; gap: ManifestEntry };
-
-/** Look up a covered ADR's ratio; unknown symbols return a disclosed gap. */
-export function lookupAdrRatio(symbol: string): AdrRatioLookup {
-  const sym = symbol.trim().toUpperCase();
-  const ratio: AdrRatioEntry | undefined =
-    sym.length > 0 && Object.hasOwn(ADR_RATIOS, sym) ? ADR_RATIOS[sym] : undefined;
-  if (ratio === undefined) {
-    return {
-      ok: false,
-      gap: {
-        field: "adr.ratio",
-        reason:
-          `unknown ADR ratio for "${sym.length > 0 ? sym : symbol}" — not in the static ADR_RATIOS map; ` +
-          "per-ADS figures (EPS × ratio / FX) cannot be reconstructed until the ratio is sourced " +
-          "(depositary bank / company IR / F-6 filing)",
-        severity: "warn",
-        attemptedSources: ["static:ADR_RATIOS"],
-      },
-    };
-  }
-  return { ok: true, symbol: sym, ratio };
 }
 
 // ---------------------------------------------------------------------------
@@ -1314,6 +1265,7 @@ export function degradationPlan(
   overlays: readonly SectorOverlay[],
   availableQuarters: number | null,
   reitSubmap?: ReitSubmap | null,
+  currencies?: { statements: string | null; quote: string | null } | null,
 ): DegradationPlan {
   const items: DegradationItem[] = [];
   const notes: string[] = [];
@@ -1349,18 +1301,15 @@ export function degradationPlan(
           "(BV0 + sum of (ROTE − CoE) · TCE / (1 + CoE)^t) — bank FCF swings with loan growth and deposit flows.",
       },
       {
-        // "suppress", not "replace": nothing in the pipeline computes CET1,
-        // TCE/assets or a provisions trend — grading.ts states plainly that
-        // capital adequacy is "not modelled in v1". Promising a replacement
-        // battery that does not exist told the reader a bank had been screened
-        // for solvency when it had not been screened at all, which is worse
-        // than disclosing the absence.
+        // The forensic battery stays suppressed. D-46 separately grades the
+        // bank's capital, credit and funding metrics; CET1 is display-only.
         target: "forensics",
         action: "suppress",
         disclosure:
           "Altman Z, Beneish M and the accrual ratios are not computed for financials (their models are " +
-          "estimated on non-financial firms). Bank-specific capital-adequacy metrics — CET1, TCE/assets, " +
-          "provisions trend — are NOT modelled in this version, so no replacement solvency screen is shown.",
+          "estimated on non-financial firms). Capital, credit and funding are graded instead (D-46): " +
+          "tangible common equity / tangible assets, net charge-offs / average loans, nonperforming loans / loans " +
+          "where the filer tags them, and loans / deposits. CET1 is shown when the filer tags it and is never graded.",
       },
       {
         target: "leadership.cet1Ratio",
@@ -1433,7 +1382,7 @@ export function degradationPlan(
           "Reverse DCF is not shown on this route: it inverts the same FCFF model the forward DCF uses, so " +
           "the growth or margin it would solve for is derived from a free-cash-flow definition that has no " +
           "meaning where debt is raw material. The excess-return model's reverse solve (the starting ROE that " +
-          "reproduces the market cap) is shown instead.",
+          "makes the model's value per share equal the price, with market cap only as a disclosed fallback) is shown instead.",
       },
       {
         target: "returns.roicVsWacc",
@@ -1577,21 +1526,23 @@ export function degradationPlan(
         },
       );
     } else if (overlay === "adr") {
-      items.push(
-        {
-          target: "header.dividendYield",
-          action: "annotate",
-          disclosure:
-            "Dividend yield shown GROSS — foreign withholding applies (see ADR ratio map for the rate); " +
-            "depositary pass-through fees (typ. $0.01–$0.05/ADS) also reduce net dividends.",
-        },
-        {
+      items.push({
+        target: "header.dividendYield",
+        action: "annotate",
+        disclosure:
+          "Dividend yield is shown GROSS of foreign withholding tax and depositary pass-through fees; no withholding rate is applied.",
+      });
+      const comparison = comparePriceCurrency(currencies?.statements, currencies?.quote);
+      if (currencies && !comparison.comparable && comparison.mismatch) {
+        items.push({
           target: "fundamentals.currency",
           action: "annotate",
           disclosure:
-            "Statements are in reportedCurrency while the ADR quotes in USD — per-ADS figures use " +
-            "eps_local × ADR ratio / FX; never divide the USD price by local-currency EPS.",
-        },
+            `Statements are in ${normalizeReportedCurrency(currencies.statements)} while the ADR quotes in ${normalizeReportedCurrency(currencies.quote)}: ` +
+            "per-ADS and per-share comparisons with the price are withheld; no depositary ratio or FX rate is applied.",
+        });
+      }
+      items.push(
         {
           target: "meta.reportingCadence",
           action: "annotate",

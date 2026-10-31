@@ -433,7 +433,9 @@ export interface ContextPayload {
 // 1.52.0 (D-135, audit 2026-10-27 B4a): the equity bridge, the market EV basis and the invested-capital basis count redeemable equity, debt-like obligations and the covered operating lease once; the DCF per share, its scenarios and grids, and the EV-basis, lease and divisor wording alter admitted context.
 // D136 / B5a Tasks 1-4 and 3b: quarter/year conventions, fiscal calendars,
 // guided-quarter season, like-for-like context and issuer caveats. No old resume.
-export const PAYLOAD_VERSION = "1.53.0" as const;
+// 1.54.0 (D-137, B6): financial-route currency and evidence, buyback coverage, revenue refusals,
+// common-equity/gain/scope peer comparisons and same-construction P/E ranking alter admitted context.
+export const PAYLOAD_VERSION = "1.54.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1125,9 +1127,9 @@ function computedSections(
       { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
-      { label: "P/TBV", value: val.excessReturn.priceToTangibleBookVsRote.pTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
-      { label: "ROTE (the return P/TBV is read against)", value: val.excessReturn.priceToTangibleBookVsRote.rotePct, unit: "%", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
-      { label: "justified P/TBV (stable-growth cross-check)", value: val.excessReturn.priceToTangibleBookVsRote.justifiedPTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
+      { label: "P/TBV", value: val.excessReturn.priceToTangibleBookVsRote.pTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.priceToTangibleBookVsRote.asOf ?? val.excessReturn.asOf },
+      { label: "ROTE (the return P/TBV is read against)", value: val.excessReturn.priceToTangibleBookVsRote.rotePct, unit: "%", source: val.excessReturn.priceToTangibleBookVsRote.roteSource ?? "computed.returns.rote", asOf: val.excessReturn.priceToTangibleBookVsRote.roteAsOf ?? computed.returns?.rote?.asOf ?? null },
+      { label: "justified P/TBV (stable-growth cross-check)", value: val.excessReturn.priceToTangibleBookVsRote.justifiedPTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.priceToTangibleBookVsRote.asOf ?? val.excessReturn.asOf },
     );
     const a = val.excessReturn.financialAssumptions;
     for (const [label, key, unit] of [
@@ -1232,7 +1234,7 @@ function computedSections(
       // the assembler's method lines and the comparison bases.
       notes: [
         ...peerCoverage.methodology.filter((line) => !collectionNotes.has(line)),
-        ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}`),
+        ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}${comparison.currentWithheldReason ? ` Company figure withheld: ${comparison.currentWithheldReason}` : ""}`),
       ],
     }));
   }
