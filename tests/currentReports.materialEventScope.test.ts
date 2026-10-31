@@ -272,6 +272,36 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
     expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", body], ["8.01", "Other body."]]);
   });
 
+  it.each(["Unregistered Sale of Equity Securities", "Unregistered Sales of Equity Securities"].flatMap(title => [
+    `The disclosures required by Item 3.02 ${title} are shown below.`,
+    `The disclosures required by Item 3.02 ${title} are given in this agreement.`,
+    `The disclosures required by Item 3.02 ${title} have been made in this agreement.`,
+  ]))("uses strong reference context for irregular predicates without truncating enclosing sections: %s", reference => {
+    expect(splitEightKItems(reference)).toEqual([]);
+    const body = `Agreement before. ${reference} Agreement after.`;
+    const source = `Item 2.06 Material Impairments. Earlier body. Item 1.01 Entry into a Material Definitive Agreement. ${body} Item 8.01 Other Events. Other body.`;
+    const wanted = [["2.06", "Earlier body."], ["1.01", body], ["8.01", "Other body."]];
+    expect(splitEightKItems(source).map(s => [s.item, s.text])).toEqual(wanted);
+    const document = parseDocument(`<p>Item 2.06 Material Impairments. Earlier body.</p><p>Item 1.01 Entry into a Material Definitive Agreement. ${body}</p><p>Item 8.01 Other Events. Other body.</p>`);
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual(wanted);
+  });
+
+  it("requires the real collector's forwarded document to preserve a structurally separate heading after a passive link", async () => {
+    const body = "below are incorporated by reference.";
+    const source = `<p>Form 8-K Current Report.</p><p>The disclosures required by</p><h2>Item 3.02 Unregistered Sales of Equity Securities</h2><p>${body}</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const document = parseDocument(source);
+    // The exact flattened source has a grammatical reference without the
+    // actual document's separately bounded heading block.
+    expect(splitEightKItems(document.fullText).map(s => [s.item, s.text])).toEqual([["8.01", "Other body."]]);
+    const { data } = await collect([filing(1)], { [filing(1).accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", body], ["8.01", "Other body."]]);
+  });
+
+  it("preserves main for an irregular inline role with no strong reference context", () => {
+    const source = "Item 3.02 Unregistered Sales of Equity Securities are shown below. Item 8.01 Other Events. Other body.";
+    expect(splitEightKItems(source).map(s => [s.item, s.text])).toEqual([["3.02", "are shown below."], ["8.01", "Other body."]]);
+  });
+
   it("preserves amendments, cutoff/window, read cap, omitted identities and error paths", async () => {
     const annual = filing(90, { form: "10-K", filingDate: "2026-01-01", items: undefined });
     const admitted = Array.from({ length: 11 }, (_, i) => filing(i + 1, { filingDate: `2026-09-${String(30 - i).padStart(2, "0")}`, ...(i === 0 ? { form: "8-K/A" } : {}) }));

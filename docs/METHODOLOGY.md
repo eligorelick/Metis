@@ -670,7 +670,10 @@ Without standalone-heading evidence, bounded passive/perfect predicate grammar
 distinguishes references, including relative-position modifiers. An auxiliary
 plus arbitrary text is insufficient: dates and proper names remain section
 bodies. A modifier also requires a preceding passive-link clause to establish
-the reference; otherwise an ambiguous inline heading is kept. Genuine
+the reference. A strong preceding passive-link clause establishes that role
+for irregular predicate continuations without an irregular-word catalogue;
+without that context, unknown irregular inline roles keep the existing heading.
+Otherwise an ambiguous modifier-led inline heading is also kept. Genuine
 Above/Below/In introductions, including `Below are set forth the conditions`,
 retain their exact bodies. Plain/inline callers remain supported without
 inventing source structure; this is bounded recognition, not a general language

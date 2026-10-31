@@ -1290,9 +1290,12 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
       // Optional above/below needs a preceding passive-link clause as well;
       // otherwise an inline body's role remains ambiguous and is kept.
       // Sentence/heading punctuation is not skipped by this bounded grammar.
-      const reference = /^[\s"'“”‘’)\],]*(?:(above|below)\s+)?(?:(?:is|are|was|were)\s+(?:not\s+)?(?:being\s+)?|(?:has|have|had)\s+(?:not\s+)?(?:been\s+)?(?:being\s+)?|(?:will|would|shall|should|can|could|may|might|must)\s+(?:not\s+)?be\s+(?:being\s+)?)(?:[a-z]+ed|set\s+forth)\b/i.exec(following);
+      const reference = /^[\s"'“”‘’)\],]*(?:(above|below)\s+)?(?:(?:is|are|was|were)\s+(?:not\s+)?(?:being\s+)?|(?:has|have|had)\s+(?:not\s+)?(?:been\s+)?(?:being\s+)?|(?:will|would|shall|should|can|could|may|might|must)\s+(?:not\s+)?be\s+(?:being\s+)?)([a-z]+(?:\s+forth)?)\b/i.exec(following);
       const passiveLink = /\b(?:[a-z]+ed|set\s+forth)\s+by\s*$/i.test(before);
-      if (reference && (!reference[1] || passiveLink)) continue;
+      // A passive-link clause establishes the reference role even when the
+      // following predicate is irregular; no irregular-word catalogue is used.
+      // Without that context retain the preceding bounded regular fallback.
+      if (reference && (passiveLink || (!reference[1] && /^(?:[a-z]+ed|set\s+forth)$/i.test(reference[2]!)))) continue;
     }
     bodyStart += titleEnd;
     heads.push({ item, start: m.index, bodyStart });
