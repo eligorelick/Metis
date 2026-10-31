@@ -3,6 +3,51 @@ import { extractAnnualNotesFromIndex, extractSection } from "@/edgar/extract";
 import { annualNotesIndexFixture } from "./helpers/annualNotesIndexFixture";
 
 describe("source-derived annual appendix index (synthetic markup)", () => {
+  it.each([
+    "See Note 1 for details in another document.",
+    "Refer to Note 1 in the incorporated financial statements.",
+    "Additional details appear in Note 1 elsewhere.",
+    "Note 1 is described in another document.",
+    '<span>See </span><a href="#other">Note 1</a> for details elsewhere.',
+  ])("requires an actual first-note opening, not %s", reference => {
+    const html = annualNotesIndexFixture().replace("Note 1 - Organization.", reference);
+    expect(extractAnnualNotesFromIndex(html)).toBeNull();
+  });
+
+  it.each([
+    '<p>Note 1 - Organization.',
+    '<p><span>Note 1</span><span> - Organization.</span>',
+    '<h3>NOTE 1</h3><p>Organization.',
+    '<h3>Note 1 Organization</h3><p>Our organization.',
+    '<p>Note One: Organization.',
+    '<p>Note A. Organization.',
+    '<p>(1) Organization.',
+    '<p>1. Organization.',
+  ])("retains a genuine first-note opening in original blocks: %s", opening => {
+    const html = annualNotesIndexFixture().replace("<p>Note 1 - Organization.", opening);
+    expect(extractAnnualNotesFromIndex(html)?.text).toContain("LATER_NOTE_SENTINEL");
+  });
+
+  it.each(["SCHEDULE II Valuation and Qualifying Accounts", "Schedule II valuation and qualifying accounts", "schedule ii: valuation and qualifying accounts"])("excludes standalone %s in both source intervals", title => {
+    const appendix = `<h2>${title}</h2><p>UNLINKED_SCHEDULE_BODY</p>`;
+    const notesHtml = annualNotesIndexFixture().replace('<h2 id="schedule">', `${appendix}<h2 id="schedule">`);
+    expect(extractAnnualNotesFromIndex(notesHtml)).toBeNull();
+    const prefixHtml = annualNotesIndexFixture().replace('<h2 id="notes">', `${appendix}<h2 id="notes">`);
+    const result = extractAnnualNotesFromIndex(prefixHtml);
+    expect(result?.text).toContain("LATER_NOTE_SENTINEL");
+    expect(result?.statementsText).toBeUndefined();
+    expect(result?.evidence.statements).toBeUndefined();
+  });
+
+  it.each(["SCHEDULE II Valuation and Qualifying Accounts", "Schedule II: Valuation and Qualifying Accounts"])("keeps full-title prose with the same %s prefix", title => {
+    const reference = `<p>${title} provides additional detail elsewhere in this annual report.</p>`;
+    const html = annualNotesIndexFixture().replace('<h2 id="schedule">', `${reference}<h2 id="schedule">`).replace('<h2 id="notes">', `${reference}<h2 id="notes">`);
+    const result = extractAnnualNotesFromIndex(html);
+    expect(result?.text).toContain("LATER_NOTE_SENTINEL");
+    expect(result?.text).toContain("provides additional detail elsewhere");
+    expect(result?.statementsText).toContain("STATEMENTS_START");
+    expect(result?.statementsText).toContain("provides additional detail elsewhere");
+  });
   it.each(["SCHEDULE II", "Schedule II", "schedule ii"])("bounds notes at the linked %s heading, not prose/running headers", (heading) => {
     const html = annualNotesIndexFixture().replace('>SCHEDULE II</h2>', `>${heading}</h2>`);
     expect(extractSection(html, { form: "10-K", item: "8" }).ok).toBe(false);

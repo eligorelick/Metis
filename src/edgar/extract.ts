@@ -1576,10 +1576,23 @@ export function extractAnnualNotesFromIndex(html: string): {
   const body = text(start.heading.start, end.target.start);
   const validated = notesToFinancialStatements(body);
   if (!validated || validated.start !== 0 || detectStub(body).isStub) return null;
+  // The legacy flattened helper also accepts "See Note 1 ...". Here the
+  // first nonempty original block must itself OPEN the first note; a nearby
+  // token in a reference cannot prove it. Inline spans retain their text-node
+  // origin. Bare title text is supported in explicit h1–h6 headings only.
+  const firstNoteBlock = headings.find(n => n.start >= start.heading.end && n.end <= end.target.start && nodeText(n) !== "");
+  if (!firstNoteBlock || text(start.heading.end, firstNoteBlock.start) !== "") return null;
+  const opening = nodeText(firstNoteBlock);
+  const namedNote = /^Note\s+(?:1|A|One)(?=\s|[.:–—-]|$)([\s\S]*)$/i.exec(opening);
+  const namedOpening = namedNote !== null && (
+    namedNote[1]!.trim() === "" || /^\s*[.:–—-]/.test(namedNote[1]!) ||
+    (/^h[1-6]$/.test(firstNoteBlock.tag) && /^\s+[A-Z]/.test(namedNote[1]!))
+  );
+  if (!namedOpening && !/^(?:1\s*[.:–—-]|\(1\))\s*[A-Z]/i.test(opening)) return null;
   // A linked schedule cannot authorize swallowing other appendices/signatures.
   // Exact standalone titles only: a paragraph beginning with a full title and
   // continuing "provides ..." is a reference, not another appendix boundary.
-  const excludedHeading = /^(?:SIGNATURES|EXHIBIT INDEX|Item\s+16\.?\s+Form\s+10-K\s+Summary|Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules|Schedule\s+[IVX]+(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?)\.?$/i;
+  const excludedHeading = /^(?:SIGNATURES|EXHIBIT INDEX|Item\s+16\.?\s+Form\s+10-K\s+Summary|Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules|Schedule\s+[IVX]+(?:(?:\s*[-–—:]\s*|\s+)Valuation and Qualifying Accounts)?)\.?$/i;
   if (headings.some(n => n.start > start.heading.end && n.start < end.target.start && excludedHeading.test(nodeText(n)))) return null;
   const evidence: AnnualNotesRedirectEvidence = {
     coordinateSystem: "original-html-characters", index: { start: notes.table.start, end: notes.table.end },

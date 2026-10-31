@@ -53,6 +53,34 @@ async function acquireAnnual(item: "8" | "15", options: { prefix?: string; omitN
 }
 
 describe("normal annual filing acquisition retains debt presentation evidence", () => {
+  it.each([
+    ["reference-only first note", annualNotesIndexFixture().replace("Note 1 - Organization.", "See Note 1 for details in another document.")],
+    ["unlinked full schedule in notes", annualNotesIndexFixture().replace('<h2 id="schedule">', '<h2>SCHEDULE II Valuation and Qualifying Accounts</h2><p>UNLINKED_SCHEDULE_BODY</p><h2 id="schedule">')],
+  ])("keeps the actual producer's warning and no debt evidence for %s", async (_name, html) => {
+    const { bundle, calls } = await acquireAnnual("8", { html });
+    expect(bundle.edgar.tenKNotes).toMatchObject({ ok: false, gap: { severity: "warn" } });
+    expect(debtPresentationSections(bundle.edgar)).toEqual([]);
+    expect(calls.filter(url => url === documentUrl)).toHaveLength(1);
+  });
+
+  it.each(['<h3>NOTE 1</h3><p>Organization.', '<p><span>Note 1</span><span> - Organization.</span>', '<p>(1) Organization.'])("acquires genuine original-block first notes through the producer: %s", async opening => {
+    const { bundle, calls } = await acquireAnnual("8", { html: annualNotesIndexFixture().replace("<p>Note 1 - Organization.", opening) });
+    expect(bundle.edgar.tenKNotes?.ok).toBe(true);
+    if (!bundle.edgar.tenKNotes?.ok) throw new Error("Genuine first notes missing");
+    expect(bundle.edgar.tenKNotes.value.data.text).toContain("LATER_NOTE_SENTINEL");
+    expect(bundle.edgar.tenKNotes.value.data.method).toBe("annual-notes-index-redirect");
+    expect(calls.filter(url => url === documentUrl)).toHaveLength(1);
+  });
+
+  it("omits an actual producer statement prefix crossed by a full schedule title without a separator", async () => {
+    const html = annualNotesIndexFixture().replace('<h2 id="notes">', '<h2>Schedule II Valuation and Qualifying Accounts</h2><p>UNLINKED_SCHEDULE_BODY</p><h2 id="notes">');
+    const { bundle } = await acquireAnnual("8", { html });
+    expect(bundle.edgar.tenKNotes?.ok).toBe(true);
+    if (!bundle.edgar.tenKNotes?.ok) throw new Error("Notes should remain available");
+    expect(bundle.edgar.tenKNotes.value.data.statementsText).toBeUndefined();
+    expect(bundle.edgar.tenKNotes.value.data.text).not.toContain("UNLINKED_SCHEDULE_BODY");
+    expect(debtPresentationSections(bundle.edgar).every(section => section.statementsText === undefined)).toBe(true);
+  });
   it("preserves all Stage B figures and avoids a new Blocked state when newly acquired notes establish no monetary or lease scope", async () => {
     const admitted = await acquireAnnual("8", { html: annualNotesIndexFixture() });
     const refused = await acquireAnnual("8", { html: annualNotesIndexFixture().replace('id="schedule"', 'id="missing"') });
