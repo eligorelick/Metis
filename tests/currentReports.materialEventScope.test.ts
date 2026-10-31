@@ -115,6 +115,50 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
     expect(sections[1]!.text).toBe("Other body.");
   });
 
+  const bodyIntroductions = [
+    "Below are the conditions governing the warrant. Vesting requires customer purchases.",
+    "Above are the terms incorporated into the agreement. The operative conditions remain effective.",
+    "In this report the issuer describes the conditional agreement. No unconditional commitment is established.",
+    "In this Form 8-K the issuer reports a separate event. The retained body belongs to this section.",
+  ];
+  const headingControls = [
+    ["3.02", "Unregistered Sale of Equity Securities"],
+    ["3.02", "Unregistered Sales of Equity Securities"],
+    ["1.01", "Entry into a Material Definitive Agreement"],
+    ["5.02", "Departure of Directors or Certain Officers"],
+    ["5.07", "Submission of Matters to a Vote of Security Holders"],
+    ["8.01", "Other Events"],
+  ];
+  it.each(headingControls.flatMap(([item, title]) => bodyIntroductions.flatMap(body => [".", ""].map(separator => [item, title, body, separator]))))(
+    "retains the complete genuine %s / %s body beginning %s after title separator '%s'",
+    (item, title, body, separator) => {
+      const next = item === "8.01" ? "5.07 Submission of Matters to a Vote of Security Holders" : "8.01 Other Events";
+      const source = `Item 2.06 Material Impairments. Earlier body.\nItem ${item} ${title}${separator}\n${body}\nItem ${next}. Following body. SIGNATURES Signed.`;
+      const sections = splitEightKItems(source);
+      expect(sections.map(s => s.item)).toEqual(["2.06", item, next.slice(0, 4)]);
+      expect(sections.map(s => s.text)).toEqual(["Earlier body.", body, "Following body."]);
+    });
+
+  it.each(["Unregistered Sale of Equity Securities", "Unregistered Sales of Equity Securities"].flatMap(title => [
+    `The disclosures required by Item 3.02 ${title} are set forth in this agreement.`,
+    `The matters addressed by Item 3.02 ${title} were described in the agreement.`,
+    `The information prescribed by Item 3.02 ${title} has been incorporated into this agreement.`,
+  ]))("rejects a grammatical reference continuation and preserves its entire enclosing item: %s", reference => {
+    expect(splitEightKItems(reference)).toEqual([]);
+    const body = `Agreement before. ${reference} Agreement after.`;
+    const sections = splitEightKItems(`Item 1.01 Entry into a Material Definitive Agreement. ${body} Item 8.01 Other Events. Other body. SIGNATURES Signed.`);
+    expect(sections.map(s => s.item)).toEqual(["1.01", "8.01"]);
+    expect(sections.map(s => s.text)).toEqual([body, "Other body."]);
+  });
+
+  it.each(["Unregistered Sale of Equity Securities", "Unregistered Sales of Equity Securities"])("keeps a completed %s heading and its Below body through real collection", async title => {
+    const row = filing(1);
+    const source = html(title).replace(`${title}</h2>`, `${title}.</h2>`).replace(terms("Example Semiconductor"), `Below are the conditions governing the warrant. ${terms("Example Semiconductor")}`);
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", `Below are the conditions governing the warrant. ${terms("Example Semiconductor")}`]]);
+    expect(data.notes.join(" ")).not.toContain("no item heading could be read");
+  });
+
   it("preserves amendments, cutoff/window, read cap, omitted identities and error paths", async () => {
     const annual = filing(90, { form: "10-K", filingDate: "2026-01-01", items: undefined });
     const admitted = Array.from({ length: 11 }, (_, i) => filing(i + 1, { filingDate: `2026-09-${String(30 - i).padStart(2, "0")}`, ...(i === 0 ? { form: "8-K/A" } : {}) }));

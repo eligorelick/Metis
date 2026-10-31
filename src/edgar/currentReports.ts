@@ -1281,7 +1281,11 @@ export function splitEightKItems(rawText: string): EightKItemSection[] {
     const printed = text.slice(bodyStart, bodyStart + title.length + 40);
     const titleEnd = matchTitleEnd(printed, title);
     const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
-    if (/^[\s"'“”‘’)\],;:–—-]*(?:(?:included|contained|described|set forth)\s+)?(?:in this (?:report|form)|for (?:a )?discussion|(?:is|are)\s+incorporated\b|(?:above|below)\b)/i.test(following)) continue;
+    // A finite predicate attached directly to the title continues the item
+    // reference's noun phrase ("required by Item ... are set forth ...").
+    // Sentence/heading punctuation is deliberately not skipped: after a
+    // completed heading, "Below", "Above" or "In this report" starts its body.
+    if (/^[\s"'“”‘’)\],]*(?:is|are|was|were|has|have|had|will|would|shall|should|can|could|may|might|must)\s+\S/i.test(following)) continue;
     bodyStart += titleEnd;
     heads.push({ item, start: m.index, bodyStart });
   }
@@ -1310,7 +1314,9 @@ function matchTitleEnd(printed: string, title: string): number {
     if (!m) break;
     at += m[0].length;
   }
-  return at + (/^\s*\./.exec(printed.slice(at))?.[0].length ?? 0);
+  // Preserve a terminating period for the heading/reference distinction.
+  // The section-body cleanup removes it after admission, as for other separators.
+  return at;
 }
 
 /** The event's "Date of Report (Date of earliest event reported)". */

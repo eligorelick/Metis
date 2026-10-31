@@ -656,6 +656,10 @@ Item 3.02 accepts bounded `Unregistered Sale of Equity Securities` and
 title from the retained body. Full-title prose references and false prefixes
 do not establish headings or boundaries. The existing subsequent-item,
 signature, short incorporation-only and source-text retention boundaries remain.
+Title-ending sentence punctuation stays available during reference recognition:
+ordinary Above/Below/In body introductions are retained, while a finite
+predicate attached directly to the item title is a grammatical reference
+continuation rather than a new heading.
 
 New collections save their actual eligible-item codes as optional structured
 metadata. The builder validates the controlled codes, copies a deduplicated,
