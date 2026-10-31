@@ -161,6 +161,8 @@ describe("receivables policy preservation controls", () => {
 
   it("keeps a genuinely adverse complete filed repair and its warnings", () => {
     const p = periods(); const filed = candidates(); filed.observations[0].value = 200e6; filed.observations[1].value = 100e6;
+    // The selected direct observation and candidate must agree within this same filing/concept.
+    p[0].balance.netReceivables = 200e6;
     p[0].income.revenue = 1100e6; p[1].income.revenue = 1000e6;
     const report = runForensics(route, { income: p.map(x => x.income), balance: p.map(x => x.balance), cashFlow: [], filedReceivables: filed });
     expect(report.beneish?.indices.dsri).toBeCloseTo(1.8181818181818181, 12);
@@ -255,4 +257,114 @@ it("includes the shared qualifier once in report notes while both standalone con
   const report = runForensics(route, { income: p.map(x => x.income), balance: p.map(x => x.balance), cashFlow: [] });
   expect(report.notes.filter(n => n === qualifier)).toHaveLength(1);
   for (const note of [...beneish.notes, ...flags.notes].filter(n => n !== qualifier)) expect(report.notes).toContain(note);
+});
+
+describe("review R1: selected primary evidence constrains repair", () => {
+  const later = (tag: string, end: string) => ({ ...evidence(tag, end), filings: [{ accn: "later", filed: "2025-11-06", form: "10-K/A" }] });
+
+  it("refuses an older common pair contradicted by the newer selected primary observation in both consumers", () => {
+    const p = periods(); p[0].balance.netReceivables = 5000e6;
+    p[0].balance.fieldProvenance!.netReceivables = later(total, currentEnd);
+    const filed = candidates(); const before = JSON.stringify({ p, filed });
+    expect(computeBeneish(p[0], p[1], { filedReceivables: filed }).indices.dsri).toBe(1);
+    expect(computeBeneish(p[0], p[1], { filedReceivables: filed }).neutralized).toContain("DSRI");
+    const flags = support(p, { filedReceivables: filed });
+    expect(flags.flags.some(f => f.id === "receivables-vs-revenue")).toBe(false);
+    expect(flags.gaps.find(g => g.field === "forensics.flags.receivables")?.reason).toContain("no complete eligible");
+    expect(selectReceivablesPair(p[0].balance, p[1].balance, { filedCandidates: filed }).status).toBe("unavailable");
+    expect(JSON.stringify({ p, filed })).toBe(before);
+  });
+
+  it.each(["current", "prior"])("checks newer %s conflict evidence without replacing it with the older candidate collection", side => {
+    const p = periods(); const index = side === "current" ? 0 : 1;
+    const row = { ...p[index].balance, fieldConflicts: { netReceivables: {
+      vendorValue: p[index].balance.netReceivables, secValue: 5000e6, usable: false as const,
+      reason: "newer primary copy conflicts", secEvidence: later(total, side === "current" ? currentEnd : priorEnd),
+    } } };
+    const current = index === 0 ? row : p[0].balance; const prior = index === 1 ? row : p[1].balance;
+    expect(selectReceivablesPair(current, prior, { filedCandidates: candidates() }).status).toBe("unavailable");
+  });
+
+  it("checks eligible same-concept aliases and multiple direct filing references as contradiction evidence only", () => {
+    const p = periods();
+    const alias = later(total, currentEnd); alias.filings.push(evidence(total, currentEnd).filings[0]);
+    const cur = { ...p[0].balance, accountsReceivables: 5000e6, fieldProvenance: { ...p[0].balance.fieldProvenance, accountsReceivables: alias } };
+    expect(selectReceivablesPair(cur, p[1].balance, { filedCandidates: candidates() }).status).toBe("unavailable");
+    expect(selectReceivablesPair(cur, p[1].balance, { filedCandidates: { ...candidates(), observations: candidates().observations.slice(1) } }).status).toBe("unavailable");
+  });
+
+  it.each(["direct", "conflict"])("keeps an older common pair when later %s evidence agrees", kind => {
+    const p = periods(); const e = later(total, currentEnd);
+    const current = kind === "direct" ? { ...p[0].balance, fieldProvenance: { netReceivables: e } } :
+      { ...p[0].balance, fieldConflicts: { netReceivables: { vendorValue: 4315e6, secValue: 4315e6, usable: false as const, reason: "other discrepancy", secEvidence: e } } };
+    const filed = candidates();
+    expect(selectReceivablesPair(current, p[1].balance, { filedCandidates: filed })).toMatchObject({ status: "selected", basis: "filed-pair", prior: { value: 3929e6 } });
+    expect(computeBeneish({ ...p[0], balance: current }, p[1], { filedReceivables: filed }).indices.dsri).toBeCloseTo((4315/44284)/(3929/38962), 12);
+    expect(computeSupportFlags({ income: p.map(x => x.income), balance: [current, p[1].balance] }, { filedReceivables: filed }).gaps.some(g => g.field === "forensics.flags.receivables")).toBe(false);
+  });
+
+  it("does not equate newer conflict evidence for a different concept with the repaired concept", () => {
+    const p = periods();
+    const current = { ...p[0].balance, fieldConflicts: { netReceivables: { vendorValue: 4315e6, secValue: 5000e6, usable: false as const, reason: "different concept", secEvidence: later(trade, currentEnd) } } };
+    expect(selectReceivablesPair(current, p[1].balance, { filedCandidates: candidates() })).toMatchObject({ status: "selected", basis: "filed-pair", concept: total });
+  });
+
+  it("admits a newer complete candidate pair that accounts for the selected observation", () => {
+    const p = periods(); p[0].balance.netReceivables = 5000e6; p[0].balance.fieldProvenance!.netReceivables = later(total, currentEnd);
+    const filed = candidates(); filed.observations.push({ value: 5000e6, issuerCik: "1", evidence: later(total, currentEnd) }, { value: 4000e6, issuerCik: "1", evidence: later(total, priorEnd) });
+    expect(selectReceivablesPair(p[0].balance, p[1].balance, { filedCandidates: filed })).toMatchObject({ status: "selected", basis: "filed-pair", current: { value: 5000e6 }, prior: { value: 4000e6 } });
+    expect(computeBeneish(p[0], p[1], { filedReceivables: filed }).indices.dsri).toBeCloseTo((5000/44284)/(4000/38962), 12);
+    expect(support(p, { filedReceivables: filed }).gaps.some(g => g.field === "forensics.flags.receivables")).toBe(false);
+  });
+});
+
+describe("review R2: explicit dimensions are not missing currency metadata", () => {
+  it.each([["shares", "USD"], ["USD/shares", "USD"], ["shares", "shares"]])("refuses %s versus %s with absent row labels in both consumers", (currentUnit, priorUnit) => {
+    const current = { income: { date: currentEnd, revenue: 1100e6 }, balance: { ...balance(currentEnd, 200, total), reportedCurrency: undefined } };
+    const prior = { income: { date: priorEnd, revenue: 1000e6 }, balance: { ...balance(priorEnd, 100, total), reportedCurrency: undefined } };
+    current.balance.fieldProvenance!.netReceivables.unit = currentUnit;
+    prior.balance.fieldProvenance!.netReceivables.unit = priorUnit;
+    const filed = candidates();
+    expect(computeBeneish(current, prior, { filedReceivables: filed }).neutralized).toContain("DSRI");
+    expect(selectReceivablesPair(current.balance, prior.balance, { filedCandidates: filed }).status).toBe("unavailable");
+    const result = computeSupportFlags({ income: [current.income, prior.income], balance: [current.balance, prior.balance] }, { filedReceivables: filed });
+    expect(result.flags.some(f => f.id === "receivables-vs-revenue")).toBe(false);
+    expect(result.gaps.find(g => g.field === "forensics.flags.receivables")?.reason).toContain("no complete eligible");
+  });
+
+  it.each(["USD", ""])("preserves matching monetary or truly missing units (%s) without row labels", unit => {
+    const current = { income: { date: currentEnd, revenue: 1100e6 }, balance: { ...balance(currentEnd, 200, total), reportedCurrency: undefined } };
+    const prior = { income: { date: priorEnd, revenue: 1000e6 }, balance: { ...balance(priorEnd, 100, total), reportedCurrency: undefined } };
+    current.balance.fieldProvenance!.netReceivables.unit = unit;
+    expect(selectReceivablesPair(current.balance, prior.balance, { filedCandidates: candidates() })).toMatchObject({ status: "selected", basis: unit ? "same-concept" : "vendor-unverified", current: { value: 200e6 }, prior: { value: 100e6 } });
+    expect(computeBeneish(current, prior).indices.dsri).toBeCloseTo(1.8181818181818181, 12);
+    expect(computeSupportFlags({ income: [current.income, prior.income], balance: [current.balance, prior.balance] }).flags.find(f => f.id === "receivables-vs-revenue")?.severity).toBe("flag");
+  });
+
+  it("allows monetary repair only with independently declared matching currency and keeps its adverse warning", () => {
+    const current = { income: { date: currentEnd, revenue: 1100e6 }, balance: balance(currentEnd, 200, total) };
+    const prior = { income: { date: priorEnd, revenue: 1000e6 }, balance: balance(priorEnd, 100, total) };
+    current.balance.fieldProvenance!.netReceivables.unit = "shares";
+    const filed = candidates(); filed.observations[0].value = 200e6; filed.observations[1].value = 100e6;
+    expect(selectReceivablesPair(current.balance, prior.balance, { filedCandidates: filed })).toMatchObject({ status: "selected", basis: "filed-pair" });
+    expect(computeBeneish(current, prior, { filedReceivables: filed }).indices.dsri).toBeCloseTo(1.8181818181818181, 12);
+    expect(computeSupportFlags({ income: [current.income, prior.income], balance: [current.balance, prior.balance] }, { filedReceivables: filed }).flags.find(f => f.id === "receivables-vs-revenue")?.severity).toBe("flag");
+  });
+});
+
+it("never constructs a repair from selected evidence plus an incomplete candidate collection", () => {
+  const p = periods(); const filed = candidates(); filed.observations.shift();
+  expect(selectReceivablesPair(p[0].balance, p[1].balance, { filedCandidates: filed }).status).toBe("unavailable");
+});
+
+it.each(["older", "wrong-endpoint", "wrong-unit", "non-core-form", "missing-acquisition"])("does not equate %s conflict evidence with an eligible superseding monetary copy", kind => {
+  const p = periods(); const e = evidence(total, currentEnd);
+  e.filings = [{ accn: "other", filed: "2025-11-06", form: "10-K/A" }];
+  if (kind === "older") e.filings[0].filed = "2025-11-04";
+  if (kind === "wrong-endpoint") e.periodEnd = "2025-09-29";
+  if (kind === "wrong-unit") e.unit = "EUR";
+  if (kind === "non-core-form") e.filings[0].form = "8-K";
+  if (kind === "missing-acquisition") e.observedAt = "";
+  const current = { ...p[0].balance, fieldConflicts: { netReceivables: { vendorValue: 4315e6, secValue: 5000e6, usable: false as const, reason: "not an eligible superseding same-basis copy", secEvidence: e } } };
+  expect(selectReceivablesPair(current, p[1].balance, { filedCandidates: candidates() })).toMatchObject({ status: "selected", basis: "filed-pair", current: { value: 4315e6 }, prior: { value: 3929e6 } });
 });

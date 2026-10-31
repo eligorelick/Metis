@@ -22,7 +22,8 @@ const concept = (p: StatementFieldProvenance | undefined): string | null => p?.t
 const currency = (row: ForensicsBalanceRow, p: StatementFieldProvenance | undefined): string | null =>
   row.reportedCurrency || (p?.unit && /^[A-Z]{3}$/.test(p.unit) ? p.unit : null);
 function contradictsRow(p: StatementFieldProvenance | undefined, row: ForensicsBalanceRow): boolean {
-  return p !== undefined && Boolean((p.unit && row.reportedCurrency && p.unit !== row.reportedCurrency) ||
+  return p !== undefined && Boolean((p.unit && !/^[A-Z]{3}$/.test(p.unit)) ||
+    (p.unit && row.reportedCurrency && p.unit !== row.reportedCurrency) ||
     (p.periodEnd && p.periodEnd !== row.date) || (p.periodStart != null && p.periodStart !== ""));
 }
 const filingKey = (p: StatementFieldProvenance): string => {
@@ -41,6 +42,29 @@ function candidateValid(o: FiledReceivablesObservation, row: ForensicsBalanceRow
     receivablesTimestamp(p.observedAt) && p.filings.length === 1 &&
     p.filings.every(f => f.accn.trim() !== "" && receivablesDay(f.filed) && CORE_FACT_FORMS.has(f.form) &&
       f.filed >= p.periodEnd && f.filed <= p.observedAt.slice(0, 10));
+}
+
+
+/** Selected primary references constrain a repair even when the separately
+ * acquired candidate collection lacks them. Never promote these references to
+ * a repair pair: each direct filing reference is only a contradiction guard,
+ * and concept/unit/endpoint/issuer eligibility is checked per proposed basis. */
+function selectedPrimaryReferences(row: ForensicsBalanceRow): FiledReceivablesObservation[] {
+  const references: FiledReceivablesObservation[] = [];
+  for (const field of fields) {
+    const conflict = row.fieldConflicts?.[field];
+    for (const { value, evidence } of [
+      { value: row[field], evidence: row.fieldProvenance?.[field] },
+      { value: conflict?.secValue, evidence: conflict?.secEvidence },
+    ]) {
+      if (!finite(value) || !evidence) continue;
+      for (const filing of evidence.filings ?? []) {
+        const observation = { value, issuerCik: row.cik ?? "", evidence: { ...evidence, filings: [filing] } };
+        if (candidateValid(observation, row)) references.push(observation);
+      }
+    }
+  }
+  return references;
 }
 
 /** Preserve vendor field preference; only a proved discontinuity/conflict may
@@ -79,18 +103,22 @@ export function selectReceivablesPair(current: ForensicsBalanceRow | null | unde
   const sameIssuer = receivablesCik(current.cik) !== null && receivablesCik(current.cik) === receivablesCik(prior.cik);
   if (sameIssuer && curCurrency && curCurrency === priCurrency) {
     const observations = options?.filedCandidates?.observations ?? [];
+    const selectedCurrent = selectedPrimaryReferences(curContext);
+    const selectedPrior = selectedPrimaryReferences(priContext);
     const concepts = [...new Set([curConcept, ...tagsFor("netReceivables").map(tag => `us-gaap/${tag}`)].filter((v): v is string => v !== null))];
     for (const tag of concepts) {
       const cur = observations.filter(o => concept(o.evidence) === tag && candidateValid(o, curContext));
       const pri = observations.filter(o => concept(o.evidence) === tag && candidateValid(o, priContext));
+      const currentContradictions = [...cur, ...selectedCurrent.filter(o => concept(o.evidence) === tag)];
+      const priorContradictions = [...pri, ...selectedPrior.filter(o => concept(o.evidence) === tag)];
       const pairs = cur.flatMap(c => pri.filter(p => filingKey(c.evidence) === filingKey(p.evidence)).map(p => ({ c, p })))
         .sort((a, b) => b.c.evidence.filings[0]!.filed.localeCompare(a.c.evidence.filings[0]!.filed) || JSON.stringify(a).localeCompare(JSON.stringify(b)));
       for (const { c, p } of pairs) {
         const filed = c.evidence.filings[0]!.filed;
         // Later agreeing copies are harmless; an ambiguous/common or later
         // contradictory/negative copy cannot be discarded to make a ratio work.
-        if (c.value < 0 || p.value < 0 || cur.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== c.value) ||
-            pri.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== p.value)) continue;
+        if (c.value < 0 || p.value < 0 || currentContradictions.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== c.value) ||
+            priorContradictions.some(o => o.evidence.filings[0]!.filed >= filed && o.value !== p.value)) continue;
         return { status: "selected", basis: "filed-pair", field: chosen, concept: tag,
           current: { value: c.value, end: current.date, evidence: c.evidence }, prior: { value: p.value, end: prior.date, evidence: p.evidence },
           notes: [`Receivables selected-concept discontinuity/conflict repaired for forensic comparisons only using ${tag} for both exact endpoints (${current.date}, ${prior.date}), filing ${c.evidence.filings[0]!.accn}; raw statements are unchanged.`],

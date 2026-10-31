@@ -88,3 +88,30 @@ it("preserves the upstream currency refusal without filing identity instead of a
   expect(result.forensics.beneish?.neutralized).toContain("DSRI");
   expect(result.forensics.flags.some(f => f.id === "receivables-vs-revenue")).toBe(false);
 });
+
+it("retains newer selected primary evidence against an older incomplete companyfacts copy collection", () => {
+  const b = fixture();
+  if (!b.statements.balanceAnnual.ok) throw new Error("fixture");
+  const current = b.statements.balanceAnnual.value.data.rows[0];
+  current.netReceivables = 5000e6;
+  current.fieldProvenance!.netReceivables.filings = [{ accn: "later", filed: "2026-02-16", form: "10-K/A" }];
+  const before = JSON.stringify(b); freeze(b);
+  const result = runStageB(b);
+  expect(result.forensics.beneish?.neutralized).toContain("DSRI");
+  expect(result.forensics.flags.some(f => f.id === "receivables-vs-revenue")).toBe(false);
+  expect(result.forensics.gaps.find(g => g.field === "forensics.flags.receivables")?.reason).toContain("no complete eligible");
+  expect(JSON.stringify(b)).toBe(before);
+});
+
+it("does not compare a nonmonetary field when missing row labels pass the unchanged filing-linked currency gate", () => {
+  const b = fixture();
+  if (!b.statements.balanceAnnual.ok || !b.statements.incomeAnnual.ok) throw new Error("fixture");
+  b.statements.balanceAnnual.value.data.rows.forEach(r => { r.reportedCurrency = undefined; r.acceptedDate = "2026-02-15 16:00:00"; });
+  b.statements.incomeAnnual.value.data.rows.slice(0, 2).forEach(r => { r.cik = "1"; r.acceptedDate = "2026-02-15 16:00:00"; });
+  b.statements.balanceAnnual.value.data.rows[0].fieldProvenance!.netReceivables.unit = "shares";
+  b.statements.balanceAnnual.value.data.rows[1].fieldProvenance!.netReceivables.tags = [total];
+  const result = runStageB(b);
+  expect(result.forensics.beneish?.neutralized).toContain("DSRI");
+  expect(result.forensics.flags.some(f => f.id === "receivables-vs-revenue")).toBe(false);
+  expect(result.forensics.gaps.find(g => g.field === "forensics.flags.receivables")?.reason).toContain("no complete eligible");
+});

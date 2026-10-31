@@ -45,3 +45,10 @@ describe("filed receivables observations", () => {
     expect(filedReceivablesCandidates(f, options).observations.map(o => o.value)).toEqual([-1, 4315e6]);
   });
 });
+
+it.each(["shares", "USD/shares"])("never extracts %s as a monetary receivables repair candidate", unit => {
+  const f: CompanyFacts = { cik: 1, entityName: "Synthetic", facts: { "us-gaap": {
+    ReceivablesNetCurrent: { units: { [unit]: [point("2025-09-28", 200e6), point("2024-09-29", 100e6)] } },
+  } } };
+  expect(filedReceivablesCandidates(f, { ...options, periods: options.periods.map(p => ({ ...p, currency: unit })) }).observations).toHaveLength(0);
+});
