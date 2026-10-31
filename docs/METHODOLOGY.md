@@ -613,6 +613,34 @@ first available of three sources:
 3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
    the year-one midpoint at the near-term growth rate.
 
+**Source-bound quarterly guidance tables (D-138, report-53 Task 5, unreleased).**
+New collection can retain the already-parsed release/commentary document as
+optional extraction evidence. A current-only table must have one explicit
+`Qn FYyy Estimates` or `Qn FYyyyy Current Guidance` column and two cells per
+row. Revenue endpoints each state a supported million/billion scale; diluted
+EPS retains its separately stated GAAP or non-GAAP basis and unscaled per-share
+endpoints. Currency symbols, fiscal fields and exact source row/header spans
+are retained. Metric and period labels are generated from validated fields;
+raw source header, row, issuer, date and currency text is not promoted into
+trusted model notes. Raw excerpts remain source evidence.
+
+The new route is bounded to one supported table, 60,000 markup characters,
+6,000 text characters and 32 rows. Duplicate/conflicting columns, metrics or
+guidance tables, merged cells, unsupported scope captions/section headings,
+mixed endpoint scales/currencies and reversed ranges are refused. An
+unsupported row ends the supported consolidated run; a later bare revenue
+row cannot inherit segment or adjustment scope. Endpoints cannot be joined
+across rows or tables, and a recognized structural refusal cannot be rescued
+by flattened prose scanning. Existing compact formats and release-before-
+commentary source priority retain their previous behavior. Statement-currency,
+scale, B5 fiscal-calendar and guidance-retirement checks remain unchanged: an
+ended Q4 stays usable while Q3 is latest reported and retires when Q4 is
+reported. A consensus inside the filed corridor is not replaced mechanically
+by the midpoint. The Q4 FY2026 9.7–10.5B revenue and 1.22–1.42/2.05–2.25 EPS
+controls use synthetic source-derived structure, not exact retained QCOM HTML
+or a historical report replay. Stored reports are not reparsed at read time;
+unknown historical extraction coverage remains unknown.
+
 The **run-rate** is the latest quarter annualized, made seasonally neutral.
 Latest quarter × 4 overstates a seasonal peak quarter and understates a
 trough. So the run-rate is the TTM carried 4.5 months forward at the latest

@@ -69,10 +69,12 @@
 
 **Files:** `src/edgar/guidanceTables.ts`, `src/edgar/currentReports.ts`; `tests/currentReports.guidanceTables.test.ts`; provider release integration and B5 calendar controls as needed.
 
-- [ ] Write RED using a minimal source-derived release table headed Q4 FY26 Estimates, Revenues 9.7B–10.5B, GAAP diluted EPS 1.22–1.42 and non-GAAP 2.05–2.25; run through document parsing and release construction. Expected midpoints 10.1B, 1.32 and 2.15 are distinct source-bound observations.
-- [ ] Support explicit endpoint scales/plural metric labels/current-column headers without converting segment rows or adjustments into consolidated guidance. Preserve accounting basis, currency, fiscal period, source row bounds and conflict/refusal rules.
-- [ ] Controls: renamed issuer, old compact formats, ambiguous/duplicate/conflicting columns, reversed endpoints, wrong year/currency/scale and unsupported rows. Q4 remains usable while Q3 is latest reported and retires after Q4 is reported; reuse B5 logic unchanged. The 10.202B consensus Q4 implied by this report lies inside the filed range, so do not force an anchor override.
-- [ ] Run guidance/parser/provider/comparability tests and typecheck; log and commit `fix: parse source-bound quarterly guidance tables`.
+- [x] Write RED using a minimal source-derived release table headed Q4 FY26 Estimates, Revenues 9.7B–10.5B, GAAP diluted EPS 1.22–1.42 and non-GAAP 2.05–2.25; run through document parsing and release construction. Expected midpoints 10.1B, 1.32 and 2.15 are distinct source-bound observations.
+- [x] Support explicit endpoint scales/plural metric labels/current-column headers without converting segment rows or adjustments into consolidated guidance. Preserve accounting basis, currency, fiscal period, source row bounds and conflict/refusal rules.
+- [x] Controls: renamed issuer, old compact formats, ambiguous/duplicate/conflicting columns, reversed endpoints, wrong year/currency/scale and unsupported rows. Q4 remains usable while Q3 is latest reported and retires after Q4 is reported; reuse B5 logic unchanged. The 10.202B consensus Q4 implied by this report lies inside the filed range, so do not force an anchor override.
+- [x] Run guidance/parser/provider/comparability tests and typecheck; log and commit `fix: parse source-bound quarterly guidance tables`.
+
+Task 5 implementation evidence: 124 targeted tests across 8 files and typecheck pass; staged full product passes 541 files, 12,663 tests with 3 skipped. The inline raw HTML fixture is synthetic source-derived structure, not exact retained QCOM HTML or a report-53 replay. Independent Task 5 review and Task 9's final whole-batch release verification remain separate gates.
 
 ## Task 6: Cover Item 3.02 and match the coverage disclosure
 

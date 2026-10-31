@@ -15,7 +15,7 @@
  * member as a whole is a gap only when nothing could be read at all.
  */
 import { findDocumentByType, type EdgarClient, type EdgarFiling, type FilingIndex } from "@/providers/edgar";
-import { parseDocument } from "@/edgar/extract";
+import { parseDocument, type ParsedDocument } from "@/edgar/extract";
 import {
   eventDateOf,
   hasMaterialEventItem,
@@ -204,13 +204,16 @@ export function buildEarningsReleaseRecord(args: {
   releaseExhibit?: string | null;
   commentaryExhibit?: string | null;
   releaseText: string;
+  /** Already parsed source structure; optional for legacy plain-text callers. */
+  releaseDocument?: ParsedDocument;
   commentaryText: string | null;
+  commentaryDocument?: ParsedDocument;
   includeNarrative: boolean;
 }): EarningsReleaseRecord {
   const { filing, releaseText, commentaryText } = args;
-  const fromRelease = parseGuidance(releaseText);
+  const fromRelease = parseGuidance(releaseText, args.releaseDocument);
   const releaseHasItems = fromRelease !== null && fromRelease.items.length > 0;
-  const fromCommentary = releaseHasItems || commentaryText === null ? null : parseGuidance(commentaryText);
+  const fromCommentary = releaseHasItems || commentaryText === null ? null : parseGuidance(commentaryText, args.commentaryDocument);
   const guidance = releaseHasItems ? fromRelease : fromCommentary !== null && fromCommentary.items.length > 0 ? fromCommentary : fromRelease ?? fromCommentary;
   const reported = parseReportedPeriod(releaseText);
   const releaseExhibit = args.releaseExhibit === undefined ? (args.releaseUrl === null ? null : "EX-99.1") : args.releaseExhibit;
@@ -424,18 +427,20 @@ export async function collectCurrentReports(
       if (typeof indexResult !== "string") notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): Item 2.02 filing furnishes no EX-99 exhibit`);
     }
     let releaseText = "";
+    let releaseDocument: ParsedDocument | undefined;
     let releaseUrl: string | null = null;
     if (releaseDoc) {
       const release = await fetchText(edgar, cik, filing, releaseDoc.filename);
       if (typeof release === "string") notes.push(`8-K ${filing.accessionNumber} EX-99 (${releaseDoc.filename}) unreadable: ${release}`);
-      else { releaseText = plain(release.text); releaseUrl = release.url; fetchedAt ??= release.fetchedAt; }
+      else { releaseDocument = parseDocument(release.text.slice(0, 2_000_000)); releaseText = releaseDocument.fullText; releaseUrl = release.url; fetchedAt ??= release.fetchedAt; }
     }
     let commentaryText: string | null = null;
+    let commentaryDocument: ParsedDocument | undefined;
     let commentaryUrl: string | null = null;
     if (commentaryDoc) {
       const commentary = await fetchText(edgar, cik, filing, commentaryDoc.filename);
       if (typeof commentary === "string") notes.push(`8-K ${filing.accessionNumber} EX-99.2 (${commentaryDoc.filename}) unreadable: ${commentary}`);
-      else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
+      else { commentaryDocument = parseDocument(commentary.text.slice(0, 2_000_000)); commentaryText = commentaryDocument.fullText; commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
     }
     let primaryAlternative = false;
     if (releaseUrl === null && commentaryUrl === null) {
@@ -447,12 +452,14 @@ export async function collectCurrentReports(
         notes.push(`8-K ${filing.accessionNumber}: primary document alternative unreadable: ${primary}`);
         continue;
       }
-      const text = plain(primary.text);
-      if ((parseGuidance(text)?.items.length ?? 0) === 0 && parseReportedPeriod(text).fiscal === null && parseIssuerFreeCashFlow(text).length === 0) {
+      const document = parseDocument(primary.text.slice(0, 2_000_000));
+      const text = document.fullText;
+      if ((parseGuidance(text, document)?.items.length ?? 0) === 0 && parseReportedPeriod(text).fiscal === null && parseIssuerFreeCashFlow(text).length === 0) {
         notes.push(`8-K ${filing.accessionNumber}: primary document alternative contained no readable earnings facts; exhibits remain unavailable.`);
         continue;
       }
       releaseText = text;
+      releaseDocument = document;
       releaseUrl = primary.url;
       fetchedAt ??= primary.fetchedAt;
       primaryAlternative = true;
@@ -465,7 +472,9 @@ export async function collectCurrentReports(
       releaseExhibit: primaryAlternative ? null : releaseDoc?.type.trim() ?? null,
       commentaryExhibit: commentaryDoc?.type.trim() ?? null,
       releaseText,
+      releaseDocument,
       commentaryText,
+      commentaryDocument,
       includeNarrative: true,
     });
     if (linkedExhibitAmendment) {

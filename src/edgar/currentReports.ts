@@ -9,8 +9,9 @@
  *      off-balance-sheet obligations, 5.02 officer changes, 8.01 other events
  *      and their close relatives), as dated events.
  *
- * Every parser here reads the plain text `parseDocument(html).fullText` makes
- * of a filing and is deliberately conservative: a sentence is read only when
+ * Parsers read the plain text `parseDocument(html).fullText` makes of a filing;
+ * current-only guidance tables also require that parsed document's source
+ * structure. They are deliberately conservative: a sentence is read only when
  * its numbers can be assigned without guessing (a "respectively" pairs values
  * with bases only when the counts agree; a scale word must be printed). What
  * cannot be read is left out and the caller discloses it — a wrong guidance
@@ -24,6 +25,7 @@
  */
 
 import { parseGuidanceTables } from "@/edgar/guidanceTables";
+import type { ParsedDocument } from "@/edgar/extract";
 
 // ---------------------------------------------------------------------------
 // Shared text helpers
@@ -429,8 +431,8 @@ export function parseIssuerGrowthEffect(sentence: string): { pp: number } | null
 }
 
 /** Guidance from a release or commentary; null when it prints no outlook. */
-export function parseGuidance(rawText: string): IssuerGuidance | null {
-  const table = parseGuidanceTables(rawText);
+export function parseGuidance(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
+  const table = parseGuidanceTables(rawText, document);
   if (table !== null) return table;
   const block = outlookBlock(normalizeFilingText(rawText));
   if (block === null) return null;
