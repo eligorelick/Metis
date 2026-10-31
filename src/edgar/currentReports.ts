@@ -25,7 +25,7 @@
  */
 
 import { parseGuidanceTables } from "@/edgar/guidanceTables";
-import type { ParsedDocument } from "@/edgar/extract";
+import { htmlToText, type ParsedDocument } from "@/edgar/extract";
 
 // ---------------------------------------------------------------------------
 // Shared text helpers
@@ -1259,16 +1259,14 @@ export function hasMaterialEventItem(items: string | undefined): boolean {
  * "Item N.NN" followed by bounded title words. References to a titled item
  * inside prose are not headings; 3.02 accepts both Sale and Sales.
  */
-export function splitEightKItems(rawText: string): EightKItemSection[] {
+export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocument): EightKItemSection[] {
   const text = normalizeFilingText(rawText);
+  const boundaries = itemHeadingBoundaries(rawText, sourceDocument);
   const heads: { item: string; start: number; bodyStart: number }[] = [];
   for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})\s*[.:–—-]?\s*/gi)) {
     const item = m[1]!;
     const officialTitle = ITEM_TITLES[item];
     if (!officialTitle) continue;
-    const before = text.slice(Math.max(0, m.index - 120), m.index);
-    if (/["“‘]\s*$/.test(before)) continue;
-    if (/(?:\b(?:see|under|in|into|to|of|entitled|titled|references?|refer(?:s|red)?\s+to)|\b(?:in|into)\s+this)\s*["'“”‘’(]*\s*$/i.test(before)) continue;
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 200);
     const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle];
     const title = variants.find(t => {
@@ -1281,11 +1279,21 @@ export function splitEightKItems(rawText: string): EightKItemSection[] {
     const printed = text.slice(bodyStart, bodyStart + title.length + 40);
     const titleEnd = matchTitleEnd(printed, title);
     const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
-    // A finite predicate attached directly to the title continues the item
-    // reference's noun phrase ("required by Item ... are set forth ...").
-    // Sentence/heading punctuation is deliberately not skipped: after a
-    // completed heading, "Below", "Above" or "In this report" starts its body.
-    if (/^[\s"'“”‘’)\],]*(?:is|are|was|were|has|have|had|will|would|shall|should|can|could|may|might|must)\s+\S/i.test(following)) continue;
+    const separator = /^\s*[.:–—-]+/.exec(following)?.[0].length ?? 0;
+    const titleAt = bodyStart + titleEnd;
+    const standaloneHeading = boundaries.has(m.index) && (boundaries.has(titleAt) || boundaries.has(titleAt + separator));
+    if (!standaloneHeading) {
+      const before = text.slice(Math.max(0, m.index - 120), m.index);
+      if (/["“‘]\s*$/.test(before)) continue;
+      if (/(?:\b(?:see|under|in|into|to|of|entitled|titled|references?|refer(?:s|red)?\s+to)|\b(?:in|into)\s+this)\s*["'“”‘’(]*\s*$/i.test(before)) continue;
+      // Require a predicate, not merely an auxiliary-shaped date or name.
+      // Optional above/below needs a preceding passive-link clause as well;
+      // otherwise an inline body's role remains ambiguous and is kept.
+      // Sentence/heading punctuation is not skipped by this bounded grammar.
+      const reference = /^[\s"'“”‘’)\],]*(?:(above|below)\s+)?(?:(?:is|are|was|were)\s+(?:not\s+)?(?:being\s+)?|(?:has|have|had)\s+(?:not\s+)?(?:been\s+)?(?:being\s+)?|(?:will|would|shall|should|can|could|may|might|must)\s+(?:not\s+)?be\s+(?:being\s+)?)(?:[a-z]+ed|set\s+forth)\b/i.exec(following);
+      const passiveLink = /\b(?:[a-z]+ed|set\s+forth)\s+by\s*$/i.test(before);
+      if (reference && (!reference[1] || passiveLink)) continue;
+    }
     bodyStart += titleEnd;
     heads.push({ item, start: m.index, bodyStart });
   }
@@ -1299,6 +1307,33 @@ export function splitEightKItems(rawText: string): EightKItemSection[] {
     const incorporates = /^The information (?:set forth|contained|included) (?:in|under) Item (\d\.\d{2})[^.]{0,120}\bincorporated (?:herein )?by reference/i.exec(body)?.[1] ?? null;
     return { item: head.item, title: ITEM_TITLES[head.item]!, text: body, incorporates: incorporates !== null && body.length < 400 ? incorporates : null };
   });
+}
+
+/** Same-text line/block coordinates, used only as optional standalone-heading proof. */
+function itemHeadingBoundaries(rawText: string, document?: ParsedDocument): Set<number> {
+  const marker = "\u0000";
+  if (rawText.includes(marker)) return new Set();
+  let marked = rawText.replace(/\r\n?|\n/g, marker);
+  if (document?.fullText === rawText && !document.pre.includes(marker) && htmlToText(document.pre) === rawText) {
+    // Match the existing text projection's visibility, without changing global
+    // extraction. HTML hidden attributes are not removed there: decline proof
+    // for that document rather than relabel retained hidden text as visible.
+    const source = document.pre.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
+    const tags = /<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g;
+    const hidden = [...source.matchAll(tags)].some(([tag]) => /\shidden(?=[\s=/>])/i.test(tag.replace(/"[^"]*"|'[^']*'/g, '""')));
+    if (!hidden) marked = htmlToText(source.replace(tags, tag => /^<\/?(?:h[1-6]|p|div|tr|td|th|li|br)(?=[\s/>])/i.test(tag) ? `${marker}${tag}${marker}` : tag));
+  }
+  let projected = "";
+  const boundaries = new Set<number>();
+  for (const chunk of marked.split(marker)) {
+    const part = normalizeFilingText(chunk);
+    if (!part) continue;
+    if (projected) projected += " ";
+    boundaries.add(projected.length);
+    projected += part;
+    boundaries.add(projected.length);
+  }
+  return projected === normalizeFilingText(rawText) ? boundaries : new Set();
 }
 
 function matchTitleEnd(printed: string, title: string): number {

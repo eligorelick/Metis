@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { splitEightKItems } from "@/edgar/currentReports";
+import { parseDocument } from "@/edgar/extract";
 import { collectCurrentReports, type CurrentReports } from "@/providers/currentReports";
 import { createEdgarClient, type EdgarFiling } from "@/providers/edgar";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
@@ -120,6 +121,7 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
     "Above are the terms incorporated into the agreement. The operative conditions remain effective.",
     "In this report the issuer describes the conditional agreement. No unconditional commitment is established.",
     "In this Form 8-K the issuer reports a separate event. The retained body belongs to this section.",
+    "Below are set forth the conditions governing the warrant. Vesting remains conditional.",
   ];
   const headingControls = [
     ["3.02", "Unregistered Sale of Equity Securities"],
@@ -157,6 +159,117 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
     const { data } = await collect([row], { [row.accessionNumber]: source });
     expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", `Below are the conditions governing the warrant. ${terms("Example Semiconductor")}`]]);
     expect(data.notes.join(" ")).not.toContain("no item heading could be read");
+  });
+
+  const dateNameBodies = [
+    "May 15, 2026: the company issued a warrant subject to vesting conditions.",
+    "May 28, 2026: the issuer disclosed a conditional warrant agreement.",
+    "Will Smith signed an employment agreement with the company.",
+    "Will Rivera signed an employment agreement with the registrant.",
+    "May Nguyen became an officer subject to the disclosed employment terms.",
+  ];
+  it.each(headingControls.slice(0, 2).concat([["5.02", "Departure of Directors or Certain Officers"]]).flatMap(([item, title]) => dateNameBodies.flatMap(body => ["\n", " "].map(space => [item, title, body, space]))))(
+    "retains the genuine %s / %s date/name-led body %s (separator %j)",
+    (item, title, body, space) => {
+      const source = `Item 2.06 Material Impairments. Earlier body. Item ${item} ${title}${space}${body} Item 8.01 Other Events. Other body. SIGNATURES Signed.`;
+      expect(splitEightKItems(source).map(s => [s.item, s.text])).toEqual([["2.06", "Earlier body."], [item, body], ["8.01", "Other body."]]);
+    });
+
+  it.each([
+    ["3.02", "Unregistered Sale of Equity Securities", dateNameBodies[0]],
+    ["3.02", "Unregistered Sales of Equity Securities", dateNameBodies[1]],
+    ["5.02", "Departure of Directors or Certain Officers", dateNameBodies[2]],
+    ["5.02", "Departure of Directors or Certain Officers", dateNameBodies[3]],
+    ["5.02", "Departure of Directors or Certain Officers", dateNameBodies[4]],
+  ])("retains %s / %s and exact date/name body %s through real offline collection", async (item, title, body) => {
+    const row = filing(1, { items: `${item},8.01` });
+    const source = `<p>Form 8-K Current Report</p><h2>Item 2.06 Material Impairments</h2><p>Earlier body.</p><h2>Item ${item} ${title}</h2><p>${body}</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p><h2>SIGNATURES</h2><p>Signed.</p>`;
+    const { data } = await collect([row], { [row.accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["2.06", "Earlier body."], [item, body], ["8.01", "Other body."]]);
+  });
+
+  it.each(["Unregistered Sale of Equity Securities", "Unregistered Sales of Equity Securities"].flatMap(title => ["above", "below"].flatMap(position => [
+    `The disclosures required by Item 3.02 ${title} ${position} are incorporated by reference.`,
+    `The disclosures required by Item 3.02 ${title} ${position} were set forth in this agreement.`,
+    `The disclosures required by Item 3.02 ${title} ${position} have been described in this agreement.`,
+  ])))("rejects a relative-position modifier plus predicate while preserving the complete enclosing body: %s", reference => {
+    expect(splitEightKItems(reference)).toEqual([]);
+    const body = `Agreement before. ${reference} Agreement after.`;
+    expect(splitEightKItems(`Item 1.01 Entry into a Material Definitive Agreement. ${body} Item 8.01 Other Events. Other body.`).map(s => [s.item, s.text]))
+      .toEqual([["1.01", body], ["8.01", "Other body."]]);
+  });
+
+  it.each(["may be incorporated", "will be described", "can be set forth", "has not been incorporated", "are being described"])("keeps demonstrable auxiliary-chain references rejected: %s", predicate => {
+    const reference = `The disclosures required by Item 3.02 Unregistered Sales of Equity Securities ${predicate} in this agreement.`;
+    expect(splitEightKItems(reference)).toEqual([]);
+    const body = `Agreement before. ${reference} Agreement after.`;
+    expect(splitEightKItems(`Item 1.01 Entry into a Material Definitive Agreement. ${body} Item 8.01 Other Events. Other body.`).map(s => [s.item, s.text]))
+      .toEqual([["1.01", body], ["8.01", "Other body."]]);
+  });
+
+  it.each(["h2", "p", "table"].flatMap(shape => ["", "."].map(separator => [shape, separator])))("uses matching visible %s heading boundaries (separator '%s') for Below-passive bodies through the actual collector", async (shape, separator) => {
+    const body = "Below are set forth the conditions governing the warrant. Vesting remains conditional.";
+    const title = `Item 3.02 Unregistered Sale of Equity Securities${separator}`;
+    const heading = shape === "table" ? `<table><tr><td>Item 3.02</td><td>Unregistered Sale of Equity Securities${separator}</td></tr></table>` : `<${shape}>${title}</${shape}>`;
+    const source = `<p>Form 8-K cover text without terminal punctuation</p>${heading}<p>${body}</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const { data } = await collect([filing(1)], { [filing(1).accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", body], ["8.01", "Other body."]]);
+  });
+
+  it("requires exact source-text/coordinate consistency before source context can establish a heading", () => {
+    const reference = "The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.";
+    const document = parseDocument("<p>The disclosures required by</p><h2>Item 3.02 Unregistered Sales of Equity Securities</h2><p>below are incorporated by reference.</p>");
+    // Same visible bytes, but actual source blocks place the title on its own.
+    expect(document.fullText).toBe(reference);
+    expect(splitEightKItems(reference, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);
+    expect(splitEightKItems(reference)).toEqual([]);
+    const different = parseDocument("<h2>Item 3.02 Unregistered Sales of Equity Securities</h2><p>Different body.</p>");
+    expect(splitEightKItems(reference, different)).toEqual([]);
+    // A forged/mismatched pre/fullText pair must not confer source proof either.
+    expect(splitEightKItems(reference, { ...different, fullText: reference })).toEqual([]);
+  });
+
+  it.each(["script", "style", "comment", "inline-style"])("does not use a hidden %s title as visible source-heading proof", hidden => {
+    const title = "<h2>Item 3.02 Unregistered Sales of Equity Securities</h2>";
+    const fake = hidden === "comment" ? `<!--${title}-->` : hidden === "inline-style" ? `<div style="display:none">${title}</div>` : `<${hidden}>${title}</${hidden}>`;
+    const reference = "The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.";
+    const document = parseDocument(`${fake}<p>${reference}</p>`);
+    expect(document.fullText).toBe(reference);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it.each(["hidden", 'hidden=""', "HIDDEN", 'hidden="until-found"'])("does not let an actual %s attribute confer source-heading proof", attribute => {
+    const reference = "The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.";
+    const document = parseDocument(`<p>The disclosures required by</p><div ${attribute}><h2>Item 3.02 Unregistered Sales of Equity Securities</h2></div><p>below are incorporated by reference.</p>`);
+    // Global preprocessing retains this attribute's text. It cannot be
+    // upgraded locally into proof that the title was a visible heading.
+    expect(document.fullText).toBe(reference);
+    expect(splitEightKItems(document.fullText, document)).toEqual([]);
+  });
+
+  it("does not mistake hidden inside an attribute value for a hidden attribute", () => {
+    const document = parseDocument('<p>The disclosures required by</p><h2 title="a hidden keyword in an ordinary value">Item 3.02 Unregistered Sales of Equity Securities</h2><p>below are incorporated by reference.</p>');
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);
+  });
+
+  it("preserves inline title markup inside a standalone paragraph without inventing boundaries from quoted tags", () => {
+    const document = parseDocument('<p>The disclosures required by</p><p title="quoted <div> tag"><b>Item 3.02</b><span>Unregistered Sales of Equity Securities</span></p><p>below are incorporated by reference.</p>');
+    expect(splitEightKItems(document.fullText, document).map(s => [s.item, s.text])).toEqual([["3.02", "below are incorporated by reference."]]);
+    const reference = parseDocument('<p title="quoted <h2> tag">The disclosures required by Item 3.02 Unregistered Sales of Equity Securities below are incorporated by reference.</p>');
+    expect(splitEightKItems(reference.fullText, reference)).toEqual([]);
+  });
+
+  it("keeps the main inline heading when a modifier-led body's role lacks positive reference evidence", () => {
+    const body = "Below are set forth the conditions governing the warrant. Vesting remains conditional.";
+    const source = `Form 8-K cover text without terminal punctuation Item 3.02 Unregistered Sale of Equity Securities ${body} Item 8.01 Other Events. Other body.`;
+    expect(splitEightKItems(source).map(s => [s.item, s.text])).toEqual([["3.02", body], ["8.01", "Other body."]]);
+  });
+
+  it("does not make declining hidden-attribute document proof a new rejection of a genuine body", async () => {
+    const body = "Below are set forth the conditions governing the warrant. Vesting remains conditional.";
+    const source = `<div hidden>Form 8-K cover text</div><h2>Item 3.02 Unregistered Sale of Equity Securities</h2><p>${body}</p><h2>Item 8.01 Other Events.</h2><p>Other body.</p>`;
+    const { data } = await collect([filing(1)], { [filing(1).accessionNumber]: source });
+    expect(data.events[0]!.sections.map(s => [s.item, s.text])).toEqual([["3.02", body], ["8.01", "Other body."]]);
   });
 
   it("preserves amendments, cutoff/window, read cap, omitted identities and error paths", async () => {

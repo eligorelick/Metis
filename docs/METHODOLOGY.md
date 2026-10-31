@@ -656,10 +656,25 @@ Item 3.02 accepts bounded `Unregistered Sale of Equity Securities` and
 title from the retained body. Full-title prose references and false prefixes
 do not establish headings or boundaries. The existing subsequent-item,
 signature, short incorporation-only and source-text retention boundaries remain.
-Title-ending sentence punctuation stays available during reference recognition:
-ordinary Above/Below/In body introductions are retained, while a finite
-predicate attached directly to the item title is a grammatical reference
-continuation rather than a new heading.
+Title-ending punctuation and original text-line boundaries stay available
+during reference recognition. The real collector retains the same parsed
+document as optional boundary context, with the existing two-million-character
+document cap. Exact text and projected coordinate agreement can establish a
+standalone title in heading/paragraph/table blocks; mismatched context supplies
+no proof. Comment/script/style labels cannot establish visible boundaries.
+Documents containing an actual HTML `hidden` attribute supply no optional block
+proof because global preprocessing does not remove that attribute's text; this
+local rule does not change global extraction or claim that text is visible.
+
+Without standalone-heading evidence, bounded passive/perfect predicate grammar
+distinguishes references, including relative-position modifiers. An auxiliary
+plus arbitrary text is insufficient: dates and proper names remain section
+bodies. A modifier also requires a preceding passive-link clause to establish
+the reference; otherwise an ambiguous inline heading is kept. Genuine
+Above/Below/In introductions, including `Below are set forth the conditions`,
+retain their exact bodies. Plain/inline callers remain supported without
+inventing source structure; this is bounded recognition, not a general language
+parser or an exhaustive event-review claim.
 
 New collections save their actual eligible-item codes as optional structured
 metadata. The builder validates the controlled codes, copies a deduplicated,

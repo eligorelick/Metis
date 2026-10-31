@@ -281,13 +281,14 @@ function mergeEarningsObservations<T extends SourcedEarningsFact<ReconciliationF
   });
 }
 
-/** One material-event 8-K from its primary document's plain text. Pure. */
+/** One material-event 8-K from its plain text and optional same-document boundaries. Pure. */
 export function buildMaterialEventFiling(
   filing: Pick<EdgarFiling, "accessionNumber" | "form" | "filingDate" | "items">,
   text: string,
   url: string,
+  sourceDocument?: ParsedDocument,
 ): MaterialEventFiling {
-  const sections = splitEightKItems(text)
+  const sections = splitEightKItems(text, sourceDocument)
     .filter((s) => MATERIAL_EVENT_ITEM_CODES.includes(s.item))
     .map((s): MaterialEventSection => ({
       item: s.item,
@@ -522,7 +523,8 @@ export async function collectCurrentReports(
       continue;
     }
     fetchedAt ??= doc.fetchedAt;
-    const event = buildMaterialEventFiling(filing, plain(doc.text), doc.url);
+    const document = parseDocument(doc.text.slice(0, 2_000_000));
+    const event = buildMaterialEventFiling(filing, document.fullText, doc.url, document);
     for (const section of event.sections.filter((s) => s.truncated)) notes.push(`8-K ${filing.accessionNumber} Item ${section.item}: retained ${section.text.length} of ${section.originalChars} source characters; omitted officer/event terms remain unreviewed.`);
     if (event.sections.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}) lists Items ${event.items.join(", ")} but no item heading could be read in its primary document`);
     events.push(event);
