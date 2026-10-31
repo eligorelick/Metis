@@ -97,8 +97,9 @@ illustration of the counting limitation, not a reconstruction of that program.
   a unique exact annual estimate endpoint for the report's symbol. Its timestamp
   is recorded metadata with unestablished acquisition origin; fixture-load and
   fallback clocks never prove original acquisition. Equality of dates does not
-  establish a role. The supplied 2026-10-30T23:21:15.748Z acquisition and recorded
-  2026-09-28 envelope date do not establish publication/update vintage.
+  establish a role. The recorded response timestamp 2026-10-30T23:21:15.748Z and
+  recorded 2026-09-28 envelope date establish neither original acquisition nor
+  publication/update vintage.
 
 ## Saved-report read contract
 
