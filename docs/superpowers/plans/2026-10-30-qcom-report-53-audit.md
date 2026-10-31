@@ -14,7 +14,7 @@
 
 **Review focus:** fabricated source comparability, unsupported lease-zero claims, date/filing look-ahead, parser overcapture, failed-response acceptance, misleading model attribution, incomplete legacy-reader coverage and unowned numerical deltas.
 
-**Execution order:** Tasks 0–8, then Task 11, then Tasks 9–10. Task 11 was added after the companion audit export established an estimate-date labeling defect; existing task identifiers are retained for evidence continuity. Task 9 remains the final release/replay owner.
+**Execution order:** Tasks 0–8, then Task 11, then Tasks 9–10. Task 11 was added after the companion audit export established an estimate-date labeling defect; existing task identifiers are retained for evidence continuity. Task 12 is the mandatory security-tooling remediation before retrying Task 10: the final security gate at `689b6d54` failed on a newly published upstream advisory. Task 9 remains the final release/replay owner.
 
 ## Task 0: Register the specification and execution plan
 
@@ -143,6 +143,20 @@ Task 8 implementation evidence: meaningful RED 6 failed/6 controls passed before
 - [ ] Run offline main-to-branch replay with identical fresh empty profiles/dead proxy/throwaway guards; use retained saved/supplemental/peer/stored fixtures and new filed-figure QCOM regressions. No original-run claim without retained unrounded inputs. Require zero unowned leaves, zero new Blocked reports and unchanged stored snapshots/read modes.
 - [ ] Run `npm run audit:deltas` dry; trace every changed leaf to a task and filed evidence, then write group `qcom53-report-integrity-d138-20261030` only after attribution passes.
 - [ ] Run relevant contracts/goldens/types, log and commit `fix: publish consistent report scope and audit conventions`.
+
+## Task 12: Remove vulnerable minimatch from development tooling
+
+**Trigger:** the unchanged final security gate at `689b6d54` reports GHSA-g3hv-75wg-m249 / CVE-2026-118764, published 2026-10-30, affecting minimatch below 11.0.1. Its pre-existing lockfile also matches main. This is mandatory release-check remediation, not another whole-branch finding wave; the eight preceding passing gates do not establish 9/9.
+
+**Scope:** dependency manifests/lock, an honestly named `@metis/legacy-minimatch` local compatibility package if needed, dependency-shape enforcement, real lint-consumer regressions, and exact change/decision records. Keep ESLint 9.39.5 and Next 16.4.2, all lint rules/file coverage, and the unchanged include-dev/low security gate. Never use force audit fixes, pretend an old package is a patched upstream version, or retain vulnerable matching code.
+
+- [x] Observe security-lock/installed-consumer RED and preserve passing actual ESLint file-selection, rule and TypeScript project-service controls before replacement.
+- [x] Replace every old minimatch engine with genuine upstream 11.0.1; adapt only the callable/class/predicate interface consumed by the six legacy ESLint packages. The modern TypeScript consumer uses the named upstream export. Keep local package links inside this worktree and preserve unrelated cross-platform lock entries.
+- [x] Strengthen the dependency gate to reject vulnerable nested/aliased versions in both lock and installed graph. Keep all prior checks and prove real lint selection/diagnostics are retained. Use isolated empty profiles, cleared credentials by name, blank npmrc and only the public unpaid registry exception; preserve the native code hash.
+- [x] Run focused regressions, typecheck, full lint, dependency shape and unchanged `audit:security`; retain every failure and write the private security-fix report. One named-stage feature commit with actual model attribution. No report/math/schema/version/payload/golden/delta change.
+- [ ] Obtain independent scoped review; the controller then reinstalls the verification worktree from the new lock and reruns final replay/deltas and all nine unchanged gates alone on the new commit. No fixer self-approval or release-readiness claim.
+
+Task 12 implementation evidence: observed old-engine RED (two failing security checks, five passing compatibility controls); the expanded dependency collector also failed before its change. Final focused five files/72 tests and typecheck pass; full lint has zero errors/warnings, dependency shape passes, and unchanged security audit reports zero vulnerabilities. The controller also authorized replacing two unused destructured bindings in the existing estimate-timing test with a typed clone/delete helper; the same exact only-estimateTiming masking equality and all 30 integration tests remain intact. Native code hash and all existing lint-file selection are preserved. Full receipts, failed setup attempts and scoped-adapter limitations are in the private security-fix report; final-head nine gates and independent approval remain pending.
 
 ## Task 10: Independently verify and deliver
 

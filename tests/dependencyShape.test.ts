@@ -18,7 +18,9 @@ const EXPECTED = {
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
-  "brace-expansion": ["1.1.21", "5.0.12"],
+  "brace-expansion": ["5.0.12"],
+  minimatch: ["11.0.1"],
+  "@metis/legacy-minimatch": ["1.0.0"],
 } as const;
 
 interface DependencyShapeModule {
@@ -61,7 +63,7 @@ function syntheticInstalledTree(): unknown {
         version: "1.0.0",
         dependencies: {
           "js-yaml": { version: "4.3.2" },
-          "brace-expansion": { version: "1.1.21" },
+          "brace-expansion": { version: "5.0.12" },
         },
       },
       loaderB: {
@@ -70,11 +72,27 @@ function syntheticInstalledTree(): unknown {
           "brace-expansion": { version: "5.0.12" },
         },
       },
+      minimatch: { name: "@metis/legacy-minimatch", version: "1.0.0" },
+      "minimatch-modern": { name: "minimatch", version: "11.0.1" },
     },
   };
 }
 
 describe("dependency shape gate", () => {
+  it("rejects vulnerable minimatch even under a nested path or npm alias", async () => {
+    const checker = await loadChecker();
+    for (const location of ["node_modules/nested/node_modules/minimatch", "node_modules/alias"]) {
+      const lock = JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
+      lock.packages[location] = { name: "minimatch", version: "10.2.5" };
+      expect(checker.collectLockVersions(lock).minimatch).toContain("10.2.5");
+      expect(() => checker.validateExactVersions(checker.collectLockVersions(lock))).toThrow(/minimatch.*10\.2\.5/);
+    }
+    const tree = syntheticInstalledTree() as { dependencies: Record<string, unknown> };
+    tree.dependencies.hidden = { dependencies: { alias: { name: "minimatch", version: "10.2.5" } } };
+    expect(checker.collectInstalledVersions(tree).minimatch).toContain("10.2.5");
+    expect(() => checker.validateExactVersions(checker.collectInstalledVersions(tree))).toThrow(/minimatch.*10\.2\.5/);
+  });
+
   it("pins the exact audited version sets in package-lock", async () => {
     const checker = await loadChecker();
     const lock = JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
@@ -100,7 +118,7 @@ describe("dependency shape gate", () => {
 
     const missing = clone();
     delete missing.packages[
-      "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion"
+      "node_modules/brace-expansion"
     ];
     expect(() =>
       checker.validateExactVersions(checker.collectLockVersions(missing)),
@@ -204,8 +222,11 @@ describe("dependency shape gate", () => {
           "sharp",
           "brace-expansion",
           "js-yaml",
+          "minimatch",
+          "minimatch-modern",
           "--all",
           "--json",
+          "--long",
           "--include=dev",
         ],
       },

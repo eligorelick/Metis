@@ -25,6 +25,12 @@ const estimateRows = [
   { symbol: "QCOM", date: "2027-09-28", revenueAvg: 1_450_000_000, epsAvg: 2.1 },
 ];
 
+function withoutEstimateTiming<T extends { estimateTiming?: unknown }>(entry: T): Omit<T, "estimateTiming"> {
+  const copy = { ...entry };
+  delete copy.estimateTiming;
+  return copy;
+}
+
 async function retained(rows = estimateRows, outer: string | undefined = ACQUIRED, inner: string | undefined = "2026-10-28T23:21:15.000Z", stale = false) {
   const cachedFetch: CachedFetchFn = async <T>() => ({ value: { body: rows, status: 200, fetchedAt: inner } as T, fetchedAt: outer, stale });
   const client = createFmpClient({ apiKey: "test-only", now: () => new Date(NOW), cachedFetch,
@@ -113,7 +119,7 @@ describe("estimate periods are not publication vintage", () => {
     expect(runStageB(withoutTiming)).toEqual(computed);
     expect(validateBundle(withoutTiming)).toEqual(validation);
     const before = assembleContextPayload(withoutTiming, computed, validation);
-    expect(payload.provenanceRegistry?.map(({ estimateTiming: _timing, ...r }) => r)).toEqual(before.provenanceRegistry?.map(({ estimateTiming: _timing, ...r }) => r));
+    expect(payload.provenanceRegistry?.map(withoutEstimateTiming)).toEqual(before.provenanceRegistry?.map(withoutEstimateTiming));
   });
 
   it("uses the same timing disclosure in classic, dossier, Markdown, print and audit without mutating a saved report", async () => {

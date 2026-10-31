@@ -20,6 +20,17 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - saved-report scope clarifications (2026-10-30)
 
+Release-check tooling remediation (2026-10-31): replace development-tooling
+minimatch 3/10 engines with genuine upstream 11.0.1 for
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+The six legacy ESLint consumers use the scoped `@metis/legacy-minimatch`
+callable/class/predicate adapter; TypeScript's consumer retains upstream named
+exports. The adapter delegates matching to the patched engine and does not
+reintroduce regexp compilation. No lint rule or file coverage is removed;
+the include-dev/low audit remains unchanged. This changes no report figure,
+schema, convention stamp, payload or golden. Final new-head release checks
+remain a separate acceptance requirement.
+
 The D-138 final-review correction limits the receivables repair note's accession
 display to a complete canonical hyphenated identifier, with fixed unavailable
 wording otherwise. Raw source evidence and filing identity, pair admission,
