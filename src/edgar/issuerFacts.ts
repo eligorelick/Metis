@@ -1,5 +1,6 @@
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { EdgarBundle } from "@/pipeline/types";
+import type { FetchResult } from "@/types/core";
 
 function cik(value: unknown): string | null {
   const text = typeof value === "number" && Number.isSafeInteger(value) ? String(value) : typeof value === "string" ? value : "";
@@ -21,4 +22,16 @@ export function confirmedIssuerFacts(symbol: string, edgar: Pick<EdgarBundle, "c
   const secRegistrant = registrant != null && cik(registrant.cik10) === mappedCik &&
     registrant.tickers.some((ticker) => ticker.trim().toUpperCase() === requested);
   return secMapping || secRegistrant ? facts : null;
+}
+
+/** Calculation view only: keep the original response in the bundle for audit. */
+export function admittedIssuerFacts(symbol: string, edgar: Pick<EdgarBundle, "cik" | "registrant" | "companyFacts"> | undefined): FetchResult<CompanyFacts> | null {
+  const result = edgar?.companyFacts;
+  if (result === undefined) return null;
+  if (!result.ok || confirmedIssuerFacts(symbol, edgar) !== null) return result;
+  return { ok: false, gap: {
+    field: "edgar.companyFacts.issuerIdentity",
+    reason: `SEC companyfacts were retained as source observations but excluded from calculations because their issuer identity is not independently confirmed for ${symbol.trim().toUpperCase()}.`,
+    severity: "warn",
+  } };
 }

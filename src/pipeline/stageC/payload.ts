@@ -439,7 +439,9 @@ export interface ContextPayload {
 // 1.54.0 (D-137, B6): financial-route currency and evidence, buyback coverage, revenue refusals,
 // common-equity/gain/scope peer comparisons and same-construction P/E ranking alter admitted context.
 // D-138 report-53 batch: source-scope qualifications and neutral debt captions change model context.
-export const PAYLOAD_VERSION = "1.56.0" as const;
+// F-01/F-02/F-03: admitted facts, annual operands and numeric evidence semantics
+// require fresh model/checkpoint identity; historical report bytes are unchanged.
+export const PAYLOAD_VERSION = "1.57.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

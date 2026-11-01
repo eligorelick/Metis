@@ -187,10 +187,11 @@
         "outputPerMTok": 10,
         "cacheWrite5mPerMTok": 2.5,
         "cacheWrite1hPerMTok": 4,
-        "cacheReadPerMTok": 0.2
+          "cacheReadPerMTok": 0.1
       },
       "notes": [
         "Adaptive thinking is the default when thinking is omitted; Metis does not send disabled/manual thinking.",
+          "Cache-read pricing rechecked 2026-11-01 against the official pricing page: $0.10/MTok; this does not reprice historical cost records.",
         "Provider effort defaults to high; effort levels are recalibrated from Sonnet 5, so re-evaluate them when migrating.",
         "Non-default sampling and forced tool choice are rejected; Metis uses structured output without either."
       ]

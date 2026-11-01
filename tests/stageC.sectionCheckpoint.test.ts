@@ -8,6 +8,18 @@ import { parsePassArtifactEnvelope, serializePassFailure } from "@/pipeline/jobA
 const directories: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const dir of directories.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 describe("durable section checkpoints", () => {
+  it("round-trips terminal provider diagnostics without changing legacy failures or partial recovery text", () => {
+    const providerFailure = { disposition: "terminal" as const, code: "subscription_sharing_usage_limit_exceeded", httpStatus: 429,
+      requestId: "req-offline", param: "model", bodyShape: "error" as const };
+    const failure = serializePassFailure(new Error("plan limit"), { kind: "transport", retryable: false, providerFailure, partialText: '{"thesis":[]}' });
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const changed of [{ disposition: "unknown" }, { httpStatus: 999 }, { code: "unsafe\ncode" }, { requestId: "Bearer secret" }, { body: "secret" }]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, providerFailure: { ...providerFailure, ...changed } } })).toThrow();
+    }
+    const legacy = { ...envelope, failure: { name: "Error", message: "cut off", kind: "transport", retryable: true } };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(legacy))).toEqual(legacy);
+  });
   it("round-trips bounded recovery text through a durable failure artifact", () => {
     const failure = serializePassFailure(new Error("cut off"), { kind: "transport", partialText: '{"verdict":{"synthesis":"saved"}}' });
     const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "v1:evidence" };

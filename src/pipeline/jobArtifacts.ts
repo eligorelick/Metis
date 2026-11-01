@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { ProviderFailureSchema, type ProviderFailure } from "@/ai/providerFailure";
 import { getDb, type ThesisDb } from "@/db";
 import {
   costLog,
@@ -42,6 +43,7 @@ export interface PassTelemetry {
 }
 
 export interface SerializedPassFailure {
+  providerFailure?: ProviderFailure;
   name: string;
   message: string;
   kind?: string;
@@ -222,7 +224,7 @@ function boundedText(value: unknown, fallback: string, max: number): string {
 
 export function serializePassFailure(
   error: unknown,
-  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string } = {},
+  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string; providerFailure?: ProviderFailure } = {},
 ): SerializedPassFailure {
   const candidate = error instanceof Error ? error : null;
   const failure: SerializedPassFailure = {
@@ -231,6 +233,7 @@ export function serializePassFailure(
   };
   if (details.kind !== undefined) failure.kind = boundedText(details.kind, "unknown", 128);
   if (details.retryable !== undefined) failure.retryable = details.retryable;
+  if (details.providerFailure !== undefined) failure.providerFailure = ProviderFailureSchema.parse(details.providerFailure);
   if (details.detail !== undefined && details.detail !== "") {
     failure.detail = boundedText(details.detail, "", 4_096);
   }
@@ -261,6 +264,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
   const allowed = ["name", "message"];
   if ("kind" in value) allowed.push("kind");
   if ("retryable" in value) allowed.push("retryable");
+  if ("providerFailure" in value) allowed.push("providerFailure");
   if ("detail" in value) allowed.push("detail");
   if ("partialText" in value) allowed.push("partialText");
   if (!hasExactKeys(value, allowed)) throw new Error("jobArtifacts: unexpected failure fields");
@@ -285,6 +289,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     message: value.message,
     ...(value.kind === undefined ? {} : { kind: value.kind }),
     ...(value.retryable === undefined ? {} : { retryable: value.retryable }),
+    ...(value.providerFailure === undefined ? {} : { providerFailure: ProviderFailureSchema.parse(value.providerFailure) }),
     ...(value.detail === undefined ? {} : { detail: value.detail }),
     ...(value.partialText === undefined ? {} : { partialText: value.partialText }),
   };

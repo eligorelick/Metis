@@ -27,7 +27,7 @@ import {
   yearsBetweenDates,
 } from "@/pipeline/stageB/growth";
 import { operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
-import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/quarterWindows";
 import type { CurrentCapitalSnapshot } from "@/pipeline/stageB/currentCapital";
 import type { RepurchaseExecution } from "@/pipeline/stageB/repurchaseExecutions";
 
@@ -35,7 +35,7 @@ import type { RepurchaseExecution } from "@/pipeline/stageB/repurchaseExecutions
 // Input interfaces — FMP field names
 // ---------------------------------------------------------------------------
 
-export interface CapitalIncomeRow {
+export interface CapitalIncomeRow extends FiscalDatedRow {
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Restatement recency: without these a duplicated fiscal period is ambiguous and rejected wholesale. */

@@ -30,7 +30,8 @@ const failed = (error: unknown) => new Response(`data: ${JSON.stringify({ type: 
 describe("documented ChatGPT plan-usage errors", () => {
   it("names Manage usage for a usage limit, before or after the stream opens", async () => {
     await expect(consumeChatGptStream(failed({ code: "subscription_sharing_usage_limit_exceeded" }))).rejects.toThrow(CHATGPT_MANAGE_USAGE_URL);
-    await expect(consumeChatGptStream(new Response("{}", { status: 429 }))).rejects.toThrow("usage limit reached");
+    // A status alone establishes rate limiting, not the documented plan-limit code.
+    await expect(consumeChatGptStream(new Response("{}", { status: 429 }))).rejects.toThrow("rate limited");
     expect(CHATGPT_MANAGE_USAGE_URL).toBe("https://chatgpt.com/settings/usage");
   });
 

@@ -23,6 +23,12 @@ import { eq } from "drizzle-orm";
 import Database from "better-sqlite3";
 import type { ThesisConfig } from "@/config/env";
 
+vi.mock("@/ai/chatgpt", () => ({
+  chatGptAccess: async () => "offline-test-token",
+  chatGptConnected: () => true,
+  trackChatGptRequest: (_id: string, signal?: AbortSignal) => ({ signal: signal ?? new AbortController().signal, release: () => {} }),
+}));
+
 const providerBoundaryMocks = vi.hoisted(() => ({
   runPass: vi.fn(async () => {
     throw new Error("provider runPass must not run during durable verify recovery");
@@ -6229,6 +6235,65 @@ describe("createJob", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — full pipeline with mock passes", () => {
+  it.each([
+    [403, "subscription_sharing_user_not_eligible"], [429, "subscription_sharing_usage_limit_exceeded"],
+    [401, "subscription_sharing_invalid_user"], [400, "subscription_sharing_unsupported_capability"],
+    [404, "model_not_found"], [403, "chatpass_v2_scope_not_authorized"],
+  ] as const)("stops automatic attempts after terminal subscription refusal %s %s", async (status, code) => {
+    const remote = vi.fn(async () => Response.json({ error: { code } }, { status, headers: { "x-request-id": "req-offline" } }));
+    vi.stubGlobal("fetch", remote);
+    try {
+      // An explicit second job is allowed to try; neither job may fan out into
+      // five automatic attempts. Initial bull/bear siblings may both dispatch.
+      for (let n = 0; n < (status === 429 ? 2 : 1); n++) {
+        const before = remote.mock.calls.length;
+        const { jobId } = createJob("MSFT");
+        const result = await runJob(jobId, pipelinePasses, { bundle: fakeBundle("MSFT"), hasAnthropicKey: true, now: NOW,
+          aiSelection: { provider: "chatgpt", connectionId: "offline-account", model: "gpt-6.1-sol", effort: "high" }, claimAiRuntime: async () => {} });
+        expect(result.dataOnly).toBe(true);
+        expect(remote.mock.calls.length - before).toBeGreaterThanOrEqual(1);
+        expect(remote.mock.calls.length - before).toBeLessThanOrEqual(2);
+        const artifacts = handle.db.select().from(jobPassArtifacts).where(eq(jobPassArtifacts.jobId, jobId)).all();
+        const refused = artifacts.map(row => JSON.parse(row.outcomeJson)).filter(out => out.failure?.providerFailure);
+        expect(refused.length).toBe(remote.mock.calls.length - before);
+        for (const out of refused) expect(out.failure).toMatchObject({ retryable: false,
+          providerFailure: { disposition: "terminal", code, httpStatus: status, requestId: "req-offline" } });
+        expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all().every(row => row.costUsd === 0)).toBe(true);
+      }
+      expect(remote.mock.calls.every(call => (call as unknown as [string])[0] === "https://api.openai.com/v1/responses")).toBe(true);
+      expect(providerBoundaryMocks.runPass).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it.each(["terminal", "temporary", "rate-limit", "drop"])("preserves an accepted sibling while handling subscription failure %s", async kind => {
+    const temporary = kind !== "terminal";
+    let calls = 0;
+    const accepted = fakeAnalystCase();
+    accepted.case_strength = 3;
+    accepted.thesis[0]!.text = "Available evidence supports a qualified case.";
+    accepted.keyDrivers = accepted.thesis;
+    accepted.risksToCase = accepted.thesis;
+    accepted.priceTarget.assumptions = ["Insufficient valuation evidence; target remains an unvalidated assumption."];
+    const remote = vi.fn(async () => {
+      calls++;
+      if (calls === 2) return kind === "drop" ? new Response("data: [DONE]\n\n")
+        : Response.json({ error: { code: kind === "rate-limit" ? "rate_limit_exceeded" : temporary ? "subscription_sharing_usage_unavailable" : "subscription_sharing_usage_limit_exceeded" } }, { status: kind === "temporary" ? 503 : 429 });
+      return new Response(`data: ${JSON.stringify({ type: "response.completed", response: { status: "completed", model: "gpt-6.1-sol",
+        usage: { input_tokens: 100, output_tokens: 50 }, output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(accepted) }] }] } })}\n\n`);
+    });
+    vi.stubGlobal("fetch", remote);
+    try {
+      const { jobId } = createJob("MSFT");
+      const result = await runJob(jobId, { ...pipelinePasses, runJudgePass: async () => { throw new Error("offline test stops after analysts"); } },
+        { bundle: fakeBundle("MSFT"), hasAnthropicKey: true, now: NOW,
+          aiSelection: { provider: "chatgpt", connectionId: "offline-account", model: "gpt-6.1-sol" }, claimAiRuntime: async () => {} });
+      expect(calls, handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!.stepsJson ?? "").toBe(temporary ? 3 : 2);
+      expect(result.dataOnly).toBe(true);
+      const bull = handle.db.select().from(jobPassArtifacts).where(eq(jobPassArtifacts.jobId, jobId)).all().filter(row => row.pass === "bull");
+      expect(bull).toHaveLength(1);
+      expect(JSON.parse(bull[0]!.outcomeJson).outcome).toBe("success");
+      expect(JSON.parse(bull[0]!.telemetryJson)).toMatchObject({ inputTokens: 100, outputTokens: 50, costUsd: 0 });
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("captures an explicit server-side connection selection for all passes without writing preferences", async () => {
     const {jobId}=createJob("MSFT");
     const {passes}=mockPasses({bullCostUsd:0,bearCostUsd:0,judgeCostUsd:0,verifyCostUsd:0});
@@ -6353,7 +6418,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.14");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.15");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

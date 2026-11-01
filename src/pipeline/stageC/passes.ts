@@ -224,6 +224,7 @@ export interface PassOutcomeLike {
 /** Structural mirror of the provider's typed PassError (kinds incl. the
  * Stage-C-fabricated parse/schema/transport — see PassErrorKind docs). */
 export interface PassErrorLike {
+  providerFailure?: import("@/ai/providerFailure").ProviderFailure;
   presumed?: boolean;
   execution?: ProviderExecution;
   kind:
@@ -1447,6 +1448,7 @@ function settlementFromPassRun<T>(
     failure: serializePassFailure(new Error(run.error.message), {
       kind: run.error.kind,
       retryable: isRetryablePassFailure(run),
+      providerFailure: run.error.providerFailure,
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
@@ -1736,11 +1738,11 @@ function endsTheRun(run: PassRun<AnalystCase>): boolean {
 
 /**
  * A dropped stream on a plan-billed (zero-cost) subscription connection is
- * safe to retry: nothing was billed and the caller bounds the attempts. Paid
+ * eligible for bounded retries unless the provider refused it terminally. Paid
  * API transport failures stay non-retryable so a retry can never double-spend.
  */
 export function isTransientSubscriptionFailure<T>(run: PassRun<T>): boolean {
-  if (run.ok || run.error.kind !== "transport" || run.error.notLaunched === true) return false;
+  if (run.ok || run.error.kind !== "transport" || run.error.notLaunched === true || run.error.providerFailure?.disposition === "terminal") return false;
   const { model, costUsd } = run.error;
   return (
     costUsd === 0 &&

@@ -175,9 +175,9 @@ Analyst requests also reserve eight $0.01 searches; the judge never searches.
 | Claude Opus 5.5 | $52.64 | $7.56 | $1,895.04 | $1.28 → $2.56 | $1.85 |
 | Claude Opus 5 | $65.78 | $9.45 | $2,368.08 | $1.60 → $3.20 | $2.34 |
 | Claude Opus 4.8 | $65.78 | $9.45 | $2,368.08 | $1.60 → $3.20 | $2.34 |
-| Claude Sonnet 5.5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.98 |
+| Claude Sonnet 5.5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.97 |
 | Claude Sonnet 5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.98 |
-| Claude Haiku 4.5 | $2.90 | $3.78 | $104.40 | $0.32 | $0.69 |
+| Claude Haiku 4.5 | $2.90 | $3.78 | $104.40 | $0.32 | $0.68 |
 
 The worst case is every request one pass could make (36: six transport attempts,
 each able to pause and resume five times); in the default request mode it is

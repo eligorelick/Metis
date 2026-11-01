@@ -223,6 +223,9 @@ const FISCAL_YEAR_END = /\b(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐
  */
 const PRIOR_YEAR_END = /\bend\s+of\s+(?:the\s+|its\s+|our\s+)?(?:last|prior|previous)\s+(?:fiscal\s+)?year\b|\b(?:last|prior|previous)[\s‐‑–—-]+(?:(?:fiscal|financial)[\s‐‑–—-]+)?year[\s‐‑–—-]*end\b/gi;
 const PRIOR_FISCAL_YEAR_END = "PRIORFYE";
+// Relative historical scope is evidence of a different period, even when its
+// absolute fiscal date cannot be resolved. Never let it inherit a current title.
+const HISTORICAL_PERIOD = /\b(?:last|prior|previous|preceding)[\s\u2010-\u2014-]+(?:(?:fiscal|calendar)[\s\u2010-\u2014-]+)?(?:quarter|year|period)(?:[\s\u2010-\u2014-]+end)?\b|\b(?:a|one|two|three|\d+)[\s\u2010-\u2014-]+(?:quarters?|years?|periods?)[\s\u2010-\u2014-]+(?:ago|earlier)\b/gi;
 function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolean } = {}): PeriodReference[] {
   let rest = text.replace(COMPARISON_BASIS, (match) => " ".repeat(match.length));
   const out: PeriodReference[] = [];
@@ -245,6 +248,9 @@ function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolea
   if (options.loose || options.yearEnd) {
     take(PRIOR_YEAR_END, () => ({ kind: "window", key: PRIOR_FISCAL_YEAR_END, label: "prior fiscal year-end" }));
     take(FISCAL_YEAR_END, () => ({ kind: "window", key: "FYE", label: "fiscal year-end" }));
+  }
+  if (options.loose || options.yearEnd) {
+    take(HISTORICAL_PERIOD, (m) => ({ kind: "period", key: `relative:${m[0].toLowerCase().replace(/[\s\u2010-\u2014-]+/g, " ")}`, label: m[0] }));
   }
   take(/\b(?:year[\s‐‑–—-]+to[\s‐‑–—-]+date|ytd)\b/gi, () => ({ kind: "window", key: "YTD", label: "YTD" }));
   take(/\b(?:quarter[\s‐‑–—-]+to[\s‐‑–—-]+date|qtd)\b/gi, () => ({ kind: "window", key: "QTD", label: "QTD" }));
@@ -326,7 +332,17 @@ function framePeriods(text: string, span: { start: number; end: number }, quanti
   const inside = (other: Quantity, [open, end]: readonly [number, number]): boolean => other.start - span.start > open && other.end - span.start <= end;
   const held = mergedSpans(figureParentheticals(ownText, span, all).filter((parenthetical) => !inside(quantity, parenthetical)));
   const read = periodLabels(blanked, { loose, yearEnd });
-  const stated = read.filter((period) => !withinSpans(held, period.start));
+  const stated = read.filter((period) => {
+    if (withinSpans(held, period.start)) return false;
+    if (!yearEnd) return true;
+    // A comma-introduced period followed by another amount can describe that
+    // amount ("$31.6B, at the prior year-end $25.8B"). It cannot label the
+    // earlier amount. Keep that reading withheld rather than borrow the title.
+    const comma = ownText.lastIndexOf(",", period.start);
+    if (comma < 0 || quantity.end - span.start > comma) return true;
+    return !all.some(other => other.start - span.start >= period.end && other.end <= span.end &&
+      !/[,;()]/.test(ownText.slice(period.end, other.start - span.start)));
+  });
   const isBase = (period: PeriodReference): boolean => {
     // Final re-review (AI-303-V3 / AI-402): a year-end is an instant, so it is read as a date is; any other window is a span and is
     // never a base. An instant right after "from" or "since" is where a change starts ("Since the end of the prior fiscal year,
@@ -1265,7 +1281,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       // Final re-review (AI-303-V3): a figure that lost a period to a parenthetical holding another figure has periods that cannot be
       // read. It inherits no period, header or window, and any claim it could bind is unchecked, as for an invalid date above.
       if (pool.some((candidate) => candidate.context.held)) {
-        return support("unchecked", "period-mismatch", "a source figure's period is stated inside a parenthetical that holds another figure, so the figure's period cannot be read",
+        return support("unchecked", "period-mismatch", "a source period is not unambiguously associated with this figure, so its period cannot be read",
           pool.filter((candidate) => candidate.context.held).slice(0, 3).map((candidate) => candidate.span));
       }
       // A clause that names no period is read under the excerpt's own (D-63);
@@ -1287,6 +1303,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       };
       const clauseMatches = (candidate: SourceBinding): boolean => {
         const ownPeriods = withoutTitleYearEnd(candidate, candidate.context.periods.find((period) => period.kind === "date")?.key);
+        // "increased from $A" can name a uniquely bound comparison base
+        // without dating it. This does not turn that base into a current value.
+        if (own.base && candidate.context.base && ownPeriods.length === 0 &&
+          candidate.context.periods.every(period => period.key.startsWith("relative:"))) return true;
         return ownPeriods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
           candidate.context.periods.every((period) => ownPeriods.some((stated) => stated.key === period.key));
       };

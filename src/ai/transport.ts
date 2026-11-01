@@ -1,4 +1,5 @@
 import "server-only";
+import { chatGptFailureContext, type ProviderFailure } from "./providerFailure";
 import type { RunPassArgs, RunPassOutcome } from "@/pipeline/stageC/passes";
 import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt";
 import { runGemini } from "./gemini";
@@ -23,7 +24,7 @@ interface ChatGptObservation {
   partialText?: string;
 }
 class ChatGptStreamError extends Error {
-  constructor(message: string, readonly observed: ChatGptObservation) { super(message); }
+  constructor(message: string, readonly observed: ChatGptObservation, readonly providerFailure?: ProviderFailure) { super(message); }
 }
 /**
  * Each error code OpenAI documents for ChatGPT plan usage (Sign in with
@@ -78,19 +79,20 @@ export function subscriptionMessages(args: RunPassArgs) {
 
 /** A terminal completed event is mandatory; partial JSON is never a successful pass. */
 export async function consumeChatGptStream(response: Response, onPartialText?: (text: string) => void): Promise<{ text: string; model: string; input: number; output: number; effort?: ChatGptEffort; serviceTier?: string }> {
+  const requestId = response.headers.get("x-request-id");
   if (!response.ok) {
     const failure = await response.json().catch(() => null);
-    const reason = chatGptFailure(failure?.error);
-    if (reason) throw new Error(reason);
+    const diagnostic = chatGptFailureContext(failure?.error, response.status, requestId,
+      failure?.error && typeof failure.error === "object" ? "error" : typeof failure?.detail === "string" ? "detail" : "other");
+    const reason = chatGptFailure(failure?.error) ?? (response.status === 429 ? "ChatGPT request was rate limited. Retry later with bounded backoff. No paid fallback was attempted."
+      : response.status === 401 ? "ChatGPT did not accept this connection's sign-in or plan-usage permission. Reconnect the account in Settings → AI connections."
+        : response.status === 403 ? "ChatGPT refused this request under a policy or permission check (such as the permitted serving region) or for model access."
+          : response.status === 503 ? CHATGPT_TEMPORARILY_UNAVAILABLE
+            : `ChatGPT could not start the report pass (HTTP ${response.status}).`);
+    throw new ChatGptStreamError(reason, {}, diagnostic);
   }
-  // Documented admission statuses before a stream opens: 401 signed identity
-  // or permission not accepted, 403 policy or permission (such as the serving
-  // region), 429 usage limit, 503 direct routing unavailable (keep credentials).
-  if (!response.ok || !response.body) throw new Error(response.status === 429 ? CHATGPT_USAGE_LIMIT
-    : response.status === 401 ? "ChatGPT did not accept this connection's sign-in or plan-usage permission. Reconnect the account in Settings → AI connections."
-      : response.status === 403 ? "ChatGPT refused this request under a policy or permission check (such as the permitted serving region) or for model access."
-        : response.status === 503 ? CHATGPT_TEMPORARILY_UNAVAILABLE
-          : `ChatGPT could not start the report pass (HTTP ${response.status}).`);
+  if (!response.body) throw new ChatGptStreamError(`ChatGPT could not start the report pass (HTTP ${response.status}).`, {},
+    chatGptFailureContext(null, response.status, requestId, "other"));
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = ""; let bytes = 0;
@@ -173,7 +175,8 @@ export async function consumeChatGptStream(response: Response, onPartialText?: (
         }
         if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
           const failure = event.response?.error ?? event.error ?? event;
-          throw new Error(chatGptFailure(failure) ?? `ChatGPT did not complete the pass${providerErrorDetail(failure, event)}. Check your model access and plan allowance. No paid fallback was attempted.`);
+          throw new ChatGptStreamError(chatGptFailure(failure) ?? `ChatGPT did not complete the pass${providerErrorDetail(failure, event)}. Check your model access and plan allowance. No paid fallback was attempted.`, observed,
+            chatGptFailureContext(failure, response.status, requestId, "stream-error"));
         }
         if (event.type === "response.completed") {
           const data = event.response;
@@ -206,7 +209,8 @@ export async function consumeChatGptStream(response: Response, onPartialText?: (
     if (error instanceof PassSettlementHookError) throw error;
     const reason = error instanceof Error && /^(ChatGPT|Invalid completed)/.test(error.message) ? error.message : "ChatGPT stream failed or was canceled. No paid fallback was attempted.";
     notePartial();
-    throw new ChatGptStreamError(reason, observed);
+    throw new ChatGptStreamError(reason, observed, error instanceof ChatGptStreamError ? error.providerFailure
+      : chatGptFailureContext(null, response.status, requestId, "transport"));
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
@@ -294,6 +298,8 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
         ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;
     return { ok: false, gap: { field, reason, severity: "critical", attemptedSources: [parsed.provider] },
       error: { kind: "transport", message: reason, model: observed?.model ? subscriptionModel(parsed.provider, observed.model) : args.model, costUsd: 0, fallbackUsed: false, aborted: args.signal?.aborted === true,
+        ...(parsed.provider === "chatgpt" ? { providerFailure: error instanceof ChatGptStreamError && error.providerFailure
+          ? error.providerFailure : chatGptFailureContext(null, undefined, null, "transport") } : {}),
         ...(runtimeConflict ? { notLaunched: true } : {}),
         ...(observed?.usage ? { usage: observed.usage } : {}),
         ...(observed?.partialText ? { partialText: observed.partialText } : {}),

@@ -16,13 +16,13 @@
 
 import type { ManifestEntry } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
-import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/quarterWindows";
 
 // ---------------------------------------------------------------------------
 // Input interfaces — field names exactly as FMP returns them
 // ---------------------------------------------------------------------------
 
-export interface GrowthIncomeRow {
+export interface GrowthIncomeRow extends FiscalDatedRow {
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */
@@ -35,7 +35,7 @@ export interface GrowthIncomeRow {
   epsDiluted?: number | null;
 }
 
-export interface GrowthCashFlowRow {
+export interface GrowthCashFlowRow extends FiscalDatedRow {
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */

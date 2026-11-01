@@ -148,7 +148,7 @@ import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntrie
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
-import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
@@ -405,8 +405,19 @@ export function selectEquityRiskPremium(
 // build explicit objects so a field rename upstream fails the typecheck here).
 // ---------------------------------------------------------------------------
 
+/** Keep the proof required by fiscal alias/whole-row recency admission. */
+function fiscalIdentity(r: FmpStatementRow) {
+  return {
+    cik: r.cik, reportedCurrency: r.reportedCurrency,
+    fiscalYear: r.fiscalYear, calendarYear: r.calendarYear, period: r.period,
+    periodStart: r.periodStart, accessionNumber: r.accessionNumber,
+    link: r.link, finalLink: r.finalLink, fieldProvenance: r.fieldProvenance,
+  };
+}
+
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     // Restatement recency: without these, a duplicated fiscal period is
     // ambiguous and gets rejected wholesale instead of resolved.
@@ -422,6 +433,7 @@ function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
 
 function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -579,6 +591,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
 
 function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -2007,7 +2020,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // D-60: marketable equity securities the filing places inside cash and
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
-  const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const admittedFacts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  const companyFacts = admittedFacts?.ok ? admittedFacts.value.data : null;
   const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
@@ -2033,7 +2047,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const todayIso = bundle.builtAt.slice(0, 10);
 
   // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
-  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null, { today: todayIso });
+  const routingEvidence = deriveRoutingEvidence(admittedFacts, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
   const inc0 = incomeAnnualReported[0];
@@ -2244,7 +2258,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Capital ---------------------------------------------------------------
   // D-61: the price actually paid for repurchased shares, from the filer's own
   // equity-statement tags, on the statements' share basis.
-  const companyFactsResult = bundle.edgar?.companyFacts;
+  const companyFactsResult = admittedFacts;
   const repurchaseExecutions = repurchaseExecutionsFromFacts({
     companyFacts: companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
     shareBasis: bundle.edgar?.shareBasis ?? null,
@@ -2465,8 +2479,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // them. Each is now computed from the filer's own XBRL tags where its
   // definition allows, and withheld with a stated reason where it does not.
   const financialMetrics = computeFinancialMetrics(route.base, {
-    companyFacts: bundle.edgar?.companyFacts ?? null,
+    companyFacts: admittedFacts,
     balance: balanceAnnual.map((r) => ({
+      ...fiscalIdentity(r),
       date: String(r.date ?? ""),
       acceptedDate: str(r.acceptedDate),
       filingDate: str(r.filingDate),
@@ -2479,6 +2494,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       preferredStock: num(r.preferredStock),
     })),
     income: incomeAnnual.map((r) => ({
+      ...fiscalIdentity(r),
       date: String(r.date ?? ""),
       acceptedDate: str(r.acceptedDate),
       filingDate: str(r.filingDate),
@@ -2586,7 +2602,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       totalDebt: balance === null ? null : current?.debtBridge.totalDebtIncludingLeases ?? null,
       totalEquity: equity,
       deferredIncomeTaxes: balance === null ? null : deferredIncomeTaxesAt(
-        bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+        companyFacts,
         isoDay(balance.date), currencies.model, bundle.builtAt),
     });
   })() : null;
@@ -2811,6 +2827,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const gaps = mergeManifest(
     newerResultsGaps,
     bundle.gaps,
+    admittedFacts?.ok === false && bundle.edgar?.companyFacts?.ok ? [admittedFacts.gap] : [],
     ttmGaps,
     route.gaps,
     degradation.gaps,
@@ -3950,7 +3967,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // trailing fallbacks are refused; the REIT block carries the computed as-of
   // and the note below states the basis.
   const nareitFfo = computeNareitFfo({
-    companyFacts: bundle.edgar?.companyFacts ?? null,
+    companyFacts: admittedIssuerFacts(bundle.symbol, bundle.edgar),
     periodEnd: isoDay(ctx.incomeAnnual[0]?.date),
     reportedCurrency: str(ctx.incomeAnnual[0]?.reportedCurrency),
     netIncome: num(ctx.incomeAnnual[0]?.netIncome),

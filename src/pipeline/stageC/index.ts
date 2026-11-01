@@ -358,6 +358,7 @@ class PassRunError extends Error {
     readonly sectionRequestsUsed?: number,
     readonly sectionMaxKeys?: number,
     readonly repairRejectedComplete?: boolean,
+    readonly providerFailure?: import("@/ai/providerFailure").ProviderFailure,
   ) {
     super(message);
     this.name = "PassRunError";
@@ -435,6 +436,7 @@ function unwrap<T>(run: PassRun<T>, label: string): PassResult<T> {
     run.error.sectionRequestsUsed,
     run.error.sectionMaxKeys,
     run.error.repairRejectedComplete,
+    run.error.providerFailure,
   );
 }
 
