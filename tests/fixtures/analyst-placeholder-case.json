@@ -1,0 +1,37 @@
+{
+  "thesis": [
+    {
+      "text": "Quarterly revenue for the quarter ended 2026-06-30 was USD 188.22 billion on the provider's basis; more precisely the provider figure is 188,219,000 USD, and it grew 97.95% year over year, so the growth trajectory is strong even on the lower of two unreconciled revenue definitions (judgment: the revenue definitions differ, so growth is read directionally).",
+      "label": "FACT",
+      "sourceId": "x",
+      "source": "x",
+      "asOf": "2026-06-30"
+    }
+  ],
+  "keyDrivers": [
+    {
+      "text": "x",
+      "label": "FACT",
+      "sourceId": "x",
+      "source": "x",
+      "asOf": null
+    }
+  ],
+  "risksToCase": [
+    {
+      "text": "x",
+      "label": "FACT",
+      "sourceId": "x",
+      "source": "x",
+      "asOf": null
+    }
+  ],
+  "catalysts": [],
+  "priceTarget": {
+    "value": 1,
+    "horizon": "x",
+    "assumptions": []
+  },
+  "evidence": [],
+  "case_strength": 3
+}

@@ -113,8 +113,8 @@ function seedJob(db: ThesisDb, id: string, symbol: string, maxCostUsd: number | 
 function analystCase(): AnalystCase {
   return {
     thesis: [{ text: "t", label: "JUDGMENT", source: "payload", asOf: null }],
-    keyDrivers: [],
-    risksToCase: [],
+    keyDrivers: [{ text: "case evidence", label: "JUDGMENT", source: "payload", asOf: null }],
+    risksToCase: [{ text: "case evidence", label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
     priceTarget: { value: 250, horizon: "12mo", assumptions: [] },
     evidence: [],
@@ -189,16 +189,6 @@ function fakeClient(scripts: Array<{ events?: unknown[]; final?: BetaMessage; fa
       },
     },
   } as unknown as Anthropic;
-}
-
-function midStreamOverload(): APIError {
-  return new APIError(
-    undefined,
-    { type: "error", error: { type: "overloaded_error", message: "Overloaded" } } as never,
-    undefined,
-    undefined,
-    "overloaded_error",
-  );
 }
 
 /** The real scheduler as the provider's admission, for one pass attempt. */
@@ -318,7 +308,8 @@ describe("what one request may cost", () => {
     // sized for one.
     const perRequest = maximumRequestCostUsd("claude-sonnet-5", "synthesize");
     const oneOrder = passWorstCaseCostUsd("claude-sonnet-5", "synthesize");
-    expect(oneOrder).toBeCloseTo(perRequest * PASS_MAX_REQUESTS, 5);
+    expect(oneOrder).toBeCloseTo(perRequest * PASS_MAX_REQUESTS * 6, 5);
+    expect(maximumPassCostUsd("claude-sonnet-5", "synthesize")).toBeCloseTo(oneOrder, 5);
     expect(
       passWorstCaseCostUsd("claude-sonnet-5", "synthesize", undefined, JUDGE_PASSES_PER_SETTING.both),
     ).toBeCloseTo(oneOrder * 2, 5);
@@ -453,7 +444,7 @@ describe("every provider request is admitted and settled on its own", () => {
     const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
     const { admission, reserved } = schedulerAdmission(claim, "bull", "pass-attempt", first.db);
     _resetAnthropicForTests(fakeClient([
-      { events: [{ type: "message_start", message: message({ usage: usage({ input_tokens: 1_000 }) }) }], failWith: midStreamOverload() },
+      { final: message({ stop_reason: "pause_turn", usage: usage({ input_tokens: 1_000 }) }) },
       { events: [{ type: "message_start", message: message() }], final: message({ usage: usage({ input_tokens: 2_000, output_tokens: 500 }) }) },
     ]));
     const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
@@ -462,7 +453,7 @@ describe("every provider request is admitted and settled on its own", () => {
     const result = await runPass({ ...passOpts, admission });
 
     expect(result.ok).toBe(true);
-    // Two requests: the failed attempt and the retry, each with its own
+    // Two requests: the paused turn and its continuation, each with its own
     // reservation at the per-request maximum.
     expect(reserved).toEqual([
       maximumRequestCostUsd("claude-sonnet-5", "bull"),
@@ -474,8 +465,8 @@ describe("every provider request is admitted and settled on its own", () => {
       requestAttemptId("pass-attempt", 1),
       requestAttemptId("pass-attempt", 2),
     ]);
-    // The failed attempt died after message_start without its final usage event: presumed.
-    expect(rows.map((row) => row.settlementKind)).toEqual(["presumed", "actual"]);
+    // The paused message and its successful continuation both have final usage.
+    expect(rows.map((row) => row.settlementKind)).toEqual(["actual", "actual"]);
     expect(rows[0]!.costUsd).toBeLessThanOrEqual(maximumRequestCostUsd("claude-sonnet-5", "bull"));
     // No reservation outlives the pass.
     expect(first.db.select().from(jobLlmLeases).all()).toEqual([]);
@@ -528,7 +519,7 @@ describe("every provider request is admitted and settled on its own", () => {
     const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
     const { admission } = schedulerAdmission(claim, "bull", "pass-attempt", first.db);
     _resetAnthropicForTests(fakeClient([
-      { events: [{ type: "message_start", message: message({ usage: usage({ input_tokens: 1_000, output_tokens: 10 }) }) }], failWith: midStreamOverload() },
+      { final: message({ stop_reason: "pause_turn", usage: usage({ input_tokens: 1_000, output_tokens: 10 }) }) },
     ]));
     const { _setTransportRetrySleepForTests } = await import("@/providers/anthropic");
     _setTransportRetrySleepForTests(async () => {});
@@ -772,7 +763,7 @@ describe("a caller abort after the provider answered but before message_start (A
     expect(calls()).toBe(1);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.aborted).toBe(true);
-    expect(!result.ok && result.error.message).toMatch(/aborted by the caller after the provider answered/);
+    expect(!result.ok && result.error.message).toMatch(/aborted by the caller after dispatch before usage was received/);
     expect(released()).toBe(0);
     expect(rows().cost).toHaveLength(1);
     expect(rows().cost[0]).toMatchObject({ settlementKind: "presumed" });
@@ -813,7 +804,7 @@ describe("a caller abort after the provider answered but before message_start (A
     expect(rows().cost[0]!.costUsd).toBeCloseTo(maximumRequestCostUsd("claude-sonnet-5", "bull"), 6);
   });
 
-  it("control: an abort before dispatch never calls fetch and is released at $0", async () => {
+  it("control: an abort before dispatch never reserves or calls fetch", async () => {
     const { admission, released } = countedAdmission("job-predispatch");
     const { client, calls } = realClient([{ kind: "hang-after-headers" }]);
     _resetAnthropicForTests(client);
@@ -823,7 +814,7 @@ describe("a caller abort after the provider answered but before message_start (A
     await runPass({ ...passOpts, admission, signal: controller.signal });
 
     expect(calls()).toBe(0);
-    expect(released()).toBe(1);
+    expect(released()).toBe(0);
     expect(rows().cost).toHaveLength(0);
   });
 });
@@ -940,7 +931,7 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
     expect(rows().cost).toHaveLength(0);
   });
 
-  it("pins that a connection reset before the response headers is released (D-117 limit)", async () => {
+  it("presumes an uncertain established-socket reset without replaying it", async () => {
     // D-117 limit, as at main: only a timeout after send, a stream lost after the headers, or an
     // answered-then-cancelled request is presumed. A non-timeout connection failure before the headers
     // (here an ECONNRESET on the read of an established socket, wrapped by the SDK as an
@@ -950,9 +941,9 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
       throw connectCause({ code: "ECONNRESET", syscall: "read", message: "read ECONNRESET" });
     };
     await runBull("job-econnreset-read");
-    expect(fetchCalls()).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
-    expect([...new Set(decisions)]).toEqual(["release"]);
-    expect(rows().cost).toHaveLength(0);
+    expect(fetchCalls()).toBe(1);
+    expect(decisions.every((d) => d.startsWith("settle presumed=true"))).toBe(true);
+    expect(rows().cost).toHaveLength(1);
   });
 
   it("keeps a headers timeout presumed", async () => {
@@ -972,7 +963,7 @@ describe("a connect-phase failure releases the request (AI-307)", () => {
       throw Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
     };
     await runBull("job-sdk-timeout");
-    expect(fetchCalls()).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect(fetchCalls()).toBe(1);
     expect(decisions.every((d) => d.startsWith("settle presumed=true"))).toBe(true);
   });
 

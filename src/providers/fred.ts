@@ -247,6 +247,9 @@ export interface FredObservation {
   value: number;
 }
 
+/** Bounded transport diagnostic; never contains a key, URL or provider body. */
+export type FredSeriesResult = FetchResult<FredObservation[]> & { keyedFailure?: string };
+
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface FredConfig {
@@ -557,7 +560,7 @@ export async function series(
   id: string,
   opts: FredSeriesOptions = {},
   config: FredConfig = {},
-): Promise<FetchResult<FredObservation[]>> {
+): Promise<FredSeriesResult> {
   const seriesId = id.trim().toUpperCase();
   if (seriesId.length === 0 || seriesId.includes(",")) {
     // Multi-id requests silently ignore cosd on fredgraph.csv — programming error.
@@ -565,6 +568,7 @@ export async function series(
   }
   const units = opts.units ?? "lin";
   let apiFailure: string | undefined;
+  let keyedFailure: string | undefined;
 
   if (config.apiKey) {
     const params = new URLSearchParams({
@@ -608,6 +612,13 @@ export async function series(
       }
     }
     if (res.htmlPage !== undefined) apiFailure = `FRED API returned ${res.htmlPage}`;
+    // Use only local failure categories: transport messages may contain api_key.
+    const terminalHttp = /^HTTP (\d{3})(?:\b)/.exec(res.failure ?? "");
+    const status = res.status || (terminalHttp ? Number(terminalHttp[1]) : 0);
+    keyedFailure = res.htmlPage !== undefined ? "unexpected HTML response"
+      : res.ok ? "unrecognized observation payload"
+      : status > 0 ? `HTTP ${status}${/^HTTP \d{3} with unreadable body:/.test(res.failure ?? "") ? " (response body unavailable)" : ""}`
+      : "transport failure";
     // Keyed path failed (including a 400 for a bad/unregistered key or series
     // id) → attempt the keyless fallback below.
   }
@@ -638,7 +649,9 @@ export async function series(
   const endpoint =
     `fred.stlouisfed.org/graph/fredgraph.csv?id=${seriesId}` +
     (units !== "lin" ? ` (units=${units} computed client-side; frequency inferred from spacing; monthly/quarterly/annual calendar lags, other frequencies observation lags)` : "");
-  return { ok: true, value: sourced(rows, rows[rows.length - 1].date, endpoint) };
+  return { ok: true, value: sourced(rows, rows[rows.length - 1].date, endpoint),
+    ...(keyedFailure === undefined ? {} : { keyedFailure }),
+  };
 }
 
 /**

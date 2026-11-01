@@ -19,15 +19,16 @@ import type { BetaMessage, BetaUsage } from "@anthropic-ai/sdk/resources/beta/me
 import { resetConfigCache } from "@/config/env";
 import { activeModelIds } from "@/models/registry";
 import { MODEL_STAGE_DEADLINE_MS } from "@/pipeline/leaseTiming";
+import { acceptedModelIds, REGISTRY_EFFORT_LEVELS } from "@/models/registry";
 import {
   CLIENT_MAX_RETRIES,
   MAX_PROVIDER_WEB_SEARCHES,
   PASS_TRANSPORT_MAX_ATTEMPTS,
   PASS_BILLING_EXPOSURE_MULTIPLIER,
   PASS_MAX_REQUESTS,
-  PASS_MID_STREAM_RETRY_DELAYS_MS,
   PASS_TRANSPORT_RETRY_DELAYS_MS,
   PREFERENCE_ORDER,
+  PreSendConnectionError,
   PRICING,
   WEB_SEARCH_TOOL_TYPE,
   WEB_SEARCH_USD_PER_SEARCH,
@@ -130,6 +131,27 @@ const baseOpts = {
   messages: [{ role: "user" as const, content: "hi" }],
   maxTokens: 8000,
 };
+
+describe("synthesis output pacing across the supported model registry", () => {
+  const supported = new Set(["claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5-5"]);
+  it.each(acceptedModelIds().flatMap(model => REGISTRY_EFFORT_LEVELS.map(effort => ({ model, effort }))))(
+    "$model/$effort preserves hard limits and uses advisory pacing only where supported", ({ model, effort }) => {
+      const opts = { ...baseOpts, model, effort, field: "llm.judge", maxTokens: 32000 };
+      const { params } = buildPassParams(opts);
+      const paced = supported.has(model);
+      expect(params.max_tokens).toBe(model.startsWith("claude-haiku") || effort === "low" || effort === "medium" ? 32000 : 128000);
+      expect(params.output_config?.effort).toBe(model.startsWith("claude-haiku") ? undefined : effort);
+      expect(params.output_config?.task_budget).toEqual(paced ? { type: "tokens", total: effort === "low" || effort === "medium" ? 24000 : 64000 } : undefined);
+      expect(params.betas?.includes("task-budgets-2026-03-13") ?? false).toBe(paced);
+      if (model.startsWith("claude-fable")) expect(params.betas).toContain("server-side-fallback-2026-06-01");
+      // Pacing is advisory. Reservations still cover the full hard ceiling.
+      expect(maximumRequestCostUsd(model, "synthesize")).toBeGreaterThan(0);
+      expect(buildPassParams({ ...opts, field: "llm.bull" }).params.output_config?.task_budget).toBeUndefined();
+      const result = interpretPassMessage(syntheticMessage({ model }), opts);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.data.execution?.taskBudgetTokens).toBe(paced ? (effort === "low" || effort === "medium" ? 24000 : 64000) : undefined);
+    });
+});
 
 /* ------------------------------------------------------------------------ *
  * Model resolution
@@ -960,9 +982,28 @@ describe("interpretPassMessage", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.kind).toBe("max_tokens");
+    expect(result.error.execution).toMatchObject({ modelObserved: true, usageReported: true });
     expect(result.error.maxTokens).toBe(baseOpts.maxTokens);
     expect(result.error.message).toMatch(/higher effort/i);
     // failed attempts still carry billed usage/cost for the cost log
+    expect(result.error.costUsd).toBeGreaterThan(0);
+  });
+
+  it("retains answer text on token exhaustion for strict section recovery, excluding thinking", () => {
+    const result = interpretPassMessage(syntheticMessage({
+      stop_reason: "max_tokens",
+      content: [
+        { type: "thinking", thinking: "private reasoning", signature: "signature" },
+        { type: "text", text: '{"verdict":{"summary":"accepted"},', citations: null },
+        { type: "text", text: '"fundamentals":', citations: null },
+      ],
+      usage: syntheticUsage({ input_tokens: 1000, output_tokens: 128_000 }),
+    }), { ...baseOpts, effort: "high" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.partialText).toBe('{"verdict":{"summary":"accepted"},"fundamentals":');
+    expect(result.error.kind).toBe("max_tokens");
+    expect(result.error.usage?.output_tokens).toBe(128_000);
     expect(result.error.costUsd).toBeGreaterThan(0);
   });
 
@@ -1078,7 +1119,7 @@ describe("resumeIfPaused", () => {
     const toolResult = { type: "web_search_tool_result", tool_use_id: "paired", content: [] };
     const finalThinking = { type: "thinking", thinking: "final model", signature: "valid" };
     const { client, calls } = fakeCreateClient([syntheticMessage()]);
-    await resumeIfPaused(client, { model: "claude-fable-5", messages: [] } as never, syntheticMessage({
+    await resumeIfPaused(client, { model: "claude-fable-5", max_tokens: 8000, messages: [] } as never, syntheticMessage({
       stop_reason: "pause_turn", content: [
         text, { type: "thinking", thinking: "discard", signature: "old" },
         { type: "redacted_thinking", data: "discard" }, { type: "connector_text", text: "discard" },
@@ -1094,7 +1135,7 @@ describe("resumeIfPaused", () => {
   it("returns the message unchanged and makes no calls when it never paused", async () => {
     const { client, calls } = fakeCreateClient([]);
     const message = syntheticMessage({ stop_reason: "end_turn" });
-    const result = await resumeIfPaused(client, baseOpts as never, message);
+    const result = await resumeIfPaused(client, buildPassParams(baseOpts).params, message);
     expect(result).toBe(message);
     expect(calls.length).toBe(0);
   });
@@ -1106,7 +1147,7 @@ describe("resumeIfPaused", () => {
       stop_reason: "pause_turn",
       content: [{ type: "server_tool_use", id: "x" }],
     });
-    const result = await resumeIfPaused(client, { model: "claude-opus-4-8", messages: [{ role: "user", content: "hi" }] } as never, pausedMsg);
+    const result = await resumeIfPaused(client, buildPassParams(baseOpts).params, pausedMsg);
     expect(result).toBe(finalMsg);
     expect(calls.length).toBe(1);
     // The resumed request appends the PAUSED assistant content unchanged —
@@ -1121,7 +1162,7 @@ describe("resumeIfPaused", () => {
   it("stops after MAX_PAUSE_RESUMPTIONS and returns the still-paused message rather than looping forever", async () => {
     const pausedMsg = syntheticMessage({ stop_reason: "pause_turn" });
     const { client, calls } = fakeCreateClient([pausedMsg]); // always pauses
-    const result = await resumeIfPaused(client, { model: "claude-opus-4-8", messages: [] } as never, pausedMsg);
+    const result = await resumeIfPaused(client, { model: "claude-opus-4-8", max_tokens: 8000, messages: [] } as never, pausedMsg);
     expect(result.stop_reason).toBe("pause_turn");
     expect(calls.length).toBe(MAX_PAUSE_RESUMPTIONS);
   });
@@ -1302,6 +1343,7 @@ interface StreamScript {
   final?: BetaMessage;
   /** Terminal failure: emit "error" and reject finalMessage() with this. */
   failWith?: unknown;
+  onAbort?: () => void;
 }
 
 function makeFakeStream(script: StreamScript) {
@@ -1325,7 +1367,13 @@ function makeFakeStream(script: StreamScript) {
   });
   finalPromise.catch(() => {}); // consumed via finalMessage(); avoid unhandled rejection noise
   queueMicrotask(() => {
-    for (const event of script.events ?? []) emit("streamEvent", event);
+    try {
+      for (const event of script.events ?? []) emit("streamEvent", event);
+    } catch (error) {
+      // The SDK wraps listener failures before rejecting finalMessage().
+      settleFinal.reject(Object.assign(new AnthropicError(String(error)), { cause: error }));
+      return;
+    }
     if (script.failWith !== undefined) {
       emit("error", script.failWith);
       settleFinal.reject(script.failWith);
@@ -1338,6 +1386,7 @@ function makeFakeStream(script: StreamScript) {
     on: (name: string, fn: (...args: unknown[]) => void) => add(name, fn, false),
     once: (name: string, fn: (...args: unknown[]) => void) => add(name, fn, true),
     finalMessage: () => finalPromise,
+    abort: () => script.onAbort?.(),
   };
 }
 
@@ -1506,6 +1555,62 @@ describe("isRetryableTransportError", () => {
 });
 
 describe("runPassStreaming transport retry", () => {
+  it.each([false, true])("aborts generation and preserves the original checkpoint failure without retrying (resume=%s)", async (resume) => {
+    const failure = new Error("durable checkpoint unavailable");
+    let aborts = 0;
+    const settlements: RequestSettlement[] = [];
+    const { client, streamCalls } = fakeStreamingClient([...(resume ? [{ final: syntheticMessage({ stop_reason: "pause_turn" }) }] : []), { events: [messageStartEvent({ input_tokens: 100 }),
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: '{"verdict":' } }],
+      final: syntheticMessage(), onAbort: () => { aborts += 1; },
+    }]);
+    _resetAnthropicForTests(client);
+    await expect(runPass({ ...streamingOpts, onPartialText: () => { throw failure; }, admission: {
+      reserve: async () => ({ id: "checkpoint-failure", maximumUsd: 10 }),
+      settle: async (_permit, settlement) => { settlements.push(settlement); }, release: async () => {},
+    } })).rejects.toBe(failure);
+    expect(streamCalls).toHaveLength(resume ? 2 : 1);
+    expect(aborts).toBe(1);
+    expect(settlements).toHaveLength(resume ? 2 : 1);
+    expect(settlements.at(-1)).toMatchObject({ presumed: true, usage: { input_tokens: 100 } });
+  });
+
+  it("checkpoints streamed answer text and retains it when a billed stream fails without replaying", async () => {
+    const partials: string[] = [];
+    const { client, streamCalls } = fakeStreamingClient([{ events: [
+      messageStartEvent({ input_tokens: 100 }),
+      { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "private reasoning", signature: "s" } },
+      { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: '{"verdict":{"synthesis":"saved"},' } },
+      { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: '"business":' } },
+      messageDeltaEvent({ output_tokens: 50 }),
+    ], failWith: midStreamOverloadedError() }]);
+    _resetAnthropicForTests(client);
+    const delays = instantSleep();
+    const result = await runPass({ ...streamingOpts, onPartialText: text => { partials.push(text); } });
+    expect(streamCalls).toHaveLength(1);
+    expect(delays).toHaveLength(0);
+    expect(partials).toEqual(['{"verdict":{"synthesis":"saved"},', '{"verdict":{"synthesis":"saved"},"business":']);
+    expect(result).toMatchObject({ ok: false, error: { kind: "transport", partialText: partials[1], usage: { input_tokens: 100, output_tokens: 50 } } });
+  });
+
+  it("revalidates an expanded pause-turn before reserving another request and preserves the paid usage", async () => {
+    const { client, streamCalls } = fakeStreamingClient([{ final: syntheticMessage({
+      model: "claude-haiku-4-5", stop_reason: "pause_turn", usage: syntheticUsage({ input_tokens: 100, output_tokens: 10 }),
+      content: [{ type: "text", text: "x".repeat(600_000) }],
+    }) }]);
+    _resetAnthropicForTests(client);
+    let reservations = 0;
+    const settlements: RequestSettlement[] = [];
+    const result = await runPass({ ...baseOpts, model: "claude-haiku-4-5", admission: {
+      reserve: async () => ({ id: `permit-${++reservations}`, maximumUsd: 10 }),
+      settle: async (_permit, settlement) => { settlements.push(settlement); }, release: async () => {},
+    } });
+    expect(streamCalls).toHaveLength(1);
+    expect(reservations).toBe(1);
+    expect(result).toMatchObject({ ok: false, error: { kind: "context_window", usage: { input_tokens: 100, output_tokens: 10 } } });
+    if (!result.ok) expect(result.error.costUsd).toBeCloseTo(settlements[0]!.costUsd, 10);
+  });
+
   afterEach(() => {
     _setTransportRetrySleepForTests();
   });
@@ -1600,7 +1705,7 @@ describe("runPassStreaming transport retry", () => {
     expect(settled[0]).toMatchObject({ costUsd: result.error.costUsd, presumed: true });
   });
 
-  it("retries a mid-stream overloaded error with backoff and succeeds on the next attempt", async () => {
+  it("stops a billed overload without replaying the entire request", async () => {
     const delays = instantSleep();
     const finalUsage = syntheticUsage({
       input_tokens: 5_000,
@@ -1622,29 +1727,16 @@ describe("runPassStreaming transport retry", () => {
     await expect(handle.firstToken).resolves.toBe("streamEvent");
     const result = await handle.result;
 
-    expect(streamCalls.length).toBe(2);
-    // This attempt streamed before it died, so the longer mid-stream ladder
-    // applies: Anthropic shed load while already generating.
-    expect(delays).toEqual([PASS_MID_STREAM_RETRY_DELAYS_MS[0]]);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    // The failed attempt's streamed tokens WERE billed — they must be folded
-    // into the pass's total usage and cost, not silently dropped.
-    expect(result.value.data.usage.input_tokens).toBe(10_000);
-    expect(result.value.data.usage.output_tokens).toBe(28_000);
-    expect(result.value.data.usage.server_tool_use?.web_search_requests).toBe(5);
-    // The dead attempt never reached its final usage event: its reported usage
-    // plus the unreported output remainder (8,001 x $25/MTok), presumed.
-    expect(result.value.data.presumed).toBe(true);
-    expect(result.value.data.costUsd).toBeCloseTo(
-      computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) +
-        0.200025 +
-        computeCostUsd(finalUsage, "claude-opus-4-8", 3),
-      10,
-    );
+    expect(streamCalls).toHaveLength(1);
+    expect(delays).toEqual([]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.usage).toMatchObject({ input_tokens: 5000, output_tokens: 8000, server_tool_use: { web_search_requests: 2 } });
+    expect(result.error.costUsd).toBeCloseTo(computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) + 0.200025, 10);
+    expect(result.error.presumed).toBe(true);
   });
 
-  it("retries a stream that died after generation started and folds its billed usage into the result", async () => {
+  it("stops a disconnected stream, retaining reported usage and the presumed remainder", async () => {
     const delays = instantSleep();
     const finalUsage = syntheticUsage({ input_tokens: 5_000, output_tokens: 20_000 });
     const finalMsg = syntheticMessage({
@@ -1678,18 +1770,16 @@ describe("runPassStreaming transport retry", () => {
     await expect(handle.firstToken).resolves.toBe("streamEvent");
     const result = await handle.result;
 
-    // Retried on the mid-stream ladder, never rejected, never released.
-    expect(streamCalls.length).toBe(2);
-    expect(delays).toEqual([PASS_MID_STREAM_RETRY_DELAYS_MS[0]]);
+    expect(streamCalls.length).toBe(1);
+    expect(delays).toEqual([]);
     expect(released).toBe(0);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.data.usage.input_tokens).toBe(10_000);
-    expect(result.value.data.usage.output_tokens).toBe(28_000);
-    // The dead attempt settled what it had reported plus the presumed remainder.
-    expect(settled).toHaveLength(2);
-    expect(settled[0]!.presumed).toBe(true);
-    expect(settled[0]).toMatchObject({ usage: { input_tokens: 5_000, output_tokens: 8_000 } });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.usage).toMatchObject({ input_tokens: 5000, output_tokens: 8000 });
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.costUsd).toBeGreaterThan(computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2));
+    expect(settled).toHaveLength(1);
+    expect(settled[0]).toMatchObject({ costUsd: result.error.costUsd, presumed: true, usage: { input_tokens: 5_000, output_tokens: 8_000 } });
   });
 
   it("presumes a request whose body died before message_start rather than releasing it", async () => {
@@ -1719,8 +1809,12 @@ describe("runPassStreaming transport retry", () => {
     // whole response with nobody listening: presumed at the maximum, never
     // released as "never reached the provider".
     expect(released).toBe(0);
-    expect(settled.every((s) => s.presumed === true && s.costUsd === 12.5)).toBe(true);
-    expect(settled.length).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect(settled).toHaveLength(1);
+    if (!result.ok) {
+      expect(result.error.presumed).toBe(true);
+      expect(result.error.costUsd).toBe(12.5); // the actual permit's maximum, not a recomputed bound
+      expect(settled[0]).toMatchObject({ presumed: true, costUsd: result.error.costUsd });
+    }
   });
 
   /**
@@ -1733,7 +1827,7 @@ describe("runPassStreaming transport retry", () => {
   it("resolves an aborted result and settles firstToken when the signal aborts during the retry backoff", async () => {
     const controller = new AbortController();
     const { client, streamCalls } = fakeStreamingClient([
-      { events: [], failWith: new APIConnectionError({ message: "socket hang up" }) },
+      { events: [], failWith: new APIConnectionError({ cause: new PreSendConnectionError("ECONNREFUSED", new Error("connect refused")) }) },
     ]);
     _resetAnthropicForTests(client);
 
@@ -1750,19 +1844,19 @@ describe("runPassStreaming transport retry", () => {
     expect(result.error.aborted).toBe(true);
   });
 
-  it("carries the billed usage of earlier attempts on an abort during a mid-stream backoff", async () => {
+  it("returns billed failure without entering a backoff when a sibling may later abort", async () => {
     const controller = new AbortController();
     const { client } = fakeStreamingClient([failingAttemptScript]);
     _resetAnthropicForTests(client);
 
     const handle = runPassStreaming({ ...streamingOpts, signal: controller.signal });
     await expect(handle.firstToken).resolves.toBe("streamEvent");
-    setTimeout(() => controller.abort(new Error("sibling ended the run")), 25);
     const result = await handle.result;
+    controller.abort(new Error("sibling ended the run"));
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.aborted).toBe(true);
+    expect(result.error.aborted).toBeUndefined();
     // Attempt 1 streamed 5K input + 8K output before it died: still billed.
     expect(result.error.usage).toMatchObject({ input_tokens: 5_000, output_tokens: 8_000 });
     expect(result.error.presumed).toBe(true);
@@ -1812,7 +1906,70 @@ describe("runPassStreaming transport retry", () => {
     expect(settled[0].costUsd).toBeCloseTo(expected, 6);
   });
 
-  it("resolves a typed transport failure carrying summed billed usage after exhausting attempts", async () => {
+  it.each([false, true])("retains uncertain billing when an abort arrives before usage (resumption=%s)", async (resume) => {
+    const paused = syntheticMessage({ stop_reason: "pause_turn" });
+    const { client, streamCalls } = fakeStreamingClient([
+      ...(resume ? [{ final: paused }] : []), { failWith: new APIUserAbortError() },
+    ]);
+    _resetAnthropicForTests(client);
+    const settled: RequestSettlement[] = [];
+    let released = 0;
+    const opts = { ...streamingOpts, effort: "low" as const, admission: {
+      reserve: async () => ({ id: "permit", maximumUsd: 100 }),
+      settle: async (_permit: unknown, value: RequestSettlement) => { settled.push(value); },
+      release: async () => { released++; },
+    } };
+    const result = await runPass(opts);
+    expect(streamCalls).toHaveLength(resume ? 2 : 1);
+    expect(released).toBe(0);
+    expect(settled.at(-1)).toMatchObject({ presumed: true });
+    expect(settled.at(-1)!.costUsd).toBeGreaterThan(0);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatchObject({ kind: "transport", aborted: true, presumed: true });
+    expect(result.error.message).toMatch(/presumed request maximum.*no usage/i);
+    expect(result.error.costUsd).toBeCloseTo(settled.reduce((sum, row) => sum + row.costUsd, 0), 8);
+    if (resume) expect(result.error.usage).toEqual(paused.usage);
+  });
+
+  it.each(["already-aborted", "initial-admission", "before-resume", "resume-admission"] as const)(
+    "does not dispatch or presume a request canceled at %s", async (boundary) => {
+      const controller = new AbortController();
+      const resume = boundary === "before-resume" || boundary === "resume-admission";
+      const paused = syntheticMessage({ stop_reason: "pause_turn" });
+      const { client, streamCalls } = fakeStreamingClient([{ final: paused }, { final: syntheticMessage() }]);
+      _resetAnthropicForTests(client);
+      const settled: RequestSettlement[] = [];
+      let reserved = 0, released = 0;
+      if (boundary === "already-aborted") controller.abort();
+      const handle = runPassStreaming({ ...streamingOpts, effort: "low", signal: controller.signal, admission: {
+        reserve: async () => {
+          reserved++;
+          if (boundary === "initial-admission" || (boundary === "resume-admission" && reserved === 2)) controller.abort();
+          return { id: `permit-${reserved}`, maximumUsd: 100 };
+        },
+        settle: async (_permit: unknown, value: RequestSettlement) => {
+          settled.push(value);
+          if (boundary === "before-resume") controller.abort();
+        },
+        release: async () => { released++; },
+      } });
+      await expect(handle.firstToken).resolves.toBe("abort");
+      const result = await handle.result;
+      expect(streamCalls).toHaveLength(resume ? 1 : 0);
+      expect(reserved).toBe(boundary === "already-aborted" ? 0 : boundary === "resume-admission" ? 2 : 1);
+      expect(released).toBe(boundary.endsWith("admission") ? 1 : 0);
+      expect(settled).toHaveLength(resume ? 1 : 0);
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.aborted).toBe(true);
+      expect(result.error.presumed).not.toBe(true);
+      expect(result.error.costUsd ?? 0).toBeCloseTo(settled.reduce((sum, row) => sum + row.costUsd, 0), 8);
+      expect(result.error.execution?.effectiveEffort).toBe(resume ? "low" : null);
+    },
+  );
+
+  it("resolves a typed billed failure on the first attempt without spending the retry allowance", async () => {
     const delays = instantSleep();
     const { client, streamCalls } = fakeStreamingClient([failingAttemptScript]);
     _resetAnthropicForTests(client);
@@ -1821,32 +1978,26 @@ describe("runPassStreaming transport retry", () => {
     await expect(handle.firstToken).resolves.toBe("streamEvent");
     const result = await handle.result; // must RESOLVE, not reject
 
-    expect(streamCalls.length).toBe(PASS_TRANSPORT_MAX_ATTEMPTS);
-    expect(delays).toEqual([
-      PASS_MID_STREAM_RETRY_DELAYS_MS[0],
-      ...Array.from(
-        { length: PASS_TRANSPORT_MAX_ATTEMPTS - 2 },
-        () => PASS_MID_STREAM_RETRY_DELAYS_MS[PASS_MID_STREAM_RETRY_DELAYS_MS.length - 1],
-      ),
-    ]);
+    expect(streamCalls.length).toBe(1);
+    expect(delays).toEqual([]);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.kind).toBe("transport");
     expect(result.gap.field).toBe("llm.bull");
-    expect(result.gap.reason).toContain(`${PASS_TRANSPORT_MAX_ATTEMPTS} attempt`);
+    expect(result.gap.reason).toContain("1 attempt");
     expect(result.error.message).toContain("Overloaded");
     // Billed usage across ALL attempts is surfaced so cost_log records real
     // spend. Derived from the attempt budget rather than restated, because
     // that budget absorbed the SDK's retries (DECISIONS D-10).
-    expect(result.error.usage?.input_tokens).toBe(5_000 * PASS_TRANSPORT_MAX_ATTEMPTS);
-    expect(result.error.usage?.output_tokens).toBe(8_000 * PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect(result.error.usage?.input_tokens).toBe(5_000);
+    expect(result.error.usage?.output_tokens).toBe(8_000);
     expect(result.error.model).toBe("claude-opus-4-8");
-    expect(result.error.webSearches).toBe(2 * PASS_TRANSPORT_MAX_ATTEMPTS);
+    expect(result.error.webSearches).toBe(2);
     expect(result.error.execution).toMatchObject({
       requestedModel: streamingOpts.model, requestedEffort: null, effectiveEffort: null,
     });
     expect(result.error.costUsd).toBeCloseTo(
-      PASS_TRANSPORT_MAX_ATTEMPTS * (computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) + 0.200025),
+      computeCostUsd(attemptBilledUsage, "claude-opus-4-8", 2) + 0.200025,
       10,
     );
   });
@@ -1876,13 +2027,13 @@ describe("runPassStreaming transport retry", () => {
     expect(result.error.message).toContain("invalid request");
   });
 
-  it("keeps firstToken pending across a pre-token retry so bear still sequences off the real cache write", async () => {
+  it("keeps firstToken pending across a proved pre-send retry so bear sequences off the real cache write", async () => {
     instantSleep();
     const finalMsg = syntheticMessage({
       content: [{ type: "text", text: '{"ok":true}', citations: null }],
     });
     const { client } = fakeStreamingClient([
-      { failWith: new APIConnectionError({ message: "socket hang up" }) },
+      { failWith: new APIConnectionError({ cause: new PreSendConnectionError("ECONNREFUSED", new Error("connect refused")) }) },
       { events: [messageStartEvent(attemptStartUsage)], final: finalMsg },
     ]);
     _resetAnthropicForTests(client);
@@ -1894,10 +2045,10 @@ describe("runPassStreaming transport retry", () => {
     expect(result.ok).toBe(true);
   });
 
-  it('settles firstToken as "error" only when every attempt dies before any stream event', async () => {
+  it('settles firstToken as "error" when all proved pre-send connection attempts fail', async () => {
     instantSleep();
     const { client, streamCalls } = fakeStreamingClient([
-      { failWith: new APIConnectionError({ message: "socket hang up" }) },
+      { failWith: new APIConnectionError({ cause: new PreSendConnectionError("ECONNREFUSED", new Error("connect refused")) }) },
     ]);
     _resetAnthropicForTests(client);
 
@@ -2324,17 +2475,16 @@ describe("a pass result states what its requests settled", () => {
 
     const result = await runPass({ ...passOpts, admission });
 
-    expect(settled).toHaveLength(3);
+    expect(settled).toHaveLength(2);
     expect(settled[0].costUsd).toBeCloseTo(computeCostUsd(syntheticUsage({ input_tokens: 1_000, output_tokens: 100 }), MODEL), 9);
-    expect(settled[2].costUsd).toBeCloseTo(computeCostUsd(syntheticUsage({ input_tokens: 3_000, output_tokens: 300 }), MODEL), 9);
     const ledgerUsd = settled.reduce((sum, s) => sum + s.costUsd, 0);
     const ledgerInput = settled.reduce((sum, s) => sum + (s.usage?.input_tokens ?? 0), 0);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.data.usage.input_tokens).toBe(ledgerInput); // 6,000
-    expect(result.value.data.costUsd).toBeCloseTo(ledgerUsd, 9);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.usage?.input_tokens).toBe(ledgerInput); // 3,000; no replay
+    expect(result.error.costUsd).toBeCloseTo(ledgerUsd, 9);
     expect(settled.filter((s) => s.presumed === true)).toHaveLength(1); // the failed resumption
-    expect(result.value.data.presumed).toBe(true);
+    expect(result.error.presumed).toBe(true);
   });
 
   it("reports in pass mode what request mode settles for the same requests", async () => {
@@ -2347,9 +2497,9 @@ describe("a pass result states what its requests settled", () => {
     _resetAnthropicForTests(fakeStreamingClient(failedResumptionScripts()).client);
     const passMode = await runPass(passOpts);
 
-    expect(passMode.ok).toBe(true);
-    if (!passMode.ok) return;
-    expect(passMode.value.data.costUsd).toBeCloseTo(ledgerUsd, 9);
+    expect(passMode.ok).toBe(false);
+    if (passMode.ok) return;
+    expect(passMode.error.costUsd).toBeCloseTo(ledgerUsd, 9);
   });
 
   it("includes a request presumed at its maximum after a send timeout in the pass result", async () => {
@@ -2365,10 +2515,11 @@ describe("a pass result states what its requests settled", () => {
     const result = await runPass({ ...passOpts, model: "claude-opus-4-8", admission });
 
     expect(settled[0]).toMatchObject({ presumed: true, costUsd: 9.53 });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.data.costUsd).toBeCloseTo(9.53 + settled[1].costUsd, 9);
-    expect(result.value.data.presumed).toBe(true);
+    expect(settled).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.costUsd).toBeCloseTo(9.53, 9);
+    expect(result.error.presumed).toBe(true);
   });
 
   it("carries a terminal request presumed at its maximum, with no usage, on the transport error", async () => {
@@ -2473,7 +2624,7 @@ describe("a stream that dies after message_start", () => {
     expect(settled[0].costUsd).toBeCloseTo(2.78, 6); // 0.22002 reported + (128,000 - 1) x $20/MTok
   });
 
-  it("carries the presumed figure and flag into the pass result after a successful retry", async () => {
+  it("carries the presumed figure and flag into a terminal failure without replay", async () => {
     instantSleep();
     const { admission, settled } = recording();
     const ok = okMessage();
@@ -2485,10 +2636,11 @@ describe("a stream that dies after message_start", () => {
 
     const result = await runPass({ ...opts55, admission });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.data.presumed).toBe(true);
-    expect(result.value.data.costUsd).toBeCloseTo(
+    expect(settled).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.presumed).toBe(true);
+    expect(result.error.costUsd).toBeCloseTo(
       settled.reduce((sum, s) => sum + s.costUsd, 0),
       9,
     );
@@ -2546,11 +2698,11 @@ describe("a stream that dies after message_start", () => {
       admission,
     });
 
-    expect(settled).toHaveLength(3);
+    expect(settled).toHaveLength(2);
     expect(settled.filter((s) => s.presumed === true)).toHaveLength(1);
     expect(settled[1].costUsd).toBeCloseTo(0.628, 9); // 0.30802 + (16,000 - 1) x $20/MTok
-    expect(result.ok && result.value.data.costUsd).toBeCloseTo(0.652, 9); // 0.006 + 0.628 + 0.018
-    expect(result.ok && result.value.data.presumed).toBe(true);
+    expect(!result.ok && result.error.costUsd).toBeCloseTo(0.634, 9); // 0.006 + 0.628; no replay
+    expect(!result.ok && result.error.presumed).toBe(true);
   });
 
   it("keeps the request maximum for a search-capable request that dies after message_start", async () => {

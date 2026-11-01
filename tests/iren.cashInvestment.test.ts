@@ -143,6 +143,46 @@ describe("cash investment scope cannot preserve pre-existing stale FCF", () => {
     expect(result.runway?.gaps.some(g => /investment scope/.test(g.reason))).toBe(true);
     expect(buildFilingDisclosures(bundle)?.quarterlyTrend[0]?.freeCashFlow).toBeNull();
   });
+  it("keeps an established recent runway when an ambiguous alias is wholly older than its window", () => {
+    const bundle = completeCurrencyBundle({ burning: true, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    const expected = runStageB(bundle).runway;
+    const cf = bundle.statements.cashflowQuarterly;
+    if (!cf.ok) throw new Error("missing fixture");
+    const old = { ...structuredClone(cf.value.data.rows[0]!), date: "2024-03-31", cik: "1", fiscalYear: "2024", period: "Q1", filingDate: "2024-05-01", acceptedDate: "2024-05-01" };
+    cf.value.data.rows.push(old, { ...old, date: "2024-03-29" });
+    expect(expected?.runwayQuarters).not.toBeNull();
+    expect(runStageB(bundle).runway).toEqual(expected);
+  });
+
+  it.each([true, false])("withholds runway when a recent rejected alias would expose older burn rows (CFO refusal: %s)", (refused) => {
+    const bundle = completeCurrencyBundle({ burning: true, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    const cf = bundle.statements.cashflowQuarterly;
+    if (!cf.ok) throw new Error("missing fixture");
+    Object.assign(cf.value.data.rows[0]!, {
+      cik: "1", fiscalYear: "2026", period: "Q1", filingDate: "2026-05-01", acceptedDate: "2026-05-01",
+      ...(refused ? { fieldConflicts: { operatingCashFlow: { usable: false, vendorValue: -55_000_000, secValue: null, reason: "standalone CFO scope refused" } } } : {}),
+    });
+    cf.value.data.rows.push({ ...structuredClone(cf.value.data.rows[0]!), date: "2026-03-29" });
+    const result = runStageB(bundle);
+    expect(result.runway).not.toBeNull();
+    expect(result.runway).toMatchObject({ burning: null, avgQuarterlyBurn: null, runwayQuarters: null, estimatedExhaustionDate: null, burnWindowDates: [] });
+    expect(result.runway?.gaps).toContainEqual(expect.objectContaining({ field: "runway.quarterRows", reason: expect.stringContaining("2026-03-29 / 2026-03-31") }));
+  });
+
+  it.each(["operatingCashFlow", "netCashProvidedByOperatingActivities"])("withholds runway after a recent %s refusal even when older burn rows are usable", (field) => {
+    const bundle = completeCurrencyBundle({ burning: true, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    const cf = bundle.statements.cashflowQuarterly;
+    if (!cf.ok) throw new Error("missing cash-flow fixture");
+    cf.value.data.rows[0] = { ...cf.value.data.rows[0]!, fieldConflicts: {
+      [field]: { usable: false, vendorValue: -55_000_000, secValue: null, reason: "standalone quarterly operating cash flow unresolved" },
+    } };
+    const before = structuredClone(cf);
+    const result = runStageB(bundle);
+    expect(result.runway?.avgQuarterlyBurn).toBeNull();
+    expect(result.runway?.runwayQuarters).toBeNull();
+    expect(result.runway?.gaps.some(g => g.field === "runway.operatingCashFlowScope")).toBe(true);
+    expect(cf).toEqual(before);
+  });
   it("does not fall back to generic partial capex when a dated primary document has refused namespace evidence", () => {
     const html = cashSourceFixture("iren-20260630").replace('xmlns:iren="http://www.iren.com/20260630"', 'xmlns:iren="https://lookalike.invalid/hardware"');
     const refused = parsePrimaryCashInvestment(html, { issuerId: "1878848", form: "10-K", accession: source.accession, filingDate: source.filingDate, reportDate: "2026-06-30", primaryDocument: "iren-20260630.htm", documentUrl: source.documentUrl }, "2026-10-19");

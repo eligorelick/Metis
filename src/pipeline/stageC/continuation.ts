@@ -48,7 +48,15 @@ export interface PassContinuation {
    * the number of sections per request; captured model, effort and speed stay fixed.
    */
   sectionRetryCount?: number;
+  /** Paid synthesis launches already used in this run generation and case order. */
+  sectionRequestsUsed?: number;
+  /** Recovery must never widen a previously narrowed request. */
+  sectionMaxKeys?: number;
+  /** Explicit downstream report rejection, never a transport/cutoff continuation. */
+  repairRejectedComplete?: boolean;
 }
+
+export { API_JUDGE_MAX_SECTION_REQUESTS } from "@/pipeline/sectionLimits";
 
 /** True when the continuation carries sections to keep (not only a smaller-batch hint). */
 export function hasCompletedSections(continuation: PassContinuation | undefined): continuation is PassContinuation {

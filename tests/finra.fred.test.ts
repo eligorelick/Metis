@@ -101,6 +101,21 @@ describe("finra pickLatestPartitions", () => {
 // ---------------------------------------------------------------------------
 
 describe("provider transport timeouts", () => {
+  it.each(["finra", "finnhub"] as const)("preserves cancellation during %s JSON decoding on the final attempt", async (provider) => {
+    const controller = new AbortController();
+    const cause = new Error("job canceled during response body");
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => {
+      controller.abort(cause);
+      throw cause;
+    } }) as unknown as Response);
+    const config = { fetchImpl, signal: controller.signal, retryDelaysMs: [], minRequestIntervalMs: 0,
+      maxRequestsPerMinute: 100_000, apiKey: "offline-test-key" };
+    const result = provider === "finra" ? latestSettlementDate(config)
+      : insiderSentiment("AAPL", "2026-01-01", "2026-07-01", config);
+    await expect(result).rejects.toBe(cause);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   function trackClearTimeout(): { wasCleared: () => boolean; restore: () => void } {
     let cleared = false;
     const original = globalThis.clearTimeout.bind(globalThis);

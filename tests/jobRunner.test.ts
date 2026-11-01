@@ -679,6 +679,7 @@ function testTelemetry<T>(pass: PassResultLike<T>, billable = true): TestTelemet
     fallbackUsed: pass.fallbackUsed,
     billable,
     fetchedUrls: [...(pass.fetchedUrls ?? [])],
+    ...(pass.execution === undefined ? {} : { execution: pass.execution }),
   };
 }
 
@@ -3534,6 +3535,7 @@ describe("runJob - durable paid-pass settlements", () => {
         ...testAnalystPass("bull", 0.11),
         model: "claude-haiku-3-5",
         fallbackUsed: false,
+        execution: { requestedModel: "claude-haiku-3-5", requestedEffort: "low", effectiveEffort: null },
       }),
       payloadFingerprint: "1.3.0:prior-ledger",
       settledAt: NOW().toISOString(),
@@ -3548,6 +3550,7 @@ describe("runJob - durable paid-pass settlements", () => {
         model: "claude-sonnet-4-5",
         costUsd: 0.2,
         fallbackUsed: true,
+        execution: { requestedModel: "claude-haiku-3-5", requestedEffort: "high", effectiveEffort: "high" },
       }),
       payloadFingerprint: "1.3.0:prior-ledger",
       settledAt: NOW().toISOString(),
@@ -3629,14 +3632,9 @@ describe("runJob - durable paid-pass settlements", () => {
       costUsd,
       fallbackUsed,
     })));
-    for (const row of report.appendix.costBreakdown.slice(0, -1)) {
-      expect(row).toEqual(expect.objectContaining({
-        requestedModel: expect.any(String),
-        requestedEffort: expect.anything(),
-        effectiveEffort: expect.anything(),
-        adjustments: expect.any(Array),
-      }));
-    }
+    expect(report.appendix.costBreakdown[0]).toMatchObject({ requestedModel: "claude-haiku-3-5", requestedEffort: "low", effectiveEffort: null });
+    expect(report.appendix.costBreakdown[1]).toMatchObject({ requestedModel: "claude-haiku-3-5", requestedEffort: "high", effectiveEffort: "high" });
+    for (const row of report.appendix.costBreakdown.slice(2)) expect(row).not.toHaveProperty("requestedEffort");
     expect(report.appendix.costBreakdown.at(-1)).toEqual({
       step: "verify",
       model: "late-ledger-model",
@@ -6348,14 +6346,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.53.0");
+    expect(repRow?.specVersion).toBe("1.54.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.13");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.14");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -6958,8 +6956,9 @@ describe("runJob — LLM pass failure", () => {
     })) as PipelinePasses["runVerifyPass"];
     return passes;
   }
-  it("says a cut-off plan judge attempt's kept sections reached the report", async () => {
+  it.each([false, true])("accurately locates kept judge sections when verification fails: %s", async (verifyFails) => {
     const passes = planPasses();
+    if (verifyFails) passes.runVerifyPass = async () => { throw new Error("verification unavailable"); };
     const { jobId } = createJob("AAPL");
     const validJudge = passes.runJudgePass;
     const verdict = { synthesis: "kept" };
@@ -6991,9 +6990,19 @@ describe("runJob — LLM pass failure", () => {
 
     const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
 
-    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    expect(result).toMatchObject({ status: "done", dataOnly: verifyFails });
     const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
-    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toBe(
+    if (verifyFails) {
+      expect(report.meta.analysisOutcome).toBe("data-only");
+      const reason = report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason;
+      expect(reason).toContain("remain saved for recovery");
+      expect(reason).toContain("not included in this deterministic snapshot");
+      expect(reason).not.toContain("appears in this report");
+      expect(report.appendix.costBreakdown.filter(row => row.step === "synthesize")).toHaveLength(2);
+      expect(readCurrentGenerationPassArtifacts(jobId).some(a => a.pass === "synthesize" && a.envelope.outcome === "success")).toBe(true);
+      return;
+    }
+    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toContain(
       "A synthesize attempt stopped before it finished because the provider request failed before a usable response arrived. " +
         "The completed section it held when it stopped (verdict) was kept and appears in this report; the remaining sections were requested again. " +
         "It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.",
@@ -7035,7 +7044,7 @@ describe("runJob — LLM pass failure", () => {
     const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
 
     const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
-    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toBe(
+    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toContain(
       "A synthesize attempt did not produce usable output because the provider request failed before a usable response arrived. " +
         "It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.",
     );
@@ -7164,7 +7173,7 @@ describe("runJob — LLM pass failure", () => {
     expect(snapshots!.bear).toBeNull();
   });
 
-  it("verify failure still persists the (unverified) assembled report", async () => {
+  it("verify failure preserves paid artifacts but persists a qualified data snapshot", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
     passes.runVerifyPass = async () => {
@@ -7180,6 +7189,10 @@ describe("runJob — LLM pass failure", () => {
     expect(result.status).toBe("done");
     expect(result.reportId).not.toBeNull();
     expect(result.verificationRate).toBeNull();
+
+    expect(result.dataOnly).toBe(true);
+    const saved = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    expect(JSON.parse(saved.reportJson!).meta.analysisOutcome).toBe("data-only");
 
     const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
     const steps = JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[];
@@ -7847,9 +7860,33 @@ describe("runJob — judge retry on schema-validation failure", () => {
     expect(feedbacks[1]).toContain('"code": "invalid_type"');
   });
 
+  it("carries a semantic whole-output rejection into the judge repair", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const continuations: unknown[] = [];
+    passes.runJudgePass = async (...args: Parameters<PipelinePasses["runJudgePass"]>) => {
+      continuations.push(args[6]);
+      if (continuations.length === 1) throw Object.assign(new Error("judge left deterministic entity conflicts unresolved"), {
+        kind: "schema", retryable: true, repairRejectedComplete: true, rawText: "{}",
+      });
+      return validJudge(...args);
+    };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result.dataOnly).toBe(false);
+    expect(continuations).toEqual([undefined, { completed: {}, repairRejectedComplete: true }]);
+  });
+
   it("retries the judge on an assembleReport (report-schema) failure then succeeds", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
+
+    const judge = passes.runJudgePass;
+    const continuations: unknown[] = [];
+    passes.runJudgePass = async (...args: Parameters<PipelinePasses["runJudgePass"]>) => {
+      continuations.push(args[6]);
+      return judge(...args);
+    };
 
     // Force the runner down the assembleReport path: verify returns no
     // verifiedReport (so the runner must assemble). assembleReport throws a
@@ -7879,6 +7916,7 @@ describe("runJob — judge retry on schema-validation failure", () => {
 
     // One retry: assemble ran twice (fail, then succeed).
     expect(assembleAttempts).toBe(2);
+    expect(continuations).toEqual([undefined, { completed: {}, repairRejectedComplete: true }]);
     expect(result.status).toBe("done");
     expect(result.reportId).not.toBeNull();
 
@@ -9940,6 +9978,13 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(row.reportJson!));
     expect(report.meta.model).toBe("unavailable");
     expect(report.appendix.costBreakdown.filter((entry) => entry.discarded)).toHaveLength(2);
+    const discardedReasons = report.appendix.missingData.filter(g => g.field === "llm.bull.discardedAttempt").map(g => g.reason);
+    expect(discardedReasons).toHaveLength(2);
+    for (const reason of discardedReasons) {
+      expect(reason).toContain("not included in this deterministic snapshot");
+      expect(reason).not.toContain("attempt that succeeded");
+    }
+
     const bearCosts = report.appendix.costBreakdown.filter((entry) => entry.step === "bear");
     expect(bearCosts).toHaveLength(1);
     expect(bearCosts[0]?.costUsd).toBe(0.47);
@@ -10708,7 +10753,7 @@ describe("runJob - final evidence timing", () => {
     },
   );
 
-  it("retains the runner's generation cutoff on the real unverified assembly fallback", async () => {
+  it("retains the runner's generation cutoff on the deterministic fallback after failed verification", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(assembledAt);
     const { jobId } = createJob("AAPL");
@@ -10720,7 +10765,7 @@ describe("runJob - final evidence timing", () => {
       assembleReport: pipelinePasses.assembleReport,
     }, { bundle, hasAnthropicKey: true, now: finalClock });
 
-    expect(result).toMatchObject({ status: "done", dataOnly: false, verificationRate: null });
+    expect(result).toMatchObject({ status: "done", dataOnly: true, verificationRate: null });
     const persisted = readReport(result.reportId);
     expect(persisted.meta.generatedAt).toBe(generatedAt);
     expect(persisted.meta.evidenceTiming).toMatchObject({

@@ -117,7 +117,10 @@ function quantities(text: string): Quantity[] {
     let currency: string | null = null;
     if (prefix || /^dollars?$/.test(token)) {
       const leadingPerShare = /\bper[\s-]+share\s+(?:(?:is|was|are|were|of|at|equals?)\s+)?$/i.test(text.slice(0, start));
-      unit = token === "per share" || (token === "" && leadingPerShare) ? "currency-per-share" : "currency";
+      // An explicitly named share price supplies its unit independently of the
+      // cited record. Bare prices and dividend totals do not establish it.
+      const leadingSharePrice = /\bshare[\s-]+price\s+(?:(?:is|was|of|at|equals?)\s+)?$/i.test(text.slice(0, start));
+      unit = token === "per share" || (token === "" && (leadingPerShare || leadingSharePrice)) ? "currency-per-share" : "currency";
       currency = /^[A-Z]{3}$/i.test(prefix) ? prefix.toUpperCase()
         : prefix === "US$" ? "USD" : prefix === "€" ? "EUR" : prefix === "£" ? "GBP" : null;
     }

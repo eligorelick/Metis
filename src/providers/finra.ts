@@ -318,6 +318,7 @@ async function finraRequest(
         try {
           return { ok: true, status: res.status, body: (await res.json()) as unknown };
         } catch {
+          config.signal?.throwIfAborted();
           lastFailure = `HTTP ${res.status} with unparseable JSON body`;
           continue;
         }

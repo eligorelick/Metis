@@ -79,7 +79,7 @@ import {
   scenarioTargetProvenanceId,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
-import type { PassContinuation } from "@/pipeline/stageC/continuation";
+import { API_JUDGE_MAX_SECTION_REQUESTS, type PassContinuation } from "@/pipeline/stageC/continuation";
 import {
   canonicalizeTracedUnit,
   matchProvenanceRecord,
@@ -93,12 +93,14 @@ import {
   runBearPass,
   buildAnalystRunPassArgs,
   buildJudgeRunPassArgs,
+  judgePreflightRequests,
   runBullThenBear as runBullThenBearPass,
   runJudgePass as runJudgePass_,
   runVerifyPass as runVerifyPass_,
   assembleReport as assembleReport_,
   BullBearOverlapLaunchFailure,
   isTransientSubscriptionFailure,
+  isRetryablePassFailure,
   type PassDeps,
   type PassResult,
   type PassRun,
@@ -224,6 +226,7 @@ function toRunPassOptions(args: RunPassArgs): RunPassOptions {
     signal: args.signal,
     admission: args.admission as RunPassOptions["admission"],
     reservationPass: args.reservationPass,
+    onPartialText: args.onPartialText,
   };
 }
 
@@ -274,9 +277,21 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
       // supplied evidence, and each bounded pass settles before the next one.
     };
   }
+  const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();
+  const checkpoint = deps.jobSeed ? createSectionCheckpoint(JSON.stringify({ job: deps.jobSeed,
+    payload: payloadFingerprint(deps.payload), model: deps.analysisModel, effort: deps.effort ?? "high" })) : undefined;
   return {
-    runPass,
+    runPass: (args) => {
+      const field = args.field ?? "llm";
+      owners.set(field, deps.passAttemptFor?.(field === "llm.judge" ? "synthesize" : field === "llm.bull" ? "bull" : "bear"));
+      return runPass(args);
+    },
     runPassStreaming,
+    judgeSectionedOutput: true,
+    runGeneration: deps.runGeneration,
+    ...(checkpoint ? { sectionCheckpoint: { ...checkpoint,
+      record: (field: string, telemetry: Parameters<typeof checkpoint.record>[1]) => checkpoint.record(field, telemetry, owners.get(field.split(":")[0])),
+    } } : {}),
     validateRunPass: (args) => validateRunPassOptions(toRunPassOptions(args)),
     webSearchTool,
     model: deps.analysisModel,
@@ -340,6 +355,9 @@ class PassRunError extends Error {
     readonly kind?: string,
     /** Answer text streamed before a response was cut off (see stageC/continuation.ts). */
     readonly partialText?: string,
+    readonly sectionRequestsUsed?: number,
+    readonly sectionMaxKeys?: number,
+    readonly repairRejectedComplete?: boolean,
   ) {
     super(message);
     this.name = "PassRunError";
@@ -410,10 +428,13 @@ function unwrap<T>(run: PassRun<T>, label: string): PassResult<T> {
   throw new PassRunError(
     passRunFailureMessage(run, label),
     billedAttemptFromRun(run),
-    run.validationError !== undefined || isTransientSubscriptionFailure(run),
+    isRetryablePassFailure(run),
     run.rawText,
     run.error.kind,
     run.error.partialText,
+    run.error.sectionRequestsUsed,
+    run.error.sectionMaxKeys,
+    run.error.repairRejectedComplete,
   );
 }
 
@@ -571,8 +592,12 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         request.bear.data,
         request.validationFeedback,
         undefined,
-        request.continuation,
+        request.continuation === undefined ? undefined : { ...request.continuation, completed: {} },
       );
+      if (passDeps.sectionedOutput || passDeps.judgeSectionedOutput) {
+        for (const part of judgePreflightRequests(args, request.continuation, passDeps.judgeSectionedOutput ? API_JUDGE_MAX_SECTION_REQUESTS : undefined)) passDeps.validateRunPass?.(part);
+        return;
+      }
     } else {
       args = buildAnalystRunPassArgs(passDeps, deps.payload, request.pass);
     }

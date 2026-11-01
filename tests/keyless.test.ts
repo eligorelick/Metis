@@ -491,6 +491,20 @@ describe("applyKeylessFallbacks", () => {
     expect(out.gaps.some((g) => g.field.startsWith("statements.backfill."))).toBe(false);
   });
 
+  it("does not append a calendar-date alias as older SEC history", async () => {
+    const raw = inputs();
+    const first = await applyKeylessFallbacks(raw);
+    if (!first.members.incomeAnnual.ok) throw new Error("missing SEC annual fixture");
+    const official = first.members.incomeAnnual.value.data.rows[0]!;
+    const fmp = allGaps();
+    const vendor = { ...official, date: "2025-09-30", revenue: 999 };
+    fmp.incomeAnnual = okRows([vendor]);
+    const out = await applyKeylessFallbacks(inputs({ fmp, fmpKeyless: false }));
+    if (!out.members.incomeAnnual.ok) throw new Error("missing retained vendor fixture");
+    expect(out.members.incomeAnnual.value.data.rows.filter(row => String(row.date).startsWith("2025-09"))).toEqual([vendor]);
+    expect(out.members.incomeAnnual.value.data.rows.some(row => row.date === "2024-09-28")).toBe(true);
+  });
+
   it("backfills only periods the vendor did not serve, with per-row provenance and a depth disclosure", async () => {
     const fmp = allGaps();
     // A capped plan: one annual period served of ten requested.

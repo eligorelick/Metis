@@ -1702,8 +1702,9 @@ export function computeRunway(
   const missingOperatingCashFlowDates: string[] = [];
   const missingCapitalExpenditureDates: string[] = [];
   const invalidDerivedFcfDates: string[] = [];
-  for (const { row } of dated) {
-    if (window.length >= BURN_WINDOW_MAX_QUARTERS) break;
+  // Missing recent operands cannot make older quarters stand in for the
+  // current burn window. Explicit source refusals are also gated downstream.
+  for (const { row } of dated.slice(0, BURN_WINDOW_MAX_QUARTERS)) {
     const ocf = row.operatingCashFlow;
     const capex = row.capitalExpenditure;
     const fcf = deriveFcf(ocf, capex);

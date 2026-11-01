@@ -492,11 +492,12 @@ function judgeOrderSentence(setting: JudgeOrderSetting): string {
  */
 export function buildJudgeFraming(
   setting: JudgeOrderSetting = DEFAULT_JUDGE_ORDER_SETTING,
+  sectioned = false,
 ): string {
   return [
     "YOUR ROLE: JUDGE / synthesizer.",
     "You receive the payload and TWO separately written opposing analyst cases (bull and bear). Produce the final",
-    "report content as the JUDGE_OUTPUT structured schema.",
+    sectioned ? "report content in bounded parts; emit only the top-level sections requested in the final turn." : "report content as the JUDGE_OUTPUT structured schema.",
     "The cases start from shared retained inputs and can share omissions; adjudication is not independent factual validation.",
     "",
     // WS7 (D-20): the two cases used to arrive in a fixed BULL-then-BEAR order
