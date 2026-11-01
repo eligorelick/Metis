@@ -25,6 +25,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/ai/fingerprint.ts",
   "src/ai/gemini.ts",
   "src/ai/mutex.ts",
+  "src/ai/providerFailure.ts",
   "src/components/charts/plotData.ts",
   "src/components/report/evidenceIdentity.ts",
   "src/ai/store.ts",

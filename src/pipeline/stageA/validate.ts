@@ -24,6 +24,7 @@
 
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import { admittedGeography, type QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import { admittedIssuerFacts, type IssuerFactsInput } from "@/edgar/issuerFacts";
 import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
 import {
   crossCheck,
@@ -138,8 +139,7 @@ export interface ValidatableBundle {
   };
   /** Provider segmentation (optional): drives the AI-509 geography scope gap. */
   segmentation?: { geographic: FetchResult<FmpPayload<FmpSegmentationRow>> };
-  edgar: {
-    companyFacts: FetchResult<CompanyFacts>;
+  edgar: IssuerFactsInput & {
     quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   };
 }
@@ -601,18 +601,19 @@ function crossCheckRow(
 }
 
 function checkFmpXbrlCross(bundle: ValidatableBundle, c: Collector): void {
-  const factsRes = bundle.edgar.companyFacts;
-  if (!factsRes.ok) {
+  const factsRes = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  if (!factsRes?.ok) {
+    const reason = factsRes?.gap.reason ?? "companyfacts absent";
     c.checks.push({
       id: "xbrlCrossCheck",
       name: "FMP↔XBRL cross-check",
       status: "skipped",
-      detail: `companyfacts unavailable: ${factsRes.gap.reason}`,
+      detail: `companyfacts unavailable: ${reason}`,
     });
     c.gaps.push(
       gapEntry(
         "validation.xbrlCrossCheck",
-        `FMP↔XBRL cross-check skipped — companyfacts unavailable (${factsRes.gap.reason})`,
+        `FMP↔XBRL cross-check skipped — companyfacts unavailable (${reason})`,
         "warn",
       ),
     );

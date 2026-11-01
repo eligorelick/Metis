@@ -29,6 +29,7 @@ import { formatFinancialValue } from "@/report/format";
 import type { FilingRef as EdgarFilingRef, OriginalValue } from "@/edgar/statements";
 import { parseSegmentPerformance } from "@/edgar/segmentPerformance";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { admittedIssuerFacts } from "@/edgar/issuerFacts";
 import { financialCompositionFacts } from "@/pipeline/financialComposition";
 import {
   parseBusinessCombinationFacts,
@@ -1079,7 +1080,7 @@ function segmentPrimarySection(bundle: DataBundle, part: "mdna" | "notes" = "mdn
 
 /** The last two fiscal-year-end values of an XBRL money tag, newest first (10-K facts only). */
 function annualTagValues(bundle: DataBundle, tag: string, currency: string | null): { end: string; value: number; ref: FilingRef }[] {
-  const facts = bundle.edgar?.companyFacts;
+  const facts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts?.ok || currency === null) return [];
   const concept = facts.value.data.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown> } | undefined;
   const units = concept?.units?.[currency];

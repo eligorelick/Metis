@@ -106,6 +106,29 @@ function taggedFacts(tag: string, value: number, start: string | null = "2025-01
 }
 
 describe("adjacent companyfacts readers enforce the same issuer boundary", () => {
+  it.each([false, true])("cross-checks vendor revenue only against the admitted issuer (confirmed=%s)", confirmed => {
+    const bundle = withIssuerFacts(completeCurrencyBundle({}), taggedFacts("RevenueFromContractWithCustomerExcludingAssessedTax", 123456789), confirmed);
+    const before = JSON.stringify(bundle);
+    const validation = validateBundle(bundle);
+    const payload = assembleContextPayload(bundle, runStageB(bundle, undefined, validation), validation);
+    const failures = validation.checks.filter(check => check.id.startsWith("xbrlCrossCheck.revenue.FY") && check.status === "fail");
+    expect(failures).toHaveLength(confirmed ? 1 : 0);
+    expect(payload.validationFlags.some(flag => flag.includes("123456789"))).toBe(confirmed);
+    if (!confirmed) expect(validation.checks).toContainEqual(expect.objectContaining({ id: "xbrlCrossCheck", status: "skipped", detail: expect.stringContaining("issuer identity") }));
+    expect(JSON.stringify(bundle)).toBe(before);
+  });
+
+  it.each([false, true])("admits filing goodwill and numeric provenance only for the requested issuer (confirmed=%s)", confirmed => {
+    const bundle = withIssuerFacts(completeCurrencyBundle({}), taggedFacts("Goodwill", 123456789, null), confirmed);
+    const before = JSON.stringify(bundle);
+    const validation = validateBundle(bundle);
+    const computed = runStageB(bundle, undefined, validation);
+    const payload = assembleContextPayload(bundle, computed, validation);
+    expect(payload.filingFacts?.figures.filter(row => row.value === 123456789) ?? []).toHaveLength(confirmed ? 1 : 0);
+    expect(payload.provenanceRegistry?.filter(row => row.value === 123456789) ?? []).toHaveLength(confirmed ? 1 : 0);
+    expect(JSON.stringify(bundle)).toBe(before);
+  });
+
   it.each([false, true])("admits repurchase execution prices only for the requested issuer (confirmed=%s)", confirmed => {
     const facts = taggedFacts("StockRepurchasedDuringPeriodValue", 20e6);
     facts.facts["us-gaap"].StockRepurchasedDuringPeriodShares = { units: { shares: [{
