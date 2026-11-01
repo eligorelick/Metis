@@ -23,8 +23,8 @@ import "server-only";
 export interface TokenBucketLimiter {
   readonly ratePerSec: number;
   readonly burst: number;
-  /** Take `n` tokens, waiting as long as needed. Rejects only on misuse (n > burst). */
-  take(n?: number): Promise<void>;
+  /** Take `n` tokens, waiting until available or canceled. */
+  take(n?: number, signal?: AbortSignal): Promise<void>;
   /** Take `n` tokens if immediately available; returns false otherwise. */
   tryTake(n?: number): boolean;
   /** Milliseconds until `n` tokens would be available (0 if available now). */
@@ -66,18 +66,19 @@ export function makeLimiter(
       if (tokens >= n) return 0;
       return Math.ceil(((n - tokens) / ratePerSec) * 1000);
     },
-    async take(n = 1): Promise<void> {
+    async take(n = 1, signal?: AbortSignal): Promise<void> {
       if (n > burst) {
         throw new Error(`TokenBucketLimiter.take(${n}) exceeds burst capacity ${burst}`);
       }
       for (;;) {
+        signal?.throwIfAborted();
         refill();
         if (tokens >= n) {
           tokens -= n;
           return;
         }
         const waitMs = Math.max(Math.ceil(((n - tokens) / ratePerSec) * 1000), 5);
-        await sleep(waitMs);
+        await sleep(waitMs, signal);
       }
     },
   };
@@ -308,6 +309,9 @@ export async function fetchWithRedirectPolicy(
         currentInit = { ...currentInit, method: "GET", body: undefined, headers: nextHeaders };
       }
     }
+    // This response is not returned to a caller. Release its connection before
+    // the next hop instead of leaving an unread body occupying the pool.
+    await response.body?.cancel().catch(() => undefined);
     current = target;
   }
   return new Response(null, { status: 508, statusText: "redirect loop" });
@@ -393,8 +397,18 @@ export class HttpRequestAbortedError extends Error {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => signal?.removeEventListener("abort", onAbort);
+    const timer = setTimeout(() => { cleanup(); resolve(); }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      cleanup();
+      reject(signal?.reason);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function isRetriableStatus(status: number): boolean {
@@ -443,7 +457,12 @@ export async function fetchWithPolicy(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     throwIfExternallyAborted(externalSignal, url, provider, attempts);
-    await limiter.take(1);
+    try {
+      await limiter.take(1, externalSignal);
+    } catch (error) {
+      throwIfExternallyAborted(externalSignal, url, provider, attempts);
+      throw error;
+    }
     throwIfExternallyAborted(externalSignal, url, provider, attempts);
     beforeAttempt?.();
     attempts++;
@@ -510,6 +529,9 @@ export async function fetchWithPolicy(
         throw abortedError(url, provider, attempts, externalSignal.reason ?? err);
       }
       if (err instanceof HttpBodyTooLargeError) throw err;
+      // A previous HTTP rejection is not the outcome of this newer attempt.
+      // Keep the final network/body failure and the actual attempt count.
+      lastResult = null;
       lastError = err;
       if (attempt < maxRetries) {
         await waitBeforeRetry(
@@ -565,6 +587,7 @@ async function sleepWithSignal(
   sleepImpl: (ms: number) => Promise<void>,
   signal: AbortSignal | undefined,
 ): Promise<void> {
+  if (sleepImpl === sleep) return sleep(ms, signal);
   if (signal === undefined) {
     await sleepImpl(ms);
     return;

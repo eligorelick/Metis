@@ -235,7 +235,9 @@ describe("repair turns echo a rejected output (F-6 class)", () => {
     for (let i = 0; i <= MAX_JUDGE_RETRIES; i++) mock.onText("llm.judge", unparseable);
     const run = await runJudgePass(
       { runPass: mock.runPass, runPassStreaming: mock.runPassStreaming, model: "claude-opus-4-8", judgeOrder: "bull-first", jobSeed: "seed" },
-      hostilePayload(), hostileCase("bull"), hostileCase("bear"),
+      hostilePayload(),
+      { ...hostileCase("bull"), thesis: [{ text: "Revenue growth supports the upside case.", label: "JUDGMENT", source: "payload", asOf: null }] },
+      { ...hostileCase("bear"), thesis: [{ text: "Margin pressure supports the downside case.", label: "JUDGMENT", source: "payload", asOf: null }] },
     );
     expect(run.ok).toBe(false);
     if (run.ok) return;

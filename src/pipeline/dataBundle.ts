@@ -327,8 +327,8 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
     }
   }
   class UncachedFredFallback extends Error {
-    constructor(readonly value: Sourced<FredObservation[]>) {
-      super("FRED keyed API fell back to fredgraph.csv; returned uncached");
+    constructor(readonly value: Sourced<FredObservation[]>, keyedFailure?: string) {
+      super(`FRED keyed API failed (${keyedFailure ?? "reason unavailable"}); CSV fallback was fetched but not stored as keyed API data`);
     }
   }
   return async (id, opts) => {
@@ -356,7 +356,7 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
           const res = await fredSeries(id, opts, cfg);
           if (!res.ok) throw new FredGap(res.gap);
           if (cfg.apiKey && res.value.endpoint.includes("fredgraph.csv")) {
-            throw new UncachedFredFallback(res.value);
+            throw new UncachedFredFallback(res.value, res.keyedFailure);
           }
           return {
             body: { obs: res.value.data, endpoint: res.value.endpoint, source: res.value.source },

@@ -1,4 +1,5 @@
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -339,6 +340,7 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Generated", m.generatedAt],
       ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
       ["Snapshot", "Saved research; observations retain their recorded dates"],
+      ...(m.analysisOutcome ? [["Workflow completion", analysisOutcomeText(m.analysisOutcome)]] : []),
       ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
       ["Model", runSummary(report)],
       ["Usage", usageSummary(report)],

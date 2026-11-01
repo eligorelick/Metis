@@ -35,6 +35,8 @@ export function attributeJudgeProtocolDisclosures(
 export type ExecutionEffort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Provider evidence, retained on durable artifacts independently of API charges. */
 export interface ProviderExecution {
+  /** Advisory provider pacing; not a hard output or cost cap. */
+  taskBudgetTokens?: number | null;
   requestedModel?: string;
   requestedEffort?: ExecutionEffort | null;
   effectiveEffort?: ExecutionEffort | null;
@@ -99,6 +101,7 @@ export type ExecutionAdjustment =
   | "model-rejected";
 
 export interface ExecutionMetadataEntry {
+  taskBudgetTokens?: number | null;
   step: string;
   requestedModel: string;
   effectiveModel: string;
@@ -191,6 +194,7 @@ export function buildExecutionMetadataEntry(input: {
     : null;
   const adjustments: ExecutionAdjustment[] = [];
   const notes: string[] = [];
+  if (input.execution?.taskBudgetTokens != null) notes.push(`${input.step}: advisory task budget ${input.execution.taskBudgetTokens.toLocaleString("en-US")} tokens per request; this is not a hard output or cost cap.`);
   const subscription = subscriptionExecution({ effectiveModel, requestedModel });
   if (subscription) {
     const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : "Google Gemini CLI";
@@ -258,6 +262,7 @@ export function buildExecutionMetadataEntry(input: {
     requestedEffort,
     fallbackUsed: input.fallbackUsed,
     effectiveEffort,
+    ...(input.execution?.taskBudgetTokens === undefined ? {} : { taskBudgetTokens: input.execution.taskBudgetTokens }),
     ...(input.execution?.requestedServiceTier === undefined ? {} : { requestedServiceTier: input.execution.requestedServiceTier }),
     ...(input.execution?.effectiveServiceTier === undefined ? {} : { effectiveServiceTier: input.execution.effectiveServiceTier }),
     ...(usage?.input_tokens == null ? {} : { inputTokens: usage.input_tokens }),

@@ -48,6 +48,8 @@ const RegistryModelSchema = z
     datedSnapshotIds: z.array(z.string()),
     contextWindowTokens: z.number().int().positive(),
     maxOutputTokens: z.number().int().positive(),
+    /** Provider capability, checked against task-budget documentation on 2026-11-01. */
+    taskBudget: z.object({ beta: z.string().min(1), minimumTokens: z.number().int().positive() }).strict().nullable(),
     effort: z
       .object({
         supported: z.boolean(),

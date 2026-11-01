@@ -818,6 +818,19 @@ const goldenShares: ShareCountQuarter[] = [
 ];
 
 describe("computeRunway", () => {
+  it("does not replace unavailable current quarters with old cash-flow history", () => {
+    const r = computeRunway(goldenBalance, [
+      ...goldenQuarters.map(row => ({ ...row, operatingCashFlow: null, capitalExpenditure: null })),
+      { date: "2024-06-30", operatingCashFlow: -20_346_000, capitalExpenditure: -4_350_000 },
+      { date: "2024-03-31", operatingCashFlow: -31_048_000, capitalExpenditure: -4_174_000 },
+    ]);
+    expect(r.burnWindowDates).toEqual([]);
+    expect(r.burnWindowQuarters).toBe(0);
+    expect(r.avgQuarterlyBurn).toBeNull();
+    expect(r.runwayQuarters).toBeNull();
+    expect(r.estimatedExhaustionDate).toBeNull();
+  });
+
   it("golden case: 500M liquidity / 50M avg burn = 10.0 quarters, exhaustion 2028-09-29", () => {
     const r = computeRunway(goldenBalance, goldenQuarters, goldenShares);
     expect(r.burning).toBe(true);

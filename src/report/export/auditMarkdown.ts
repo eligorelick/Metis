@@ -11,6 +11,7 @@
  */
 
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { formatExecutionMetadata } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -116,6 +117,7 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
   const lines: string[] = ["## Run execution", ""];
   lines.push(table(["Field", "Value"], [
     ["Generated", m.generatedAt],
+    ...(m.analysisOutcome ? [["Workflow completion", analysisOutcomeText(m.analysisOutcome)]] : []),
     ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
     ["Recorded usage", usageSummary(report)],
     ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),

@@ -149,7 +149,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // revenue refusal, ADR Altman scope, peer comparisons and P/E ranks; optional business evidence share
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
-export const REPORT_SPEC_VERSION = "1.53.0" as const;
+// D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
+export const REPORT_SPEC_VERSION = "1.54.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -799,6 +800,7 @@ export const DataCompletenessSchema = z
 export type DataCompleteness = z.infer<typeof DataCompletenessSchema>;
 
 export const ProviderExecutionSchema = z.object({
+  taskBudgetTokens: z.number().int().positive().nullable().optional(),
   requestedModel: z.string().min(1).max(256).optional(),
   modelObserved: z.boolean().optional(),
   usageReported: z.boolean().optional(),
@@ -818,6 +820,7 @@ export const ProviderExecutionSchema = z.object({
 
 export const ExecutionMetadataEntrySchema = z
   .object({
+    taskBudgetTokens: z.number().int().positive().nullable().optional(),
     step: z.string(),
     requestedModel: z.string(),
     effectiveModel: z.string(),
@@ -851,6 +854,8 @@ export const MetaSchema = z
     model: z.string(),
     verifyModel: z.string().optional(),
     pipelineVersion: z.string(),
+    /** Mandatory-stage outcome; distinct from process termination and factual verification scope. */
+    analysisOutcome: z.enum(["complete", "data-only"]).optional(),
     costUsd: z.number(),
     /**
      * How much of `costUsd` is a PRESUMED upper bound rather than a measured
@@ -2747,6 +2752,7 @@ function invalidTopLevelSections(
   sections: Record<string, unknown>,
 ): string[] {
   return Object.keys(sections).filter((key) => {
+    if (!Object.hasOwn(schema.shape, key)) return true;
     const section = schema.shape[key];
     if (section === undefined) return true;
     return !z.object({ [key]: section }).strict().superRefine(enforceRecursiveRatingSafety)
@@ -3289,7 +3295,10 @@ export function reportToJsonSchema(): Record<string, unknown> {
 
 /** JSON Schema the judge/synthesis pass requests (report minus meta/appendix). */
 export function judgeOutputToJsonSchema(): Record<string, unknown> {
-  return toStructuredJsonSchema(JudgeOutputObjectSchema);
+  return toStructuredJsonSchema(JudgeOutputObjectSchema.extend({
+    verdict: VerdictSchema.extend({ synthesis: ratingSafeString().min(1) }),
+    business: BusinessSchema.extend({ whatTheySell: z.array(SourcedClaimSchema).min(1) }),
+  }));
 }
 
 /** JSON Schema the bull/bear passes request. */

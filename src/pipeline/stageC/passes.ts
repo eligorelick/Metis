@@ -128,6 +128,7 @@ import {
   sectionDigest,
   sectionRequestInstruction,
   splitSections,
+  API_JUDGE_MAX_SECTION_REQUESTS,
   type PassContinuation,
   type SectionEvidence,
 } from "@/pipeline/stageC/continuation";
@@ -177,6 +178,7 @@ import type {
 } from "@/report/schema";
 // WS7 (D-20) end.
 import {
+  PassSettlementHookError,
   invokePassSettlementHook,
   serializePassFailure,
   type PassSettlement,
@@ -232,6 +234,8 @@ export interface PassErrorLike {
     | "paused"
     | "parse"
     | "schema"
+    | "preflight"
+    | "section_budget"
     | "transport";
   message: string;
   maxTokens?: number;
@@ -247,10 +251,16 @@ export interface PassErrorLike {
   aborted?: boolean;
   /**
    * Answer text streamed before the response ended without completing. Never
-   * a successful pass; a retry may keep the sections of it that validate (see
-   * stageC/continuation.ts).
+   * itself a successful pass; section recovery may retain it only after the
+   * corresponding output validates (see stageC/continuation.ts).
    */
   partialText?: string;
+  sectionRequestsUsed?: number;
+  sectionMaxKeys?: number;
+  /** A cutoff is recoverable only when this attempt accepted new valid sections. */
+  sectionProgress?: boolean;
+  /** The whole validated object was rejected by a later semantic check. */
+  repairRejectedComplete?: boolean;
 }
 
 /** Structural mirror of the provider's RunPassResult. */
@@ -295,7 +305,9 @@ export interface RunPassArgs {
    * without changing the captured model, reasoning effort or speed.
    */
   sectionRetryCount?: number;
-  /** Subscription stream recovery only; partial text is never a successful result. */
+  sectionRequestsUsed?: number;
+  sectionMaxKeys?: number;
+  /** Durable recovery only; partial text is never a successful result. */
   onPartialText?: (text: string) => void;
 }
 
@@ -337,6 +349,10 @@ export interface PassDeps {
    * such limit and keeps one request per pass.
    */
   sectionedOutput?: boolean;
+  /** Bound paid synthesis separately; analyst streaming/cache overlap stays intact. */
+  judgeSectionedOutput?: boolean;
+  /** An explicit user retry gets a new allowance; automatic retries share one. */
+  runGeneration?: number;
   sectionCheckpoint?: {
     load: (field: string) => Record<string, unknown>;
     /** D-116: each saved section's writer evidence; absent when the store keeps none. */
@@ -759,7 +775,68 @@ function sumUsage(a: PassUsage, b: PassUsage): PassUsage {
     output_tokens: a.output_tokens + b.output_tokens,
     cache_creation_input_tokens: (a.cache_creation_input_tokens ?? 0) + (b.cache_creation_input_tokens ?? 0),
     cache_read_input_tokens: (a.cache_read_input_tokens ?? 0) + (b.cache_read_input_tokens ?? 0),
+    ...((a.server_tool_use || b.server_tool_use) ? { server_tool_use: mergeServerToolUse(a.server_tool_use, b.server_tool_use) } : {}),
   };
+}
+
+/** Match the wire grammar to the requested top-level sections, retaining only reachable definitions. */
+export function sectionOutputSchema(schema: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  const properties = schema.properties as Record<string, unknown>;
+  const subset = { ...schema, properties: Object.fromEntries(keys.map((key) => [key, properties[key]])),
+    required: (schema.required as string[]).filter((key) => keys.includes(key)) };
+  const definitions = schema.$defs as Record<string, unknown> | undefined;
+  if (!definitions) return subset;
+  const reachable = new Set<string>();
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (!isPlainObject(node)) return;
+    const ref = node.$ref;
+    if (typeof ref === "string" && ref.startsWith("#/$defs/")) {
+      const name = ref.slice("#/$defs/".length);
+      if (!reachable.has(name) && name in definitions) { reachable.add(name); visit(definitions[name]); }
+    }
+    for (const [key, value] of Object.entries(node)) if (key !== "$defs") visit(value);
+  };
+  visit(subset);
+  return { ...subset, $defs: Object.fromEntries([...reachable].map((name) => [name, definitions[name]])) };
+}
+
+/** One canonical section request for both preflight and provider dispatch. */
+function sectionRunPassArgs(base: RunPassArgs, keys: readonly string[], allKeys: readonly string[],
+  completed: Record<string, unknown>, api: boolean): RunPassArgs {
+  const schema = base.outputSchema ? sectionOutputSchema(base.outputSchema, keys) : undefined;
+  return { ...base, outputSchema: api ? undefined : schema, messages: [
+    ...base.messages,
+    { role: "user", content: sectionRequestInstruction(completed, keys, allKeys) +
+      (schema ? `\n\nOUTPUT SCHEMA FOR THIS PART:\n${JSON.stringify(schema)}` : "") },
+  ] };
+}
+
+function sectionPlan(allKeys: readonly string[], parts: number, completed: Record<string, unknown>,
+  retryCount: number, recovering: boolean, maxRequests?: number, requestsUsed = 0, previousWidth?: number): { parts: number; groups: string[][] } {
+  const retryLevel = Math.max(recovering ? 1 : 0, Number.isFinite(retryCount) ? Math.min(6, Math.max(0, Math.floor(retryCount))) : 0);
+  const count = Math.min(allKeys.length, parts * 2 ** retryLevel, maxRequests === undefined ? Infinity : Math.max(1, maxRequests - requestsUsed));
+  const pending = (keys: readonly string[]) => keys.filter(key => !(key in completed));
+  const groups = splitSections(maxRequests === undefined ? allKeys : pending(allKeys), count).map(pending).filter(keys => keys.length > 0);
+  if (maxRequests !== undefined && (retryCount > 0 || previousWidth !== undefined)) {
+    const maximumWidth = Math.min(previousWidth ?? Infinity,
+      Math.ceil(allKeys.length / Math.min(allKeys.length, parts * 2 ** retryLevel)));
+    if (groups.some(keys => keys.length > maximumWidth)) {
+      throw new Error("Synthesis cannot complete narrower recovery batches within its remaining request allowance; no request was launched");
+    }
+  }
+  return { parts: count, groups };
+}
+
+/** Initial known requests; later requests are validated again with newly accepted sections. */
+export function judgePreflightRequests(base: RunPassArgs, continuation?: PassContinuation, maxRequests?: number): RunPassArgs[] {
+  const completed = checkCarriedJudgeSections(continuation?.repairRejectedComplete ? {} : continuation?.completed ?? {}).kept;
+  if (JUDGE_OUTPUT_KEYS.every(key => key in completed)) return [];
+  const requestsUsed = continuation?.sectionRequestsUsed ?? 0;
+  if (maxRequests !== undefined && requestsUsed >= maxRequests) throw new Error(`Synthesis exhausted its ${maxRequests}-request section budget; no request was launched`);
+  const plan = sectionPlan(JUDGE_OUTPUT_KEYS, JUDGE_SECTION_PARTS, completed, continuation?.sectionRetryCount ?? 0,
+    Object.keys(completed).length > 0, maxRequests, requestsUsed, continuation?.sectionMaxKeys);
+  return plan.groups.map(keys => sectionRunPassArgs({ ...base, outputSchema: judgeOutputToJsonSchema() }, keys, JUDGE_OUTPUT_KEYS, completed, maxRequests !== undefined));
 }
 
 /** One provider request's evidence, as a section request or a kept section's writer reports it. */
@@ -789,8 +866,8 @@ function sectionExecution(
     ...(writer?.execution?.usageReported === undefined ? {} : { usageReported: writer.execution.usageReported }),
   }));
   const kept = carried.length === 0 ? {} : { carriedSections };
-  if (provider === undefined || !all.some((o) => o.execution !== undefined)) {
-    return { model, ...(provider !== undefined && carried.length > 0 ? { execution: {
+  if (!all.some((o) => o.execution !== undefined)) {
+    return { model, ...(carried.length > 0 ? { execution: {
       requestedModel, modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null, ...kept,
     } } : {}) };
   }
@@ -803,12 +880,13 @@ function sectionExecution(
   const own = observations.length > 0 ? observations : writers;
   const observedModels = [...new Set(all.flatMap((o) => o.execution?.modelObserved !== true ? []
     : o.execution.observedModels ?? (o.model === undefined ? [] : [parseSubscriptionModel(o.model)?.model ?? o.model])))];
-  if (observedModels.length > 1) model = subscriptionModel(provider, "multiple-models");
+  if (observedModels.length > 1) model = provider === undefined ? "multiple-models" : subscriptionModel(provider, "multiple-models");
   const requestedServiceTier = same("requestedServiceTier", own);
   return { model, execution: {
     requestedModel,
     requestedEffort: same("requestedEffort", own),
     effectiveEffort: same("effectiveEffort"),
+    ...(all.some(o => o.execution?.taskBudgetTokens !== undefined) ? { taskBudgetTokens: same("taskBudgetTokens") } : {}),
     ...(requestedServiceTier === null ? {} : { requestedServiceTier }),
     ...(provider === "chatgpt" ? { effectiveServiceTier: same("effectiveServiceTier") } : {}),
     modelObserved: all.every((o) => o.execution?.modelObserved === true),
@@ -832,169 +910,184 @@ async function runPassInSections<T>(a: {
   parts: number;
   completed?: Record<string, unknown>;
   parse: (raw: unknown) => { ok: true; value: T } | { ok: false; error: string };
-  /** D-3: the per-section schema check a checkpointed section must pass to be reused. */
   checkStored: (sections: Record<string, unknown>) => CarriedSectionCheck;
   field: string;
   requestedModel: string;
+  maxRequests?: number;
+  /** A complete object may still have failed cross-section/report validation. */
+  repairRejectedComplete?: boolean;
 }): Promise<PassRun<T>> {
-  // The mirror and schema repair are different draws even within one job.
-  const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
+  const api = a.maxRequests !== undefined;
+  // Evidence and ordered cases are in the first turn. Feedback may change,
+  // but cannot erase accepted sections, their writers, or a paid allowance.
+  const identity = createHash("sha256").update(JSON.stringify({ model: a.base.model, effort: a.base.effort,
+    system: a.base.system, messages: api ? a.base.messages.slice(0, 1) : a.base.messages, schema: a.base.outputSchema })).digest("hex");
+  const checkpointField = `${a.field}:${identity}`;
+  // Explicit user Retry starts a new generation. An automatic retry/restart
+  // shares this counter, while completed sections keep their original identity.
+  const budgetField = `${a.field}:budget:${a.deps.runGeneration ?? 0}:${identity}`;
+  const priorBudget = api ? a.deps.sectionCheckpoint?.load(budgetField) : undefined;
+  const count = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  let requestsUsed = Math.max(count(a.base.sectionRequestsUsed), count(priorBudget?.requestsUsed));
+  let maxKeys = Math.min(...[a.base.sectionMaxKeys, priorBudget?.maxKeys].map(count).filter(n => n > 0));
   const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
   const storedEvidence = a.deps.sectionCheckpoint?.loadEvidence?.(checkpointField) ?? {};
-  // Audit 2026-10-22 D-3: the checkpoint carries cut-off sections too, so a
-  // stored section that fails its schema is asked for again, not reused.
-  const completed: Record<string, unknown> = {
-    ...a.checkStored(Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key)))).kept,
-    ...(a.completed ?? {}),
-  };
-  // D-116: the writer of each section held here. A kept section (stored, or
-  // carried in by the caller) has one only when evidence was saved for exactly
-  // its text; one written now gets its request's evidence when the request ends.
+  const valid = (sections: Record<string, unknown>) => a.checkStored(Object.fromEntries(Object.entries(sections).filter(([key]) => a.allKeys.includes(key)))).kept;
+  let completed: Record<string, unknown> = { ...valid(stored), ...valid(a.completed ?? {}) };
+  const rejectedComplete = a.repairRejectedComplete === true && a.parse(completed).ok;
+  // Section validation cannot identify the cause of a later cross-section
+  // rejection. Retain the budget/history, but do not pin that rejected object.
+  if (rejectedComplete) completed = {};
+  const initialKeys = new Set(Object.keys(completed));
   const evidence: Record<string, SectionEvidence> = {};
   for (const [key, value] of Object.entries(completed)) {
     const saved = storedEvidence[key];
     if (saved !== undefined && saved.digest === sectionDigest(value)) evidence[key] = saved;
   }
-  const carried = Object.entries(completed).filter(([section]) => a.allKeys.includes(section)).map(([section, value]) => ({
-    section, digest: sectionDigest(value), ...(evidence[section] === undefined ? {} : { writer: evidence[section] }),
-  }));
+  const carried = Object.entries(completed).map(([section, value]) => ({ section, digest: sectionDigest(value),
+    ...(evidence[section] === undefined ? {} : { writer: evidence[section] }) }));
   const wrote = (key: string, value: unknown, by: RequestObservation): void => {
-    evidence[key] = { digest: sectionDigest(value), ...(by.model === undefined ? {} : { model: by.model }), ...(by.execution === undefined ? {} : { execution: by.execution }) };
+    evidence[key] = { digest: sectionDigest(value), ...(by.model === undefined ? {} : { model: by.model }),
+      ...(by.execution === undefined ? {} : { execution: by.execution }) };
   };
   let lastCheckpoint = JSON.stringify([stored, storedEvidence]);
   const checkpoint = (sections: Record<string, unknown>): void => {
-    const known = Object.fromEntries(Object.entries(evidence).filter(([key]) => key in sections));
+    const known = Object.fromEntries(Object.entries(evidence).filter(([key, value]) => Object.hasOwn(sections, key) && value.digest === sectionDigest(sections[key])));
     const json = JSON.stringify([sections, known]);
     if (json === lastCheckpoint) return;
     a.deps.sectionCheckpoint?.save(checkpointField, sections, known);
     lastCheckpoint = json;
   };
-  let last: Extract<RunPassOutcome, { ok: true }> | null = null;
   const observations: RequestObservation[] = [];
+  if (rejectedComplete) checkpoint(completed);
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
-  const pending = (keys: readonly string[]): string[] => keys.filter((key) => !(key in completed));
-
-  /** Request one part; a PassRun when the attempt must end here, else null. */
+  let presumed = false;
+  let fallbackUsed = false;
+  const fetchedUrls = new Set<string>();
+  const pending = (keys: readonly string[]) => keys.filter(key => !Object.hasOwn(completed, key));
+  const counters = () => api ? { sectionRequestsUsed: requestsUsed,
+    ...(Number.isFinite(maxKeys) ? { sectionMaxKeys: maxKeys } : {}),
+    sectionProgress: Object.keys(completed).some(key => !initialKeys.has(key)) } : {};
+  const failure = (error: PassErrorLike, gap?: ManifestEntry): PassRun<T> => {
+    checkpoint(completed);
+    return finishStructuredPass({ ok: false,
+      gap: gap ?? { field: a.field, reason: error.message, severity: "critical" },
+      error: { ...error, ...counters(), usage, costUsd, fallbackUsed, ...(presumed ? { presumed: true } : {}),
+        ...sectionExecution(a.requestedModel, observations, carried),
+        ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) },
+    }, a.parse, a.field, a.requestedModel);
+  };
+  const account = (data: { model?: string; execution?: ProviderExecution; usage?: PassUsage; costUsd?: number; presumed?: boolean; fallbackUsed?: boolean }): void => {
+    observations.push(data);
+    usage = sumUsage(usage, data.usage ?? { input_tokens: 0, output_tokens: 0 });
+    costUsd += data.costUsd ?? 0;
+    presumed ||= data.presumed === true;
+    fallbackUsed ||= data.fallbackUsed === true;
+    if (data.model !== undefined && data.usage !== undefined && data.costUsd !== undefined) {
+      a.deps.sectionCheckpoint?.record?.(checkpointField, { model: data.model, usage: data.usage, costUsd: data.costUsd, execution: data.execution });
+    }
+  };
+  const accept = (raw: Record<string, unknown>, keys: string[], by: RequestObservation): void => {
+    for (const [key, value] of Object.entries(valid(Object.fromEntries(Object.entries(raw).filter(([key]) => keys.includes(key)))))) {
+      if (Object.hasOwn(completed, key)) continue;
+      completed[key] = value;
+      wrote(key, value, by);
+    }
+    checkpoint(completed);
+  };
   const requestPart = async (keys: string[]): Promise<PassRun<T> | null> => {
-    // One immediate re-ask when a part's JSON does not parse; a part is short,
-    // so this costs far less than failing the whole attempt.
     for (let tries = 0; ; tries++) {
-      const request: RunPassArgs = {
-        ...a.base,
-        messages: [
-          ...a.base.messages,
-          { role: "user", content: sectionRequestInstruction(completed, keys, a.allKeys) },
-        ],
-        onPartialText: (text) => {
-          const streamed = completedTopLevelFields(text);
-          const kept = { ...completed };
-          for (const key of keys) if (key in streamed) kept[key] = streamed[key];
-          if (Object.keys(kept).length > Object.keys(completed).length) checkpoint(kept);
-        },
+      if (api && requestsUsed >= a.maxRequests!) return failure({ kind: "section_budget", message: `Synthesis exhausted its ${a.maxRequests}-request section budget; no request was launched` });
+      const request = sectionRunPassArgs(a.base, keys, a.allKeys, completed, api);
+      request.onPartialText = text => {
+        const streamed = valid(completedTopLevelFields(text));
+        if (Object.keys(streamed).length) checkpoint({ ...streamed, ...completed });
       };
-      a.deps.validateRunPass?.(request);
-      const outcome = await a.deps.runPass(request);
-      if (!outcome.ok) {
-        const failed = { model: outcome.error.model, execution: outcome.error.execution };
-        observations.push(failed);
-        const kept = { ...completed };
-        for (const [key, value] of Object.entries(completedTopLevelFields(outcome.error.partialText ?? ""))) {
-          if (keys.includes(key)) {
-            kept[key] = value;
-            wrote(key, value, failed);
-          }
-        }
-        const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
-        checkpoint(kept);
-        return finishStructuredPass(
-          { ...outcome, error: { ...outcome.error, usage: sumUsage(usage, outcome.error.usage ?? { input_tokens: 0, output_tokens: 0 }), costUsd: costUsd + (outcome.error.costUsd ?? 0),
-            ...sectionExecution(a.requestedModel, observations, carried), ...(partialText === undefined ? {} : { partialText }) } },
-          a.parse,
-          a.field,
-          a.requestedModel,
-        );
-      }
-      let json: unknown;
-      a.deps.sectionCheckpoint?.record?.(checkpointField, {
-        model: outcome.value.data.model, usage: outcome.value.data.usage,
-        costUsd: outcome.value.data.costUsd, execution: outcome.value.data.execution,
-      });
-      observations.push(outcome.value.data);
-      usage = sumUsage(usage, outcome.value.data.usage);
-      costUsd += outcome.value.data.costUsd;
+      let outcome: RunPassOutcome;
       try {
-        json = parseJsonSalvaging(extractText(outcome.value.data.message));
-      } catch {
-        if (tries === 0) continue;
-        // Report the unparseable part exactly as a single response would be.
-        return finishStructuredPass({ ...outcome, value: { data: { ...outcome.value.data, usage, costUsd,
-          ...sectionExecution(a.requestedModel, observations, carried) } } }, a.parse, a.field, a.requestedModel);
-      }
-      last = outcome;
-      if (json !== null && typeof json === "object" && !Array.isArray(json)) {
-        for (const key of keys) {
-          if (!(key in (json as Record<string, unknown>))) continue;
-          completed[key] = (json as Record<string, unknown>)[key];
-          wrote(key, completed[key], outcome.value.data);
+        a.deps.validateRunPass?.(request);
+        if (api) {
+          requestsUsed++;
+          a.deps.sectionCheckpoint?.save(budgetField, { requestsUsed, maxKeys });
         }
+        outcome = await a.deps.runPass(request);
+      } catch (cause) {
+        if (cause instanceof PassSettlementHookError || a.deps.signal?.aborted || (cause instanceof Error && cause.name === "AbortError")) throw cause;
+        return failure({ kind: "preflight", message: `Section request could not complete: ${cause instanceof Error ? cause.message : String(cause)}` });
       }
-      checkpoint(completed);
+      if (!outcome.ok) {
+        account(outcome.error);
+        accept(completedTopLevelFields(outcome.error.partialText ?? ""), [...a.allKeys], outcome.error);
+        if (api && outcome.error.kind === "max_tokens") {
+          maxKeys = Math.min(maxKeys, keys.length);
+          a.deps.sectionCheckpoint?.save(budgetField, { requestsUsed, maxKeys });
+          // The final closing delimiter can be cut off after every required
+          // section is complete. Finalize locally through the normal schema and
+          // semantic checks, even on the last request of the last outer attempt.
+          if (a.parse(completed).ok) return null;
+        }
+        return failure(outcome.error, outcome.gap);
+      }
+      const data = api ? { ...outcome.value.data, execution: { ...outcome.value.data.execution,
+        modelObserved: outcome.value.data.execution?.modelObserved ?? true,
+        usageReported: outcome.value.data.execution?.usageReported ?? outcome.value.data.presumed !== true,
+      } } : outcome.value.data;
+      account(data);
+      for (const url of data.fetchedUrls ?? []) fetchedUrls.add(url);
+      let json: unknown;
+      try { json = parseJsonSalvaging(extractText(data.message)); }
+      catch {
+        if (!api && tries === 0) continue;
+        const failed = failure({ kind: "parse", message: `unparseable structured output for ${a.field}` });
+        return { ...failed, ok: false, validationError: "Section output was not valid JSON", rawText: extractText(data.message) } as PassRun<T>;
+      }
+      if (!isPlainObject(json)) {
+        const failed = failure({ kind: "schema", message: "Section response must be a JSON object" });
+        return { ...failed, ok: false, validationError: "Section response must be a JSON object", rawText: extractText(data.message) } as PassRun<T>;
+      }
+      // A provider may return other known sections despite the subset prompt.
+      // Keep every independently valid section and avoid buying it again.
+      accept(json, [...a.allKeys], data);
+      const unknown = Object.keys(json).filter(key => !a.allKeys.includes(key));
+      if (unknown.length) {
+        const failed = failure({ kind: "schema", message: `Section response contained unknown keys: ${unknown.join(", ")}` });
+        return { ...failed, ok: false, validationError: `Remove unknown top-level keys: ${unknown.join(", ")}`, rawText: JSON.stringify(json) } as PassRun<T>;
+      }
       return null;
     }
   };
-
-  // A cutoff demonstrates that the original groups were too large for this
-  // connection. Keep the user's model/effort and reduce only the remaining batch size.
-  const recovering = Object.keys(stored).length > 0 || Object.keys(a.completed ?? {}).length > 0;
-  const retryCount = a.base.sectionRetryCount ?? 0;
-  const retryLevel = Math.max(recovering ? 1 : 0, Number.isFinite(retryCount) ? Math.min(6, Math.max(0, Math.floor(retryCount))) : 0);
-  const sectionParts = Math.min(a.allKeys.length, a.parts * 2 ** retryLevel);
-  for (const group of splitSections(a.allKeys, sectionParts)) {
+  const alreadyComplete = a.parse(completed).ok;
+  if (!alreadyComplete && api && requestsUsed >= a.maxRequests!) return failure({ kind: "section_budget", message: `Synthesis exhausted its ${a.maxRequests}-request section budget; no request was launched` });
+  const plan = alreadyComplete ? { parts: a.parts, groups: [] } : sectionPlan(a.allKeys, a.parts, completed,
+    a.base.sectionRetryCount ?? 0, initialKeys.size > 0, a.maxRequests, requestsUsed, Number.isFinite(maxKeys) ? maxKeys : undefined);
+  // A shorter final group is not evidence of a cutoff. Persist the planned
+  // maximum, narrowing it only for recovery or an actual interrupted group.
+  if (api && plan.groups.length) maxKeys = Math.min(maxKeys, Math.max(...plan.groups.map(group => group.length)));
+  for (const group of plan.groups) {
     const keys = pending(group);
     if (keys.length === 0) continue;
     const ended = await requestPart(keys);
     if (ended !== null) return ended;
   }
-  // A part may leave a section out. Optional sections can be absent, so ask
-  // again only when the assembled object does not validate and something is
-  // missing — never a request for an optional section the model omitted.
+  // Paid repairs belong to the bounded outer attempt, where feedback and
+  // accepted work are available. A subscription keeps its short missing-part retry.
   const missing = pending(a.allKeys);
-  if (missing.length > 0 && !a.parse(completed).ok) {
-    for (const group of splitSections(missing, sectionParts)) {
+  if (!api && missing.length > 0 && !a.parse(completed).ok) {
+    for (const group of splitSections(missing, plan.parts)) {
       const ended = await requestPart(group);
       if (ended !== null) return ended;
     }
   }
-
-  // Assigned inside requestPart; TypeScript cannot see through the closure.
-  const lastOk = last as Extract<RunPassOutcome, { ok: true }> | null;
-  const data: PassOutcomeLike = lastOk !== null
-    ? { ...lastOk.value.data, usage, costUsd }
-    : {
-        message: { content: [], usage, model: a.requestedModel },
-        usage,
-        costUsd: 0,
-        fallbackUsed: false,
-        model: a.requestedModel,
-        execution: { requestedModel: a.requestedModel, modelObserved: false, usageReported: false },
-      };
-  // Execution evidence must describe every newly completed request, rather
-  // than inheriting the last part's settings, and every kept section's writer
-  // (D-116); a kept section with no saved writer withholds attribution.
-  Object.assign(data, sectionExecution(a.requestedModel, observations, carried));
-  const merged: RunPassOutcome = {
-    ok: true,
-    value: {
-      data: {
-        ...data,
-        message: { ...data.message, usage, content: [{ type: "text", text: JSON.stringify(completed) }] },
-      },
-    },
-  };
-  const finished = finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
-  // A schema-invalid section must be repaired, not pinned forever by a checkpoint.
-  if (!finished.ok) checkpoint({});
+  const attribution = sectionExecution(a.requestedModel, observations, carried);
+  const finished = finishStructuredPass({ ok: true, value: { data: {
+    message: { content: [{ type: "text", text: JSON.stringify(completed) }], usage, model: attribution.model },
+    usage, costUsd, fallbackUsed, ...(presumed ? { presumed: true } : {}), fetchedUrls: [...fetchedUrls], ...attribution,
+  } } }, a.parse, a.field, a.requestedModel);
+  if (!finished.ok) {
+    checkpoint(completed);
+    return { ...finished, error: { ...finished.error, ...counters(), ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) } };
+  }
   return finished;
 }
 
@@ -1279,15 +1372,24 @@ function normalizeAnalystCase(raw: unknown): unknown {
  * Catalysts and evidence may be empty: the framing asks for catalysts only
  * where they exist.
  */
+function hasPlaceholderContent(value: unknown, field = ""): boolean {
+  if (typeof value === "string") return ["text", "source", "sourceId", "horizon", "assumptions"].includes(field) && /^(?:x+|tbd|todo|placeholder)$/i.test(value.trim());
+  if (Array.isArray(value)) return value.some(item => hasPlaceholderContent(item, field));
+  return value !== null && typeof value === "object" && Object.entries(value).some(([key, item]) => hasPlaceholderContent(item, key));
+}
+
 function analystSectionGap(key: string, value: unknown): string | null {
+  if (hasPlaceholderContent(value, key)) return `\`${key}\` contains placeholder content; supply supported content or an explicit evidence limitation`;
   if (key === "thesis" || key === "keyDrivers" || key === "risksToCase") {
     return Array.isArray(value) && value.length === 0 ? `\`${key}\` is empty: give it at least one sourced claim` : null;
   }
   if (key !== "priceTarget" || value === null || typeof value !== "object" || Array.isArray(value)) return null;
-  const target = value as { value?: unknown; horizon?: unknown };
+  const target = value as { value?: unknown; horizon?: unknown; assumptions?: unknown };
   const gaps = [
     ...(typeof target.value === "number" && !(target.value > 0) ? ["`priceTarget.value` must be a positive price"] : []),
     ...(typeof target.horizon === "string" && target.horizon.trim().length === 0 ? ["`priceTarget.horizon` is empty: state the horizon"] : []),
+    ...(Array.isArray(target.assumptions) && !target.assumptions.some(item => typeof item === "string" && item.trim().length > 0)
+      ? ["`priceTarget.assumptions` must explain the target or explicitly qualify insufficient valuation evidence"] : []),
   ];
   return gaps.length === 0 ? null : gaps.join("; ");
 }
@@ -1344,7 +1446,7 @@ function settlementFromPassRun<T>(
     outcome: "failure",
     failure: serializePassFailure(new Error(run.error.message), {
       kind: run.error.kind,
-      retryable: run.validationError !== undefined,
+      retryable: isRetryablePassFailure(run),
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
@@ -1646,6 +1748,13 @@ export function isTransientSubscriptionFailure<T>(run: PassRun<T>): boolean {
     typeof model === "string" &&
     parseSubscriptionModel(model) !== null
   );
+}
+
+/** One retry predicate for durable settlement and the runner facade. */
+export function isRetryablePassFailure<T>(run: PassRun<T>): boolean {
+  return !run.ok && (run.validationError !== undefined || isTransientSubscriptionFailure(run) ||
+    (run.error.kind === "max_tokens" && run.error.sectionProgress === true &&
+      (run.error.sectionRequestsUsed ?? API_JUDGE_MAX_SECTION_REQUESTS) < API_JUDGE_MAX_SECTION_REQUESTS));
 }
 
 /** A per-side signal that aborts with the job's, or on its own. */
@@ -1971,6 +2080,7 @@ export function judgeUserTurns(
   // callers/tests, which get the historical fixed order and no caps applied.
   presentation?: JudgePresentation,
   orderOverride?: JudgeOrder,
+  sectioned = false,
 ): { role: "user"; content: RunPassContentBlock[] }[] {
   const entityConflicts = entityConflictsForCases(payload, bull, bear);
   const entityConflictBlock = entityConflicts.length === 0
@@ -2006,7 +2116,7 @@ export function judgeUserTurns(
         // WS7 (D-20), N11: the order sentence follows the SETTING, exactly as
         // the length banner follows the presentation. A legacy caller with no
         // presentation gets the historical fixed order, hence the default.
-        buildJudgeFraming(presentation?.setting),
+        buildJudgeFraming(presentation?.setting, sectioned),
         ...(presentation === undefined ? [] : ["", caseLengthBanner(presentation)]),
         "",
         caseBlock(first),
@@ -2014,10 +2124,10 @@ export function judgeUserTurns(
         caseBlock(second),
         entityConflictBlock,
         "",
-        "JUDGE_OUTPUT JSON Schema reference:",
-        JSON.stringify(judgeOutputToJsonSchema()),
-        "",
-        "Adjudicate on the evidence and emit the JUDGE_OUTPUT schema.",
+        ...(sectioned ? ["Report content is assembled across separate requests. Emit only the sections and subset schema requested in the final turn."] : [
+          "JUDGE_OUTPUT JSON Schema reference:", JSON.stringify(judgeOutputToJsonSchema()), "",
+          "Adjudicate on the evidence and emit the JUDGE_OUTPUT schema.",
+        ]),
         "Return ONLY valid JSON matching that schema. Do not wrap it in Markdown and do not add prose before or after the JSON.",
       ].join("\n"),
     ),
@@ -2121,7 +2231,7 @@ function entityConflictFailure(
       severity: "critical",
       attemptedSources: ["canonical-entity-registry", "judge-disagreements"],
     },
-    error: { kind: "schema", message: reason },
+    error: { kind: "schema", message: reason, repairRejectedComplete: true },
     validationError: reason,
     rawText: JSON.stringify(successful.output),
     usage: successful.usage,
@@ -2200,10 +2310,22 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
 const parseJudgeOutput = (raw: unknown) => {
   // See normalizeAnalystCase — same nullable-omission compensation.
   const r = JUDGE_OUTPUT_SCHEMA.safeParse(fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalizeJudgeOutput(raw)));
+  if (r.success) {
+    const gaps = invalidJudgeGenerationSections(r.data);
+    if (gaps.length) return { ok: false, error: `Generation sections need substantive content: ${gaps.join(", ")}` } as const;
+  }
   return r.success
     ? ({ ok: true, value: r.data } as const)
     : ({ ok: false, error: r.error.message } as const);
 };
+
+function invalidJudgeGenerationSections(sections: Record<string, unknown>): string[] {
+  const invalid: string[] = [];
+  if (isPlainObject(sections.verdict) && typeof sections.verdict.synthesis === "string" && !sections.verdict.synthesis.trim()) invalid.push("verdict");
+  if (isPlainObject(sections.business) && Array.isArray(sections.business.whatTheySell) &&
+      (sections.business.whatTheySell.length === 0 || sections.business.whatTheySell.some(claim => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()))) invalid.push("business");
+  return invalid;
+}
 
 /** Sections carried from a cut-off response, split by whether they can be kept (audit 2026-10-22 D-3). */
 export interface CarriedSectionCheck {
@@ -2239,7 +2361,7 @@ export function checkCarriedJudgeSections(sections: Record<string, unknown>): Ca
   return splitCarriedSections(
     sections,
     fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalizeJudgeOutput(sections)),
-    invalidJudgeOutputSections,
+    normalized => [...invalidJudgeOutputSections(normalized), ...invalidJudgeGenerationSections(normalized)],
   );
 }
 
@@ -2305,7 +2427,8 @@ export function buildJudgeRunPassArgs(
   continuation?: PassContinuation,
 ): RunPassArgs {
   const presentation = judgePresentationFor(deps, payload, bull, bear);
-  const baseTurns = judgeUserTurns(payload, bull, bear, presentation, orderOverride);
+  const sectioned = deps.sectionedOutput === true || deps.judgeSectionedOutput === true;
+  const baseTurns = judgeUserTurns(payload, bull, bear, presentation, orderOverride, sectioned);
   const userTurns =
     hasCompletedSections(continuation)
       ? [...baseTurns, { role: "user" as const, content: continuationInstruction(continuation.completed, JUDGE_OUTPUT_KEYS) }]
@@ -2315,7 +2438,7 @@ export function buildJudgeRunPassArgs(
           ...baseTurns,
           {
             role: "user" as const,
-            content: `Your previous output FAILED report-schema validation with this error. Fix EXACTLY these issues and re-emit the full JUDGE_OUTPUT schema:\n${validationFeedback}`,
+            content: `Your previous output FAILED report-schema validation with this error. Fix EXACTLY these issues and ${sectioned ? "emit only the sections requested in the final turn" : "re-emit the full JUDGE_OUTPUT schema"}:\n${validationFeedback}`,
           },
         ];
   return {
@@ -2329,6 +2452,8 @@ export function buildJudgeRunPassArgs(
     admission: deps.admissionFor?.("synthesize"),
     reservationPass: "synthesize",
     ...(continuation?.sectionRetryCount ? { sectionRetryCount: continuation.sectionRetryCount } : {}),
+    ...(continuation?.sectionRequestsUsed === undefined ? {} : { sectionRequestsUsed: continuation.sectionRequestsUsed }),
+    ...(continuation?.sectionMaxKeys === undefined ? {} : { sectionMaxKeys: continuation.sectionMaxKeys }),
   };
 }
 
@@ -2352,29 +2477,39 @@ export async function runJudgePass(
   continuation?: PassContinuation,
 ): Promise<PassRun<JudgeOutput>> {
   const judgeModel = judgeModelFor(deps.model);
+  for (const [side, input] of [["bull", bull], ["bear", bear]] as const) {
+    const checked = parseAnalystCase(input);
+    if (!checked.ok) {
+      const reason = `${side} case failed current generation validation before synthesis: ${checked.error}`;
+      return settlePassRun({ ok: false, gap: { field: "llm.judge.analystInputs", reason, severity: "critical" },
+        error: { kind: "schema", message: reason, notLaunched: true } }, judgeModel, settlement);
+    }
+  }
   const presentation = judgePresentationFor(deps, payload, bull, bear);
   const parse =
-    continuation === undefined
+    continuation === undefined || continuation.repairRejectedComplete
       ? parseJudgeOutput
       : (raw: unknown) => parseJudgeOutput(mergeContinuation(continuation.completed, raw));
   const attempt = async (order: JudgeOrder): Promise<PassRun<JudgeOutput>> => {
     let finished: PassRun<JudgeOutput>;
-    if (deps.sectionedOutput) {
+    if (deps.sectionedOutput || deps.judgeSectionedOutput) {
       // In parts: the kept sections seed the parts instead of a continuation turn.
       const base = buildJudgeRunPassArgs(
         deps, payload, bull, bear, validationFeedback, order,
-        continuation === undefined ? undefined : { completed: {}, sectionRetryCount: continuation.sectionRetryCount },
+        continuation === undefined ? undefined : { ...continuation, completed: {} },
       );
       finished = await runPassInSections({
         deps,
-        base,
+        base: { ...base, outputSchema: judgeOutputToJsonSchema() },
         allKeys: JUDGE_OUTPUT_KEYS,
         parts: JUDGE_SECTION_PARTS,
         completed: continuation?.completed,
-        parse,
+        parse: parseJudgeOutput,
         checkStored: checkCarriedJudgeSections,
         field: "llm.judge",
         requestedModel: judgeModel,
+        ...(parseSubscriptionModel(judgeModel) === null ? { maxRequests: API_JUDGE_MAX_SECTION_REQUESTS } : {}),
+        repairRejectedComplete: continuation?.repairRejectedComplete === true,
       });
     } else {
       const request = buildJudgeRunPassArgs(deps, payload, bull, bear, validationFeedback, order, continuation);

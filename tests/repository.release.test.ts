@@ -56,6 +56,7 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-01-current-main-integration.md",
   "README.md",
   "CHANGELOG.md",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",

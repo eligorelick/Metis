@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { analysisOutcomeText } from "@/report/analysisCompletion";
 import type { Report } from "@/report/schema";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import { syntheticNotice } from "@/report/presentation";
@@ -39,6 +40,7 @@ export function ReportSnapshotHeader({ snapshot: report, reportId, status, actio
       <div className="company-actions">{actions}</div>
     </div>
     <p className="snapshot-status"><span>Process: {status?.toUpperCase() ?? "UNKNOWN"}</span><span>Research: {c.dataOnly ? "data-only" : c.state}</span><span>{c.dataOnly ? "No completed analyst analysis" : "Recorded analysis"}</span><span>Saved snapshot</span></p>
+    {report.meta.analysisOutcome && <p>{analysisOutcomeText(report.meta.analysisOutcome)}</p>}
     {quoteDate && <p className="snapshot-observation">Quote observed <time dateTime={quoteDate}>{observationText(quoteDate)}</time>{report.meta.evidenceTiming?.quote.stale ? " · stale" : ""}. Other inputs retain their individual observation dates.</p>}
     {syntheticNotice(report) && <p className="snapshot-synthetic">{syntheticNotice(report)}</p>}
     {providerFallbackNotice(report) && <p className="snapshot-synthetic">{providerFallbackNotice(report)}</p>}

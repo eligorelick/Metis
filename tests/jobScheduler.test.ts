@@ -2620,7 +2620,8 @@ describe("conservative provider reservation bounds", () => {
     const provider = await import("@/providers/anthropic");
     expect(provider.maximumPassCostUsd(model, "bull")).toBe(analyst);
     expect(provider.maximumPassCostUsd(model, "bear")).toBe(analyst);
-    expect(provider.maximumPassCostUsd(model, "synthesize")).toBe(synthesize);
+    // Six bounded section launches each reserve the full request/retry ceiling.
+    expect(provider.maximumPassCostUsd(model, "synthesize")).toBe(Number((synthesize * 6).toFixed(2)));
     expect(provider.maximumPassCostUsd(model, "verify", { billable: false })).toBe(0);
   });
 

@@ -155,6 +155,59 @@ describe("computeBackoffMs / parseRetryAfterMs", () => {
 });
 
 describe("fetchWithPolicy retry policy", () => {
+  it("reports the terminal transport failure instead of an earlier HTTP response", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      if (++calls === 1) return new Response("rate limited", { status: 429 });
+      throw new TypeError("connection lost on final attempt");
+    }) as typeof fetch;
+    await expect(fetchWithPolicy("https://provider.test/data", undefined, {
+      provider: "mixed-failure", ...FAST, fetchImpl, maxRetries: 1,
+    })).rejects.toMatchObject({ name: "HttpTransportError", attempts: 2,
+      cause: expect.objectContaining({ message: "connection lost on final attempt" }) });
+    expect(calls).toBe(2);
+  });
+
+  it("cancels a queued limiter wait without consuming capacity or leaving a timer", async () => {
+    vi.useFakeTimers();
+    const limiter = makeLimiter(0.01, 1);
+    limiter.tryTake();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn<typeof fetch>();
+    let failure: unknown;
+    const pending = fetchWithPolicy("https://provider.test/data", undefined, {
+      provider: "queued-cancel", limiter, signal: controller.signal, fetchImpl,
+    }).catch(error => { failure = error; });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      controller.abort(new Error("job stopped while queued"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(failure).toBeInstanceOf(HttpRequestAbortedError);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(100_000);
+      expect(limiter.tryTake()).toBe(true);
+    } finally {
+      await vi.runAllTimersAsync();
+      await pending;
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases the intermediate response body before following an allowed redirect", async () => {
+    let canceled = false;
+    let calls = 0;
+    const fetchImpl = (async () => {
+      if (++calls === 1) return new Response(new ReadableStream({ cancel() { canceled = true; } }), {
+        status: 302, headers: { location: "/next" },
+      });
+      expect(canceled).toBe(true);
+      return new Response("ok");
+    }) as typeof fetch;
+    expect((await fetchWithRedirectPolicy("https://provider.test/start", undefined, fetchImpl)).ok).toBe(true);
+    expect(calls).toBe(2);
+  });
+
   it("follows same-origin redirects but returns cross-origin redirects without forwarding secrets", async () => {
     const calls: Array<{ url: string; redirect?: RequestRedirect }> = [];
     const impl = (async (input: string | URL, init?: RequestInit) => {

@@ -20,6 +20,7 @@
  */
 
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -341,6 +342,7 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Generated", m.generatedAt],
         ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
         ["Snapshot", "Saved research; observations retain their recorded dates"],
+        ...(m.analysisOutcome ? [["Workflow completion", analysisOutcomeText(m.analysisOutcome)]] : []),
         ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
         // D-62: one line; the judge protocol and the per-pass record are in the appendix and the audit export.
         ["Model", runSummary(report)],

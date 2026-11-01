@@ -139,6 +139,47 @@ describe("dataBundle provider cache wrappers", () => {
     expect(cacheRows()).toHaveLength(0);
   });
 
+  it.each([400, 429, 503, "network"] as const)("explains the primary FRED %s failure while retaining stale keyed data and allowing recovery", async (failure) => {
+    const secret = "never-log-this-provider-key";
+    let failing = false;
+    let recovered = false;
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("api.stlouisfed.org")) {
+        if (failing) {
+          if (failure === "network") throw new Error(`connection failed for ${url}`);
+          return jsonResponse({ error_code: failure, error_message: `provider echoed ${secret}` }, failure);
+        }
+        return jsonResponse({ observations: [{ date: recovered ? "2026-07-02" : "2026-07-01", value: recovered ? "4.50" : "4.25" }] });
+      }
+      return new Response("observation_date,DGS10\n2026-07-02,4.75\n");
+    });
+    const fetchSeries = makeCachedFredSeries({ apiKey: secret, fetchImpl, retryDelaysMs: [], minRequestIntervalMs: 0 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await fetchSeries("DGS10", { start: "2026-07-01" });
+    handle.db.update(apiCache).set({ fetchedAt: new Date(Date.now() - 3 * 3600_000).toISOString() }).run();
+    failing = true;
+    expect(await fetchSeries("DGS10", { start: "2026-07-01" })).toMatchObject({ ok: true, value: {
+      stale: true, asOf: "2026-07-01", data: [{ date: "2026-07-01", value: 4.25 }],
+    } });
+    await flushPendingRefreshes();
+    const warning = JSON.stringify(warn.mock.calls);
+    expect(warning).toContain(failure === "network" ? "transport failure" : `HTTP ${failure}`);
+    expect(warning).toContain("CSV fallback was fetched but not stored as keyed API data");
+    expect(warning).not.toContain("returned uncached");
+    expect(warning).not.toContain(secret);
+    expect(warning).not.toContain("api_key=");
+    expect(cacheRows()).toHaveLength(1);
+    expect(cacheRows()[0]?.asOf).toBe("2026-07-01");
+    failing = false; recovered = true;
+    await fetchSeries("DGS10", { start: "2026-07-01" });
+    await flushPendingRefreshes();
+    const fresh = await fetchSeries("DGS10", { start: "2026-07-01" });
+    expect(fresh).toMatchObject({ ok: true, value: { asOf: "2026-07-02", data: [{ date: "2026-07-02", value: 4.5 }] } });
+    if (fresh.ok) { expect(fresh.value.stale).toBeUndefined(); expect(fresh.value.endpoint).toContain("api.stlouisfed.org"); }
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
   it("caches successful FINRA trend responses and avoids repeat partition/data calls", async () => {
     const fetchImpl = vi.fn(async (input: string | URL) => {
       const url = typeof input === "string" ? input : input.toString();

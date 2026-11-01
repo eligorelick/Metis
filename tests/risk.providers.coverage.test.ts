@@ -229,6 +229,7 @@ describe("Anthropic finite request contracts", () => {
       stop_reason: "pause_turn",
     };
     const params = {
+      model: "claude-opus-4-8", max_tokens: 1024,
       messages: [{ role: "user", content: "original prompt" }],
     } as never;
 
@@ -1232,7 +1233,7 @@ function analystCase(): AnalystCase {
     keyDrivers: [{ text: "driver", label: "JUDGMENT", source: "payload", asOf: null }],
     risksToCase: [{ text: "risk", label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
-    priceTarget: { value: 100, horizon: "12mo", assumptions: [] },
+    priceTarget: { value: 100, horizon: "12mo", assumptions: ["Revenue and operating margins remain within the scenario range."] },
     evidence: [],
   };
 }

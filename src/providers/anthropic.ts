@@ -53,6 +53,7 @@ import type {
   MessageCreateParamsNonStreaming,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { getConfig } from "@/config/env";
+import { API_JUDGE_MAX_SECTION_REQUESTS } from "@/pipeline/sectionLimits";
 import {
   ANTHROPIC_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
   MODEL_STAGE_DEADLINE_MS,
@@ -342,11 +343,9 @@ function boundedInteger(value: number, label: string, maximum: number): number {
 }
 
 /**
- * How many provider REQUESTS one pass issues per attempt. Every pass issues one
- * — except the judge under `THESIS_JUDGE_ORDER=both`, which issues a mirrored
- * second request with the two cases swapped (D-20). Callers pass the count for
- * the setting in force (JUDGE_PASSES_PER_SETTING); it defaults to 1 so a caller
- * that does not know the setting still gets the historical single-order bound.
+ * Independent judge orders per attempt. Each order has its own bounded section
+ * allowance; `both` adds the mirrored order (D-20). Request admission remains
+ * per dispatched request, and analyst requests retain their existing bound.
  */
 export type JudgeRequestsPerPass = 1 | 2;
 
@@ -354,7 +353,7 @@ function judgeRequestMultiplier(
   pass: ReservationPass,
   judgeRequestsPerPass: JudgeRequestsPerPass,
 ): number {
-  return pass === "synthesize" ? judgeRequestsPerPass : 1;
+  return pass === "synthesize" ? judgeRequestsPerPass * API_JUDGE_MAX_SECTION_REQUESTS : 1;
 }
 
 /**
@@ -362,7 +361,7 @@ function judgeRequestMultiplier(
  * attempt can expose: {@link PASS_BILLING_EXPOSURE_MULTIPLIER} request maxima,
  * which is PASS_TRANSPORT_MAX_ATTEMPTS transport executions × one pause
  * resumption cycle each (CLIENT_MAX_RETRIES is 0 under D-10, so the SDK adds
- * no executions of its own) × {@link JudgeRequestsPerPass} orders on the judge.
+ * no executions of its own) × six section launches × the number of judge orders.
  *
  * The judge multiplier matters in "pass" reservation mode, which has no
  * per-request admission at all: without it a `both`-mode judge pass ran two
@@ -456,43 +455,24 @@ let clientOverride = false;
  * against a permit. Every retry now happens in {@link runPassStreaming}, one
  * reserved request at a time.
  *
- * Resilience is not lost: the pass-level loop retries the same transient
- * classes the SDK did (408/409/429/5xx incl. 529 `overloaded_error`, and
- * connection failures) AND the mid-stream SSE `error` events the SDK never
- * retried at all — the failure mode of 2026-07-10, where one capacity blip
- * killed both analyst passes after ~8 minutes of billed output each.
+ * The pass loop retries only demonstrably unbilled transient failures.
+ * Billed or uncertain requests stop; validated sections can be recovered by
+ * the workflow without replaying the original paid request.
  */
 export const CLIENT_MAX_RETRIES = 0;
 
 /**
- * Total attempts per streaming pass. This is now the ONLY retry budget (the
- * SDK's is zero), so it covers both classes: a failure of the initial HTTP
- * response, which the SDK used to retry up to five times, and a mid-stream SSE
- * `error` event, which it never retried. Six keeps the combined resilience of
- * the old arrangement while every attempt stays individually reserved.
- *
- * Each retry is a FRESH request: partial streamed output cannot be resumed, so
- * the retry re-bills input (a cache read when the previous attempt's
- * 5-minute-TTL cache entry is still warm; a re-write when not). Past this the
- * pass fails typed ("transport") carrying the billed usage of every attempt.
+ * Maximum attempts for a demonstrably unbilled transport failure. Every
+ * attempt remains individually admitted. A billed/uncertain failure or a
+ * failed pause resumption is terminal at this layer, with accounting retained.
  */
 export const PASS_TRANSPORT_MAX_ATTEMPTS = 6;
 
 /**
- * Backoff before pass-level retry k (index k-1), by failure class.
- *
- * A request that failed BEFORE any token is the case the SDK used to handle:
- * short exponential backoff is right, since nothing was generated and the
- * request is cheap to re-issue. A failure AFTER generation started means
- * Anthropic shed load while already serving the request, so immediate re-entry
- * mostly dies again — and the retry re-bills the input, so it is worth waiting.
- *
- * Deterministic (no jitter) for testability; bull/bear retrying in lockstep can
- * at worst duplicate one 1.25x payload cache write (~$0.15), which is not worth
- * cross-pass coordination machinery.
+ * Cancellable backoff for proven unbilled failures, bounded by the attempt
+ * limit. Provider retry-after values are also respected.
  */
 export const PASS_TRANSPORT_RETRY_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000, 8_000, 16_000];
-export const PASS_MID_STREAM_RETRY_DELAYS_MS: readonly number[] = [15_000, 30_000];
 
 /**
  * Error codes Node and undici (which Node 24 bundles) put on a connection
@@ -849,6 +829,8 @@ export interface RunPassOptions {
   reservationPass?: ReservationPass;
   /** Verify-pass capability, when `reservationPass` is "verify". */
   verifyCapability?: VerifyReservationCapability;
+  /** Answer text only, for durable validated-section checkpoints. */
+  onPartialText?: (text: string) => void;
 }
 
 /** The per-request maximum for these options, from the registry. */
@@ -884,6 +866,15 @@ export function effectiveMaxTokens(
   const entry = registryEntryFor(opts.model);
   const effortApplies = entry.effort.supported && isHighOrAboveEffort(opts.effort);
   return effortApplies ? entry.maxOutputTokens : opts.maxTokens;
+}
+
+/** Advisory synthesis pacing, separate from hard output and spend limits. */
+function synthesisTaskBudgetTokens(opts: RunPassOptions): number | undefined {
+  const capability = registryEntryFor(opts.model).taskBudget;
+  const synthesis = opts.reservationPass === "synthesize" || opts.field === "llm.judge" || opts.field === "llm.synthesize";
+  if (!synthesis || capability === null) return undefined;
+  const target = Math.min(64_000, Math.floor(effectiveMaxTokens(opts) * 0.75));
+  return target >= capability.minimumTokens ? target : undefined;
 }
 
 /**
@@ -1065,9 +1056,11 @@ export function buildPassParams(opts: RunPassOptions): BuiltPassRequest {
   if (thinking) params.thinking = thinking;
 
   const effort = supportsEffort(opts.model) ? opts.effort : undefined;
-  if (effort !== undefined || opts.outputSchema !== undefined) {
+  const taskBudget = synthesisTaskBudgetTokens(opts);
+  if (effort !== undefined || opts.outputSchema !== undefined || taskBudget !== undefined) {
     params.output_config = {
       ...(effort !== undefined ? { effort } : {}),
+      ...(taskBudget === undefined ? {} : { task_budget: { type: "tokens" as const, total: taskBudget } }),
       ...(opts.outputSchema !== undefined
         ? { format: { type: "json_schema" as const, schema: opts.outputSchema } }
         : {}),
@@ -1078,6 +1071,7 @@ export function buildPassParams(opts: RunPassOptions): BuiltPassRequest {
     params.betas = [fallback.beta];
     params.fallbacks = [{ model: fallback.model }];
   }
+  if (taskBudget !== undefined) params.betas = [...(params.betas ?? []), registryEntryFor(opts.model).taskBudget!.beta];
 
   return { params, usesFallbackBeta: fallback !== null };
 }
@@ -1546,6 +1540,8 @@ export interface PassError {
    * model's registry ceiling, not the pass constant.
    */
   maxTokens?: number;
+  /** Incomplete answer text; only independently validated sections may be reused. */
+  partialText?: string;
   /** Usage/cost of the failed attempt(s) (mid-stream failures bill partial output). */
   usage?: BetaUsage;
   costUsd?: number;
@@ -1610,6 +1606,7 @@ function passExecution(opts: RunPassOptions, dispatched = true): ProviderExecuti
     requestedModel: opts.model,
     requestedEffort: opts.effort ?? null,
     effectiveEffort: dispatched && supportsEffort(opts.model) ? opts.effort ?? null : null,
+    ...(dispatched && synthesisTaskBudgetTokens(opts) !== undefined ? { taskBudgetTokens: synthesisTaskBudgetTokens(opts) } : {}),
   };
 }
 
@@ -1638,7 +1635,7 @@ function interpretPassMessages(
   const usage = passTotals.usage as BetaUsage;
   const accounting = {
     model: message.model,
-    execution: passExecution(opts),
+    execution: { ...passExecution(opts), modelObserved: true, usageReported: !passTotals.presumed },
     ...(passTotals.presumed ? { presumed: true } : {}),
   };
   const fetchedUrls = [
@@ -1689,6 +1686,7 @@ function interpretPassMessages(
           ? `Response hit max_tokens=${sentMaxTokens}, the model's registry ceiling, before completing.`
           : `Response hit max_tokens=${sentMaxTokens} before completing. Retry at a higher effort, which raises max_tokens to the model's registry ceiling.`,
         maxTokens: sentMaxTokens,
+        partialText: message.content.flatMap((block) => block.type === "text" ? [block.text] : []).join(""),
         usage,
         costUsd,
         fallbackUsed,
@@ -1790,6 +1788,7 @@ class ResumptionFailedError extends Error {
     readonly cause: unknown,
     readonly billableMessages: BetaMessage[],
     readonly charge: FailedRequestCharge | null = null,
+    readonly partialText?: string,
   ) {
     super(errorMessageOf(cause));
     this.name = "ResumptionFailedError";
@@ -1802,6 +1801,18 @@ class ResumptionAdmissionError extends Error {
     super(errorMessageOf(cause));
     this.name = "ResumptionAdmissionError";
   }
+}
+
+class ResumptionPreflightError extends Error {
+  constructor(readonly cause: unknown, readonly billableMessages: BetaMessage[]) {
+    super(errorMessageOf(cause));
+    this.name = "ResumptionPreflightError";
+  }
+}
+
+/** A durable checkpoint failure is a control-plane error, not a provider retry. */
+class StreamCheckpointError extends Error {
+  constructor(readonly cause: unknown) { super(errorMessageOf(cause)); }
 }
 
 function errorMessageOf(err: unknown): string {
@@ -1923,7 +1934,9 @@ function classifyFailedRequest(
   snapshot: StreamedUsageSnapshot,
   cause: unknown,
   requestMaximumUsd: number,
+  dispatched: boolean,
 ): FailedRequestOutcome {
+  if (!dispatched) return { kind: "release" };
   const reported = billedMessageFromSnapshot(snapshot, opts);
   if (cause instanceof StreamIdleTimeoutError || (reported !== null && snapshot.finalUsage !== true)) {
     // Generation had started and nobody knows how far it got, whatever ended
@@ -1938,9 +1951,11 @@ function classifyFailedRequest(
   }
   // No usage was reported, so the input the provider may have billed is
   // unknown as well as the output: the whole request maximum (DECISIONS D-10).
-  // A caller abort counts only once the provider answered (response headers
-  // or any stream event); before that the request may never have left.
-  if (timedOutAfterSend(cause) || (cause instanceof APIUserAbortError && snapshot.answered === true)) {
+  // Dispatch without usage is uncertain even if headers never arrived. Only
+  // a proven connect-phase failure can establish that no request was sent.
+  const preSend = causeChain(cause).some((entry) => entry instanceof PreSendConnectionError);
+  if (timedOutAfterSend(cause) || cause instanceof APIUserAbortError || cause instanceof StreamCheckpointError ||
+      (cause instanceof APIConnectionError && !preSend)) {
     return { kind: "charge", charge: { reported: null, costUsd: requestMaximumUsd, presumed: true } };
   }
   return { kind: "release" };
@@ -2017,9 +2032,19 @@ async function streamFinalMessage(
   idleMs: number,
   snapshot: StreamedUsageSnapshot,
   onFirstEvent?: () => void,
+  onPartialText?: (text: string) => void,
 ): Promise<BetaMessage> {
   const stream = client.beta.messages.stream(params, { signal, timeout: REQUEST_TIMEOUT_MS });
-  trackStreamedUsage(stream, snapshot);
+  let rejectCheckpoint!: (error: unknown) => void;
+  const checkpointFailure = new Promise<never>((_resolve, reject) => { rejectCheckpoint = reject; });
+  checkpointFailure.catch(() => {});
+  trackStreamedUsage(stream, snapshot, onPartialText === undefined ? undefined : text => {
+    try { onPartialText(text); }
+    catch (error) {
+      rejectCheckpoint(new StreamCheckpointError(error));
+      stream.abort();
+    }
+  });
   if (onFirstEvent !== undefined) stream.once("streamEvent", onFirstEvent);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const clearIdle = (): void => {
@@ -2043,7 +2068,7 @@ async function streamFinalMessage(
   stream.on("streamEvent", resetIdle);
   resetIdle();
   try {
-    return withActualModel(await Promise.race([stream.finalMessage(), idleGuard]));
+    return withActualModel(await Promise.race([stream.finalMessage(), idleGuard, checkpointFailure]));
   } catch (err) {
     if (err instanceof StreamIdleTimeoutError) {
       (stream as { abort?: () => void } | undefined)?.abort?.();
@@ -2107,10 +2132,18 @@ async function resumeIfPausedWithUsage(
   let resumptions = 0;
   const admission = opts?.admission;
   while (msg.stop_reason === "pause_turn" && resumptions < MAX_PAUSE_RESUMPTIONS) {
+    if (signal?.aborted) throw new ResumptionFailedError(new APIUserAbortError(), billableMessages);
     current = {
       ...current,
       messages: [...current.messages, { role: "assistant", content: continuationContent(msg) }],
     };
+    try {
+      // Preserve D-121's tokenizer estimate policy, applied to expanded context.
+      validateRunPassOptions({ ...(opts ?? { model: current.model, system: current.system ?? "", maxTokens: current.max_tokens }),
+        messages: current.messages });
+    } catch (error) {
+      throw new ResumptionPreflightError(error, billableMessages);
+    }
     // A resumption is its own billable request, so it is admitted and settled
     // on its own rather than riding the first request's reservation.
     let permit: RequestPermit | null = null;
@@ -2126,16 +2159,19 @@ async function resumeIfPausedWithUsage(
       }
     }
     const snapshot: StreamedUsageSnapshot = { model: null, usage: null };
+    let dispatched = false;
     try {
-      msg = await streamFinalMessage(client, current, signal, idleMs, snapshot);
+      if (signal?.aborted) throw new APIUserAbortError();
+      dispatched = true;
+      msg = await streamFinalMessage(client, current, signal, idleMs, snapshot, undefined, opts?.onPartialText);
     } catch (err) {
       let charge: FailedRequestCharge | null = null;
       if (opts !== undefined) {
-        const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts));
+        const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts), dispatched);
         await settleFailedRequest(opts, permit, outcome);
         if (outcome.kind === "charge") charge = outcome.charge;
       }
-      throw new ResumptionFailedError(err, billableMessages, charge);
+      throw new ResumptionFailedError(err, billableMessages, charge, snapshot.partialText);
     }
     if (opts !== undefined) await settleRequest(admission, permit, opts, msg);
     billableMessages.push(msg);
@@ -2154,7 +2190,7 @@ export async function resumeIfPaused(
     return final;
   } catch (err) {
     // Public wrapper keeps the raw cause (ResumptionFailedError is internal).
-    throw err instanceof ResumptionFailedError ? err.cause : err;
+    throw err instanceof ResumptionFailedError || err instanceof ResumptionPreflightError ? err.cause : err;
   }
 }
 
@@ -2199,6 +2235,7 @@ interface StreamedUsageSnapshot {
   finalUsage?: boolean;
   /** True once the provider answered: response headers received (`connect`) or any stream event. */
   answered?: boolean;
+  partialText?: string;
 }
 
 function trackStreamedUsage(
@@ -2207,6 +2244,7 @@ function trackStreamedUsage(
     on(event: "connect", listener: () => void): unknown;
   },
   snapshot: StreamedUsageSnapshot = { model: null, usage: null },
+  onPartialText?: (text: string) => void,
 ): StreamedUsageSnapshot {
   stream.on("connect", () => {
     snapshot.answered = true;
@@ -2220,6 +2258,14 @@ function trackStreamedUsage(
       snapshot.stopReason = event.message.stop_reason;
       snapshot.stopDetails = event.message.stop_details;
       return;
+    }
+    if (event.type === "content_block_start" && event.content_block.type === "text") {
+      snapshot.partialText = (snapshot.partialText ? `${snapshot.partialText}\n` : "") + event.content_block.text;
+      if (snapshot.partialText) onPartialText?.(snapshot.partialText);
+    }
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      snapshot.partialText = (snapshot.partialText ?? "") + event.delta.text;
+      onPartialText?.(snapshot.partialText);
     }
     if (event.type === "content_block_start" && event.content_block.type === "fallback") {
       snapshot.content = [...(snapshot.content ?? []), event.content_block];
@@ -2332,6 +2378,7 @@ function presumedRemainderResult(
   attempts: number,
   headline: string,
   aborted: boolean,
+  partialText?: string,
 ): RunPassResult {
   // The request that was abandoned is the last failed charge, already settled
   // at its presumed figure; the pass total sums every request's settlement.
@@ -2355,7 +2402,8 @@ function presumedRemainderResult(
     error: {
       kind: "transport",
       ...(aborted ? { aborted: true as const } : {}),
-      message: `${aborted ? "request aborted by the caller" : "stream idle timeout"} after ${attemptNoun}: ${detail}`,
+      ...(partialText ? { partialText } : {}),
+      message: `${aborted ? "request aborted by the caller" : headline} after ${attemptNoun}: ${detail}`,
       usage: accounting.usage,
       costUsd: accounting.costUsd,
       presumed: true,
@@ -2374,14 +2422,16 @@ function deadStreamResult(
   failed: readonly FailedRequestCharge[],
   idleMs: number,
   attempts: number,
+  partialText?: string,
 ): RunPassResult {
   return presumedRemainderResult(
     opts,
     completed,
     failed,
     attempts,
-    new StreamIdleTimeoutError(idleMs).message,
+    `stream idle timeout: ${new StreamIdleTimeoutError(idleMs).message}`,
     false,
+    partialText,
   );
 }
 
@@ -2427,6 +2477,8 @@ function transportFailureResult(
   completed: readonly BetaMessage[],
   attempts: number,
   failed: readonly FailedRequestCharge[] = [],
+  partialText?: string,
+  dispatched = true,
 ): RunPassResult {
   const raw = errorMessageOf(err);
   const billed = completed.length > 0 || failed.length > 0;
@@ -2437,6 +2489,7 @@ function transportFailureResult(
     gap: gapEntry(opts, `LLM pass transport failure after ${attemptNoun} (incl. automatic retries): ${raw}`),
     error: {
       kind: "transport",
+      ...(partialText ? { partialText } : {}),
       // The caller aborted this request, rather than the provider failing it.
       // Callers that stop a pass on purpose (a doomed run abandoning its
       // sibling) need to tell their own abort apart from a real provider
@@ -2448,7 +2501,7 @@ function transportFailureResult(
       ...(accounting.presumed ? { presumed: true } : {}),
       fallbackUsed: billed ? accounting.fallbackUsed : undefined,
       model: billed ? (accounting.model || opts.model) : undefined,
-      execution: passExecution(opts),
+      execution: passExecution(opts, dispatched),
       webSearches: billed ? accounting.webSearches : undefined,
     },
   };
@@ -2460,12 +2513,9 @@ function transportFailureResult(
  *
  * Retries retryable transport failures ({@link isRetryableTransportError}) up
  * to {@link PASS_TRANSPORT_MAX_ATTEMPTS} total attempts with
- * {@link PASS_TRANSPORT_RETRY_DELAYS_MS} backoff — the SDK cannot retry a
- * stream that dies mid-generation, and without this a single overload blip
- * discards the pass's full sunk cost. Terminal failures resolve as a typed
- * "transport" RunPassResult carrying the summed billed usage of every attempt;
- * a pass that eventually succeeds folds its failed attempts' billed usage into
- * the reported cost so cost_log reflects true spend.
+ * {@link PASS_TRANSPORT_RETRY_DELAYS_MS} backoff only when the failed request
+ * is demonstrably unbilled. Terminal failures preserve partial text and all
+ * accounting so bounded workflow recovery can validate and keep usable work.
  */
 export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
   const { params } = buildPassParams(opts);
@@ -2497,6 +2547,10 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
     // dead provider (see STREAM_IDLE_EFFORT_MULTIPLIER).
     const idleMs = streamIdleTimeoutMsFor(supportsEffort(opts.model) ? opts.effort : undefined);
     for (let attempt = 1; attempt <= PASS_TRANSPORT_MAX_ATTEMPTS; attempt++) {
+      if (opts.signal?.aborted) {
+        signalFirst("abort");
+        return transportFailureResult(opts, new APIUserAbortError(), completed, attempt - 1, failed, undefined, attempt > 1);
+      }
       // Opening the stream is inside the guarded block: a client that fails
       // at construction is a transport failure like any other, not a
       // rejection the runner would have to treat as a crash.
@@ -2523,9 +2577,11 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
       // never released.
       let dispatched = false;
       try {
+        if (opts.signal?.aborted) throw new APIUserAbortError();
         dispatched = true;
         const message = await streamFinalMessage(client, params, opts.signal, idleMs, snapshot, () =>
           signalFirst("streamEvent"),
+          opts.onPartialText,
         );
         await settleRequest(opts.admission, permit, opts, message);
         // Recorded, or kept unrecorded after its retries (logged there): the
@@ -2543,6 +2599,16 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
         signalFirst("end"); // only reachable pre-signal if the stream emitted no events
         return interpretPassMessages(final, opts, [...completed, ...billableMessages], failed);
       } catch (err) {
+        if (err instanceof ResumptionPreflightError) {
+          signalFirst("error");
+          const failure = transportFailureResult(opts, err.cause, [...completed, ...err.billableMessages], attempt, failed);
+          if (!failure.ok) {
+            failure.error.kind = "context_window";
+            failure.error.message = `Continuation preflight rejected before launch: ${errorMessageOf(err.cause)}`;
+            failure.gap.reason = failure.error.message;
+          }
+          return failure;
+        }
         if (err instanceof ResumptionAdmissionError) {
           signalFirst("error");
           return admissionRefusedResult(
@@ -2556,9 +2622,10 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
         // shared classifier settles (the same rule the resumption used).
         const resumption = err instanceof ResumptionFailedError ? err : null;
         const cause = resumption === null ? err : resumption.cause;
+        const partialText = resumption === null ? snapshot.partialText : resumption.partialText;
         let charge: FailedRequestCharge | null;
         if (resumption === null) {
-          const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts));
+          const outcome = classifyFailedRequest(opts, snapshot, err, permit?.maximumUsd ?? requestReservationUsd(opts), dispatched);
           await settleFailedRequest(opts, permit, outcome);
           permit = null;
           charge = outcome.kind === "charge" ? outcome.charge : null;
@@ -2567,12 +2634,16 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           charge = resumption.charge;
         }
         if (charge !== null) failed.push(charge);
+        if (cause instanceof StreamCheckpointError) {
+          signalFirst("error");
+          throw cause.cause;
+        }
         if (cause instanceof StreamIdleTimeoutError) {
           console.error(
             `[anthropic] ${opts.field ?? "llm.pass"}: ${cause.message}; abandoning the attempt and settling reported usage plus the presumed remainder`,
           );
           signalFirst("error");
-          return deadStreamResult(opts, completed, failed, cause.idleMs, attempt);
+          return deadStreamResult(opts, completed, failed, cause.idleMs, attempt, partialText);
         }
         if (cause instanceof APIUserAbortError && charge !== null) {
           // Aborted after the provider answered — a cancel, a stage deadline,
@@ -2586,26 +2657,28 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           // An abort after the final message_delta settled the reported usage
           // as actual (classifier rule 2): the result states the charge, not a
           // remainder nobody presumed.
-          if (!charge.presumed) return transportFailureResult(opts, cause, completed, attempt, failed);
+          if (!charge.presumed) return transportFailureResult(opts, cause, completed, attempt, failed, partialText);
           return presumedRemainderResult(
             opts,
             completed,
             failed,
             attempt,
             charge.reported === null
-              ? "request aborted by the caller after the provider answered"
+              ? "request aborted by the caller after dispatch before usage was received; billing is uncertain"
               : "request aborted by the caller after generation started",
             true,
+            partialText,
           );
         }
-        if (isRetryableTransportError(cause) && attempt < PASS_TRANSPORT_MAX_ATTEMPTS) {
-          // A failure after generation started means Anthropic shed load while
-          // already serving the request; re-entering immediately mostly dies
-          // again, and the retry re-bills the input either way.
-          const midStream = charge?.reported != null || resumption !== null;
-          const delays = midStream
-            ? PASS_MID_STREAM_RETRY_DELAYS_MS
-            : PASS_TRANSPORT_RETRY_DELAYS_MS;
+        if (charge?.presumed && (timedOutAfterSend(cause) || cause instanceof APIConnectionError)) {
+          signalFirst("error");
+          return presumedRemainderResult(opts, completed, failed, attempt,
+            `connection lost with uncertain billing; automatic replay suppressed: ${errorMessageOf(cause)}`, false, partialText);
+        }
+        if (isRetryableTransportError(cause) && charge === null && resumption === null && attempt < PASS_TRANSPORT_MAX_ATTEMPTS) {
+          // Replay only known free rejections. Never restart paid work or a
+          // failed continuation, even if that continuation was rejected free.
+          const delays = PASS_TRANSPORT_RETRY_DELAYS_MS;
           const delay = transportRetryDelayMs(cause, delays[Math.min(attempt - 1, delays.length - 1)]);
           // Server-log every retry — post-mortems must not depend on the
           // transient pipeline UI (2026-07-10: the only trace of two failed
@@ -2644,7 +2717,7 @@ export function runPassStreaming(opts: RunPassOptions): StreamingPassHandle {
           );
         }
         signalFirst(cause instanceof APIUserAbortError ? "abort" : "error");
-        return transportFailureResult(opts, cause, completed, attempt, failed);
+        return transportFailureResult(opts, cause, completed, attempt, failed, partialText, dispatched || attempt > 1);
       } finally {
         if (permit !== null && opts.admission !== undefined) {
           if (dispatched) {

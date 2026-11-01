@@ -30,6 +30,7 @@
  */
 
 import { sectorIndustryForSic } from "@/edgar/sic";
+import { compatibleFiscalAlias } from "@/pipeline/stageB/quarterWindows";
 import { classifyInstrumentSupport } from "@/pipeline/stageB/instrumentSupport";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import {
@@ -1100,7 +1101,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     const oldestVendor = vendorDates.reduce((a, b) => (a < b ? a : b));
     const older = result.rows.filter((row) => {
       const day = isoDay(row["date"]);
-      return day !== null && day < oldestVendor;
+      return day !== null && day < oldestVendor && !vendorRows.some(vendor => compatibleFiscalAlias(vendor, row));
     });
     if (older.length === 0) return;
     const olderDates = older.map((row) => isoDay(row["date"]) as string).sort();

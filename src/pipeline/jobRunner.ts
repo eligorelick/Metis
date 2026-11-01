@@ -30,6 +30,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
 import { requestedAnalysisModel } from "@/ai/analysisRoute";
 import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
@@ -291,6 +292,8 @@ export interface PassUsageLike {
  */
 export interface PassDeps<TPayload = unknown> {
   analysisModel: string;
+  /** Explicit Retry generation; automatic recovery/restarts share its request allowance. */
+  runGeneration?: number;
   /** Captured once for this job; never re-read global selection inside a pass. */
   connectionId?: string;
   subscriptionOptions?: { effort?: EffortLevel; serviceTier?: "default" | "fast" };
@@ -529,7 +532,7 @@ export interface ReportMetaInput {
  * ------------------------------------------------------------------------ */
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). */
-export const PIPELINE_VERSION = "stage-c-1.6.13" as const;
+export const PIPELINE_VERSION = "stage-c-1.6.14" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -3211,6 +3214,7 @@ export async function runJob<TPayload = unknown>(
       effort: analysisEffort,
       payload,
       jobSeed: jobId, // WS7 (D-20): seeds the judge's case order
+      runGeneration: state.runGeneration,
       passAttemptFor: (pass) => {
         const attemptId = passAttemptIds.get(pass);
         return attemptId ? { jobId, runGeneration: state.runGeneration, attemptId } : undefined;
@@ -3327,6 +3331,9 @@ export async function runJob<TPayload = unknown>(
       // Attempts that ran into the provider's response time limit. Each one
       // shrinks the next section batch, keeping the captured run settings.
       let timeLimitCutoffs = 0;
+      let sectionRequestsUsed = 0;
+      let sectionMaxKeys: number | undefined;
+      let repairRejectedComplete = false;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
       // AI-112: the issue key of the previous attempt's assembly failure. The same
@@ -3359,8 +3366,10 @@ export async function runJob<TPayload = unknown>(
             break;
           }
           const continuation: PassContinuation | undefined =
-            Object.keys(carriedSections).length > 0 || timeLimitCutoffs > 0
-              ? { completed: carriedSections, ...(timeLimitCutoffs > 0 ? { sectionRetryCount: timeLimitCutoffs } : {}) }
+            Object.keys(carriedSections).length > 0 || timeLimitCutoffs > 0 || sectionRequestsUsed > 0 || repairRejectedComplete
+              ? { completed: carriedSections, ...(sectionRequestsUsed > 0 ? { sectionRequestsUsed } : {}),
+                  ...(repairRejectedComplete ? { repairRejectedComplete: true } : {}),
+                  ...(sectionMaxKeys === undefined ? {} : { sectionMaxKeys }), ...(timeLimitCutoffs > 0 ? { sectionRetryCount: timeLimitCutoffs } : {}) }
               : undefined;
           const attemptStartedAt = now().getTime();
           const feedback =
@@ -3417,13 +3426,21 @@ export async function runJob<TPayload = unknown>(
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
             lastValidationDetail = errMessage(err);
+            repairRejectedComplete = false;
+            if (err !== null && typeof err === "object") {
+              const recovery = err as { sectionRequestsUsed?: number; sectionMaxKeys?: number; kind?: string; repairRejectedComplete?: boolean };
+              repairRejectedComplete = recovery.repairRejectedComplete === true;
+              if (Number.isSafeInteger(recovery.sectionRequestsUsed) && recovery.sectionRequestsUsed! >= 0) sectionRequestsUsed = Math.max(sectionRequestsUsed, recovery.sectionRequestsUsed!);
+              if (Number.isSafeInteger(recovery.sectionMaxKeys) && recovery.sectionMaxKeys! > 0) sectionMaxKeys = Math.min(sectionMaxKeys ?? Infinity, recovery.sectionMaxKeys!);
+              if (recovery.kind === "max_tokens" && sectionRequestsUsed > 0) timeLimitCutoffs++;
+            }
             let keptNote = "";
             if (!isTransportFailure(err)) {
               lastFeedbackDetail = lastValidationDetail;
               lastFailedRawOutput = rawTextOfError(err);
-              // A rejected output is repaired whole; carried sections are not
-              // mixed into that path.
-              carriedSections = {};
+              // Whole-object semantic rejection requires a new synthesis;
+              // partial schema/cutoff recovery retains independently valid sections.
+              carriedSections = repairRejectedComplete ? {} : checkCarried(passes, "synthesize", { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections }).kept;
             } else {
               const checked = checkCarried(passes, "synthesize", { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections });
               carriedSections = checked.kept;
@@ -3471,9 +3488,9 @@ export async function runJob<TPayload = unknown>(
           }
         }
 
-        // 2) Verify pass. Verification failing is NOT a schema-validation failure
-        //    (the judge output is valid) — do not burn a retry; persist the
-        //    unverified judge output. Mark verify "error" with the detail.
+        // 2) Verification failure does not buy another judge attempt. Preserve
+        //    its durable artifact, mark verify "error", and let the mandatory
+        //    completion gate persist a deterministic snapshot.
         let verificationRate: number | null = null;
         let verifiedReport: Report | null = null;
         let verifyLog: unknown = undefined;
@@ -3637,6 +3654,8 @@ export async function runJob<TPayload = unknown>(
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
           lastFeedbackDetail = lastValidationDetail;
+          repairRejectedComplete = true;
+          carriedSections = {};
           // The judge output parsed but failed report-schema validation — echo it
           // back (JSON) so the retry repairs rather than regenerates.
           try {
@@ -3703,6 +3722,11 @@ export async function runJob<TPayload = unknown>(
       }
 
       const { report, verificationRate, verifyLog, meta, costBreakdown } = assembled;
+      if (analysisOutcomeFromSteps(state.steps) !== "complete") {
+        return persistDataOnly(state, bundle, validation, computed, now, hasKey, {
+          reason: "Mandatory research stages did not all complete successfully. Accepted pass artifacts remain saved for recovery; this snapshot contains deterministic results only.",
+        });
+      }
       meta.completedAt = findStep(state, "verify").completedAt ?? findStep(state, "verify").finishedAt;
 
       // Reconcile runner-owned meta onto the assembled report (cost/rate/model
@@ -4526,7 +4550,7 @@ function persistDataOnly(
     costBreakdown: buildCostBreakdown(state),
     presumed: presumedSpendDisclosure(state.jobId),
     execution: disclosure.execution ?? readSuccessfulExecutions(state.jobId, model, true),
-    gaps: disclosure.gaps,
+    gaps: [...(disclosure.gaps ?? []), ...discardedAttemptGaps(state, { dataOnly: true })],
     reason: disclosure.reason ?? (hasKey ? LLM_FAILURE_DATA_ONLY_REASON : NO_KEY_SKIP_REASON),
   };
   const report = buildDataOnlyReport(dataOnlyInput);
@@ -4654,6 +4678,9 @@ function persistReport(
             ...parsed.data.meta,
             costUsd: authoritativeCostUsd,
             runSnapshot: runSnapshot ?? undefined,
+            analysisOutcome: analysisOutcomeFromSteps(state.steps, {
+              dataOnly: parsed.data.appendix.missingData.some(gap => gap.field === "analysis.llm"),
+            }),
           },
           appendix: {
             ...parsed.data.appendix,
@@ -4867,12 +4894,22 @@ function costBreakdownRows(
   options: { keepFallbackUsed: boolean; assemblyRejected?: readonly AssemblyRejectedAttempt[] },
 ): CostBreakdownEntry[] {
   const discarded = readDiscardedAttempts(jobId, options.assemblyRejected);
+  let lineage: readonly CurrentGenerationPassArtifact[] = [];
+  try { lineage = readJobPassArtifactLineage(jobId); } catch { /* Ledger costs remain authoritative without optional execution evidence. */ }
   const entries: CostBreakdownEntry[] = ledger.map((row) => {
     const match = discarded.find((attempt) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId));
+    const candidates = lineage.filter(artifact => artifact.pass === row.step && costRowBelongsToAttempt(row.attemptId, artifact.attemptId));
+    const evidence = candidates.length === 1 ? candidates[0]!.telemetry.execution : undefined;
+    const execution = evidence?.requestedModel === undefined ? undefined : buildExecutionMetadataEntry({
+      step: row.step, requestedModel: evidence.requestedModel, effectiveModel: row.model,
+      requestedEffort: evidence.requestedEffort ?? null, fallbackUsed: row.fallbackUsed, execution: evidence,
+    });
     return {
       step: row.step,
       model: row.model,
       costUsd: row.costUsd,
+      ...(execution === undefined ? {} : { requestedModel: execution.requestedModel, requestedEffort: execution.requestedEffort,
+        effectiveEffort: execution.effectiveEffort, adjustments: execution.adjustments }),
       // This is the only execution option cost_log persists per attempt.
       ...(options.keepFallbackUsed ? { fallbackUsed: row.fallbackUsed } : {}),
       ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
@@ -4903,7 +4940,7 @@ function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreak
  * The manifest entries a repaired pass owes a reader: what was rejected, what
  * it cost, and that the figure beside it was paid twice for one result.
  */
-function discardedAttemptGaps(state: RunState): ManifestEntry[] {
+function discardedAttemptGaps(state: RunState, options: { dataOnly?: boolean } = {}): ManifestEntry[] {
   const discarded = readDiscardedAttempts(state.jobId, state.assemblyRejected);
   if (discarded.length === 0) return [];
   const ledger = readCostLedger(state.jobId);
@@ -4916,16 +4953,26 @@ function discardedAttemptGaps(state: RunState): ManifestEntry[] {
       : `The ${attempt.kept.length} completed sections it held when it stopped (${attempt.kept.join(", ")}) were kept and appear in this report`;
     return {
       field: `llm.${attempt.pass}.discardedAttempt`,
-      reason:
-        parseSubscriptionModel(attempt.model) && !attempt.billable
+      reason: `Saved attempt ${attempt.attemptId}: ` + (
+        options.dataOnly
+          ? `A ${attempt.pass} attempt stopped because ${attempt.reason}. ` +
+            (attempt.kept.length > 0 ? `Accepted sections (${attempt.kept.join(", ")}) remain saved for recovery; ` : "Its output was not accepted; ") +
+            "model analysis is not included in this deterministic snapshot. " +
+            (parseSubscriptionModel(attempt.model) && !attempt.billable
+              ? "It used the connected provider allowance and recorded $0 in API charges. "
+              : `The attempt cost $${wasted.toFixed(4)}, included in the reported total. `) +
+            "Usage, failure details and available artifacts remain saved with the run."
+          : parseSubscriptionModel(attempt.model) && !attempt.billable
           ? attempt.kept.length > 0
             ? `A ${attempt.pass} attempt stopped before it finished because ${attempt.reason}. ${kept}; the remaining sections were requested again. It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.`
             : `A ${attempt.pass} attempt did not produce usable output because ${attempt.reason}. It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.`
-          : `the ${attempt.pass} pass was run more than once: an earlier attempt was billed and its output thrown ` +
+          : attempt.kept.length > 0
+            ? `A ${attempt.pass} attempt stopped because ${attempt.reason}. ${kept}; only missing or rejected sections were requested again. The attempt cost $${wasted.toFixed(4)}, included in the reported total. Its usage and failure details remain saved with the run.`
+            : `the ${attempt.pass} pass was run more than once: an earlier attempt was billed and its output thrown ` +
         `away because ${attempt.reason}. That attempt cost $${wasted.toFixed(4)}, which is included in the ` +
         "reported total and appears in the cost breakdown marked `discarded`. The analysis itself comes from the " +
         "attempt that succeeded; nothing from the rejected one reached this report, and the failure itself is " +
-        "recorded against the run rather than quoted here.",
+        "recorded against the run rather than quoted here."),
       severity: "info",
       attemptedSources: [parseSubscriptionModel(attempt.model)?.provider ?? "anthropic"],
       expected: false,
@@ -5145,21 +5192,9 @@ function reconcileMeta(
       ...report.appendix,
       verificationRate: meta.verificationRate,
       missingData,
-      costBreakdown: costBreakdown.length > 0
-        ? costBreakdown.map((entry) => {
-            const execution = meta.execution?.find((item) => item.step === entry.step);
-            return execution
-              ? {
-                  ...entry,
-                  requestedModel: execution.requestedModel,
-                  requestedEffort: execution.requestedEffort,
-                  effectiveEffort: execution.effectiveEffort,
-                  fallbackUsed: execution.fallbackUsed,
-                  adjustments: execution.adjustments,
-                }
-              : entry;
-          })
-        : report.appendix.costBreakdown,
+      // Each row was joined to its own durable attempt. A pass-level lookup
+      // would relabel earlier failures with the successful retry's settings.
+      costBreakdown: costBreakdown.length > 0 ? costBreakdown : report.appendix.costBreakdown,
     },
   };
   if (verifyLog !== undefined && Array.isArray(verifyLog)) {

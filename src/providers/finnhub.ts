@@ -177,6 +177,7 @@ async function finnhubRequest(
         try {
           return { ok: true, body: (await res.json()) as unknown };
         } catch {
+          config.signal?.throwIfAborted();
           lastFailure = `HTTP ${res.status} with unparseable JSON body`;
           continue;
         }

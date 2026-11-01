@@ -5,6 +5,10 @@ import { payloadFingerprint, serializePayloadForPrompt, type ContextPayload } fr
 /** D-139: one sensitivity-scope sentence changes; all financial and provenance pins remain enforced. */
 export function restoreResearchReliabilityGolden(input: { computed: ComputedMetrics; payload: ContextPayload }) {
   const payload = structuredClone(input.payload);
+  // D-140: this fixture changes only its payload stamp; retain every older pin.
+  expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");
+  expect(Buffer.byteLength(serializePayloadForPrompt(payload))).toBe(148590);
+  payload.payloadVersion = "1.55.0";
   expect(payloadFingerprint(payload)).toBe("1.55.0:6b2bcd41");
   expect(Buffer.byteLength(serializePayloadForPrompt(payload))).toBe(148590);
   const figures = payload.computed.flatMap(section => section.figures).filter(figure => figure.source === "computed.scenarioPresentation.sensitivity");

@@ -210,7 +210,7 @@ function fakeJudgeOutput(
         moat: grade(),
       },
     },
-    business: { whatTheySell: [], segments: { product: [], geographic: [] }, concentrationRisks: [] },
+    business: { whatTheySell: [{ text: "The company sells devices and services.", label: "FACT", source: "payload", asOf: null }], segments: { product: [], geographic: [] }, concentrationRisks: [] },
     fundamentals: { graded: grade(), growthTable: [], marginTrend: [], returns: [], fcf: [], commentary: [] },
     balanceSheet: {
       debtProfile: { commentary: [], numbers: [] },
@@ -267,10 +267,10 @@ function fakeJudgeOutput(
 function analystCase(side: "bull" | "bear", over: Partial<AnalystCase> = {}): AnalystCase {
   return {
     thesis: [{ text: `${side} thesis marker`, label: "JUDGMENT", source: "payload", asOf: null }],
-    keyDrivers: [],
-    risksToCase: [],
+    keyDrivers: [{ text: `${side} revenue driver`, label: "JUDGMENT", source: "payload", asOf: null }],
+    risksToCase: [{ text: `${side} margin uncertainty`, label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
-    priceTarget: { value: side === "bull" ? 300 : 180, horizon: "12mo", assumptions: [] },
+    priceTarget: { value: side === "bull" ? 300 : 180, horizon: "12mo", assumptions: ["Scenario revenue and margins hold over the target horizon."] },
     evidence: [],
     case_strength: side === "bull" ? 4 : 2,
     ...over,

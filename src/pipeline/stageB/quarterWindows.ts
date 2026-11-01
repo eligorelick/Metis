@@ -3,6 +3,16 @@ export interface FiscalDatedRow {
   date?: unknown;
   acceptedDate?: unknown;
   filingDate?: unknown;
+  cik?: unknown;
+  reportedCurrency?: unknown;
+  calendarYear?: unknown;
+  fiscalYear?: unknown;
+  period?: unknown;
+  periodStart?: unknown;
+  link?: unknown;
+  finalLink?: unknown;
+  accessionNumber?: unknown;
+  fieldProvenance?: unknown;
 }
 
 const DAY_MS = 86_400_000;
@@ -102,6 +112,37 @@ function rowRecency(row: FiscalDatedRow, periodEndMs: number): RecencyInterval |
   return recency !== null && recency.latestMs >= periodEndMs ? recency : null;
 }
 
+function fiscalScopeKey(row: FiscalDatedRow): string | null {
+  const cik = String(row.cik ?? "");
+  const years = [row.fiscalYear, row.calendarYear].filter(value => value !== undefined && value !== null).map(String);
+  if (!/^\d{1,10}$/.test(cik) || Number(cik) <= 0 || typeof row.reportedCurrency !== "string" || !/^[A-Z]{3}$/.test(row.reportedCurrency) ||
+      !years.length || years.some(value => !/^\d{4}$/.test(value) || value !== years[0]) || !/^(?:Q[1-4]|FY)$/.test(String(row.period))) return null;
+  return JSON.stringify([cik.replace(/^0+/, ""), row.reportedCurrency, years[0], row.period]);
+}
+
+/** Nearby dates are aliases only with matching explicit fiscal and issuer scope. */
+export function compatibleFiscalAlias(left: FiscalDatedRow, right: FiscalDatedRow): boolean {
+  const a = strictFiscalDay(left.date), b = strictFiscalDay(right.date);
+  if (!a || !b || a.label === b.label || Math.abs(a.epochMs - b.epochMs) > 3 * DAY_MS) return false;
+  const scope = fiscalScopeKey(left);
+  if (scope === null || scope !== fiscalScopeKey(right)) return false;
+  const filed = strictFiscalDay(left.filingDate);
+  if (!filed || filed.label !== strictFiscalDay(right.filingDate)?.label || filed.epochMs < Math.max(a.epochMs, b.epochMs)) return false;
+  if (!rowRecency(left, a.epochMs) || !rowRecency(right, b.epochMs)) return false;
+  const starts = [left.periodStart, right.periodStart].filter(value => value !== undefined && value !== null);
+  if (starts.some(value => !strictFiscalDay(value)) || (starts.length === 2 && starts[0] !== starts[1])) return false;
+  // Filing dates alone do not prove an accession. When accession evidence is
+  // present, a conflict within either row or between rows forbids the alias.
+  const accessions = (row: FiscalDatedRow): Set<string> => new Set([row.accessionNumber, row.finalLink, row.link].flatMap(value => {
+    if (typeof value !== "string") return [];
+    const direct = /^\d{10}-\d{2}-\d{6}$/.test(value) ? value.replaceAll("-", "") : null;
+    const archived = /^https:\/\/(?:www\.)?sec\.gov\/Archives\/edgar\/data\/\d+\/(\d{18})\//i.exec(value)?.[1];
+    return direct ? [direct] : archived ? [archived] : [];
+  }));
+  const ids = new Set([...accessions(left), ...accessions(right)]);
+  return ids.size <= 1;
+}
+
 /**
  * Validate period ends, sort newest-first, and collapse restatements without
  * mutating either the source array or its row objects. A duplicate period is
@@ -126,14 +167,50 @@ export function normalizeQuarterRows<T extends FiscalDatedRow>(
     else grouped.set(day.label, [candidate]);
   }
 
+  // Keep every exact-date candidate while establishing aliases: an older copy
+  // can connect the true period end to a later restatement with a new accession.
+  // Sorting first and bounding the entire group prevents order-dependent chains.
+  const aliasGroups: Array<Array<{ row: T; day: StrictDay }>> = [];
+  for (const candidates of [...grouped.values()].sort((a, b) => a[0].day.epochMs - b[0].day.epochMs)) {
+    const group = aliasGroups.find(existing => candidates[0].day.epochMs - existing[0].day.epochMs <= 3 * DAY_MS &&
+      existing.some(a => candidates.some(b => compatibleFiscalAlias(a.row, b.row))));
+    if (group) group.push(...candidates);
+    else aliasGroups.push([...candidates]);
+  }
   const selected: Array<{ row: T; day: StrictDay }> = [];
-  for (const [period, candidates] of grouped) {
+  for (const candidates of aliasGroups) {
+    const period = [...new Set(candidates.map(candidate => candidate.day.label))].join(" / ");
     if (candidates.length === 1) {
       selected.push(candidates[0]);
       continue;
     }
 
     const recencies = candidates.map(({ row, day }) => rowRecency(row, day.epochMs));
+    if (new Set(candidates.map(candidate => candidate.day.label)).size > 1) {
+      const scopes = candidates.map(candidate => fiscalScopeKey(candidate.row));
+      if (scopes.some(scope => scope === null || scope !== scopes[0])) {
+        rejected.push({ period, reason: `fiscal aliases ${period} contain contradictory issuer, currency or fiscal scope; whole period rejected as ambiguous` });
+        continue;
+      }
+      // SEC rows retain first-reported dates while individual values may be
+      // restated later. Such mixed value sources cannot establish whole-row
+      // ordering against an intervening vendor revision.
+      const sourceRecencyConflict = candidates.some(({ row }, index) => {
+        const recency = recencies[index];
+        if (!recency || !row.fieldProvenance || typeof row.fieldProvenance !== "object") return false;
+        return Object.values(row.fieldProvenance).some((field: unknown) => {
+          if (!field || typeof field !== "object" || !("filings" in field) || !Array.isArray(field.filings)) return false;
+          return field.filings.some((filing: unknown) => {
+            const filed = strictFiscalDay(filing && typeof filing === "object" && "filed" in filing ? filing.filed : undefined);
+            return filed === null || filed.epochMs > recency.latestMs;
+          });
+        });
+      });
+      if (sourceRecencyConflict) {
+        rejected.push({ period, reason: `fiscal aliases ${period} have value-source restatements not represented by row recency; whole period rejected as ambiguous` });
+        continue;
+      }
+    }
     if (recencies.some((recency) => recency === null)) {
       rejected.push({
         period,

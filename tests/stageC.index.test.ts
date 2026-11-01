@@ -32,7 +32,6 @@ import { PAYLOAD_VERSION, type ContextPayload, type PayloadSection } from "@/pip
 import { pipelinePasses } from "@/pipeline/stageC/index";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
-  PASS_TRANSPORT_MAX_ATTEMPTS,
   _resetAnthropicForTests,
   _setTransportRetrySleepForTests,
 } from "@/providers/anthropic";
@@ -223,7 +222,7 @@ function fakeAnalystCase(): AnalystCase {
     keyDrivers: [{ text: "d", label: "JUDGMENT", source: "payload", asOf: null }],
     risksToCase: [{ text: "r", label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
-    priceTarget: { value: 250, horizon: "12mo", assumptions: [] },
+    priceTarget: { value: 250, horizon: "12mo", assumptions: ["Illustrative target contingent on the stated growth and margin assumptions."] },
     evidence: [],
   };
 }
@@ -666,6 +665,20 @@ describe("pipelinePasses awaited durable settlement hooks", () => {
     expect(settlements.sort()).toEqual(["bear:success", "bull:success"]);
   });
 
+  it("forwards an explicit semantic-rejection marker for complete judge checkpoint repair", async () => {
+    const output = fakeJudgeOutput();
+    output.business.whatTheySell = [{ text: "The company develops medicines.", label: "FACT", source: "payload", asOf: null }];
+    _resetAnthropicForTests(adapterStreamingClient([adapterMessage(output)]));
+    const { bundle, computed, validation } = buildInputs();
+    bundle.symbol = "LLY";
+    const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
+    const bull = fakeAnalystCase(); const bear = fakeAnalystCase();
+    bull.thesis[0].text = "TRIUMPH evaluates retatrutide.";
+    bear.thesis[0].text = "TRIUMPH evaluates Foundayo (orforglipron).";
+    await expect(pipelinePasses.runJudgePass({ analysisModel: "claude-opus-4-8", payload }, adapterPassResult(bull), adapterPassResult(bear)))
+      .rejects.toMatchObject({ message: expect.stringContaining("entity conflicts"), kind: "schema", retryable: true, repairRejectedComplete: true });
+  });
+
   it("forwards billed judge failure telemetry before rejecting", async () => {
     _resetAnthropicForTests(
       adapterStreamingClient([
@@ -892,15 +905,14 @@ describe("pipelinePasses.runBullThenBear against a persistently overloaded strea
     const details = failure as BullBearPassFailure;
     expect(details.message).toContain("bull pass failed (transport)");
     expect(details.message).toContain("bear pass failed (transport)");
-    // Every attempt of both sides was retried before giving up…
-    expect(streamCalls).toBe(2 * PASS_TRANSPORT_MAX_ATTEMPTS);
+    // Both paid partial failures stop without replaying the billed requests.
+    expect(streamCalls).toBe(2);
     // …and the billed spend of those attempts survives for cost_log.
     expect(details.bullBilledAttempt?.model).toBe("claude-opus-4-8");
     expect(details.bullBilledAttempt?.costUsd ?? 0).toBeGreaterThan(0);
-    // One billed attempt per transport attempt; the budget absorbed the SDK's
-    // own retries when they were removed (DECISIONS D-10).
+    // Actual partial usage survives once per side.
     expect(details.bullBilledAttempt?.usage?.output_tokens).toBe(
-      PASS_TRANSPORT_MAX_ATTEMPTS * 9_000,
+      9_000,
     );
     expect(details.bearBilledAttempt?.costUsd ?? 0).toBeGreaterThan(0);
   });

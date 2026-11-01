@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.53.0** and
-payload **1.55.0** (the D-138 report-53 batch; final release verification is pending). The
+Current source declares application **0.1.0**, report spec **1.54.0** and
+payload **1.56.0** (the D-140 current-main integration; local release checks passed). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - bounded report recovery and integrity (2026-11-01)
+
+Retains validated synthesis sections within shared request and monetary limits, prevents automatic replay of billed or uncertain requests, and records mandatory workflow completion separately from verification scope. Fiscal aliases require comparable source scope; refused recent cash flows withhold runway. Exact-attempt provenance and the quote-unit correction are shared with exports. Built on updated main; historical reports and DCF arithmetic are preserved. See [D-140](docs/audit/DECISIONS.md#d-140---current-main-report-integrity-and-bounded-recovery-2026-11-01) and [the verification checkpoint](docs/audit/2026-11-01-current-main-integration.md). No new live provider success is claimed.
 
 ## Unreleased - prospective measurement and report reliability (2026-10-31)
 

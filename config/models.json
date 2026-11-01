@@ -4,6 +4,7 @@
     "modelIds": "https://platform.claude.com/docs/en/models/overview",
     "pricing": "https://platform.claude.com/docs/en/about-claude/pricing",
     "effort": "https://platform.claude.com/docs/en/build-with-claude/effort",
+    "taskBudgets": "https://platform.claude.com/docs/en/build-with-claude/task-budgets",
     "deprecations": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
     "opus55": "https://platform.claude.com/docs/en/models/opus-5-5/overview",
     "sonnet55": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
@@ -24,6 +25,7 @@
   "models": [
     {
       "id": "claude-fable-5-1",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "fable",
       "generation": "5.1",
       "displayName": "Claude Fable 5.1",
@@ -53,6 +55,7 @@
     },
     {
       "id": "claude-fable-5",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "fable",
       "generation": "5",
       "displayName": "Claude Fable 5",
@@ -80,6 +83,7 @@
     },
     {
       "id": "claude-opus-5-5",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "opus",
       "generation": "5.5",
       "displayName": "Claude Opus 5.5",
@@ -109,6 +113,7 @@
     },
     {
       "id": "claude-opus-5",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "opus",
       "generation": "5",
       "displayName": "Claude Opus 5",
@@ -136,6 +141,7 @@
     },
     {
       "id": "claude-opus-4-8",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "opus",
       "generation": "4.8",
       "displayName": "Claude Opus 4.8",
@@ -162,6 +168,7 @@
     },
     {
       "id": "claude-sonnet-5-5",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
       "family": "sonnet",
       "generation": "5.5",
       "displayName": "Claude Sonnet 5.5",
@@ -190,6 +197,7 @@
     },
     {
       "id": "claude-sonnet-5",
+      "taskBudget": null,
       "family": "sonnet",
       "generation": "5",
       "displayName": "Claude Sonnet 5",
@@ -217,6 +225,7 @@
     },
     {
       "id": "claude-haiku-4-5",
+      "taskBudget": null,
       "family": "haiku",
       "generation": "4.5",
       "displayName": "Claude Haiku 4.5",

@@ -2511,6 +2511,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     // liquidity row's own currency against the burn's.
     const b0 = newestBalanceRow(balanceQuarterlyReported[0], balanceAnnualReported[0]);
     if (b0) {
+      // Rejected recent periods must not disappear and expose older burn rows.
+      const rejectedRunwayPeriod = rejectedAffectsCurrentWindow(cashflowQuarterSet);
+      const runwayCashflow = rejectedRunwayPeriod ? [] : cashflowQuarterly;
       runway = computeRunway(
         {
           date: String(b0.date ?? ""),
@@ -2518,7 +2521,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
           shortTermInvestments: num(b0.shortTermInvestments),
           cashAndShortTermInvestments: num(b0.cashAndShortTermInvestments),
         },
-        cashflowQuarterly.map((r) => ({
+        runwayCashflow.map((r) => ({
           date: String(r.date ?? ""),
           operatingCashFlow: num(r.operatingCashFlow),
           capitalExpenditure: num(r.capitalExpenditure),
@@ -2528,13 +2531,17 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
           weightedAverageShsOutDil: num(r.weightedAverageShsOutDil),
         })),
       );
-      runway = gateRunwayCurrency(runway, b0, cashflowQuarterly, [
+      runway = gateRunwayCurrency(runway, b0, runwayCashflow, [
         ...incomeQuarterly,
         ...balanceQuarterly,
         ...cashflowQuarterly,
         ...rowsOf(bundle.statements.incomeAnnual),
         ...rowsOf(bundle.statements.cashflowAnnual),
       ]);
+      if (rejectedRunwayPeriod) runway.gaps.push({
+        field: "runway.quarterRows", severity: "warn",
+        reason: `Runway withheld: recent cash-flow period ${rejectedRunwayPeriod.period} is unresolved (${rejectedRunwayPeriod.reason}); older quarters cannot substitute.`,
+      });
     }
   }
 
@@ -4549,6 +4556,11 @@ function gateRunwayCurrency(
   cashflowQuarterly: readonly FmpCashFlowRow[],
   evidence: readonly CurrencyEvidenceRow[],
 ): RunwayResult {
+  const refusedOperating = cashflowQuarterly.slice(0, 4).find(row =>
+    ["operatingCashFlow", "netCashProvidedByOperatingActivities"].some(field => row.fieldConflicts?.[field]?.usable === false));
+  if (refusedOperating) return { ...runway, burning: null, avgQuarterlyBurn: null, runwayQuarters: null, estimatedExhaustionDate: null,
+    notes: [...runway.notes, `Operating cash flow unresolved for recent quarter ${refusedOperating.date}; older quarters cannot substitute for the refused period.`],
+    gaps: [...runway.gaps, { field: "runway.operatingCashFlowScope", severity: "warn", reason: `Runway withheld: recent-quarter operating cash flow at ${refusedOperating.date} is unresolved; no older-quarter burn extrapolation is substituted.` }] };
   // An explicitly refused recent investment scope cannot be evaded by
   // dropping that quarter and averaging older, narrower cash-spending rows.
   const refusedInvestment = cashflowQuarterly.slice(0, 4).find(row =>
