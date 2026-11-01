@@ -60,7 +60,7 @@ describe("config/models.json", () => {
     });
     expect(price("claude-fable-5")).toMatchObject({ inputPerMTok: 10, outputPerMTok: 50, cacheReadPerMTok: 1 });
     expect(price("claude-opus-5-5")).toEqual({ inputPerMTok: 4, outputPerMTok: 20, cacheWrite5mPerMTok: 5, cacheWrite1hPerMTok: 8, cacheReadPerMTok: 0.2 });
-    expect(price("claude-sonnet-5-5")).toEqual({ inputPerMTok: 2, outputPerMTok: 10, cacheWrite5mPerMTok: 2.5, cacheWrite1hPerMTok: 4, cacheReadPerMTok: 0.2 });
+    expect(price("claude-sonnet-5-5")).toEqual({ inputPerMTok: 2, outputPerMTok: 10, cacheWrite5mPerMTok: 2.5, cacheWrite1hPerMTok: 4, cacheReadPerMTok: 0.1 });
     expect(price("claude-opus-5")).toMatchObject({ inputPerMTok: 5, outputPerMTok: 25, cacheWrite5mPerMTok: 6.25, cacheWrite1hPerMTok: 10 });
     expect(price("claude-opus-4-8")).toEqual(price("claude-opus-5"));
     expect(price("claude-sonnet-5")).toMatchObject({ inputPerMTok: 2, outputPerMTok: 10, cacheReadPerMTok: 0.2 });
