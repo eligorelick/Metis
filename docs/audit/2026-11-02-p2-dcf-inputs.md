@@ -36,6 +36,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-512 | Fixed: Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds. | Owning FIN-512 commit | fin-512-red / fin-512-green | Stored figures unchanged |
 
+| RPT-502 | Fixed: Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged. | Owning RPT-502 commit | fin-512-legacy-rpt502-red / rpt-502-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

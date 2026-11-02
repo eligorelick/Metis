@@ -3637,3 +3637,7 @@ A vendor effective tax ratio cannot create a WACC shield when the same statement
 ## D-next (P2) - FIN-512 (2026-11-02)
 
 Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds. Stored reports remain immutable.
+
+## D-next (P2) - RPT-502 (2026-11-02)
+
+Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged. Stored reports remain immutable.

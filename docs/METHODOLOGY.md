@@ -6355,3 +6355,5 @@ P2 (FIN-118): Headline valuation degradation excludes market-cap history and ent
 P2 (FIN-406): A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains.
 
 P2 (FIN-512): Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds.
+
+P2 (RPT-502): Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged.

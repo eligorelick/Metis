@@ -275,3 +275,12 @@ describe("modeled-grid sensitivity conclusions", () => {
     expect(unavailable.interpretation).toMatch(/scenarios are unavailable/);
   });
 });
+
+it("does not claim available scenario targets floor invalid equity to zero (RPT-502)",()=>{
+  const shown=applyScenarioPresentation(narrativeValuation(),computedFixture());
+  expect(shown.scenarios).toHaveLength(3);
+  for(const scenario of shown.scenarios){
+    expect(scenario.assumptions.join(" ")).not.toMatch(/floored at zero/);
+    expect(scenario.assumptions.join(" ")).toMatch(/outside.*domain.*withheld/);
+  }
+});
