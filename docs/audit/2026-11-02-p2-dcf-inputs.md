@@ -40,8 +40,8 @@ capex-restoration ownership remains unchanged.
 ## Offline replay and intended deltas
 
 Each table value without an arrow is identical before and after. DCF/share is
-in the input currency; null DCFs are withheld. All terminal ROICs and score bands
-are unchanged. Inputs comprise all 45 frozen census snapshots plus keyed AMZN
+in the input currency; null DCFs are withheld. All terminal ROICs are unchanged. FCX moves D -> C solely through the
+explained completeness change; every other band is unchanged. Inputs comprise all 45 frozen census snapshots plus keyed AMZN
 43, MU 46 and NVDA 50 (48 runs).
 
 | Input | DCF/share | WACC % | Terminal ROIC % | Composite / band |
@@ -147,8 +147,8 @@ Focused final consumer/docs gates: p2-integration-green-04 (23 selected checks),
 p2-stored-docs-green (149 checks), p2-typecheck-06. Exact-base reproduction:
 p2-base-probes-02 (49 checks: 38 red triggers and 11 controls) and independent
 p2-base-integration-controls. The final committed head is subjected to
-p2-product-final-03, p2-risk-final-02, p2-typecheck-final-03, p2-lint-final-03 and
-p2-replay-final-03. Their actual outcomes, final SHA, full commit list and every
+p2-product-final-04, p2-risk-final-03, p2-typecheck-final-04, p2-lint-final-04 and
+p2-replay-final-04. Their actual outcomes, final SHA, full commit list and every
 failed receipt are recorded in tmp/claude-impl/HANDOFF.md and failures.md.
 No failure is labelled pre-existing without an ac4916f8 receipt.
 
@@ -166,7 +166,7 @@ Final self-review added the explicit B4a refusal boundary: FIN-102 does not coun
 an operating loss on refused, missing or nonpositive capital. Receipt
 fin-102-capital-refusal-red proves the prior overreach; its green consumer gate
 includes the existing capital-refusal and golden tests. The earlier candidate
-product run is superseded; p2-product-final-03 and p2-risk-final-02 are required
+product run is superseded; p2-product-final-04 and p2-risk-final-03 are required
 on the corrected committed head, together with renewed type/lint/replay gates.
 
 Commit-record correction: 7538e163 omitted its prepared message body and
@@ -182,3 +182,9 @@ passes 313 consumer and golden checks, including a matching no-stub control.
 The previously completed product and risk runs passed (14,167 tests; risk
 95.94% statements / 90.91% branches / 98.30% functions / 97.94% lines), but the
 renewed receipt names above are required on this corrected head.
+
+Replay narrative correction: the table's FCX band D -> C is intended, from
+54.47 to 56.57 after removal of the unsupported reverse-growth driver. Earlier
+prose incorrectly said every band was unchanged; the table was always correct.
+Only terminal ROIC is unchanged for all 48. The final-head gates above replace
+the documentation-only superseded runs; no financial code changed here.
