@@ -13,6 +13,7 @@ import { displayProse, figureRow, keyDataRows, metricLabel } from "@/report/pres
 import type { Report } from "@/report/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
+import { withoutPrintTokens } from "./helpers/printTokens";
 
 const REASON = "Owner FCF, P/FCF, FCF yield, FCF conversion/growth and cash runway are not applicable: SIC 6163 and the 10-Q cash-flow statement for 2026-06-30 place held-for-sale loan originations and loan-sale proceeds in operating activities. Warehouse and loan-owner funding is operating inventory finance; industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA and interest coverage are not applicable. Capital adequacy is not modelled for non-bank lenders: industrial coverage and leverage do not measure solvency. Vendor gross margin is not a filed lender income-statement line. ROIC and ROIC-vs-WACC are not applicable because invested capital (debt + equity - cash) is undefined when debt funds operating inventory; ROTE is the capital-return convention. OCF less capex reflects loan inventory funding and turnover, not cash available to owners or an exhaustion clock. An FCF-based DCF (including reverse DCF and sensitivity) is not applicable. Filed OCF, capex, loan flows, earnings and book value remain source observations, subject to their own data checks. Source: https://www.sec.gov/Archives/edgar/data/2064124/figr.htm.";
 
@@ -137,6 +138,22 @@ describe("R3 FIGR reader presentation", () => {
     expect(text).toContain("Second coverage note.");
     expect(text).toContain("Consumer Loan Marketplace Volume");
     expect(reportToAuditMarkdown(r)).toContain("no structured guidance could be extracted");
+  });
+
+  it("5f: formats signed filing derivations and large base-unit amounts while the audit retains raw text", () => {
+    const r = lenderReport();
+    r.valuation.multiples[0]!.basis = "Using filed revenue 225588000 USD.";
+    r.filingDisclosures!.filingFacts = [{ key: "composition-working-capital-receivables", label: "Receivables cash-flow contribution", value: -37_858_000, unit: "currency", asOf: "2026-06-30", period: "2026-01-01 to 2026-06-30", qualifier: null,
+      computed: "37858000 USD tagged change x -1 = -37858000 USD", text: "Compared with filed revenue 10000000000 USD.", sourceTag: "us-gaap/IncreaseDecreaseInAccountsReceivable",
+      source: { form: "10-Q", accession: "0001628280-26-057061", exhibit: null, filingDate: "2026-08-14", url: "https://www.sec.gov/Archives/edgar/data/2064124/figr.htm" } }];
+    const rendered = surfaces(r).map(withoutPrintTokens);
+    for (const text of [JSON.stringify(filingDisclosureTables(r.filingDisclosures, "balanceSheet")), ...rendered]) {
+      expect(text).toContain("37,858,000 USD tagged change");
+      expect(text).toContain("-37,858,000 USD");
+      expect(text).toContain("10,000,000,000 USD");
+    }
+    for (const text of rendered) expect(text).toContain("225,588,000 USD");
+    expect(reportToAuditMarkdown(r)).toContain("37858000 USD tagged change x -1 = -37858000 USD");
   });
 
   it("6: truncates a long unpunctuated gap only at a word boundary", () => {

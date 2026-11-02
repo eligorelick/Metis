@@ -8,7 +8,7 @@
 | 4 / B-18 quarterly caption | Latest eight available quarters; name interior missing quarter ends, retaining only the original rows. | 291d7fef | `3a/4: describes available quarters…`; `filingDisclosures.trendBasis.audit20261027` |
 | 5a / B-22 registry labels | Prefer retained explicit labels and compact Piotroski diagnostics. Legacy numeric traces do not retain a separate registry label, so use the stable id's named variant and evaluable-signal count as the fallback. | 291d7fef | `5a: preserves an explicit record label…` |
 | 5b / B-22 cash-outflow labels | Display capital expenditure / share repurchases (cash outflow), without editing the payload label strings. | 291d7fef | `5b: displays capex…`; `5b: displays buybacks…` |
-| 5c/d/f / B-22 machine numbers | Evidence fractions become percentages; case strengths show N of 5; base-unit prose amounts are grouped, preserving dates, accessions and seed/hash identities. | 291d7fef | `5c/d/f: shows completeness as percent…`; `stageC.judgeProtocol` |
+| 5c/d/f / B-22 machine numbers | Evidence fractions become percentages; case strengths show N of 5; base-unit prose and filing-derivation amounts are grouped, including signed amounts, preserving dates, accessions and seed/hash identities. | 291d7fef + this commit (filing derivations) | `5c/d/f: shows completeness as percent…`; `5f: formats signed filing derivations…`; `stageC.judgeProtocol` |
 | 5e / B-22 guidance notes | Each retained note is a separate sentence/row. Parser diagnostics move to the audit; quoted issuer outlook remains visible. | 291d7fef | `5e: separates guidance notes…`; `adbeReportAudit.regressions` |
 | 6 / truncated gap reasons | Truncate at a clause or word boundary; keep the complete original reason in the audit. | 291d7fef | `6: truncates a long unpunctuated gap…` |
 | 7 / B-16 print tables | Protect financial/date tokens; wrap descriptions at spaces; split tables wider than six columns with repeated row identifiers. | 291d7fef | `7: wraps descriptions at spaces…`; `report.export.printHtml` |
@@ -17,8 +17,8 @@
 
 ## Files and stored-report impact
 
-Shared rules: `src/report/readerConventions.ts`, `presentation.ts` and
-`filingDisclosurePresentation.ts`. Consumers: `src/report/export/markdown.ts`,
+Shared rules: `src/report/readerConventions.ts`, `presentation.ts`,
+`filingDisclosurePresentation.ts` and `filingSupplementPresentation.ts`. Consumers: `src/report/export/markdown.ts`,
 `printHtml.ts`, `auditMarkdown.ts`, `src/components/report/ReportView.tsx` and
 `sections.tsx`. The helper is registered in the risk coverage inventory.
 
@@ -68,6 +68,21 @@ isolated data paths. Logs are UTF-16LE.
   (`minimatch.tooling`, `report.recordedSensitivity`, `runtimeArtifactIdentity`)
   pass serially: `r3-timeout-controls`, 34 tests, exit 0. The complete final
   gate is therefore retried with one worker and the original timeout settings.
+- Review of filing-fact table construction found a raw derivation string that
+  bypassed the prose formatter. `r3-filing-amount-red` reproduces it. The shared
+  filing-fact table now groups the signed derivation and issuer-context amounts;
+  the raw audit supplement is unchanged. Guidance availability wording also
+  distinguishes a missing standardized table from a quoted quantitative issuer
+  statement. The preceding serial run passed product, integration and core
+  coverage before being interrupted during risk coverage for this correction.
+- `r3-multiple-amount-red` also pins the individual multiple-basis path: its
+  metric-specific reader correction must keep the common amount formatter.
+  `r3-final-presentation-controls` passes 217 tests in 11 files. A focused V8
+  risk preflight on the new helper (`r3-reader-coverage-preflight`) passes
+  122 tests, with 94.73% statements, 96.96% branches, 86.36% functions and 100%
+  lines, using the original per-file floors.
+- `r3-amounts-final`: 12 files, 228 tests passed (exit 0); final amount and
+  guidance-availability wording controls. `r3-typecheck-amounts-final`: exit 0.
 
 Existing wording pins were updated because captions now describe retained
 available rows, no FCF definition appears without an FCF cell, extraction

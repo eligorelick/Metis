@@ -6541,7 +6541,7 @@ diagnostics for tables; legacy traces without that label use a compact named
 variant and evaluable-signal count. Display capex and buybacks as capital
 expenditure and share repurchases (cash outflows). Display evidence-completeness
 fractions as percentages and analyst self-assessment as **N of 5**. Group raw
-base-unit amounts in prose without changing dates, accession identities or
+signed base-unit amounts in prose and filing derivations without changing dates, accession identities or
 values. Guidance notes occupy separate rows/sentences; parser diagnostics stay
 in the audit, while an unstructured issuer outlook may remain a quoted issuer
 statement. Long data-gap reasons end at a word boundary, with the full text in

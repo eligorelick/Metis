@@ -408,7 +408,7 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
       const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !n.startsWith("Quarterly operating cash flow") && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))]
         .flatMap(readerGuidanceNote);
-      if (tables.length === 0 && notes.length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["No quantified management guidance is shown; separately sourced issuer statements may appear below."]] });
+      if (tables.length === 0 && notes.length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
       if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
       return tables;
     }

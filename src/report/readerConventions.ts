@@ -38,7 +38,7 @@ export function lenderConventionTables(report: Report): ReportAuditTable[] {
 
 /** Group raw base-unit amounts without touching dates, accessions, hashes or decimals. */
 export function readerBaseUnits(text: string): string {
-  return text.replace(/(?<![\w./:,\-])\d{7,9}(?![\w.,/:-])/g, (value: string, offset: number) =>
+  return text.replace(/(?<![\w./:,\-])-?\d{7,15}(?![\w.,/:-])/g, (value: string, offset: number) =>
     /\b(?:seed|hash|fingerprint|accession|CIK)\s*[:=]?\s*$/i.test(text.slice(Math.max(0, offset - 30), offset))
       ? value : Number(value).toLocaleString("en-US"));
 }
@@ -70,7 +70,7 @@ export function withReaderConventions(report: Report): Report {
   }
   const view = visit(report, "report") as Report;
   view.valuation = { ...view.valuation, multiples: view.valuation.multiples.map((m, i) => ({
-    ...m, basis: report.valuation.multiples[i]?.basis === undefined ? undefined : readerConventionText(report.valuation.multiples[i]!.basis!, m.name),
+    ...m, basis: report.valuation.multiples[i]?.basis === undefined ? undefined : readerBaseUnits(readerConventionText(report.valuation.multiples[i]!.basis!, m.name)),
   })) };
   if (report.valuation.multiplesBasis && lenderConventionExplanation(report)) {
     view.valuation.multiplesBasis = "Market enterprise value is context only for this non-bank lender; full bridge details are in the companion audit export (see Lender conventions).";

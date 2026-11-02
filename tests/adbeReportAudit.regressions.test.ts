@@ -161,7 +161,7 @@ describe("independent first-report audit reproductions", () => {
     expect(disclosures.notes.join(" ")).not.toMatch(/no guidance is shown/i);
     const tables = JSON.stringify(filingDisclosureTables(disclosures, "outlook"));
     // R3 keeps extraction diagnostics in the audit and uses reader-facing availability text.
-    expect(tables).toContain("No quantified management guidance is shown");
+    expect(tables).toContain("A standardized guidance table is unavailable");
     expect(tables).not.toMatch(/no structured.*guidance rows.*extracted/i);
     expect(tables).not.toMatch(/No guidance could be read/i);
   });

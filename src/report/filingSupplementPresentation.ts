@@ -1,6 +1,7 @@
 import type { ReportAuditTable } from "@/report/auditTables";
 import { formatFinancialValue, formatNumber, formatPct } from "@/report/format";
 import type { FilingRef } from "@/report/schema";
+import { readerBaseUnits } from "@/report/readerConventions";
 
 /**
  * The optional D-66 disclosure contract. Kept structural so the presentation
@@ -55,7 +56,7 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
           : f.unit === "percent" ? formatPct(f.value)
             : `${formatNumber(f.value, Number.isInteger(f.value) ? 0 : 1)}${f.unit === "days" ? " days" : f.unit === "shares" ? " shares" : ""}`;
         return [f.label, `${f.qualifier ? `${f.qualifier} ` : ""}${amount}`, [f.period, f.asOf ? `as of ${f.asOf}` : null].filter(Boolean).join("; ") || "Not recorded",
-          [f.computed ? `Derived: ${f.computed}.` : null, f.text].filter(Boolean).join(" "), sourceText(f.source)];
+          readerBaseUnits([f.computed ? `Derived: ${f.computed}.` : null, f.text].filter(Boolean).join(" ")), sourceText(f.source)];
       }),
       note: group.note,
     }];
