@@ -11,7 +11,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | AI-510 | Fixed: shared recovery with independent repair and plan resend allowances | Owning AI-510/JOB-201 commit | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
 | JOB-201 | Fixed: shared recovery with independent repair and plan resend allowances | Owning AI-510/JOB-201 commit | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
 | JOB-301 | Fixed after dynamic reproduction: read-only terminal discovery in both layouts | Owning JOB-301 commit | JOB-301-red / JOB-301-green | None |
-| AI-110 | Not started | — | — | None |
+| AI-110 | Fixed: rechecked deterministic fallback then fixed shell | Owning AI-110 commit | AI-110-red / AI-110-green | None |
 | AI-115 | Not started | — | — | None |
 | JOB-207 | Not started | — | — | None |
 | JOB-205 | Not started | — | — | None |

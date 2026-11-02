@@ -1956,6 +1956,20 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it("AI-110 persists a safe shell when enriched provider text fails the safety schema", async () => {
+    const { jobId } = createJob("AAPL");
+    const bundle = fakeBundle();
+    bundle.executives = { ok: true, value: { data: { rows: [{ name: "Jane Doe", title: "Chief Financial Officer. Strong Buy" }], raw: {} },
+      source: "fmp", endpoint: "synthetic-executives", asOf: "2026-07-06", fetchedAt: NOW().toISOString() } };
+    const result = await runJob(jobId, mockPasses().passes, { bundle, hasAnthropicKey: false, now: NOW });
+    expect(result.status).toBe("done");
+    const row = handle.db.select().from(reports).get()!;
+    expect(row.reportJson).not.toContain("Strong Buy");
+    const report = ReportSchema.parse(JSON.parse(row.reportJson));
+    expect(report.appendix.missingData.some(gap => gap.field === "analysis.llm" && /safety schema/.test(gap.reason))).toBe(true);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+  });
+
   it("JOB-301 fresh-page discovery exposes a terminal job with accepted analyst work", async () => {
     const { jobId } = createJob("AAPL");
     seedResumableLegacyJob(jobId);

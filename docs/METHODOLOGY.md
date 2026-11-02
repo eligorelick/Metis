@@ -5950,3 +5950,8 @@ quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.

@@ -4553,28 +4553,19 @@ function persistDataOnly(
     // Provider/model error strings and source metadata are untrusted. Never use
     // a failed parse as permission to persist an invalid report. Rebuild one
     // sterile, fully disclosed data-only shell without the rejected metadata.
-    const fallback = buildDataOnlyReport({
+    const sterileInput: DataOnlyInput = {
       ...dataOnlyInput,
       companyName: state.symbol,
-      reason:
-        "Analysis and unsafe degraded-path metadata were withheld because the final report safety schema rejected them.",
-    });
-    fallback.meta.asOfMap = {};
-    fallback.appendix.sources = [];
-    fallback.appendix.missingData = [
-      {
-        field: "analysis.llm",
-        reason:
-          "Analysis unavailable; degraded-path metadata failed the final report safety schema and was withheld.",
-        severity: "critical",
-        attemptedSources: ["pipeline"],
-      },
-      // The presumed-spend line is generated here from durable pass names and
-      // numbers, never from provider prose, so it survives the sterile rebuild
-      // — the shell still shows a cost total that it must qualify.
-      ...(dataOnlyInput.presumed == null ? [] : [dataOnlyInput.presumed.entry]),
-    ];
-    validatedReport = ReportSchema.parse(fallback);
+      reason: "Analysis unavailable; degraded-path metadata failed the final report safety schema and was withheld.",
+      sterileManifest: true,
+    };
+    // Keep deterministic content only after rechecking it. Enrichment itself
+    // can contain rejected provider prose, so the final tier omits enrichment.
+    const kept = ReportSchema.safeParse(buildDataOnlyReport(sterileInput));
+    validatedReport = kept.success ? kept.data : ReportSchema.parse(buildDataOnlyReport({
+      ...sterileInput, computed: null, execution: [],
+      costBreakdown: dataOnlyInput.costBreakdown.map(row => ({ ...row, model: "withheld" })),
+    }));
   }
   const reportId = persistReport(
     state,
@@ -5327,6 +5318,8 @@ function collectSources(bundle: DataBundle): Report["appendix"]["sources"] {
 }
 
 interface DataOnlyInput {
+  /** Withhold untrusted provider metadata before calculating completeness. */
+  sterileManifest?: boolean;
   symbol: string;
   companyName: string;
   generatedAt: string;
@@ -5362,7 +5355,7 @@ interface DataOnlyInput {
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
   const { symbol, bundle, validation, computed } = input;
-  const asOfMap = { ...bundle.asOf };
+  const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
   // 2026-09-06 audit, F170) contradicted the band shown next to it.
@@ -5381,7 +5374,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     keyNumbers: [],
   });
 
-  const missingData = collectMissingData(bundle, validation, computed, input.gaps ?? []);
+  const missingData: ManifestEntry[] = input.sterileManifest ? [] : collectMissingData(bundle, validation, computed, input.gaps ?? []);
   const attemptedAnalysisSources = [
     ...new Set(
       missingData
@@ -5542,7 +5535,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
       fredAttribution: FRED_ATTRIBUTION_TEXT,
     },
     appendix: {
-      sources: collectSources(bundle),
+      sources: input.sterileManifest ? [] : collectSources(bundle),
       missingData,
       verificationRate: null,
       provenanceCoverage: emptyCoverage,

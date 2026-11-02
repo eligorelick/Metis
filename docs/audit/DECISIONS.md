@@ -3025,3 +3025,8 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 JOB-301: Fresh pages in either layout observe the newest eligible terminal
 job when there is no active run. Discovery is read-only; Retry remains explicit
 and uses the existing durable reuse and spend fences.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
