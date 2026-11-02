@@ -4404,7 +4404,8 @@ what a re-render corrects now and what generation changes for future runs.
   graded. The stored generic sentence is mapped at read time; the evidence
   gate writes the specific reason from now on (B2-09).
 - Composition tables state a qualification every row shares once, in the
-  table note; XBRL tags, guidance-parser diagnostics, the currency-reading
+  table note, and the note drops its own sentence when every row already says
+  it (the SBC rows' FCF treatment, the cash rows' liquidity limit); XBRL tags, guidance-parser diagnostics, the currency-reading
   convention and per-cell trend derivations leave the reader exports and are
   listed in the audit companion, which also gains a grade-contract table. The
   reader prints a grade contract only when it changed the outcome (a refused or
