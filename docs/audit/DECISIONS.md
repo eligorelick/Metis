@@ -3008,3 +3008,8 @@ Follow B9-OD-9: printable ASCII and Latin-1 remain valid; higher code points and
 ### D-next (P5-lows): DATA-116 fixed provider diagnostics
 
 B9-OD-7: parameter-value subscription refusals are expected but never learned as endpoint restrictions. Outages remain unexpected. Existing stored manifest text is unchanged.
+
+
+### D-next (P5-lows): PERF-101 inconclusive discovery
+
+Only the existing waiting wave bypasses inconclusive endpoint discovery, with per-symbol coordination retained. No access observation or durable capability is invented. Explicit restrictions and quota are rechecked.

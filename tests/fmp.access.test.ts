@@ -284,3 +284,18 @@ describe("DATA-116 status diagnostics", () => {
     expect(r.ok ? "" : r.gap.reason).not.toMatch(/vendor page|unparseable/);
   }, 20000);
 });
+
+
+describe("PERF-101 inconclusive discovery", () => {
+  it.each([408, 503])("releases waiting symbols after HTTP %s learns nothing", async (status) => {
+    resetFmpAccess();
+    let active = 0, peak = 0;
+    const request = (symbol: string) => withFmpAccess({ key: "perf-wave", endpoint: "/test", symbols: symbol, now: () => Date.now() }, async () => {
+      active++; peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active--; throw new Error(`HTTP ${status}`);
+    });
+    await Promise.allSettled([request("AAA"), request("BBB"), request("CCC")]);
+    expect(peak).toBeGreaterThan(1);
+  });
+});
