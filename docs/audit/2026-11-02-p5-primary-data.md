@@ -90,3 +90,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | Step 1 (DATA-114/115/116) | Fixed: Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. | This commit | fixround-step1-red2 / fixround-step1-green; risk inventory red in fixround-step1-red | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F1 (RPT-201) | Fixed: Use schema-valid null guidance in the dividend-yield display fixture. | This commit | fixround-step1-red / fixround-a1-green | No persisted rewrite |

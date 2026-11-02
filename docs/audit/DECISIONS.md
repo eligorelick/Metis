@@ -3102,3 +3102,8 @@ Require a dated named-person action with role and expiry. Missing share counts r
 ### D-next (P5): Step 1 (DATA-114/115/116) review correction
 
 Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. Coordinator decision: status-bearing parse errors close the non-JSON outage gap without making caller aborts eligible for stale fallback. Dividend-frequency and history-window modules join the unchanged per-file risk floors. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F1 (RPT-201) review correction
+
+Use schema-valid null guidance in the dividend-yield display fixture. The four existing assertions exercise the frequency display again; no production behavior changed. Stored report bytes are unchanged.
