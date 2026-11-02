@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
+
+- DATA-106: refuse EDGAR contact characters outside printable ASCII and Latin-1 before saving or testing.
+
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
 - DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.

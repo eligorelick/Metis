@@ -55,8 +55,15 @@ import { z } from "zod";
  */
 const DEFAULT_EDGAR_CONTACT = "Metis Research contact@example.com";
 
+/** A declared contact is sent verbatim in an HTTP header. */
+export function edgarIdentityProblem(contact: string): string | null {
+  if (/[^\x20-\x7e\xa0-\xff]/.test(contact)) return "The contact contains characters that cannot be sent in an HTTP header. Use ASCII or Latin-1 letters in the name.";
+  return null;
+}
+
 /** True only for an identity with a reachable-looking, non-placeholder email. */
 export function hasConfiguredEdgarIdentity(contact = getProviderCredential("EDGAR_CONTACT") ?? ""): boolean {
+  if (edgarIdentityProblem(contact)) return false;
   const email = contact.match(/\b[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})\b/i);
   if (email === null) return false;
   const domain = email[1].toLowerCase();

@@ -3000,3 +3000,7 @@ DATA-103: carry the existing bank revenue routing into income classification and
 ### D-next (P5): Presentation currency precedes statement resolution
 
 DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period unit, break ties by total anchor points, USD, then alphabetical. Withhold other-unit-only history and disclose unused convenience amounts. No currency conversion is inferred. Mixed-currency valuation remains withheld.
+
+### D-next (P5-lows): DATA-106 contact header admission
+
+Follow B9-OD-9: printable ASCII and Latin-1 remain valid; higher code points and control characters are refused locally with an actionable message. No network test is attempted for an invalid header.

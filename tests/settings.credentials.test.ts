@@ -233,3 +233,18 @@ describe.skipIf(process.platform === "darwin")("provider key settings", () => {
     expect(readAiStore()).toBeNull();
   });
 });
+
+
+describe("DATA-106 header admission", () => {
+  it.each(["\\u0141ukasz", "\\u0100Name"])("rejects non-Latin-1 contact %s", async (name) => {
+    const value = name.replace(/\\u([0-9a-f]{4})/g, (_, n) => String.fromCharCode(parseInt(n, 16))) + " person@firma.pl";
+    expect(hasConfiguredEdgarIdentity(value)).toBe(false);
+    const result = await POST(request({ action: "save", key: "EDGAR_CONTACT", value }));
+    expect(result.status).toBe(400);
+    expect((await result.json()).error).toMatch(/ASCII or Latin-1/);
+  });
+  it("accepts Latin-1 and ASCII controls", () => {
+    expect(hasConfiguredEdgarIdentity("Jos\u00e9 M\u00fcller jose@firma.es")).toBe(true);
+    expect(hasConfiguredEdgarIdentity("Jane Research jane@firma.es")).toBe(true);
+  });
+});
