@@ -147,8 +147,8 @@ Focused final consumer/docs gates: p2-integration-green-04 (23 selected checks),
 p2-stored-docs-green (149 checks), p2-typecheck-06. Exact-base reproduction:
 p2-base-probes-02 (49 checks: 38 red triggers and 11 controls) and independent
 p2-base-integration-controls. The final committed head is subjected to
-p2-product-final-02, p2-risk-final, p2-typecheck-final-02, p2-lint-final-02 and
-p2-replay-final-02. Their actual outcomes, final SHA, full commit list and every
+p2-product-final-03, p2-risk-final-02, p2-typecheck-final-03, p2-lint-final-03 and
+p2-replay-final-03. Their actual outcomes, final SHA, full commit list and every
 failed receipt are recorded in tmp/claude-impl/HANDOFF.md and failures.md.
 No failure is labelled pre-existing without an ac4916f8 receipt.
 
@@ -166,7 +166,7 @@ Final self-review added the explicit B4a refusal boundary: FIN-102 does not coun
 an operating loss on refused, missing or nonpositive capital. Receipt
 fin-102-capital-refusal-red proves the prior overreach; its green consumer gate
 includes the existing capital-refusal and golden tests. The earlier candidate
-product run is superseded; p2-product-final-02 and p2-risk-final are required
+product run is superseded; p2-product-final-03 and p2-risk-final-02 are required
 on the corrected committed head, together with renewed type/lint/replay gates.
 
 Commit-record correction: 7538e163 omitted its prepared message body and
@@ -174,3 +174,11 @@ Co-Authored-By trailer. History was preserved as required. This follow-up
 records the red/green evidence and Codex attribution for that change; no
 history rewrite was performed. The initial FIN-102 green claim in 8e353992
 was also premature; 04ca47f2 records and corrects its raw-tax-warning failure.
+
+Combined FIN-111/FIN-402-V2 review: p2-transition-recurrence-red proves a stub
+could displace the fifth full year from the recurring-cost window. Both history
+callers now pass admitted full fiscal years; p2-transition-recurrence-green
+passes 313 consumer and golden checks, including a matching no-stub control.
+The previously completed product and risk runs passed (14,167 tests; risk
+95.94% statements / 90.91% branches / 98.30% functions / 97.94% lines), but the
+renewed receipt names above are required on this corrected head.

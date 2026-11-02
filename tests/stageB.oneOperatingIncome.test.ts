@@ -65,4 +65,20 @@ describe("one operating-income basis (FIN-402 family)", () => {
     expect(impaired.returns.wacc.syntheticRating).toBe(clean.returns.wacc.syntheticRating);
     expect(impaired.returns.wacc.notes.join(" ")).toMatch(/excluding tagged one-off/);
   });
+  it("does not let a transition stub displace a fiscal year from the recurring-cost window",()=>{
+    const b=completeCurrencyBundle({});
+    if(!b.statements.incomeAnnual.ok)throw Error("fixture");
+    const sample=b.statements.incomeAnnual.value.data.rows[0]!;
+    b.statements.incomeAnnual.value.data.rows=[{...sample,date:"2025-12-31"},...[2025,2024,2023,2022,2021].map(y=>({...sample,date:`${y}-06-30`,fiscalYear:String(y)}))];
+    b.edgar.cik={ok:true,value:{data:{cik:42,cik10:"0000000042",ticker:b.symbol},source:"edgar",endpoint:"fixture",asOf:b.builtAt,fetchedAt:b.builtAt}} as typeof b.edgar.cik;
+    const points=[2025,2023,2021].map(y=>({start:`${y-1}-07-01`,end:`${y}-06-30`,val:10*M,form:"10-K",filed:`${y}-08-01`,accn:`0000000042-${String(y).slice(2)}-000001`,fp:"FY",fy:y}));
+    b.edgar.companyFacts={ok:true,value:{data:{cik:42,entityName:"Test",facts:{"us-gaap":{AssetImpairmentCharges:{units:{USD:points}}}}},source:"edgar",endpoint:"fixture",asOf:b.builtAt,fetchedAt:b.builtAt}} as typeof b.edgar.companyFacts;
+    const withStub=runStageB(b);
+    expect(withStub.growth.gaps.some(g=>g.field==="growth.incomeStatement.transitionPeriod")).toBe(true);
+    expect(withStub.returns.roic.notes.join(" ")).toContain("AssetImpairmentCharges in 3 of the last 5 fiscal years");
+    expect(withStub.valuation.notes.join(" ")).toContain("AssetImpairmentCharges in 3 of the last 5 fiscal years");
+    b.statements.incomeAnnual.value.data.rows.shift();
+    const fullYears=runStageB(b);
+    expect(fullYears.returns.roic.notes).toContain(withStub.returns.roic.notes.find(n=>n.includes("AssetImpairmentCharges in 3")));
+  });
 });

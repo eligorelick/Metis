@@ -3136,7 +3136,7 @@ function computeReturns(
     ebitForWacc -= coverageUnusual.value;
     coverageBasis += ` operating income excluding tagged one-off items of ${coverageUnusual.value}: ${coverageUnusual.basis}`;
   }
-  const historyUnusual = withoutRecurringFamilies(annualUnusual, incomeAnnual.map(r => isoDay(r.date) ?? ""));
+  const historyUnusual = withoutRecurringFamilies(annualUnusual, withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map(r => isoDay(r.date) ?? ""));
   const recurrenceBasis = recurringOperatingItemsBasis(historyUnusual.recurring);
   const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt));
 
@@ -3714,7 +3714,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // biases the base case exactly as it biased the dispersion.
   const guardedAnnualUnusual = withoutRecurringFamilies(unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
     fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: ctx.modelCurrency, observedAt: bundle.builtAt,
-  }), incomeAnnual.map(r => isoDay(r.date) ?? ""));
+  }), withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map(r => isoDay(r.date) ?? ""));
   const dcfIncomeHistory: DcfIncomeRow[] = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),

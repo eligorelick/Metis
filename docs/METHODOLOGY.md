@@ -6375,3 +6375,8 @@ reports without score arrays. Unknown evidence receives no guessed correction.
 P2 FIN-102 refusal boundary: an operating loss enters terminal evidence only
 with an admitted positive invested-capital denominator. A refused, missing or
 nonpositive capital base remains missing; no loss flag supplies a zero return.
+
+
+P2 FIN-111/FIN-402-V2: the recurring-one-off window takes the latest five
+admitted full fiscal years. A transition stub occupies no slot in that window,
+matching the annual rows used by margin history and terminal evidence.

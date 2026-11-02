@@ -3665,3 +3665,12 @@ The B5b Task 6 controller ruling preserves B4a refusals: an operating-loss year
 with unknown or nonpositive invested capital remains missing. The loss flag
 is attached only after a positive denominator is admitted. The terminal rule
 requires an established numeric return and never substitutes zero for it.
+
+
+## D-next (P2) - Full-year recurrence window (2026-11-02)
+
+FIN-111's transition admission also applies to FIN-402-V2's three-of-five
+recurrence window. A stub cannot displace the oldest full fiscal year and
+turn a recurring tagged cost into an add-back. Coverage retains its own-window
+normalization convention. The five-year terminal/margin evidence reads the
+same admitted annual periods; the guard does not change on a no-stub input.
