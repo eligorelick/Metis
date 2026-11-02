@@ -18,6 +18,7 @@ export function restoreB4bEquityMethodGolden(input: { computed: ComputedMetrics;
   };
   const computed = restore(input.computed, 1);
   const payload = restore(input.payload, 3);
-  payload.payloadVersion = "1.59.0";
+  // The payload stamp stays at the shared 1.60.0: P0 moved 1.59.0 -> 1.60.0 first on
+  // integration, and restoreResearchReliabilityGolden (the next helper) restores it.
   return { computed, payload };
 }
