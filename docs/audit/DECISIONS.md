@@ -3123,3 +3123,5 @@ RPT-102: Join historical and forward chart lines only when period adjacency is r
 RPT-203: Use band-safe formatting for prose scores.
 
 RPT-205: Preserve the geographic scope actually named by the source row.
+
+RPT-213: Label excess-return values by their recorded method on classic and export surfaces.

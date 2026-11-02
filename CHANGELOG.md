@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P7 display and history (2026-11-02)
 
+- RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
 - RPT-205: Preserve the geographic scope actually named by the source row.
 - RPT-203: Use band-safe formatting for prose scores.
 - RPT-102: Join historical and forward chart lines only when period adjacency is recorded.

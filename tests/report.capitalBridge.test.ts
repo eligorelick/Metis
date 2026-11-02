@@ -95,3 +95,12 @@ describe("recorded capital structure presentation", () => {
     expect(html.includes('aria-label="Recorded sensitivity cases"')).toBe(false);
   });
 });
+
+it("RPT-213: names excess return consistently in classic and exports", () => {
+ const report=loadTask28Fixture();
+ report.fairValue={status:"available",method:"excess-return",methodVersion:"test",perShare:report.valuation.dcf.perShare,upsidePct:20,basis:[],reasons:[]};
+ const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"classic"}));
+ expect(html).toContain("Excess-return"); expect(html).not.toContain("DCF provenance");
+ expect(reportToMarkdown(report)).toContain("### Excess-return value");
+ expect(reportToPrintBody(report)).toContain("<h3>Excess-return value</h3>");
+});
