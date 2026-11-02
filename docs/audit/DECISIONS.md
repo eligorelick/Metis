@@ -3040,3 +3040,7 @@ DATA-107 adopts OD-2 additions and priority reads for bankruptcy, cyber, acceler
 ### D-next (P5): Abbreviated officer-event headings
 
 DATA-108 recognizes semicolon-separated official-title clauses and optional subsection letters without relaxing standalone-heading/cross-reference guards.
+
+### D-next (P5): Contents entries do not establish event evidence
+
+DATA-109 removes bounded page-number-only sections at parsing and replay, and strips legacy summary fragments on display. Real operative sections are retained. Saved bytes remain unchanged.

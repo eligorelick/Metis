@@ -315,7 +315,7 @@ export function materialEventTables(d: FilingDisclosures | undefined): ReportAud
   return [{
     heading: "Material SEC current reports (Form 8-K, last 12 months)",
     headers: ["Filed", "Event date", "Items", "Summary", "Accession"],
-    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutLegacyPrincipalAnnotation(e.summary), e.accession]),
+    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutTocStubs(withoutLegacyPrincipalAnnotation(e.summary)), e.accession]),
     note: materialEventScopeNote(d) + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
   }];
 }
@@ -387,4 +387,8 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
     }
     case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
   }
+}
+
+export function withoutTocStubs(summary:string):string {
+ return summary.replace(/Item \d\.\d{2}: \d{1,3}(?: Table of Contents)?(?=\s+Item \d\.\d{2}:|\s*$)/g, "").replace(/\s+/g," ").trim();
 }

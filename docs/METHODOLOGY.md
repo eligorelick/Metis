@@ -5977,3 +5977,5 @@ Earnings-release narrative and release-derived capital return/FCF follow the new
 Material 8-K events include bankruptcy (1.03), cyber incidents (1.05), acceleration (2.04), delisting (3.01), dilution (3.02), holders' rights (3.03) and control changes (5.01). The first four receive priority under the ten-filing cap. Unsupported non-event item filings are named; excerpt titles name only retained sections. Saved scope metadata remains authoritative (DATA-107, OD-2).
 
 Item 5.02 headings may use any clause of the official title and an optional subsection letter; bounded-title and cross-reference rejection rules still apply (DATA-108).
+
+Page-number-only table-of-contents bodies are excluded from 8-K sections, analyst excerpts and event summaries. Legacy event summaries drop those fragments at display time without rewriting saved reports (DATA-109).

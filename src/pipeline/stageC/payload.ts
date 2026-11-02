@@ -1,3 +1,4 @@
+import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
@@ -2519,8 +2520,10 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     if (!isIsoDate(event.filingDate) || event.sections.length === 0) continue;
     if (used >= PAYLOAD_BUDGETS.eightKEventsTotalChars) break;
     const body = event.sections
+      .filter(s=>!isTableOfContentsStub(s.text))
       .map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`)
       .join("\n\n");
+    if(!body.trim())continue;
     // D-63: the operative paragraph's dated lead, named parties and amounts
     // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
     const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;

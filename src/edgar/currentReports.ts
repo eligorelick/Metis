@@ -1326,6 +1326,10 @@ export function hasMaterialEventItem(items: string | undefined): boolean {
  * "Item N.NN" followed by bounded title words. References to a titled item
  * inside prose are not headings; 3.02 accepts both Sale and Sales.
  */
+export function isTableOfContentsStub(text:string):boolean {
+ return /^\d{1,3}$/.test(text.replace(/Table of Contents\s*$/i, "").trim());
+}
+
 export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocument): EightKItemSection[] {
   const text = normalizeFilingText(rawText);
   const { boundaries, tagText } = itemHeadingBoundaries(rawText, sourceDocument);
@@ -1379,7 +1383,7 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     body = body.replace(/^[\s.:–—-]+/, "").trim();
     const incorporates = /^The information (?:set forth|contained|included) (?:in|under) Item (\d\.\d{2})[^.]{0,120}\bincorporated (?:herein )?by reference/i.exec(body)?.[1] ?? null;
     return { item: head.item, title: ITEM_TITLES[head.item]!, text: body, incorporates: incorporates !== null && body.length < 400 ? incorporates : null };
-  });
+  }).filter(section=>!isTableOfContentsStub(section.text));
 }
 
 /** Same-text line/block coordinates, used only as optional standalone-heading proof. */

@@ -1,3 +1,4 @@
+import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
 import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
@@ -826,6 +827,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const events: FilingDisclosures["events"] = (reports?.events ?? []).map((e) => {
     let summaryCorrection: FilingDisclosures["events"][number]["summaryCorrection"];
     const parts = e.sections
+      .filter(s=>!isTableOfContentsStub(s.text))
       .filter((s) => s.incorporates === null || e.sections.length === 1)
       .flatMap((s) => {
         const stripped = withoutLegacyPrincipalAnnotation(s.summary);

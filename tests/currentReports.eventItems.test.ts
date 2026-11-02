@@ -23,3 +23,13 @@ it.each(["Election of Directors","Appointment of Certain Officers","(e) Compensa
  const heading=title.startsWith("(")?`Item 5.02${title}`:`Item 5.02 ${title}`;
  expect(splitEightKItems(`${heading}. On September 3, 2026, the Board approved a retention award.`)).toMatchObject([{item:"5.02",text:"On September 3, 2026, the Board approved a retention award."}]);
 });
+
+it("DATA-109 omits a page-number-only contents section",()=>{
+ const text="Item 1.01 Entry into a Material Definitive Agreement 3 Item 1.01 Entry into a Material Definitive Agreement. On February 26, 2026, the Company signed a material agreement.";
+ expect(splitEightKItems(text).map(s=>s.text)).toEqual(["On February 26, 2026, the Company signed a material agreement."]);
+});
+
+import {withoutTocStubs} from "@/report/filingDisclosurePresentation";
+it("DATA-109 cleans legacy summary stubs while retaining real terms",()=>{
+ expect(withoutTocStubs("Item 1.01: 3 Item 1.01: On February 26 the issuer signed. Item 8.01: 4")).toBe("Item 1.01: On February 26 the issuer signed.");
+});
