@@ -7,7 +7,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | JOB-202 | Fixed: compatible accepted-work reuse loads frozen lineage inputs and Stage B configuration, preserving hash and capture time | Owning JOB-202 commit | JOB-202-red, JOB-202-real-red / JOB-202-green, JOB-202-real-green | No rewrite; newly resumed reports retain source input provenance |
 | JOB-206 | Fixed: tolerate busy renewal only with proven lease slack | Owning JOB-206 commit | JOB-206-red / JOB-206-green2 | None |
 | JOB-213 | Fixed: folded admission, Retry lookup, database constraint and client fences | Owning JOB-213 commit | JOB-213-red / JOB-213-green2, JOB-213-controls2 | None |
-| DOC-203 | Not started | — | — | None |
+| DOC-203 | Fixed: commented canonical defaults and key-only startup warnings | Owning DOC-203 commit | DOC-203-red / DOC-203-green2 | None |
 | AI-510 | Not started | — | — | None |
 | JOB-201 | Not started | — | — | None |
 | JOB-301 | Not started; reproduction still required | — | — | None |

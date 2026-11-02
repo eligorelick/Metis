@@ -2,6 +2,9 @@
 
 ## D-next (P4): preserve accepted and in-flight work (JOB-202, JOB-206, JOB-213)
 
+B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
+alias names at startup without values. Keep explicit canonical precedence.
+
 B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
 attachment. Defer the issuer index while existing active alias rows drain;
 never terminalize or delete their accepted work to force a migration.

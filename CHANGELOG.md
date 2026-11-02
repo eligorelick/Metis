@@ -20,6 +20,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P4 paid-work lifecycle (2026-11-02)
 
+DOC-203: The example leaves canonical settings commented so legacy startup
+holds and USD caps survive copying it. Startup warns about conflicting alias
+key names without disclosing values; explicit canonical settings still win.
+
 JOB-213: Active job admission and Retry fold share-class spellings. The client
 accepts attached alias snapshots. Existing duplicate active aliases drain
 without discarding work before the stronger database index is installed.

@@ -115,8 +115,8 @@ export function parseEnvExample(text) {
     if (own.length > 0) inherited = own;
     const entry = {
       key: match[1],
-      value: match[2].trim(),
-      optIn: liveKey === null,
+      value: match[2].replace(/\s+# default$/, "").trim(),
+      optIn: liveKey === null && !/\s+# default$/.test(line),
       comment: own.length > 0 ? own : [...inherited],
     };
     comment = [];

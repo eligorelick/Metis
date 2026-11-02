@@ -413,3 +413,8 @@ or another error still aborts; this never replays the provider request.
 Active-job admission and Retry treat dot/hyphen share-class aliases as one
 issuer. Existing duplicate active aliases are preserved; the stronger unique
 issuer index is installed at a later startup after those jobs drain.
+
+The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
+legacy shell and launcher values. Uncomment only intentional overrides: even a
+blank canonical assignment wins. Startup warns about conflicting aliases using
+key names only, never their values.
