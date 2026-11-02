@@ -1323,7 +1323,7 @@ export function readerPrecision(text: string, source?: string): string {
   // identify which operand carries the ratio. Preserve these claims as written.
   if (source !== undefined && isRatioAsPercent(source)) return text;
   const out = text
-    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
+    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${formatScore(Number(value))}${tail}`)
     // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
     .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
   return out.replace(

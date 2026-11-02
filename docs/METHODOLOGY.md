@@ -6019,3 +6019,5 @@ The live reverse-DCF growth solve is starting revenue growth that fades to termi
 History withholds score and grade comparisons across score band-table versions: "Score band tables differ". Other families retain their own comparability (DB-005).
 
 The projection fan joins history to forecast only across adjacent periods; an open seam caption gives the first forecast window start (RPT-102).
+
+Band-safe score precision also applies to 0-100 scores written in analyst prose (RPT-203).
