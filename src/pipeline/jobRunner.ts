@@ -94,7 +94,7 @@ import {
 import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
-import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { captureRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
 import { getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
@@ -2529,8 +2529,8 @@ export interface RunJobOptions<TPayload = unknown> {
   /**
    * Resume from persisted bull/bear snapshots (2026-07 audit item 1): skip the
    * analyst passes entirely — they are the expensive part — and re-run only
-   * synthesize/verify/assemble. fetch/validate/compute still re-run (cheap and
-   * cache-served) to rebuild the judge payload. A payload-fingerprint mismatch
+   * synthesize/verify/assemble. Compatible frozen inputs rebuild the judge
+   * payload; legacy or version-incompatible inputs are fetched again. A payload-fingerprint mismatch
    * makes the prepared artifacts incompatible and aborts before paid work.
    * On a terminal (done/error) row, resume requires a resumable durable plan
    * (`claimJobForResume`) and otherwise REJECTS with "is not resumable"; on a
@@ -2995,9 +2995,18 @@ export async function runJob<TPayload = unknown>(
       throwIfJobAborted(jobSignal);
     }
     let bundle: DataBundle;
-    const stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
+    let stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
+    let frozenInputDetail: string | null = null;
     try {
+      const sourceRef = opts.resume === true && preparedResume !== null &&
+        (preparedResume.bull !== null || preparedResume.bear !== null || preparedResume.synthesize !== null)
+        ? readJobRunSnapshotRef(state.jobId, preparedResume.sourceGeneration) : null;
+      const sourceSnapshot = sourceRef === null ? null : readRunInputSnapshot(sourceRef.hash);
+      const frozen = sourceSnapshot !== null && Object.entries(CURRENT_SNAPSHOT_VERSIONS)
+        .every(([key, value]) => sourceSnapshot.content.versions[key as keyof typeof CURRENT_SNAPSHOT_VERSIONS] === value)
+        ? sourceSnapshot : null;
       bundle =
+        frozen?.content.bundle ??
         opts.bundle ??
         (await awaitJobStage(buildDataBundle(state.symbol, {
           ...opts.bundleOptions,
@@ -3012,10 +3021,12 @@ export async function runJob<TPayload = unknown>(
           },
         }), jobSignal, jobController, "fetch", fetchDeadlineMs));
       throwIfJobAborted(jobSignal);
-      const inputSnapshot = captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
+      if (frozen !== null) stageBConfig = frozen.content.stageBConfig;
+      const inputSnapshot = frozen ?? captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
       const captured = withLiveRunAuthority(state, null, (db, _row, authorityAt) =>
-        persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, authorityAt, db));
+        persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, frozen !== null ? sourceRef!.capturedAt : authorityAt, db));
       if (!captured.authorized) throw new SupersededRunError(state.jobId, state.runGeneration);
+      if (frozen !== null) frozenInputDetail = `reused frozen inputs of generation ${preparedResume!.sourceGeneration} (captured ${sourceRef!.capturedAt}) — ${bundle.gaps.length} gap(s)`;
       // The snapshot is the authority actually consumed, including redacted raw
       // envelopes and normalized JSON semantics, not a later cache reconstruction.
       bundle = inputSnapshot.content.bundle;
@@ -3029,7 +3040,7 @@ export async function runJob<TPayload = unknown>(
       state,
       "fetch",
       "done",
-      `data bundle for ${state.symbol} (${bundle.gaps.length} gap(s))`,
+      frozenInputDetail ?? `data bundle for ${state.symbol} (${bundle.gaps.length} gap(s))`,
     );
 
     // -- validate -------------------------------------------------------------

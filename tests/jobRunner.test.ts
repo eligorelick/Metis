@@ -127,6 +127,11 @@ import { setSetting } from "@/settings/settings";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE } from "@/ai/store";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { buildDataBundle } from "@/pipeline/dataBundle";
+vi.mock("@/pipeline/dataBundle", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/pipeline/dataBundle")>();
+  return { ...actual, buildDataBundle: vi.fn(actual.buildDataBundle) };
+});
 import { createRuntimeArtifactManifest } from "../scripts/runtime-artifact-manifest.mjs";
 import { explainAnalysisModel } from "@/settings/contracts";
 import {
@@ -8283,6 +8288,56 @@ describe("runJob — per-pass timing", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — resume from persisted analyst snapshots", () => {
+  it.each(["current", "legacy", "old versions"] as const)("JOB-202: %s inputs retain identity and exact paid settlements", async (mode) => {
+    const { jobId } = createJob("SYNTH");
+    const original = fakeBundle("SYNTH");
+    original.quote = { ok: true, value: {
+      data: { rows: [{ symbol: "SYNTH", price: 200, volume: 1_000_000 }], raw: {} },
+      asOf: "2026-07-06", source: "fmp", endpoint: "quote", fetchedAt: NOW().toISOString(), stale: false,
+    } };
+    const moved = structuredClone(original);
+    if (moved.profile.ok) moved.profile.value.data.rows[0].price = 201;
+    if (moved.quote.ok) moved.quote.value.data.rows[0].price = 201;
+    const payload = pipelinePasses.assembleContextPayload;
+    const fingerprint = pipelinePasses.fingerprintPayload!;
+    const first = failingJudgePasses();
+    await runJob(jobId, { ...first.passes, assembleContextPayload: payload, fingerprintPayload: fingerprint },
+      { bundle: original, hasAnthropicKey: true, now: NOW });
+    expect(first.calls).toEqual(["runBullThenBear", "runJudgePass"]);
+    const source = readJobRunSnapshotRef(jobId, 0)!;
+    if (mode !== "current") {
+      handle.sqlite.prepare('DELETE FROM job_run_inputs WHERE jobId = ? AND runGeneration = 0').run(jobId);
+      if (mode === "old versions") {
+        const snapshot = readRunInputSnapshot(source.hash)!;
+        persistRunInputSnapshot(jobId, 0, captureRunInputSnapshot(original, { evIncludeLeases: false },
+          { ...snapshot.content.versions, stageB: "OLDER_ENGINE" }), source.capturedAt);
+      }
+    }
+    const second = mockPasses();
+    const fetch = vi.mocked(buildDataBundle).mockResolvedValueOnce(moved);
+    const callsBefore = fetch.mock.calls.length;
+    const resumed = runJob(jobId, { ...second.passes, assembleContextPayload: payload, fingerprintPayload: fingerprint },
+      { hasAnthropicKey: true, now: NOW, resume: true });
+    if (mode === "current") {
+      const result = await resumed;
+      expect(result.dataOnly).toBe(false);
+      expect(fetch.mock.calls.length - callsBefore).toBe(0);
+      expect(second.calls).toEqual(["runJudgePass", "runVerifyPass"]);
+      expect(readJobRunSnapshotRef(jobId, 1)).toEqual(source);
+      const report = JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!);
+      expect(report.meta.runSnapshot).toEqual(source);
+    } else {
+      await expect(resumed).rejects.toThrow(/fingerprint mismatch/);
+      expect(fetch.mock.calls.length - callsBefore).toBe(1);
+      expect(second.calls).toEqual([]);
+    }
+    const rows = handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all();
+    expect(rows.map(row => row.step).sort()).toEqual(mode === "current" ? ["bear", "bull", "synthesize", "verify"] : ["bear", "bull"]);
+    expect(rows.filter(row => row.step === "bull").map(row => row.costUsd)).toEqual([0.9]);
+    expect(rows.filter(row => row.step === "bear").map(row => row.costUsd)).toEqual([0.47]);
+    expect(rows.map(row => row.costUsd).sort()).toEqual(mode === "current" ? [0.2, 0.4, 0.47, 0.9] : [0.47, 0.9]);
+    fetch.mockReset();
+  });
   /** mockPasses whose judge fails hard (non-retryable) on the first run. */
   function failingJudgePasses(): { passes: PipelinePasses; calls: string[] } {
     const base = mockPasses();

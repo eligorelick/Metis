@@ -164,6 +164,10 @@ retry if its evidence and execution fingerprint still match.
 Retrying a data-only report reuses the analyst passes that already finished and
 replaces the fallback with the new run's report. If that run fails again, it
 saves a new data-only report and Retry stays available.
+When snapshot versions match, reused analysts or synthesis use their lineage's
+frozen inputs and Stage B configuration with the original capture time. The
+payload fingerprint still has to match; validation runs against the retry's
+clock. Legacy or version-incompatible snapshots require fetching inputs again.
 
 ## Request ceilings, caching and retries
 

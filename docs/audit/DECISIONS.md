@@ -1,5 +1,22 @@
 # Decisions
 
+## D-next (P4): frozen inputs for accepted-work reuse (JOB-202)
+
+Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
+the lineage root's integrity-checked snapshot. Matching snapshot versions use
+its acquired bundle and Stage B configuration and preserve its hash and capture
+time. Missing legacy or version-incompatible snapshots fall back to acquisition.
+Corrupt snapshots fail closed. Validation retains the retry's clock and the
+existing fingerprint guard remains mandatory before resumed model dispatch.
+
+This extends D-51/D-81 without changing settlement/checkpoint identity, synthesis
+allowance, accepted-section reuse, or pre-dispatch versus uncertain accounting.
+No automatic paid retry or replay is added; terminal refusals remain terminal.
+Stored reports are never rewritten. Payload, prompts, financial formulas and
+their version stamps are unchanged. The real payload/fingerprint runner tests
+prove moved quotes no longer prevent compatible frozen-input reuse, with exact
+analyst ledger rows and model-pass counts.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

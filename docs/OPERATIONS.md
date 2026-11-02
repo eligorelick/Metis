@@ -149,7 +149,12 @@ late settlements may still arrive. It is not a refund mechanism.
 Retry uses the same job ID and validates durable artifacts, generation lineage,
 payload/model compatibility and paid settlement evidence before reusing work.
 It may reuse a verified result, reuse synthesis and rerun verification, or reuse
-compatible analyst sides and run the missing tail. New requests remain billable;
+compatible analyst sides and run the missing tail. Analyst or synthesis reuse
+uses the lineage's frozen acquired inputs and Stage B configuration when their
+versions match, retaining the original capture time. Legacy or version-mismatched
+snapshots require a fetch; the payload fingerprint must still match before any
+resumed model request. Validation uses the current run clock, so changed
+staleness checks can still refuse reuse. New requests remain billable;
 earlier spend remains in the ledger. Retry rejects queued/running, canceled and
 unsupported jobs, active same-issuer conflicts and incompatible/unresumable
 terminal work. Start a new report when no compatible tail can be resumed.

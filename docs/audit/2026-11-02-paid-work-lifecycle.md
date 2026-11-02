@@ -1,0 +1,40 @@
+# P4 paid-work lifecycle disposition
+
+This bounded batch completes JOB-202. Other items are not started.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+| --- | --- | --- | --- | --- |
+| JOB-202 | Fixed: compatible accepted-work reuse loads frozen lineage inputs and Stage B configuration, preserving hash and capture time | Owning JOB-202 commit | JOB-202-red, JOB-202-real-red / JOB-202-green, JOB-202-real-green | No rewrite; newly resumed reports retain source input provenance |
+| JOB-206 | Not started | — | — | None |
+| JOB-213 | Not started | — | — | None |
+| DOC-203 | Not started | — | — | None |
+| AI-510 | Not started | — | — | None |
+| JOB-201 | Not started | — | — | None |
+| JOB-301 | Not started; reproduction still required | — | — | None |
+| AI-110 | Not started | — | — | None |
+| AI-115 | Not started | — | — | None |
+| JOB-207 | Not started | — | — | None |
+| JOB-205 | Not started | — | — | None |
+| JOB-214 | Not started | — | — | None |
+| JOB-215 | Not started | — | — | None |
+| PERF-202 | Not started | — | — | None |
+
+The regression uses the repository runner harness, real Stage C payload assembly
+and fingerprint, synthetic quote 200 then 201, and hermetic mock model passes.
+Before the fix, Retry fetches the moved quote and refuses reuse. After the fix,
+Retry makes zero acquisition calls and only judge and verification model calls;
+the original run made one analyst-pair call and one failed judge call. The final
+cost ledger has exactly one row each for bull (0.90 USD), bear (0.47 USD),
+synthesis (0.40 USD) and verification (0.20 USD): 1.97 USD total. Legacy and old
+snapshot-version controls still fetch once, refuse changed payloads before model
+dispatch, and retain exactly the two original analyst rows (1.37 USD).
+
+No payload/prompt bytes, formula meanings, stamps, goldens or intended deltas
+change. Current-clock validation and unchanged fingerprint checks can still
+refuse reuse when staleness or execution compatibility changes. Corrupt snapshots
+remain fail-closed. Data-only, report persistence and downstream views/exports
+continue to consume the same report schema and original snapshot association.
+
+Residuals: all thirteen other assigned findings remain not started. In particular,
+this item adds no repair or automatic paid replay and does not resolve the
+separate resumed-side recovery, lease, or chained verification provenance issues.

@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P4 paid-work lifecycle (2026-11-02)
+
+JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
+reusing accepted analyst or synthesis work. The snapshot hash and capture time
+stay unchanged; current-clock validation and the payload fingerprint still
+guard reuse. No automatic paid replay, ledger rewrite or stored-report rewrite.
+See the [disposition](docs/audit/2026-11-02-paid-work-lifecycle.md).
+
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 
 Preserves rejected provider responses for diagnosis separately from accepted section recovery, tolerates a canonical citation ID when its legacy source alias is blank, and permits explicitly withheld analyst targets with a reason. Citation normalization does not establish factual verification. The cash-flow bridge now identifies the retained provider cash-capex basis and its possible software/period differences; arithmetic is unchanged. Payload 1.58.0 and Stage B version 37 prevent reuse of accepted model work under the changed evidence disclosure. Historical reports are not rewritten. A bounded FIG run on Sonnet 5.5 medium completed using the preceding payload; these follow-up changes are tested offline, not claimed as a new live-model validation.
