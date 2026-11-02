@@ -345,7 +345,7 @@ describe("persisted report presentation", () => {
   it("delegates both persisted routes to one exact report-only boundary", async () => {
     expectTypeOf<PersistedReportViewExport>()
       .parameter(0)
-      .toEqualTypeOf<{ report: Report; selectedReportId?: number }>();
+      .toEqualTypeOf<{ report: Report; selectedReportId?: number; headerNotices?: boolean }>(); // RPT-212: explicit notice ownership
 
     const companyTree = await CompanyBody({ symbol: "DEMO" });
     const tabs = elementsWithin(companyTree).find((element) => element.type === ReportTabs);
