@@ -1,3 +1,4 @@
+import {latestResultsRelease} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
@@ -2492,7 +2493,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   const res = bundle.edgar?.currentReports;
   if (!res?.ok) return [];
   const out: TextExcerpt[] = [];
-  const latest = res.value.data.releases[0];
+  const latest = latestResultsRelease(res.value.data.releases);
   const narrative = (text: string | null, title: string, source: string, budget: number): void => {
     if (latest === undefined || text === null || text.trim() === "" || !isIsoDate(latest.filingDate)) return;
     const cut = selectMaterialEvidence(text, budget);

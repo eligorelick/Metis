@@ -374,6 +374,10 @@ export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[
  * covers a year of results. An update fills a slot only when fewer results
  * releases were read. Records stored before `reportsResults` count as results.
  */
+export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):EarningsReleaseRecord|undefined {
+ return ordered.find(r=>r.reportsResults!==false);
+}
+
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
@@ -501,7 +505,10 @@ export async function collectCurrentReports(
     releases.push(record);
   }
   const ordered = retainedEarningsReleases(releases);
-  releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const holder=latestResultsRelease(ordered);
+  releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const newer=holder ? ordered.slice(0,ordered.indexOf(holder)) : ordered;
+  if(newer.length) notes.unshift(holder ? `${newer.map(r=>`8-K ${r.accession} (${r.filingDate})`).join(", ")} states no results (an operating update); the earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "None of the retained Item 2.02 filings states results; no earnings-release narrative is kept.");
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)

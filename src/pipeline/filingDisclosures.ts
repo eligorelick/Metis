@@ -1,3 +1,4 @@
+import {latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
 import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
 /**
@@ -737,7 +738,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     : null;
   if (releases.length > 0 && guided === undefined) notes.push("No structured quarterly guidance rows were extracted from the retained releases; separately sourced narrative guidance may still be available.");
 
-  const latest = releases[0];
+  const latest = latestResultsRelease(releases);
   // A dated issuer production statement remains visible even if model prose
   // chooses a weaker or earlier roadmap description. Keep the source wording.
   for (const sentence of splitSentences(latest?.releaseNarrative ?? "").filter((s) => /\bnow in full production\b/i.test(s)).slice(0, 2)) {
@@ -811,7 +812,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   }
   // A dividend change or added authorization announced in an earlier release
   // of the window is still news the latest release does not repeat.
-  for (const earlier of releases.slice(1)) {
+  for (const earlier of releases.filter(r=>r!==latest)) {
     const change = earlier.capitalReturn.dividendChange;
     if (change && capitalReturn?.dividendChangeTo == null && capitalCurrency(change.symbol, earlier)) {
       notes.push(`Quarterly dividend raised from ${change.from} to ${change.to} ${currency ?? ""} per share (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));

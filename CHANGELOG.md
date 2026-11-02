@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- AI-506: keep earnings-release narratives and figures on the newest results release.
 - DATA-111: read filing prose dates and announcement datelines without time-zone shifts.
 - DATA-113: price keyless profile and quote from one successful chart observation.
 - DATA-112: refresh expired current-date history before serving a post-close answer.

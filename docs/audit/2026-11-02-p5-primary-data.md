@@ -11,7 +11,7 @@
 | DATA-112 | Fixed | Owning DATA-112 commit | data112-red / data112-green-3 | None |
 | DATA-113 | Fixed | Owning DATA-113 commit | data113-red / data113-green-2 | None |
 | DATA-111 | Fixed | Owning DATA-111 commit | data111-red / data111-green | None; recomputation corrected east of UTC |
-| AI-506 | Not started | - | - | Not assessed |
+| AI-506 | Fixed | Owning AI-506 commit | ai506-red / ai506-green-3 | Old update-only narrative withheld at payload build |
 | DATA-107 | Not started | - | - | Not assessed |
 | AI-512-V1 | Not started | - | - | Not assessed |
 | DATA-101 | Not started | - | - | Not assessed |
@@ -49,3 +49,5 @@ DATA-112: both adapters returned cached 14:00 close 104.5 after the close; now a
 DATA-113: meta returning 150 then 165 previously produced two prices; both now retain the first 150 and stale=true with one successful meta read. The independent quote retry is preserved after meta failure to retain the existing thrown-source control.
 
 DATA-111: Berlin/Tokyo lost 24.55B remaining authorization as of 2026-08-28; all four explicit zones now retain it and the EPS basis. Announcement dateline matching also uses calendar arithmetic, including controls one day before/after publication.
+
+AI-506: newer monthly sales update lost Q4 narrative and $1.30 dividend; the retained Q4 results now supply both. Retention/order unchanged. No prompt text edited.

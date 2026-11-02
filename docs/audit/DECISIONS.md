@@ -3028,3 +3028,7 @@ DATA-113 derives quote from the successful meta result already used for profile,
 ### D-next (P5): Prose dates are calendar dates
 
 DATA-111 uses calendar arithmetic for month-name dates in repurchase authorization and company announcement datelines. Explicit UTC, Denver, Berlin and Tokyo tests cover both acceptance and one-day mismatch refusal.
+
+### D-next (P5): Results own the earnings-release narrative
+
+AI-506 implements OD-10: newest retained results release owns narrative, capital return and issuer FCF; newer operating updates remain records with a leading note. Legacy records without reportsResults retain historical admission.

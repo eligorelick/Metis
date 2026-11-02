@@ -5971,3 +5971,5 @@ Current-date price history (DATA-112, OD-3) uses the D-113 session clock at the 
 A keyless run prices its profile and quote from the same successful Yahoo five-day chart observation. Both preserve that observation's stale flags and acquisition time. If meta failed, quote retains its independent retry and disclosure (DATA-113).
 
 A date printed in filing prose is read as that calendar day in every time zone, without local-midnight conversion. The same rule governs issuer announcement datelines (DATA-111).
+
+Earnings-release narrative and release-derived capital return/FCF follow the newest retained record stating results. Newer operating updates remain typed records with a leading note; they cannot occupy the earnings-release narrative slot (AI-506, OD-10).
