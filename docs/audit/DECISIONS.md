@@ -3363,34 +3363,44 @@ aggregate model while explicitly stating its unverified capitalization scope;
 it does not establish depositary ratios or validate market equity.
 
 
-## D-next (P9) - FIN-308: filed REIT majority and common grading (2026-11-02)
+## D-next (P9) - FIN-308: filed REIT type and common grading (revised 2026-11-02)
 
-The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
-prefer positive filed asset evidence over blanket withholding. Net investment
-property >= 50% of Assets establishes a property REIT; mortgage loans plus MBS
->= 50% establishes a mortgage REIT, using the tags, alias precedence, same
-instant/currency/accession, filed-by and recency checks named in METHODOLOGY.
-Only the available-for-sale MBS fair-value tag supplies a comparable securities
-asset; HTM and issuer-category fair-value-only disclosures cannot establish
-carrying assets and are excluded from the numerator. Gross property less accumulated depreciation is an evidenced net composition;
-generic PP&E and generic financing receivables are insufficient. Both
-majorities or neither means no filed type. The threshold defines majority
-business-model exposure; it is a house model-selection convention, not a
-legal REIT test. No ticker exceptions. Explicit vendor subtype handling and
-conflict disclosure stay in place.
+The owner delegated this decision to the coordinator on 2026-11-01. On
+2026-11-02 the coordinator revised the initial filed-property-majority rule:
+the sub-map answers mortgage versus equity, not whether property outweighs
+goodwill, intangibles and right-of-use assets. The earlier rule incorrectly
+withheld American Tower's valid property-map metrics and moved its composite
+52.77 D -> 56.18 C by dropping signals.
 
-For still-undetermined types, grade only signals common to both maps: revenue
-growth, stewardship, technicals and three common Piotroski outcomes. Withhold
-map-specific valuation, balance-sheet and moat grades, FCF growth, margins,
-capital-return spread and incompatible forensic grading; disclose the reason.
-Individual common Piotroski operands explain the grade while the complete
-forensic table remains recorded. This supersedes D-137 OD-7's preservation
-deferral and extends D-16. The trimmed O/NNN fixtures omit all property asset
-tags and remain undetermined: O 44.20 -> 46.50 D, NNN 50.73 -> 50.28 D.
-Full census O, NNN and PLD have positive same-filing majorities and remain
-property REITs; AMT lacks qualifying property evidence and moves 52.77 ->
-56.18 (D -> C). Details and every census/fixture mover are in the disposition.
-Stored reports are immutable; these are new-computation rules only.
+For an issuer already routed REIT, mortgage loans plus AFS MBS >= 50% of Assets
+establish mortgage exposure, with existing corroboration unchanged. Equity
+requires positive filed real assets, real assets >= mortgage assets, and
+mortgage assets < 50% of Assets. Real assets are net real-estate investment
+property (or filed cost less accumulated depreciation) plus net PP&E; an
+established REIT's towers and data centres are rental real property. Use the
+existing PP&E synonym chain, including the finance-lease net-asset tag used
+by the retained specialty filing, once. METHODOLOGY names every accepted tag,
+same-instant/currency/accession, filed-by and recency requirement. HTM and
+issuer-category fair-value-only mortgage disclosures remain excluded.
+Missing real-asset tags stay unknown. Both majorities, including 50/50, stay
+unknown. PP&E never establishes REIT status, and generic evidence-only route
+inference, explicit vendor subtype and conflict handling remain unchanged.
+No ticker exceptions, stamp changes or stored-report rewrites.
+
+For still-undetermined types, the prior P9 common-grading treatment is
+unchanged: revenue growth, stewardship, technicals and three common Piotroski
+outcomes remain applicable. Map-specific valuation, balance sheet, moat, FCF
+growth, margins, capital-return spread and incompatible forensic grading are
+withheld with a reason. Individual common Piotroski outcomes explain the
+grade while the complete forensic table remains recorded. This supersedes
+D-137 OD-7's preservation deferral and extends D-16.
+
+The retained specialty input now supplies 20.573B net PP&E against 63.3001B
+Assets, same filing 0001053507-26-000133, 2026-06-30, USD. It returns to equity,
+52.77 D, P/FFO 17.3499503074 and P/AFFO 26.7839577164. Trimmed O/NNN have no
+filed real assets and keep common grading: 46.50 D / 50.28 D. Full census O,
+NNN and PLD retain equity. The disposition records every census/fixture mover
+against both 66c9ea1e and ac4916f8, including integration effects.
 
 
 ## D-next (P9) - FIN-510-V1: ambiguous deferred-revenue siblings (2026-11-02)

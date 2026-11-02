@@ -22,7 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - Cash-capex: confirm standardized FCF retains the statement/vendor cash-capex field and mixed-basis disclosure; arithmetic unchanged.
 - FIN-510-V1: withhold disagreeing deferred-revenue siblings with both values named; preserve JNJ R&D and JPM interest-income controls.
-- FIN-308: classify REITs with same-filing asset majorities; undetermined types grade common signals with a disclosed reason. Re-pin O/NNN and AMT.
+- FIN-308 (coordinator revision 2026-11-02): distinguish equity from mortgage for established REITs using positive filed real assets (net property plus net PP&E), real assets >= mortgage assets and mortgage assets < 50% of Assets. Restore specialty property-map valuation and grading; keep missing-fact O/NNN unknown and common grading unchanged.
 - FIN-307: confirm the retained ADR WACC/DCF scope warning reaches report bodies, audit export and AI payload; Altman keeps book-equity Z-prime.
 - FIN-306: exclude route-withheld Piotroski tests from applicable evidence while retaining the reduced battery's evidence weight and penalties for missing supported inputs.
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)

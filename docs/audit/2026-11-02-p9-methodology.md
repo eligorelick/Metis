@@ -7,7 +7,7 @@ Base: ae4b656e. Replays are offline; stored reports and snapshots are immutable.
 | --- | --- | --- | --- | --- |
 | FIN-306 | Fixed: route-withheld Piotroski tests leave the applicable ceiling; missing supported tests still reduce evidence | 1f110ce4; e1c5780f | fin306-red / fin306-green, fin306-fixtures | New computations only; historical scores remain as stored |
 | FIN-307 | Confirmed: retain D-137 OD-6 | e2bfd580 | fin307-surfaces (6 passing; no defect reproduced) | No calculation change; stored reports retained |
-| FIN-308 | Fixed: filed majority, then common grading | 2cd519b3; 584e70fe | fin308-red, fin308-provenance-red / fin308-consumers | New computations only; historical bytes retained |
+| FIN-308 | Fixed; coordinator revised type rule 2026-11-02: positive real assets versus mortgage assets for established REITs | Initial: 2cd519b3; 584e70fe; 66c9ea1e; follow-up: this commit after merge 621a765e | fin308-revision-red, fin308-revision-ppe-alias-red / fin308-revision-consumers | New computations only; historical bytes retained |
 | FIN-510-V1 | Fixed: refuse ambiguous sibling value | 37387ab5 | fin510v1-red / fin510v1-green | New statement builds only; historical bytes retained |
 | Cash-capex | Confirmed: retained cash-capex field and mixed-basis disclosure | 9f7bea0c | cash-capex-records | No calculation change |
 
@@ -49,34 +49,58 @@ per-ADS value stays withheld. No red receipt is appropriate for this confirmed
 no-change decision; the new surface assertions passed before production edits.
 
 
-## FIN-308 measurements and calibration
+## FIN-308 measurements and calibration (coordinator revision 2026-11-02)
 
-The trimmed O and NNN fixtures omit every net/gross investment-property asset
-tag; SIC-derived `REIT - Diversified` cannot supply a subtype. They remain
-undetermined without invented evidence. Their raw Beneish scores stay
--2.596362634549579 and -2.5589578643944697. Only map-specific grading is removed.
-The full census inputs carry these matched net property / Assets values:
+The initial P9 rule required property to exceed half of Assets. The coordinator
+revised that rule because specialty equity REITs hold goodwill, intangibles
+and right-of-use assets, yet their rental-property economics require FFO/AFFO.
+The sub-map must distinguish equity from mortgage. The revised rule and every
+tag are named in METHODOLOGY and the routing basis. PP&E is admitted only once
+REIT status is established. Mortgage corroboration and unknown common grading
+are unchanged. No ticker exceptions or saved-report reinterpretation.
 
-| REIT | Net property | Total assets | Share | Result |
-| --- | --- | --- | --- | --- |
-| O census | 55,112,439,000 | 76,441,475,000 | 72.10% | Property; unchanged composite |
-| NNN census | 9,463,681,000 | 9,606,523,000 | 98.51% | Property; unchanged composite |
-| PLD census | 79,943,092,000 | 98,133,451,000 | 81.46% | Property; unchanged composite |
-| AMT census | No qualifying property net/cost tags | 63,300,100,000 | Unknown | Undetermined; old tag presence was insufficient |
-| O / NNN trimmed fixtures | No property tags | Filed Assets available | Unknown | Undetermined; common grading only |
+Real assets are filed net investment property (otherwise cost less accumulated
+depreciation) plus net PP&E from the existing synonym table. Every operand
+matches Assets by instant, currency and accession, and is filed by the run
+within the recency window. Positive real assets >= mortgage assets, with
+mortgage assets < 50% of Assets, establish equity. Mortgage assets >= 50%
+establish mortgage exposure with the existing corroboration; the existing
+conflicting-majorities/50-50 case stays unknown. Missing real facts never
+establish equity. HTM fair-value and generic loan disclosures remain excluded.
 
-| Issuer / input | Before composite / band | After composite / band | Reason |
+| Input | Comparable real assets | Assets | Final type / effect |
 | --- | --- | --- | --- |
-| AMT census | 52.77 D | 56.18 C | No qualifying filed property majority; common grading |
-| O fixture | 44.20 D | 46.50 D | Unknown subtype; common grading |
-| NNN fixture | 50.73 D | 50.28 D | Unknown subtype; common grading |
+| AMT census | 20,573,000,000 net PP&E (registered finance-lease synonym) | 63,300,100,000 | Equity; 56.18 C -> 52.77 D versus prior P9 |
+| O census | 55,112,439,000 net property | 76,441,475,000 | Equity; unchanged |
+| NNN census | 9,463,681,000 net property | 9,606,523,000 | Equity; unchanged |
+| PLD census | 79,943,092,000 net property | 98,133,451,000 | Equity; unchanged |
+| O / NNN trimmed fixtures | No property or net-PP&E facts | Filed Assets available | Unknown; common grading retained |
 
-All other census and retained-report scores stay unchanged from FIN-306.
-Mortgage controls include MBS majority, direct loans plus MBS, aliases that
-must not double count, property/mortgage 50/50 ambiguity, and token-property
-holdings. Boundary tests accept exactly 50%, reject 49%, gross cost without
-depreciation and different-period evidence. No census input is a mortgage
-REIT; the explicit mortgage controls remain required regression coverage.
+AMT uses `PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization`
+and Assets, both 2026-06-30, USD, accession 0001053507-26-000133. Its literal
+`PropertyPlantAndEquipmentNet` ends in 2019, so the existing registered synonym
+is necessary; no stale fact is carried forward. Its 20.573B real assets are
+positive, >= mortgage assets 0, and mortgage assets are < 31.65005B.
+
+| AMT property-map figure | Previous P9 66c9ea1e | Final (equals ac4916f8) |
+| --- | --- | --- |
+| P/FFO | Withheld | 17.3499503074 |
+| P/AFFO | Withheld | 26.7839577164 |
+| FFO/share | Withheld | 10.2319496424 |
+| AFFO/share | Withheld | 6.6279905204 |
+| Implied cap rate | Withheld | 5.5906597293% |
+| REIT-model EV | Withheld | 124,733,042,926.72 |
+
+Trimmed O and NNN retain unknown types and raw Beneish scores
+-2.596362634549579 and -2.5589578643944697. Their final composites stay 46.50 D
+and 50.28 D; the earlier 44.20 / 50.73 pins at integration used the incompatible
+industrial-map signals. No census input is a mortgage REIT. Synthetic controls
+cover PP&E-only specialty property; 45% real / 40% mortgage -> equity;
+10% real / 30% mortgage -> unknown; 50% mortgage; 50/50 ambiguity; 49% mortgage;
+missing real facts; net/cost/depreciation and alias precedence; and incompatible
+period, currency, accession, duration, future-filing and stale evidence.
+The consumer control checks all six restored valuation fields plus balance
+sheet and moat grading. The same PP&E never turns an industrial into a REIT.
 
 
 ## FIN-510-V1 statement-producer replay
@@ -117,11 +141,11 @@ Missing supported tests still penalize evidence, and unresolved eligibility
 retains its refusal. This adds no ticker exception or stored reinterpretation.
 
 
-## Final gates and census inventory
+## Initial P9 round gates and census inventory (before coordinator revision)
 
 The final product, typecheck and lint receipts are recorded in
-`tmp/claude-impl/HANDOFF.md` with the verified HEAD. No new source file was
-added; the added-source risk-coverage registration gate is not applicable.
+`tmp/claude-impl/HANDOFF.md` with the verified HEAD. The follow-up additionally requires the complete risk-coverage run on its final
+head, including the per-file floors for every existing risk source touched.
 Payload and intended-delta goldens passed unchanged; no band threshold or
 shared stamp changed. The release inventory registers this disposition note.
 
@@ -203,3 +227,145 @@ issuer-category fair-value-only disclosures do not establish carrying assets.
 Property, AFS mortgage, direct-loan and unknown controls remain covered. This
 changes no census/fixture measurement (no census mortgage REIT). The full
 product gate is rerun after this correction so it covers the final HEAD.
+
+
+## Follow-up replay against both requested bases
+
+Offline captures at exact commits `66c9ea1e` and `ac4916f8` each replayed the
+same 45 main-census snapshots, five retained-report input snapshots and five
+keyless issuer fixtures. The branch merged integration at `621a765e` before
+this revision. No captured input or stored report was changed. All 55 FCF
+values are identical against both bases. Quantitative changes below include
+integration effects, rather than attributing them to the REIT revision.
+
+Receipts: `revision-census-66c9ea1e`, `revision-fixtures-66c9ea1e`,
+`revision-census-ac4916f8`, `revision-fixtures-ac4916f8`,
+`revision-census-candidate`, `revision-fixtures-candidate`.
+The final-head captures are `revision-census-final-head` and
+`revision-fixtures-final-head`; their financial projections must equal the
+candidate. `revision-issuer-deltas.json` holds all 55 rows;
+`revision-numeric-deltas-66c9ea1e.json` and
+`revision-numeric-deltas-ac4916f8.json` enumerate every numeric leaf mover.
+The first literal-tag-only replay (`revision-census-final`) still withheld AMT;
+`fin308-revision-ppe-alias-red` then reproduced the registered-synonym gap.
+That intermediate capture is superseded, never claimed as the final result.
+
+### Every quantitative mover and reason
+
+| Input | Previous P9 66c9ea1e | Integration ac4916f8 | Final | Reason |
+| --- | --- | --- | --- | --- |
+| snapshot: census-AMT:AMT | 56.18 C | 52.77 D | 52.77 D | FIN-308 revision: positive comparable net PP&E; unknown -> equity; property valuation and grading restored. |
+| snapshot: census-BAC:BAC | 58.71 C | 58.53 C | 58.97 C | Versus P9: integrated FIN-309 quote-date excess-return roll. Versus integration: retained FIN-306 applicable-evidence ceiling. |
+| snapshot: census-BRK.B:BRK.B | 52.14 D | 52.02 D | 52.14 D | Versus P9: integrated FIN-309 aggregate excess-return values use dated model shares (per-share and score unchanged). Versus integration: retained FIN-306 ceiling. |
+| snapshot: census-DUK:DUK | 51.98 D | 51.98 D | 51.98 D | Integrated FIN-302 bridge metadata: absent preferred claim null -> 0; DCF/share and score unchanged. |
+| snapshot: census-GOOGL:GOOGL | 61.39 C | 63.15 C | 63.15 C | Integrated FIN-302/FIN-302-V1 convertible claim/divisor: 18.023B preferred claim, diluted count 12.309B -> 12.293B; valuation and score follow. |
+| snapshot: census-JPM:JPM | 55.36 C | 55.10 C | 55.36 C | Retained FIN-306 applicable-evidence ceiling versus integration; unchanged versus P9. |
+| snapshot: census-PGR:PGR | 74.45 B | 73.31 B | 74.69 B | Versus P9: integrated FIN-309 quote-date excess-return roll. Versus integration: retained FIN-306 applicable-evidence ceiling. |
+| snapshot: census-UNH:UNH | 57.22 C | 57.11 C | 57.22 C | Retained FIN-306 applicable-evidence ceiling versus integration; unchanged versus P9. |
+| fixture: PGR | 73.56 B | 72.53 B | 73.87 B | Versus P9: integrated FIN-309 quote-date excess-return roll. Versus integration: retained FIN-306 applicable-evidence ceiling. |
+| fixture: O | 46.50 D | 44.20 D | 46.50 D | Retained FIN-308 common grading versus integration: trimmed filing has no real-asset facts; still unknown. Unchanged versus P9. |
+| fixture: NNN | 50.28 D | 50.73 D | 50.28 D | Retained FIN-308 common grading versus integration: trimmed filing has no real-asset facts; still unknown. Unchanged versus P9. |
+
+Financial value deltas versus previous P9, all from the integrated B4b fixes
+except AMT's restored property map:
+
+| Input / figure | Previous P9 | Final | Reason |
+| --- | --- | --- | --- |
+| BAC excess-return/share | 45.7923511126 | 47.1378014208 | FIN-309 date roll |
+| PGR census excess-return/share | 293.4674325042 | 300.2180924805 | FIN-309 date roll |
+| PGR fixture excess-return/share | 254.7814799398 | 261.4243345952 | FIN-309 date roll |
+| BRK.B aggregate excess-return equity | 1,374,290,241,582.71 | 1,408,231,990,056.08 | FIN-309 model shares; per-share unchanged |
+| BRK.B alternative aggregate equity | 1,203,167,337,406.80 | 1,282,016,807,508.82 | FIN-309 model shares; per-share unchanged |
+| GOOGL DCF/share | 215.5926213765 | 214.4071078275 | FIN-302 preferred claim/divisor |
+| GOOGL enterprise value excluding leases | 3,954,394,800,000 | 3,972,417,800,000 | FIN-302 preferred claim |
+| GOOGL P/FCF | 76.8515908622 | Withheld | FIN-302 exposes preferred claims; parent-common cash-flow attribution unproved |
+| DUK preferred bridge field | Unrecorded (null) | 0 | FIN-302 zero-claim metadata; valuation unchanged |
+
+All other changed financial cells are dependent sensitivity, own-history,
+alternative or reverse-solve figures of those same issuers, enumerated in the
+numeric-leaf artifacts. Against ac4916f8, all financial valuation amounts are
+identical; only P9 grading/applicability changes remain. AMT has exactly the
+same six property-map values and composite as ac4916f8.
+
+### Complete per-input score and band table
+
+| Input | Previous P9 66c9ea1e | Integration ac4916f8 | Final |
+| --- | --- | --- | --- |
+| snapshot: report-43:AMZN | 55.54 C | 55.54 C | 55.54 C |
+| snapshot: report-46:MU | 77.91 B | 77.91 B | 77.91 B |
+| snapshot: report-48:NVDA | 76.29 B | 76.29 B | 76.29 B |
+| snapshot: report-49:NVDA | 76.29 B | 76.29 B | 76.29 B |
+| snapshot: report-50:NVDA | 76.29 B | 76.29 B | 76.29 B |
+| snapshot: census-AAPL:AAPL | 62.69 C | 62.69 C | 62.69 C |
+| snapshot: census-AMT:AMT | 56.18 C | 52.77 D | 52.77 D |
+| snapshot: census-AMZN:AMZN | 55.48 C | 55.48 C | 55.48 C |
+| snapshot: census-BA:BA | 40.27 D | 40.27 D | 40.27 D |
+| snapshot: census-BAC:BAC | 58.71 C | 58.53 C | 58.97 C |
+| snapshot: census-BRK.B:BRK.B | 52.14 D | 52.02 D | 52.14 D |
+| snapshot: census-CAT:CAT | 56.75 C | 56.75 C | 56.75 C |
+| snapshot: census-CMCSA:CMCSA | 54.34 D | 54.34 D | 54.34 D |
+| snapshot: census-COST:COST | 60.57 C | 60.57 C | 60.57 C |
+| snapshot: census-CSCO:CSCO | 56.39 C | 56.39 C | 56.39 C |
+| snapshot: census-CVX:CVX | 57.92 C | 57.92 C | 57.92 C |
+| snapshot: census-DIS:DIS | 57.86 C | 57.86 C | 57.86 C |
+| snapshot: census-DUK:DUK | 51.98 D | 51.98 D | 51.98 D |
+| snapshot: census-EXPE:EXPE | 65.85 C | 65.85 C | 65.85 C |
+| snapshot: census-FCX:FCX | 54.47 D | 54.47 D | 54.47 D |
+| snapshot: census-GOOGL:GOOGL | 61.39 C | 63.15 C | 63.15 C |
+| snapshot: census-HD:HD | 57.20 C | 57.20 C | 57.20 C |
+| snapshot: census-INTC:INTC | 40.42 D | 40.42 D | 40.42 D |
+| snapshot: census-JNJ:JNJ | 57.91 C | 57.91 C | 57.91 C |
+| snapshot: census-JPM:JPM | 55.36 C | 55.10 C | 55.36 C |
+| snapshot: census-KO:KO | 55.37 C | 55.37 C | 55.37 C |
+| snapshot: census-LLY:LLY | 62.65 C | 62.65 C | 62.65 C |
+| snapshot: census-MA:MA | 67.92 C | 67.92 C | 67.92 C |
+| snapshot: census-MCD:MCD | 57.50 C | 57.50 C | 57.50 C |
+| snapshot: census-META:META | 62.16 C | 62.16 C | 62.16 C |
+| snapshot: census-MSFT:MSFT | 61.75 C | 61.75 C | 61.75 C |
+| snapshot: census-NEE:NEE | 52.50 D | 52.50 D | 52.50 D |
+| snapshot: census-NFLX:NFLX | 66.91 C | 66.91 C | 66.91 C |
+| snapshot: census-NNN:NNN | 48.85 D | 48.85 D | 48.85 D |
+| snapshot: census-NVDA:NVDA | 79.80 B | 79.80 B | 79.80 B |
+| snapshot: census-O:O | 43.00 D | 43.00 D | 43.00 D |
+| snapshot: census-ORCL:ORCL | 48.27 D | 48.27 D | 48.27 D |
+| snapshot: census-PEP:PEP | 61.57 C | 61.57 C | 61.57 C |
+| snapshot: census-PG:PG | 57.77 C | 57.77 C | 57.77 C |
+| snapshot: census-PGR:PGR | 74.45 B | 73.31 B | 74.69 B |
+| snapshot: census-PLD:PLD | 49.61 D | 49.61 D | 49.61 D |
+| snapshot: census-SNOW:SNOW | 54.79 D | 54.79 D | 54.79 D |
+| snapshot: census-T:T | 52.52 D | 52.52 D | 52.52 D |
+| snapshot: census-TSLA:TSLA | 54.54 D | 54.54 D | 54.54 D |
+| snapshot: census-TSM:TSM | 51.31 D | 51.31 D | 51.31 D |
+| snapshot: census-UNH:UNH | 57.22 C | 57.11 C | 57.22 C |
+| snapshot: census-V:V | 64.36 C | 64.36 C | 64.36 C |
+| snapshot: census-VZ:VZ | 55.92 C | 55.92 C | 55.92 C |
+| snapshot: census-WMT:WMT | 51.98 D | 51.98 D | 51.98 D |
+| snapshot: census-XOM:XOM | 55.14 C | 55.14 C | 55.14 C |
+| fixture: FCX | 55.98 C | 55.98 C | 55.98 C |
+| fixture: PGR | 73.56 B | 72.53 B | 73.87 B |
+| fixture: O | 46.50 D | 44.20 D | 46.50 D |
+| fixture: SNOW | 56.60 C | 56.60 C | 56.60 C |
+| fixture: NNN | 50.28 D | 50.73 D | 50.28 D |
+
+### Follow-up gates and residuals
+
+`fin308-revision-red`: nine expected defect/disclosure assertions failed.
+`fin308-revision-ppe-alias-red`: one expected registered-synonym assertion
+failed. `fin308-revision-consumers`: 669 tests passed, including the property
+valuation consumer, prior common-grading controls, trimmed O/NNN, payload
+golden and tag-synonym registry. Typecheck and lint passed in
+`fin308-revision-typecheck` / `fin308-revision-lint`.
+The docs/release/stamp gate is `fin308-revision-records`.
+Final-head product, risk coverage, typecheck and lint receipts are named
+`revision-final-head-product`, `revision-final-head-risk`,
+`revision-final-head-typecheck`, `revision-final-head-lint`. Their exact HEAD,
+counts and any observed failures are recorded in the ignored HANDOFF after
+the runs finish. Coverage floors are unchanged and apply per existing risk
+source; the risk gate is required even without a newly added source file.
+
+Shared report 1.56.0, payload 1.60.0, Stage B
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 and pipeline stage-c-1.6.18 stay unchanged.
+No financial golden or intended-delta JSON was re-pinned. The existing
+research-reliability helper alone restores the shared payload stamp; B4b's
+helper restores only its own method stamps. All merge batches and registered
+notes are retained. Stored reports are immutable. No owner question remains.

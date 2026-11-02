@@ -16,7 +16,9 @@
  * - regulatory assets or rate-regulated revenue       → regulated-utility
  *   overlay evidence only (audit 2026-10-22 B-13; never a base route)
  *
- * REIT rules require a filed asset majority. Mortgage assets additionally
+ * Base-route inference requires a filed asset majority. For an already-routed
+ * REIT, the sub-map comparison also admits PP&E as rental real property.
+ * Mortgage assets additionally
  * need corroboration (repo funding or an already-financial classification)
  * before setting a base route. A declared non-financial industry is retained
  * with a conflict disclosure when financial evidence disagrees.
@@ -35,6 +37,7 @@ import {
   type FactPoint,
 } from "@/edgar/xbrl";
 import type { FetchResult } from "@/types/core";
+import { tagsFor } from "@/edgar/tagSynonyms";
 
 /** One tag that contributed to the routing evidence. */
 export interface EvidenceSignal {
@@ -86,6 +89,11 @@ export interface RoutingEvidence {
    * "mortgage" for a mortgage-asset majority, null when neither or both.
    */
   reitSubmap: "equity" | "mortgage" | null;
+  /** FIN-308: consumed only after the issuer's REIT base route is established. */
+  reitAssetComparison?: {
+    submap: "equity" | "mortgage" | null;
+    basis: string;
+  };
   /** Plain-English statement of the rule that produced `suggests`. */
   basis: string | null;
   /** Provenance of every signal. */
@@ -353,6 +361,37 @@ export function deriveRoutingEvidence(
   const equityReit = propertyMajority && !mortgageMajority ? [...propertySignals, assets!] : [];
   const mortgageReit = mortgageMajority && !propertyMajority ? [...mortgageSignals, assets!, ...repo] : [];
 
+  // Coordinator revision, 2026-11-02: an established REIT's sub-map answers
+  // mortgage versus equity, not whether rental property dominates goodwill,
+  // intangibles and right-of-use assets. Generic PP&E is rental real property
+  // ONLY in that established REIT context; it never sets `suggests` below.
+  const ppe = same(tagsFor("propertyPlantEquipmentNet"));
+  const realSignals = [...propertySignals, ...(ppe ? [ppe] : [])];
+  const realValue = (propertyValue ?? 0) + (ppe?.value ?? 0);
+  const realPositive = realValue > 0 && assets !== undefined && realValue <= assets.value;
+  const realAtLeastMortgage = realValue >= mortgageValue;
+  const mortgageBelowHalf = assets !== undefined && mortgageValue < assets.value * 0.5;
+  const knownEquity = realPositive && realAtLeastMortgage && mortgageBelowHalf;
+  // Retain the existing ambiguous 50/50 control: two majorities do not decide.
+  const knownMortgage = mortgageMajority && !majority(realValue);
+  const knownSubmap = knownEquity ? "equity" : knownMortgage ? "mortgage" : null;
+  const reitAssetComparison: NonNullable<RoutingEvidence["reitAssetComparison"]> = {
+    submap: knownSubmap,
+    basis: `already routed REIT: PP&E is rental real property (towers, data centres); ` +
+      `real assets = net real-estate investment property (RealEstateInvestmentPropertyNet, or ` +
+      `RealEstateInvestmentPropertyAtCost less RealEstateInvestmentPropertyAccumulatedDepreciation / ` +
+      `RealEstateAccumulatedDepreciation) plus PropertyPlantAndEquipmentNet (${describeSignals(realSignals) || "no comparable filed real-asset fact"}). ` +
+      `Mortgage assets = MortgageLoansOnRealEstate family plus MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure ` +
+      `(${describeSignals(mortgageSignals) || "no comparable mortgage-asset fact"}); ` +
+      `same-instant, same-currency, same-accession Assets (${assets ? `${describeSignals([assets])}; accession ${assets.accn}` : "unavailable"}). ` +
+      `Equity tests: real assets ${realValue} > 0 (${realPositive}); ${realValue} >= mortgage assets ${mortgageValue} (${realAtLeastMortgage}); ` +
+      `${mortgageValue} < 50% of Assets ${assets?.value ?? "unavailable"} (${mortgageBelowHalf}). ` +
+      `Mortgage test: mortgage assets >= 50% of Assets (${mortgageMajority}), without two conflicting majorities ` +
+      `(${!majority(realValue)}); existing funding/classification corroboration required. ` +
+      `Result: ${knownSubmap ?? "unknown"}; ${knownEquity ? "filed rental real assets meet the equity comparisons" :
+        knownMortgage ? "filed mortgage assets dominate total assets" : "filed assets do not establish either sub-map"}.`,
+  };
+
   let suggests: EvidenceClass | null = null;
   let basis: string | null = null;
   if (bank.length > 0) {
@@ -389,6 +428,7 @@ export function deriveRoutingEvidence(
     regulatedUtility,
     suggests,
     reitSubmap,
+    reitAssetComparison,
     basis,
     source: ROUTING_EVIDENCE_SOURCE,
   };

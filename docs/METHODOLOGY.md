@@ -2282,29 +2282,46 @@ whose assets are marked securities and whose headline is book value.
 The sub-map is therefore decided by evidence or by an explicit vendor sub-type,
 never by the SIC:
 
-- **Property/equity**: `RealEstateInvestmentPropertyNet` is at least 50% of
-  `Assets`; if net is absent, use `RealEstateInvestmentPropertyAtCost` less
-  `RealEstateInvestmentPropertyAccumulatedDepreciation` (legacy synonym
-  `RealEstateAccumulatedDepreciation`). Gross cost alone is insufficient.
-- **Mortgage**: mortgage loans plus MBS are at least 50% of `Assets`.
+- **Mortgage**: mortgage loans plus AFS MBS are at least 50% of `Assets`,
+  with the existing repo-funding or financial-classification corroboration.
   Direct-loan synonyms, selected once in order: `MortgageLoansOnRealEstate`,
   `MortgageLoansOnRealEstateCarryingAmountOfMortgages`, then
   `MortgageLoansOnRealEstateCommercialAndConsumer`. Generic
   `LoansReceivableHeldForInvestmentNet` is insufficient. The comparable MBS
   asset is `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`:
   available-for-sale securities are carried at fair value. HTM and issuer-category
-  fair-value-only disclosures do not establish carrying assets, so
-  `MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`,
-  `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`
-  and `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`
-  alone do not supply the asset majority. Missing comparable amounts leave
-  the type undetermined rather than treating disclosure fair value as book assets.
+  fair-value-only disclosures (`MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`) do
+  not establish carrying assets and cannot supply the mortgage numerator.
+- **Property/equity, for an issuer already routed REIT**: filed real assets
+  must be positive, at least as large as mortgage assets, and mortgage assets
+  must be less than 50% of `Assets`. Real assets are
+  `RealEstateInvestmentPropertyNet` (otherwise `RealEstateInvestmentPropertyAtCost`
+  less `RealEstateInvestmentPropertyAccumulatedDepreciation`, legacy synonym
+  `RealEstateAccumulatedDepreciation`) plus net PP&E. The PP&E chain selects
+  `PropertyPlantAndEquipmentNet`, otherwise the registered synonym
+  `PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization`,
+  once rather than adding synonymous totals. For an established REIT, PP&E
+  represents rental real property such as towers and data centres. Neither
+  goodwill, intangibles nor operating right-of-use assets need to be outweighed
+  by rental property to distinguish equity from mortgage economics.
 - Each numerator operand and `Assets` must share the instant, currency and
   accession. Only facts filed by the run date and within the recency window
-  qualify. Negative or above-total amounts cannot classify. Both majorities
-  (including 50/50) leave the type unknown. This definitional house majority
-  rule selects a model; it is not a statutory REIT asset test. It uses the
-  named filed carrying/fair-value disclosures.
+  qualify. Negative or above-total amounts cannot classify. Gross property
+  without accumulated depreciation cannot supply net real assets. No filed
+  real-asset fact means unknown, even when no mortgage fact is present; the
+  absence of a tag is not positive equity evidence. Both majorities (including
+  50/50) retain the existing unknown outcome. These comparisons select a
+  model; they are not statutory REIT asset tests. The routing basis names the
+  selected tags, amounts, filing, comparison results and reason.
+- This 2026-11-02 coordinator revision corrects FIN-308's earlier property
+  majority rule: specialty equity REITs can have substantial goodwill,
+  intangibles and right-of-use assets while the property map is appropriate.
+  A 45% real / 40% mortgage hybrid is equity; 10% real / 30% mortgage remains
+  unknown. PP&E alone never establishes an issuer's REIT status. Evidence-only
+  base-route inference keeps the existing net-investment-property majority
+  rule; explicit vendor subtype and conflict handling remain unchanged.
 - Vendor industry naming a sub-type (`REIT - Mortgage`, `REIT - Industrial`) →
   that sub-map. A vendor mortgage label contradicted by filed investment
   property is kept but flagged (`route.reitSubmap.conflict`).
