@@ -3008,3 +3008,7 @@ AI-508 implements B9 OD-11: detect member changes on shared stated/implied windo
 ### D-next (P5): Guided amounts retain their sign
 
 AI-202-V1 retains adjacent minus signs and directly stated expense/loss polarity for signed guidance metrics; conflicting signs and ambiguous touching dashes are withheld. Percentage metrics retain their existing negative-value conventions. No stored report rewrite.
+
+### D-next (P5): Dividend annualization requires a frequency
+
+RPT-201 implements OD-5: prefer regular over special amounts, annualize only regular established frequencies, and establish an unstated quarterly rate only from three positive quarterly XBRL facts whose newest amount agrees. Legacy missing metadata keeps x4 with an assumption note. No saved bytes change.

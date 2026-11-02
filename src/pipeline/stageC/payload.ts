@@ -2654,7 +2654,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
         label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
     }
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
-    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
+    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: cr.dividendFrequency === null ? "cash dividend per share (frequency not stated)" : `${cr.dividendFrequency ?? "quarterly"} cash dividend per share`, value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
     if (cr.dividendPayDate !== null) notes.push(`Next quarterly dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
   }

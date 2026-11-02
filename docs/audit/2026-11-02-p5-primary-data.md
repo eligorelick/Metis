@@ -6,7 +6,7 @@
 | DATA-104 | Fixed | d0feb95f | data104-red / data104-green | None; saved bytes unchanged |
 | AI-508 | Fixed | Owning AI-508 commit | ai508-red / ai508-green-2 | Legacy arrays without metadata unchanged |
 | AI-202-V1 | Fixed | Owning AI-202-V1 commit | ai202-red / ai202-green-2 | None |
-| RPT-201 | Not started | - | - | Not assessed |
+| RPT-201 | Fixed | Owning RPT-201 commit | rpt201-red-2 / rpt201-green-3 | Yield value retained, legacy assumption note added |
 | DATA-114 | Not started | - | - | Not assessed |
 | DATA-112 | Not started | - | - | Not assessed |
 | DATA-113 | Not started | - | - | Not assessed |
@@ -39,3 +39,5 @@ Validation: data103-green (432 tests), data103-docs-controls (119), data104-gree
 AI-508: synthetic Devices [57,66,64,62,48] becomes [57,null,64,62,48] after a proven recast. The unproven annual-minus-nine-months case retains 18 (not invented 54 or 66), explicitly computed and disclosed under OD-11. Earlier-presentation levels are excluded from analysts; growth across presentations is withheld. No stamps, prompts or goldens change.
 
 AI-202-V1: +40M expense -> -40M, EPS loss 0.10..0.12 -> -0.12..-0.10, zero-crossing EPS -0.05..0.05 -> midpoint 0. A control caught an overly wide negative-value refusal of operating-margin percentages; it is restricted to money metrics.
+
+RPT-201: annual $3.60 at $216 moves 6.67% -> 1.67%; monthly $0.50 moves 0.93% -> 2.78%; special and unknown yields are withheld. Special $1 before regular quarterly $0.35 selects $0.35. Frequency-free stored reports retain x4 with an explicit assumption. The first red yield fixture lacked marketData; rpt201-red-2 reproduces all nine trigger failures with valid input.

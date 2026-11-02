@@ -1177,12 +1177,13 @@ export function parseCommitmentTables(rawText: string): CommitmentTable[] {
   return out;
 }
 
+export type DividendFrequency = "quarterly" | "monthly" | "semi-annual" | "annual" | "special" | "supplemental" | "variable";
 export interface CapitalReturnFacts {
   /** "$26.0 billion" returned via repurchases + dividends, with the period phrase it was stated for. */
   returned: { value: number; symbol: string; periodText: string | null; approximate?: boolean } | null;
   authorizationRemaining: { value: number; symbol: string } | null;
   authorizationAdded: { value: number; symbol: string } | null;
-  dividendPerShare: { value: number; symbol: string; payDate: string | null; recordDate: string | null } | null;
+  dividendPerShare: { value: number; symbol: string; payDate: string | null; recordDate: string | null; frequency?: DividendFrequency | null } | null;
   dividendChange: { from: number; to: number; symbol: string } | null;
   sentences: string[];
 }
@@ -1190,6 +1191,7 @@ export interface CapitalReturnFacts {
 export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
   const text = normalizeFilingText(rawText);
   const narrative = text.slice(0, narrativeEnd(text));
+  const dividends: NonNullable<CapitalReturnFacts["dividendPerShare"]>[] = [];
   const out: CapitalReturnFacts = { returned: null, authorizationRemaining: null, authorizationAdded: null, dividendPerShare: null, dividendChange: null, sentences: [] };
   for (const sentence of splitSentences(narrative)) {
     let used = false;
@@ -1215,21 +1217,23 @@ export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
       out.dividendChange = { from: Number(change[2]), to: Number(change[3]), symbol: change[1]!.toUpperCase() };
       used = true;
     }
-    const dividend = /(?:quarterly (?:cash )?dividend of|dividend (?:of|to)) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/i.exec(sentence) ??
-      (change ? /(?:to) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/i.exec(sentence.slice(sentence.search(/\bfrom\b/i))) : null);
-    if (dividend && out.dividendPerShare === null && /\bdividend\b/i.test(sentence)) {
-      const pay = /paid on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
+    const matches = [...sentence.matchAll(/(?:(quarterly|monthly|semi-annual|semiannual|annual|special|extra|supplemental|variable)\s+)?(?:cash )?dividend (?:of|to) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/gi)];
+    if(change && matches.length===0) {
+      dividends.push({value:Number(change[3]),symbol:change[1]!.toUpperCase(),frequency:"quarterly",payDate:null,recordDate:null});
+    }
+    for(const dividend of matches) {
+      const word=dividend[1]?.toLowerCase();
+      const frequency: DividendFrequency | null = /in four (?:equal )?quarterly install?ments/i.test(sentence) ? "annual" : word === "semiannual" ? "semi-annual" : word === "extra" ? "special" : (word as DividendFrequency | undefined) ?? null;
+      const pay = /(?:paid|payable) on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
       const record = /of record (?:on |as of )?([A-Z][a-z]+ \d{1,2}, \d{4})/i.exec(sentence);
-      out.dividendPerShare = {
-        value: Number(dividend[2]),
-        symbol: dividend[1]!.toUpperCase(),
-        payDate: pay ? isoFromMonthDate(pay[1] ?? pay[2]!) : null,
-        recordDate: record ? isoFromMonthDate(record[1]!) : null,
-      };
-      used = true;
+      dividends.push({value:Number(dividend[3]),symbol:dividend[2]!.toUpperCase(),frequency,payDate:pay?isoFromMonthDate(pay[1]??pay[2]!):null,recordDate:record?isoFromMonthDate(record[1]!):null});
+      used=true;
     }
     if (used) out.sentences.push(sentence.length > 400 ? `${sentence.slice(0, 399)}…` : sentence);
   }
+  for(const d of dividends) if(d.frequency==null) d.frequency=dividends.find(other=>other.value===d.value && other.symbol===d.symbol && other.frequency!=null)?.frequency ?? null;
+  const rank=(d:NonNullable<CapitalReturnFacts["dividendPerShare"]>)=>d.frequency==null?1:["special","supplemental","variable"].includes(d.frequency)?2:0;
+  out.dividendPerShare=dividends.sort((a,b)=>rank(a)-rank(b))[0]??null;
   return out;
 }
 

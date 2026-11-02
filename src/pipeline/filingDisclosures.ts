@@ -1,3 +1,4 @@
+import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
 /**
  * The bundle's 8-K, segment-XBRL and quarterly-statement evidence assembled
  * into the report's deterministic `filingDisclosures` block and the
@@ -768,6 +769,10 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         authorizationRemaining: capital.authorizationRemaining && capitalCurrency(capital.authorizationRemaining.symbol) ? capital.authorizationRemaining.value : null,
         authorizationAdded: capital.authorizationAdded && capitalCurrency(capital.authorizationAdded.symbol) ? capital.authorizationAdded.value : null,
         dividendPerShare: capital.dividendPerShare && capitalCurrency(capital.dividendPerShare.symbol) ? capital.dividendPerShare.value : null,
+        ...(capital.dividendPerShare && capital.dividendPerShare.frequency !== undefined ? {
+          dividendFrequency: capital.dividendPerShare.frequency ?? (bundle.edgar?.companyFacts.ok ? dividendFrequencyFromFacts(bundle.edgar.companyFacts.value.data,bundle.builtAt.slice(0,10),capital.dividendPerShare.value):null),
+          dividendFrequencyBasis: capital.dividendPerShare.frequency ? "release" as const : "xbrl" as const,
+        }:{}),
         dividendPayDate: capital.dividendPerShare?.payDate ?? null,
         dividendRecordDate: capital.dividendPerShare?.recordDate ?? null,
         dividendChangeFrom: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.from : null,

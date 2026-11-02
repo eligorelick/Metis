@@ -2254,6 +2254,8 @@ export const FilingDisclosuresSchema = z
         authorizationRemainingSource: FilingRefSchema.optional(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
+        dividendFrequency: z.enum(["quarterly","monthly","semi-annual","annual","special","supplemental","variable"]).nullable().optional(),
+        dividendFrequencyBasis: z.enum(["release","xbrl"]).optional(),
         dividendPayDate: IsoDaySchema.nullable(),
         dividendRecordDate: IsoDaySchema.nullable(),
         dividendChangeFrom: z.number().nullable(),

@@ -162,7 +162,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
-        rows.push([`Quarterly cash dividend per share${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
+        rows.push([`${cr.dividendFrequency === undefined ? "Quarterly" : cr.dividendFrequency === null ? "Cash" : cr.dividendFrequency[0]!.toUpperCase()+cr.dividendFrequency.slice(1)}${cr.dividendFrequency===null ? "" : " cash"} dividend per share${cr.dividendFrequency===null ? " (frequency not stated)":""}${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
       }
       if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) rows.push(["Dividend change (per share, quarterly)", `${money(cr.dividendChangeFrom, d.currency, true)} → ${money(cr.dividendChangeTo, d.currency, true)}`, src]);
     }

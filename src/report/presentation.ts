@@ -848,10 +848,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
     const dividendCurrency = report.filingDisclosures?.currency;
     const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
-    rows.push(yieldCurrency.comparable ? {
+    const f=capitalReturn.dividendFrequency;
+    const multiplier=f===undefined?4:f==="quarterly"?4:f==="monthly"?12:f==="semi-annual"?2:f==="annual"?1:null;
+    const amount=money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true);
+    rows.push(yieldCurrency.comparable ? multiplier===null ? {
+      label:"Dividend yield",value:"withheld",note:f===null?"the release does not state the dividend's frequency":`a ${f} dividend is not annualized`,
+    } : {
       label: "Dividend yield",
-      value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
-      note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+      value: formatPct(((capitalReturn.dividendPerShare * multiplier) / price) * 100, 2),
+      note: f===undefined ? `${amount} annualized x4 as a quarterly dividend; this report did not record the release's stated frequency` : `${amount} ${f}${capitalReturn.dividendFrequencyBasis==="xbrl"?" (from the issuer's XBRL dividend facts)":""}${multiplier===1?"":", annualized"}`,
     } : {
       label: "Dividend yield", value: "withheld",
       note: yieldCurrency.mismatch
