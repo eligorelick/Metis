@@ -2065,6 +2065,46 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(costLog).all()).toEqual([]);
   });
 
+  it("JOB-206 survives actual SQLite writer contention on job and paid renewals", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    const memory = handle;
+    const directory = mkdtempSync(join(tmpdir(), "metis-renewal-contention-"));
+    handle = createDatabase(join(directory, "jobs.db")); setDbForTests(handle.db);
+    const other = createDatabase(join(directory, "jobs.db"));
+    const release = deferred();
+    try {
+      handle.sqlite.pragma("busy_timeout = 0");
+      const { jobId } = createJob("AAPL");
+      const scheduler = await import("@/pipeline/jobScheduler");
+      const limits = { maxActiveJobs: 1, maxActiveLlmCalls: 1, maxRollingCostUsd: null,
+        rollingCostWindowMs: 3600000, paidPassLeaseTtlMs: 200, jobLeaseTtlMs: 200 };
+      const claim = scheduler.claimQueuedJobById(jobId, "real-lock", new Date(), limits)!;
+      const acquired = deferred(); let signal: AbortSignal | undefined; let requests = 0;
+      const passes = mockPasses().passes;
+      passes.runBullThenBear = async (...raw: unknown[]) => {
+        requests++; signal = (raw[0] as { signal?: AbortSignal }).signal;
+        const { lifecycle, settlements } = testAnalystHooks(raw);
+        await launchTestAnalystSide(lifecycle, "bull"); acquired.resolve(undefined);
+        await release.promise;
+        await settlements?.bull?.(testSuccessSettlement(testAnalystPass("bull")));
+        throw new BullBearPassFailure("bear not launched", { bullLaunched: true, bearLaunched: false, bearError: "not launched" });
+      };
+      const running = runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, claim, schedulerLimits: limits });
+      await acquired.promise;
+      other.sqlite.exec("BEGIN IMMEDIATE");
+      await vi.advanceTimersByTimeAsync(50);
+      const aborted = signal?.aborted;
+      other.sqlite.exec("ROLLBACK");
+      await vi.advanceTimersByTimeAsync(50);
+      release.resolve(undefined); await running;
+      expect(aborted).toBe(false); expect(requests).toBe(1);
+      expect(handle.db.select().from(costLog).all().map(row => [row.step, row.costUsd])).toEqual([["bull", 0.9]]);
+    } finally {
+      release.resolve(undefined); other.sqlite.close(); handle.sqlite.close();
+      handle = memory; setDbForTests(memory.db); rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("JOB-206 tolerates only transient writer locks with sufficient expiry slack", async () => {
     const { renewalFailureTolerable, connectionBusyTimeoutMs } = await import("@/pipeline/jobScheduler");
     const input = { error: Object.assign(new Error("locked"), { code: "SQLITE_BUSY" }),
