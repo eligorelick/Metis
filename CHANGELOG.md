@@ -24,6 +24,10 @@ DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.
 
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
 AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
 ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
 the lock automatically; never delete it while servers run. Stop all servers

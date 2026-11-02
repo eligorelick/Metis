@@ -10892,21 +10892,23 @@ describe("immutable normalized run input persistence", () => {
     }
   });
 
-  it("retains the original frozen inputs when a durable verification resume skips fetch", async () => {
+  it.each([0, 1])("JOB-207 retains the effective verify generation inputs (source=%s)", async (generation) => {
     const { jobId } = createJob("AAPL");
     const snapshot = captureRunInputSnapshot(fakeBundle(), { evIncludeLeases: false });
-    const sourceRef = persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
-    persistPassSettlement({ jobId, runGeneration: 0, attemptId: "snapshot-source-verify", pass: "verify",
+    persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
+    const effective = generation === 0 ? snapshot : captureRunInputSnapshot({ ...fakeBundle(), builtAt: "2026-07-06T01:00:00.000Z" }, { evIncludeLeases: false });
+    const sourceRef = persistRunInputSnapshot(jobId, generation, effective, generation === 0 ? NOW().toISOString() : "2026-07-06T01:00:00.000Z");
+    persistPassSettlement({ jobId, runGeneration: generation, attemptId: "snapshot-source-verify", pass: "verify",
       settlement: testSuccessSettlement({ data: fakeReport(fakeJudgeOutput()), model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
       payloadFingerprint: null, settledAt: NOW().toISOString() });
-    handle.db.update(jobs).set({ status: "error", error: "report link interrupted" }).where(eq(jobs.id, jobId)).run();
+    handle.db.update(jobs).set({ status: "error", error: "report link interrupted", runGeneration: generation, resumeSourceGeneration: generation === 0 ? null : 0 }).where(eq(jobs.id, jobId)).run();
     const options: RunJobOptions = { now: NOW, resume: true };
     Object.defineProperty(options, "bundle", { get: () => { throw new Error("resume must not fetch replacement inputs"); } });
     const result = await runJob(jobId, mockPasses().passes, options);
     expect(result.status).toBe("done");
     const stored = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
     expect(stored.meta.runSnapshot).toEqual(sourceRef);
-    expect(readJobRunSnapshotRef(jobId, 1)).toEqual(sourceRef);
+    expect(readJobRunSnapshotRef(jobId, generation + 1)).toEqual(sourceRef);
   });
   it("saves frozen inputs before Stage B and stamps the persisted data-only report", async () => {
     const { jobId } = createJob("AAPL");

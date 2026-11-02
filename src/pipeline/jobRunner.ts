@@ -4635,7 +4635,9 @@ function persistReport(
     // A settled verification resume skips fetch/compute. Carry the exact input
     // association from its durable source generation, never today's cache.
     if (runSnapshot === null && _row.resumeSourceGeneration !== null) {
-      const sourceRef = readJobRunSnapshotRef(state.jobId, _row.resumeSourceGeneration, db);
+      const verifyGeneration = readStoredJobResumeInTransaction(db, state.jobId)?.artifacts.currentArtifacts
+        .find(artifact => artifact.pass === "verify" && artifact.envelope.outcome === "success")?.runGeneration;
+      const sourceRef = readJobRunSnapshotRef(state.jobId, verifyGeneration ?? _row.resumeSourceGeneration, db);
       if (sourceRef !== null) {
         const source = readRunInputSnapshot(sourceRef.hash, db)!;
         runSnapshot = persistRunInputSnapshot(state.jobId, state.runGeneration, source, sourceRef.capturedAt, db);

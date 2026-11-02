@@ -432,3 +432,7 @@ AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
 ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
 the lock automatically; never delete it while servers run. Stop all servers
 before upgrading: older binaries use only the saved PID protocol.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
