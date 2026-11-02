@@ -62,6 +62,41 @@ payload/prompt provenance and Markdown/audit/print exports carry the same
 explanation. Applicability is derived for new computations; existing saved
 reports are neither reinterpreted nor rewritten (D-67).
 
+## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
+
+No new bottom-up or sector-beta fallback is implemented. The existing peer
+collection retains profile, quote and quarterly income/balance-sheet endpoints,
+not peer return histories. An unsourced vendor peer beta does not establish a
+common observation window or a levered/unlevered basis. The subject's SPY
+regression still requires at least 24 completed, paired monthly returns, with
+the existing 60-month window, settled-session/date and price-basis rules. A
+financial-sector ETF is a diversified fund exposure, not evidence of an
+issuer's asset beta. No industry asset-beta dataset with a sourced vintage and
+applicable business composition is retained. Lowering the issuer-history gate,
+averaging unqualified vendor peer betas or setting beta to one would manufacture
+the required evidence.
+
+When cost of equity is already refused for beta, a recent-IPO overlay plus an
+unavailable issuer regression adds a concrete reader explanation: the actual
+usable return count and 24-return minimum, retained peer count, absent peer
+price histories and unvalidated unlever/relever operands, absent industry
+asset-beta source, and the distinction between sector ETF and issuer risk.
+The beta gap, discount-rate disclosure, payload and exports retain that reason.
+No fallback point estimate or sensitivity is printed. Existing numerical
+admission/refusal gates (including the valid vendor-beta path), bank routing,
+grade denominators and historical stored reports remain unchanged.
+
+A future bottom-up implementation needs independently comparable issuers,
+sufficient common dated return histories, a documented tax and market D/E basis
+for each peer and subject, and uncertainty/sensitivity. The ordinary Hamada
+construction would unlever beta_L by [1 + (1 - tax) x D/E] and relever the
+result to the subject on the same basis. For lenders, borrowing can fund loan
+inventory as an operating input, so treating all funding debt as industrial
+financial leverage also requires an explicit economic justification. Those
+requirements are not established by the current retained inputs; no numerical
+fallback is represented as implemented or validated (see RESEARCH section 8.4
+on bottom-up beta as a research direction).
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

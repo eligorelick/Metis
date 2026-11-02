@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - N2 lender and share-class readiness (2026-11-02)
 
+- R-FIGR-2: keep recent-IPO discount-rate refusals and explain the measured monthly-history shortfall, absent peer price histories/unlever-relever evidence and lack of a sourced industry asset-beta fallback. No invented beta, discount rate or sensitivity; existing numerical gates stay unchanged.
+
 - R-FIGR-1: classify owner-FCF metrics, P/FCF, FCF yield, runway and FCF-based DCF as not applicable for non-bank lenders only when lending SIC and primary operating cash-flow originations/sales establish held-for-sale lending. Retain filed cash observations and independent conflicts; exclude inapplicable FCF signals from grade denominators. Keep earnings/book measures and bank routing.
 
 - R-FIGR-3: admit a dated primary balance-sheet common-class inventory only with explicit identical dividend/liquidation rights for every class, unscaled outstanding counts and an issuer-matched provider quote-class title. Disclose the provider binding and same-price approximation in valuation and prompt provenance. Raw bundles and stored reports remain unchanged.

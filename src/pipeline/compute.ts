@@ -143,7 +143,7 @@ import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
+import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
@@ -3229,6 +3229,17 @@ function computeReturns(
           : quotePriceObservationDay(num(quote?.marketCap) !== null ? quote : profile)) ?? undefined,
     },
   });
+
+  if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
+    wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
+    const reason = `Recent IPO: the retained issuer/SPY history supplies ${betaFit.months} usable monthly return observations; ${BETA_MIN_MONTHS} are required for the issuer regression. ` +
+      `The peer collection retains ${Object.keys(bundle.peerFundamentals?.candidates ?? {}).length} candidate(s), with profiles, quotes and quarterly statements, without peer price histories, a common regression window or validated unlever/relever operands. ` +
+      "Bottom-up beta was not substituted. No sourced industry asset-beta dataset is retained; a sector ETF beta measures fund exposure, not an issuer asset beta. " +
+      "Cost of equity remains withheld; any WACC needing it remains withheld. No fallback point estimate or sensitivity is presented.";
+    wacc.notes.push(reason);
+    wacc.betaRegressionUnavailable = `${wacc.betaRegressionUnavailable ?? "Issuer regression unavailable."} ${reason}`;
+    for (const gap of wacc.gaps) if (gap.field === "returns.wacc.beta") gap.reason += `. ${reason}`;
+  }
 
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });

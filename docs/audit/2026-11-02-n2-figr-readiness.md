@@ -10,8 +10,8 @@ binding: general plus recent-IPO, FIN-OTHER, not the bank map.
 | Finding | Disposition | Commit | Red receipt | Green receipt | Stored-report impact |
 | --- | --- | --- | --- | --- | --- |
 | R-FIGR-3 | Fixed, bounded filed-statement alternative | fd8d05a3 | r-figr-3-red-confirmed (2 failures; 11 controls pass) | r-figr-3-final-green (126 pass), r-figr-3-green-controls (350 pass) | New computations only; historical bytes unchanged (D-67). |
-| R-FIGR-1 | Fixed | R-FIGR-1 owning commit | r-figr-1-red; r-figr-1-operating-header-red | r-figr-1-green-controls (187 pass); r-figr-1-consumers (380 pass); r-figr-1-export-controls (27 pass); r-figr-1-payload-consumers (415 pass); r-figr-1-docs-green (184 pass) | New computations only; source conflicts retained; no historical reinterpretation. |
-| R-FIGR-2 | Not started | - | - | - | - |
+| R-FIGR-1 | Fixed | eaeb021f | r-figr-1-red; r-figr-1-operating-header-red | r-figr-1-green-controls (187 pass); r-figr-1-consumers (380 pass); r-figr-1-export-controls (27 pass); r-figr-1-payload-consumers (415 pass); r-figr-1-docs-green (184 pass) | New computations only; source conflicts retained; no historical reinterpretation. |
+| R-FIGR-2 | Fixed explanation; numerical refusal retained after assessment | R-FIGR-2 owning commit | r-figr-2-red (2 failures; 2 controls pass) | r-figr-2-green (57 pass), r-figr-2-exports-green | Existing saved reports and numerical gates unchanged. |
 
 ## R-FIGR-3 evidence and replay
 
@@ -114,3 +114,46 @@ Coordinator notice: base f8d6c758 has 16 known product failures, already repaire
 on integration e38aef0f: stageC.claimPeriods.audit20261027 (14),
 stageC.excerptCurrencyScale (1), company.generateReport.stream (1). This track
 does not alter those repairs or their assertions.
+
+
+## R-FIGR-2 decision and replay
+
+No robust bottom-up option exists in the retained/current contract.
+PeerFundamentals in src/pipeline/peers.ts retains four FMP endpoints (profile,
+quote, quarterly income, quarterly balance), no peer price series. The retained
+bundle has nine discovered candidate slots and zero populated candidate
+fundamentals. The subject and SPY provide only 13 usable monthly returns (287
+subject daily bars); the existing estimator requires 24. Sector XLF is a fund
+exposure, with no demonstrated issuer asset-beta/financial-leverage basis.
+There is no sourced industry-beta dataset. Unqualified vendor betas cannot
+supply a verifiable common window or unlever/relever sensitivity. No collection,
+provider, market dataset or history threshold was added or relaxed.
+
+| Figure | Before R-FIGR-2 | After R-FIGR-2 |
+| --- | ---: | ---: |
+| Vendor raw beta | -0.019161666 | -0.019161666 (refused) |
+| Issuer/SPY usable monthly returns / minimum | 13 / 24 | 13 / 24 |
+| Admitted beta | withheld | withheld |
+| Cost of equity / WACC | withheld / withheld | withheld / withheld |
+| Per-share intrinsic value | withheld | withheld |
+| Composite / evidence completeness | 50.18 / 0.2278009209 | 50.18 / 0.2278009209 |
+
+No computed or payload financial number changes in the R-FIGR-2 replay. Only
+reader/prompt/provenance explanations change: actual monthly observation count,
+peer candidate count, missing peer price histories, unvalidated unlever/relever
+operands and why a sector-ETF or unsourced industry beta is not substituted.
+The critical beta gap keeps its severity and field; refusal remains missing
+applicable discount-rate evidence, not an inapplicable cost of equity. The
+independent lender applicability reason for FCF-based DCF remains in force.
+Bank, mature-issuer refusal and valid vendor-beta controls pass. The valid
+vendor-beta path is explicitly not strengthened by this explanation-only
+change; no robust sector fallback is claimed. Saved-report classic/dossier and
+all three export surfaces carry the reason and preserve the report bytes.
+
+A future numeric fallback would require evidence the current contract lacks:
+independent economically comparable issuers, enough common completed return
+history, a peer/issuer tax and market D/E basis, documented unlevering/relevering
+and uncertainty/sensitivity. Loan inventory funding must first be distinguished
+from industrial financial leverage. No nominal minimum-peer-count assertion
+is represented as a working gate without that data pipeline. This satisfies
+the brief's permitted refusal outcome; it is not a deferred hidden default.
