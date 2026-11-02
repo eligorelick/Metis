@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";

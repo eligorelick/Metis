@@ -18,7 +18,7 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## P3 - verifier and trust labels (2026-11-02)
+## Unreleased - P3 verifier and trust labels (2026-11-02)
 
 - RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.
 
@@ -30,7 +30,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - DB-004, RPT-209: preserve recorded completeness conventions and absent metadata through corrected exports and entity safety.
 
-- RPT-504: suppress checked citation shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
+- RPT-504: hide stored citation/provenance shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
 
 - AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
 
