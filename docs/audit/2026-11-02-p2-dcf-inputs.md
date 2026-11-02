@@ -24,6 +24,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-127 | Fixed: Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed. | Owning FIN-127 commit | fin-127-red / fin-127-green | Stored figures unchanged |
 
+| FIN-114 | Fixed: The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged. | Owning FIN-114 commit | fin-114-red / fin-114-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

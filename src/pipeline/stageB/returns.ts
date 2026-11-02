@@ -179,6 +179,7 @@ export interface WaccInputs {
   riskFreePct: number | null;
   /** Equity risk premium in percent (FMP US market-risk-premium totalEquityRiskPremium). */
   erpPct: number | null;
+  erpCountry?: string;
   /** TTM interest expense (currency units). FMP zero-for-undisclosed handled here. */
   interestExpenseTtm: number | null;
   /**
@@ -342,6 +343,7 @@ export interface WaccResult {
   riskFreePct: number | null;
   /** ERP actually used (input or current fallback), percent. */
   erpPct: number | null;
+  erpCountry?: string;
   /** Observed effective tax rate used for the debt tax shield (clamped fraction). */
   taxRateUsed: number | null;
   weightEquity: number | null;
@@ -521,6 +523,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     asOf: inputs.asOf,
     riskFreeSeriesId: inputs.riskFreeSeriesId ?? null,
     erpSource,
+    ...(inputs.erpCountry ? { erpCountry: inputs.erpCountry } : {}),
     erpAsOf,
     taxRateBasis: taxRateUsed === null ? null : (inputs.effectiveTaxRateBasis ?? null),
     debtBasis: inputs.totalDebtBasis ?? null,
@@ -1050,7 +1053,7 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
   const rfAsOf = result.asOf?.riskFreeRate ?? null;
   const erpSourceLabel =
     result.erpSource === "vendor"
-      ? "FMP market-risk-premium (US totalEquityRiskPremium)"
+      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} totalEquityRiskPremium)`
       : result.erpSource === "damodaran-fallback"
         ? `${ERP_FALLBACK.source} (static fallback)`
         : null;

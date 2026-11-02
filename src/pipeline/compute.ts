@@ -3160,6 +3160,7 @@ function computeReturns(
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
     erpPct: usErpPct,
+    ...(erpSelection.basis === "domicile" && erpSelection.country && !US_COUNTRY_KEYS.has(countryKeyOf(erpSelection.country)) ? { erpCountry: erpSelection.country } : {}),
     interestExpenseTtm: interestExpenseForWacc,
     // Never inferred on ANY financial route — bank, insurer and mortgage REIT
     // alike — and on keyed plans as well as keyless ones.

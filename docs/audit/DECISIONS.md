@@ -3613,3 +3613,7 @@ Latest revenue YoY and acceleration are withheld when their endpoint is older th
 ## D-next (P2) - FIN-127 (2026-11-02)
 
 Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed. Stored reports remain immutable.
+
+## D-next (P2) - FIN-114 (2026-11-02)
+
+The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged. Stored reports remain immutable.
