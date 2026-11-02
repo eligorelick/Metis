@@ -5,7 +5,9 @@ it("P3 records keep one methodology paragraph and the required release heading",
  const paragraphs = methodology.split(/\r?\n\r?\n/).filter(p => p.includes("AI-408") && p.includes("MetricRow columns"));
  expect(paragraphs).toHaveLength(1);
  const changelog = readFileSync("CHANGELOG.md", "utf8");
- expect(changelog.match(/^## .+$/m)?.[0]).toBe("## Unreleased - P3 verifier and trust labels (2026-11-02)");
+ // P7: the newest batch heads the changelog; retain the historical P3 entry.
+ expect(changelog.match(/^## .+$/m)?.[0]).toBe("## Unreleased - P7 display and history (2026-11-02)");
+ expect(changelog).toContain("## Unreleased - P3 verifier and trust labels (2026-11-02)");
  expect(changelog).toContain("hide stored citation/provenance shares");
  expect(readFileSync("tests/stageC.tracedNumberDescription.test.ts")[0]).not.toBe(0xef);
 });

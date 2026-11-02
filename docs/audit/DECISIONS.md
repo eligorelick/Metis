@@ -3151,3 +3151,5 @@ RPT-503: Normalize judge attempt names and group failed attempts while retaining
 P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RPT-503 successful retries appear once as completed, individual failures stay in run details, and requested-configuration reader labels share judge attempt names. RPT-215 adds a read-time clarification to the existing legacy scope section.
 
 P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.
+
+P7 full-suite verification: the prior P3 records test pinned P3 as the first changelog heading. The chronological first-heading pin now names P7, with a separate retained-P3-heading assertion; the methodology uniqueness and encoding assertions remain unchanged.
