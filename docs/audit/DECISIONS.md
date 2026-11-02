@@ -3964,3 +3964,49 @@ each operand is the current period of its own filing and the earlier
 year-to-date was filed no later than the total, with the operating statement
 reconciling as before (N3, D-151). A quarter built only from later comparatives
 (FIGR's Q4 2024) stays refused. Stored reports and shared stamps are unchanged.
+
+
+## D-next (R5) - Producer-bound numeric prose readings
+
+The frozen paid FIGR report contained correct scores, completeness fractions,
+negative tax expense, signed cash flows and the financial Piotroski variant
+that failed only because annotations, implicit dimensionless units or producer
+names were read as metric mismatches. Recognize equivalent readings only under
+the producing record's explicit contract. Check house grade/neutral metadata
+and Piotroski evaluated/total counts before masking them; preserve offsets.
+A fraction requires explicit unit-scale metadata. Cash-flow legends never erase
+the signed value check. Known aliases retain formula operand order, current vs
+forward basis, restricted-cash scope, insider transaction kind and every
+aggregate disposition category. ISO month labels are periods, not amounts.
+These are numeric-only matches; no surrounding proposition is certified.
+Record ids and payload labels stay unchanged, so no golden/intended-deltas or
+shared stamp change is needed. Tests: stageC.claimEvidence.figr.test.ts.
+
+## D-next (R5) - Complete registered intervals on traced figures
+
+A printed start-to-end interval is the registered interval only when both
+ordered, calendar-valid endpoints agree with the explicit period string or a
+valid source duration context whose end agrees with the record period. Reject
+reversed, shifted, partial and conflicting intervals. Normalize only after this
+proof, retaining the exact record matcher and supplied context checks. Restores
+FIGR's TTM CFO and four-calendar-quarter insider count figures. It does not
+infer a fiscal label or duration from an end date. Tests: R5 FIGR sweep,
+accepts only the complete ordered registered interval on a traced figure.
+
+## D-next (R5) - Same-row excerpt comparisons and explicit support scope
+
+FIGR's release prints Q2/Q2/6M-YTD/6M-YTD headers, repeated years, then two YoY
+columns. Admit only the complete layout and exact row width, keep the header's
+money scale and each level's period, exclude header/change quantities from
+level evidence, and end the prior table at a malformed later header. A
+comparison can validate numerically when its two levels independently pass all
+ordinary source checks in the same row and disjoint rounding intervals prove
+the claimed direction. Prose matches to filing/transcript spans now use the
+existing excerpt-match trace kind, weaker than a registry match; overall prose
+outcome stays unverified and claimSupportStatus stays numeric-only.
+Do not introduce a broad multi-quantity presence/own-description fallback: it
+would bypass the existing clause ambiguity, period, definition and reversed
+operand protections. The real USD 717 / USD 11,109 benchmark is retained as an
+unchecked control, including reversed figures. Other unresolved excerpt
+paraphrases remain disclosed in the R5 sweep. Tests:
+stageC.claimEvidence.figrExcerpt.test.ts and the existing verifier refusal suite.

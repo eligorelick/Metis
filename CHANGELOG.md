@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
+
+- Recover supported numeric prose through producer-bound score/grade, fraction,
+  Piotroski coverage, signed cash-flow and metric-name readings. Accept complete
+  registered date intervals on traced figures without discarding either endpoint.
+- Bind the release's explicit quarter/year columns and compare two dated levels
+  only in the same table row. Numeric prose matched to an excerpt now records
+  `excerpt-match`; the surrounding proposition remains unchecked. Broad ambiguous
+  multi-quantity excerpt matches remain refused.
+- Frozen paid FIGR replay: numeric validations 108 to 149, unchecked 116 to 75;
+  traced figures 79/84 to 82/84. Record ids, payload labels, shared stamps and saved
+  reports are unchanged. See [R5 evidence](docs/audit/2026-11-02-r5-figr-verifier.md).
+
 ## Unreleased - Final FIGR preflight correction (2026-11-02)
 
 - D-155 review: a conflicting vendor quarter is replaced by the filed fiscal-year-less-nine-months (or year-to-date difference) row when each operand is the current period of its own filing and the year-to-date was filed first; quarters derived only from later comparatives stay refused. Restores FIGR's live Q4 2025 revenue (159.913M filed, not the vendor's 223.181M) and its TTM window.
