@@ -181,7 +181,7 @@ type ChartResult = NonNullable<Chart["chart"]["result"]>[number];
  * loader so a bad body is never written to the durable cache.
  */
 class YahooResponseError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status: number | null = null) {
     super(message);
     this.name = "YahooResponseError";
   }
@@ -404,6 +404,7 @@ export class YahooClient {
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
+          if(!res.ok && [429,500,502,503,504].includes(res.status)) throw new YahooResponseError(`Yahoo request failed (HTTP ${res.status}) for ${displayEndpoint}`,res.status);
           throw new YahooResponseError(
             `Yahoo returned unparseable body (HTTP ${res.status}) for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -424,7 +425,7 @@ export class YahooClient {
         }
         if (!res.ok) {
           throw new YahooResponseError(
-            `Yahoo HTTP ${res.status} for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
+            `Yahoo HTTP ${res.status} for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`, res.status,
           );
         }
         const result = chart.result?.[0];
@@ -449,7 +450,7 @@ export class YahooClient {
     return {
       ok: true,
       result: exchange.value.result,
-      endpoint: displayEndpoint,
+      endpoint: exchange.servedEndpoint ? `${displayEndpoint} (served the cached window ${exchange.servedEndpoint} fetched ${exchange.fetchedAt}: ${exchange.staleDetail})` : displayEndpoint,
       fetchedAt: exchange.fetchedAt ?? exchange.value.fetchedAt,
       ...(exchange.stale ? { stale: true } : {}),
       ...(exchange.staleReason ? { staleReason: exchange.staleReason } : {}),

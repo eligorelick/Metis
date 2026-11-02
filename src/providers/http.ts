@@ -638,3 +638,10 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
 }
+
+/** OD-4: explicit provider refusals and schema/identity failures never qualify. */
+export function isTransientProviderError(error:unknown):boolean {
+ if(error instanceof HttpBodyTooLargeError)return false;
+ if(error instanceof HttpTransportError)return true;
+ return typeof error==="object" && error!==null && "status" in error && [429,500,502,503,504].includes(Number(error.status));
+}

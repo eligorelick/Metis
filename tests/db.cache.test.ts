@@ -782,3 +782,39 @@ describe("settings", () => {
     }
   });
 });
+
+import {makeYahooCachedFetch,makeFmpCachedFetch} from "@/pipeline/dataBundle";
+it.each(["yahoo","fmp"])("DATA-114 %s retains a prior window after transient midnight failure",async(provider)=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-09-01T23:50:00Z"));
+ const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+ const key=(day:string)=>provider==="yahoo"?`yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-${day}&period2=2026-09-${day}`:`fmp:/stable/historical-price-eod/full?from=2025-09-${day}&symbol=TST&to=2026-09-${day}`;
+ await fetch(key("01"),86400000,async()=>({rows:[1]}));
+ vi.setSystemTime(new Date("2026-09-02T00:10:00Z"));
+ const result=await fetch(key("02"),86400000,async()=>{throw Object.assign(new Error("throttled"),{status:429});});
+ expect(result).toMatchObject({value:{rows:[1]},stale:true,staleReason:"window-fallback",fetchedAt:"2026-09-01T23:50:00.000Z"});
+ await expect(fetch(key("03"),86400000,async()=>{throw Object.assign(new Error("refused"),{status:403});})).rejects.toThrow("refused");
+ vi.useRealTimers();
+});
+
+import {historyWindowFallback} from "@/providers/historyCache";
+import {isTransientProviderError} from "@/providers/http";
+it("DATA-114 limits fallback to compatible windows and explicitly transient errors",()=>{
+ const f=historyWindowFallback("yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-02&period2=2026-09-02")!;
+ expect(f.acceptKey("yahoo:/v8/finance/chart/TST?interval=1d&period1=2025-09-01&period2=2026-09-01")).toBe(false);
+ expect(f.acceptKey("yahoo:/v8/finance/chart/OTHER?interval=1d&period1=2021-09-01&period2=2026-09-01")).toBe(false);
+ expect(f.acceptKey("yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-08-20&period2=2026-08-20")).toBe(false);
+ for(const status of [429,500,502,503,504])expect(isTransientProviderError({status})).toBe(true);
+ for(const status of [null,402,403,404,501,505])expect(isTransientProviderError({status})).toBe(false);
+ expect(isTransientProviderError(new Error("schema drift"))).toBe(false);
+});
+it("DATA-114 does not replace fresh success and refuses an eight-day cached window",async()=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-09-01T23:50:00Z"));
+ const fetch=makeYahooCachedFetch();
+ const key=(day:string)=>`yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-${day}&period2=2026-09-${day}`;
+ await fetch(key("01"),86400000,async()=>({rows:[1]}));
+ vi.setSystemTime(new Date("2026-09-02T00:10:00Z"));
+ expect(await fetch(key("02"),86400000,async()=>({rows:[2]}))).toMatchObject({value:{rows:[2]}});
+ vi.setSystemTime(new Date("2026-09-10T00:10:00Z"));
+ await expect(fetch(key("10"),86400000,async()=>{throw Object.assign(new Error("throttled"),{status:429});})).rejects.toThrow("throttled");
+ vi.useRealTimers();
+});

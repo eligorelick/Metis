@@ -1,3 +1,4 @@
+import {historyWindowFallback} from "@/providers/historyCache";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -235,6 +236,7 @@ export function makeFmpCachedFetch(): CachedFetchFn {
     const sourced = await cachedFetch<T>({
       provider: "fmp",
       endpoint: key,
+      fallback: historyWindowFallback(key),
       params: {},
       ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
@@ -262,6 +264,8 @@ export function makeFmpCachedFetch(): CachedFetchFn {
     const out: CachedFetchResult<T> = { value: sourced.data, fetchedAt: sourced.fetchedAt };
     if (sourced.stale === true) out.stale = true;
     if (sourced.staleReason !== undefined) out.staleReason = sourced.staleReason;
+    if(sourced.servedEndpoint)out.servedEndpoint=sourced.servedEndpoint;
+    if(sourced.staleDetail)out.staleDetail=sourced.staleDetail;
     return out;
   };
 }
@@ -285,6 +289,7 @@ export function makeYahooCachedFetch(): CachedFetchFn {
     const sourced = await cachedFetch<T>({
       provider: "yahoo",
       endpoint: key,
+      fallback: historyWindowFallback(key),
       params: {},
       ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
@@ -294,6 +299,8 @@ export function makeYahooCachedFetch(): CachedFetchFn {
     const out: CachedFetchResult<T> = { value: sourced.data, fetchedAt: sourced.fetchedAt };
     if (sourced.stale === true) out.stale = true;
     if (sourced.staleReason !== undefined) out.staleReason = sourced.staleReason;
+    if(sourced.servedEndpoint)out.servedEndpoint=sourced.servedEndpoint;
+    if(sourced.staleDetail)out.staleDetail=sourced.staleDetail;
     return out;
   };
 }
@@ -2521,12 +2528,12 @@ export async function buildDataBundle(
           : [],
       ),
       ...allResults.flatMap((result): ManifestEntry[] =>
-        result.ok && result.value.staleReason === "empty-refresh-preserved"
+        result.ok && (result.value.staleReason === "empty-refresh-preserved" || result.value.staleReason === "window-fallback")
           ? [
               {
                 field: `cache.${result.value.source}.${result.value.endpoint}`,
                 reason:
-                  "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
+                  result.value.staleReason === "window-fallback" ? `request failed; ${result.value.endpoint}; retained cached history within the seven-day stale ceiling` : "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
                 severity: "warn",
                 attemptedSources: [result.value.source, result.value.endpoint],
               },

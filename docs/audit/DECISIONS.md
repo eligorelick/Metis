@@ -3012,3 +3012,7 @@ AI-202-V1 retains adjacent minus signs and directly stated expense/loss polarity
 ### D-next (P5): Dividend annualization requires a frequency
 
 RPT-201 implements OD-5: prefer regular over special amounts, annualize only regular established frequencies, and establish an unstated quarterly rate only from three positive quarterly XBRL facts whose newest amount agrees. Legacy missing metadata keeps x4 with an assumption note. No saved bytes change.
+
+### D-next (P5): Transient price-history window fallback
+
+DATA-114 applies OD-4 at the durable-cache adapter boundary, only to canonical FMP and Yahoo history keys. It requires the same provider, symbol and window family, both endpoints within seven days, and a seven-day absolute acquisition ceiling. Only transport failure, 429, 500, 502, 503 and 504 qualify; returned metadata names the cached key and original fetch time.

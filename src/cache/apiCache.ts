@@ -129,6 +129,8 @@ export function buildCacheKey(provider: string, endpoint: string, params: CacheP
 // ---------------------------------------------------------------------------
 
 export interface CachedFetchOptions<T> {
+  fallback?: { acceptKey:(endpoint:string)=>boolean; when:(error:unknown)=>boolean };
+
   /** Provider id — becomes Sourced.source. */
   provider: DataSource;
   /** Endpoint path/derivation — becomes Sourced.endpoint and keys invalidation. */
@@ -412,7 +414,20 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
   function fetchStoreReturnOnce(): Promise<Sourced<T>> {
     const existing = inFlightMisses.get(cacheKey);
     if (existing !== undefined) return existing as Promise<Sourced<T>>;
-    const pending = fetchStoreReturn().finally(() => {
+    const pending = fetchStoreReturn().catch((error:unknown)=>{
+      if(!opts.fallback?.when(error))throw error;
+      const rows=db.select().from(apiCache).where(eq(apiCache.provider,provider)).all().sort((a,b)=>b.fetchedAt.localeCompare(a.fetchedAt));
+      for(const row of rows) {
+        const age=(Date.now()-Date.parse(row.fetchedAt))/1000;
+        if(!Number.isFinite(age)||age<0||age>7*86400||!opts.fallback.acceptKey(row.endpoint))continue;
+        try {
+          const data=JSON.parse(decodeCacheBody(row)) as T;
+          if(opts.validateBody?.(data))continue;
+          return {data,asOf:row.asOf,source:provider,endpoint,fetchedAt:row.fetchedAt,stale:true,staleReason:"window-fallback" as const,servedEndpoint:row.endpoint,staleDetail:error instanceof Error?error.message:"transient request failure"};
+        }catch {continue;}
+      }
+      throw error;
+    }).finally(() => {
       if (inFlightMisses.get(cacheKey) === pending) inFlightMisses.delete(cacheKey);
     });
     inFlightMisses.set(cacheKey, pending);

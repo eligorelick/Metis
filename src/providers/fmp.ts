@@ -53,7 +53,9 @@ export interface CachedFetchResult<T> {
   /** true when served past TTL (stale-while-revalidate) */
   stale?: boolean;
   /** Specific preservation condition surfaced by the durable cache. */
-  staleReason?: "empty-refresh-preserved";
+  staleReason?: "empty-refresh-preserved" | "window-fallback";
+  servedEndpoint?: string;
+  staleDetail?: string;
   /** ISO timestamp of the original fetch that produced `value` */
   fetchedAt?: string;
 }
@@ -1796,7 +1798,7 @@ export class FmpClient {
       data: { rows, raw: body, ...(estimateFallback === null ? {} : { estimateTiming: buildEstimateTiming(rows, estimateFallback, { cacheFetchedAt: exchange.fetchedAt, responseFetchedAt: exchange.value.fetchedAt }) }), ...(planLimit === undefined ? {} : { planLimit }) },
       asOf: deriveAsOf(rows, estimateFallback ?? fetchedAt ?? this.now().toISOString()),
       source: "fmp",
-      endpoint: endpointPath,
+      endpoint: exchange.servedEndpoint ? `${endpointPath} (served the cached window ${exchange.servedEndpoint} fetched ${exchange.fetchedAt}: ${exchange.staleDetail})` : endpointPath,
       fetchedAt: estimateFallback ?? fetchedAt ?? this.now().toISOString(),
       ...(exchange.stale ? { stale: true } : {}),
       ...(exchange.staleReason ? { staleReason: exchange.staleReason } : {}),
@@ -2477,7 +2479,7 @@ export class FmpClient {
     // The no-new-bar newest chunk is a "failure" but is NOT an older chunk that
     // truncated history, so exclude it from the older-chunk counts.
     const olderFailCount = newestIsNoNewBar ? failures.length - 1 : failures.length;
-    const disclosures: string[] = [];
+    const disclosures: string[] = results.flatMap(r=>r.ok && r.value.staleReason==="window-fallback" ? [r.value.endpoint]:[]);
     if (truncatedFrom !== null) {
       const droppedOk = suffixStart - olderFailCount;
       disclosures.push(
@@ -2499,6 +2501,7 @@ export class FmpClient {
         endpoint: `/stable/historical-price-eod/full?symbol=${symbol}&from=${from}&to=${to} (${chunks.length} chunk(s)${disclosures.length > 0 ? `; ${disclosures.join("; ")}` : ""})`,
         fetchedAt,
         ...(anyStale ? { stale: true } : {}),
+        ...(results.some(r=>r.ok && r.value.staleReason==="window-fallback")?{staleReason:"window-fallback" as const}:{}),
       },
     };
   }
