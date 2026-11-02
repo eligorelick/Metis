@@ -3119,3 +3119,7 @@ SEC-202 adopts OD-3: refuse management in configured LAN mode including forged l
 ## D-next (P6): Unreadable AI storage
 
 SEC-204 adopts OD-1: preserve shell availability with environment data keys, withhold both billed Anthropic keys, refuse capture and writes, retain original bytes, and retry failures after 30 seconds or immediately on changed bytes. Recovery is named in OPERATIONS.
+
+## D-next (P6): Visible default AI selection
+
+SEC-206 follows server selection on credential refresh only for an implicit default with no unsaved edit. Explicit saved choices and all unsaved fields remain authoritative.

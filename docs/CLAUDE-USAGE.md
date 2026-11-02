@@ -307,3 +307,5 @@ and account access before relying on retained entries.
 Offline regression coverage and static request checks do not demonstrate live
 model access, quota, current billing terms or research quality. No live paid
 inference was run as part of this documentation audit.
+
+An implicit default follows saved Claude key presence, even after another provider key created the store. An explicit saved connection choice remains authoritative. Settings refreshes the default dropdown after key changes unless the user has unsaved edits.

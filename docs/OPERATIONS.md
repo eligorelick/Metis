@@ -476,3 +476,5 @@ Company landing pages accept only GET and HEAD; other methods return 405 with Al
 SEC-202: Credential and AI connection GET/POST management is refused whenever METIS_ALLOWED_HOST (or its legacy alias) is nonblank and non-loopback or malformed, regardless of Host. Stop LAN mode and restart on loopback to manage keys. Saved credentials still work for runs. A loopback-valued allowlist remains supported.
 
 AI connection storage cannot be read: configuration and the shell use environment data keys, withholding billed Anthropic API/admin keys. New jobs and all store writes stop with a storage error. Unchanged decode failures retry after 30 seconds; changed bytes retry immediately. For a timeout retry shortly; after a downgrade return to the newer build. Otherwise stop Metis and move connections.v1.json aside for recovery, keeping a backup. The app never resets or overwrites unreadable bytes.
+
+SEC-206: Settings follows the implicit report selection when a saved Claude key changes. Unsaved connection/model/effort/speed edits remain visible until saved; an explicit saved selection remains authoritative.
