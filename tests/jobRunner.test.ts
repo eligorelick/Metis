@@ -1989,6 +1989,10 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(await activeRunIdentity("AAPL")).toBe(jobId);
     expect(handle.db.select().from(jobs).all()).toEqual(before);
     expect(handle.db.select().from(costLog).all()).toEqual([]);
+    const newer = createJob("AAPL");
+    handle.db.update(jobs).set({ status: "error", updatedAt: "2099-01-01T00:00:00.000Z" }).where(eq(jobs.id, newer.jobId)).run();
+    // B8-OD-4: a newer ineligible attempt must not resurrect an older lineage.
+    expect(await activeRunIdentity("AAPL")).toBeNull();
   });
 
   it.each([[false, false], [true, false], [false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s)", async (resume, mirror) => {

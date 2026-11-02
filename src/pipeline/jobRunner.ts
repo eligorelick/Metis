@@ -1904,12 +1904,10 @@ export function getReusableActiveJobForSymbol(
 export function getLatestResumableJobForSymbol(symbol: string): string | null {
   const sym = symbol.trim().toUpperCase().replaceAll("-", ".");
   return getDb().transaction(db => {
-    const rows = db.select({ id: jobs.id }).from(jobs).where(and(
-      eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym), inArray(jobs.status, ["done", "error"]),
-    )).orderBy(desc(jobs.updatedAt), desc(jobs.id)).all();
-    for (const row of rows) {
-      if (readStoredJobResumeInTransaction(db, row.id)?.plan.state.resumable) return row.id;
-    }
+    const row = db.select({ id: jobs.id }).from(jobs)
+      .where(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym))
+      .orderBy(desc(jobs.updatedAt), desc(jobs.id)).limit(1).get();
+    if (row !== undefined && readStoredJobResumeInTransaction(db, row.id)?.plan.state.resumable) return row.id;
     return null;
   });
 }
