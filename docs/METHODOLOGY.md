@@ -2183,12 +2183,15 @@ never by the SIC:
   Direct-loan synonyms, selected once in order: `MortgageLoansOnRealEstate`,
   `MortgageLoansOnRealEstateCarryingAmountOfMortgages`, then
   `MortgageLoansOnRealEstateCommercialAndConsumer`. Generic
-  `LoansReceivableHeldForInvestmentNet` is insufficient. MBS use
-  `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`, otherwise the
-  sum of `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`
-  and `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`;
-  add the distinct held-to-maturity bucket
-  `MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`. Do not sum aliases.
+  `LoansReceivableHeldForInvestmentNet` is insufficient. The comparable MBS
+  asset is `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`:
+  available-for-sale securities are carried at fair value. HTM and issuer-category
+  fair-value-only disclosures do not establish carrying assets, so
+  `MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`
+  and `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`
+  alone do not supply the asset majority. Missing comparable amounts leave
+  the type undetermined rather than treating disclosure fair value as book assets.
 - Each numerator operand and `Assets` must share the instant, currency and
   accession. Only facts filed by the run date and within the recency window
   qualify. Negative or above-total amounts cannot classify. Both majorities

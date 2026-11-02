@@ -151,6 +151,15 @@ describe("FIN-308 P9: filed REIT asset majority", () => {
     expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) }), { today: "2026-01-01" }).reitSubmap).toBeNull();
     expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyAtCost: pt(60), RealEstateInvestmentPropertyAccumulatedDepreciation: pt(0) })).reitSubmap).toBe("equity");
   });
+  it("FIN-308: fair-value-only HTM disclosures do not establish a carrying-assets majority", () => {
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100),
+      MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: pt(10),
+      MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure: pt(60),
+    })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100),
+      MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure: pt(60),
+    })).reitSubmap).toBeNull();
+  });
 });
 
 function profile(over: Partial<RoutingProfile> = {}): RoutingProfile {

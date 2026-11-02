@@ -194,3 +194,12 @@ report inputs and five issuer fixtures):
 | fixture: O | 44.2 D | 46.5 D |
 | fixture: SNOW | 56.6 C | 56.6 C |
 | fixture: NNN | 50.73 D | 50.28 D |
+
+
+FIN-308 numerator-basis review: fin308-mbs-basis-red reproduced a false mortgage
+majority when 10% AFS carrying/fair assets were added to a 60% HTM fair-value-only
+disclosure. The corrected numerator uses the comparable AFS tag; HTM and
+issuer-category fair-value-only disclosures do not establish carrying assets.
+Property, AFS mortgage, direct-loan and unknown controls remain covered. This
+changes no census/fixture measurement (no census mortgage REIT). The full
+product gate is rerun after this correction so it covers the final HEAD.

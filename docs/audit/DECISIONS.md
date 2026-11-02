@@ -3173,7 +3173,9 @@ prefer positive filed asset evidence over blanket withholding. Net investment
 property >= 50% of Assets establishes a property REIT; mortgage loans plus MBS
 >= 50% establishes a mortgage REIT, using the tags, alias precedence, same
 instant/currency/accession, filed-by and recency checks named in METHODOLOGY.
-Gross property less accumulated depreciation is an evidenced net composition;
+Only the available-for-sale MBS fair-value tag supplies a comparable securities
+asset; HTM and issuer-category fair-value-only disclosures cannot establish
+carrying assets and are excluded from the numerator. Gross property less accumulated depreciation is an evidenced net composition;
 generic PP&E and generic financing receivables are insufficient. Both
 majorities or neither means no filed type. The threshold defines majority
 business-model exposure; it is a house model-selection convention, not a

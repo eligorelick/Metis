@@ -340,11 +340,9 @@ export function deriveRoutingEvidence(
   const propertyValue = net?.value ?? (cost && depreciation ? cost.value - depreciation.value : null);
   const propertySignals = net ? [net] : cost && depreciation ? [cost, depreciation] : [];
   const afs = same(["MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure"]);
-  const mbsSignals = [
-    ...(afs ? [afs] : [same(["MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure"]),
-      same(["MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure"])].filter((s): s is EvidenceSignal => s !== undefined)),
-    ...[same(["MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure"])].filter((s): s is EvidenceSignal => s !== undefined),
-  ];
+  // AFS is carried at fair value. HTM and issuer-category fair-value-only
+  // disclosures do not establish carrying assets and cannot supply a majority.
+  const mbsSignals = afs ? [afs] : [];
   const loan = same(MORTGAGE_REIT_LOAN_TAGS.filter(t => t !== "LoansReceivableHeldForInvestmentNet"));
   const mortgageSignals = [...mbsSignals, ...(loan ? [loan] : [])];
   const mortgageValue = mortgageSignals.reduce((sum, s) => sum + s.value, 0);
