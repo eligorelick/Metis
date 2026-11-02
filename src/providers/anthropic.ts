@@ -285,19 +285,20 @@ export interface UsageLike {
   output_tokens: number;
   cache_creation_input_tokens?: number | null;
   cache_read_input_tokens?: number | null;
+  cache_creation?: { ephemeral_5m_input_tokens: number; ephemeral_1h_input_tokens: number } | null;
 }
 
 /**
  * USD cost of one request. Reads `input_tokens`, `output_tokens`,
- * `cache_creation_input_tokens` (the 5-minute cache-write price from the
- * registry — the only cache TTL Metis requests), `cache_read_input_tokens`
+ * `cache_creation_input_tokens` (reported 5m/1h buckets at registry rates;
+ * unclassified writes use the longest sent TTL), `cache_read_input_tokens`
  * (the cache-read price from the registry: 0.1x input on every model except
  * Fable 5.1, which reads at $0.25/MTok) plus $0.01 per web search.
  *
  * Throws for a model outside the registry — silent wrong cost accounting is
  * worse than a loud failure (programming error, not a data gap).
  */
-export function computeCostUsd(usage: UsageLike, model: string, webSearches = 0, at = new Date()): number {
+export function computeCostUsd(usage: UsageLike, model: string, webSearches = 0, at = new Date(), cacheTtl: "5m" | "1h" = "5m"): number {
   const pricing = effectivePricingFor(model, at);
   if (!pricing) {
     throw new Error(`computeCostUsd: no pricing entry for model "${model}" — add it to config/models.json`);
@@ -305,10 +306,15 @@ export function computeCostUsd(usage: UsageLike, model: string, webSearches = 0,
   const M = 1_000_000;
   const cacheWriteTokens = usage.cache_creation_input_tokens ?? 0;
   const cacheReadTokens = usage.cache_read_input_tokens ?? 0;
+  const shortWrites = usage.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+  const longWrites = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  const unclassified = Math.max(0, cacheWriteTokens - shortWrites - longWrites);
   return (
     (usage.input_tokens / M) * pricing.inputPerMTok +
     (usage.output_tokens / M) * pricing.outputPerMTok +
-    (cacheWriteTokens / M) * pricing.cacheWrite5mPerMTok +
+    (shortWrites / M) * pricing.cacheWrite5mPerMTok +
+    (longWrites / M) * pricing.cacheWrite1hPerMTok +
+    (unclassified / M) * (cacheTtl === "1h" ? pricing.cacheWrite1hPerMTok : pricing.cacheWrite5mPerMTok) +
     (cacheReadTokens / M) * pricing.cacheReadPerMTok +
     webSearches * WEB_SEARCH_USD_PER_SEARCH
   );
@@ -417,17 +423,18 @@ export function maximumPassCostUsd(
       : MAX_PROVIDER_WEB_SEARCHES;
 
   const inputIterations = searches > 0 ? MAX_SERVER_TOOL_SAMPLING_ITERATIONS : 1;
+  const cacheRate = pass === "synthesize" ? "cacheWrite1hPerMTok" : "cacheWrite5mPerMTok";
   const fallback = effective.serverSideFallback === null ? null : registryEntryFor(effective.serverSideFallback.model);
   const fallbackQuarterMicroUsd = fallback === null ? 0 : (
-    (pass === "verify" ? inputTokens : fallback.contextWindowTokens) * fallback.pricing.cacheWrite5mPerMTok * inputIterations * 4 +
+    (pass === "verify" ? inputTokens : fallback.contextWindowTokens) * fallback.pricing[cacheRate] * inputIterations * 4 +
     (pass === "verify" ? outputTokens : fallback.maxOutputTokens) * fallback.pricing.outputPerMTok * 4
   );
   // Work in quarter-micro-USD so the cache-write price (a quarter-dollar
   // multiple on every registry entry) and the cap comparison never acquire a
   // binary-floating-point extra micro-dollar. Input is bounded at the
-  // 5-minute cache-write price, the dearest way an input token can bill.
+  // longest cache-write TTL used by this pass.
   const quarterMicroUsdPerExecution = Math.round(
-    inputTokens * pricing.cacheWrite5mPerMTok * inputIterations * 4 +
+    inputTokens * pricing[cacheRate] * inputIterations * 4 +
     outputTokens * pricing.outputPerMTok * 4 +
     searches * 40_000 + fallbackQuarterMicroUsd,
   );
@@ -437,7 +444,9 @@ export function maximumPassCostUsd(
       judgeRequestMultiplier(pass, judgeRequestsPerPass)) /
       4,
   );
-  return microUsd / 1_000_000;
+  const writerMicroUsd = (pass === "bull" || pass === "bear")
+    ? Math.round(maximumRequestCostUsd(selectedModel, pass, undefined, "5m", 0) * 1_000_000) * PASS_TRANSPORT_MAX_ATTEMPTS : 0;
+  return (microUsd + writerMicroUsd) / 1_000_000;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -841,7 +850,18 @@ export function requestReservationUsd(opts: RunPassOptions): number {
       : opts.field === "llm.bear"
         ? "bear"
         : "bull");
-  return maximumRequestCostUsd(opts.model, pass, opts.verifyCapability);
+  return maximumRequestCostUsd(opts.model, pass, opts.verifyCapability, requestCacheTtl(opts), boundedWebSearchUses(opts.tools));
+}
+
+function requestCacheTtl(opts: RunPassOptions): "5m" | "1h" {
+  // Inspect only actual cache-control fields; payload text cannot opt into a TTL.
+  const hasLongCache = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some(hasLongCache);
+    const record = value as Record<string, unknown>;
+    return (record.cache_control as { ttl?: unknown } | undefined)?.ttl === "1h" || Object.values(record).some(hasLongCache);
+  };
+  return hasLongCache([opts.system, opts.messages, opts.tools]) ? "1h" : "5m";
 }
 
 /**
@@ -1153,6 +1173,14 @@ export function collectFetchedUrls(message: BetaMessage): string[] {
   return [...urls].sort();
 }
 
+export function collectFetchedSources(message: BetaMessage): { url: string; title: string; pageAge: string | null }[] {
+  return message.content.flatMap(block => block.type !== "web_search_tool_result" || !Array.isArray(block.content) ? [] : block.content.flatMap(result => {
+    if (result.type !== "web_search_result") return [];
+    const url = canonicalizeFetchedUrl(result.url);
+    return url ? [{ url, title: result.title, pageAge: result.page_age ?? null }] : [];
+  }));
+}
+
 /** One hop of a multi-model response, as `usage.iterations` reports it. */
 interface PricedIteration {
   model: string;
@@ -1160,6 +1188,7 @@ interface PricedIteration {
   output_tokens: number;
   cache_creation_input_tokens: number;
   cache_read_input_tokens: number;
+  cache_creation?: UsageLike["cache_creation"];
 }
 
 function pricedIteration(entry: unknown): PricedIteration | null {
@@ -1178,6 +1207,7 @@ function pricedIteration(entry: unknown): PricedIteration | null {
     output_tokens: output,
     cache_creation_input_tokens: cacheWrite,
     cache_read_input_tokens: cacheRead,
+    ...(e.cache_creation === undefined ? {} : { cache_creation: e.cache_creation as UsageLike["cache_creation"] }),
   };
 }
 
@@ -1255,14 +1285,14 @@ function billingForMessage(message: BetaMessage, opts: RunPassOptions): { costUs
       const details = final ? message.stop_details : switches[boundaryIndex]?.trigger;
       const billing = refusalBilling(hop.output_tokens, transition || (final && message.stop_reason === "refusal"), details);
       presumed ||= billing.presumed;
-      return total + (billing.free ? 0 : computeCostUsd(hop, hop.model));
+      return total + (billing.free ? 0 : computeCostUsd(hop, hop.model, 0, new Date(), requestCacheTtl(opts)));
     }, toolsUsd);
     return { costUsd, presumed };
   }
   const model = actualModel(message);
   const knownModel = findPricing(model) !== undefined;
   const billing = refusalBilling(message.usage.output_tokens, message.stop_reason === "refusal", message.stop_details);
-  const observed = (billing.free ? 0 : computeCostUsd(message.usage, knownModel ? model : opts.model)) + toolsUsd;
+  const observed = (billing.free ? 0 : computeCostUsd(message.usage, knownModel ? model : opts.model, 0, new Date(), requestCacheTtl(opts))) + toolsUsd;
   const incomplete = detectFallbackUsed(message) || !knownModel;
   // Missing hops cannot be reconstructed. Retain the reserved upper bound,
   // visibly presumed, rather than presenting the final hop as the entire bill.
@@ -1397,6 +1427,8 @@ export function maximumRequestCostUsd(
   model: string,
   pass: ReservationPass,
   verifyCapability?: VerifyReservationCapability,
+  cacheTtl: "5m" | "1h" = pass === "synthesize" ? "1h" : "5m",
+  maxWebSearches?: number,
 ): number {
   if (pass === "verify") {
     if (verifyCapability?.billable === false) return 0;
@@ -1432,20 +1464,20 @@ export function maximumRequestCostUsd(
       )
     : pass === "synthesize"
       ? 0
-      : MAX_PROVIDER_WEB_SEARCHES;
+      : maxWebSearches ?? MAX_PROVIDER_WEB_SEARCHES;
 
   // One explicit server fallback can bill its own input/output attempt. The
   // request's server-tool counter is shared, so reserve its search cap once.
   const inputIterations = searches > 0 ? MAX_SERVER_TOOL_SAMPLING_ITERATIONS : 1;
   const fallback = effective.serverSideFallback === null ? null : registryEntryFor(effective.serverSideFallback.model);
   const fallbackQuarterMicroUsd = fallback === null ? 0 : (
-    (pass === "verify" ? inputTokens : fallback.contextWindowTokens) * fallback.pricing.cacheWrite5mPerMTok * inputIterations * 4 +
+    (pass === "verify" ? inputTokens : fallback.contextWindowTokens) * (cacheTtl === "1h" ? fallback.pricing.cacheWrite1hPerMTok : fallback.pricing.cacheWrite5mPerMTok) * inputIterations * 4 +
     (pass === "verify" ? outputTokens : fallback.maxOutputTokens) * fallback.pricing.outputPerMTok * 4
   );
   // Quarter-micro-USD, as in maximumPassCostUsd: every registry cache-write
   // price is a quarter-dollar multiple, so the arithmetic stays exact.
   const quarterMicroUsd = Math.round(
-    inputTokens * pricing.cacheWrite5mPerMTok * inputIterations * 4 +
+    inputTokens * (cacheTtl === "1h" ? pricing.cacheWrite1hPerMTok : pricing.cacheWrite5mPerMTok) * inputIterations * 4 +
     outputTokens * pricing.outputPerMTok * 4 +
     searches * 40_000 + fallbackQuarterMicroUsd,
   );
@@ -1469,11 +1501,11 @@ export function passWorstCaseCostUsd(
   judgeRequestsPerPass: JudgeRequestsPerPass = 1,
 ): number {
   const perRequest = maximumRequestCostUsd(model, pass, verifyCapability);
+  const writer = pass === "bull" || pass === "bear" ? maximumRequestCostUsd(model, pass, undefined, "5m", 0) : 0;
   return (
     Math.ceil(
-      perRequest *
+      (perRequest * PASS_MAX_REQUESTS + writer * PASS_TRANSPORT_MAX_ATTEMPTS) *
         1_000_000 *
-        PASS_MAX_REQUESTS *
         judgeRequestMultiplier(pass, judgeRequestsPerPass),
     ) / 1_000_000
   );
@@ -1563,6 +1595,7 @@ export interface PassError {
 }
 
 export interface PassOutcome {
+  fetchedSources: { url: string; title: string; pageAge: string | null }[];
   message: BetaMessage;
   /** Canonical URLs observed in successful web-search result blocks. */
   fetchedUrls: string[];
@@ -1745,6 +1778,7 @@ function interpretPassMessages(
       data: {
         message,
         fetchedUrls,
+        fetchedSources: billableMessages.flatMap(collectFetchedSources),
         usage,
         costUsd,
         fallbackUsed,
@@ -2285,6 +2319,7 @@ function trackStreamedUsage(
         ...(typeof u.cache_read_input_tokens === "number"
           ? { cache_read_input_tokens: u.cache_read_input_tokens }
           : {}),
+        ...(u.cache_creation ? { cache_creation: u.cache_creation } : {}),
         ...(u.server_tool_use ? { server_tool_use: u.server_tool_use } : {}),
         ...(u.iterations != null ? { iterations: u.iterations } : {}),
       };

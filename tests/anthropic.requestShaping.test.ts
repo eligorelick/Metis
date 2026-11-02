@@ -11,6 +11,7 @@ import { activeModels, type RegistryModel } from "@/models/registry";
 import {
   PASS_BILLING_EXPOSURE_MULTIPLIER,
   PASS_MAX_REQUESTS,
+  PASS_TRANSPORT_MAX_ATTEMPTS,
   buildPassParams,
   effectiveMaxTokens,
   maximumPassCostUsd,
@@ -116,9 +117,10 @@ describe.each(activeModels().map((entry) => [entry.id, entry] as const))("reques
     expect(maximumRequestCostUsd(id, "bull")).toBeCloseTo(perRequestUsd, 6);
     // The pass worst case is reported, not reserved: every request the pass
     // could make, at that maximum.
-    expect(passWorstCaseCostUsd(id, "bull")).toBeCloseTo(perRequestUsd * PASS_MAX_REQUESTS, 5);
+    const writerUsd = maximumRequestCostUsd(id, "bull", undefined, "5m", 0);
+    expect(passWorstCaseCostUsd(id, "bull")).toBeCloseTo(perRequestUsd * PASS_MAX_REQUESTS + writerUsd * PASS_TRANSPORT_MAX_ATTEMPTS, 5);
     expect(maximumPassCostUsd(id, "bull")).toBeCloseTo(
-      perRequestUsd * PASS_BILLING_EXPOSURE_MULTIPLIER,
+      perRequestUsd * PASS_BILLING_EXPOSURE_MULTIPLIER + writerUsd * PASS_TRANSPORT_MAX_ATTEMPTS,
       5,
     );
   });
