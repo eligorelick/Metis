@@ -152,7 +152,7 @@ describe("new version stamps", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.59.0");
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.63.0");
-    expect(PIPELINE_VERSION).toBe("stage-c-1.6.21"); // priority fixes: research/write split, synthesis cache, multi-claim reasoning, market and competitor analysis
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.21"); // priority fixes: research-then-write split, synthesis cache, multi-claim reasoning, market and competitor analysis
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_PRIORITY_FIXES_42");
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");

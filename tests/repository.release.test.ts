@@ -709,8 +709,9 @@ describe("public release contract", () => {
 
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
-    // R8 adds one referenced public 8-K item; no private run artifact is shipped.
-    expect(edgarFixtures).toHaveLength(52);
+    // R8 adds one referenced public 8-K item; D-171 one trimmed public TSMC 20-F
+    // excerpt (unlettered Risk Factors); no private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(53);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
