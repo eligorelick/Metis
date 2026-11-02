@@ -782,3 +782,23 @@ describe("settings", () => {
     }
   });
 });
+
+
+describe("DATA-115 caller cancellation", () => {
+  it.each([false, true])("surviving joiner retries leader cancellation: joiner aborted=%s", async (abortJoiner) => {
+    const leaderControl = new AbortController(), joinerControl = new AbortController();
+    const opts = { provider: "fmp" as const, endpoint: "cancel-test", params: {}, ttlSeconds: 60 };
+    const leader = cachedFetch({ ...opts, ...{ signal: leaderControl.signal }, fetcher: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      leaderControl.abort(new Error("peer deadline"));
+      if (abortJoiner) joinerControl.abort();
+      throw leaderControl.signal.reason;
+    } });
+    const fetcher = vi.fn(async () => ({ body: { v: 1 }, asOf: "2026-11-02" }));
+    const joiner = cachedFetch({ ...opts, ...{ signal: joinerControl.signal }, fetcher });
+    const results = await Promise.allSettled([leader, joiner]);
+    expect(results[0].status).toBe("rejected");
+    expect(results[1].status).toBe(abortJoiner ? "rejected" : "fulfilled");
+    expect(fetcher).toHaveBeenCalledTimes(abortJoiner ? 0 : 1);
+  });
+});

@@ -129,6 +129,7 @@ export function buildCacheKey(provider: string, endpoint: string, params: CacheP
 // ---------------------------------------------------------------------------
 
 export interface CachedFetchOptions<T> {
+  signal?: AbortSignal;
   /** Provider id — becomes Sourced.source. */
   provider: DataSource;
   /** Endpoint path/derivation — becomes Sourced.endpoint and keys invalidation. */
@@ -316,7 +317,7 @@ const inFlightRefreshes = new Map<string, Promise<void>>();
  * fetch every member twice and race to store the same row (audit 2026-09-06,
  * F231); the refresh path was single-flight, the miss path was not.
  */
-const inFlightMisses = new Map<string, Promise<unknown>>();
+const inFlightMisses = new Map<string, { promise: Promise<unknown>; signal?: AbortSignal }>();
 
 function startBackgroundRefresh<T>(cacheKey: string, opts: CachedFetchOptions<T>): void {
   if (inFlightRefreshes.has(cacheKey)) return; // one refresh per key at a time
@@ -409,13 +410,16 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
   }
 
   /** Single-flight wrapper: concurrent callers of one key share one fetch. */
-  function fetchStoreReturnOnce(): Promise<Sourced<T>> {
+  function fetchStoreReturnOnce(mayRetry = true): Promise<Sourced<T>> {
     const existing = inFlightMisses.get(cacheKey);
-    if (existing !== undefined) return existing as Promise<Sourced<T>>;
-    const pending = fetchStoreReturn().finally(() => {
-      if (inFlightMisses.get(cacheKey) === pending) inFlightMisses.delete(cacheKey);
+    if (existing !== undefined) return (existing.promise as Promise<Sourced<T>>).catch((error: unknown) => {
+      if (mayRetry && existing.signal?.aborted && !opts.signal?.aborted) return fetchStoreReturnOnce(false);
+      throw error;
     });
-    inFlightMisses.set(cacheKey, pending);
+    const pending = fetchStoreReturn().finally(() => {
+      if (inFlightMisses.get(cacheKey)?.promise === pending) inFlightMisses.delete(cacheKey);
+    });
+    inFlightMisses.set(cacheKey, { promise: pending, signal: opts.signal });
     return pending;
   }
 

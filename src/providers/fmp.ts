@@ -58,10 +58,13 @@ export interface CachedFetchResult<T> {
   fetchedAt?: string;
 }
 
+export interface CachedFetchPolicy { signal?: AbortSignal }
+
 export type CachedFetchFn = <T>(
   key: string,
   ttlMs: number,
   loader: () => Promise<T>,
+  policy?: CachedFetchPolicy,
 ) => Promise<CachedFetchResult<T>>;
 
 // ---------------------------------------------------------------------------
@@ -1722,7 +1725,7 @@ export class FmpClient {
           fetchedAt,
           ...(expectedEntityScope === undefined ? {} : { entityScope: expectedEntityScope }),
         };
-      }));
+      }), { signal: this.signal });
     } catch (err) {
       if (err instanceof FmpPlanLimitError) {
         planLimitCaps.set(apiKey, err.cap);

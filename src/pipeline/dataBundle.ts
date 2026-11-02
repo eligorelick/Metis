@@ -33,6 +33,7 @@ import {
   FMP_EMPTY_ARRAY_REASON,
   type FmpPlanLimit,
   type CachedFetchFn,
+  type CachedFetchPolicy,
   type CachedFetchResult,
   type FmpClient,
   type FmpEarningsRow,
@@ -229,7 +230,7 @@ export function resolveGicsSector(sector: string | null | undefined): GicsSector
  */
 export function makeFmpCachedFetch(): CachedFetchFn {
   let mod: Promise<typeof import("@/cache/apiCache")> | null = null;
-  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<CachedFetchResult<T>> => {
+  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>, policy?: CachedFetchPolicy): Promise<CachedFetchResult<T>> => {
     mod ??= import("@/cache/apiCache");
     const { cachedFetch } = await mod;
     const sourced = await cachedFetch<T>({
@@ -238,6 +239,7 @@ export function makeFmpCachedFetch(): CachedFetchFn {
       params: {},
       ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+      signal: policy?.signal,
       // asOf here is cache-row metadata; the FMP client re-derives the real
       // asOf from response rows (deriveAsOf) after this returns.
       fetcher: async () => ({ body: await loader(), asOf: new Date().toISOString().slice(0, 10) }),
@@ -279,7 +281,7 @@ export function makeFmpCachedFetch(): CachedFetchFn {
  */
 export function makeYahooCachedFetch(): CachedFetchFn {
   let mod: Promise<typeof import("@/cache/apiCache")> | null = null;
-  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<CachedFetchResult<T>> => {
+  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>, policy?: CachedFetchPolicy): Promise<CachedFetchResult<T>> => {
     mod ??= import("@/cache/apiCache");
     const { cachedFetch } = await mod;
     const sourced = await cachedFetch<T>({
@@ -288,6 +290,7 @@ export function makeYahooCachedFetch(): CachedFetchFn {
       params: {},
       ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+      signal: policy?.signal,
       fetcher: async () => ({ body: await loader(), asOf: new Date().toISOString().slice(0, 10) }),
       isEmptyBody: (value: T): boolean => value === null,
     });
@@ -352,6 +355,7 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
         },
         ttlSeconds: ttlForFredSeries(seriesId),
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await fredSeries(id, opts, cfg);
           if (!res.ok) throw new FredGap(res.gap);
@@ -420,6 +424,7 @@ export function makeCachedFinraShortInterestTrend(cfg: FinraConfig): FinraShortI
         params: { nPartitions: n },
         ttlSeconds: FINRA_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await finraShortInterestTrend(sym, n, cfg);
           if (!res.ok) throw new ProviderGap(res.gap);
@@ -467,6 +472,7 @@ export function makeCachedFinnhubInsiderSentiment(cfg: FinnhubConfig): FinnhubIn
         params: { symbol: sym, from, to },
         ttlSeconds: FINNHUB_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await insiderSentiment(sym, from, to, cfg);
           if (!res.ok) throw new ProviderGap(res.gap);
@@ -508,6 +514,7 @@ export function makeCachedFinnhubFallback<T>(
         params: { symbol: symbol.trim().toUpperCase(), from, to },
         ttlSeconds: FINNHUB_FALLBACK_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const result = await fetcher(symbol, from, to, cfg);
           if (!result.ok) throw new ProviderGap(result.gap);

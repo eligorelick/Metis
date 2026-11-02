@@ -21,6 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 
 - PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.
+- DATA-115: surviving cache-miss joiners retry with their own loader after the leader is canceled.
 - DATA-116: classify parameter subscription refusals as expected, unlearned disclosures; name non-JSON outages and rate limits without vendor body text.
 - DATA-106: refuse EDGAR contact characters outside printable ASCII and Latin-1 before saving or testing.
 

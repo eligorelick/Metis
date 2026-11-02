@@ -14,3 +14,8 @@ DATA-116: plain-text and JSON parameter refusals now use fixed wording and expec
 | PERF-101 | Fixed | owning commit | perf101-red / perf101-green | None |
 
 PERF-101: cold same-endpoint failure waves had peak concurrency 1; after the first inconclusive discovery, the two waiting symbols overlap (peak 2). Refusal controls unchanged. No figure or stamp changes.
+
+
+| DATA-115 | Fixed | owning commit | data115-red / data115-green | None |
+
+DATA-115: active joiner changed from rejected to fulfilled after leader cancellation; canceled joiner remains rejected. Signal forwarded by FMP/Yahoo cache adapters. No stamps changed.

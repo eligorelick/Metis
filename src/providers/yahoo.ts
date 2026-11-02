@@ -433,7 +433,7 @@ export class YahooClient {
           throw new YahooResponseError(`Yahoo returned no chart result for ${displayEndpoint}`);
         }
         return { result, fetchedAt: this.now().toISOString() };
-      });
+      }, { signal: this.signal });
     } catch (err) {
       if (err instanceof YahooResponseError) {
         return { ok: false, reason: err.message, endpoint: displayEndpoint };

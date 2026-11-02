@@ -3013,3 +3013,8 @@ B9-OD-7: parameter-value subscription refusals are expected but never learned as
 ### D-next (P5-lows): PERF-101 inconclusive discovery
 
 Only the existing waiting wave bypasses inconclusive endpoint discovery, with per-symbol coordination retained. No access observation or durable capability is invented. Explicit restrictions and quota are rechecked.
+
+
+### D-next (P5-lows): DATA-115 caller-owned retry
+
+Use leader signal state rather than error wording. A surviving joiner retries once, rejoining an existing replacement flight. Ordinary vendor failures and aborted joiners retain shared rejection.
