@@ -5987,3 +5987,5 @@ RPT-207: FMP failures count per dataset: per symbol for issuer/benchmark price h
 RPT-206 review: the shared saved-snapshot header labels Research with the recorded research state, including process warnings. Data-gap summaries retain separately classified counts.
 
 AI-111 review: a name initial before Buy/Sell/Hold accepts a comma only before the appositive words the, a, an, our, its, who or whose. Comma-led rating directives remain refused.
+
+AI-104 review: decline/fall words in a bounded origin phrase (from, after, since, following) do not suppress a recovery-toward-hurdle warning. Forward fade predicates retain their exclusion.

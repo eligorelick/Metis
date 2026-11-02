@@ -57,7 +57,9 @@ function governsHurdle(sentence: string): boolean {
     const start = recovery.index! + recovery[0].length;
     if (end < start) return true;
     const span = sentence.slice(start, end);
-    if (FADE.test(span)) return false;
+    // An origin decline describes the starting point, not the forward path.
+    const pathSpan = span.replace(/\b(?:from|after|since|following)\b[^,;]{0,40}?\b(?:declin|fall|fell|decreas|erod|compress)\w*/gi, "");
+    if (FADE.test(pathSpan)) return false;
     const level = /\bto\s+[-+\u2212]?\d[\d.,]*\s*%[\s\S]*?\b(?:and|but|then|while|before|after|with)\b/i.exec(span);
     return !level || new RegExp(RECOVERY, "i").test(span.slice(level.index + level[0].length));
   }));
