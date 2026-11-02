@@ -138,6 +138,7 @@ import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/d
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
@@ -2001,6 +2002,8 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
 }
 
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
+  // Derived evidence belongs to this computation; D-67 source bundles and stored reports stay byte-for-byte unchanged.
+  bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))

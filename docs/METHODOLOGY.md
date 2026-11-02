@@ -1,5 +1,31 @@
 # Valuation methodology
 
+## Filed common-class inventory alternative (R-FIGR-3, N2)
+
+When no complete inline cover inventory is retained, a primary 10-Q/10-K
+balance sheet can establish an economic share denominator. All common classes
+must be explicitly enumerated once, in unscaled shares (the statement says
+"in thousands, except share and per share data"), with issued AND outstanding
+counts at the report date. A current sentence in that same filing must state
+identical dividend and liquidation rights for exactly those classes; voting
+equality, conversion rights, authorization and weighted-average counts do not
+establish this. Missing classes, conflicting entitlements, different dates,
+scaled counts, unknown quote class, ADRs and issuer mismatches fail closed.
+
+The provider's symbol, CIK and common-class title must match the registrant and
+one filed class. This is explicitly a provider quote-class binding, not an
+independently verified SEC trading-symbol row. Other classes use a disclosed
+same-price economic-equivalence approximation, including a separately named
+common class. Counts remain dated balance-sheet counts, not current shares or
+cover-date counts. The latest retained periodic filing governs; a newer unknown
+inventory prevents carrying an older proof forward. Existing explicit inventory
+evidence is never replaced. The evidence hash covers retained statement/notes
+and the provider title, not unavailable raw HTML. All resolved scope disclosures,
+payloads and exports retain these limits. Outstanding counts support aggregate
+capitalization and multiples; per-share intrinsic value still requires its
+separate diluted-divisor and model-input gates. D-67: derivation is in memory
+for a new computation only; stored source bundles and reports are never rewritten.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

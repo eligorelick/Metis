@@ -45,6 +45,8 @@ export interface EconomicShareEvidence {
   effectiveTo: string | null;
   /** The source establishes that every economically participating common class is included. */
   complete: boolean;
+  /** Additional admission limits, retained in every resolved scope disclosure. */
+  basis?: string;
   sourceHash: string;
   sourceIds: string[];
   classes: {
@@ -151,7 +153,8 @@ export function resolveEconomicEquityScope(
             ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
             : "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
-        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` };
+        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` +
+        active.flatMap(item => item.basis ? [` ${item.basis}`] : []).join("") };
   }
   if (quote.marketCapSecurityBasis === "quoted-security" || quote.marketCapSecurityBasis === "unresolved" ||
     (quote.isAdr === true && quote.marketCapSecurityBasis !== "issuer-common")) return unresolved();

@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { runStageB } from "@/pipeline/compute";
+import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+
+const rights = "The rights, including the liquidation and dividend rights and sharing of losses, of the Class A common stock, Alternate common stock, and Class B common stock are identical, other than voting rights.";
+function fixture(statement = "", text = rights) {
+  const b = completeCurrencyBundle({});
+  if (!b.profile.ok) throw new Error("fixture profile");
+  Object.assign(b.profile.value.data.rows[0]!, { symbol: b.symbol, cik: "0000000042", companyName: "Example Class A Common Stock", isAdr: false });
+  if (b.quote.ok) b.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T00:00:00Z") / 1000;
+  b.edgar.registrant = { cik10: "0000000042", name: "Example", tickers: [b.symbol], exchanges: ["Nasdaq"], sic: "3571", sicDescription: "Computers", fiscalYearEnd: "1231", stateOfIncorporation: "DE", forms: ["10-Q"] };
+  b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: b.builtAt,
+    data: { sectionName: "tenQNotes", text, statementsText: statement || "CONSOLIDATED BALANCE SHEETS (in thousands, except share and per share data) March 31, 2026 December 31, 2025 Stockholders' equity: Class A common stock - $0.0001 par value per share: 500,000,000 shares authorized, 100,000,000 shares issued and outstanding at March 31, 2026; 99,000,000 shares issued and outstanding at December 31, 2025 10 9 Class B common stock - $0.0001 par value per share: 100,000,000 shares authorized, 20,000,000 shares issued and outstanding at March 31, 2026 and December 31, 2025 2 2 Alternate common stock - $0.0001 par value per share: 100,000,000 shares authorized, 5,000,000 and no shares issued and outstanding at March 31, 2026 and December 31, 2025 1 0 Total stockholders' equity 100 90 CONSOLIDATED STATEMENTS OF OPERATIONS",
+      method: "toc-anchor", chars: text.length, accession: "0000000042-26-000001", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/quarter.htm" } } };
+  return b;
+}
+
+describe("R-FIGR-3 filed common-class economics", () => {
+  it("admits all three equally participating outstanding classes, with dated proxy provenance and no raw-bundle mutation", () => {
+    const b = fixture();
+    const before = JSON.stringify(b);
+    const c = runStageB(b);
+    const scope = c.valuation.multiples!.enterpriseValue.equityScope!;
+    expect(scope).toMatchObject({ status: "resolved", economicShares: 125_000_000, approximate: true, shareCountAsOf: "2026-03-31" });
+    expect(scope.sourceIds).toContain("https://www.sec.gov/Archives/edgar/data/42/000000004226000001/quarter.htm");
+    expect(scope.sourceHashes.length).toBeGreaterThan(0);
+    expect(scope.basis).toContain("same-price approximation");
+    expect(scope.basis).toContain("Quote class bound by provider title");
+    expect(scope.marketCap).toBe(12_500_000_000); // 125m outstanding x the fixture's $100 quote.
+    expect(c.valuation.multiples!.multiples.find(m => m.key === "priceToBook")?.current).toBeGreaterThan(0);
+    const prompt = serializePayloadForPrompt(assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] }));
+    expect(prompt).toContain("125000000");
+    expect(prompt).toContain("same-price approximation");
+    expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it.each([
+    ["missing economic relation", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text = "Class A and Class B common stock have different voting rights."; }],
+    ["a relation omitting the named third class", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text = rights.replace("Alternate common stock, and ", "and "); }],
+    ["a conflicting economic entitlement", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text += " Alternate common stock has preferential dividend rights over Class A common stock."; }],
+    ["issued counts without outstanding counts", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replaceAll("issued and outstanding", "issued"); }],
+    ["different class count dates", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replace("20,000,000 shares issued and outstanding at March 31, 2026", "20,000,000 shares issued and outstanding at February 28, 2026"); }],
+    ["quote issuer mismatch", (b: ReturnType<typeof fixture>) => { if (b.profile.ok) b.profile.value.data.rows[0]!.cik = "0000000099"; }],
+    ["unbound quoted class", (b: ReturnType<typeof fixture>) => { if (b.profile.ok) b.profile.value.data.rows[0]!.companyName = "Example Common Stock"; }],
+    ["non-SEC primary source", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.documentUrl = "https://example.com/quarter.htm"; }],
+    ["scaled share counts", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replace("except share and per share data", "except per share data"); }],
+    ["a newer unresolved inventory", (b: ReturnType<typeof fixture>) => { b.edgar.economicShareInventory = [{ classes: [], evidence: null, passages: { inventory: "", rights: null }, reason: "unknown", source: { form: "10-Q", accession: "later", filingDate: "2026-06-01", documentUrl: "https://www.sec.gov/newer.htm", hash: "hash" } }]; }],
+  ])("refuses %s", (_name, change) => {
+    const b = fixture(); change(b);
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+  });
+
+  it("leaves ordinary single-class vendor scope unchanged", () => {
+    expect(runStageB(completeCurrencyBundle({})).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unverified-vendor-scope");
+  });
+
+  it("keeps bank routing and the bank valuation map", () => {
+    const b = fixture();
+    if (b.profile.ok) Object.assign(b.profile.value.data.rows[0]!, { industry: "Banks - Regional", sector: "Financial Services" });
+    b.edgar.sic = "6022";
+    const c = runStageB(b);
+    expect(c.route.base).toBe("bank");
+    expect(c.valuation.kind).toBe("excess-return");
+    expect(c.valuation.multiples!.enterpriseValue.equityScope!.economicShares).toBe(125_000_000);
+  });
+});

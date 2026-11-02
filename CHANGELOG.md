@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N2 lender and share-class readiness (2026-11-02)
+
+- R-FIGR-3: admit a dated primary balance-sheet common-class inventory only with explicit identical dividend/liquidation rights for every class, unscaled outstanding counts and an issuer-matched provider quote-class title. Disclose the provider binding and same-price approximation in valuation and prompt provenance. Raw bundles and stored reports remain unchanged.
+
 ## Unreleased - P3 verifier and trust labels (2026-11-02)
 
 - RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.

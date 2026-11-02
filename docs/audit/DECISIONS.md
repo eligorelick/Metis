@@ -3107,3 +3107,8 @@ RPT-207 preserves FMP endpoint arguments when they identify different datasets. 
 RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
 
 Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
+
+
+## D-next (N2): filed common-class economics (R-FIGR-3)
+
+Admit a primary balance-sheet alternative only when unscaled, explicitly outstanding counts cover every named common class at the report date and the same filing states identical current dividend/liquidation rights for exactly that inventory. Require issuer-matched provider quote-class title and disclose that binding plus the same-price approximation. Reject incomplete/issued-only inventories, conflicting rights, ADRs, dates or identities; never replace explicit inventory evidence or carry an older proof through a newer unknown filing. The retained FIGR cover HTML is absent, so no exact DOM-parser claim is made. All three filed classes, including the separately named third class, give 223,629,267 June shares and approximate capitalization of $4,825,919,581.86 at $21.58. See the N2 disposition for every changed figure. Per-share intrinsic value retains its independent gates. D-67: source bundles and stored reports are not rewritten; stamps stay at shared repair values.
