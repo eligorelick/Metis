@@ -1,3 +1,4 @@
+import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
@@ -1654,7 +1655,7 @@ export function gapCountText(gaps: readonly ManifestEntry[], c?: Pick<ReportComp
 
 const DATASET_LABEL: Record<string, string> = {
   marketCapHistory: "Market-cap history",
-  eodPrices: "Issuer price history", spy: "SPY benchmark price history", sectorEtf: "Sector ETF price history",
+  eodPrices: "Issuer price history", spy: `${SPY_BENCHMARK} benchmark price history`, sectorEtf: "Sector ETF price history",
 };
 
 const STATEMENT_LABEL: Record<string, string> = {

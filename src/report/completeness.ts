@@ -1,3 +1,4 @@
+import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import type { ManifestEntry } from "@/types/core";
 import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
@@ -153,7 +154,7 @@ export function gapDatasetKey(field: string, issuer?: string | null): string {
  const fmp = /^fmp\.([A-Za-z]+)\(([^,)]+)(?:,([^)]*))?\)/.exec(field);
  if (fmp) {
   const [, endpoint, symbol, period] = fmp;
-  if (endpoint === "historicalPriceEodFull") return symbol === "SPY" ? "spy" : issuer ? symbol === issuer ? "eodPrices" : "sectorEtf" : `${endpoint}(${symbol})`;
+  if (endpoint === "historicalPriceEodFull") return symbol === SPY_BENCHMARK ? "spy" : issuer ? symbol === issuer ? "eodPrices" : "sectorEtf" : `${endpoint}(${symbol})`;
   const statement = ({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint];
   if (statement && (period === "annual" || period === "quarter")) return symbol === issuer ? `${statement}${period === "annual" ? "Annual" : "Quarterly"}` : `${endpoint}(${symbol},${period})`;
   if (issuer && symbol !== issuer && endpoint !== "planLimit") return `${endpoint}(${symbol})`;
