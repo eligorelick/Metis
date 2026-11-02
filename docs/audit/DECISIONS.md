@@ -3131,3 +3131,7 @@ SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retr
 ## D-next (P6): Protected-store snapshot
 
 PERF-201 caches successes by exact bytes/path and returns clones; unchanged callbacks skip protection and rename. Real mutations remain mutex serialized with atomic write-through. Stat fields cannot safely identify rotating tokens. Failed callbacks cannot mutate the cache.
+
+## D-next (P6): Effective legacy Fast speed
+
+SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.

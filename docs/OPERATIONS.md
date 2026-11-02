@@ -233,7 +233,8 @@ require accepted browser metadata/matching Origin or the startup
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
-and strict local access even when an optional LAN authority is allowed.
+and loopback access. Configured non-loopback LAN mode disables credential and
+AI connection management regardless of the supplied Host.
 
 | Method and path | Request / successful response | Material error behavior |
 | --- | --- | --- |
@@ -482,3 +483,5 @@ SEC-206: Settings follows the implicit report selection when a saved Claude key 
 Plan-run persistence: `<data dir>/recovery/sections` follows METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` retains completed analyst/judge text and writer evidence; `*.usage.jsonl` retains per-request usage journals indefinitely. No automatic purge runs. With Metis stopped delete this directory separately; database deletion does not remove it. Retrying then requests the deleted sections again, consuming plan allowance.
 
 PERF-201: The process keeps a decrypted AI-store snapshot keyed by path and exact file bytes. Reads return isolated copies. Unchanged mutations do not rewrite/protect the file; real token or setting changes remain serialized and atomic. Changed bytes from another process invalidate the snapshot immediately.
+
+SEC-205: A legacy Fast selection on a model outside the supported Fast list is captured as Standard for Settings and new jobs. Stored selections/reports are not rewritten. A resumed job whose captured-input fingerprint differs is refused by the existing guard rather than silently changing its run options. Supported Fast choices remain Fast; new unsupported Fast saves remain refused.

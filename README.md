@@ -135,6 +135,7 @@ coefficients, estimation populations and limits; the source cites it by section.
 
 With AI off or unavailable, reports retain deterministic results and disclose
 missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
+Plan recovery in `<data dir>/recovery/sections` requires separate stopped-app deletion. AI credentials cache exact bytes; unreadable storage preserves saved-report access but blocks jobs. Settings follows saved Claude keys unless a choice is explicit or unsaved; unsupported legacy Fast runs at Standard. Configured LAN mode disables credential/connection management.
 ## AI analysis
 
 Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.
@@ -213,7 +214,7 @@ unless you add a security layer of your own. Mutating routes reject a request
 carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
 those automatically; scripts send `X-Metis-Token` (legacy `X-Thesis-Token` accepted) with the contents of
 the `csrf-token` file the server writes at every start and names on stdout. That
-is a browser-CSRF boundary; Plan recovery in `<data dir>/recovery/sections` needs separate stopped-app deletion; Settings follows saved Claude keys unless a choice is explicit; AI credentials cache exact file bytes; unreadable AI stores preserve saved-report access; LAN mode disables credential/connection management, not report access: any process on the machine
+is a browser-CSRF boundary, not local access control: any process on the machine
 can present the same headers. Report security problems through the
 repository's [private advisory form](https://github.com/eligorelick/Metis/security/advisories/new), not a public issue.
 

@@ -159,9 +159,9 @@ company pages from the Metis home page, or serve Metis over HTTPS. Loopback is
 unchanged. Mutating
 routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
-reports and invoke actions. AI connection GET/POST additionally require the
-same-origin/token guard and strict localhost/127.0.0.1/[::1] access, even with
-a LAN allowlist. Local browser traffic uses HTTP under the default
+reports and invoke actions. Credential and AI connection GET/POST require the
+same-origin/token guard and loopback access; configured non-loopback LAN mode
+disables these management routes regardless of the supplied Host. Local browser traffic uses HTTP under the default
 scripts; HTTPS to remote providers does not encrypt the local database.
 
 ## Where local data is kept
@@ -466,3 +466,5 @@ AI connection storage cannot be read: configuration and the shell use environmen
 SEC-206: Settings follows the implicit report selection when a saved Claude key changes. Unsaved connection/model/effort/speed edits remain visible until saved; an explicit saved selection remains authoritative.
 
 PERF-201: The process keeps a decrypted AI-store snapshot keyed by path and exact file bytes. Reads return isolated copies. Unchanged mutations do not rewrite/protect the file; real token or setting changes remain serialized and atomic. Changed bytes from another process invalidate the snapshot immediately.
+
+SEC-205: A legacy Fast selection on a model outside the supported Fast list is captured as Standard for Settings and new jobs. Stored selections/reports are not rewritten. A resumed job whose captured-input fingerprint differs is refused by the existing guard rather than silently changing its run options. Supported Fast choices remain Fast; new unsupported Fast saves remain refused.
