@@ -237,3 +237,20 @@ long-gap display truncation sends the full missing-peer/fallback explanation to
 JSON/audit (and retained reader detail), rather than rewriting historical text.
 No full verify/build/coverage claim is made; the integrator owns those merged
 gates. All three items are addressed; no live provider/model run was performed.
+
+
+## Review fixes (owner delegated to the coordinator, 2026-11-01)
+
+| Item | Disposition | Commit | Red / green receipts | Stored reports |
+| --- | --- | --- | --- | --- |
+| F1 | Fixed lender multiples, gross margin and net debt suppression; EV context names tied filed components | This F1/F2/F12 commit | n2-f1-f2-f12-red; n2-f1-ev-context-red / n2-f1-f2-f12-green | Immutable; new computations only |
+| F2 | Fixed; lender solvency not modelled; industrial coverage/leverage not displayed as figures or scored | This F1/F2/F12 commit | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
+| F12 | Fixed capital-return policy: ROTE instead of ROIC; operating margin retained | This F1/F2/F12 commit | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
+
+FIGR FY2025 common earnings of 62.026m are filed under the basic-EPS common
+stockholders tag (two-class allocation). ROTE is not missing that allocation:
+its field observation time is 2026-11-01T03:20:40.813Z, after the immutable
+bundle cutoff 2026-11-01T03:20:37.716Z. All annual ROTE numerators fail the
+existing availability gate. No observation time is rewritten or gate relaxed.
+A fresh collection must have a cutoff that admits its observations. The
+synthetic eligible lender scores ROTE; the retained target remains withheld.

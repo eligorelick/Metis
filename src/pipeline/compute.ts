@@ -2252,6 +2252,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.model,
     currencies.ttmIncomeUsable,
   );
+  if (lendingCashFlow) {
+    returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
+    returns.roicVsWacc = { spreadPctPts: null, note: lendingCashFlow.reason };
+  }
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [modelEligibilityReason], gaps: [] };
@@ -2577,7 +2581,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     if (runway) runway = { ...runway, burning: null, avgQuarterlyBurn: null, burnWindowQuarters: 0, burnWindowDates: [],
       runwayQuarters: null, estimatedExhaustionDate: null, notes: [lendingCashFlow.reason],
       gaps: runway.gaps.filter(gap => gap.field === "runway.liquidAssets" || gap.field.startsWith("runway.dilution")) };
-    for (const key of ["fcf", "fcfGrowth", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf"]) suppress(key, lendingCashFlow.reason);
+    for (const key of ["fcf", "fcfGrowth", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf", "netDebt", "netDebtToEbitda", "interestCoverage", "grossMargin", "roic", "roicVsWacc"]) suppress(key, lendingCashFlow.reason);
     degradation.items.push({ target: "cashFlow.ownerEconomics", action: "suppress", disclosure: lendingCashFlow.reason });
   }
 
@@ -2826,7 +2830,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
         : `FCFF DCF not meaningful for ${route.base} - book/excess-return model used`),
     );
   }
-  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
+  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", lendingCashFlow?.reason ?? `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
   // Audit 2026-10-22 B-24: a results release later than every statement.

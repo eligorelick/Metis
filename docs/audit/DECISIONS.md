@@ -3155,3 +3155,8 @@ PERF-201 caches successes by exact bytes/path and returns clones; unchanged call
 ## D-next (P6): Effective legacy Fast speed
 
 SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+
+## D-next (N2): lender review conventions (F1, F2, F12)
+
+Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.

@@ -30,8 +30,20 @@ export function lenderCashFlowApplicability(bundle: DataBundle, route: CompanyRo
   const origination = /\bOriginations of loans held for sale\s*\(?\s*\$?\s*([\d,]+)/i.exec(operating);
   const sale = /\bProceeds from (?:loan sales(?:, net of repurchases)?|sales of loans(?: held for sale)?)\s*\(?\s*\$?\s*([\d,]+)/i.exec(operating);
   if (!origination || !sale || ![origination[1], sale[1]].every(v => Number.isFinite(Number(v!.replaceAll(",", ""))) && Number(v!.replaceAll(",", "")) > 0)) return undefined;
-  return { status: "not-applicable", asOf: source.reportDate, sourceIds: [source.documentUrl],
-    reason: `Owner FCF, P/FCF, FCF yield, FCF conversion/growth and cash runway are not applicable: SIC ${sic} and the ${source.form} cash-flow statement for ${source.reportDate} place held-for-sale loan originations and loan-sale proceeds in operating activities. OCF less capex reflects loan inventory funding and turnover, not cash available to owners or an exhaustion clock. An FCF-based DCF (including reverse DCF and sensitivity) is not applicable. Filed OCF, capex, loan flows, earnings and book value remain source observations, subject to their own data checks. Source: ${source.documentUrl}.` };
+  // Retain EV only as context when the named filed components tie to the
+  // provider debt perimeter at the same date. No industrial debt inference.
+  const balance = [bundle.statements.balanceQuarterly, bundle.statements.balanceAnnual]
+    .flatMap(s => s.ok ? s.value.data.rows : []).find(r => r.date === source.reportDate);
+  const sheet = (source.statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  const components = /in thousands/i.test(sheet) ? [...sheet.matchAll(/\b(Payables to third-party loan owners|Debt, (?:non-current|current(?: to related parties)?))\s*(?:\([^)]*\)\s*)?\$?\s*([\d,]+)/gi)]
+    .map(m => ({ name: m[1]!, value: Number(m[2]!.replaceAll(",", "")) * 1000 })) : [];
+  const sum = components.reduce((n, c) => n + c.value, 0);
+  const debt = typeof balance?.totalDebt === "number" ? balance.totalDebt : null;
+  const lease = typeof balance?.operatingLeaseLiability === "number" ? balance.operatingLeaseLiability : 0;
+  const evDebtBasis = components.length > 0 && debt !== null && Math.abs(sum - (debt - lease)) <= Math.max(1000, debt * 0.0001)
+    ? `EV context only: provider debt includes the filed ${components.map(c => `${c.name} ${c.value}`).join("; ")} (statement currency, ${source.reportDate}), plus the selected lease convention. This perimeter is not industrial borrowing or a lender solvency measure.` : undefined;
+  return { status: "not-applicable", evDebtBasis, asOf: source.reportDate, sourceIds: [source.documentUrl],
+    reason: `Owner FCF, P/FCF, FCF yield, FCF conversion/growth and cash runway are not applicable: SIC ${sic} and the ${source.form} cash-flow statement for ${source.reportDate} place held-for-sale loan originations and loan-sale proceeds in operating activities. Warehouse and loan-owner funding is operating inventory finance; industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA and interest coverage are not applicable. Capital adequacy is not modelled for non-bank lenders: industrial coverage and leverage do not measure solvency. Vendor gross margin is not a filed lender income-statement line. ROIC and ROIC-vs-WACC are not applicable because invested capital (debt + equity - cash) is undefined when debt funds operating inventory; ROTE is the capital-return convention. OCF less capex reflects loan inventory funding and turnover, not cash available to owners or an exhaustion clock. An FCF-based DCF (including reverse DCF and sensitivity) is not applicable. Filed OCF, capex, loan flows, earnings and book value remain source observations, subject to their own data checks. Source: ${source.documentUrl}.` };
 }
 
 /** Remove economic interpretations, retaining raw cash-flow bridge operands and SBC. */
@@ -39,8 +51,13 @@ export function applyLenderCapitalApplicability(capital: CapitalResult, reason: 
   capital.fcf = { ...capital.fcf, latestFcf: null, latestFcfBeforeSbc: null, latestConversion: null, latestConversionBeforeSbc: null, basis: reason,
     series: capital.fcf.series.map(row => ({ ...row, fcf: null, fcfBeforeSbc: null, fcfConversion: null, fcfConversionBeforeSbc: null, note: reason })) };
   capital.sbc.pctOfFcf = null;
+  capital.netDebtToEbitda = { ...capital.netDebtToEbitda, value: null, netDebt: null, note: reason };
+  capital.interestCoverage = { ...capital.interestCoverage, value: null, note: reason };
   if (capital.current) {
     const current = capital.current;
+    current.netDebt = null; current.netDebtToEbitda = null; current.interestCoverage = null;
+    current.debtBridge = { ...current.debtBridge, netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
+      netDebtIncludingDisclosedLeasePortion: null, netDebtExcludingDisclosedOperatingLeasePortion: null, compositionNote: reason };
     current.fcfBeforeSbc = null; current.fcfConversionBeforeSbc = null; current.sbcPctOfFcf = null;
     current.cashBridge = { ...current.cashBridge, standardizedFcf: null, leaseAdjustedFcf: null, issuerFcf: null, afterSbcStandardizedFcf: null, afterSbcIssuerFcf: null, definition: reason };
   }

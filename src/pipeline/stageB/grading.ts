@@ -980,13 +980,16 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : !financial && route.overlays.includes("regulated-utility")
     ? utilityBalanceSheet(inputs.utilityCredit ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : route.cashFlowApplicability?.status === "not-applicable"
+    ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, route.cashFlowApplicability.reason, policy,
+        "Capital adequacy is not modelled for non-bank lenders: warehouse and loan-owner funding is operating inventory finance, so industrial coverage and leverage do not measure solvency.")
     : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(
         "balanceSheet",
         [
           { name: "netDebtToEbitda", raw: currentCapital ? currentCapital.netDebtToEbitda : capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
-          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND },
+          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND, suppressedBy: "interestCoverage" },
           // WS6 review (SHOULD-FIX 2): graded on the BEFORE-SBC ratio, the
           // definition FCF_CONVERSION_BAND was calibrated on. Grading the
           // after-SBC ratio on the same band silently moved the metric onto a
@@ -1001,7 +1004,6 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         ],
         weights.balanceSheet,
         inputs.asOf,
-        route.cashFlowApplicability ? `${route.cashFlowApplicability.reason} The capital grade retains leverage and coverage; FCF conversion and SBC/FCF are excluded from its applicable denominator.` :
         `Financial strength on ${currentCapital?.basis ?? "annual"} flows and the corresponding balance date${currentCapital?.asOf ? ` ${currentCapital.asOf}` : ""}. ${currentCapital?.fallbackReason ?? ""} Leverage, coverage, FCF conversion and the cost of stock-based compensation. ` +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
           "used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
@@ -1058,7 +1060,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)." +
+    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined when debt is operating funding. Gross margin is dropped where the route suppresses it (including evidenced lenders)." +
       (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
   );

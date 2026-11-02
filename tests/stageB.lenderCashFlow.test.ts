@@ -41,14 +41,61 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     expect(c.valuation.multiples!.multiples.find(m => m.key === "priceToBook")?.current).toBeGreaterThan(0);
     const policy = metricPolicy(c.route);
     expect(policy.suppress).toEqual(expect.arrayContaining(["fcfGrowth", "fcfDcf", "fcfYield", "fcfConversion", "sbcPctOfFcf"]));
-    expect(c.scores.aspects.balanceSheet.applicableCompleteness).toBe(0.6); // Leverage 0.3 / (leverage 0.3 + missing coverage 0.2); FCF weight 0.35 excluded.
-    expect(c.scores.aspects.balanceSheet.signals?.map(s => s.id)).toEqual(["netDebtToEbitda"]);
+    // F2: industrial leverage/coverage and FCF signals cannot model lender solvency.
+    expect(c.scores.aspects.balanceSheet.applicableCompleteness).toBeNull();
+    expect(c.scores.aspects.balanceSheet.signals).toEqual([]);
+    expect(c.scores.aspects.balanceSheet.note).toMatch(/capital adequacy.*not (?:modelled|computed)/i);
     const p = assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] });
     const prompt = serializePayloadForPrompt(p);
     expect(prompt).toMatch(/not applicable.*held-for-sale/i);
     expect(p.computed.flatMap(s => s.figures).some(f => /operating cash flow/.test(f.label) && f.value !== null)).toBe(true);
     expect(buildFilingDisclosures(b, c.route.cashFlowApplicability)?.quarterlyTrend.every(r => r.freeCashFlow === null)).toBe(true);
     expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it("F1/F2 remove industrial lender multiples and leverage from numbers and scoring", () => {
+    const c = runStageB(lender());
+    const p = metricPolicy(c.route);
+    expect(p.suppress).toEqual(expect.arrayContaining(["evEbitda", "evToSales", "netDebt", "netDebtToEbitda", "interestCoverage", "grossMargin"]));
+    expect(p.lead).not.toContain("evEbitda");
+    for (const key of ["evToEbitda", "evToSales"]) {
+      expect(c.valuation.multiples!.multiples.find(m => m.key === key)).toMatchObject({ current: null, ownHistory: null, peers: null, basis: expect.stringMatching(/warehouse.*operating inventory finance/i) });
+      expect(c.valuation.multiples!.sectorAppropriate).not.toContain(key);
+    }
+    expect(c.capital.netDebtToEbitda.value).toBeNull();
+    expect(c.capital.netDebtToEbitda.netDebt).toBeNull();
+    expect(c.capital.interestCoverage.value).toBeNull();
+    expect(c.capital.interestCoverage.note).toMatch(/not applicable/i);
+    expect(c.capital.current?.netDebt).toBeNull();
+    expect(c.capital.current?.interestCoverage).toBeNull();
+    expect(c.growth.margins.gross.series).toEqual([]);
+  });
+
+  it("F1 retains EV only as context with a tied filed debt composition", () => {
+    const b = lender();
+    if (!b.edgar.tenQNotes?.ok || !b.statements.balanceQuarterly.ok) throw new Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = "CONSOLIDATED BALANCE SHEETS (in thousands) Liabilities: Payables to third-party loan owners 506,686 383,772 Debt, current ($120,105 at fair value) 222,505 160,959 Debt, current to related parties ($424,640 at fair value) 424,640 166,135 Debt, non-current 315,850 230,143 Total liabilities 1,604,578 1,080,325 " + b.edgar.tenQNotes.value.data.statementsText;
+    Object.assign(b.statements.balanceQuarterly.value.data.rows[0]!, { totalDebt: 1_474_457_000, operatingLeaseLiability: 4_776_000 });
+    const ev = runStageB(b).valuation.multiples!.enterpriseValue;
+    expect(ev.value).not.toBeNull();
+    expect(ev.basis).toMatch(/context only/i);
+    expect(ev.basis).toMatch(/payables to third-party loan owners 506686000/i);
+    expect(ev.basis).toMatch(/Debt, current to related parties 424640000/i);
+  });
+
+  it("F12 scores tangible common returns for evidenced lenders while retaining filed operating margin", () => {
+    const c = runStageB(lender());
+    const p = metricPolicy(c.route);
+    expect(p.suppress).toContain("roic");
+    expect(p.suppress).toContain("roicVsWacc");
+    expect(p.suppress).not.toContain("rote");
+    expect(p.suppress).not.toContain("operatingMargin");
+    expect(c.returns.roic.latestRoicPct).toBeNull();
+    expect(c.returns.roicVsWacc.spreadPctPts).toBeNull();
+    expect(c.returns.rote.latestRotePct).not.toBeNull();
+    expect(c.scores.aspects.moat.signals?.map(s => s.id)).toContain("roteLevel");
+    expect(c.scores.aspects.moat.signals?.map(s => s.id)).not.toContain("roicLevel");
+    expect(c.growth.margins.operating.series.length).toBeGreaterThan(0);
   });
 
   it.each([
@@ -63,6 +110,7 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     const c = runStageB(b);
     expect(c.capital.fcf.latestFcf).not.toBeNull();
     expect(metricPolicy(c.route).suppress).not.toContain("fcfConversion");
+    for (const key of ["evToEbitda", "evToSales"]) expect(c.valuation.multiples!.multiples.find(m => m.key === key)?.current).not.toBeNull();
   });
 
   it("keeps bank routing and its established metric policy", () => {

@@ -67,6 +67,17 @@ payload/prompt provenance and Markdown/audit/print exports carry the same
 explanation. Applicability is derived for new computations; existing saved
 reports are neither reinterpreted nor rewritten (D-67).
 
+Review fixes F1/F2/F12 (owner delegated to the coordinator, 2026-11-01):
+evidenced lenders suppress industrial EV/EBITDA, EV/Sales, net debt,
+net debt/EBITDA, coverage, gross margin, ROIC and ROIC-vs-WACC. Warehouse
+and loan-owner funding is operating inventory finance; industrial leverage
+and coverage do not measure solvency. Capital adequacy is not modelled for
+non-bank lenders, so the Balance Sheet aspect is not modelled. ROTE replaces
+ROIC in Moat; filed operating margin stays applicable. Existing common-income
+availability and allocation gates still apply. EV is context only, with named
+filed debt components tied to the same-date provider perimeter; without that
+composition the context value is withheld. Stored reports are immutable.
+
 ## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
 
 No new bottom-up or sector-beta fallback is implemented. The existing peer
