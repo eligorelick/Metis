@@ -243,6 +243,11 @@ function withStatusMark(claim: SourcedClaim): string {
   return mark === null ? "" : ` ${mark}`;
 }
 
+function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
+  if (!Array.isArray(reasoning)) return `${displayProse(reasoning.text, reasoning.source)}${withStatusMark(reasoning)}`;
+  return reasoning.map(claim => `[${claim.label}] ${displayClaimText(claim)} (${claimCitation(claim)})${withStatusMark(claim)}`).join(" ");
+}
+
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
@@ -817,11 +822,11 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(...subsection("### Catalysts", bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, `${displayProse(c.reasoning.text, c.reasoning.source)}${withStatusMark(c.reasoning)}`]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, claimReasoning(c.reasoning)]),
   )));
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), `${displayProse(r.reasoning.text, r.reasoning.source)}${withStatusMark(r.reasoning)}`]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), claimReasoning(r.reasoning)]),
     ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));

@@ -1,0 +1,668 @@
+{
+  "catalysts": [
+    {
+      "title": "Third-quarter 2026 results and outlook",
+      "expectedDate": "2026-11-12",
+      "direction": "mixed",
+      "significance": "high",
+      "reasoning": [
+        {
+          "text": "A company release carried in provider news states that Figure plans to report third-quarter 2026 results before the market opens on Thursday, November 12, 2026, and to hold a conference call the same day.",
+          "label": "FACT",
+          "sourceId": "fmp:news",
+          "source": "fmp:news",
+          "asOf": "2026-10-22"
+        },
+        {
+          "text": "The provider earnings calendar also lists 2026-11-12 as the next scheduled earnings date. That is a provider schedule, not a company confirmation.",
+          "label": "FACT",
+          "sourceId": "fmp:earnings-calendar",
+          "source": "fmp:earnings-calendar",
+          "asOf": "2026-11-02"
+        },
+        {
+          "text": "The preliminary operating update reported third-quarter 2026 Consumer Loan Marketplace volume of $5,119 million, excluding Kiavi, at the high end of the company's guidance range.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        },
+        {
+          "text": "Our judgment: volume is already known, so the report matters for what volume does not show. The key items are revenue relative to volume (the net take rate), operating margin after Kiavi and note interest, the tax line, and servicing-asset valuation changes. The direction is mixed because each of these can cut either way.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        }
+      ]
+    },
+    {
+      "title": "First reported quarter including Kiavi",
+      "expectedDate": "2026-11-12 (third-quarter 2026 results)",
+      "direction": "mixed",
+      "significance": "high",
+      "reasoning": [
+        {
+          "text": "On September 1, 2026 the company completed its acquisition of Kiavi, Inc. It paid cash consideration, net of cash acquired, of approximately $590 million for Kiavi's technology platform and the DSCR loans on Kiavi's balance sheet, subject to customary adjustments.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-040931",
+          "source": "edgar:8-K 0001493152-26-040931",
+          "asOf": "2026-09-01"
+        },
+        {
+          "text": "The operating update states that Kiavi loan volumes for the roughly one-month period after the merger will be included in the third-quarter 2026 financial results, and that the previously issued third-quarter guidance did not include Kiavi.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        },
+        {
+          "text": "Our judgment: the September 1 completion supersedes the June 10, 2026 merger agreement as the deal's current status. Final consideration, purchase accounting and Kiavi's contribution to revenue and margins are still to be reported, and the third-quarter results will show only about one month of it.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0001493152-26-040931",
+          "source": "edgar:8-K 0001493152-26-040931",
+          "asOf": "2026-09-01"
+        }
+      ]
+    },
+    {
+      "title": "Small business lending and Democratized Prime scaling",
+      "expectedDate": "Ongoing; latest monthly operating update 2026-10-06",
+      "direction": "positive",
+      "significance": "medium",
+      "reasoning": [
+        {
+          "text": "A company release carried in provider news states that the small business financing business funded $135 million in the third quarter of 2026 and more than $50 million in September 2026.",
+          "label": "FACT",
+          "sourceId": "fmp:news",
+          "source": "fmp:news",
+          "asOf": "2026-10-22"
+        },
+        {
+          "text": "The operating update reports a Democratized Prime Matched Offers Balance of $588 million for the third quarter of 2026, against $392 million for the second quarter.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        },
+        {
+          "text": "The same update reports $YLDS in circulation of $504 million for the third quarter of 2026, against $556 million for the second quarter.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        },
+        {
+          "text": "Our judgment: these newer lines are growing but are still small next to home equity lending, and $YLDS circulation fell in the quarter. They broaden the platform, but their revenue contribution is not separately reported in the filings reviewed.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0001493152-26-046036",
+          "source": "edgar:8-K 0001493152-26-046036",
+          "asOf": "2026-10-07"
+        }
+      ]
+    },
+    {
+      "title": "First semiannual coupon on the 8.500% Senior Notes due 2031",
+      "expectedDate": "2027-01-31",
+      "direction": "negative",
+      "significance": "low",
+      "reasoning": [
+        {
+          "text": "The notes accrue interest at 8.500% per annum, payable semiannually in arrears on January 31 and July 31, beginning January 31, 2027.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0000950103-26-010619",
+          "source": "edgar:8-K 0000950103-26-010619",
+          "asOf": "2026-07-14"
+        },
+        {
+          "text": "Our judgment: interest expense accrues from the July 14, 2026 closing and the cash payment schedule is known in advance, so the date itself carries little news. Its importance is as a recurring fixed cost that Kiavi's earnings need to cover.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0000950103-26-010619",
+          "source": "edgar:8-K 0000950103-26-010619",
+          "asOf": "2026-07-14"
+        }
+      ]
+    },
+    {
+      "title": "Share repurchase authorization window",
+      "expectedDate": "Through about 2027-02-25 (12 months from the 2026-02-25 authorization)",
+      "direction": "positive",
+      "significance": "low",
+      "reasoning": [
+        {
+          "text": "The 10-K states that on February 25, 2026 the board authorized repurchases of up to $200 million of Class A and Blockchain common stock over the next 12 months, subject to market conditions, contractual restrictions and other factors.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Share repurchases for the quarter ended 2026-03-31 were USD -9.70 million.",
+          "label": "FACT",
+          "sourceId": "payload.statements.cash-flow-quarterly.2026-03-31.buybacks-negative",
+          "source": "payload.statements.cash-flow-quarterly.2026-03-31.buybacks-negative",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Share repurchases for the quarter ended 2026-06-30 were USD 0.00 million.",
+          "label": "FACT",
+          "sourceId": "payload.statements.cash-flow-quarterly.2026-06-30.buybacks-negative",
+          "source": "payload.statements.cash-flow-quarterly.2026-06-30.buybacks-negative",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: use of the authorization is discretionary, and the debt-funded Kiavi purchase competes for the same capital. Repurchases after June 30, 2026 and the remaining capacity are not in the filings and data reviewed.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
+        }
+      ]
+    },
+    {
+      "title": "Insider trading-plan windows",
+      "expectedDate": "CEO plan through 2027-02-18; director-affiliated plan through 2027-09-13",
+      "direction": "negative",
+      "significance": "low",
+      "reasoning": [
+        {
+          "text": "On June 11, 2026, Michael Tannenbaum, the Company's Chief Executive Officer, entered into a Rule 10b5-1 trading plan for the sale of up to 60,315 shares of Class A common stock until February 18, 2027.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q item5",
+          "source": "edgar:10-Q item5",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "On June 16, 2026, Horsley Capital Partners LLC, beneficially owned by director Adam Boyden, entered into a Rule 10b5-1 trading plan for the sale of up to 57,780 shares of Class A common stock until September 13, 2027.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q item5",
+          "source": "edgar:10-Q item5",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Average daily volume was 4,520,281 shares as of 2026-10-15.",
+          "label": "FACT",
+          "sourceId": "payload.short-interest.avg-daily-volume",
+          "source": "payload.short-interest.avg-daily-volume",
+          "asOf": "2026-10-15"
+        },
+        {
+          "text": "Our judgment: combined plan capacity is small next to average daily trading volume. Plan capacity is not an executed sale and does not establish motive.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-Q item5",
+          "source": "edgar:10-Q item5",
+          "asOf": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "title": "Exit from emerging-growth-company status",
+      "expectedDate": "Not dated in the filings reviewed",
+      "direction": "negative",
+      "significance": "low",
+      "reasoning": [
+        {
+          "text": "The 10-K states the company remains an emerging growth company until the earliest of four events: the fiscal year in which annual revenue reaches at least $1.235 billion; qualifying as a large accelerated filer; issuing more than $1.0 billion of non-convertible debt securities over three years; or the fiscal year ending after the fifth anniversary of the IPO.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Consensus revenue for FY2028 is USD 1.40 billion.",
+          "label": "ESTIMATE",
+          "sourceId": "payload.estimates.est-revenue-2028-12-31",
+          "source": "payload.estimates.est-revenue-2028-12-31",
+          "asOf": "2026-11-02"
+        },
+        {
+          "text": "Our judgment: if consensus is met, the revenue test alone would end emerging-growth status by FY2028. The large-accelerated-filer and debt tests could end it earlier; the $600 million notes count toward the debt test. Whether either earlier test is met is not established in the data reviewed. Exit would bring fuller compliance obligations, including auditor attestation of internal controls, for a company that has reported material weaknesses in prior periods.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "title": "Net take-rate compression as marketplace volume shifts",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:8-K EX-99.1",
+      "reasoning": [
+        {
+          "text": "The Q2 2026 release reports a Net Take Rate of 3.6% for Q2 2026, against 4.0% for Q2 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K EX-99.1",
+          "source": "edgar:8-K EX-99.1",
+          "asOf": "2026-08-13"
+        },
+        {
+          "text": "The same release reports a six-month Net Take Rate of 3.7% for 2026, against 3.9% for 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K EX-99.1",
+          "source": "edgar:8-K EX-99.1",
+          "asOf": "2026-08-13"
+        },
+        {
+          "text": "The release reports Figure Connect Volume of $2,773 million for Q2 2026, up 262% year over year, while Consumer Loan Marketplace Volume rose 132%.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K EX-99.1",
+          "source": "edgar:8-K EX-99.1",
+          "asOf": "2026-08-13"
+        },
+        {
+          "text": "Our judgment: the lower take rate coincides with faster growth in Figure Connect volume, but the filings reviewed do not break the take rate out by channel. The likelihood of further compression is therefore unknown. Take-rate disclosure in the third-quarter results due 2026-11-12 would show whether the decline continues.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K EX-99.1",
+          "source": "edgar:8-K EX-99.1",
+          "asOf": "2026-08-13"
+        }
+      ]
+    },
+    {
+      "title": "Tax benefits and fair-value marks in reported earnings",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:10-K item7",
+      "reasoning": [
+        {
+          "text": "The 10-K states the FY2025 effective tax rate was approximately (18.1)%, primarily because of a discrete benefit from reassessing whether deferred tax assets can be realized after the Recombination.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item7",
+          "source": "edgar:10-K item7",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Income tax expense for the quarter ended 2025-09-30 was USD -31.46 million.",
+          "label": "FACT",
+          "sourceId": "payload.statements.income-statement-quarterly.2025-09-30.income-tax-expense",
+          "source": "payload.statements.income-statement-quarterly.2025-09-30.income-tax-expense",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Income tax expense for the quarter ended 2026-06-30 was USD -4.45 million.",
+          "label": "FACT",
+          "sourceId": "payload.statements.income-statement-quarterly.2026-06-30.income-tax-expense",
+          "source": "payload.statements.income-statement-quarterly.2026-06-30.income-tax-expense",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-Q reports a change in servicing-asset valuation inputs and assumptions of $8,395 thousand for the three months ended June 30, 2026, against a negative change of $5,848 thousand a year earlier.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q item2",
+          "source": "edgar:10-Q item2",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-Q states the company continues to maintain a valuation allowance against certain federal and state deferred tax assets as of June 30, 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: a normal tax charge or a reversal in servicing marks would lower reported net income relative to pre-tax operating results. The filings reviewed give no forward tax-rate outlook, so the timing and likelihood are unknown. A disclosed effective-rate outlook, or a quarter with a normal tax charge, would resolve it.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "title": "Kiavi integration, purchase accounting and DSCR loan credit",
+      "severity": "high",
+      "probability": "unknown",
+      "source": "edgar:8-K 0001493152-26-040931",
+      "reasoning": [
+        {
+          "text": "The completion filing states the company paid cash consideration, net of cash acquired, of approximately $590 million at the September 1, 2026 closing, subject to customary adjustments for Kiavi's cash, indebtedness, transaction expenses and operating net working capital.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-040931",
+          "source": "edgar:8-K 0001493152-26-040931",
+          "asOf": "2026-09-01"
+        },
+        {
+          "text": "The June 10, 2026 merger-agreement filing set aggregate cash to Kiavi equityholders of $532,426,000, subject to adjustments that included Kiavi's cash, indebtedness, transaction expenses, operating net working capital and warehouse working capital.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0001493152-26-028126",
+          "source": "edgar:8-K 0001493152-26-028126",
+          "asOf": "2026-06-10"
+        },
+        {
+          "text": "The 10-Q reports acquisition-related costs of $4,676 thousand for the three months ended June 30, 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q item2",
+          "source": "edgar:10-Q item2",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: the two consideration figures measure different things, one a pre-adjustment agreement amount and the other a closing figure net of cash acquired. Neither establishes final consideration. Goodwill, the credit performance of the acquired DSCR loans and Kiavi's margin contribution are not yet disclosed, so the likelihood of dilution or credit losses is unknown until purchase accounting and post-closing results are reported.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0001493152-26-040931",
+          "source": "edgar:8-K 0001493152-26-040931",
+          "asOf": "2026-09-01"
+        }
+      ]
+    },
+    {
+      "title": "Fixed interest cost from the senior notes",
+      "severity": "medium",
+      "probability": "high",
+      "source": "edgar:8-K 0000950103-26-010619",
+      "reasoning": [
+        {
+          "text": "The company closed $600 million principal amount of 8.500% Senior Notes due 2031 on July 14, 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:8-K 0000950103-26-010619",
+          "source": "edgar:8-K 0000950103-26-010619",
+          "asOf": "2026-07-14"
+        },
+        {
+          "text": "Interest expense for the fiscal year ended 2025-12-31 was USD 48.87 million.",
+          "label": "FACT",
+          "sourceId": "payload.statements.income-statement-annual.2025-12-31.interest-expense",
+          "source": "payload.statements.income-statement-annual.2025-12-31.interest-expense",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Our judgment: the probability is high because the coupon is contractual. At the stated rate and principal the coupon comes to about USD 51 million a year before issuance costs, comparable to the company's entire FY2025 interest expense. The adverse outcome is margin dilution, which depends on whether Kiavi's earnings cover this cost; that part remains unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:8-K 0000950103-26-010619",
+          "source": "edgar:8-K 0000950103-26-010619",
+          "asOf": "2026-07-14"
+        }
+      ]
+    },
+    {
+      "title": "Concentration among loan purchasers",
+      "severity": "high",
+      "probability": "unknown",
+      "source": "edgar:10-Q notes",
+      "reasoning": [
+        {
+          "text": "The 10-Q states that the top five loan purchasers bought 54.4% of the unpaid principal balance of loans sold in the six months ended June 30, 2026, up from 45.8% a year earlier.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-Q states that gain on sale of loans from those purchasers represented 27.0% of total net revenue in the six months ended June 30, 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-K states that the top three loan purchasers accounted for 57% of FY2025 loan sale volume.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Our judgment: concentration is rising, so losing one large purchaser would hit volume and gain-on-sale revenue at once. The filings reviewed give no purchaser contract terms or commitment durations, so the likelihood is unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "title": "Credit performance and loan-repurchase obligations",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:10-Q notes",
+      "reasoning": [
+        {
+          "text": "The 10-Q states that at June 30, 2026 the company had contingent commitments to repurchase loans with an aggregate UPB of up to $2.9 billion, with recorded repurchase obligations of $19.2 million, against $1.8 billion and $17.7 million at December 31, 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Weighted average delinquency in unconsolidated securitization VIEs was 1.1% at June 30, 2026, against 0.8% at December 31, 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-K reports weighted average delinquency of 0.4% at December 31, 2024 for the same disclosure.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K notes",
+          "source": "edgar:10-K notes",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-Q states that losses on repurchased loans were $1.6 million for the six months ended June 30, 2026, against $3.7 million for the six months ended June 30, 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: contingent exposure and delinquency have risen with volume, but realized repurchase losses were lower than a year earlier. The evidence cannot separate seasoning of a growing book from deteriorating credit, so the likelihood of material losses is unknown. Delinquency and repurchase disclosures in the next filings would resolve the direction.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "title": "Warehouse funding access and facility renewals",
+      "severity": "high",
+      "probability": "unknown",
+      "source": "edgar:10-K item1A",
+      "reasoning": [
+        {
+          "text": "The 10-K states that an early amortization event or event of default would negatively affect liquidity, including the ability to originate new loans, and could force reliance on more costly or unavailable funding.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-K states that $210 million, or 52%, of the $404 million of loans on the balance sheet at December 31, 2025 were funded through warehouse credit facilities.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-Q notes describe a master repurchase facility entered in April 2025 with an initial maturity in April 2026 and an option to renew, and a REIT Warehouse whose maturity was extended to December 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "The 10-Q notes state that Figure REIT, Inc. merged with and into VS Evergreen Acquisition Co. L.P. as of March 27, 2026.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q notes",
+          "source": "edgar:10-Q notes",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: the status of these facilities after their stated dates, and after the REIT merger, is not established in the excerpts reviewed. Management states it does not expect to need additional external financing, and the 10-K cited about $1.8 billion of available funding capacity at December 31, 2025. The post-Kiavi funding position is not reported, so the likelihood of a funding squeeze is unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item7",
+          "source": "edgar:10-K item7",
+          "asOf": "2025-12-31"
+        }
+      ]
+    },
+    {
+      "title": "Interest-rate and secondary-market conditions",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:10-K item1A",
+      "reasoning": [
+        {
+          "text": "The 10-K states that loan purchasers' appetite depends on their access to warehouse and securitization funding and on general economic conditions and market trends, such as increasing interest rates.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-K reports realized losses on derivatives of $6.3 million for FY2025 due to changes in rates.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item7",
+          "source": "edgar:10-K item7",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-year Treasury yield was 4.98% on 2026-10-29.",
+          "label": "FACT",
+          "sourceId": "payload.macro.dgs10-core",
+          "source": "payload.macro.dgs10-core",
+          "asOf": "2026-10-29"
+        },
+        {
+          "text": "Our judgment: rate moves affect gain-on-sale pricing, servicing-asset values and hedge results, and the direction of rates is not forecastable from this evidence. Probability is unknown; the filings reviewed carry no quantified rate-sensitivity table.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        }
+      ]
+    },
+    {
+      "title": "Regulation of consumer lending and digital-asset activities",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:10-K item1A",
+      "reasoning": [
+        {
+          "text": "The 10-K states that if the CFPB changes or more strictly interprets existing regulations, compliance costs and litigation exposure could increase materially, or products may need significant changes.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-K states there is still no regulatory clarity on whether or how a broker-dealer can custody digital asset securities for customers.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Our judgment: the business spans regulated consumer credit and evolving digital-asset rules. No specific pending action is disclosed in the excerpts reviewed, so the likelihood of an adverse ruling or rule change is unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        }
+      ]
+    },
+    {
+      "title": "Stock-based compensation and per-share dilution",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "computed.current-capital.stock-based-compensation",
+      "reasoning": [
+        {
+          "text": "Stock-based compensation for the twelve months ended 2026-06-30 was USD 109.08 million.",
+          "label": "FACT",
+          "sourceId": "computed.current-capital.stock-based-compensation",
+          "source": "computed.current-capital.stock-based-compensation",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Diluted weighted-average shares for the quarter ended 2026-06-30 were 246,969,949.",
+          "label": "FACT",
+          "sourceId": "payload.statements.income-statement-quarterly.2026-06-30.diluted-shares",
+          "source": "payload.statements.income-statement-quarterly.2026-06-30.diluted-shares",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Outstanding economic share units were 224,377,872 on the filed inventory date of 2026-08-07.",
+          "label": "FACT",
+          "sourceId": "payload.quote.outstanding-economic-share-units-filed-inventory-date",
+          "source": "payload.quote.outstanding-economic-share-units-filed-inventory-date",
+          "asOf": "2026-08-07"
+        },
+        {
+          "text": "Our judgment: the diluted count exceeds the outstanding units, so equity awards are a material claim on future earnings per share. The dilution overhang is not computed for this report because the IPO conversion spans the comparison period, and future grant levels are not disclosed. The likelihood of further dilution beyond current awards is therefore unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "manifest.capital.dilution.conversion",
+          "source": "manifest.capital.dilution.conversion"
+        }
+      ]
+    },
+    {
+      "title": "Founder voting control",
+      "severity": "medium",
+      "probability": "unknown",
+      "source": "edgar:10-K item1A governance",
+      "reasoning": [
+        {
+          "text": "The 10-K states that Mr. Cagney and Ms. Ou and their permitted transferees control approximately 68% of the combined voting power of the common stock as of December 31, 2025.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A governance",
+          "source": "edgar:10-K item1A governance",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-K states the company has elected the NASDAQ controlled-company exemption, so it is not required to have a majority-independent board or a compensation committee.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A governance",
+          "source": "edgar:10-K item1A governance",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Our judgment: the control structure is established. Whether it leads to decisions that disadvantage minority shareholders is not, so that likelihood is unknown.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1A governance",
+          "source": "edgar:10-K item1A governance",
+          "asOf": "2025-12-31"
+        }
+      ]
+    },
+    {
+      "title": "Digital-asset price volatility",
+      "severity": "low",
+      "probability": "unknown",
+      "source": "edgar:10-K item1A",
+      "reasoning": [
+        {
+          "text": "The 10-K lists dependence on offerings tied to digital asset trading activity, whose prices and volume can be highly volatile, as a factor that can make results fluctuate.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1A",
+          "source": "edgar:10-K item1A",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-K states the company generated $1.1 million of net interest income from YLDS in FY2025 and no material revenue from Figure Exchange.",
+          "label": "FACT",
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "The 10-Q states that digital assets held at fair value decreased $5.4 million from December 31, 2025 to June 30, 2026, including a $3.9 million decrease in the fair value of Solana holdings.",
+          "label": "FACT",
+          "sourceId": "edgar:10-Q item2",
+          "source": "edgar:10-Q item2",
+          "asOf": "2026-06-30"
+        },
+        {
+          "text": "Our judgment: severity is low because digital-asset revenue and holdings are small relative to the lending business today. Future price moves cannot be forecast from this evidence.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
+        }
+      ]
+    }
+  ]
+}

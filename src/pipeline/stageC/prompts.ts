@@ -63,7 +63,7 @@ export const SHARED_RULES_BLOCK = [
   // FIGR paid audit (2026-11-02, B-17): FACT claims carried "In our judgment …".
   "- A FACT holds only the sourced statement. Put your interpretation of it in a separate JUDGMENT claim, never inside the FACT.",
   // FIGR paid runs (2026-11-02): both judges wrote catalyst/risk `reasoning` as a list and paid a repair request.
-  "- A field that holds ONE claim object (each catalyst's and each risk's `reasoning`) takes one claim, never an array: when that claim states a sourced fact with your interpretation, label it JUDGMENT and keep the cited figures exact.",
+  "- Each catalyst's and each risk's `reasoning` is an array of 1–4 concise claims that read as one short paragraph. Give each claim its own source and asOf date. Keep sourced statements FACT and your interpretation in separate JUDGMENT claims; keep cited figures exact.",
   "- Methodology, data-gap and coverage statements describe this analysis: label them JUDGMENT, not issuer FACT.",
   "- Reconcile dated corporate events across retained sources: a later issuer-stated completion supersedes an earlier pending agreement for current status. Keep any explicitly retained historical closing window as dated history; integration and financial results may remain prospective. Completion alone establishes neither final consideration nor funding.",
   "- Provider EPS with unverified accounting basis is not established GAAP or adjusted EPS. Do not compare it or its price quotient with GAAP TTM/historical multiples, adjusted guidance or model operating EPS as though the earnings definitions match. Numerical proximity is not source evidence of basis.",

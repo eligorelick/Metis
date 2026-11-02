@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Multi-claim catalyst and risk reasoning (2026-11-03)
+
+- Accept catalyst/risk reasoning as a legacy single sourced claim or a non-empty claim list. New judge schemas and generation use lists; prompts ask for one to four separately sourced FACT/JUDGMENT claims.
+- Keep legacy objects, verification paths and UI/Markdown/print/audit output unchanged. Render new claim lists as short paragraphs with individual citations and verification marks; check every claim at its indexed path.
+- Replay the retained extra-high FIGR section offline (seven catalysts and twelve risks) without a repair request. Restore omitted nullable dates within the object/list union; reject empty lists and malformed claims. Add legacy presentation goldens and independent sibling-claim verification regressions.
+- Version constants are unchanged as requested; integration needs report spec `1.58.0` → `1.59.0` and pipeline `stage-c-1.6.20` → `stage-c-1.6.21` (D-next, P2). No live provider calls, stored-report migration or financial methodology changes.
+
 ## Unreleased - Separate analyst research from writing (2026-11-03)
 
 - Analysts now research without a JSON grammar, then write without tools. Each request uses existing spend admission and settlement; notes and fetched sources survive repairs and worker restarts through the existing recovery checkpoint and pass artifacts. Failed research stops the pass; empty successful research is retained as an evidence limitation. Subscription providers already run without search and keep their existing sectioned path.

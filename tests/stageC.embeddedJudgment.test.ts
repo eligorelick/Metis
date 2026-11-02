@@ -38,9 +38,12 @@ describe("a FACT carries only its sourced statement (FIGR paid audit R4)", () =>
     expect(reasoningOf(estimate)).toEqual([estimate]);
   });
 
-  it("does not split a claim that stands alone outside a claim list", () => {
+  it("normalizes new catalyst/risk single claims to lists before separating embedded judgments", () => {
     const single = fact("The notes accrue interest at 8.500%. In our judgment the coupon is high.");
     const out = normalizeJudgeOutput({ catalystsRisks: { risks: [{ risk: "x", reasoning: single }] } }) as { catalystsRisks: { risks: { reasoning: unknown }[] } };
-    expect(out.catalystsRisks.risks[0]!.reasoning).toEqual(single);
+    expect(out.catalystsRisks.risks[0]!.reasoning).toEqual([
+      fact("The notes accrue interest at 8.500%."),
+      judgment("In our judgment the coupon is high."),
+    ]);
   });
 });

@@ -151,6 +151,7 @@ import { executiveAssessmentNote } from "@/report/executiveAssessment";
 
 import {
   ClaimList,
+  ClaimReasoning,
   formatMultiple,
   formatNumber,
   formatPct,
@@ -1789,7 +1790,7 @@ export function CatalystsRisksPanel({
                         <span className="ml-2">direction {c.direction}</span>
                       </div>
                       <div className="mt-1">
-                        <ClaimList claims={[c.reasoning]} />
+                        <ClaimReasoning reasoning={c.reasoning} />
                       </div>
                     </div>
                   </li>
@@ -1832,7 +1833,7 @@ export function CatalystsRisksPanel({
                     risk source {r.source.trim() ? sourceLabel(r.source) : "not recorded"}
                   </p>
                   <div className="mt-0.5">
-                    <ClaimList claims={[r.reasoning]} />
+                    <ClaimReasoning reasoning={r.reasoning} />
                   </div>
                 </div>
               </div>

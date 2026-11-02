@@ -2438,11 +2438,24 @@ function splitEmbeddedJudgments(value: unknown): unknown {
 }
 
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = splitEmbeddedJudgments(normalizeKnownEnumCasing(normalizeCitationFields(raw)));
+  const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }
   const root = { ...(enumNormalized as Record<string, unknown>) };
+
+  // Generation uses lists even when a model supplies a legacy single claim.
+  // Do this before splitting embedded judgments so facts keep their own label.
+  // ReportSchema deliberately preserves saved single objects and their paths.
+  if (isPlainObject(root.catalystsRisks)) {
+    const section = { ...root.catalystsRisks };
+    for (const key of ["catalysts", "risks"]) {
+      if (Array.isArray(section[key])) section[key] = section[key].map(item =>
+        isPlainObject(item) && isPlainObject(item.reasoning)
+          ? { ...item, reasoning: [item.reasoning] } : item);
+    }
+    root.catalystsRisks = section;
+  }
 
   if (root.macro !== null && typeof root.macro === "object" && !Array.isArray(root.macro)) {
     root.macro = {
@@ -2492,7 +2505,7 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     root.valuation = valuation;
   }
 
-  return root;
+  return splitEmbeddedJudgments(root);
 }
 
 const parseJudgeOutput = (raw: unknown) => {
