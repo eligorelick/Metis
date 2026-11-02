@@ -6339,3 +6339,5 @@ If the full scan is not in-domain, no beyond-range growth claim is inferred.
 P2 (FIN-116): The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost.
 
 P2 (FIN-405): Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report.
+
+P2 (FIN-127): Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed.

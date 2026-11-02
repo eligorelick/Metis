@@ -101,6 +101,7 @@ function correlation(pairs: Array<{ x: number; y: number }>): number | null {
  * ------------------------------------------------------------------------ */
 
 export interface ProjectionIncomeRow {
+  fiscalYear?: string | null;
   date: string;
   revenue: number | null;
   /** EBIT (operating income), FMP names — used for the net-income/EBIT ratio. */
@@ -114,6 +115,7 @@ export interface ProjectionIncomeRow {
 }
 
 export interface ProjectionFcfRow {
+  fiscalYear?: string | null;
   date: string;
   fcf: number | null;
 }
@@ -199,9 +201,10 @@ function point(period: string, value: number, unit: string, metric: ProjectionMe
 }
 
 /** Fiscal-year label from an ISO date; falls back to the raw string. */
-function fyLabel(dateIso: string): string {
-  const y = Number.parseInt(dateIso.slice(0, 4), 10);
-  return Number.isFinite(y) ? `FY${y}` : dateIso;
+function fyLabel(row: {date:string;fiscalYear?:string|null}, history: readonly {date:string;fiscalYear?:string|null}[]): string {
+  const year = (r: typeof row) => typeof r.fiscalYear === "string" && /^\d{4}$/.test(r.fiscalYear) ? r.fiscalYear : r.date.slice(0,4);
+  const y = year(row);
+  return history.some(other => other.date !== row.date && year(other) === y) ? `FY${y} (ended ${row.date})` : `FY${y}`;
 }
 
 /** Weighted blend of three same-length scenario paths. */
@@ -529,7 +532,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
     buildSeries(
       "revenue",
       revUnit,
-      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r.date), value: r.revenue as number })),
+      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r, incomeAsc), value: r.revenue as number })),
       bullRows.slice(0, H).map((r) => r.revenue),
       baseRows.slice(0, H).map((r) => r.revenue),
       bearRows.slice(0, H).map((r) => r.revenue),
@@ -543,7 +546,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // Operating margin (percent)
   const marginHist = incomeAsc
     .filter((r) => isNum(r.ebit) && isNum(r.revenue) && (r.revenue as number) > 0)
-    .map((r) => ({ period: fyLabel(r.date), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
   series.push(
     buildSeries(
       "operatingMargin",
@@ -560,12 +563,12 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   );
 
   // Free cash flow (unlevered / FCFF)
-  const fcfAsc = inputs.fcfHistory.filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
+  const fcfAsc = inputs.fcfHistory.map(row => ({...row, fiscalYear: row.fiscalYear ?? incomeAsc.find(r => r.date === row.date)?.fiscalYear})).filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
   series.push(
     buildSeries(
       "fcf",
       revUnit,
-      histTail(fcfAsc).map((r) => ({ period: fyLabel(r.date), value: r.fcf as number })),
+      histTail(fcfAsc).map((r) => ({ period: fyLabel(r, fcfAsc), value: r.fcf as number })),
       bullRows.slice(0, H).map((r) => r.fcff),
       baseRows.slice(0, H).map((r) => r.fcff),
       bearRows.slice(0, H).map((r) => r.fcff),
@@ -683,7 +686,7 @@ function buildEpsSeries(
 ): AuditableProjectionSeries | null {
   const unit = perShareUnit(inputs.currency);
   const historical = incomeAsc.filter(r => isNum(r.epsDiluted)).slice(-4)
-    .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
+    .map(r => point(fyLabel(r, incomeAsc), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
   // Pure callers inherit the valuation's refusal too. A positive raw count
   // cannot restore a denominator that the shared valuation already rejected.
   const scopeGap = inputs.valuation.gaps.find(g => g.severity !== "info" && ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
@@ -753,7 +756,7 @@ function buildEpsSeries(
   const histEps = incomeAsc
     .filter((r) => isNum(r.epsDiluted))
     .slice(-4)
-    .map((r) => ({ period: fyLabel(r.date), value: r.epsDiluted as number }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: r.epsDiluted as number }));
 
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>

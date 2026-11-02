@@ -3609,3 +3609,7 @@ The latest debt balance used for WACC weights also admits the debt leg. Average 
 ## D-next (P2) - FIN-405 (2026-11-02)
 
 Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report. Stored reports remain immutable.
+
+## D-next (P2) - FIN-127 (2026-11-02)
+
+Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed. Stored reports remain immutable.
