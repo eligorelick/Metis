@@ -3,7 +3,7 @@ import { applyKeylessFallbacks, type KeylessInputs } from "@/pipeline/keyless";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { YahooClient } from "@/providers/yahoo";
-import { ttmIncome } from "@/pipeline/compute";
+import { runStageB, ttmIncome } from "@/pipeline/compute";
 
 const at = "2026-07-06T00:00:00.000Z";
 const sourced = <T>(data:T) => ({ok:true as const,value:{data,source:"edgar" as const,endpoint:"retained",asOf:"2026-06-30",fetchedAt:at}});
@@ -34,6 +34,66 @@ describe("N3 whole filed statement rows",()=>{
   it("switches the entire quarterly cash-flow row on a filed CFO conflict",async()=>{
     const out=await applyKeylessFallbacks(inputs("quarter"));
     expect(out.members.cashflowQuarterly).toMatchObject({ok:true,value:{data:{rows:[{operatingCashFlow:50e6,capitalExpenditure:-5e6,freeCashFlow:45e6,source:"edgar"}]}}});
+  });
+  it("switches when only the vendor CFO alias conflicts with the filed quarter",async()=>{
+    const i=inputs("quarter");
+    if(!i.fmp.cashflowQuarterly.ok)throw Error("fixture");
+    i.fmp.cashflowQuarterly.value.data.rows[0]!.operatingCashFlow=50e6;
+    const out=await applyKeylessFallbacks(i);
+    expect(out.members.cashflowQuarterly).toMatchObject({ok:true,value:{data:{rows:[{operatingCashFlow:50e6,source:"edgar",capitalExpenditure:-5e6}]}}});
+    expect(out.gaps.find(g=>g.field.startsWith("statements.sourceSwitch.cashflowQuarterly"))?.reason).toMatch(/netCashProvidedByOperatingActivities.*10000000/);
+  });
+  it("keeps runway withheld when the switched SEC row has no canonical capex",async()=>{
+    const i=inputs("quarter");
+    if(!i.edgar.companyFacts.ok||!i.fmp.cashflowQuarterly.ok)throw Error("fixture");
+    delete i.edgar.companyFacts.value.data.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment;
+    i.fmp.cashflowQuarterly.value.data.rows.push({date:"2025-06-30",reportedCurrency:"USD",operatingCashFlow:-10e6,capitalExpenditure:-1e6});
+    const out=await applyKeylessFallbacks(i);
+    const b=completeCurrencyBundle({burning:true});
+    b.statements.cashflowQuarterly=out.members.cashflowQuarterly;
+    const result=runStageB(b);
+    expect(result.runway?.runwayQuarters).toBeNull();
+    expect(result.runway?.gaps.some(g=>g.field==="runway.cashInvestmentScope")).toBe(true);
+    expect(out.members.cashflowQuarterly.ok&&out.members.cashflowQuarterly.value.data.rows[0]!.capitalExpenditure).toBeNull();
+  });
+  it("does not switch a CFO quarter whose earlier YTD operand was only filed after its minuend",async()=>{
+    const i=inputs("quarter");
+    if(!i.edgar.companyFacts.ok)throw Error("fixture");
+    const f=i.edgar.companyFacts.value.data;
+    (f.facts["us-gaap"]!.Assets as {units:{USD:unknown[]}}).units.USD.push({val:800e6,end:"2025-06-30",form:"10-Q",filed:"2025-08-01",accn:"0000000001-25-000002",fy:2025,fp:"Q2"});
+    (f.facts["us-gaap"]!.Revenues as {units:{USD:unknown[]}}).units.USD.push({val:700e6,start:"2025-01-01",end:"2025-09-30",form:"10-Q",filed:"2025-11-01",accn:"0000000001-25-000003",fy:2025,fp:"Q3"});
+    f.facts["us-gaap"]!.NetCashProvidedByUsedInOperatingActivities={units:{USD:[
+      {val:50e6,start:"2025-01-01",end:"2025-09-30",form:"10-Q",filed:"2025-11-01",accn:"0000000001-25-000003",fy:2025,fp:"Q3"},
+      {val:20e6,start:"2025-01-01",end:"2025-06-30",form:"10-Q",filed:"2026-02-01",accn:"0000000001-26-000002",fy:2026,fp:"Q2"},
+    ]}};
+    const out=await applyKeylessFallbacks(i);
+    expect(out.members.cashflowQuarterly.ok&&out.members.cashflowQuarterly.value.data.rows[0]!.operatingCashFlow).toBe(10e6);
+    expect(out.gaps.some(g=>g.field.startsWith("statements.sourceSwitch.cashflowQuarterly"))).toBe(false);
+  });
+  it("admits the issuer's directly filed gross-profit less operating-expenses path",async()=>{
+    const i=inputs();
+    if(!i.edgar.companyFacts.ok)throw Error("fixture");
+    const f=i.edgar.companyFacts.value.data.facts["us-gaap"]!;
+    const p=(val:number)=>({val,start:"2025-01-01",end:"2025-12-31",form:"10-K",filed:"2026-02-01",accn:"0000000001-26-000001",fy:2025,fp:"FY"});
+    delete f.CostsAndExpenses;
+    f.GrossProfit={units:{USD:[p(160e6)]}}; f.OperatingExpenses={units:{USD:[p(42473000)]}};
+    const out=await applyKeylessFallbacks(i);
+    expect(out.members.incomeAnnual.ok&&out.members.incomeAnnual.value.data.rows[0]).toMatchObject({source:"edgar",operatingIncome:117527000,grossProfit:160e6,operatingExpenses:42473000});
+  });
+  it.each([true,false])("respects derived CFO operand rounding (within allowance=%s)",async within=>{
+    const i=inputs("quarter");
+    if(!i.edgar.companyFacts.ok||!i.fmp.cashflowQuarterly.ok)throw Error("fixture");
+    const f=i.edgar.companyFacts.value.data;
+    (f.facts["us-gaap"]!.Assets as {units:{USD:unknown[]}}).units.USD.push({val:800e6,end:"2025-06-30",form:"10-Q",filed:"2025-08-01",accn:"0000000001-25-000002",fy:2025,fp:"Q2"});
+    (f.facts["us-gaap"]!.Revenues as {units:{USD:unknown[]}}).units.USD.push({val:700e6,start:"2025-01-01",end:"2025-09-30",form:"10-Q",filed:"2025-11-01",accn:"0000000001-25-000003",fy:2025,fp:"Q3"});
+    f.facts["us-gaap"]!.NetCashProvidedByUsedInOperatingActivities={units:{USD:[
+      {val:150e6,start:"2025-01-01",end:"2025-09-30",form:"10-Q",filed:"2025-11-01",accn:"0000000001-25-000003",fy:2025,fp:"Q3"},
+      {val:100e6,start:"2025-01-01",end:"2025-06-30",form:"10-Q",filed:"2025-08-01",accn:"0000000001-25-000002",fy:2025,fp:"Q2"},
+    ]}};
+    const row=i.fmp.cashflowQuarterly.value.data.rows[0]!;
+    row.operatingCashFlow=within?50.4e6:52e6;row.netCashProvidedByOperatingActivities=row.operatingCashFlow;
+    const out=await applyKeylessFallbacks(i);
+    expect(out.members.cashflowQuarterly.ok&&out.members.cashflowQuarterly.value.data.rows[0]!.source).toBe(within?undefined:"edgar");
   });
   it("sums SEC EPS for a switched quarter and discloses a mixed whole-row TTM window",async()=>{
     const i=inputs("quarter");

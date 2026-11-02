@@ -30,6 +30,14 @@ visible. Only issuer-admitted core-form facts available by the run cutoff
 qualify. IPO proceeds alone do not establish a conversion; ordinary issuance
 remains a dilution signal.
 
+For N3 CFO switches, either conflicting vendor CFO alias triggers admission;
+derived operands retain their existing rounding allowance. Missing canonical
+SEC cash-capex is an explicit investment-scope refusal on the replacement
+row, so runway cannot use an older vendor quarter to bypass the missing
+operand. A missing canonical quarter is never synthesized from a later-filed
+prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
+quarters and do not claim a single-lineage filed SEC TTM.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

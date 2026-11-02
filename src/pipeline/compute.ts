@@ -2007,16 +2007,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))
     ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
+  const profile = firstRow(bundle.profile);
+  const support = classifyInstrumentSupport(profile);
+  if (!support.supported) throw new UnsupportedInstrumentError(support);
+  const quote = firstRow(bundle.quote);
   const refusedAnnualRevenue = rowsOf(bundle.statements.incomeAnnual).find(row => row.fieldConflicts?.revenue?.usable === false);
   const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id)) ??
     (refusedAnnualRevenue ? { id: `statements.income.${refusedAnnualRevenue.date}.revenue`, detail: refusedAnnualRevenue.fieldConflicts!.revenue!.reason } : null);
   const revenueEligibilityReason = revenueConflict
     ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
-
-  const profile = firstRow(bundle.profile);
-  const support = classifyInstrumentSupport(profile);
-  if (!support.supported) throw new UnsupportedInstrumentError(support);
-  const quote = firstRow(bundle.quote);
 
   // The statements AS REPORTED. Calculations that combine rows read the
   // currency-compatible subsets below (rowsInModelCurrency) instead.

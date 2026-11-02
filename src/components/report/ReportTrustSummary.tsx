@@ -26,7 +26,7 @@ export function ReportTrustDetails({report, completeness:c}: {report:Report; com
   const share = report.scores?.assessments?.evidenceCompleteness;
   return <details className="trust-details" id="report-trust-details" tabIndex={-1}>
       <summary>{c.dataCriticalCount+c.dataWarningCount} grouped data issues · {warnings} recorded warning entries · reconciliation &amp; definitions</summary>
-      <p>Metadata reconciliation: {c.metadataStatus}. This checks agreement with the manifest, not research completeness. EDGAR partial means some retained SEC sources exist alongside gaps; XBRL skipped means no completed cross-check; provisional forensics are not an audit.</p>
+      <p>Metadata reconciliation: {c.metadataStatus}. This checks agreement with the manifest, not research completeness. EDGAR partial means some retained SEC sources exist alongside gaps; a skipped XBRL check means no completed cross-check; provisional forensics are not an audit.</p>
       {c.analysisReason && <p>Analysis availability: {c.analysisReason}</p>}
       <dl>{rows.map(row=><div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
       {share !== undefined && <p>Precise signal evidence availability: {String(share)} (fraction). Eligibility uses this recorded precision; a letter needs 50% and partial single-signal assessments remain limited.</p>}

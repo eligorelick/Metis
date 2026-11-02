@@ -43,6 +43,10 @@ quarterly CFO conflict uses the whole canonical SEC-derived quarter when its
 filing lineage is established. This restores cash-flow consumers without
 combining a filed CFO with vendor capex or other fields. Mixed TTM row sources
 are disclosed and existing TTM gates remain binding.
+Either conflicting vendor CFO alias qualifies. Existing derived-operand
+rounding stays binding. Missing SEC cash-capex is an explicit replacement-row
+investment-scope refusal, so the existing runway gate cannot extrapolate an
+older vendor quarter over the missing recent-quarter operand.
 
 ## D-next (N3) - EPS follows the income row
 

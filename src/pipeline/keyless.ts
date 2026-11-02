@@ -51,7 +51,7 @@ import {
   type StatementRowsResult,
 } from "@/edgar/statements";
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import { tagsFor } from "@/edgar/tagSynonyms";
+import { COSTS_AND_EXPENSES_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { describeSplits, sameShareBasis, shareBasisFactor, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
 import { mergeSplitEvidence, unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
@@ -1546,7 +1546,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     const reconciles = (row: FmpIncomeStatementRow): boolean => {
       const revenue = proofFor(row, "revenue"), operating = proofFor(row, "operatingIncome");
       if (!revenue || !operating || !sameScope(revenue, operating) || !isFiniteNumber(row.revenue) || !isFiniteNumber(row.operatingIncome)) return false;
-      const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.["CostsAndExpenses"]);
+      const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[COSTS_AND_EXPENSES_TAG]);
       const points = parsed.success ? parseFactPoints(parsed.data.units[revenue.unit] ?? []).filter(p =>
         CORE_FACT_FORMS.has(p.form) && p.filed <= inputs.today && revenue.filings.some(f => f.accn === p.accn)) : [];
       let costs = points.find(p => p.start === revenue.periodStart && p.end === row.date)?.val;
@@ -1570,10 +1570,23 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       if (!current.ok || current.value.source === "edgar") continue;
       const field = member === "cashflowQuarterly" ? "operatingCashFlow" : "revenue";
       const rows = current.value.data.rows.map(row => {
-        if (row.source === "edgar" || !isFiniteNumber(row[field])) return row;
+        const vendorFields = member === "cashflowQuarterly" ? ["operatingCashFlow", "netCashProvidedByOperatingActivities"] : [field];
+        if (row.source === "edgar") return row;
         const sec = built[member].rows.find(candidate => candidate.date === row.date);
         const proof = sec && proofFor(sec, field);
-        if (!sec || !proof || !isFiniteNumber(sec[field]) || vendorAgreesWithFiled(row[field], sec[field]) ||
+        let operands: number[] | null = null;
+        if (proof?.derivation && proof.periodStart && proof.tags.length === 1) {
+          const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[proof.tags[0]!.replace(/^us-gaap\//, "")]);
+          const points = parsed.success ? parseFactPoints(parsed.data.units[proof.unit] ?? []).filter(p => proof.filings.some(f => f.accn === p.accn)) : [];
+          const priorEnd = new Date(Date.parse(proof.periodStart) - 86_400_000).toISOString().slice(0, 10);
+          const total = points.find(p => p.end === row.date && p.start && p.start < proof.periodStart!);
+          const prior = points.find(p => p.end === priorEnd && p.start === total?.start);
+          if (total && prior) operands = [total.val, prior.val];
+        }
+        const conflictField = sec && isFiniteNumber(sec[field]) ? vendorFields.find(key => isFiniteNumber(row[key]) && !(operands
+          ? vendorAgreesWithDerived(row[key], sec[field] as number, operands)
+          : vendorAgreesWithFiled(row[key], sec[field] as number))) : undefined;
+        if (!sec || !proof || !conflictField ||
           proof.unit !== row.reportedCurrency || !proof.periodStart || proof.filings.length === 0 ||
           (row.periodStart != null && row.periodStart !== proof.periodStart) ||
           (row.cik != null && Number(row.cik) !== Number(facts.cik))) return row;
@@ -1581,9 +1594,13 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         // Canonical CFO derivation rejects incompatible YTD lineages. Require
         // its actual operating-cash-flow tag, not a proxy or a vendor alias.
         if (member === "cashflowQuarterly" && !proof.tags.includes("us-gaap/NetCashProvidedByUsedInOperatingActivities")) return row;
-        const reason = `Vendor ${field} ${row[field]} conflicts with filed ${sec[field]} ${proof.unit} for ${proof.periodStart} through ${row.date}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}. Whole SEC-built row replaced the vendor row in auto mode; ${member === "cashflowQuarterly" ? "quarterly CFO resolved on the canonical filing lineage" : "filed operating statement reconciles"}; no fields or EPS mixed with the vendor row.`;
+        const reason = `Vendor ${conflictField} ${row[conflictField]} conflicts with filed ${sec[field]} ${proof.unit} for ${proof.periodStart} through ${row.date}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}. Whole SEC-built row replaced the vendor row in auto mode; ${member === "cashflowQuarterly" ? "quarterly CFO resolved on the canonical filing lineage" : "filed operating statement reconciles"}; no fields or EPS mixed with the vendor row.`;
         gaps.push({ field: `statements.sourceSwitch.${member}.${row.date}`, reason, severity: "info", attemptedSources: [current.value.endpoint, STATEMENT_ENDPOINTS[member]] });
-        return { ...sec, source: "edgar", sourceEndpoint: STATEMENT_ENDPOINTS[member], sourceFetchedAt: factsFetchedAt, sourceAsOf: factsAsOf };
+        const capexRefusal = member === "cashflowQuarterly" && !isFiniteNumber(sec.capitalExpenditure)
+          ? { capitalExpenditure: { usable: false as const, vendorValue: isFiniteNumber(row.capitalExpenditure) ? row.capitalExpenditure : null, secValue: null,
+            reason: "Whole SEC-built cash-flow row has no canonical quarterly cash-capex amount; vendor capex is set aside with the vendor row. Older-quarter burn cannot substitute for this unresolved investment scope." } } : {};
+        return { ...sec, ...(Object.keys(capexRefusal).length ? { fieldConflicts: { ...sec.fieldConflicts, ...capexRefusal } } : {}),
+          source: "edgar", sourceEndpoint: STATEMENT_ENDPOINTS[member], sourceFetchedAt: factsFetchedAt, sourceAsOf: factsAsOf };
       });
       members[member] = { ...current, value: { ...current.value, data: { ...current.value.data, rows } } } as KeylessMembers[typeof member];
       const window = [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 4);

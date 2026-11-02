@@ -32,6 +32,9 @@ or replaced) from a comparison that was skipped.
 Annual weighted-share jumps spanning filed conversions or an IPO with a
 same-filing two-class allocation no longer score as economic dilution. Counts
 and the refusal reason remain disclosed; genuine issuance controls still score.
+Replay controls cover alternate CFO aliases and derived-operand rounding.
+Switched SEC rows with missing capex preserve the runway investment-scope
+refusal; older vendor burn cannot replace the missing recent-quarter operand.
 
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 

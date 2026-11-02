@@ -379,7 +379,7 @@ export function deriveReportCompletenessPresentation(
     warningCount: metadataStatus === "confirmed" ? persisted!.warningCount : "unknown",
     edgar,
     xbrl: metadataStatus === "confirmed" ? persisted!.xbrl : "unknown",
-    xbrlLabel,
+    ...(conflictLabel ? { xbrlLabel } : {}),
     forensicValidation: metadataStatus === "confirmed"
       ? persisted!.forensicValidation
       : "unknown",

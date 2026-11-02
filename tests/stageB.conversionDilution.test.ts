@@ -33,11 +33,12 @@ describe("N3 conversion is not a dilution signal",()=>{
  it("wires admitted filed conversion evidence into Stage B scoring",()=>{
   const b=completeCurrencyBundle({});
   if(b.statements.incomeAnnual.ok)b.statements.incomeAnnual.value.data.rows.forEach((r,i)=>{r.weightedAverageShsOutDil=i===0?166.25:100;});
+  expect(runStageB(b).scores.aspects.leadership.drivers.some(d=>d.source.includes("shareCount"))).toBe(true);
   b.edgar.registrant={...b.edgar.registrant!,cik10:"0000000001",tickers:[b.symbol]};
   b.edgar.cik={ok:true,value:{data:{cik:1,cik10:"0000000001",ticker:b.symbol,title:"Example"},source:"edgar",asOf:at.slice(0,10),fetchedAt:at,endpoint:"retained"}};
   b.edgar.companyFacts={ok:true,value:{data:facts({ConversionOfStockSharesConverted:[point(60)]}),source:"edgar",asOf:at.slice(0,10),fetchedAt:at,endpoint:"retained"}};
   const out=runStageB(b);
   expect(out.capital.shareCount.annualizedPct).toBeNull();
-  expect(out.scores.aspects.leadership.drivers.some(d=>d.name==="shareCountTrend")).toBe(false);
+  expect(out.scores.aspects.leadership.drivers.some(d=>d.source.includes("shareCount"))).toBe(false);
  });
 });
