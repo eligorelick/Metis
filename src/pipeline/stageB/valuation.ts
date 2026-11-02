@@ -3711,6 +3711,14 @@ export interface MultiplesQuoteInputs {
   marketCapScopeEvidence?: { reason: string; sourceIds: string[] };
 }
 
+/** One admitted common-income component; no second ownership allocation. */
+export interface CommonIncomeQuarter {
+  period: string;
+  periodStart: string | null;
+  value: number;
+  basis: string;
+}
+
 /** TTM income statement slice (FMP names). */
 export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   date: string;
@@ -3733,6 +3741,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   /** Explicit construction from the adapter; absent for reported annual EPS. */
   epsDilutedBasis?: "sum-quarterly-diluted-eps" | null;
   netIncomeAvailableToCommon?: number | null;
+  /** The same admitted four quarters used by the TTM common-income selector. */
+  commonIncomeQuarters?: CommonIncomeQuarter[];
   preferredDividendsPaid?: number | null;
   noncontrollingIncome?: number | null;
   netIncomeOwnershipBasis?: "parent" | "consolidated";
@@ -4051,6 +4061,7 @@ export interface MultipleStat {
   /** Current multiple; null = n/m (negative/zero denominator or missing input). */
   current: number | null;
   basis: string;
+  earningsDenominator?: { value: number; currency: string; period: string; quarters: CommonIncomeQuarter[] };
   /** A retained numerator/denominator ownership mismatch, not a parent allocation. */
   ownershipScope?: string;
   historyScope?: string;
@@ -5039,10 +5050,18 @@ export function multiplesFramework(
       : bal?.basis === "annual"
         ? `latest annual balance sheet ${bal.date}`
         : "latest";
+  const commonDenominator = price !== null && eps !== null || capital.commonIncome === null || !inputs.reportedCurrency || !inc
+    ? undefined : { value: capital.commonIncome, currency: inputs.reportedCurrency,
+      period: inc.date, quarters: inc.basis === "ttm" ? inc.commonIncomeQuarters ?? [] : [] };
+  const denominatorText = commonDenominator === undefined ? "" :
+    `. Common-income denominator ${commonDenominator.value} ${commonDenominator.currency}, ${incomeBasisLabel} ended ${commonDenominator.period}` +
+    (commonDenominator.quarters.length === 4
+      ? ": " + [...commonDenominator.quarters].reverse().map(q => `${q.period}: ${q.value} ${commonDenominator.currency} (${q.periodStart ?? "start unavailable"} to ${q.period}; ${q.basis})`).join(" + ")
+      : inc?.basis === "annual" ? "; filed annual flow, not four quarterly observations" : "; four-quarter component evidence unavailable") + ".";
   const basisByKey: Record<MultipleKey, string> = {
     peTtm: (price !== null && eps !== null
       ? `${epsBasis} (${incomeBasisLabel})`
-      : `marketCap / common income (${incomeBasisLabel}; aggregate basis; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) +
+      : `marketCap / common income (${incomeBasisLabel}; aggregate basis; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) + denominatorText +
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),
@@ -5098,6 +5117,7 @@ export function multiplesFramework(
       key,
       current: cur,
       basis: basisByKey[key],
+      ...(key === "peTtm" && commonDenominator !== undefined ? { earningsDenominator: commonDenominator } : {}),
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
       ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
       ...(incomePeriod !== undefined && (key === "peTtm" || key === "evToEbitda" || key === "evToSales") ? { period: incomePeriod } : {}),

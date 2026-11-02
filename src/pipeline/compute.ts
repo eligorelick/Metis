@@ -4121,6 +4121,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
+        ...(ttmInc.netIncomeAvailableToCommon != null && !ttmInc.commonIncomeWithheldReason ? {
+          commonIncomeQuarters: incomeQuarterly.slice(0, 4).map(row => {
+            const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
+            return { period: String(row.date), periodStart: evidence?.periodStart ?? null,
+              value: Number(row.netIncomeAvailableToCommon),
+              basis: evidence
+                ? `${evidence.tags.join(", ")}; ${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}`
+                : "provider-supplied common income; filing basis unavailable" };
+          }),
+        } : {}),
         commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,
         netIncomeWithheldReason: ttmInc.netIncomeWithheldReason,
         netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis,

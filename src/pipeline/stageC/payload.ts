@@ -79,7 +79,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
+import { operatingMeasuresStated, selectMaterialEvidence, selectGovernanceEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -1214,6 +1214,15 @@ function computedSections(
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });
+    if (m.key === "peTtm" && m.earningsDenominator) {
+      const d = m.earningsDenominator;
+      valFigures.push({ label: "P/E common-income denominator", value: d.value, unit: d.currency, currency: d.currency,
+        period: d.period, source: "computed.valuation.multiples.peTtm.denominator", asOf: d.period });
+      for (const q of d.quarters) valFigures.push({ label: `P/E common-income quarter ended ${q.period}`, value: q.value,
+        unit: d.currency, currency: d.currency, period: q.period,
+        ...(q.periodStart ? { periodContext: { kind: "duration" as const, start: q.periodStart, end: q.period, basis: "fiscal-quarter" as const } } : {}),
+        source: `computed.valuation.multiples.peTtm.denominator.${q.period}`, asOf: q.period });
+    }
     if (m.peers) {
       valFigures.push({
         label: `${m.key} peer median`,
@@ -2033,12 +2042,47 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       notes.push(`Insider statistics: FMP serves only ${only.year} Q${only.quarter}, which is in progress at ${statsAsOf}; no complete calendar quarter is summed.`);
     }
   }
-  const trades = rowsOf(bundle.insiderTrades).slice(0, PAYLOAD_BUDGETS.listRows);
+  const observed = rowsOf(bundle.insiderTrades).filter(tr => tr.formType === undefined || /^4(?:\/A)?$/.test(tr.formType));
+  const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
+    .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
+  const lastFiling = filingDates.at(-1) ?? null;
+  const coverage = `Insider coverage: last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
+    "This is the latest filing date among selected provider rows, not proof of a complete SEC filing review; transaction dates and filing dates differ. " +
+    "Form 144 proposed-sale notices are not collected by the current providers and were not inspected. Proposed sales and Rule 10b5-1 plan capacity are not executed sales.";
+  notes.push(coverage);
+  figures.push({ label: "Insider filing coverage", value: coverage, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0, 10) });
+  if (win) {
+    const after = observed.filter(tr => {
+      const transaction = isoDay(tr.transactionDate), filed = isoDay(tr.filingDate);
+      return tr.formType !== undefined && transaction !== null && isIsoDate(transaction) && transaction > win.end &&
+        transaction <= bundle.builtAt.slice(0, 10) && filed !== null && isIsoDate(filed) && filed <= bundle.builtAt.slice(0, 10);
+    });
+    if (after.length > 0) {
+      const codes = [...new Set(after.map(tr => (tr.transactionType ?? "unknown").split("-")[0]))].sort();
+      notes.push(`Form 4 activity after ${win.end} in selected provider rows, through filing date ${lastFiling}: ` + codes.map(code => {
+        const rows = after.filter(tr => (tr.transactionType ?? "unknown").split("-")[0] === code);
+        const shares = rows.every(tr => numOrNull(tr.securitiesTransacted) !== null)
+          ? `${rows.reduce((sum, tr) => sum + tr.securitiesTransacted!, 0)} shares` : "share total unavailable";
+        const period = after.map(tr => isoDay(tr.transactionDate)!).sort().at(-1)!;
+        const periodStart = new Date(Date.parse(`${win.end}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        const context = { source: "fmp:insider-trades", asOf: lastFiling, period,
+          periodContext: { kind: "duration" as const, start: periodStart, end: period } };
+        figures.push(
+          { label: `Post-window Form 4 code ${code} reported transaction rows`, value: rows.length, unit: "count", ...context },
+          { label: `Post-window Form 4 code ${code} reported shares (selected rows, may overlap)`,
+            value: shares === "share total unavailable" ? null : rows.reduce((sum, tr) => sum + tr.securitiesTransacted!, 0), unit: "shares", ...context },
+        );
+        return `${code}: ${rows.length} reported transaction row${rows.length === 1 ? "" : "s"}, ${shares}`;
+      }).join("; ") + ". Codes S/P are reported sales/purchases; F is not a sale code. These row totals are not a complete post-window aggregate and may overlap across joint owners or amendments; do not infer unique shares sold or motive.");
+    } else notes.push(`No dated post-window Form 4 rows are available in the selected provider rows after ${win.end}; this does not establish no activity.`);
+  }
+  const trades = observed.slice(0, PAYLOAD_BUDGETS.listRows);
   for (const tr of trades) {
     const d = isoDay(tr.transactionDate) ?? isoDay(tr.filingDate) ?? "unknown";
     notes.push(
       `${d} ${strOrNull(tr.reportingName) ?? "?"} (${strOrNull(tr.typeOfOwner) ?? "?"}): ` +
-        `${strOrNull(tr.transactionType) ?? "?"} ${numOrNull(tr.securitiesTransacted) ?? "?"} @ ${numOrNull(tr.price) ?? "?"} [fmp:insider-trades · ${d}]`,
+        `${strOrNull(tr.transactionType) ?? "?"} ${numOrNull(tr.securitiesTransacted) ?? "?"} @ ${numOrNull(tr.price) ?? "?"}` +
+        `; filed ${isoDay(tr.filingDate) ?? "unknown"}${tr.formType ? `, Form ${tr.formType}` : ", form unavailable"} [fmp:insider-trades · ${d}]`,
     );
   }
   // Finnhub MSPR insider sentiment.
@@ -2344,12 +2388,14 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     title: (form: string) => string,
     budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
-    profile: EvidenceProfile = "financial",
+    profile: EvidenceProfile | "governance" = "financial",
     superseding: readonly OperatingMeasure[] = [],
   ): void => {
     if (!res?.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
+    const chars = typeof budget === "number" ? budget : budget(sec.text.length);
+    const cut = profile === "governance" ? selectGovernanceEvidence(sec.text, chars) : selectMaterialEvidence(sec.text, chars, profile, superseding);
+    if (cut === null) return;
     const kept = cut.superseded ?? [];
     const reportingPeriod = isoDay(sec.reportDate);
     // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
@@ -2411,6 +2457,17 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
   add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
+  // A separate bounded reading stops financially scored prose displacing
+  // class votes, controllers and the issuer's actual exemption election.
+  let governanceRemaining = 16_000;
+  for (const [section, item] of [[bundle.edgar.item1a, "item1A"], [bundle.edgar.tenKNotes, "notes"],
+    [bundle.edgar.tenQNotes, "notes"], [bundle.edgar.business, "item1"]] as const) {
+    const before = out.length;
+    const filedItem = (form: string) => form === "20-F" ? item === "item1A" ? "item3D" : item === "item1" ? "item4" : item : item;
+    add(section, form => `Governance: filed voting rights and control (${filedItem(form)})`, Math.min(10_000, governanceRemaining),
+      form => `edgar:${form} ${filedItem(form)} governance`, "governance");
+    if (out.length > before) governanceRemaining -= out.at(-1)!.text.length;
+  }
   const signatures = periodicPrimaryExcerpt(bundle, "signatures");
   if (signatures !== null) out.push(signatures);
   const controls = periodicPrimaryExcerpt(bundle, "controls");

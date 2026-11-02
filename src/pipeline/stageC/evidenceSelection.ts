@@ -322,6 +322,36 @@ function eventReferent(all: readonly Passage[], index: number): Passage | undefi
 }
 const TABLE_TOKEN = /^(?:[$(]?[\d,.]+\)?%?|\$|%|\(|\)|—|–|-)$/;
 
+/** R6: voting economics are independent of dividend/liquidation economics.
+ * Keep the filed words, including adjacent definitions and elected/available
+ * exemption qualifiers. Never derive present ownership from an IPO event.
+ */
+export function selectGovernanceEvidence(text: string, maxChars: number): SelectedEvidence | null {
+  const all = passages(text, "risk");
+  const indices = new Set<number>();
+  for (const [i, passage] of all.entries()) {
+    if (!/\b(?:votes? per share|voting (?:rights|power|ratio)|controlled.company)\b/i.test(passage.text)) continue;
+    for (let j = Math.max(0, i - 1); j <= Math.min(all.length - 1, i + 2); j++) indices.add(j);
+  }
+  const separator = "\n\n[OMITTED SOURCE PASSAGES]\n\n";
+  const marker = "\n\n…[TRUNCATED: governance selection is incomplete; other source passages omitted]";
+  let remaining = Math.max(0, Math.floor(maxChars)) - marker.length;
+  const spans: EvidenceSpan[] = [];
+  for (const i of [...indices].sort((a, b) => a - b)) {
+    const passage = all[i]!;
+    const cost = passage.text.length + (spans.length > 0 && spans.at(-1)!.end !== passage.start ? separator.length : 0);
+    if (cost > remaining) continue;
+    spans.push({ start: passage.start, end: passage.end, text: passage.text });
+    remaining -= cost;
+  }
+  if (spans.length === 0) return null;
+  const retainedChars = spans.reduce((sum, span) => sum + span.text.length, 0);
+  const omittedChars = text.length - retainedChars;
+  const joined = spans.map((span, i) => (i > 0 && spans[i - 1]!.end !== span.start ? separator : "") + span.text).join("");
+  return { text: joined + (omittedChars > 0 ? marker : ""), spans, originalChars: text.length, truncated: omittedChars > 0,
+    coverage: { version: "governance-evidence-1", retainedChars, omittedChars, categories: [] } };
+}
+
 function passages(text: string, profile: EvidenceProfile): Passage[] {
   const { categories: families, prose, abbreviations } = PROFILES[profile];
   const split = prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
