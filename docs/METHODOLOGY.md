@@ -1145,6 +1145,18 @@ every row; the grid note states the excess it held.
 
 ## FCF and SBC
 
+**Cash-capex convention (P9, confirmed 2026-11-02).** Standardized FCF keeps
+the retained statement/vendor cash-capex field. That field is not established
+as PP&E-only and can include software inconsistently across quarters; the
+existing mixed-basis disclosure remains required. No PP&E-only or
+PP&E-plus-software normalization is applied. Adopting either basis would
+change the common FCF convention and require remeasurement of every issuer's
+FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
+by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
+rounded). This decision preserves arithmetic and does not claim period-by-period
+software comparability or issuer-defined FCF reconciliation.
+
+
 **Free cash flow subtracts stock-based compensation by default.** The
 cash-flow statement adds SBC back to operating cash flow because no cash left
 the building that period, but the expense is real: it is settled in newly

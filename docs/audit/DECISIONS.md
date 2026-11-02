@@ -3206,3 +3206,16 @@ The same evidence rule also withholds conflicting DIS periods and older
 AAPL, META and ORCL rows, listed in the disposition. Stored reports and saved
 input snapshots are immutable; re-admission of retained facts uses the new
 rule without rewriting them.
+
+
+## D-next (P9) - Cash-capex convention retained (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Confirmed:
+standardized FCF retains the statement/vendor cash-capex field, with the
+existing disclosure that the basis can mix PP&E and software across quarters.
+No calculation change. A PP&E-only or PP&E-plus-software convention would
+change the basis for every issuer's FCF, P/FCF and DCF seed and requires a
+separate complete remeasurement. The measured FIG difference is 1.302M on
+231.012M FCF (0.6% rounded). Preserving the disclosed retained basis avoids
+silently substituting an accounting convention without comparable period
+inputs. METHODOLOGY states this plainly; no stored report is rewritten.

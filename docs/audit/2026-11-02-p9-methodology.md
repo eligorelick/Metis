@@ -9,7 +9,7 @@ Base: ae4b656e. Replays are offline; stored reports and snapshots are immutable.
 | FIN-307 | Confirmed: retain D-137 OD-6 | See commit titled Confirm ADR capitalization disclosure | fin307-surfaces (6 passing; no defect reproduced) | No calculation change; stored reports retained |
 | FIN-308 | Fixed: filed majority, then common grading | See commit titled Classify REITs from filed asset majorities | fin308-red, fin308-provenance-red / fin308-consumers | New computations only; historical bytes retained |
 | FIN-510-V1 | Fixed: refuse ambiguous sibling value | See commit titled Withhold ambiguous deferred revenue | fin510v1-red / fin510v1-green | New statement builds only; historical bytes retained |
-| Cash-capex | Pending convention confirmation | Pending | Documentation gate | No calculation change |
+| Cash-capex | Confirmed: retained cash-capex field and mixed-basis disclosure | See commit titled Confirm retained cash-capex convention | cash-capex-records | No calculation change |
 
 ## FIN-306 measurements
 
@@ -98,3 +98,12 @@ The remaining 40 issuer producers are unchanged in these fields. JNJ FY2025
 R&D stays 14,665,000,000; JPM FY2025 interest income stays 193,341,000,000.
 There is no current deferred-revenue consumer in FCF, DCF or composite grades;
 all census and fixture financial outputs retain their prior P9 values.
+
+
+## Cash-capex confirmation
+
+No arithmetic or runtime disclosure changed. The convention is stated in
+METHODOLOGY and recorded as owner-delegated. FIG: retained vendor capex
+18.238M versus PP&E-only 16.936M; the difference 1.302M is 0.6% of retained
+231.012M FCF. A PP&E-plus-software basis would be another convention, requiring
+comparable period evidence and dependent FCF/P/FCF/DCF-seed review across issuers.
