@@ -169,7 +169,6 @@ CREATE INDEX IF NOT EXISTS "idx_api_cache_provider_endpoint" ON "api_cache" ("pr
 CREATE INDEX IF NOT EXISTS "idx_api_cache_fetchedAt" ON "api_cache" ("fetchedAt");
 CREATE INDEX IF NOT EXISTS "idx_jobs_symbol" ON "jobs" ("symbol");
 CREATE INDEX IF NOT EXISTS "idx_jobs_status" ON "jobs" ("status");
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_jobs_active_symbol" ON "jobs" ("symbol") WHERE "status" IN ('queued', 'running');
 CREATE INDEX IF NOT EXISTS "idx_jobs_queue_claim" ON "jobs" ("status", "notBefore", "queuedAt");
 CREATE INDEX IF NOT EXISTS "idx_jobs_lease_expiry" ON "jobs" ("status", "leaseExpiresAt");
 CREATE INDEX IF NOT EXISTS "idx_cost_log_jobId" ON "cost_log" ("jobId");
@@ -373,6 +372,9 @@ export function bootstrapSchema(sqlite: Database.Database): void {
         ON jobs (upper(replace("symbol", '-', '.')))
         WHERE status IN ('queued', 'running');
         DROP INDEX IF EXISTS idx_jobs_active_symbol;`);
+    } else {
+      sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_active_symbol
+        ON jobs (symbol) WHERE status IN ('queued', 'running');`);
     }
 
   }).immediate();
