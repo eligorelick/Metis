@@ -57,6 +57,7 @@ import {
   computeGrowth,
   windowCagr,
   type GrowthResult,
+  withoutTransitionPeriods,
   type GrowthIncomeRow,
   type GrowthCashFlowRow,
 } from "@/pipeline/stageB/growth";
@@ -419,6 +420,7 @@ function fiscalIdentity(r: FmpStatementRow) {
 
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   return {
+    fieldProvenance: r.fieldProvenance,
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     // Restatement recency: without these, a duplicated fiscal period is
@@ -2634,7 +2636,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // zero-for-undisclosed share counts treated as missing), and net debt from
   // the shared components-only resolver. Disclosures are emitted once from the
   // valuation block (identical underlying rows).
-  const inc0Proj = incomeAnnual[0];
+  const inc0Proj = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
@@ -2647,7 +2649,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Removing the irregular-spacing veto left scenarioDispersion with no
   // protection against a duplicated period, which contributes a zero-length
   // interval and a repeated observation to the volatility estimate.
-  const projNorm = normalizeQuarterRows(incomeAnnualForRevenue);
+  const projNorm = normalizeQuarterRows(withoutTransitionPeriods(normalizeQuarterRows(incomeAnnualForRevenue).rows).rows);
   const projectionPeriodGaps: ManifestEntry[] = projNorm.rejected.map(({ period, reason }) => ({
     field: "projections.incomeStatement.period",
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
@@ -3250,7 +3252,7 @@ function computeReturns(
   const preferredByDate = new Map<string, FmpCashFlowRow>(
     cashflowAnnual.map((r: FmpCashFlowRow) => [String(r.date ?? ""), r]),
   );
-  const returnsIncome = incomeAnnual.map((r) => toReturnsIncome(r, preferredByDate,
+  const returnsIncome = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => toReturnsIncome(r, preferredByDate,
     [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
     [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt));
   const returnsBalance = balanceAnnual.map(toReturnsBalance);
@@ -3514,7 +3516,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const waccByYear = new Map(ctx.waccHistory.points.map((point) => [point.date, point]));
 
   const bal0 = balanceAnnual[0];
-  const inc0 = incomeAnnual[0];
+  const inc0 = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const rowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // Point-in-time balance anchor (2026-07-09 audit M4): whole-row preference
@@ -3699,7 +3701,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const guardedAnnualUnusual = withoutRecurringFamilies(unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
     fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: ctx.modelCurrency, observedAt: bundle.builtAt,
   }), incomeAnnual.map(r => isoDay(r.date) ?? ""));
-  const dcfIncomeHistory: DcfIncomeRow[] = normalizeQuarterRows(incomeAnnual).rows.map((r) => ({
+  const dcfIncomeHistory: DcfIncomeRow[] = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
     operatingIncome: adjustEbit(num(r.operatingIncome), [r]),

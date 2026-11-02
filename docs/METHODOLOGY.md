@@ -1990,7 +1990,7 @@ the amount removed or the unproven reason.
 DuPont average the closing balance with the balance matched to the next older
 annual income period only when the two balances are 300–430 days apart, the
 same fiscal-continuity range used by the forensic layer. This accommodates
-52/53-week calendars. A missing year or a shorter transition stub uses the
+52/53-week calendars. A missing year  uses the
 existing single-period denominator and records a warning instead of silently
 averaging capital from nonconsecutive years.
 
@@ -6321,3 +6321,10 @@ For the FCFF terminal every-year hurdle only (FIN-102, B5 OD-2), a known
 operating loss remains a miss in the evidence window, at a zero tax rate.
 Normalized losses after admitted one-offs count; reported ROIC and moat grades
 keep their existing treatment. The terminal note names each operating loss.
+
+P2 (FIN-111): an annual flow shorter than 357 days (51 weeks), measured by
+filed revenue start or the next older end, is a transition period. Growth,
+log fits, projection and DCF history, sales-to-capital history and ROIC omit
+it; displayed margin ratios retain it. Latest YoY requires at least 0.75 year.
+The 45-snapshot backtest found no full year below 357 days. Transition periods
+of 51 weeks or more still pass; no census transition filing tests that residual.

@@ -13,6 +13,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-102 | Fixed: known operating losses remain terminal misses | Owning FIN-102 commit | fin-102-red / fin-102-green | Immutable prior figures |
 
+| FIN-111 | Fixed: transition flows excluded consistently | Owning FIN-111 commit | fin-111-red / fin-111-green | No census transition; stored figures immutable |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

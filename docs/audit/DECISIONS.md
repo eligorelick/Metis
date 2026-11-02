@@ -3584,3 +3584,13 @@ FIN-102 implements B5 OD-2, revising D-99 only for FCFF terminal evidence:
 a known operating loss counts against the every-year hurdle at zero tax.
 Reported ROIC, moat grades and excess-return financial routes retain their
 conventions. A normalized profitable year remains profitable evidence.
+
+## D-next (P2) - Transition annual flows (2026-11-02)
+
+FIN-111 takes B5 OD-3/O-2's conditional 357-day line. The offline gate found
+434 filed-start income years, two gap-measured income years, 393 cash-flow
+periods and 779 deduplicated annual companyfacts periods, all 364-371 days.
+No full year was withheld. The oldest unknown-duration row stays; margins
+remain displayed. Transition flows leave annual growth and valuation history.
+The census has no transition filing, so periods of 357 days or more remain an
+explicit residual. No threshold was retuned.
