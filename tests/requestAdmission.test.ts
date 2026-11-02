@@ -42,6 +42,8 @@ import {
 import { readGenerationResumeArtifacts } from "@/pipeline/jobArtifacts";
 import { readStoredJobResumeInTransaction } from "@/pipeline/jobStore";
 import type { AnalystCase } from "@/report/schema";
+import { runBullPass } from "@/pipeline/stageC/passes";
+import * as payloadModule from "@/pipeline/stageC/payload";
 import {
   JUDGE_ORDER_SETTINGS,
   JUDGE_PASSES_PER_SETTING,
@@ -243,6 +245,7 @@ function schedulerAdmission(
 }
 
 const passOpts = {
+  tools: [webSearchTool(8, "claude-sonnet-5")],
   model: "claude-sonnet-5",
   system: "system",
   messages: [{ role: "user" as const, content: "hi" }],
@@ -279,12 +282,46 @@ describe("pause resumption admission", () => {
 });
 
 describe("what one request may cost", () => {
+  it.each([null, 26.36])("admits and settles research and writing separately (job cap %s)", async cap => {
+    seedJob(first.db, "split", "DEMO", cap);
+    const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
+    const { admission, reserved } = schedulerAdmission(claim, "bull", "split-attempt", first.db);
+    const researchUsage = usage({ cache_creation_input_tokens: 10_000_000, output_tokens: 100,
+      server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } });
+    const writeUsage = usage({ input_tokens: 100, output_tokens: 100 });
+    const output = { ...analystCase(), priceTarget: { value: null, horizon: "not modeled", assumptions: ["Valuation evidence is insufficient."] } };
+    _resetAnthropicForTests(fakeClient([{ final: message({ usage: researchUsage, content: [
+      { type: "text", text: "2026-08-01: Research. https://example.com/news" },
+      { type: "web_search_tool_result", tool_use_id: "search", content: [{ type: "web_search_result", url: "https://example.com/news", title: "News", page_age: "1 week ago" }] },
+    ] }) }, { final: message({ usage: writeUsage, content: [{ type: "text", text: JSON.stringify(output) }] }) }]));
+    // Payload contents do not affect the request boundary or scheduler behavior under test.
+    const payloadStub = vi.spyOn(payloadModule, "serializePayloadForPrompt").mockReturnValue("cached supplied payload");
+    try {
+      const run = await runBullPass({ model: "claude-sonnet-5", effort: "low", runPass: args => runPass(args as never),
+        admissionFor: () => admission, webSearchTool }, {} as payloadModule.ContextPayload);
+      expect(run.ok).toBe(cap === null);
+      const ledger = first.db.select().from(costLog).where(eq(costLog.jobId, "split")).all();
+      expect(ledger).toHaveLength(cap === null ? 2 : 1);
+      expect(ledger[0].costUsd).toBeCloseTo(25 + 0.001 + 0.01);
+      expect(reserved).toEqual(cap === null ? [26.36, 3.78] : [26.36]);
+      expect(first.db.select().from(jobLlmLeases).all()).toEqual([]);
+      if (run.ok) {
+        expect(run.result.costUsd).toBeCloseTo(ledger.reduce((sum, row) => sum + row.costUsd, 0));
+        expect(run.result.webSearches).toBe(1);
+        expect(run.result.fetchedUrls).toEqual(["https://example.com/news"]);
+      } else {
+        expect(run.error.message).toContain("budget");
+        expect(run.error.research?.notes).toContain("Research");
+        expect(run.costUsd).toBeCloseTo(ledger[0].costUsd);
+      }
+    } finally { payloadStub.mockRestore(); }
+  });
   it("bounds a request by context at the cache-write price, the output ceiling and the search cap", () => {
     // Sonnet 5: up to 10 sampling iterations of 1M input at $2.50/MTok,
     // one 128K output ceiling at $10/MTok, and 8 searches at $0.01.
     expect(maximumRequestCostUsd("claude-sonnet-5", "bull")).toBeCloseTo(25 + 1.28 + 0.08, 6);
     // The judge never searches.
-    expect(maximumRequestCostUsd("claude-sonnet-5", "synthesize")).toBeCloseTo(2.5 + 1.28, 6);
+    expect(maximumRequestCostUsd("claude-sonnet-5", "synthesize")).toBeCloseTo(4 + 1.28, 6);
     // Haiku's judge runs on the Sonnet floor, so it is bounded there.
     expect(maximumRequestCostUsd("claude-haiku-4-5", "synthesize"))
       .toBe(maximumRequestCostUsd("claude-sonnet-5", "synthesize"));
@@ -295,7 +332,8 @@ describe("what one request may cost", () => {
 
   it("reports the pass worst case without reserving it", () => {
     const perRequest = maximumRequestCostUsd("claude-sonnet-5", "bull");
-    expect(passWorstCaseCostUsd("claude-sonnet-5", "bull")).toBeCloseTo(perRequest * PASS_MAX_REQUESTS, 5);
+    const writer = maximumRequestCostUsd("claude-sonnet-5", "bull", undefined, "5m", 0);
+    expect(passWorstCaseCostUsd("claude-sonnet-5", "bull")).toBeCloseTo(perRequest * PASS_MAX_REQUESTS + writer * PASS_TRANSPORT_MAX_ATTEMPTS, 5);
     expect(PASS_MAX_REQUESTS).toBe(36);
   });
 

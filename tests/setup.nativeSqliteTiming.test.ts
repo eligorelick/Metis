@@ -60,6 +60,7 @@ describe("Windows native SQLite test timing policy", () => {
         `);
         const result = spawnSync(process.execPath, [path.join(root, "node_modules/vitest/vitest.mjs"), "run", "--config", configPath], {
           cwd: root, encoding: "utf8", timeout: 15_000, shell: false,
+          env: { ...process.env, VITEST_MAX_WORKERS: "1" },
         });
         expect(result.status, `${result.error ?? ""}\n${result.stdout}\n${result.stderr}`).toBe(0);
         const observed = readFileSync(path.join(directory, "order.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));

@@ -1269,12 +1269,12 @@ function streamingClient(outputs: unknown[]): Anthropic {
   return {
     beta: {
       messages: {
-        stream: () => {
+        stream: (params: { tools?: unknown[] }) => {
           const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
           const add = (name: string, callback: (...args: unknown[]) => void) => {
             listeners.set(name, [...(listeners.get(name) ?? []), callback]);
           };
-          const message = anthropicMessage(outputs[Math.min(index++, outputs.length - 1)]);
+          const message = anthropicMessage(params.tools?.length ? "Independent research notes" : outputs[Math.min(index++, outputs.length - 1)]);
           const final = new Promise<Record<string, unknown>>((resolve) => {
             queueMicrotask(() => {
               for (const callback of listeners.get("streamEvent") ?? []) {
@@ -1417,7 +1417,7 @@ describe("Stage C provider adapter branches", () => {
     expect(success).toMatchObject({
       data: { priceTarget: { value: 100 } },
       model: "claude-opus-4-8",
-      usage: { input_tokens: 10, output_tokens: 5 },
+      usage: { input_tokens: 20, output_tokens: 10 },
     });
     await expect(pipelinePasses.runAnalystPass?.(deps, "bear")).rejects.toThrow(/schema|invalid|failed/i);
   });
@@ -1443,6 +1443,10 @@ describe("Stage C provider adapter branches", () => {
   });
 
   it("runs an analyst repair attempt with the feedback appended as a second user turn", async () => {
+    vi.spyOn(sectionCheckpoints, "createSectionCheckpoint").mockReturnValue({
+      load: field => field === "llm.bear:research" ? { research: { notes: "Saved bear notes", sources: [] } } : {},
+      loadEvidence: () => ({}), save: vi.fn(), record: vi.fn(),
+    });
     const requests: Array<{ messages: Array<{ role: string; content: unknown }> }> = [];
     const inner = streamingClient([analystCase()]);
     const capturing = {
@@ -1462,6 +1466,7 @@ describe("Stage C provider adapter branches", () => {
     const deps: PassDeps<ContextPayload> = {
       analysisModel: "claude-opus-4-8",
       payload: emptyPayload(),
+      jobSeed: "repair-reuses-research",
     };
 
     const repaired = await pipelinePasses.runAnalystPass?.(

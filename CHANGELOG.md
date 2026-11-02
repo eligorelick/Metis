@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Separate analyst research from writing (2026-11-03)
+
+- Analysts now research without a JSON grammar, then write without tools. Each request uses existing spend admission and settlement; notes and fetched sources survive repairs and worker restarts through the existing recovery checkpoint and pass artifacts. Failed research stops the pass; empty successful research is retained as an evidence limitation. Subscription providers already run without search and keep their existing sectioned path.
+- Synthesis caches the payload and case prefix for one hour. Cache writes use reported 5m/1h billing buckets, with conservative 1h pricing when the breakdown is absent. Reservations and the generated pricing estimate include the new request structure. No version stamps changed.
+
 ## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
 
 - The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and

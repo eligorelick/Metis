@@ -11,7 +11,7 @@ import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
  * (via the real runStageB) + ValidationReport (via the real validateBundle).
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import placeholderCase from "./fixtures/analyst-placeholder-case.json";
 
 describe("current-main report generation integrity regressions", () => {
@@ -241,6 +241,7 @@ import {
   SHARED_RULES_BLOCK,
   buildBullFraming,
   buildBearFraming,
+  buildAnalystResearchFraming,
   buildJudgeFraming,
   buildVerifySystem,
   buildLeadershipGuidance,
@@ -664,11 +665,132 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
   return {
     runPass: mock.runPass,
     runPassStreaming: mock.runPassStreaming,
-    webSearchTool: (maxUses: number) => ({ type: "web_search_20260318", name: "web_search", max_uses: maxUses }),
     model: "claude-opus-4-8",
     ...over,
   };
 }
+
+describe("analyst research and writing boundaries", () => {
+  it.each(["empty", "failed"] as const)("handles %s research without treating it as an analyst case", async kind => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    if (kind === "failed") mock.on("llm.bull", { kind: "error", error: { kind: "max_tokens", message: "Research cut off", costUsd: 0.2 } });
+    else {
+      mock.onText("llm.bull", "");
+      mock.onJson("llm.bull", analystCase("bull"));
+      mock.onJson("llm.bull", analystCase("bull"));
+    }
+    const stored: Record<string, Record<string, unknown>> = {};
+    const deps = makeDeps(mock, { webSearchTool: () => ({}), sectionCheckpoint: {
+      load: field => stored[field] ?? {}, save: (field, data) => { stored[field] = data; },
+    } });
+    const first = await runBullPass(deps, payload);
+    expect(first.ok).toBe(kind === "empty");
+    expect(mock.calls).toHaveLength(kind === "empty" ? 2 : 1);
+    expect(Object.keys(stored)).toHaveLength(kind === "empty" ? 1 : 0);
+    if (kind === "empty") {
+      const continued = await runAnalystContinuationPass({ ...deps }, payload, "bull", { completed: {} });
+      expect(continued.ok).toBe(true);
+      expect(mock.calls).toHaveLength(3);
+      expect(mock.calls[2].tools).toBeUndefined();
+      expect(JSON.stringify(mock.calls[2].messages)).toContain("evidence limitation");
+    }
+  });
+
+  it("launches independent bear research after the bull research's first event", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onText("llm.bull", "BULL_PRIVATE_NOTES").onJson("llm.bull", analystCase("bull"));
+    mock.onText("llm.bear", "BEAR_PRIVATE_NOTES").onJson("llm.bear", analystCase("bear"));
+    let first!: (event: "streamEvent") => void;
+    const firstToken = new Promise<"streamEvent">(resolve => { first = resolve; });
+    const researchResults: Array<() => void> = [];
+    const deps = makeDeps(mock, { webSearchTool: () => ({}), runPassStreaming: args => {
+      if (!args.tools) return mock.runPassStreaming(args);
+      const result = new Promise<RunPassOutcome>(resolve => { researchResults.push(() => { void mock.runPass(args).then(resolve); }); });
+      return { firstToken: args.field === "llm.bull" ? firstToken : Promise.resolve("streamEvent"), result };
+    } });
+    const run = runBullThenBear(deps, payload);
+    await vi.waitFor(() => expect(researchResults).toHaveLength(1));
+    first("streamEvent");
+    await vi.waitFor(() => expect(researchResults).toHaveLength(2));
+    researchResults.forEach(resolve => resolve());
+    const result = await run;
+    expect(result.bull.ok && result.bear.ok).toBe(true);
+    const bullWrite = mock.calls.find(call => call.field === "llm.bull" && call.outputSchema);
+    const bearWrite = mock.calls.find(call => call.field === "llm.bear" && call.outputSchema);
+    expect(JSON.stringify(bullWrite?.messages)).toContain("BULL_PRIVATE_NOTES");
+    expect(JSON.stringify(bullWrite?.messages)).not.toContain("BEAR_PRIVATE_NOTES");
+    expect(JSON.stringify(bearWrite?.messages)).toContain("BEAR_PRIVATE_NOTES");
+    expect(JSON.stringify(bearWrite?.messages)).not.toContain("BULL_PRIVATE_NOTES");
+  });
+  it("researches dated industry structure while retaining web evidence restrictions", () => {
+    for (const side of ["bull", "bear"] as const) {
+      const prompt = buildAnalystResearchFraming(side);
+      for (const rule of ["market size and growth with a dated source", "competitors by name and how each competes", "position and share only where a source states it", "industry economics and regulation", "source URL and date", "historical company financials", "No claim naming a person", side]) expect(prompt).toContain(rule);
+    }
+  });
+  it("researches without a grammar, writes without tools, and carries fetched evidence through a skeleton repair", async () => {
+    const { payload } = buildInputs();
+    const calls: RunPassArgs[] = [];
+    const stored: Record<string, Record<string, unknown>> = {};
+    const notes = "2026-11-01: A new product launched. https://example.com/news";
+    let artifact: unknown;
+    const deps: PassDeps = { model: "claude-opus-5-5", webSearchTool: () => ({ type: "web_search_20260318", name: "web_search", max_uses: 8 }),
+      sectionCheckpoint: { load: field => stored[field] ?? {}, save: (field, data) => { stored[field] = structuredClone(data); } },
+      runPass: async args => {
+        calls.push(args);
+        const research = !!args.tools?.length;
+        const output = calls.length === 2 ? { ...analystCase("bull"), keyDrivers: [], risksToCase: [] } : analystCase("bull");
+        const usage = { input_tokens: 10, output_tokens: 5, server_tool_use: { web_search_requests: research ? 1 : 0 } };
+        return { ok: true, value: { data: { model: args.model, usage, costUsd: research ? 0.2 : 0.1, fallbackUsed: false,
+          fetchedUrls: research ? ["https://example.com/news"] : [],
+          fetchedSources: research ? [{ url: "https://example.com/news", title: "Product launch", pageAge: "1 day ago" }] : [],
+          message: { model: args.model, usage, content: [{ type: "text", text: research ? notes : JSON.stringify(output) }] } } } };
+      } };
+    const first = await runBullPass(deps, payload, value => { artifact = value; });
+    expect(calls).toHaveLength(2);
+    expect(calls[0].tools).toHaveLength(1);
+    expect(calls[0].outputSchema).toBeUndefined();
+    expect(calls[1].tools).toBeUndefined();
+    expect(calls[1].outputSchema).toBeDefined();
+    expect(JSON.stringify(calls[1].messages)).toContain(notes);
+    expect(JSON.stringify(calls[1].messages)).toContain("Product launch");
+    expect(first.ok).toBe(false);
+    expect(first.ok ? 0 : first.costUsd).toBeCloseTo(0.3);
+    expect(JSON.stringify(artifact)).toContain(notes);
+    // A new deps object simulates a restarted process using the durable checkpoint.
+    const repaired = await runAnalystRepairPass({ ...deps }, payload, "bull", "Fill the empty sections");
+    expect(calls).toHaveLength(3);
+    expect(calls[2].tools).toBeUndefined();
+    expect(JSON.stringify(calls[2].messages)).toContain(notes);
+    expect(repaired.ok).toBe(true);
+    if (repaired.ok) {
+      expect(repaired.result.fetchedUrls).toEqual(["https://example.com/news"]);
+      expect(repaired.result.costUsd).toBe(0.1);
+      const judge = judgeOutput();
+      judge.business.whatTheySell = [{ text: "A new product launched.", label: "FACT", source: "https://example.com/news", asOf: "2026-07-01" }];
+      const checked = await runVerifyPass(deps, payload, judge, { fetchedUrls: repaired.result.fetchedUrls });
+      expect(checked.log.find(entry => entry.source === "https://example.com/news")).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
+    }
+  });
+
+  it("marks both synthesis breakpoints with a 1h TTL before section and repair turns", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.judge", judgeOutput());
+    await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"), "repair feedback");
+    const blocks = mock.calls[0].messages[0].content;
+    expect(typeof blocks).not.toBe("string");
+    if (typeof blocks === "string") return;
+    const cached = blocks.filter(block => block.cache_control);
+    expect(cached).toHaveLength(2);
+    expect(cached.map(block => block.cache_control)).toEqual([{ type: "ephemeral", ttl: "1h" }, { type: "ephemeral", ttl: "1h" }]);
+    expect(cached[1].text).toContain("BEAR CASE");
+    expect(cached[1].text).toContain("BULL CASE");
+    expect(mock.calls[0].messages.at(-1)?.content).toContain("repair feedback");
+  });
+});
 
 /* ------------------------------------------------------------------------ *
  * Payload determinism + provenance
@@ -3943,12 +4065,13 @@ describe("mock-driven bull/bear/judge passes", () => {
   it("runBullPass parses the structured output and records web searches", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
-    mock.onJson("llm.bull", analystCase("bull"), {
+    mock.onText("llm.bull", "Dated research notes", {
       costUsd: 0.9,
       webSearches: 7,
       fetchedUrls: ["https://example.com/a", "https://example.com/b"],
     });
-    const run = await runBullPass(makeDeps(mock), payload);
+    mock.onJson("llm.bull", analystCase("bull"));
+    const run = await runBullPass(makeDeps(mock, { webSearchTool: maxUses => ({ type: "web_search_20260318", name: "web_search", max_uses: maxUses }) }), payload);
     expect(run.ok).toBe(true);
     if (run.ok) {
       expect(run.result.output.priceTarget.value).toBe(300);
@@ -3962,7 +4085,9 @@ describe("mock-driven bull/bear/judge passes", () => {
     // The bull request carried the payload and web-search tool.
     expect(mock.calls[0].field).toBe("llm.bull");
     expect(mock.calls[0].tools?.length).toBe(1);
-    expect(mock.calls[0].outputSchema).toBeDefined();
+    expect(mock.calls[0].outputSchema).toBeUndefined();
+    expect(mock.calls[1].tools).toBeUndefined();
+    expect(mock.calls[1].outputSchema).toBeDefined();
   });
 
   it("passes thread deps.effort into the request (default 'high' when unset)", async () => {

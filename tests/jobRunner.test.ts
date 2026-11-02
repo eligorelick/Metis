@@ -2422,7 +2422,7 @@ describe("runJob - durable paid-pass settlements", () => {
       jobLeaseTtlMs: 900_000,
     };
     const claim = scheduler.claimQueuedJobById(jobId, "real-passes-admission", new Date(), limits)!;
-    const captured: Array<{ field: string; admission: unknown }> = [];
+    const captured: Array<{ field: string; admission: unknown; tools?: unknown[]; outputSchema?: unknown }> = [];
     const usage = { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
     const analystSuccess = (field: string) => ({
       ok: true as const,
@@ -2454,8 +2454,8 @@ describe("runJob - durable paid-pass settlements", () => {
     const priorStreaming = providerBoundaryMocks.runPassStreaming.getMockImplementation();
     const priorRunPass = providerBoundaryMocks.runPass.getMockImplementation();
     const priorTool = providerBoundaryMocks.webSearchTool.getMockImplementation();
-    providerBoundaryMocks.runPassStreaming.mockImplementation(((args: { field: string; admission?: unknown }) => {
-      captured.push({ field: args.field, admission: args.admission });
+    providerBoundaryMocks.runPassStreaming.mockImplementation(((args: { field: string; admission?: unknown; tools?: unknown[]; outputSchema?: unknown }) => {
+      captured.push({ field: args.field, admission: args.admission, tools: args.tools, outputSchema: args.outputSchema });
       return { firstToken: Promise.resolve("streamEvent"), result: Promise.resolve(analystSuccess(args.field)) };
     }) as never);
     providerBoundaryMocks.runPass.mockImplementation((async (args: { field: string }) => ({
@@ -2475,9 +2475,17 @@ describe("runJob - durable paid-pass settlements", () => {
         schedulerLimits: limits,
       });
       // The judge is stubbed to fail, so the job does not complete; the two
-      // analyst requests were still built by the real passes.
+      // independent research and writing requests were built by the real passes.
       expect(result.status).not.toBe("queued");
-      expect(captured.map((call) => call.field).sort()).toEqual(["llm.bear", "llm.bull"]);
+      expect(captured.map((call) => call.field).sort()).toEqual(["llm.bear", "llm.bear", "llm.bull", "llm.bull"]);
+      for (const side of ["llm.bull", "llm.bear"]) {
+        const calls = captured.filter(call => call.field === side);
+        expect(calls[0].tools).toHaveLength(1);
+        expect(calls[0].outputSchema).toBeUndefined();
+        expect(calls[1].tools).toBeUndefined();
+        expect(calls[1].outputSchema).toBeDefined();
+        expect(calls[1].admission).toBe(calls[0].admission);
+      }
       for (const call of captured) {
         expect(call.admission, `${call.field} must carry the checkpoint admission the runner registered`).toBeDefined();
         expect(typeof (call.admission as { reserve?: unknown }).reserve).toBe("function");
