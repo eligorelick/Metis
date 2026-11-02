@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
 
+- L7: withhold award-overhang attribution for a fiscal year spanning filed
+  conversion or IPO/participating-security evidence; retain raw counts.
 - L6: exclude profile-only peers as unconfirmed for an SEC-evidenced lender.
 - L2: supplement missing same-period filed common earnings, retain four-quarter
   additive flow and per-share-first P/E, and label aggregate capitalization P/E.

@@ -1239,6 +1239,16 @@ A loss period's count is replaced as "Share basis (D-65)" describes.
 
 ---
 
+L7 (N4a): do not attribute the annual diluted/basic count gap to outstanding
+awards when that fiscal year spans filed conversion evidence, or filed IPO
+proceeds with a same-filing participating-security allocation. The conversion
+reader is shared with the N3 annual share-trend rule and honors the retained
+filing cutoff, form, unit and period. Retain both observed counts and disclose
+the filing and reason; the award overhang is unavailable, never zero. An older
+conversion outside the fiscal year, ordinary issuance or IPO proceeds alone
+does not trigger this withholding. A missing prior annual row does not extend
+the award window over intervening years. Stored reports are unchanged.
+
 ## Stock splits and the share basis
 
 A share count or per-share figure is used only on the share basis of the price

@@ -3798,3 +3798,11 @@ fallback states its construction and Basic common-stockholder allocation.
 Exclude candidates whose profile-only screen cannot confirm the SEC evidence
 that establishes the subject's held-for-sale lending cash-flow applicability.
 Mirror the existing SEC-route unconfirmed reason; no new provider request.
+
+## D-next (N4a) - Conversion gaps are not award overhang (L7)
+
+Reuse N3's retained conversion/IPO evidence for the latest fiscal year's
+annual diluted/basic gap. Withhold the award attribution, preserve both
+counts and identify the filed evidence. Keep the fiscal-year window bounded
+when annual rows are missing. Move the shared evidence tag lists into the
+central taxonomy table; the annual share-trend rule keeps its admission rules.
