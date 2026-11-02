@@ -472,3 +472,5 @@ Corrected exports retain recorded completeness. An absent record stays absent wh
 History comparisons distinguish a withheld grade (became unavailable or available) from an added or removed section (DB-002).
 
 History names recorded effective API and account models and identifies passes with unknown actual models (DB-003).
+
+Printable saved-report browser titles identify the symbol, company and report id (RPT-001).

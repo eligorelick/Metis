@@ -1,3 +1,4 @@
+import { cache } from "react";
 /**
  * /company/[symbol]/report/[reportId]/print — a minimal, print-optimized full
  * report for dependency-free PDF export (the browser prints this page to PDF).
@@ -28,9 +29,12 @@ import { normalizeRouteSymbol } from "@/symbol";
 // Reads persisted rows at request time — never statically pre-render.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Printable report",
-};
+const loadPrintReport = cache((id: number, symbol: string) => getReportByIdForSymbol(id, symbol));
+export async function generateMetadata({params}: {params: Promise<{symbol:string;reportId:string}>}): Promise<Metadata> {
+ const route=await params, symbol=normalizeRouteSymbol(route.symbol), id=parseReportId(route.reportId);
+ const loaded=symbol !== null && id !== null ? loadPrintReport(id,symbol) : null;
+ return {title:loaded ? `${symbol} \u2014 ${loaded.report.meta.companyName} \u2014 report #${id}` : "Report unavailable"};
+}
 
 export default async function PrintReportPage({
   params,
@@ -45,7 +49,7 @@ export default async function PrintReportPage({
   if (symbol === null) notFound();
   const reportId = parseReportId(rawId);
 
-  const loaded = reportId !== null ? getReportByIdForSymbol(reportId, symbol) : null;
+  const loaded = reportId !== null ? loadPrintReport(reportId, symbol) : null;
 
   // Friendly light-themed fallback (this page is not inside AppShell).
   if (loaded === null) {

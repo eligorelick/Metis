@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P7 display and history (2026-11-02)
 
+- RPT-001: Identify the symbol, company and saved report id in print page metadata.
 - DB-006: Distinguish cost-only revisions from research changes without changing diff status.
 - DB-003: Show observed API models as well as account models and name unrecorded passes.
 - RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.

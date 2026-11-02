@@ -3133,3 +3133,5 @@ RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels
 DB-003: Show observed API models as well as account models and name unrecorded passes.
 
 DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+
+RPT-001: Identify the symbol, company and saved report id in print page metadata.
