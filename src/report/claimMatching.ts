@@ -129,3 +129,16 @@ export function claimCoverageWithout(
 export function displayedClaimCoverage(coverage: ProvenanceCoverage, log: readonly VerificationLogEntry[] | undefined): ProvenanceCoverage {
   return claimCoverageWithout(coverage, unprintedClaimEntries(log, "factual-claim"), unprintedClaimEntries(log, "judgment"));
 }
+
+/** Frozen AI-116 display cutoff; never follow a later report stamp. */
+export const INSIDER_ROLES_READ_FROM = "1.56.0";
+export function legacyCheckNote(entry: VerificationLogEntry, log: readonly VerificationLogEntry[], reportSpecVersion: string): string | null {
+  if (!/^\d+\.\d+\.\d+$/.test(reportSpecVersion)) return null;
+  const parts = reportSpecVersion.split(".").map(Number);
+  const cutoff = INSIDER_ROLES_READ_FROM.split(".").map(Number);
+  const first = parts.findIndex((n, i) => n !== cutoff[i]);
+  if (first < 0 || parts[first] >= cutoff[first]) return null;
+  if (entry.reason !== "named-individual-title-mismatch" || entry.source !== "fmp:insider-trades" || entry.path === undefined) return null;
+  const dropped = log.some(row => row.path === entry.path && row.check === "named-individual" && /calls [^"\n]+ "(?:director|10 percent owner|ten percent owner|other)"/i.test(row.note ?? ""));
+  return dropped ? "recorded before an insider owner type listing several roles was read role by role; this title was not rechecked" : null;
+}

@@ -1,3 +1,4 @@
+import { legacyCheckNote } from "@/report/claimMatching";
 /**
  * reportToAuditMarkdown — the machine-checkable audit trail that accompanies a
  * research report (D-62). The report body is written for a reader; this file
@@ -183,6 +184,10 @@ function renderVerification(report: Report): string {
                 : field.key === "numericSupportStatus" && entry.numericSupportStatus === "contradicted" ? "unchecked"
                   : field.key === "claimSupportStatus" && entry.claimSupportStatus === "contradicted" ? "cited" : undefined;
               if (reread !== undefined) return `${auditValue(reread)} (recorded contradicted; period or unit not established; value not rechecked)`;
+            }
+            if (field.key === "note") {
+              const qualification = legacyCheckNote(entry, a.verificationLog!, report.meta.specVersion);
+              if (qualification) return `${auditValue(entry.note)} (${auditValue(qualification)})`;
             }
             return auditValue(entry[field.key]);
           })),

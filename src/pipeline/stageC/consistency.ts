@@ -1328,10 +1328,13 @@ export function collectPersonRows(sources: {
     const match = /^\S+ (.+?) \(([^)]*)\): .* \[fmp:insider-trades · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
     const name = usable(match?.[1]);
     if (match === null || name === null) continue;
-    // The owner type reads "director" or "officer: Chief Financial Officer".
+    // AI-116: split role prefixes, preserving commas inside an officer title.
     const owner = usable(match[2]);
-    const title = owner === null ? null : usable(owner.split(":").pop());
-    rows.push({ tag: "fmp:insider-trades", asOf: match[3], name, title, anyOrder: true });
+    const roles = owner?.split(/,\s*(?=(?:director|officer|other|10\s*percent\s+owner|ten\s+percent\s+owner)\b)/i) ?? [""];
+    for (const role of roles) {
+      const title = usable(role.replace(/^(?:officer|other)\s*:\s*/i, ""));
+      rows.push({ tag: "fmp:insider-trades", asOf: match[3], name, title, anyOrder: true });
+    }
   }
   for (const figure of sources.leadershipFigures ?? []) {
     if (figure.source !== "fmp:executive-compensation") continue;

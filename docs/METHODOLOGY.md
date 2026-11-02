@@ -5965,3 +5965,5 @@ AI-501: a direction word in a registry record's own label is part of its metric.
 AI-502 / OD-6: percentage points alone never establish movement. Slopes are changes; other percentage-point records need a change-named final slug and no difference operator in their label. Movement/comparative prose against spreads, divergence and yield-curve levels stays unchecked; numeric sign conflicts still compare values.
 
 AI-504: a difference or ratio record is named only when its operands occur in record order. Reversed operands stay unchecked; the verifier never computes a reciprocal or negated replacement. Absolute differences have no operand order; grammatical to, date intervals, P/E and parenthetical em dashes are not operators.
+
+AI-116: insider owner types are read role by role, preserving commas inside an officer title. Historical audit logs before 1.56.0 that rejected a potentially dropped role say the title was not rechecked; recorded outcomes and raw report bytes remain unchanged.
