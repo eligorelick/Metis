@@ -427,3 +427,8 @@ a newly rejected output starts a whole-case repair without continuation.
 JOB-301: Fresh pages in either layout observe the newest eligible terminal
 job when there is no active run. Discovery is read-only; Retry remains explicit
 and uses the existing durable reuse and spend fences.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.

@@ -3030,3 +3030,8 @@ AI-110: A safety-rejected data-only report first withholds provider metadata
 and rechecks deterministic content. If enrichment still fails, it persists a
 fixed-text shell. Completeness and gap counts describe the retained manifest;
 settled costs remain intact and saved reports are never rewritten.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.

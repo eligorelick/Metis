@@ -10,13 +10,13 @@ const APPLICATION_ID = 0x54484149;
 const VERSION = 1;
 const MIGRATION = "AI credential locking uses an incompatible or damaged lock file. Stop all Metis servers, then remove only the old connections.lock file and restart. Keep connections.v1.json and Gemini directories. Do not remove a lock file while any Metis server is running.";
 
-function initialize(lock: string): void {
+function initialize(lock: string, applicationId = APPLICATION_ID): void {
   if (fs.existsSync(lock)) return;
   const temporary = `${lock}.${randomUUID()}.tmp`;
   let database: Database.Database | undefined;
   try {
     database = new Database(temporary, { timeout: 0 });
-    database.exec(`BEGIN IMMEDIATE; PRAGMA application_id = ${APPLICATION_ID}; PRAGMA user_version = ${VERSION}; COMMIT;`);
+    database.exec(`BEGIN IMMEDIATE; PRAGMA application_id = ${applicationId}; PRAGMA user_version = ${VERSION}; COMMIT;`);
     database.close();
     database = undefined;
     if (process.platform !== "win32") fs.chmodSync(temporary, 0o600);
@@ -73,4 +73,38 @@ export async function withAiMutex<T>(lock: string, fn: () => Promise<T> | T, wai
     // after otherwise successful work. Never retry the callback.
     if (completed && releaseError) throw releaseError;
   }
+}
+
+const RUNTIME_APPLICATION_ID = 0x54484152;
+const lifetimeKey = Symbol.for("metis.processLifetimeLocks");
+function lifetimeLocks(): Map<string, Database.Database> {
+  const scope = globalThis as typeof globalThis & { [lifetimeKey]?: Map<string, Database.Database> };
+  return scope[lifetimeKey] ??= new Map();
+}
+
+/** Never unlink: the OS releases ownership on process exit, including crashes. */
+export function holdProcessLifetimeLock(lock: string): boolean {
+  const locks = lifetimeLocks();
+  if (locks.has(lock)) return true;
+  initialize(lock, RUNTIME_APPLICATION_ID);
+  const database = new Database(lock, { timeout: 0, fileMustExist: true });
+  try {
+    database.exec("BEGIN IMMEDIATE");
+    if (database.pragma("application_id", { simple: true }) !== RUNTIME_APPLICATION_ID ||
+        database.pragma("user_version", { simple: true }) !== VERSION) throw new Error(MIGRATION);
+    locks.set(lock, database);
+    return true;
+  } catch (error) {
+    database.close();
+    if ((error as { code?: string }).code === "SQLITE_BUSY") return false;
+    throw storageError(error);
+  }
+}
+
+/** Tests only: close handles before removing Windows temporary directories. */
+export function releaseProcessLifetimeLocksForTests(): void {
+  for (const database of lifetimeLocks().values()) {
+    database.exec("ROLLBACK"); database.close();
+  }
+  lifetimeLocks().clear();
 }

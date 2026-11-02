@@ -438,3 +438,8 @@ keeps its original freshness labels. The first request is still necessary to
 discover access, and source outages or unavailable endpoints remain disclosed
 gaps. Configure a real `EDGAR_CONTACT` even with a free FMP key so SEC statement
 fallbacks can run. Restrictions are held in memory and reset on server restart.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
