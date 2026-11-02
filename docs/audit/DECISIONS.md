@@ -3594,3 +3594,10 @@ No full year was withheld. The oldest unknown-duration row stays; margins
 remain displayed. Transition flows leave annual growth and valuation history.
 The census has no transition filing, so periods of 357 days or more remain an
 explicit residual. No threshold was retuned.
+
+## D-next (P2) - Reverse DCF families and domain (2026-11-02)
+
+FIN-501 follows OD-11: terminal-margin candidates preserve the base fade shape;
+flat paths use a linear ramp. FIN-104 extends the existing DCF domain to every
+reverse candidate, bracket and bound (OD-9). A domain break withholds the
+outside-range inference rather than implying a price-supported growth rate.

@@ -15,6 +15,9 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-111 | Fixed: transition flows excluded consistently | Owning FIN-111 commit | fin-111-red / fin-111-green | No census transition; stored figures immutable |
 
+| FIN-501 | Fixed: reverse margin family contains base path | Owning reverse commit | fin-501-104-red-02 / fin-501-104-green | Old figures retained |
+| FIN-104 | Fixed: candidate-domain admission | Owning reverse commit | fin-501-104-red-02 / fin-501-104-green | Old bounds remain historical |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

@@ -6328,3 +6328,10 @@ log fits, projection and DCF history, sales-to-capital history and ROIC omit
 it; displayed margin ratios retain it. Latest YoY requires at least 0.75 year.
 The 45-snapshot backtest found no full year below 357 days. Transition periods
 of 51 weeks or more still pass; no census transition filing tests that residual.
+
+P2 reverse DCF (FIN-501/FIN-104): margin candidates shift the base path by the
+terminal-margin delta times that path's fade weights. A flat path uses a linear
+zero-to-one weight. The base terminal margin exactly reproduces the base path.
+Growth and margin candidates need nonnegative explicit-period PV and positive
+equity; withheld candidates cannot supply range bounds or bridge a bracket.
+If the full scan is not in-domain, no beyond-range growth claim is inferred.
