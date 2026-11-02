@@ -31,6 +31,16 @@ capitalization and multiples; per-share intrinsic value still requires its
 separate diluted-divisor and model-input gates. D-67: derivation is in memory
 for a new computation only; stored source bundles and reports are never rewritten.
 
+Review fixes F3/F5/F6/F7/F8: new resolved multi-class reports label raw
+provider capitalization and shares as quoted-class observations. A same-filing
+provider quoted-class discrepancy above 3% discloses both counts and dates;
+that observation does not alter admission. Explicit treasury counts, including
+a dated matching equity rollforward, are disclosed as a share of economic units
+and are not netted against the filer's issued-and-outstanding counts. Equivalent
+classes without an admitted quote use a disclosed same-price approximation;
+a separately traded class's own price was not used. Contrary dividend rights
+stated as Class X common shares or shares also block 1:1 admission.
+
 ## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
 
 The general route has a narrow owner-FCF applicability exception. It requires

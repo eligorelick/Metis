@@ -254,3 +254,17 @@ bundle cutoff 2026-11-01T03:20:37.716Z. All annual ROTE numerators fail the
 existing availability gate. No observation time is rewritten or gate relaxed.
 A fresh collection must have a cutoff that admits its observations. The
 synthetic eligible lender scores ROTE; the retained target remains withheld.
+
+
+| Review item | Disposition | Commit | Red / green receipts | Stored reports |
+| --- | --- | --- | --- | --- |
+| F3 | Fixed both provider labels in new multi-class reports | This class-scope review commit | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable; optional new-report marker |
+| F5 | Disclosure only; counts/dates and discrepancy, no gate change | Same | n2-f5-red-confirmed / n2-f3-f5-f6-f7-f8-green | Immutable |
+| F6 | Treasury count/percentage disclosed without netting | Same | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable |
+| F7 | Exact coordinator same-price wording | Same | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable |
+| F8 | Share-worded contrary economics blocked, including review P1 | Same | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable |
+
+F5's first red attempt had an unavailable shares-float fixture; the corrected
+fixture was rerun against the pre-fix parser and failed on missing disclosure
+(n2-f5-red-confirmed). No coverage assertion is weakened. F7's old wording pins
+are replaced with the coordinator's required wording.

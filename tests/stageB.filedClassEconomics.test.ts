@@ -39,6 +39,46 @@ describe("R-FIGR-3 filed common-class economics", () => {
     expect(JSON.stringify(b)).toBe(before);
   });
 
+  it("F5 discloses a same-filing provider quoted-class discrepancy without changing admission", () => {
+    const b = fixture();
+    if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+    b.sharesFloat = { ok: true, value: { source: "fmp", endpoint: "/shares-float", asOf: "2026-05-05", fetchedAt: b.builtAt,
+      data: { rows: [{ symbol: b.symbol, date: "2026-05-05 12:00:00", outstandingShares: 104_000_000, source: b.edgar.tenQNotes.value.data.documentUrl }], raw: [] } } };
+    const scope = runStageB(b).valuation.multiples!.enterpriseValue.equityScope!;
+    expect(scope.economicShares).toBe(125_000_000);
+    expect(scope.basis).toMatch(/104000000.*2026-05-05/);
+    expect(scope.basis).toMatch(/100000000.*2026-03-31/);
+    const control = fixture();
+    control.sharesFloat = structuredClone(b.sharesFloat);
+    if (control.sharesFloat.ok) control.sharesFloat.value.data.rows[0]!.source = "https://example.com/different";
+    expect(runStageB(control).valuation.multiples!.enterpriseValue.equityScope!.basis).not.toContain("Provider quoted-class count");
+  });
+
+  it("F6 discloses treasury shares and their share of un-netted units (review P4)", () => {
+    const b = fixture();
+    if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replace("Total stockholders' equity", "Treasury stock, at cost (5,000,000 shares) (500) Total stockholders' equity");
+    const scope = runStageB(b).valuation.multiples!.enterpriseValue.equityScope!;
+    expect(scope.economicShares).toBe(125_000_000);
+    expect(scope.basis).toMatch(/treasury.*5000000.*4\.00%.*not netted/i);
+  });
+
+  it("F6 reads treasury shares from a dated equity rollforward, without mistaking cost for shares", () => {
+    const b = fixture();
+    if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText += " CONSOLIDATED STATEMENTS OF STOCKHOLDERS' EQUITY (in thousands, except share and per share data) Class A Common Stock Class B Common Stock Alternate Common Stock Treasury Stock Shares Amount Shares Amount Shares Amount Shares Amount Balance at March 31, 2026 100,000,000 $ 10 20,000,000 $ 2 5,000,000 $ 1 882,013 $ (27,775) Total equity 100";
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.basis).toMatch(/treasury.*882013.*0\.71%.*not netted/i);
+  });
+
+  it("F7 describes an equivalent class without claiming it is unquoted", () => {
+    expect(runStageB(fixture()).valuation.multiples!.enterpriseValue.equityScope!.basis).toContain("same-price approximation for equivalent classes without an admitted quote (a separately traded class's own price was not used)");
+  });
+
+  it.each(["common share", "shares"])("F8 blocks contrary Class B %s economics (review P1)", label => {
+    const b = fixture("", rights + ` Each Class B ${label} possesses dividend and distribution rights equal to one-fifteen-hundredth of such rights of a Class A common share.`);
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+  });
+
   it.each([
     ["missing economic relation", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text = "Class A and Class B common stock have different voting rights."; }],
     ["a relation omitting the named third class", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text = rights.replace("Alternate common stock, and ", "and "); }],

@@ -1035,9 +1035,10 @@ export function consensusTables(report: Report): BodyTable[] {
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);
   }
+  const resolvedMultiClass = report.valuation?.marketValueScope?.status === "resolved" && report.valuation.marketValueScope.multiClass === true;
   const oneClassOnly = report.valuation?.marketValueScope?.status === "unresolved" && report.valuation.marketValueScope.classAmbiguity === true ? "; may cover one share class only" : "";
-  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
-  if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
+  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : resolvedMultiClass ? "Provider market cap (quoted class only; not issuer-common)" : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
+  if (md.shares?.outstanding != null) rows.push([resolvedMultiClass ? "Provider shares (quoted class only)" : "Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
   if (md.enterpriseValue) rows.push([evLabel, `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);

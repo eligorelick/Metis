@@ -49,6 +49,9 @@ describe("issuer economic-share scope", () => {
       estimates: [], estimatesAsOf: null, priceTarget: null, gradeCounts: null, shortInterest: null };
     const rows = keyDataRows(ReportSchema.parse(report));
     if (status === "resolved") {
+      // F3: admitted issuer scope does not promote raw quoted-class observations.
+      expect(reportToMarkdown(report)).toContain("Provider market cap (quoted class only; not issuer-common)");
+      expect(reportToMarkdown(report)).toContain("Provider shares (quoted class only)");
       expect(rows.find(row => row.label === "Issuer-common capitalization")?.value).toBe("$34.67B");
       expect(rows.find(row => row.label === "Economic share units")?.note).toContain("2026-06-30");
       expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).toContain("approximation");
@@ -153,7 +156,8 @@ describe("issuer economic-share scope", () => {
     expect(result.enterpriseValue.equityScope).toMatchObject({ status: "resolved", economicShares: 119_996_000, marketCap: 34_672_844_200, approximate: true });
     expect(result.enterpriseValue.value).toBeCloseTo(36_159_844_200, 2);
     expect(result.enterpriseValue.basis).toMatch(/same-price approximation/);
-    expect(result.enterpriseValue.basis).toMatch(/not a traded quote/);
+    // F7: old "not a traded quote" wording incorrectly implied every other class was unquoted.
+    expect(result.enterpriseValue.basis).toMatch(/without an admitted quote/);
     expect(result.enterpriseValue.noncontrollingInterestBasis).toBe("book-value-proxy");
     expect(result.enterpriseValue.basis).toMatch(/book-value proxy.*market value/);
     expect(result.enterpriseValue.nonOperatingHoldingsScope).toBe("not-comprehensively-resolved");
@@ -266,7 +270,7 @@ describe("issuer economic-share scope", () => {
     expect(stored.valuation.multiplesBasis).toContain("119,996,000 economic shares");
     const surfaces = [renderToStaticMarkup(createElement(ReportView, { report: stored })), reportToMarkdown(stored), reportToPrintHtml(stored, { autoPrint: false }), reportToAuditMarkdown(stored)];
     for (const surface of surfaces) {
-      for (const text of ["119,996,000 economic shares", "2026-06-30", "34,672,844,200 USD", "same-price approximation", "not a traded quote", "book-value proxy", "not comprehensively resolved"]) expect(surface).toContain(text);
+      for (const text of ["119,996,000 economic shares", "2026-06-30", "34,672,844,200 USD", "same-price approximation", "without an admitted quote", "book-value proxy", "not comprehensively resolved"]) expect(surface).toContain(text);
     }
     expect(JSON.stringify(judgeOutputToJsonSchema())).not.toContain('"multiplesBasis"');
   });

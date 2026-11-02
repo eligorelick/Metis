@@ -3818,6 +3818,7 @@ export function applyMultiples(
     currency: scope.currency ?? null, shareCountAsOf: scope.shareCountAsOf,
     priceAsOf: scope.priceAsOf ?? null,
     approximate: scope.approximate, basis: scope.basis,
+    ...(scope.multiClass ? { multiClass: true as const } : {}),
     ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
     ...(scope.classAmbiguity ? { classAmbiguity: true as const } : {}),
     enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: readerBridge ?? mr.enterpriseValue.basis,
