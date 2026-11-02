@@ -367,7 +367,7 @@ function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
  * Header, key data, verdict
  * ======================================================================== */
 
-function headerBlock(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
+function aboutReportBlock(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const m = report.meta;
   const meta = table(
     ["Report", "Detail"],
@@ -386,14 +386,19 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );
+  return `<h3>About this report</h3>${meta}`;
+}
+
+function headerBlock(report: Report): string {
+  const m = report.meta;
   return `<header class="report-header">
     <div class="metis-print-brand">${METIS_LOCKUP_SVG}</div>
     <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
     <p class="subtitle">Equity Research Report</p>
+    <p>Report date: ${esc(m.generatedAt.slice(0, 10))}</p>
+    <p class="disclaimer">${esc(m.disclaimer)}</p>
     ${syntheticNotice(report) ? `<p class="disclaimer">${esc(syntheticNotice(report)!)}</p>` : ""}
     ${providerFallbackNotice(report) ? `<p class="disclaimer">${esc(providerFallbackNotice(report)!)}</p>` : ""}
-    ${meta}
-    <p class="disclaimer">${esc(m.disclaimer)}</p>
   </header>`;
 }
 
@@ -459,6 +464,7 @@ function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
       ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
+    ${b.marketStructure?.length ? subsection("Market & industry structure", claimList(b.marketStructure)) : ""}
     ${quarterly}
     ${annual}
     ${subsection("Concentration risks", claimList(b.concentrationRisks))}</section>`;
@@ -715,7 +721,7 @@ function sectionCompetitive(c: Competitive, report: Report): string {
   // D-62: "Scale — narrow", not the raw enums.
   const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
   const peerList = providerPeerListPresentation(report);
-  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>${esc(peerList.heading)}</h3>${peerList.note ? `<p>${esc(peerList.note)}</p>` : ""}${peers}${subsection("Moat assessment", moat)}
+  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>${esc(peerList.heading)}</h3>${peerList.note ? `<p>${esc(peerList.note)}</p>` : ""}${peerList.hideTable ? "" : peers}${c.competitors?.length ? subsection("Competitors", claimList(c.competitors)) : ""}${subsection("Moat assessment", moat)}
     <h3>Market-share direction</h3><p>${prose(c.marketShareDirection)}</p></section>`;
 }
 
@@ -819,7 +825,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   )}`;
   const path = auditExportFilename(report,context);
   const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;
-  return `<section class="block">${sectionHeading("appendix")}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;
+  return `<section class="block">${sectionHeading("appendix")}${aboutReportBlock(report, completeness, context)}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;
 }
 
 /**
@@ -852,7 +858,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     appendix: sectionAppendix(report, completeness, context),
   };
   const body = [
-    headerBlock(report, completeness, context),
+    headerBlock(report),
     scopeQualifications.length ? `<section class="block"><h2>${esc(LEGACY_SCOPE_HEADING)}</h2><ul>${scopeQualifications.map(note => `<li>${esc(note)}</li>`).join("")}</ul></section>` : "",
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",

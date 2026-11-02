@@ -151,11 +151,11 @@ function completenessScopes(
   );
   expect(JSON.stringify(report)).toBe(before);
 
-  const markdownBoundary = rendered.markdown.indexOf("\n## 1. Verdict");
-  expect(markdownBoundary).toBeGreaterThan(0);
-  const markdownHeader = rendered.markdown.slice(0, markdownBoundary);
+  const markdownStart = rendered.markdown.indexOf("### About this report");
+  expect(markdownStart).toBeGreaterThan(0);
+  const markdownHeader = rendered.markdown.slice(markdownStart, rendered.markdown.indexOf("### Methodology and limitations"));
   const printHeader = rendered.print.match(
-    /<header class="report-header">[\s\S]*?<\/header>/,
+    /<h3>About this report<\/h3>[\s\S]*?<\/table>/,
   )?.[0];
   expect(printHeader).toBeDefined();
   const markdownCompletenessRow = markdownHeader.match(

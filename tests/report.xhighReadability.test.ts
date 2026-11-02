@@ -58,6 +58,7 @@ function peerBlock(text: string): string {
 describe("FIGR extra-high readability", () => {
   it("heads peer-table columns with reader labels, not registry ids", () => {
     const r = withSubjectAndExcludedPeers(report());
+    r.valuation.peerCoverage = { ...r.valuation.peerCoverage!, eligible: ["COIN"] };
     for (const text of surfaces(r)) {
       const block = peerBlock(text);
       expect(block).toContain("Issuer-common capitalization");
@@ -67,15 +68,18 @@ describe("FIGR extra-high readability", () => {
     }
   });
 
-  it("keeps the scale-only caption when the model lists the subject beside excluded provider peers", () => {
+  it("replaces an excluded provider list even when the model adds the subject", () => {
     const r = withSubjectAndExcludedPeers(report());
     for (const text of surfaces(r)) {
-      expect(text).toContain("Provider peer list");
-      expect(text).toContain("shown for scale only");
+      expect(text).toContain("peer list contained no comparable companies");
+      expect(text).toContain("competitors are discussed in this section");
+      expect(peerBlock(text)).not.toContain("Coinbase");
+      expect(peerBlock(text)).not.toContain("Galaxy Digital");
     }
     // A comparable that survived the screen still makes it a peer table.
     r.valuation.peerCoverage = { ...r.valuation.peerCoverage!, eligible: ["COIN"], exclusions: [{ symbol: "GLXY", reason: "business model excluded" }] };
-    expect(reportToMarkdown(r)).not.toContain("Provider peer list");
+    expect(reportToMarkdown(r)).toContain("Coinbase");
+    expect(reportToMarkdown(r)).not.toContain("peer list contained no comparable companies");
   });
 
   it.each([

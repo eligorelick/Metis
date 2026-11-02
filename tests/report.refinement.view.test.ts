@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
-import { ReportSnapshotHeader, observationText } from "@/components/report/ReportSnapshotHeader";
+import { ReportSnapshotDetails, observationText } from "@/components/report/ReportSnapshotHeader";
 import { ReportEvidenceRail } from "@/components/report/ReportEvidenceRail";
 import { GradeStripBar } from "@/components/report/sections";
 import { Sidebar } from "@/components/watchlist/Sidebar";
@@ -43,7 +43,7 @@ describe("refined research reading sequence",()=>{
     const report=loadTask28Fixture();
     if(embedded === undefined) delete report.meta.reportId; else report.meta.reportId=embedded;
     const text=readableHtml(renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier",selectedReportId:3}))).text;
-    expect(text).toContain("DEMO · #3");
+    expect(text).toContain("Saved report #3");
     if(embedded === 999) expect(text).toContain("Selected saved row #3; embedded report ID #999");
     expect(report.meta.reportId).toBe(embedded);
   });
@@ -79,7 +79,7 @@ describe("refined research reading sequence",()=>{
   it("identifies the selected snapshot with UTC and separates process from research state",()=>{
     const report=loadTask28Fixture();
     report.meta.generatedAt="2026-10-25T17:11:18.588Z";
-    const text=readableHtml(renderToStaticMarkup(createElement(ReportSnapshotHeader,{snapshot:report,reportId:46,status:"done",actions:null}))).text;
+    const text=readableHtml(renderToStaticMarkup(createElement(ReportSnapshotDetails,{report,reportId:46,status:"done"}))).text;
     expect(text).toContain("#46");
     expect(text).toContain("2026-10-25 17:11:18.588 UTC");
     expect(text).toContain("Process: DONE");
@@ -94,7 +94,7 @@ describe("refined research reading sequence",()=>{
     expect(observationText("not a date")).toBe("not a date");
     const report=loadTask28Fixture();
     report.meta.evidenceTiming={...(report.meta.evidenceTiming as object),quote:{...(report.meta.evidenceTiming?.quote ?? {}),observedAt:"2025-12-31T00:00:00.000Z"}} as typeof report.meta.evidenceTiming;
-    const html=renderToStaticMarkup(createElement(ReportSnapshotHeader,{snapshot:report,reportId:46,status:"done",actions:null}));
+    const html=renderToStaticMarkup(createElement(ReportSnapshotDetails,{report,reportId:46,status:"done"}));
     expect(readableHtml(html).text).toContain("Quote observed 2025-12-31");
     expect(html).toContain('dateTime="2025-12-31T00:00:00.000Z"');
   });

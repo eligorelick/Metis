@@ -54,7 +54,8 @@ function indexComputedFigures(node: unknown): boolean {
  * Index the report a renderer is about to print. The log's claim entries
  * (factual-claim, no `check`) name the claim's report path and text; an entry
  * whose path no longer holds that text marks nothing. A data-only report's
- * figures are indexed as computed.
+ * figures are indexed as computed. Optional marketStructure/competitors claims
+ * resolve through their exact log paths without a section allowlist.
  */
 export function indexVerificationMarks(report: Report): void {
   if (indexed.has(report)) return;

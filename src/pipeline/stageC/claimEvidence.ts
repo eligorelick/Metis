@@ -1421,6 +1421,8 @@ export function filedCalendarFiscalLabel(record: NumericProvenanceRecord, excerp
   return estimate || bases.some(basis => basis.date === date) ? `FY${date.slice(0, 4)}` : undefined;
 }
 
+// Section-independent: marketStructure and competitors receive the same
+// source-bound numeric checks as every other SourcedClaim.
 export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   record?: NumericProvenanceRecord;
   excerpts: readonly TextExcerpt[];

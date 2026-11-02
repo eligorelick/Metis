@@ -52,9 +52,9 @@ describe("verification headline order (audit 2026-10-22 B-10)", () => {
   });
 
   it.each([
-    { name: "Markdown", header: (r: Report) => { const md = reportToMarkdown(r); return md.slice(0, md.indexOf("### Key data")); } },
-    { name: "print", header: (r: Report) => { const p = withoutPrintTokens(reportToPrintBody(r)); return p.slice(0, p.indexOf("</header>")); } },
-  ])("prints a Verification row and a Provenance row in the $name header", ({ header }) => {
+    { name: "Markdown", header: (r: Report) => { const md = reportToMarkdown(r); return md.slice(md.indexOf("### About this report"), md.indexOf("### Methodology and limitations")); } },
+    { name: "print", header: (r: Report) => { const p = withoutPrintTokens(reportToPrintBody(r)); return p.slice(p.indexOf("<h3>About this report"), p.indexOf("<h3>Methodology and limitations")); } },
+  ])("prints Verification before Provenance in $name About this report", ({ header }) => {
     const text = header(metaReport());
     expect(text).toContain(VALIDATION);
     expect(text).toContain(PROVENANCE);
