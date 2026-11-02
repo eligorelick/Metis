@@ -18,6 +18,17 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P6 local security (2026-11-02)
+
+- SEC-205: capture unsupported legacy Fast as Standard without rewriting saved selections.
+- PERF-201: reuse exact-byte AI snapshots and skip unchanged protected writes.
+- SEC-207: disclose independent indefinite section recovery, usage journals and separate deletion.
+- SEC-206: synchronize the default dropdown after credential changes while preserving unsaved edits.
+- SEC-204: keep saved research reachable when AI storage is unreadable; block jobs and billed keys.
+- SEC-202: disable credential and connection management in configured LAN mode.
+- SEC-201: refuse company-page mutations before live acquisition.
+- Review fixes: the connection-choice error names the recovery guide; a store state this build could not read back is refused before writing; credential reads reuse one frozen copy while the file is unchanged; owner docs keep each note once in its own section.
+
 ## Unreleased - P3 verifier and trust labels (2026-11-02)
 
 - RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.

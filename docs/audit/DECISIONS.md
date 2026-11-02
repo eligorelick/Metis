@@ -3107,3 +3107,31 @@ RPT-207 preserves FMP endpoint arguments when they identify different datasets. 
 RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
 
 Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
+
+## D-next (P6): Company landing methods
+
+SEC-201: refuse all non-GET/HEAD methods on company landings only, including token-bearing requests. No Server Actions use this page. Saved reports and stamps are unchanged.
+
+## D-next (P6): LAN credential management
+
+SEC-202 adopts OD-3: refuse management in configured LAN mode including forged loopback Host. Malformed allowlists fail closed; loopback allowlists remain local. Reports/actions remain unauthenticated, subject to existing spending safeguards.
+
+## D-next (P6): Unreadable AI storage
+
+SEC-204 adopts OD-1: preserve shell availability with environment data keys, withhold both billed Anthropic keys, refuse capture and writes, retain original bytes, and retry failures after 30 seconds or immediately on changed bytes. Recovery is named in OPERATIONS.
+
+## D-next (P6): Visible default AI selection
+
+SEC-206 follows server selection on credential refresh only for an implicit default with no unsaved edit. Explicit saved choices and all unsaved fields remain authoritative.
+
+## D-next (P6): Recovery retention
+
+SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retries and manual audit. Document plain text, writer evidence, independent data-dir placement and stopped-app deletion. Purging would lose evidence and re-consume plan allowance.
+
+## D-next (P6): Protected-store snapshot
+
+PERF-201 caches successes by exact bytes/path and returns clones; unchanged callbacks skip protection and rename. Real mutations remain mutex serialized with atomic write-through. Stat fields cannot safely identify rotating tokens. Failed callbacks cannot mutate the cache.
+
+## D-next (P6): Effective legacy Fast speed
+
+SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
