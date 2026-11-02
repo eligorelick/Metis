@@ -993,14 +993,15 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           // new definition AND charged stock-based compensation twice, since
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
-          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND, suppressedBy: "fcfConversion" },
+          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND, suppressedBy: "sbcPctOfFcf" },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.
         ],
         weights.balanceSheet,
         inputs.asOf,
+        route.cashFlowApplicability ? `${route.cashFlowApplicability.reason} The capital grade retains leverage and coverage; FCF conversion and SBC/FCF are excluded from its applicable denominator.` :
         `Financial strength on ${currentCapital?.basis ?? "annual"} flows and the corresponding balance date${currentCapital?.asOf ? ` ${currentCapital.asOf}` : ""}. ${currentCapital?.fallbackReason ?? ""} Leverage, coverage, FCF conversion and the cost of stock-based compensation. ` +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
           "used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC " +

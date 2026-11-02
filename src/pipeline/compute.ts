@@ -139,6 +139,7 @@ import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/u
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
+import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
@@ -2182,6 +2183,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }, ttmGaps, [], issuance);
   }
 
+  const lendingCashFlow = lenderCashFlowApplicability(bundle, route);
+  if (lendingCashFlow) {
+    route.cashFlowApplicability = lendingCashFlow;
+    route.notes.push(lendingCashFlow.reason);
+  }
   const policy = metricPolicy(route);
   const isSuppressed = (key: string): boolean => policy.suppress.includes(key);
   const suppress = (key: string, reason: string): void => {
@@ -2319,6 +2325,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     annualCashFlow: cashflowAnnual[0] ? toCapitalCashFlow(cashflowAnnual[0]) : null,
     annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
+
+  if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a
@@ -2564,6 +2572,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }
   }
 
+  if (lendingCashFlow) {
+    if (runway) runway = { ...runway, burning: null, avgQuarterlyBurn: null, burnWindowQuarters: 0, burnWindowDates: [],
+      runwayQuarters: null, estimatedExhaustionDate: null, notes: [lendingCashFlow.reason],
+      gaps: runway.gaps.filter(gap => gap.field === "runway.liquidAssets" || gap.field.startsWith("runway.dilution")) };
+    for (const key of ["fcf", "fcfGrowth", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf"]) suppress(key, lendingCashFlow.reason);
+    degradation.items.push({ target: "cashFlow.ownerEconomics", action: "suppress", disclosure: lendingCashFlow.reason });
+  }
+
   // --- Scores + projections (deterministic; feature 1.1.0) ------------------
   // Every upside (the grade's DCF signal, the fair value, the scenario targets)
   // sets a model value against the quote. Without one known currency on both
@@ -2743,7 +2759,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     asOf: asOfDay,
     // D-60: the remaining repurchase authorization for the EPS capital-return disclosure.
     capitalReturn: (() => {
-      const capitalReturn = buildFilingDisclosures(bundle)?.capitalReturn ?? null;
+      const capitalReturn = buildFilingDisclosures(bundle, route.cashFlowApplicability)?.capitalReturn ?? null;
       return capitalReturn === null ? null : {
         authorizationRemaining: capitalReturn.authorizationRemaining,
         source: (() => { const source=capitalReturn.authorizationRemainingSource ?? capitalReturn.source;
@@ -2804,7 +2820,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("fcfDcf")) {
     suppress(
       "valuation.dcf",
-      modelEligibilityReason ?? (route.overlays.includes("unprofitable")
+      modelEligibilityReason ?? lendingCashFlow?.reason ?? (route.overlays.includes("unprofitable")
         ? "FCFF DCF not meaningful — free cash flow is structurally negative (unprofitable overlay); see multiples for relative valuation"
         : `FCFF DCF not meaningful for ${route.base} - book/excess-return model used`),
     );

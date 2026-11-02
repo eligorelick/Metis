@@ -6476,6 +6476,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
 
   const multiples = multiplesFramework(route.base, inputs.multiples);
+  const cashFlowApplicability = route.cashFlowApplicability;
+  if (cashFlowApplicability?.status === "not-applicable") {
+    const reason = cashFlowApplicability.reason;
+    multiples.multiples = multiples.multiples.map(row => row.key === "priceToFcf" ? { key: row.key, current: null, basis: reason, ownHistory: null, peers: null } : row);
+    multiples.sectorAppropriate = multiples.sectorAppropriate.filter(key => key !== "priceToFcf");
+    multiples.notes.push(reason);
+    multiples.gaps = multiples.gaps.filter(g => !g.field.startsWith("valuation.multiples.priceToFcf"));
+  }
   if (route.base === "reit" && inputs.reit && multiples.enterpriseValue.noncontrollingInterestBasis === "unknown-allocation") {
     const reason = "REIT enterprise value and implied cap rate withheld: consolidated equity establishes outside ownership but the NCI allocation is unavailable; no market NCI value is inferred from the book-equity difference. FFO figures are evaluated separately.";
     notes.push(reason);
@@ -6661,6 +6669,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   // meaningful and we skip it entirely rather than returning a DCF the
   // report's own display policy says shouldn't be shown.
   if (metricPolicy(route).suppress.includes("fcfDcf")) {
+    if (cashFlowApplicability?.status === "not-applicable") {
+      const reason = cashFlowApplicability.reason;
+      return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
+    }
     notes.push(
       "fcfDcf suppressed by metric policy (unprofitable overlay) — DCF/sensitivity/reverse-DCF not modelled; " +
         "free cash flow is structurally negative, making an FCFF-based intrinsic-value model unreliable. " +

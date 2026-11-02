@@ -1,0 +1,99 @@
+import { describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+vi.mock("server-only", () => ({}));
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { ReportView } from "@/components/report/ReportView";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintHtml } from "@/report/export/printHtml";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+import { runStageB } from "@/pipeline/compute";
+import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+
+function lender(options: { bank?: boolean; sic?: string; statement?: string } = {}) {
+  const b = completeCurrencyBundle({ bank: options.bank, sic: options.sic ?? "6163" });
+  if (!b.profile.ok) throw new Error("fixture profile");
+  Object.assign(b.profile.value.data.rows[0]!, { cik: "0000000042", sector: "Financial Services", industry: options.bank ? "Banks - Regional" : "Financial - Capital Markets", ipoDate: "2025-09-12" });
+  b.edgar.registrant = { cik10: "0000000042", name: "Example", tickers: [b.symbol], exchanges: ["Nasdaq"], sic: options.sic ?? "6163", sicDescription: "Loan Brokers", fiscalYearEnd: "1231", stateOfIncorporation: "DE", forms: ["10-Q"] };
+  b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: b.builtAt,
+    data: { sectionName: "tenQNotes", text: "Loan origination and distribution.", statementsText: options.statement ?? "CONSOLIDATED STATEMENTS OF CASH FLOWS (in thousands) Operating activities: Net income 50 Adjustments to reconcile net income to net cash provided by operating activities: Proceeds from loan sales, net of repurchases 4,500 Originations of loans held for sale (2,600) Purchases of loans held for sale (2,400) Net cash used in operating activities (450) Investing activities: Capital expenditure (10) Financing activities: Proceeds from debt 500",
+      method: "toc-anchor", chars: 35, accession: "0000000042-26-000001", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/quarter.htm" } } };
+  return b;
+}
+
+describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
+  it("makes owner-FCF measures inapplicable without hiding filed OCF, capex, income or book value", () => {
+    const b = lender(); const before = JSON.stringify(b);
+    const c = runStageB(b);
+    expect(c.route.base).toBe("general");
+    expect(c.route.overlays).not.toContain("unprofitable");
+    expect(c.capital.fcf.latestFcf).toBeNull();
+    expect(c.capital.current?.cashBridge.operatingCashFlow).toBeGreaterThan(0);
+    expect(c.capital.current?.cashBridge.cashCapitalExpenditure).not.toBeNull();
+    expect(c.capital.current?.cashBridge.standardizedFcf).toBeNull();
+    expect(c.runway?.runwayQuarters).toBeNull();
+    expect(c.runway?.notes.join(" ")).toMatch(/not applicable.*held-for-sale/i);
+    expect(c.valuation.kind).toBe("dcf-suppressed");
+    expect(c.valuation.multiples!.multiples.find(m => m.key === "priceToFcf")).toMatchObject({ current: null, ownHistory: null, peers: null, basis: expect.stringMatching(/not applicable/i) });
+    expect(c.valuation.multiples!.multiples.find(m => m.key === "priceToBook")?.current).toBeGreaterThan(0);
+    const policy = metricPolicy(c.route);
+    expect(policy.suppress).toEqual(expect.arrayContaining(["fcfGrowth", "fcfDcf", "fcfYield", "fcfConversion", "sbcPctOfFcf"]));
+    expect(c.scores.aspects.balanceSheet.applicableCompleteness).toBe(0.6); // Leverage 0.3 / (leverage 0.3 + missing coverage 0.2); FCF weight 0.35 excluded.
+    expect(c.scores.aspects.balanceSheet.signals?.map(s => s.id)).toEqual(["netDebtToEbitda"]);
+    const p = assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] });
+    const prompt = serializePayloadForPrompt(p);
+    expect(prompt).toMatch(/not applicable.*held-for-sale/i);
+    expect(p.computed.flatMap(s => s.figures).some(f => /operating cash flow/.test(f.label) && f.value !== null)).toBe(true);
+    expect(buildFilingDisclosures(b, c.route.cashFlowApplicability)?.quarterlyTrend.every(r => r.freeCashFlow === null)).toBe(true);
+    expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it.each([
+    ["a fee-based financial issuer", {}],
+    ["a non-lender SIC", { sic: "3571" }],
+    ["an unresolved financial SIC", { sic: "6199" }],
+    ["lending in investing activities", { statement: "STATEMENTS OF CASH FLOWS Operating activities: Net cash from operating activities 50 Investing activities: Proceeds from loan sales 500 Originations of loans held for sale (400) Financing activities: Debt 10" }],
+    ["an originator without evidenced loan sales", { statement: "STATEMENTS OF CASH FLOWS Operating activities: Originations of loans held for sale (400) Net cash used in operating activities (400) Investing activities: None Financing activities: Debt 10" }],
+  ])("keeps normal cash-flow treatment for %s", (name, opts) => {
+    const b = lender(opts);
+    if (name === "a fee-based financial issuer" && b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.statementsText = "Operating activities: Collection of fees 500 Net cash provided by operating activities 500 Investing activities: Capex (10)";
+    const c = runStageB(b);
+    expect(c.capital.fcf.latestFcf).not.toBeNull();
+    expect(metricPolicy(c.route).suppress).not.toContain("fcfConversion");
+  });
+
+  it("keeps bank routing and its established metric policy", () => {
+    const c = runStageB(lender({ bank: true, sic: "6022" }));
+    expect(c.route.base).toBe("bank");
+    expect(c.valuation.kind).toBe("excess-return");
+    expect(metricPolicy(c.route).suppress).not.toContain("fcfConversion");
+  });
+
+  it.each(["foreign source", "future filing", "wrong issuer source", "zero originations"])("does not infer applicability from %s", name => {
+    const b = lender();
+    if (!b.edgar.tenQNotes?.ok) throw new Error("fixture notes");
+    const note = b.edgar.tenQNotes.value.data;
+    if (name === "foreign source") note.documentUrl = "https://example.com/quarter.htm";
+    if (name === "future filing") note.filingDate = "2027-05-06";
+    if (name === "wrong issuer source") note.documentUrl = note.documentUrl.replace("/42/", "/99/");
+    if (name === "zero originations") note.statementsText = note.statementsText!.replace("(2,600)", "(0)");
+    expect(runStageB(b).capital.fcf.latestFcf).toBe(170_000_000);
+  });
+
+  it("carries the applicability explanation through saved reports, both layouts and exports without mutating stored bytes", () => {
+    const b = lender(); const computed = runStageB(b);
+    const report = buildDataOnlyReport({ symbol: b.symbol, companyName: "Example", generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, validation: { checks: [], flags: [], gaps: [] }, computed, costBreakdown: [], reason: "offline" });
+    const before = JSON.stringify(report);
+    expect(report.filingDisclosures?.quarterlyTrend.every(row => row.freeCashFlow === null)).toBe(true);
+    for (const output of [renderToStaticMarkup(createElement(ReportView, { report })),
+      renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+      reportToMarkdown(report), reportToPrintHtml(report, { autoPrint: false }), reportToAuditMarkdown(report)]) {
+      expect(output).toMatch(/not applicable[^<\n]*held-for-sale/i);
+    }
+    expect(JSON.stringify(report)).toBe(before);
+  });
+});

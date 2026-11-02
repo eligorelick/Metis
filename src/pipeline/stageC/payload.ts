@@ -1639,7 +1639,7 @@ function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: numbe
   };
 }
 
-function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
+function statementExtracts(bundle: DataBundle, cashFlowApplicability?: { reason: string }): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
@@ -1662,12 +1662,17 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const balQ = oneRowPerPeriod(rowsOf(bundle.statements.balanceQuarterly), Q);
   const cash = oneRowPerPeriod(rowsOf(bundle.statements.cashflowAnnual), A);
   const cashQ = oneRowPerPeriod(rowsOf(bundle.statements.cashflowQuarterly), Q);
+  const cashItems = cashFlowApplicability ? CASHFLOW_LINE_ITEMS.filter(item => item.key !== "freeCashFlow") : CASHFLOW_LINE_ITEMS;
+  if (cashFlowApplicability) {
+    cash.notes.push(cashFlowApplicability.reason);
+    cashQ.notes.push(cashFlowApplicability.reason);
+  }
   push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
   push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
   push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
   push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
-  push(extractStatement("Cash flow — annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
-  push(extractStatement("Cash flow — quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
+  push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
+  push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   return blocks;
 }
 
@@ -3492,7 +3497,7 @@ export function assembleContextPayload(
   // — surfacing them here keeps the prompt and the rendered appendix in agreement.
   const transcript = transcriptExcerpt(bundle);
   const filings = filingExcerpts(bundle);
-  const disclosures = buildFilingDisclosures(bundle);
+  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
   const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
   const latestEnd = anchor?.runRate?.latestQuarterEnd;
@@ -3526,7 +3531,7 @@ export function assembleContextPayload(
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
     computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle), caveats),
-    statements: statementExtracts(bundle),
+    statements: statementExtracts(bundle, computed.route?.cashFlowApplicability),
     ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),

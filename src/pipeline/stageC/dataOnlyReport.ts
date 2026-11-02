@@ -895,7 +895,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const candidate: Report = {
     ...stub,
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
-    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle))),
+    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
       gradeStrip: {
@@ -940,7 +940,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   };
   // Guidance, 8-K events, XBRL segments and the quarterly trend are filing
   // facts, not analyst judgment, so the data-only report carries them too.
-  const filingDisclosures = buildFilingDisclosures(bundle);
+  const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
   const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps });

@@ -685,7 +685,7 @@ export function residualNote(axisLabel: string, cells: number): string {
 }
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
-export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | undefined {
+export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability?: { reason: string }): FilingDisclosures | undefined {
   const reports = currentReportsOf(bundle);
   const materialEventItems = MaterialEventItemsSchema.safeParse(reports?.materialEventItems);
   const segmentsRes = bundle.edgar?.quarterlySegments;
@@ -695,6 +695,10 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const notes: string[] = selectedGeographyNotes(bundle.segmentation?.geographic);
   const trendFlags = { presentationChecked: false };
   const trend = quarterlyTrend(bundle, releases, currency, notes, trendFlags);
+  if (cashFlowApplicability) {
+    for (const row of trend) row.freeCashFlow = null;
+    notes.push(cashFlowApplicability.reason);
+  }
   const interim = segmentPrimarySection(bundle);
   const segmentCurrency = interim === null ? null : periodReportingCurrency(bundle, day(interim.data.reportDate));
   const segmentPerformance = interim !== null && segmentCurrency === currency

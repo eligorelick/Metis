@@ -1180,6 +1180,9 @@ export function metricPolicy(
 
   const suppress = new Set<string>(BASE_POLICIES[base].suppress);
   const lead: string[] = [...BASE_POLICIES[base].lead];
+  if (typeof route !== "string" && route.cashFlowApplicability?.status === "not-applicable") {
+    for (const key of ["fcf", "fcfGrowth", "fcfDcf", "reverseDcf", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf"]) suppress.add(key);
+  }
   if (typeof route !== "string" && "reitSubmap" in route && route.reitSubmap === "undetermined") {
     for (const metric of REIT_SUBMAP_UNDETERMINED_SUPPRESSED) suppress.add(metric);
   }

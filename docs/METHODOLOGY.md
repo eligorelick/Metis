@@ -26,6 +26,42 @@ capitalization and multiples; per-share intrinsic value still requires its
 separate diluted-divisor and model-input gates. D-67: derivation is in memory
 for a new computation only; stored source bundles and reports are never rewritten.
 
+## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
+
+The general route has a narrow owner-FCF applicability exception. It requires
+SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
+retained primary 10-Q/10-K statement of cash flows explicitly reporting nonzero
+"Originations of loans held for sale" and "Proceeds from loan sales" (or
+"Proceeds from sales of loans") within operating activities, before investing
+activities. A repeated "operating activities" reconciliation heading does not
+end that section. The primary SEC Archives URL must bind the CIK and accession;
+filing/report dates must be valid and known by the computation cutoff, and the
+report date must match the latest cash-flow row. An older note cannot pass a
+newer periodic filing. SIC alone, sector alone, negative CFO, balances of loans,
+investing loan activity, originations without sale proceeds, zero flows and
+broad unresolved SIC 6199 do not establish applicability. No bank route changes.
+
+For this evidenced business model, OCF less capex includes funding and turnover
+of held-for-sale loan inventory. It is not an owner-cash measure or an exhaustion
+clock, regardless of its sign or reported profitability. Owner FCF (before and
+after SBC), conversion and growth, P/FCF and its histories/peer rankings, FCF
+yield, cash runway, and FCF-based DCF/reverse DCF/sensitivity are **not
+applicable**, with the filed source and plain reason. There is no new lender
+valuation model. Earnings and book-value measures remain under their existing
+gates. Raw filed OCF, cash capex, loan flows and SBC stay retained; source
+conflicts continue to withhold the affected observations independently. The
+generic derived/vendor FCF line is omitted from statement prompt extracts and
+quarterly report trends, preventing an alternative path from promoting it as
+owner FCF. Issuer-defined cash-flow disclosures retain their filed definitions
+with the applicability caveat.
+
+The FCF growth, DCF and FCF-dependent capital signals are removed from the
+applicable grade denominator, rather than counted as missing inputs. Coverage
+and leverage signals retain their prior rules. Report notes, both layouts,
+payload/prompt provenance and Markdown/audit/print exports carry the same
+explanation. Applicability is derived for new computations; existing saved
+reports are neither reinterpreted nor rewritten (D-67).
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

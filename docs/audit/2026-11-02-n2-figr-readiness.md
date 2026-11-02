@@ -9,8 +9,8 @@ binding: general plus recent-IPO, FIN-OTHER, not the bank map.
 
 | Finding | Disposition | Commit | Red receipt | Green receipt | Stored-report impact |
 | --- | --- | --- | --- | --- | --- |
-| R-FIGR-3 | Fixed, bounded filed-statement alternative | R-FIGR-3 owning commit | r-figr-3-red-confirmed (2 failures; 11 controls pass) | r-figr-3-final-green (126 pass), r-figr-3-green-controls (350 pass) | New computations only; historical bytes unchanged (D-67). |
-| R-FIGR-1 | Not started | - | - | - | - |
+| R-FIGR-3 | Fixed, bounded filed-statement alternative | fd8d05a3 | r-figr-3-red-confirmed (2 failures; 11 controls pass) | r-figr-3-final-green (126 pass), r-figr-3-green-controls (350 pass) | New computations only; historical bytes unchanged (D-67). |
+| R-FIGR-1 | Fixed | R-FIGR-1 owning commit | r-figr-1-red; r-figr-1-operating-header-red | r-figr-1-green-controls (187 pass); r-figr-1-consumers (380 pass); r-figr-1-export-controls (27 pass); r-figr-1-payload-consumers (415 pass); r-figr-1-docs-green (184 pass) | New computations only; source conflicts retained; no historical reinterpretation. |
 | R-FIGR-2 | Not started | - | - | - | - |
 
 ## R-FIGR-3 evidence and replay
@@ -54,3 +54,63 @@ traded prices of other classes remain unavailable. Generic single-class and
 bank controls retain their routes and conventions. Version stamps stay at the
 shared report 1.56.0 / payload 1.60.0 / Stage B CLAUDE_REPAIRS_39; no golden
 repin or historical display reinterpretation is required.
+
+
+## R-FIGR-1 evidence and replay
+
+The 10-Q operating cash-flow section reports H1 loan-sale proceeds 4,638.228m,
+held-for-sale originations 2,686.831m, purchases 2,432.718m and principal payments
+389.014m. Thus the generic owner-FCF/runway interpretation fails independently
+of the retained CFO conflicts. Neither negative CFO nor a financial-sector name
+alone triggers this rule. The synthetic positive-CFO lender is the regression
+trigger; non-lenders, fee-based firms, banks, investing activity, missing sale
+proceeds, zero flows, unknown SIC, wrong/future sources are controls.
+
+| Changed figure (after shares fix -> after lending fix) | Before | After |
+| --- | ---: | ---: |
+| FY2025 FCF after SBC, USD; both latest and annual-series copy | -20,445,000 | not applicable |
+| FY2025 FCF before SBC, USD; both copies | 41,919,000 | not applicable |
+| FY2025 FCF conversion after SBC; both copies | -0.1522553451 | not applicable |
+| FY2025 FCF conversion before SBC; both copies | 0.3121737252 | not applicable |
+| Annual SBC / FCF, percent | 148.7726329349 | not applicable |
+| Capital-grade applicable evidence fraction | 0.2352941176 | 0.4 |
+| Overall evidence completeness | 0.1693009614 | 0.2278009209 |
+| Composite score (grade stays D) | 50.13 | 50.18 |
+| Business-quality evidence completeness | 0.1575388776 | 0.1833202203 |
+| Business-quality score (grade stays D) | 52.73 | 53.18 |
+
+Every changed signal attribution (weights are percent; contributions are score
+points) follows from the changed applicable-evidence ceiling:
+
+| Signal / factor | Weight before -> after | Contribution before -> after |
+| --- | --- | --- |
+| Interest coverage / financial-strength factor | 3.9107055565 -> 5.2620039465 | 0.1716544048 -> 0.2309675690 |
+| ROIC level / capital-returns factor | 7.4792243767 -> 10.0635825477 | 1.8040174327 -> 2.4273744759 |
+| 52-week-high distance | 1.9390581717 -> 2.6090769568 | -0.6786703601 -> -0.9131769349 |
+| Relative strength | 2.4930747922 -> 3.3545275159 | -0.8725761773 -> -1.1740846306 |
+| SMA gap | 1.1080332410 -> 1.4909011182 | -0.2933163829 -> -0.3946684152 |
+| Momentum-and-trend factor (sum of previous three) | 5.5401662050 -> 7.4545055909 | -1.8445629203 -> -2.4819299807 |
+
+This accounts for every changed computed number, including duplicate latest/FY
+FCF and signal/factor copies. Input metrics are unchanged: no new coverage, ROIC
+or price observations were admitted. Runway and DCF change reason from
+missing/conflicting data to not applicable; their numeric values remain null.
+Current-capital FCF was already null from input conflicts. P/FCF remains null
+but loses history/peer admission; FCF yield has no numeric producer in this
+base (only a display-policy lead ID), now explicitly suppressed. Earnings/book
+multiples and all R-FIGR-3 values stand. Filed CFO/capex observations remain in
+source statements, without restoring rejected values. Baseline CFO arithmetic
+in FIGR-TIEOUT (-86.490m TTM) is independent context, not newly admitted Stage B
+data. Receipt r-figr-1-replay-evidenced writes the immutable offline replay.
+
+Downstream: capital and grading, route policy, valuation and reverse/sensitivity,
+quarterly trends, statement extracts, payload/provenance and narrative context,
+data-only report, classic/dossier and Markdown/audit/print exports are covered.
+Legacy stored-reader preservation tests pass; there is no frozen display cutoff
+because historical interpretation is unchanged. Shared stamps and payload
+golden remain unchanged (pipeline already stage-c-1.6.18 at this base).
+
+Coordinator notice: base f8d6c758 has 16 known product failures, already repaired
+on integration e38aef0f: stageC.claimPeriods.audit20261027 (14),
+stageC.excerptCurrencyScale (1), company.generateReport.stream (1). This track
+does not alter those repairs or their assertions.
