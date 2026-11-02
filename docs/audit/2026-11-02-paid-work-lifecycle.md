@@ -2,6 +2,42 @@
 
 This batch preserves accepted work and safe in-flight renewals.
 
+## Independent review follow-up (2026-11-02)
+
+At reviewed HEAD 94a15e36, JOB-301 was partial and JOB-215 regressed terminal
+attachments. The follow-up fixes both; all eight review findings are now fixed.
+The earlier receipts below describe the pre-review implementation, not acceptance
+of the reviewed defects.
+
+| Review finding | Status / correction | Commit | Red / green receipts |
+| --- | --- | --- | --- |
+| 1 | Fixed: Live/saved terminal attachment stays put; observed running completion navigates once | f0585211 | P4-R1-red / P4-R1-green |
+| 2 | Fixed: Both exact owner-required spend/resume disclosures | e53b6cd8 | P4-R2-red / P4-R2-green |
+| 3 | Fixed: Dedicated resume label and failure text | ab2ea3b4 | P4-R3-red / P4-R3-green |
+| 4 | Fixed: Provider attribution survives a blocked repair | 79dc74b6 | P4-R4-red-valid / P4-R4-green-valid |
+| 5 | Fixed: Damaged runtime ownership names runtime.lock | ce22ce0c | P4-R5-red / P4-R5-green |
+| 6 | Fixed: Legacy index only while duplicate aliases drain | 7ba9c00b | P4-R6-red / P4-R6-green |
+| 7 | Fixed: Five delayed reopens then one fenced GET and lost message | 7501c9f1 | P4-R7-red / P4-R7-green-final |
+| 8 | Fixed: Records placement, JSDoc ownership and escaped dash | this commit (P4-R8) | P4-R8-red / P4-R8-green2 |
+
+Stored reports are unchanged. Newly persisted resumed-side gaps say "resumed side
+failed"; gaps retain the provider if any attempt for that side reached it.
+No financial formula, prompt, payload, version stamp or golden changes.
+Read-only terminal attachment navigation/refresh count changes from 1 to 0;
+observed live completion remains exactly 1. CLOSED-stream retries change from
+unbounded to 5 delayed reopens plus 1 GET, with 0 POSTs. Repeated database
+bootstrap schema-version changes from +2 to +0; duplicate jobs remain preserved.
+Paid recovery allowances, request admission and settlement identities are unchanged.
+
+Verification: P4-review-focused-final passes 686 tests in 16 files, including
+runner, scheduler, both client suites, presentation, unsupported page, mutex,
+AI store, migration, report API, SSE, resume/state, and all three docs gates.
+P4-review-typecheck exits 0. P4-review-final-docs passes 202 tests in four files after final placement and
+JSDoc edits. P4-review-lint exits 0. Final typecheck/lint receipts are P4-review-typecheck-final and
+P4-review-lint-final after the last source edits. Offline only; full merged verify belongs
+to the integrator. No push, PR, merge or history rewrite. No owner questions.
+
+
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 | --- | --- | --- | --- | --- |
 | JOB-202 | Fixed: compatible accepted-work reuse loads frozen lineage inputs and Stage B configuration, preserving hash and capture time | 261d0f4d | JOB-202-red, JOB-202-real-red / JOB-202-green, JOB-202-real-green | No rewrite; newly resumed reports retain source input provenance |
@@ -10,7 +46,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | DOC-203 | Fixed: commented canonical defaults and key-only startup warnings | f37a948b | DOC-203-red / DOC-203-green2 | None |
 | AI-510 | Fixed: shared recovery with independent repair and plan resend allowances | 2247d65c | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
 | JOB-201 | Fixed: shared recovery with independent repair and plan resend allowances | 2247d65c | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
-| JOB-301 | Fixed after dynamic reproduction: read-only terminal discovery in both layouts | c6c7e7e9 | JOB-301-red / JOB-301-green | None |
+| JOB-301 | Fixed after review follow-up: terminal discovery, reachable Retry, exact cost and classic saved-view disclosures | c6c7e7e9; f0585211; e53b6cd8 | JOB-301-red / JOB-301-green | None |
 | AI-110 | Fixed: rechecked deterministic fallback then fixed shell | a6993fd1 | AI-110-red / AI-110-green | None |
 | AI-115 | Fixed: lifetime native OS runtime ownership | d26076d6 | AI-115-red / AI-115-green | None |
 | JOB-207 | Fixed: effective verification-generation provenance | 6f53eca2 | JOB-207-red / JOB-207-green | Newly resumed reports only; no rewrite |

@@ -105,6 +105,18 @@ export function effectiveJobCapUsd(
  * conflict inside one connection, which waiting does not clear, so it is not
  * transient (https://www.sqlite.org/rescode.html).
  */
+export function isTransientWriterLock(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let entry: unknown = error;
+  for (let depth = 0; depth < 8 && entry !== null && entry !== undefined && !seen.has(entry); depth++) {
+    seen.add(entry);
+    const code = typeof entry === "object" ? (entry as { code?: unknown }).code : undefined;
+    if (typeof code === "string" && (code === "SQLITE_BUSY" || code.startsWith("SQLITE_BUSY_"))) return true;
+    entry = typeof entry === "object" ? (entry as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
 /** A busy beat can wait only if another whole beat and SQLite wait fit. */
 export function renewalFailureTolerable(input: {
   error: unknown; knownLeaseExpiresAtMs: number; nowMs: number; beatMs: number; busyTimeoutMs: number;
@@ -116,18 +128,6 @@ export function renewalFailureTolerable(input: {
 export function connectionBusyTimeoutMs(db: ThesisDb = getDb()): number {
   return Number((db as ThesisDb & { $client: { pragma(sql: string, options: { simple: true }): unknown } })
     .$client.pragma("busy_timeout", { simple: true }));
-}
-
-export function isTransientWriterLock(error: unknown): boolean {
-  const seen = new Set<unknown>();
-  let entry: unknown = error;
-  for (let depth = 0; depth < 8 && entry !== null && entry !== undefined && !seen.has(entry); depth++) {
-    seen.add(entry);
-    const code = typeof entry === "object" ? (entry as { code?: unknown }).code : undefined;
-    if (typeof code === "string" && (code === "SQLITE_BUSY" || code.startsWith("SQLITE_BUSY_"))) return true;
-    entry = typeof entry === "object" ? (entry as { cause?: unknown }).cause : undefined;
-  }
-  return false;
 }
 
 export function configuredSchedulerLimits(): SchedulerLimits {

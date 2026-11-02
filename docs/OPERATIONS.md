@@ -119,6 +119,11 @@ Appearance is a per-browser `thesis-ui-design` cookie (`current` or `workspace`)
 with a 180-day maximum age and `SameSite=Lax`; HTTPS adds `Secure`. It changes
 presentation independently of stored research/model settings.
 
+The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
+legacy shell and launcher values. Uncomment only intentional overrides: even a
+blank canonical assignment wins. Startup warns about conflicting aliases using
+key names only, never their values.
+
 ## Report lifecycle and recovery
 
 Generation runs fetch → validate → compute → bull → bear → synthesize → verify.
@@ -174,6 +179,49 @@ could not record is no longer renewed and is counted at its reserved maximum
 when its lease expires, until `npm run costs:reconcile` lowers it. See
 [usage controls](CLAUDE-USAGE.md) before sizing caps.
 
+A transient SQLite writer lock during job or paid-request lease renewal waits
+for the next renewal beat only while the known lease expiry leaves room for
+that beat and the connection busy timeout. Lost authority, insufficient slack
+or another error still aborts; this never replays the provider request.
+
+Active-job admission and Retry treat dot/hyphen share-class aliases as one
+issuer. Existing duplicate active aliases are preserved; the stronger unique
+issuer index is installed at a later startup after those jobs drain.
+
+A resumed missing analyst side receives the same recovery as a fresh side:
+one rejected-output repair and, on plan connections, up to three zero-cost
+dropped-request resends. Repair feedback is preserved across a dropped repair;
+a newly rejected output starts a whole-case repair without continuation.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen after 1, 2, 5, 10 and 30 seconds. After those attempts fail, the client
+stops reopening, reads job status once with GET and shows Live connection lost.
+Observation never posts work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion observed after a running frame or an explicit start/Retry updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+Attaching to a job already done on load does not navigate or refresh.
+
+Temporary provider rate limits, 5xx, overload and unavailable responses share
+the bounded backoff classification and are described as busy or unavailable.
+Cut-off streams keep their own wording. Retry-After parsing remains deferred.
+
+Generate starts a new run that runs every pass again, at full cost on a paid connection. The classic saved view points to Live analysis when reusable analyst work is available.
+
 ## Local HTTP API
 
 All paths below pass the request-wide direct-Host allowlist. Mutations also
@@ -220,6 +268,10 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/report' -Method Post `
   -Headers @{ 'X-Metis-Token' = $metisToken } -ContentType 'application/json' `
   -Body '{"symbol":"AAPL"}'
 ```
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
 
 ## Persistence, exports and maintenance
 
@@ -323,6 +375,11 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
 | AI store is held by another server | A plan-connection job stops at the start of its fetch step, in one attempt and before any data is fetched, with "AI connections are active in another Metis server"; a pass refused mid-run says the same and is not retried. Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
 
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
 Implementation anchors: `src/app/api/`, `src/app/requestSecurity.ts`,
 `src/pipeline/jobRunner.ts`, `jobStore.ts`, `jobScheduler.ts`, `events.ts`,
 `src/settings/`, `src/appearance/preference.ts`, `src/db/`, `src/cache/`,
@@ -404,55 +461,3 @@ fingerprint and execution telemetry paths. It does not change stored preferences
 the public report endpoint continues to use the user's selected connection.
 
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.
-
-A transient SQLite writer lock during job or paid-request lease renewal waits
-for the next renewal beat only while the known lease expiry leaves room for
-that beat and the connection busy timeout. Lost authority, insufficient slack
-or another error still aborts; this never replays the provider request.
-
-Active-job admission and Retry treat dot/hyphen share-class aliases as one
-issuer. Existing duplicate active aliases are preserved; the stronger unique
-issuer index is installed at a later startup after those jobs drain.
-
-The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
-legacy shell and launcher values. Uncomment only intentional overrides: even a
-blank canonical assignment wins. Startup warns about conflicting aliases using
-key names only, never their values.
-
-A resumed missing analyst side receives the same recovery as a fresh side:
-one rejected-output repair and, on plan connections, up to three zero-cost
-dropped-request resends. Repair feedback is preserved across a dropped repair;
-a newly rejected output starts a whole-case repair without continuation.
-
-JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
-offered only when terminal and eligible for Retry. Discovery is read-only and
-never resurrects an older lineage or starts work.
-
-AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
-ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
-the lock automatically; never delete it while servers run. Stop all servers
-before upgrading: older binaries use only the saved PID protocol.
-
-JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
-successful verification artifact, including its original capture time. It does
-not substitute lineage-root inputs when that artifact has no snapshot.
-
-JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
-with the actual attempt count, rather than report-schema validation failures.
-Received-invalid-output controls retain schema wording and unchanged costs.
-
-JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
-reopen with capped backoff, without posting work. Replacement streams retain
-monotonic revision checks; cancellation and unmount clear pending timers.
-
-JOB-215: Completion updates surrounding research once per job. A live-view
-completion navigates to saved research instead of rebuilding live inputs;
-subsequent settlement revisions still update progress without another refresh.
-
-PERF-202: SSE polls read the canonical revision before building a full snapshot.
-Unchanged revisions skip artifact and report work; nonterminal snapshots omit
-resume-plan folding. Settlement revisions still emit through the same fences.
-
-Temporary provider rate limits, 5xx, overload and unavailable responses share
-the bounded backoff classification and are described as busy or unavailable.
-Cut-off streams keep their own wording. Retry-After parsing remains deferred.

@@ -20,6 +20,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P4 paid-work lifecycle (2026-11-02)
 
+Independent review follow-up: keep already-finished resumable jobs reachable on
+Live analysis, disclose Generate's full rerun cost, label resumed sides honestly,
+retain provider attribution, name damaged runtime.lock correctly, avoid rebuilding
+the obsolete symbol index, and stop failed stream reconnects after five delays
+with one read-only status request. Reorganize lifecycle records and operating notes.
+
 DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.

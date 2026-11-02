@@ -1,6 +1,17 @@
 # Decisions
 
-## D-next (P4): preserve accepted work, paid lifecycle and spend limits
+Entries are dated design history, not a single current configuration. Later
+decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
+choices. In particular, the current registry prefers Opus 5.5 for `auto` and
+uses Sonnet 5.5 for Haiku's judge; D-03/D-06 record their earlier defaults.
+
+This log records selected behavior, cost, data and security design choices,
+including revisions after implementation evidence. Each entry lists the options
+considered, the risks across
+correctness, user cost, data integrity, security, backward compatibility and
+reversibility, the choice, and why. Reversible and disclosed beats clever.
+
+## D-next (P4) - 2026-11-02: preserve accepted work, paid lifecycle and spend limits
 
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
@@ -71,17 +82,6 @@ Stored reports are never rewritten. Payload, prompts, financial formulas and
 their version stamps are unchanged. The real payload/fingerprint runner tests
 prove moved quotes no longer prevent compatible frozen-input reuse, with exact
 analyst ledger rows and model-pass counts.
-
-Entries are dated design history, not a single current configuration. Later
-decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
-choices. In particular, the current registry prefers Opus 5.5 for `auto` and
-uses Sonnet 5.5 for Haiku's judge; D-03/D-06 record their earlier defaults.
-
-This log records selected behavior, cost, data and security design choices,
-including revisions after implementation evidence. Each entry lists the options
-considered, the risks across
-correctness, user cost, data integrity, security, backward compatibility and
-reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 

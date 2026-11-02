@@ -3062,7 +3062,7 @@ export async function runJob<TPayload = unknown>(
       const captured = withLiveRunAuthority(state, null, (db, _row, authorityAt) =>
         persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, frozen !== null ? sourceRef!.capturedAt : authorityAt, db));
       if (!captured.authorized) throw new SupersededRunError(state.jobId, state.runGeneration);
-      if (frozen !== null) frozenInputDetail = `reused frozen inputs of generation ${preparedResume!.sourceGeneration} (captured ${sourceRef!.capturedAt}) — ${bundle.gaps.length} gap(s)`;
+      if (frozen !== null) frozenInputDetail = `reused frozen inputs of generation ${preparedResume!.sourceGeneration} (captured ${sourceRef!.capturedAt}) \u2014 ${bundle.gaps.length} gap(s)`;
       // The snapshot is the authority actually consumed, including redacted raw
       // envelopes and normalized JSON semantics, not a later cache reconstruction.
       bundle = inputSnapshot.content.bundle;

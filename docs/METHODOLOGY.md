@@ -4123,6 +4123,11 @@ does not recompute them. See `tests/stageC.deterministicInjection.test.ts`,
 `tests/stageC.provenance.test.ts`, `tests/stageC.verifyChecks.test.ts`,
 `tests/degradation.report.test.ts` and `tests/report.executionMetadata.test.ts`.
 
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
 ## Disclaimer scope
 
 New reports carry this text verbatim; historical reports retain the disclaimer
@@ -5950,8 +5955,3 @@ quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
-
-AI-110: A safety-rejected data-only report first withholds provider metadata
-and rechecks deterministic content. If enrichment still fails, it persists a
-fixed-text shell. Completeness and gap counts describe the retained manifest;
-settled costs remain intact and saved reports are never rewritten.
