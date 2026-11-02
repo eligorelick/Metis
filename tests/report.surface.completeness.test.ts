@@ -247,6 +247,16 @@ function expectUnknownScopes(scopes: CompletenessScopes): void {
 }
 
 describe("Task 28 completeness across live, Markdown, and print report surfaces", () => {
+  it.each(["refused", "replaced"])("N3 shows the revenue conflict disposition on each surface: %s", action => {
+    const gap: ManifestEntry = { field: action === "refused" ? "statements.income.2025-12-31.revenue" : "statements.sourceSwitch.incomeAnnual.2025-12-31", severity: "warn",
+      reason: "Income classification conflict for revenue: vendor 457211000, filed 506865000 USD" };
+    const report=reportWithCompleteness([gap],buildDataCompleteness([gap]));
+    eachSurface(renderWithoutMutation(report),(text,surface)=>{
+      expect(text,surface).toContain(`XBRL conflict found; vendor revenue ${action}`);
+      expect(text,surface).not.toContain("XBRL skipped");
+    });
+    expect(reportToAuditMarkdown(report)).toContain(`XBRL conflict found; vendor revenue ${action}`);
+  });
   it("routes multiline persisted analysis reasons through one Markdown blockquote boundary", () => {
     const gap: ManifestEntry = {
       ...ANALYSIS_GAP,

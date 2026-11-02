@@ -18,6 +18,24 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
+
+Auto mode replaces a conflicting vendor income row with a whole internally
+reconciled SEC-built row, including its EPS. Quarterly cash-flow conflicts use
+the whole canonical SEC quarter. Manifest notes retain both observations,
+filing identities and mixed-source TTM windows. Original vendor responses and
+stored reports remain immutable. Shared version stamps are unchanged.
+An open annual revenue-definition conflict now also withholds EV/Sales,
+including own-history and peer rankings, until eligible filed rows replace it.
+XBRL labels now distinguish a found revenue conflict (vendor revenue refused
+or replaced) from a comparison that was skipped.
+Annual weighted-share jumps spanning filed conversions or an IPO with a
+same-filing two-class allocation no longer score as economic dilution. Counts
+and the refusal reason remain disclosed; genuine issuance controls still score.
+Replay controls cover alternate CFO aliases and derived-operand rounding.
+Switched SEC rows with missing capex preserve the runway investment-scope
+refusal; older vendor burn cannot replace the missing recent-quarter operand.
+
 ## Unreleased - P9 methodology decisions (2026-11-02)
 
 - Cash-capex: confirm standardized FCF retains the statement/vendor cash-capex field and mixed-basis disclosure; arithmetic unchanged.

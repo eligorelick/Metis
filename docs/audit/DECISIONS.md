@@ -1,5 +1,60 @@
 # Decisions
 
+## D-next (N3) - IPO conversion is not dilution
+
+The owner delegated this decision to the coordinator on 2026-11-01. A rising
+annual weighted-share trend spanning filed conversion facts, or a filed IPO
+with a same-filing two-class participating-security allocation, is withheld
+with its filing and reason. The counts remain visible. The reason is that a
+change in the common EPS denominator does not prove economic dilution. This
+uses issuer-admitted facts available by the run cutoff, never a ticker rule;
+ordinary issuance and IPO-only evidence leave genuine dilution measurable.
+
+## D-next (N3) - XBRL conflict labels
+
+The owner delegated this decision to the coordinator on 2026-11-01. A retained
+revenue classification conflict records a completed comparison, even when a
+downstream validation cannot compare the refused value. Headers and exports
+say conflict found and vendor revenue refused or replaced. The reason is to
+describe what XBRL actually established instead of calling it skipped. Stored
+metadata and report bytes remain unchanged; the label reads retained evidence.
+
+## D-next (N3) - revenue multiple eligibility
+
+The owner delegated this decision to the coordinator on 2026-11-01. An open
+annual vendor/filed revenue-definition conflict withholds EV/Sales, its own
+history rank and peer comparison. An explicit row refusal has the same effect
+as a failed validation check. A whole reconciled SEC row may restore
+eligibility. The reason is to prevent a multiple using revenue the app itself
+has refused, including a still-populated quarterly denominator.
+
+## D-next (N3) - whole filed income rows
+
+The owner delegated this decision to the coordinator on 2026-11-01. In auto
+mode a directly filed revenue-total conflict replaces the whole vendor row
+only when the SEC operating statement reconciles on matching scope. This
+recovers usable filed revenue without combining incompatible revenue and cost
+bases. Bank routing remains authoritative; failed reconciliation retains refusal.
+
+## D-next (N3) - quarterly CFO rows
+
+The owner delegated this decision to the coordinator on 2026-11-01. A vendor
+quarterly CFO conflict uses the whole canonical SEC-derived quarter when its
+filing lineage is established. This restores cash-flow consumers without
+combining a filed CFO with vendor capex or other fields. Mixed TTM row sources
+are disclosed and existing TTM gates remain binding.
+Either conflicting vendor CFO alias qualifies. Existing derived-operand
+rounding stays binding. Missing SEC cash-capex is an explicit replacement-row
+investment-scope refusal, so the existing runway gate cannot extrapolate an
+older vendor quarter over the missing recent-quarter operand.
+
+## D-next (N3) - EPS follows the income row
+
+The owner delegated this decision to the coordinator on 2026-11-01. Switched
+income rows carry their own filed EPS and shares. Missing or refused SEC EPS
+cannot fall back to vendor EPS. This prevents a contradicted quarterly EPS
+from entering TTM P/E; P0's independent vendor EPS conflict guard remains.
+
 ## D-next (P1/B4b): equity bridge and invested capital (2026-11-02)
 
 FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on

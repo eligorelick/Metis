@@ -1552,7 +1552,7 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
   // D-67: one count per underlying data gap; how the passes ran is counted apart.
   const blocks = processBlocked ? (c.processDisclosureCount === 1 ? ", which blocks the analysis" : ", which block the analysis") : "";
   const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)${blocks}` : "";
-  return `${c.dataOnly ? "Data-only · " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
+  return `${c.dataOnly ? "Data-only \u00b7 " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrlLabel ?? c.xbrl}; forensics ${c.forensicValidation}.`;
 }
 
 /**

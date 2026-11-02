@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDataCompleteness } from "@/report/completeness";
+import { buildDataCompleteness, deriveReportCompletenessPresentation } from "@/report/completeness";
+import { dataStateText } from "@/report/presentation";
 import type { ManifestEntry } from "@/types/core";
 
 /**
@@ -17,6 +18,18 @@ const gap = (over: Partial<ManifestEntry>): ManifestEntry => ({
 });
 
 describe("XBRL completeness classification", () => {
+  it.each(["refused", "replaced"])("N3 says a revenue conflict was found and vendor revenue %s", action => {
+    const gaps: ManifestEntry[] = [gap({reason:"FMP revenue missing/zero - cross-check not possible"}), {
+      field: action === "refused" ? "statements.income.2025-12-31.revenue" : "statements.sourceSwitch.incomeAnnual.2025-12-31",
+      severity: action === "refused" ? "warn" : "info",
+      reason: action === "refused" ? "Income classification conflict for revenue: vendor 457211000, filed 506865000 USD" : "Vendor revenue 457211000 conflicts with filed 506865000 USD; whole SEC-built row replaced the vendor row",
+    }];
+    const completeness=buildDataCompleteness(gaps);
+    expect(completeness.xbrl).toBe("failed");
+    const p=deriveReportCompletenessPresentation(completeness,gaps);
+    expect(dataStateText(p)).toContain(`XBRL conflict found; vendor revenue ${action}`);
+    expect(dataStateText(p)).not.toContain("XBRL skipped");
+  });
   it("reports checked when nothing is disclosed", () => {
     expect(buildDataCompleteness([]).xbrl).toBe("checked");
   });
