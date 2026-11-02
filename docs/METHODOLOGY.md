@@ -1,5 +1,128 @@
 # Valuation methodology
 
+## Filed common-class inventory alternative (R-FIGR-3, N2)
+
+When no complete inline cover inventory is retained, a primary 10-Q/10-K
+balance sheet can establish an economic share denominator. All common classes
+must be explicitly enumerated once, in unscaled shares (the statement says
+"in thousands, except share and per share data"), with issued AND outstanding
+counts at the report date. A current sentence in that same filing must state
+identical dividend and liquidation rights for exactly those classes; voting
+equality, conversion rights, authorization and weighted-average counts do not
+establish this. Missing classes, conflicting entitlements, different dates,
+scaled counts, unknown quote class, ADRs and issuer mismatches fail closed.
+
+The provider's symbol, CIK and common-class title must match the registrant and
+one filed class. This is explicitly a provider quote-class binding, not an
+independently verified SEC trading-symbol row. Other classes use a disclosed
+same-price economic-equivalence approximation, including a separately named
+common class. Counts remain dated balance-sheet counts, not current shares or
+cover-date counts. The latest retained periodic filing governs; a newer unknown
+inventory prevents carrying an older proof forward. Newer-dated cover counts
+within that same filing also prevent substituting the older balance-sheet
+inventory while their scope is unresolved. Existing explicit inventory
+evidence is never replaced. The evidence hash covers retained statement/notes
+and the provider title, not unavailable raw HTML. All resolved scope disclosures,
+payloads and exports retain these limits. The quote payload registers the
+derived issuer-common capitalization separately from the raw, scope-unverified
+provider cap, and registers outstanding economic units at their filed count
+date, with price/count dates and evidence hashes. Outstanding counts support aggregate
+capitalization and multiples; per-share intrinsic value still requires its
+separate diluted-divisor and model-input gates. D-67: derivation is in memory
+for a new computation only; stored source bundles and reports are never rewritten.
+
+Review fixes F3/F5/F6/F7/F8: new resolved multi-class reports label raw
+provider capitalization and shares as quoted-class observations. A same-filing
+provider quoted-class discrepancy above 3% discloses both counts and dates;
+that observation does not alter admission. Explicit treasury counts, including
+a dated matching equity rollforward, are disclosed as a share of economic units
+and are not netted against the filer's issued-and-outstanding counts. Equivalent
+classes without an admitted quote use a disclosed same-price approximation;
+a separately traded class's own price was not used. Contrary dividend rights
+stated as Class X common shares or shares also block 1:1 admission.
+
+## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
+
+The general route has a narrow owner-FCF applicability exception. It requires
+SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
+retained primary 10-Q/10-K statement of cash flows explicitly reporting nonzero
+"Originations of loans held for sale" and "Proceeds from loan sales" (or
+"Proceeds from sales of loans") within operating activities, before investing
+activities. A repeated "operating activities" reconciliation heading does not
+end that section. The primary SEC Archives URL must bind the CIK and accession;
+filing/report dates must be valid and known by the computation cutoff, and the
+report date must match the latest cash-flow row. An older note cannot pass a
+newer periodic filing. SIC alone, sector alone, negative CFO, balances of loans,
+investing loan activity, originations without sale proceeds, zero flows and
+broad unresolved SIC 6199 do not establish applicability. No bank route changes.
+
+For this evidenced business model, OCF less capex includes funding and turnover
+of held-for-sale loan inventory. It is not an owner-cash measure or an exhaustion
+clock, regardless of its sign or reported profitability. Owner FCF (before and
+after SBC), conversion and growth, P/FCF and its histories/peer rankings, FCF
+yield, cash runway, and FCF-based DCF/reverse DCF/sensitivity are **not
+applicable**, with the filed source and plain reason. There is no new lender
+valuation model. Earnings and book-value measures remain under their existing
+gates. Raw filed OCF, cash capex, loan flows and SBC stay retained; source
+conflicts continue to withhold the affected observations independently. The
+generic derived/vendor FCF line is omitted from statement prompt extracts and
+quarterly report trends, preventing an alternative path from promoting it as
+owner FCF. Issuer-defined cash-flow disclosures retain their filed definitions
+with the applicability caveat.
+
+The FCF growth, DCF and FCF-dependent capital signals are removed from the
+applicable grade denominator, rather than counted as missing inputs. Coverage
+and leverage signals retain their prior rules. Report notes, both layouts,
+payload/prompt provenance and Markdown/audit/print exports carry the same
+explanation. Applicability is derived for new computations; existing saved
+reports are neither reinterpreted nor rewritten (D-67).
+
+Review fixes F1/F2/F12 (owner delegated to the coordinator, 2026-11-01):
+evidenced lenders suppress industrial EV/EBITDA, EV/Sales, net debt,
+net debt/EBITDA, coverage, gross margin, ROIC and ROIC-vs-WACC. Warehouse
+and loan-owner funding is operating inventory finance; industrial leverage
+and coverage do not measure solvency. Capital adequacy is not modelled for
+non-bank lenders, so the Balance Sheet aspect is not modelled. ROTE replaces
+ROIC in Moat; filed operating margin stays applicable. Existing common-income
+availability and allocation gates still apply. EV is context only, with named
+filed debt components tied to the same-date provider perimeter; without that
+composition the context value is withheld. Stored reports are immutable.
+
+## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
+
+No new bottom-up or sector-beta fallback is implemented. The existing peer
+collection retains profile, quote and quarterly income/balance-sheet endpoints,
+not peer return histories. An unsourced vendor peer beta does not establish a
+common observation window or a levered/unlevered basis. The subject's SPY
+regression still requires at least 24 completed, paired monthly returns, with
+the existing 60-month window, settled-session/date and price-basis rules. A
+financial-sector ETF is a diversified fund exposure, not evidence of an
+issuer's asset beta. No industry asset-beta dataset with a sourced vintage and
+applicable business composition is retained. Lowering the issuer-history gate,
+averaging unqualified vendor peer betas or setting beta to one would manufacture
+the required evidence.
+
+When cost of equity is already refused for beta, a recent-IPO overlay plus an
+unavailable issuer regression adds a concrete reader explanation: the actual
+usable return count and 24-return minimum, retained peer count, absent peer
+price histories and unvalidated unlever/relever operands, absent industry
+asset-beta source, and the distinction between sector ETF and issuer risk.
+The beta gap, discount-rate disclosure, payload and exports retain that reason.
+No fallback point estimate or sensitivity is printed. Existing numerical
+admission/refusal gates (including the valid vendor-beta path), bank routing,
+grade denominators and historical stored reports remain unchanged.
+
+A future bottom-up implementation needs independently comparable issuers,
+sufficient common dated return histories, a documented tax and market D/E basis
+for each peer and subject, and uncertainty/sensitivity. The ordinary Hamada
+construction would unlever beta_L by [1 + (1 - tax) x D/E] and relever the
+result to the subject on the same basis. For lenders, borrowing can fund loan
+inventory as an operating input, so treating all funding debt as industrial
+financial leverage also requires an explicit economic justification. Those
+requirements are not established by the current retained inputs; no numerical
+fallback is represented as implemented or validated (see RESEARCH section 8.4
+on bottom-up beta as a research direction).
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
@@ -6300,3 +6423,22 @@ Near-52-week price flags round the recorded high or low to cents; computed level
 Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
 
 Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).
+
+Review fix F9 distinguishes discovered candidates from populated peer data. With
+zero populated candidates, the refusal describes what the collection would retain,
+not profiles or statements supposedly present. Beta and history gates do not change.
+
+
+N2 P/TBV review: the basis names goodwill and intangibleAssets amounts actually
+deducted. A positive provider intangible amount is retained as a financial asset
+only when it ties, within filing rounding, to a same-date filed servicing asset
+at fair value in the same currency, and neither the filed balance sheet nor
+same-date goodwill/intangible facts carry an intangible deduction. Primary
+issuer/accession/URL, filing availability, units and date must agree. The
+provider row is not rewritten: a derived calculation copy excludes the proved
+servicing asset from the tangible-book deduction. Unproven cases retain the
+existing deduction. This also keeps tangible common-return denominators on the
+same classified balance basis when they use that date.
+
+Lender ROTE refusal reports carry the exact common-income gate reason (including
+observation-cutoff refusals), while the original admission rules remain in force.

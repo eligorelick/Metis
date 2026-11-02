@@ -8,8 +8,18 @@ import { restoreFigInsiderLabels } from "./figInsiderLabelGolden";
 export function restoreResearchReliabilityGolden(input: { computed: ComputedMetrics; payload: ContextPayload }) {
   // FIG live test: restore only the reviewed capex-basis disclosure before
   // the historical byte/hash pins. No financial operand or value is changed.
-  const computed = restoreCapexBasisGolden(input.computed, 1);
-  const payload = restoreCapexBasisGolden(input.payload, 1);
+  // N2 P/TBV: only the deduction disclosure changes on this missing-intangible
+  // fixture. Pin the exact new text and its two occurrences, then retain ALL
+  // earlier financial, registry, byte and hash assertions unchanged.
+  const n2Current = "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill unavailable and intangibleAssets unavailable (source monetary units; vendor composition unverified unless stated).  (";
+  const n2Prior = "marketCap / (common equity - goodwill - intangibleAssets) (";
+  const restoreN2 = <T,>(value: T): T => {
+    const text = JSON.stringify(value);
+    expect(text.split(n2Current)).toHaveLength(2);
+    return JSON.parse(text.replace(n2Current, n2Prior)) as T;
+  };
+  const computed = restoreCapexBasisGolden(restoreN2(input.computed), 1);
+  const payload = restoreCapexBasisGolden(restoreN2(input.payload), 1);
   restoreFigInsiderLabels(payload);
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.

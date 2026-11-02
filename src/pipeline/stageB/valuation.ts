@@ -3759,6 +3759,7 @@ export interface MultiplesBalance {
   totalEquity?: number | null;
   goodwill: number | null;
   intangibleAssets: number | null;
+  tangibleBookDeductionBasis?: string;
   minorityInterest: number | null;
   preferredStock: number | null;
   /**
@@ -5025,7 +5026,7 @@ export function multiplesFramework(
       "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)",
 
     priceToBook: `marketCap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
-    priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets) (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
+    priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangibleAssets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
     priceToFfo: "marketCap / FFO (approx., caller-provided)",
     priceToAffo: "marketCap / AFFO (rough, caller-provided)",
   };
@@ -6574,6 +6575,22 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
 
   const multiples = multiplesFramework(route.base, inputs.multiples);
+  const cashFlowApplicability = route.cashFlowApplicability;
+  if (cashFlowApplicability?.status === "not-applicable") {
+    const reason = cashFlowApplicability.reason;
+    multiples.multiples = multiples.multiples.map(row => ["priceToFcf", "evToEbitda", "evToSales"].includes(row.key) ? { key: row.key, current: null, basis: reason, ownHistory: null, peers: null } : row);
+    multiples.sectorAppropriate = multiples.sectorAppropriate.filter(key => !["priceToFcf", "evToEbitda", "evToSales"].includes(key));
+    multiples.notes.push(reason);
+    const bridge = multiples.enterpriseValue;
+    const contextBasis = inputs.multiples.balance?.date === cashFlowApplicability.asOf ? cashFlowApplicability.evDebtBasis : undefined;
+    bridge.basis = contextBasis
+      ? `${contextBasis} ${bridge.basis.replace("EV/EBITDA uses this same EV.", "Industrial EV multiples are not applicable.")}`
+      : `EV context unavailable: the filed debt components do not tie to the retained provider debt perimeter at the selected balance date. ${reason}`;
+    multiples.notes = multiples.notes.map(note => note.replace("EV/EBITDA uses this same EV.", "Industrial EV multiples are not applicable."));
+    if (!contextBasis) { bridge.value = null; bridge.excludingLeases = null; bridge.includingLeases = null; }
+
+    multiples.gaps = multiples.gaps.filter(g => !g.field.startsWith("valuation.multiples.priceToFcf"));
+  }
   if (route.base === "reit" && inputs.reit && multiples.enterpriseValue.noncontrollingInterestBasis === "unknown-allocation") {
     const reason = "REIT enterprise value and implied cap rate withheld: consolidated equity establishes outside ownership but the NCI allocation is unavailable; no market NCI value is inferred from the book-equity difference. FFO figures are evaluated separately.";
     notes.push(reason);
@@ -6759,6 +6776,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   // meaningful and we skip it entirely rather than returning a DCF the
   // report's own display policy says shouldn't be shown.
   if (metricPolicy(route).suppress.includes("fcfDcf")) {
+    if (cashFlowApplicability?.status === "not-applicable") {
+      const reason = cashFlowApplicability.reason;
+      return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
+    }
     notes.push(
       "fcfDcf suppressed by metric policy (unprofitable overlay) — DCF/sensitivity/reverse-DCF not modelled; " +
         "free cash flow is structurally negative, making an FCFF-based intrinsic-value model unreliable. " +

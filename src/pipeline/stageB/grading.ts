@@ -980,21 +980,24 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : !financial && route.overlays.includes("regulated-utility")
     ? utilityBalanceSheet(inputs.utilityCredit ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : route.cashFlowApplicability?.status === "not-applicable"
+    ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, route.cashFlowApplicability.reason, policy,
+        "Capital adequacy is not modelled for non-bank lenders: warehouse and loan-owner funding is operating inventory finance, so industrial coverage and leverage do not measure solvency.")
     : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(
         "balanceSheet",
         [
           { name: "netDebtToEbitda", raw: currentCapital ? currentCapital.netDebtToEbitda : capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
-          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND },
+          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND, suppressedBy: "interestCoverage" },
           // WS6 review (SHOULD-FIX 2): graded on the BEFORE-SBC ratio, the
           // definition FCF_CONVERSION_BAND was calibrated on. Grading the
           // after-SBC ratio on the same band silently moved the metric onto a
           // new definition AND charged stock-based compensation twice, since
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
-          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND, suppressedBy: "fcfConversion" },
+          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND, suppressedBy: "sbcPctOfFcf" },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.
@@ -1057,7 +1060,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)." +
+    (route.cashFlowApplicability?.status === "not-applicable"
+      ? "Quantitative moat proxy: latest return on tangible common equity (ROTE) and its lowest annual return in the window. ROIC is undefined when debt is operating inventory funding; vendor gross margin is not a filed lender line and is excluded."
+      : "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).") +
       (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
   );

@@ -4404,20 +4404,6 @@
       ]
     },
     {
-      "name": "evidence-common-ownership-labels",
-      "decisions": [
-        "D-53"
-      ],
-      "reason": "P/E, common P/B and P/TBV basis text names the actual common-holder earnings and equity deductions under D-53; the fixture's numeric outputs and grading weights do not change. The later report version stamp is separately tracked under D-54.",
-      "deltas": [
-        {
-          "path": "stageB.valuation.multiples.multiples.5.basis",
-          "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
-          "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
-        }
-      ]
-    },
-    {
       "name": "source-period-facts-timing-2026-10-15",
       "decisions": [
         "D-56"
@@ -7702,11 +7688,6 @@
           "path": "report.valuation.multiples.4.basis",
           "beforeMissing": true,
           "after": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness"
-        },
-        {
-          "path": "report.valuation.multiples.5.basis",
-          "beforeMissing": true,
-          "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
         }
       ]
     },
@@ -10279,7 +10260,9 @@
     },
     {
       "name": "research-reliability-d139-20261031",
-      "decisions": ["D-139"],
+      "decisions": [
+        "D-139"
+      ],
       "reason": "The retained fixture has 40 valid cells out of 50 requested cells. D-139 withholds its former robust-above conclusion because the growth/margin grid is incomplete; status and explanation change while every valuation, grade, provenance value and observed grid extremum remains pinned.",
       "deltas": [
         {
@@ -10304,7 +10287,8 @@
     {
       "name": "current-main-and-fig-integrity-d140-d141-20261101",
       "decisions": [
-        "D-140", "D-141"
+        "D-140",
+        "D-141"
       ],
       "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-next); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
@@ -10317,6 +10301,25 @@
           "path": "report.technicals.read.trend",
           "before": "SYNTHETIC demonstration text for technicals read trend; it describes fictional inputs and is not a current market observation.",
           "after": "House SMA trend: uptrend as of 2025-12-31. Last close USD 40.00 is above both averages (50-day USD 39.2628; 200-day USD 36.5237)."
+        }
+      ]
+    },
+    {
+      "name": "n2-review-tangible-book-basis-20261101",
+      "decisions": [
+        "D-67"
+      ],
+      "reason": "N2 P/TBV review, owner delegated 2026-11-01: name the actual goodwill and intangible amounts deducted; financial values stay unchanged in this control. D-next (N2) owns the convention, with D-67 preserving stored reports.",
+      "deltas": [
+        {
+          "path": "stageB.valuation.multiples.multiples.5.basis",
+          "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
+          "after": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
+        },
+        {
+          "path": "report.valuation.multiples.5.basis",
+          "beforeMissing": true,
+          "after": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
         }
       ]
     },

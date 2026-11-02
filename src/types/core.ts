@@ -107,6 +107,8 @@ export interface CompanyRoute {
   evidence: { sector: string | null; industry: string | null; sic?: string | null };
   /** Strong conflicting funding evidence leaves model applicability unresolved, without guessing a route. */
   modelEligibility?: { status: "unresolved"; reason: string; sources: string[] };
+  /** Filed non-bank lending makes industrial owner-FCF measures inapplicable. */
+  cashFlowApplicability?: { status: "not-applicable"; reason: string; sourceIds: string[]; asOf: string; evDebtBasis?: string };
 }
 
 /** Grades used across the report. */

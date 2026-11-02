@@ -1180,6 +1180,9 @@ export function metricPolicy(
 
   const suppress = new Set<string>(BASE_POLICIES[base].suppress);
   const lead: string[] = [...BASE_POLICIES[base].lead];
+  if (typeof route !== "string" && route.cashFlowApplicability?.status === "not-applicable") {
+    for (const key of ["fcf", "fcfGrowth", "fcfDcf", "reverseDcf", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf", "evEbitda", "evToSales", "netDebt", "netDebtToEbitda", "interestCoverage", "grossMargin"]) suppress.add(key);
+  }
   if (typeof route !== "string" && "reitSubmap" in route && route.reitSubmap === "undetermined") {
     for (const metric of REIT_SUBMAP_UNDETERMINED_SUPPRESSED) suppress.add(metric);
   }
@@ -1209,12 +1212,13 @@ export function metricPolicy(
   // uncomputable. Routing those through the financial branch stripped ROIC and
   // gave them nothing back, leaving moat scored on gross margin alone.
   const financialReturns =
-    base === "bank" || base === "insurer" || base === "reit-mortgage";
+    base === "bank" || base === "insurer" || base === "reit-mortgage" ||
+    typeof route !== "string" && route.cashFlowApplicability?.status === "not-applicable";
   if (financialReturns) {
     suppress.add("roic");
     suppress.add("roicVsWacc");
     suppress.add("fcfGrowth");
-    suppress.add("operatingMargin");
+    if (base !== "general") suppress.add("operatingMargin");
   } else {
     suppress.add("rote");
   }
