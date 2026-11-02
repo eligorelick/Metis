@@ -817,8 +817,8 @@ it("P4-8 keeps lifecycle decisions and operating notes under their owning headin
   const read = (file: string) => readFileSync(path.join(ROOT, file), "utf8");
   const blockBetween = (text: string, start: string, end: string) => text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)));
   const decisions = read("docs/audit/DECISIONS.md");
-  expect(decisions.indexOf("Entries are dated design history")).toBeLessThan(decisions.indexOf("## D-next (P4)"));
-  expect(decisions).toMatch(/## D-next \(P4\).*2026-11-02/);
+  expect(decisions.indexOf("Entries are dated design history")).toBeLessThan(decisions.indexOf("## D-143 - P4:"));
+  expect(decisions).toMatch(/## D-143 - P4:.*2026-11-02/);
   const ops = read("docs/OPERATIONS.md");
   expect(blockBetween(ops, "## Report lifecycle and recovery", "## Local HTTP API")).toContain("JOB-301:");
   expect(blockBetween(ops, "## Verification and troubleshooting", "## Immutable run inputs")).toContain("runtime.lock");

@@ -1,4 +1,4 @@
-﻿// DATA-103 verifier probe (m1-verify-14). Asserts the CORRECT behaviour: the
+// DATA-103 verifier probe (m1-verify-14). Asserts the CORRECT behaviour: the
 // income-classification pass must not refuse a SIC-routed bank's total net
 // revenue because its unrouted rebuild resolved the ASC-606 fee subset.
 import { describe, expect, it } from "vitest";

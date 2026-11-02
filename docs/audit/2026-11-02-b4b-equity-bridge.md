@@ -70,7 +70,7 @@ and explicitly state the S-X Rule 5-03 assumption. Windows with no placement
 on any row keep the prior note without an undetermined-placement claim (R-5).
 The LTI total's component floor uses B13's existing `unlessBelow` rule, max(0.5%, 2M). The provider fill
 evaluates that same builder chain, with identical value/tags and its prior
-missing-piece/provenance disclosures (I5). See **D-next (P1/B4b)** in DECISIONS.
+missing-piece/provenance disclosures (I5). See **D-147** in DECISIONS.
 
 ## Rebuilt census evidence
 
@@ -323,7 +323,7 @@ blocked, zero not reproduced, zero partially fixed, zero not started.
 OD-5's known evidence limits remain: partial inclusion and aggregate ambiguity,
 provider rows without placement (prior note retained), other mixed windows,
 unavailable same-date stake breakouts and untagged income amounts. No amount is estimated to fill a gap.
-The integrator must assign D-next, merge the remaining tracks, and run the full
+The integrator must assign the D-number (assigned at integration: D-147), merge the remaining tracks, and run the full
 release verification. This implementation does not push, open a PR or merge.
 
 ## FIN-302 / FIN-302-V1 continuation
@@ -670,7 +670,7 @@ The coordinator-delegated choice is a flat-top conversion weight: full weight fo
 
 ## Review round 2: F8
 
-D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+D-147 (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
 
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|

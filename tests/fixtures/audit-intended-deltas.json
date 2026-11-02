@@ -10149,7 +10149,7 @@
         "D-140",
         "D-141"
       ],
-      "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-next); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
+      "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
@@ -10168,7 +10168,7 @@
       "decisions": [
         "D-67"
       ],
-      "reason": "N2 P/TBV review, owner delegated 2026-11-01: name the actual goodwill and intangible amounts deducted; financial values stay unchanged in this control. D-next (N2) owns the convention, with D-67 preserving stored reports.",
+      "reason": "N2 P/TBV review, owner delegated 2026-11-01: name the actual goodwill and intangible amounts deducted; financial values stay unchanged in this control. D-149 (N2) owns the convention, with D-67 preserving stored reports.",
       "deltas": [
         {
           "path": "stageB.valuation.multiples.multiples.5.basis",
@@ -10225,7 +10225,7 @@
         "D-99",
         "D-136"
       ],
-      "reason": "D-next (P2): FIN-102/FIN-402-V1 add separately asserted terminal evidence; FIN-113 marks the reconstructed current-capital start as approximate. FIN-104 withholds reverse-growth candidates outside the DCF domain, and FIN-501 solves the prescribed shifted margin family with its implied path and matching trigger horizon. Only these owned leaves move. Existing capex-basis restorations and all valuation/score operands outside the reverse solve retain prior pins. The removed no-root note is replaced by the now available in-domain margin solve. Shared stamps do not move.",
+      "reason": "D-153 (P2): FIN-102/FIN-402-V1 add separately asserted terminal evidence; FIN-113 marks the reconstructed current-capital start as approximate. FIN-104 withholds reverse-growth candidates outside the DCF domain, and FIN-501 solves the prescribed shifted margin family with its implied path and matching trigger horizon. Only these owned leaves move. Existing capex-basis restorations and all valuation/score operands outside the reverse solve retain prior pins. The removed no-root note is replaced by the now available in-domain margin solve. Shared stamps do not move.",
       "deltas": [
         {
           "path": "report.thesisTriggers",
@@ -10389,7 +10389,7 @@
       "decisions": [
         "D-137"
       ],
-      "reason": "L6 extends D-137 under D-next (N4a): L6: the SEC-route same-evidence peer screen also excludes profile-only peers whose held-for-sale lender cash-flow applicability is unconfirmed. Only the peer methodology wording changes in the DEMO fixture; all numerical outputs and earlier pins are retained. Shared stamps are unchanged. See docs/audit/2026-11-02-n4a-figr-cap.md.",
+      "reason": "L6 extends D-137 under D-154 (N4a): L6: the SEC-route same-evidence peer screen also excludes profile-only peers whose held-for-sale lender cash-flow applicability is unconfirmed. Only the peer methodology wording changes in the DEMO fixture; all numerical outputs and earlier pins are retained. Shared stamps are unchanged. See docs/audit/2026-11-02-n4a-figr-cap.md.",
       "deltas": [
         {
           "path": "report.valuation.peerCoverage",
