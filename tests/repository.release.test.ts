@@ -24,6 +24,7 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-02-n4b-figr-qtr.md",
   "docs/audit/2026-11-02-n3-sec-rows.md",
   "docs/audit/2026-11-02-p9-methodology.md",
   "docs/audit/2026-11-02-n2-figr-readiness.md",
@@ -64,6 +65,7 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-02-n4b-figr-qtr.md",
   "docs/audit/2026-11-02-n3-sec-rows.md",
   "docs/audit/2026-11-02-p9-methodology.md",
   "docs/audit/2026-11-02-n2-figr-readiness.md",

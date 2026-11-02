@@ -4203,6 +4203,13 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const annualYears = allFiscalYears.slice(0, Math.max(0, opts.annualPeriods));
 
   const quarterEnds = discoverQuarterEnds(index, fiscalYearEnds);
+  // N4b: income comparatives need no balance-sheet instant for that quarter.
+  const incomeQuarterEnds = mergeEndsDesc(new Set([...quarterEnds, ...REVENUE_TAGS.flatMap(tag =>
+    pickUnitPoints(index, tag, "money")?.points.filter(p => {
+      const days = durationDays(p);
+      return days !== null && days >= QUARTER_MIN_DAYS && days <= QUARTER_MAX_DAYS;
+    }).map(p => p.end) ?? [])]), fiscalYearEnds);
+  const incomeContexts = buildQuarterContexts(index, incomeQuarterEnds, fiscalYearEnds).slice(0, Math.max(0, opts.quarterlyPeriods) + 1);
   const quarterContexts = buildQuarterContexts(index, quarterEnds, fiscalYearEnds);
   // One quarter of headroom: the oldest requested quarter still needs its
   // predecessor to resolve a year-to-date difference.
@@ -4211,9 +4218,9 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const annualSlots = (resolverFor: (fy: FiscalYear) => TagResolver): PeriodSlot[] =>
     annualYears.map((fy) => ({ date: fy.end, resolve: resolverFor(fy), instant: instantResolver(index, fy.end), quarter: null }));
   const quarterSlots = (ytdOnly: boolean, notes: NoteSink): PeriodSlot[] =>
-    quarterSlotContexts.map((ctx) => ({
+    (ytdOnly ? quarterSlotContexts : incomeContexts).map((ctx) => ({
       date: ctx.end,
-      resolve: quarterResolver(index, ctx, quarterEnds, ytdOnly, notes),
+      resolve: quarterResolver(index, ctx, ytdOnly ? quarterEnds : incomeQuarterEnds, ytdOnly, notes),
       instant: instantResolver(index, ctx.end),
       quarter: ctx,
       copiesOf: (tag, unit) => index.get(tag)?.find((e) => e.unit === unit)?.all ?? null,

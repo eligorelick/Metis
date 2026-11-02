@@ -6517,6 +6517,16 @@ on bottom-up beta as a research direction).
 
 ## SEC-built rows on a filed-total conflict (N3)
 
+N4b L3: A later 10-Q/10-K comparative is a filed value for the quarter.
+Income-quarter discovery does not require a comparative balance-sheet instant.
+When quarterly vendor revenue conflicts, auto mode switches the whole row only
+if one filing supplies a reconciled operating statement. Otherwise revenue is
+withheld with both observations; a derived cross-filing Q4 total cannot silently
+replace the vendor row. Quarterly YoY prefers the current filing's comparative;
+YoY and QoQ divide filed operands on one presentation, or vendor operands on
+one vendor basis, and disclose any refusal. Matched FY-minus-nine-month pairs
+can establish a Q4 growth comparison independently of a refused vendor row.
+
 N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
 with a directly tagged filed total permits a whole SEC-built income row only
 when the filed operating statement reconciles on matching periods, currency

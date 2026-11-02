@@ -3774,3 +3774,8 @@ ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no 
 ### D-next (N2) P/TBV full-suite golden follow-up
 
 The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.
+
+## D-next (N4b) - Filed quarterly presentations (L3)
+
+Later core-form comparatives qualify as filed quarter values. Switch a conflicting vendor quarterly income row only as a whole, reconciled row from one filing; otherwise refuse its revenue with both observations. Growth uses two filed operands on one presentation (preferring current-filing YoY comparatives), or one vendor basis, never mixed sources. Matched filed FY-minus-nine-month presentations may establish Q4 growth while a conflicting vendor Q4 row remains refused. Stored reports and shared stamps remain unchanged.
+

@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N4b filed quarterly series and lender display (2026-11-02)
+
+Quarterly income comparatives can establish a whole filed row without a
+comparative balance sheet. Conflicting vendor revenue is refused when a
+reconciled one-filing row is unavailable. Quarterly growth uses matched filed
+operands or discloses its refusal. Shared stamps and stored reports are unchanged.
+
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 
 Auto mode replaces a conflicting vendor income row with a whole internally
