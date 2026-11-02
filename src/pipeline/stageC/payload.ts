@@ -1,3 +1,4 @@
+import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
@@ -48,7 +49,7 @@ import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
-import { buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
+import { statementFiscalPeriods, buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
@@ -2268,57 +2269,9 @@ const FISCAL_DAY_MS = 86_400_000;
 const fiscalDayMs = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
 /** The tolerance between a release's quarter end and a statement row's period end (fiscalLabelOf, releaseFiscalLabelContradicted). */
 const sameFiscalPeriodEnd = (a: string, b: string): boolean => Math.abs(fiscalDayMs(a) - fiscalDayMs(b)) <= 3 * FISCAL_DAY_MS;
-/** "Q1 FY2025" -> "Q2 FY2025"; "Q4 FY2025" -> "Q1 FY2026"; null for any other label. */
-function successorQuarterLabel(label: string): string | null {
-  const m = /^Q([1-4]) FY(\d{4})$/.exec(label);
-  if (m === null) return null;
-  return m[1] === "4" ? `Q1 FY${Number(m[2]) + 1}` : `Q${Number(m[1]) + 1} FY${m[2]}`;
-}
-
-/**
- * AI-512: a release label the run's own statement rows do not support.
- * (1) An annual or quarterly income-statement row ending within three days of
- * `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
- * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
- * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025" and
- * contradicts a "Q1" to "Q3" label, because an annual period that ends at the
- * quarter end makes that quarter the fiscal fourth.
- * (2) No labelled row lies within three days, but labelled quarterly rows
- * exist (the release is newer than every statement row, or older): the label
- * is supported only when the quarter end falls 80 to 100 days after the newest
- * labelled quarterly row's end and the label is that row's successor quarter.
- * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the label's fiscal year is the
- * newest labelled annual row's fiscal year + 1 and the quarter end falls 91n-11 to 91n+9 days (at most 366) after that row's
- * end, n being the label's quarter number.
- * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
- */
+/** AI-512-V1: titles and tables share the same statement comparison. */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
-  const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
-  let near = false;
-  let newest: { end: string; own: string } | null = null;
-  let newestAnnual: { end: string; own: string } | null = null;
-  const annual = rowsOf(bundle.statements.incomeAnnual);
-  const quarterly = rowsOf(bundle.statements.incomeQuarterly);
-  for (const row of [...annual, ...quarterly]) {
-    const end = isoDay(row.date);
-    const own = issuerFiscalLabel(row);
-    if (end === null || !isIsoDate(end) || own === null) continue;
-    if (quarterly.includes(row) && own.startsWith("Q") && (newest === null || end > newest.end)) newest = { end, own };
-    if (!quarterly.includes(row) && /^FY\d{4}$/.test(own) && (newestAnnual === null || end > newestAnnual.end)) newestAnnual = { end, own };
-    if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
-    near = true;
-    if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
-    if (!quarterly.includes(row) && /^Q[1-3]/.test(label)) return true;   // an annual period ending here makes this quarter the fiscal fourth
-  }
-  if (near) return false;
-  if (newest === null) {
-    if (newestAnnual === null) return false;
-    const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
-    const n = Number(/^Q([1-4])/.exec(label)?.[1] ?? 0);   // the quarter number fixes the days after a fiscal year end: Q1 80-100, Q2 171-191, Q3 262-282, Q4 353-366
-    return !(n >= 1 && days >= 91 * n - 11 && days <= Math.min(91 * n + 9, 366) && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
-  }
-  const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
-  return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);
+ return fiscalLabelContradicted(statementFiscalPeriods(bundle), label, periodEnd);
 }
 
 /**

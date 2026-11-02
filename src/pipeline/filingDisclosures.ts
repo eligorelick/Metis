@@ -1,4 +1,4 @@
-import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
+import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, fiscalOutlookLabelContradicted, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
@@ -360,14 +360,14 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const annualRanges = new Map(annual.map(i => [`${i.low}|${i.high}`, i]));
   const annualComparison = annualRanges.size === 1 ? [...annualRanges.values()][0]! : null;
   return {
-    periodLabel: fiscalLabelEndedBy(statementFiscalPeriods(bundle),item.period.label,release.filingDate) ? "fiscal quarter" : item.period.label,
+    periodLabel: fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),item.period.label,release.filingDate) ? "fiscal quarter" : item.period.label,
     fiscalYear: item.period.fiscalYear,
     fiscalQuarter: item.period.fiscalQuarter,
     low: item.low,
     mid: item.mid,
     high: item.high,
     currency,
-    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: fiscalLabelEndedBy(statementFiscalPeriods(bundle),annualComparison.period.label,release.filingDate) ? "fiscal year" : annualComparison.period.label,
+    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),annualComparison.period.label,release.filingDate) ? "fiscal year" : annualComparison.period.label,
       fiscalYear: annualComparison.period.fiscalYear, low: annualComparison.low, high: annualComparison.high, currency } }),
     filingDate: release.filingDate,
     accession: release.accession,
@@ -377,7 +377,7 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
       fiscalYearRule(normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)).rows.map(row => String(row.date)))),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,
     taxRatePct: tax?.mid ?? null,
-    taxRatePeriod: tax && !fiscalLabelEndedBy(statementFiscalPeriods(bundle),tax.period.label,release.filingDate) ? tax.period.label : null,
+    taxRatePeriod: tax && !fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),tax.period.label,release.filingDate) ? tax.period.label : null,
     grossMarginLowPct: gm?.low ?? null,
   };
 }

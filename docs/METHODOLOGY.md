@@ -6032,3 +6032,6 @@ B-F1/B-F5 (AI-506): Keep OD-10 results selection; repair the five result-free fi
 
 
 B-F2/B-F3 (DATA-108): Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. A prose cross-reference no longer invents Item 5.02 or takes the buyback out of Item 8.01. Combined title text no longer leaks into event summaries.
+
+
+B-F4 (AI-512-V1): Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date. Sparse quarterly labels now withhold stale issued-with and outlook labels using annual or quarterly evidence. Existing successor-quarter and annual-window safeguards are retained, and no replacement label is guessed.

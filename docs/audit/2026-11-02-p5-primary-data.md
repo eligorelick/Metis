@@ -140,3 +140,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F2/B-F3 (DATA-108) | Fixed: Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. | This commit | fixround-b2-b3-red / fixround-b2-b3-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F4 (AI-512-V1) | Fixed: Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date. | This commit | fixround-b4-red / fixround-b4-green | No persisted rewrite |

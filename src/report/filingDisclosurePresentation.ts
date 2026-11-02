@@ -398,13 +398,41 @@ export interface FiscalLabelledPeriod { end: string; label: string }
 const fiscalYearOf = (label: string) => /FY(\d{4})$/.exec(label)?.[1];
 export function fiscalLabelContradictedAt(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
  return periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000 &&
-  (fiscalYearOf(p.label)!==fiscalYearOf(label) || (p.label.startsWith("Q") && label.startsWith("Q") && p.label!==label)));
+  (fiscalYearOf(p.label)!==fiscalYearOf(label) || (p.label.startsWith("Q") && label.startsWith("Q") && p.label!==label) || (/^FY/.test(p.label) && /^Q[1-3] /.test(label))));
 }
 export function fiscalLabelEndedBy(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
  return periods.some(p=>p.label===label && p.end<=cutoff);
 }
+/** One completed-release rule for excerpt titles and deterministic tables. */
 export function fiscalLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
- return fiscalLabelContradictedAt(periods,label,end) || periods.some(p=>p.label===label && Date.parse(end)-Date.parse(p.end)>45*86400000);
+ if (fiscalLabelContradictedAt(periods,label,end)) return true;
+ if (periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000)) return false;
+ if (periods.some(p=>p.label===label && Date.parse(end)-Date.parse(p.end)>45*86400000)) return true;
+ const q = /^Q([1-4]) FY(\d{4})$/.exec(label);
+ if (!q) return false;
+ const sorted=[...periods].sort((a,b)=>b.end.localeCompare(a.end));
+ const quarter=sorted.find(p=>/^Q[1-4] FY\d{4}$/.test(p.label));
+ if (quarter) {
+  const old=/^Q([1-4]) FY(\d{4})$/.exec(quarter.label)!;
+  const successor=old[1]==="4"?`Q1 FY${Number(old[2])+1}`:`Q${Number(old[1])+1} FY${old[2]}`;
+  const days=(Date.parse(end)-Date.parse(quarter.end))/86400000;
+  return !(days>=80 && days<=100 && label===successor);
+ }
+ const annual=sorted.find(p=>/^FY\d{4}$/.test(p.label));
+ if (!annual) return false;
+ const n=Number(q[1]),days=(Date.parse(end)-Date.parse(annual.end))/86400000;
+ return !(days>=91*n-11 && days<=Math.min(91*n+9,366) && Number(q[2])===Number(fiscalYearOf(annual.label))+1);
+}
+/** An outlook must follow the newest labelled statement available by filing date. */
+export function fiscalOutlookLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ if (fiscalLabelEndedBy(periods,label,cutoff)) return true;
+ const order=(s:string):number|null=>{
+  const m=/^(?:Q([1-4]) )?FY(\d{4})$/.exec(s);
+  return m?Number(m[2])*4+Number(m[1]??4):null;
+ };
+ const target=order(label);
+ const newest=[...periods].filter(p=>p.end<=cutoff && order(p.label)!==null).sort((a,b)=>b.end.localeCompare(a.end) || order(b.label)!-order(a.label)!)[0];
+ return target!==null && newest!==undefined && target<=order(newest.label)!;
 }
 /** AI-512-V1: withhold disputed labels; never replace them with a guessed fiscal period. */
 export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d:T, periods: readonly FiscalLabelledPeriod[]):T {
@@ -414,7 +442,7 @@ export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d
  if(guidance) {
   const reported=completed(guidance.reportedPeriod,guidance.reportedPeriodEnd);
   const rows=guidance.rows.map(r=>{
-   if(!fiscalLabelEndedBy(periods,r.period,guidance!.source.filingDate)) return r;
+   if(!fiscalOutlookLabelContradicted(periods,r.period,guidance!.source.filingDate)) return r;
    removed.push("an outlook label");
    return {...r,period:r.period.startsWith("Q")?"fiscal quarter":"fiscal year"};
   });
