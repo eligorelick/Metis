@@ -318,4 +318,22 @@ describe("A2-02: SBC basis in reader labels", () => {
   it("labels the SBC-to-revenue ratio with its cash-flow add-back basis", () => {
     expect(metricLabel("computed.capital-cash.sbc-revenue")).toBe("SBC (cash-flow add-back) as % of revenue (latest fiscal year)");
   });
+  // R9 names the basis in the registry ids of future reports; each reads as its basis, not run-together words.
+  it.each([
+    ["computed.capital-cash.sbc-cash-flow-add-back-revenue", "SBC (cash-flow add-back) as % of revenue (latest fiscal year)"],
+    ["computed.capital-cash.sbc-cash-flow-add-back-fcf", "SBC (cash-flow add-back) as % of FCF (latest fiscal year)"],
+    ["computed.current-capital.sbc-cash-flow-add-back", "SBC (cash-flow add-back)"],
+    ["computed.current-capital.sbc-allocated-expense", "SBC (allocated expense)"],
+    ["computed.capital.current.allocatedSbcExpense", "SBC (allocated expense)"],
+    ["computed.current-capital.sbc-cash-flow-add-back-filed-prior-year-ytd-operand-sharebasedcompensation", "SBC (cash-flow add-back) (filed prior-year year-to-date operand)"],
+    ["computed.current-capital.sbc-allocated-expense-filed-fiscal-year-operand-allocatedsharebasedcompensationexpense", "SBC (allocated expense) (filed fiscal-year operand)"],
+    ["computed.current-capital.capitalexpenditure-filed-current-ytd-operand-paymentstodevelopsoftware", "Capital expenditure (filed current year-to-date operand)"],
+    ["computed.current-capital.stockbasedcompensation-filed-fiscal-year-operand-sharebasedcompensation", "Stock-based compensation (filed fiscal-year operand)"],
+    ["payload.statements.cash-flow-annual.2025-12-31.sbc-cash-flow-add-back", "SBC (cash-flow add-back) (year ended 2025-12-31)"],
+    ["payload.statements.cash-flow-quarterly.2026-06-30.sbc-cash-flow-add-back", "SBC (cash-flow add-back) (quarter ended 2026-06-30)"],
+    ["payload.filing-facts.sbc-allocated-expense-2026-04-01-to-2026-06-30", "SBC (allocated expense), 2026-04-01 to 2026-06-30"],
+    ["payload.filing-facts.sbc-cash-flow-add-back-2025-01-01-to-2025-12-31", "SBC (cash-flow add-back), 2025-01-01 to 2025-12-31"],
+  ])("labels %s by its basis", (id, label) => {
+    expect(metricLabel(id)).toBe(label);
+  });
 });

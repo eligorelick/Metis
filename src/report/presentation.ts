@@ -243,6 +243,12 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.capital-cash.capex-revenue-slope": "Capex-to-revenue slope",
   // FIGR extra-high audit A2-02: the ratio divides the cash-flow add-back, not allocated SBC expense.
   "computed.capital-cash.sbc-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
+  // R9 names the SBC basis in the ids too; older reports keep the ids above.
+  "computed.capital-cash.sbc-cash-flow-add-back-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
+  "computed.capital-cash.sbc-cash-flow-add-back-fcf": "SBC (cash-flow add-back) as % of FCF (latest fiscal year)",
+  "computed.current-capital.sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
+  "computed.current-capital.sbc-allocated-expense": "SBC (allocated expense)",
+  "computed.capital.current.allocatedSbcExpense": "SBC (allocated expense)",
   "computed.returns.roe-latest-dupont": "ROE (DuPont, latest fiscal year)",
   "computed.valuation.p-e-common-income-denominator": "P/E common-income denominator (TTM)",
   "computed.comparable-peers.market-cap-ttm-common-earnings-eligible-peer-count-after-filtering": "Eligible peers for market cap / TTM common earnings (after screening)",
@@ -256,6 +262,14 @@ const FILED_OPERAND_METRIC: Readonly<Record<string, string>> = {
   stockbasedcompensation: "Stock-based compensation",
   operatingcashflow: "Operating cash flow",
   capitalexpenditure: "Capital expenditure",
+  // R9: the two SBC bases are separate figures, each with its own filed operands.
+  "sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
+  "sbc-allocated-expense": "SBC (allocated expense)",
+};
+/** FIGR extra-high audit A2-02 (R9): the SBC basis an id slug names. */
+const SBC_BASIS_LABEL: Readonly<Record<string, string>> = {
+  "cash-flow-add-back": "SBC (cash-flow add-back)",
+  "allocated-expense": "SBC (allocated expense)",
 };
 const FILED_OPERAND_WINDOW: Readonly<Record<string, string>> = {
   "prior-year-ytd": "prior-year year-to-date",
@@ -281,7 +295,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^computed\.scores\.([a-zA-Z]+)$/, (m) => `${ASPECT_LABEL[m[1]!] ?? sentence(segmentWords(m[1]!))} score`],
   [/^computed\.scores\.([a-zA-Z]+)\.([a-zA-Z0-9]+)$/, (m) => signalLabel(m[2]!)],
   [/^payload\.statements\.(income-statement|cash-flow|balance-sheet)-(quarterly|annual)\.(\d{4}-\d{2}-\d{2})\.(.+)$/, (m) =>
-    `${sentence(segmentWords(m[4]!))} (${m[1] === "balance-sheet" ? "at" : m[2] === "quarterly" ? "quarter ended" : "year ended"} ${m[3]})`],
+    `${m[4] === "sbc-cash-flow-add-back" ? SBC_BASIS_LABEL["cash-flow-add-back"] : sentence(segmentWords(m[4]!))} (${m[1] === "balance-sheet" ? "at" : m[2] === "quarterly" ? "quarter ended" : "year ended"} ${m[3]})`],
   [/^computed\.weighted-projections\.([a-z]+)-weighted-12m-ending-(\d{4}-\d{2}-\d{2})$/, (m) => `Weighted ${segmentWords(m[1]!).join(" ")}, 12M ending ${m[2]}`],
   [/^payload\.computed\.projections\.([a-z]+)\.([a-z]+)\.(.+)$/, (m) => `${sentence([m[2]!, "case", ...segmentWords(m[1]!)])}, ${segmentWords(m[3]!).join(" ")}`],
   [/^payload\.computed\.scenario-targets\.([a-z]+)\.per-share$/, (m) => `${sentence([m[1]!])} scenario value per share`],
@@ -297,8 +311,11 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
   [/^payload\.insiders\.insider-((?:open-market-)?purchase-transactions|(?:open-market-)?sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
-  [/^computed\.current-capital\.([a-z]+)-filed-(prior-year-ytd|current-ytd|fiscal-year)-operand-[a-z]+$/, (m) =>
+  [/^computed\.current-capital\.([a-z-]+?)-filed-(prior-year-ytd|current-ytd|fiscal-year)-operand-[a-z]+$/, (m) =>
     `${FILED_OPERAND_METRIC[m[1]!] ?? sentence(segmentWords(m[1]!))} (filed ${FILED_OPERAND_WINDOW[m[2]!]} operand)`],
+  // FIGR extra-high audit A2-02 (R9): a filing fact names its SBC basis and window.
+  [/^payload\.filing-facts\.sbc-(allocated-expense|cash-flow-add-back)-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})$/, (m) =>
+    `${SBC_BASIS_LABEL[m[1]!]}, ${m[2]} to ${m[3]}`],
   [/^computed\.forensics\.piotroski\.signals\.([A-Za-z]+)$/, (m) =>
     `Piotroski signal: ${PIOTROSKI_SIGNAL[m[1]!] ?? segmentWords(m[1]!).join(" ").toLowerCase()}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
