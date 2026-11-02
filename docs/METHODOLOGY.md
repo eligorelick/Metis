@@ -5975,3 +5975,5 @@ A date printed in filing prose is read as that calendar day in every time zone, 
 Earnings-release narrative and release-derived capital return/FCF follow the newest retained record stating results. Newer operating updates remain typed records with a leading note; they cannot occupy the earnings-release narrative slot (AI-506, OD-10).
 
 Material 8-K events include bankruptcy (1.03), cyber incidents (1.05), acceleration (2.04), delisting (3.01), dilution (3.02), holders' rights (3.03) and control changes (5.01). The first four receive priority under the ten-filing cap. Unsupported non-event item filings are named; excerpt titles name only retained sections. Saved scope metadata remains authoritative (DATA-107, OD-2).
+
+Item 5.02 headings may use any clause of the official title and an optional subsection letter; bounded-title and cross-reference rejection rules still apply (DATA-108).

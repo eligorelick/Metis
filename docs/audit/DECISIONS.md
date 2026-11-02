@@ -3036,3 +3036,7 @@ AI-506 implements OD-10: newest retained results release owns narrative, capital
 ### D-next (P5): Material 8-K eligibility
 
 DATA-107 adopts OD-2 additions and priority reads for bankruptcy, cyber, acceleration and delisting. Existing materialEventItems saved scope is reused instead of introducing duplicate eventItemScope metadata. Legacy missing scope remains explicitly unestablished.
+
+### D-next (P5): Abbreviated officer-event headings
+
+DATA-108 recognizes semicolon-separated official-title clauses and optional subsection letters without relaxing standalone-heading/cross-reference guards.

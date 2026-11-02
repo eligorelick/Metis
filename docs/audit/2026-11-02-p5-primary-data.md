@@ -17,7 +17,7 @@
 | DATA-101 | Not started | - | - | Not assessed |
 | DATA-102 | Not started | - | - | Not assessed |
 | DATA-106 | Not started | - | - | Not assessed |
-| DATA-108 | Not started | - | - | Not assessed |
+| DATA-108 | Fixed | Owning DATA-108 commit | data108-red / data108-green | None |
 | DATA-109 | Not started | - | - | Not assessed |
 | DATA-110 | Not started | - | - | Not assessed |
 | DATA-115 | Not started | - | - | Not assessed |
@@ -53,3 +53,5 @@ DATA-111: Berlin/Tokyo lost 24.55B remaining authorization as of 2026-08-28; all
 AI-506: newer monthly sales update lost Q4 narrative and $1.30 dividend; the retained Q4 results now supply both. Retention/order unchanged. No prompt text edited.
 
 DATA-107: six newly admitted item codes; 3.02 already admitted at this HEAD. Uses existing materialEventItems scope and legacy disclosure rather than the older plan's duplicate field.
+
+DATA-108: Election, Appointment and 5.02(e) Compensatory headings previously yielded no section; now retain the operative body. DATA-107 scope correction: expanded schema and intended ten-to-sixteen scope pins are verified by data107-scope-green-2 (230 pass); original ten-document fixture remains intact.

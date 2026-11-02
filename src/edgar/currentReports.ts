@@ -1330,12 +1330,12 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
   const text = normalizeFilingText(rawText);
   const { boundaries, tagText } = itemHeadingBoundaries(rawText, sourceDocument);
   const heads: { item: string; start: number; bodyStart: number }[] = [];
-  for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})\s*[.:–—-]?\s*/gi)) {
+  for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})(?:\s*[(][a-f][)])?\s*[.:–—-]?\s*/gi)) {
     const item = m[1]!;
     const officialTitle = ITEM_TITLES[item];
     if (!officialTitle) continue;
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 200);
-    const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle];
+    const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle, ...officialTitle.split(";").map(c=>c.trim())];
     const title = variants.find(t => {
       const words = item === "3.02" ? t.split(/\s+/) : t.split(/\s+/).slice(0, 2);
       return new RegExp(`^${words.join("\\s+")}\\b`, "i").test(after);

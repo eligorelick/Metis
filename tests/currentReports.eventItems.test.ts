@@ -18,3 +18,8 @@ it("DATA-107 reads an old priority cyber filing ahead of routine events at the c
  expect(result.ok && result.value.data.events.some(e=>e.accession==="a10")).toBe(true);
  expect(result.ok && result.value.data.notes.join(" ")).toContain("a9");
 });
+
+it.each(["Election of Directors","Appointment of Certain Officers","(e) Compensatory Arrangements of Certain Officers"])("DATA-108 accepts a clause heading %s",title=>{
+ const heading=title.startsWith("(")?`Item 5.02${title}`:`Item 5.02 ${title}`;
+ expect(splitEightKItems(`${heading}. On September 3, 2026, the Board approved a retention award.`)).toMatchObject([{item:"5.02",text:"On September 3, 2026, the Board approved a retention award."}]);
+});
