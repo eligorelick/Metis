@@ -3,8 +3,8 @@
 Implementation branch: `codex/r5-figr-verifier`, based on `b0f273bb`
 ("Accept the canonical derived quarter as a whole filed row (D-155 review)").
 Implementation commit: `b8bfbf8013a757763c089aab5dc7d2e1739a5be5`.
-The scale-conflict safeguard and its regression test are in the follow-up commit
-containing this record update.
+The scale-conflict safeguard and its regression test are in follow-up commit
+`3c009608a1d84ca73250856a695d08b791ad3a34`.
 
 | Finding | Root cause | Fix / disposition | Commit | Test |
 | --- | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ containing this record update.
 | R5-6: TTM CFO and insider count key numbers | Complete printed intervals did not equal a prefixed TTM period or a duration context plus end date | Fixed: prove both ordered endpoints before normalizing; context checks remain authoritative | b8bfbf80 | `accepts only the complete ordered registered interval on a traced figure`; reversed/start/end controls |
 | R5-7: net take rate 3.6% vs 4.0% and its key number | Quarter/year header was not a dated column binding; two quantities in one clause stayed ambiguous | Fixed for explicit same-row columns: validate each dated level independently, prove direction with disjoint rounding intervals, preserve numeric-only scope | b8bfbf80 | `binds a net take rate to its explicit quarter/year table column`; `establishes a decline from two independently bound columns`; `keeps comparison binding conservative`; malformed header, wrong period/metric/unit/value/direction/precision controls |
 | R5-8: excerpt support trace | Numerically matched excerpt prose retained the generic `source-cited` trace | Fixed: existing `excerpt-match` trace, overall prose `unverified`, support `numeric-only` | b8bfbf80 | `logs numeric-only excerpt support distinctly from a registry match` |
-| R5-7 review: conflicting table scale | The newly recognized header scale could outrank a conflicting later parenthetical declaration | Fixed: conflicting scales withhold the binding; retain explicit per-share qualifiers | This commit | `keeps the declared money scale and refuses a conflicting later declaration`; correct scale plus thousandfold-error and conflict controls |
+| R5-7 review: conflicting table scale | The newly recognized header scale could outrank a conflicting later parenthetical declaration | Fixed: conflicting scales withhold the binding; retain explicit per-share qualifiers | 3c009608 | `keeps the declared money scale and refuses a conflicting later declaration`; correct scale plus thousandfold-error and conflict controls |
 | R5-9: USD 717 vs USD 11,109 production-cost benchmark; other multi-metric/range/list excerpt paraphrases | Values exist, but the verifier cannot safely resolve each metric, period, comparison role or unit with its existing clause guarantees | Not fixed by a general fallback. Quantity presence or own-description matching alone would bypass existing rejection rules | No broad fallback | `keeps an ambiguous multi-metric benchmark sentence unchecked`, correct and reversed values; existing own-description, comparison-base, bounds, source-period and multi-quantity refusal tests |
 
 ## Frozen evidence and replay
@@ -89,6 +89,11 @@ verifier refusals. `r5-typecheck` passed before this final guard. The first full
 gate was stopped during product tests to make that correction; it is not a
 passing receipt or a pre-existing failure. `r5-scale-fixed-replay` confirms the
 same before/after paid counts after the guard.
+The subsequent full gate reproduced the release inventory's refusal of the new
+requested audit document. Added only that exact Markdown path to the allowed
+and required lists; `r5-release-allowlist-green` passes all 18 release tests.
+That gate was stopped after the known packaging failure and rerun on the updated
+commit. No verifier assertion or coverage threshold was relaxed.
 These receipts are UTF-16LE logs with JSON exit-code companions in the isolated
 wrapper directory. The final committed revision is checked with:
 
