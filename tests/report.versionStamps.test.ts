@@ -1,4 +1,5 @@
 import { INSIDER_ROLES_READ_FROM } from "@/report/claimMatching";
+import { N4B_CAGR_DISPLAY_CUTOFF } from "@/report/cagrPresentation";
 /**
  * Version stamps after the 2026-10-04 audit follow-up, and legacy reads.
  * Report 1.10.0 and payload 1.11.0 admit a 3y/5y revenue CAGR to the DCF
@@ -149,6 +150,7 @@ describe("new version stamps", () => {
   });
   it("stamps financial integrity and evidence-context conventions", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.56.0");
+    expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.60.0");
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.18"); // AI-103 judge instruction
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff

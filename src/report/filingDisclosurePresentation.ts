@@ -115,6 +115,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.quarterlyTrend.length > 0) {
+    const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
     // D-63 fields, rendered where present: the quarter's equity-securities
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).
@@ -123,17 +124,18 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
       ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
+      ...d.notes.filter(note => note.startsWith("Quarterly operating cash flow")),
     ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (last eight quarters)",
-      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", "Gross margin", "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO − capex)"],
+      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
       rows: d.quarterlyTrend.map((r) => [
         r.periodEnd,
         r.fiscalLabel ?? DASH,
         money(r.revenue, d.currency),
         pct(r.revenueYoyPct, true),
         pct(r.revenueQoqPct, true),
-        pct(r.grossMarginPct),
+        ...(showGrossMargin ? [pct(r.grossMarginPct)] : []),
         money(r.operatingExpenses, d.currency),
         pct(r.operatingMarginPct),
         r.epsDiluted === null ? DASH : money(r.epsDiluted, d.currency, true),

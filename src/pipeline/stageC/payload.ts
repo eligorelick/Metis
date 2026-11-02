@@ -2876,6 +2876,7 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   ];
   // FIN-511-V1: the basis note of every growth cell that uses a first-reported copy or is dashed.
   for (const note of new Set(disclosures.quarterlyTrend.flatMap((row) => row.revenueGrowthNotes ?? []))) notes.push(note);
+  notes.push(...disclosures.notes.filter(note => note.startsWith("Quarterly operating cash flow")));
   // D-63: the company's guidance track record, one citable figure per metric:
   // the share of the guided quarters whose result landed above (below) the
   // range the preceding release gave. The CEO and CFO issue that outlook, so

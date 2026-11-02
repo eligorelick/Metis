@@ -71,7 +71,10 @@ describe("filed operating cash-flow admission", () => {
   });
   it("does not use a later published operand to manufacture a quarterly bridge", () => {
     const f = facts([point(30), point(50, { end: "2026-02-27", filed: "2026-07-30" })]);
-    expect(admit(row, f).row.fieldConflicts?.operatingCashFlow).toBeUndefined();
+    // L4: this is refutation only, never admission of a cross-filing quarter.
+    const result = admit(row, f).row;
+    expect(result.operatingCashFlow).toBeNull();
+    expect(result.fieldConflicts?.operatingCashFlow).toMatchObject({ usable: false, secValue: -20, reason: expect.stringMatching(/Standalone quarter withheld/) });
   });
   it("does not compare a quarterly fact as an annual amount", () => {
     expect(admit(row, facts([point(20, { start: "2026-02-28" })]), "annual").row.fieldConflicts?.operatingCashFlow).toBeUndefined();

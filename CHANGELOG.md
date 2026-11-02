@@ -18,6 +18,18 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N4b filed quarterly series and lender display (2026-11-02)
+
+Quarterly income comparatives can establish a whole filed row without a
+comparative balance sheet. Conflicting vendor revenue is refused when a
+reconciled one-filing row is unavailable. Quarterly growth uses matched filed
+operands or discloses its refusal. Refuted quarterly CFO and dependent FCF
+are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Evidenced
+lenders omit quarterly gross margin and mark provider EV not applicable. The
+receivables flag follows Beneish financial-forensics applicability. Identical
+measured CAGR windows collapse into one row; whole-thousand currency amounts
+below a million show as K while other amounts keep their decimals. Shared stamps and stored reports are unchanged.
+
 ## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
 
 - L1: admit a complete retained cover class inventory using same-filing class

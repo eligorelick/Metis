@@ -85,7 +85,7 @@ function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseVa
   return null;
 }
 
-export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string; severity?: string; reason?: string }[] } = {}): MarketData | undefined {
+export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; cashFlowApplicability?: { reason: string }; stageBGaps?: readonly { field: string; severity?: string; reason?: string }[] } = {}): MarketData | undefined {
   const profile = rows(bundle.profile)[0];
   let currencies: { trading: string | null; model: string | null };
   try {
@@ -160,6 +160,11 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
         Math.abs(current + noncurrent + leases - historicalEv.enterpriseValue.totalDebt) <= 1) {
       historicalEv.enterpriseValueNote = "This dated internal cash-only EV bridge uses current and noncurrent carrying debt plus the reported lease liabilities. It retains that historical source basis; the report's primary current EV uses its separately disclosed bridge.";
     }
+  }
+
+  if (evOrigin === "provider" && options.cashFlowApplicability) {
+    historicalEv.enterpriseValue = null;
+    historicalEv.enterpriseValueNote = `Provider enterprise value not applicable: ${options.cashFlowApplicability.reason}`;
   }
 
   // FY+1 and FY+2: the first two estimate rows after the latest reported fiscal year.

@@ -2337,6 +2337,8 @@ export const FilingDisclosuresSchema = z
      * one-presentation growth check ran. Omitted otherwise (FMP-route and older reports).
      */
     quarterlyTrendPresentationChecked: z.literal(true).optional(),
+    /** N4b: the evidenced lender applicability reason; absent on older reports. */
+    quarterlyGrossMarginNotApplicable: z.string().optional(),
     quarterlyTrend: z.array(
       z
         .object({

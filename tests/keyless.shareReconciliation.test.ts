@@ -147,9 +147,12 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     expect(result.rows[0]?.fieldConflicts?.weightedAverageShsOutDil).toMatchObject({ vendorValue: vendor, secValue: filed, usable: false });
   });
 
-  it("checks a directly filed quarter even when missing Assets facts prevent a whole statement row", () => {
+  it("checks a directly filed quarter even when no statement anchor can establish a whole row", () => {
     const facts = factsFor([primaryQuarter]);
     delete facts.facts["us-gaap"]!.Assets;
+    // L3: revenue now independently anchors income; remove both anchors to
+    // retain this test's independent per-share evidence trigger.
+    delete facts.facts["us-gaap"]!.Revenues;
     const primary = built(facts);
     expect(primary.incomeQuarterly.rows).toEqual([]);
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,

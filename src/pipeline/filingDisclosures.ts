@@ -26,6 +26,9 @@ import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "
 import type { EdgarFiling } from "@/providers/edgar";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { factsForFilings } from "@/edgar/filedPresentation";
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { fiscalYearRule, fiscalYearEndFor, type FiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
 import { orderedEarningsReleases } from "@/providers/currentReports";
 import { materialCreditSupportClauses, moneyMentions, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
@@ -562,11 +565,12 @@ function revenueBasis(row: FmpIncomeStatementRow | undefined): { restated: Reven
  * not (Task 7's rule (b)), there is no rate either. Rows without provenance or
  * flags (the FMP route) take plain arithmetic.
  */
-function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ", currency: string): { pct: number | null; note: string | null } {
+function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ", currency: string, defaultSource = "fmp"): { pct: number | null; note: string | null } {
   const revenue = num(row.revenue);
   const base = num(prior?.revenue);
   const plain = { pct: revenue === null || base === null || base <= 0 ? null : round((revenue / base - 1) * 100), note: null };
   if (revenue === null || base === null || prior === undefined) return plain;
+  if ((row.source ?? defaultSource) !== (prior.source ?? defaultSource)) return { pct: null, note: `${label} not shown: quarterly revenue operands use different sources and no common filed presentation is established.` };
   const a = revenueBasis(row);
   const b = revenueBasis(prior);
   const aEnd = day(row.date) ?? String(row.date);
@@ -635,6 +639,12 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     return false;
   }));
   const dates = [...income.keys()].sort().reverse();
+  const facts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  const buildFiled = (accessions?: string[]) => facts?.ok ? buildStatementsFromCompanyFacts(accessions ? factsForFilings(facts.value.data, accessions) : facts.value.data,
+    { symbol: bundle.symbol, cik: String(facts.value.data.cik), asOf: bundle.builtAt.slice(0, 10), factsObservedAt: facts.value.fetchedAt, annualPeriods: 12, quarterlyPeriods: 40,
+      vendorSplits: { status: "unavailable", source: "filed revenue presentation", reason: "Revenue growth does not resolve per-share values" } }).incomeQuarterly.rows : [];
+  const filed = buildFiled();
+  const filingCache = new Map<string, FmpIncomeStatementRow[]>();
   const near = (target: string, lo: number, hi: number): FmpIncomeStatementRow | undefined => {
     const d = dates.find((x) => x < target && daysApart(x, target) >= lo && daysApart(x, target) <= hi);
     return d === undefined ? undefined : income.get(d);
@@ -647,11 +657,29 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     const pct = (part: number | null): number | null => (part === null || revenue === null || revenue === 0 ? null : round((part / revenue) * 100));
     const growthNotes: string[] = [];
     const growth = (prior: FmpIncomeStatementRow | undefined, label: "YoY" | "QoQ"): number | null => {
-      const g = oneBasisGrowth(r, prior, label, currency);
+      let a = r, b = prior;
+      const currentFiled = filed.find(row => row.date === d && row.reportedCurrency === currency);
+      if (prior && revenue !== null && currentFiled && num(currentFiled.revenue) !== null && vendorAgreesWithFiled(revenue, currentFiled.revenue as number)) {
+        const accessions = currentFiled.fieldProvenance?.revenue?.filings.map(f => f.accn) ?? [];
+        const key = accessions.join("|");
+        if (key && !filingCache.has(key)) filingCache.set(key, buildFiled(accessions));
+        const matched = filingCache.get(key)?.find(row => row.date === prior.date && row.reportedCurrency === currency && num(row.revenue) !== null);
+        const comparison = matched ?? filed.find(row => row.date === prior.date && row.reportedCurrency === currency && num(row.revenue) !== null);
+        if (comparison) {
+          a = { ...currentFiled, source: "edgar" }; b = { ...comparison, source: "edgar" };
+          if (num(prior.revenue) !== num(b.revenue) || (r.source ?? "fmp") !== "edgar" || matched) growthNotes.push(`${label} at ${d} uses filed revenue ${a.revenue} / ${b.revenue} ${currency}${matched ? " from the current filing's comparative presentation" : " on the canonical filed presentation"}; no vendor operand enters the rate.`);
+        }
+      }
+      const source = bundle.statements.incomeQuarterly;
+      const g = oneBasisGrowth(a, b, label, currency, source.ok ? source.value.source : "fmp");
       if (g.note !== null) growthNotes.push(g.note);
       return g.pct;
     };
     const ocf = num(c?.operatingCashFlow) ?? num(c?.netCashProvidedByOperatingActivities);
+    const cfoProof = c?.fieldProvenance?.operatingCashFlow ?? c?.fieldProvenance?.netCashProvidedByOperatingActivities;
+    if (ocf !== null && cfoProof?.derivation && cfoProof.filings.length > 1) {
+      notes.push(`Quarterly operating cash flow for ${d} is derived (${cfoProof.derivation}) from cumulative filed operands across filings: ${cfoProof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}. The canonical filing-lineage rule admits this derivation; it is not a directly filed standalone quarter.`);
+    }
     const capex = num(c?.capitalExpenditure);
     const year = typeof r.fiscalYear === "number" ? String(r.fiscalYear) : r.fiscalYear;
     const period = typeof r.period === "string" ? r.period.trim().toUpperCase() : null;
@@ -706,7 +734,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   const trendFlags = { presentationChecked: false };
   const trend = quarterlyTrend(bundle, releases, currency, notes, trendFlags);
   if (cashFlowApplicability) {
-    for (const row of trend) row.freeCashFlow = null;
+    for (const row of trend) { row.freeCashFlow = null; row.grossMarginPct = null; }
     notes.push(cashFlowApplicability.reason);
   }
   const interim = segmentPrimarySection(bundle);
@@ -1041,6 +1069,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     ...(segmentPerformance.length === 0 ? {} : { segmentPerformance }),
     ...(trendFlags.presentationChecked ? { quarterlyTrendPresentationChecked: true as const } : {}),
     quarterlyTrend: trend,
+    ...(cashFlowApplicability ? { quarterlyGrossMarginNotApplicable: cashFlowApplicability.reason } : {}),
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
     ...(commitmentPaymentTiming.length === 0 ? {} : { commitmentPaymentTiming }),

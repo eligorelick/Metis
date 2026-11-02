@@ -125,6 +125,17 @@ export function formatMultiple(value: number | null | undefined, digits = 1): st
  * non-US filers throughout, so a figure that does not say its currency is not
  * known to be in dollars.
  */
+/**
+ * N4b L10: amounts from a million use the compact scale; below a million only a
+ * whole number of thousands does ("$122K", not "$122,000.00"). Any other amount
+ * keeps its two decimals, so a price per tonne or an exact sum is not rounded
+ * to one decimal of a thousand.
+ */
+function compactAmount(value: number): boolean {
+  const abs = Math.abs(value);
+  return abs >= 1e6 || (abs >= 1e3 && Number.isInteger(Number((abs / 1e3).toPrecision(15))));
+}
+
 function formatMoney(value: number, currency: string | null, large: boolean): string {
   return withCurrency(large ? formatLargeNumber(value, true) : formatNumber(value, 2), currency);
 }
@@ -269,7 +280,7 @@ function scaledMoneyAmount(value: number, code: string, scale: string, currency?
   if (amount !== 0 && Math.abs(amount) < 0.005) {
     return withCurrency(`${amount < 0 ? "-" : ""}${Math.abs(amount).toPrecision(3)}`, established);
   }
-  return formatMoney(amount, established, Math.abs(amount) >= 1e6);
+  return formatMoney(amount, established, compactAmount(amount));
 }
 
 export function formatFinancialValue(
@@ -290,7 +301,7 @@ export function formatFinancialValue(
   switch (canonical) {
     case "percent": return formatPct(value);
     case "multiple": return formatMultiple(value);
-    case "usd": return formatMoney(value, establishedCurrency(unit, currency), Math.abs(value) >= 1e6);
+    case "usd": return formatMoney(value, establishedCurrency(unit, currency), compactAmount(value));
     case "usd-per-share": return formatMoney(value, establishedCurrency(unit, currency), false);
     case "large-count": return formatLargeNumber(value);
     case "basis-points": return `${formatNumber(value, 0)} bps`;

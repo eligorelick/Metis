@@ -39,6 +39,7 @@ import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
+import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
@@ -322,7 +323,7 @@ function cagrRow(
         : "";
     values.push({ period: `${point.windowYears}y CAGR${spanNote}`, value });
   }
-  return values.length > 0 ? { label, values } : null;
+  return values.length > 0 ? { label, values: collapseMeasuredCagrValues(values) } : null;
 }
 
 function seriesRow(
@@ -948,7 +949,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
-  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps });
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps, cashFlowApplicability: computed.route?.cashFlowApplicability });
   if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild

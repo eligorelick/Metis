@@ -12,6 +12,8 @@ import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/st
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildDataCompleteness } from "@/report/completeness";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
+import { buildMarketData } from "@/pipeline/marketData";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 function lender(options: { bank?: boolean; sic?: string; statement?: string } = {}) {
@@ -26,6 +28,30 @@ function lender(options: { bank?: boolean; sic?: string; statement?: string } = 
 }
 
 describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
+  it("L5 omits lender quarterly gross margin while preserving the non-lender column", () => {
+    const b = lender(), c = runStageB(b);
+    if (!b.statements.incomeQuarterly.ok) throw Error("fixture");
+    b.statements.incomeQuarterly.value.data.rows[0]!.grossProfit = 100e6;
+    const d = buildFilingDisclosures(b, c.route.cashFlowApplicability)!;
+    expect(d.quarterlyTrend.every(r => r.grossMarginPct === null)).toBe(true);
+    expect(filingDisclosureTables(d, "fundamentals").find(t => t.heading.startsWith("Quarterly trend"))?.headers).not.toContain("Gross margin");
+    const control = completeCurrencyBundle({});
+    if (!control.statements.incomeQuarterly.ok) throw Error("fixture");
+    control.statements.incomeQuarterly.value.data.rows[0]!.grossProfit = 100e6;
+    expect(buildFilingDisclosures(control)!.quarterlyTrend.some(r => r.grossMarginPct !== null)).toBe(true);
+  });
+  it("L5 marks provider EV not applicable with the evidenced lender reason", () => {
+    const b = lender();
+    b.enterpriseValues = { ok: true, value: { data: { rows: [{ date: "2026-03-31", enterpriseValue: 6.77e9, addTotalDebt: 300e6 }], raw: [] }, source: "fmp", endpoint: "retained", asOf: "2026-03-31", fetchedAt: b.builtAt } };
+    const c = runStageB(b);
+    const report = buildDataOnlyReport({ symbol: b.symbol, companyName: "Example", generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, validation: { checks: [], flags: [], gaps: [] }, computed: c, costBreakdown: [], reason: "offline" });
+    expect(report.marketData?.enterpriseValue).toBeNull();
+    expect(report.marketData?.enterpriseValueNote).toMatch(/Provider enterprise value not applicable.*held-for-sale/i);
+    expect(reportToMarkdown(report)).toMatch(/Provider enterprise value not applicable/i);
+    const control = completeCurrencyBundle({}); control.enterpriseValues = b.enterpriseValues;
+    expect(buildMarketData(control)?.enterpriseValue).not.toBeNull();
+  });
   it("makes owner-FCF measures inapplicable without hiding filed OCF, capex, income or book value", () => {
     const b = lender(); const before = JSON.stringify(b);
     const c = runStageB(b);

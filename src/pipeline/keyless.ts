@@ -51,7 +51,8 @@ import {
   type StatementRowsResult,
 } from "@/edgar/statements";
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import { COSTS_AND_EXPENSES_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { COSTS_AND_EXPENSES_TAG, FILED_REVENUE_TOTAL_TAGS, tagsFor } from "@/edgar/tagSynonyms";
+import { factsForFilings } from "@/edgar/filedPresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { describeSplits, sameShareBasis, shareBasisFactor, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
 import { mergeSplitEvidence, unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
@@ -1410,10 +1411,12 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         .filter((day): day is string => day !== null);
       // Only periods strictly older than anything the successor filed: a
       // period both entities reported would otherwise appear twice.
-      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => (a < b ? a : b));
+      const comparableQuarterHistory = member === "incomeQuarterly" && continuity !== null;
+      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => comparableQuarterHistory ? (a > b ? a : b) : (a < b ? a : b));
       const older = result.rows.filter((row) => {
         const day = isoDay(row["date"]);
-        return day !== null && (cutoff === null || day < cutoff);
+        return day !== null && (cutoff === null || day < cutoff) &&
+          (!comparableQuarterHistory || !currentRows.some(current => isoDay(current["date"]) === day || compatibleFiscalAlias(current, row)));
       });
       if (older.length === 0) return;
       const tagged = older.map(
@@ -1538,7 +1541,8 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // its per-share fields. The original vendor response remains in data.raw.
   if (inputs.statementSource === "auto" && built !== null && inputs.edgar.companyFacts.ok) {
     const facts = inputs.edgar.companyFacts.value.data;
-    const totalTags = ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax", "us-gaap/SalesRevenueNet"];
+    const totalTags: readonly string[] = FILED_REVENUE_TOTAL_TAGS.map(tag => `us-gaap/${tag}`);
+    const filingRows = new Map<string, FmpIncomeStatementRow[]>();
     const proofFor = (row: FmpStatementRow, field: string) => row.fieldProvenance?.[field];
     const sameScope = (a: StatementFieldProvenance, b: StatementFieldProvenance) =>
       a.unit === b.unit && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
@@ -1572,7 +1576,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       const rows = current.value.data.rows.map(row => {
         const vendorFields = member === "cashflowQuarterly" ? ["operatingCashFlow", "netCashProvidedByOperatingActivities"] : [field];
         if (row.source === "edgar") return row;
-        const sec = built[member].rows.find(candidate => candidate.date === row.date);
+        let sec = built[member].rows.find(candidate => candidate.date === row.date);
         const proof = sec && proofFor(sec, field);
         let operands: number[] | null = null;
         if (proof?.derivation && proof.periodStart && proof.tags.length === 1) {
@@ -1584,13 +1588,27 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
           if (total && prior) operands = [total.val, prior.val];
         }
         const conflictField = sec && isFiniteNumber(sec[field]) ? vendorFields.find(key => isFiniteNumber(row[key]) && !(operands
-          ? vendorAgreesWithDerived(row[key], sec[field] as number, operands)
-          : vendorAgreesWithFiled(row[key], sec[field] as number))) : undefined;
+          ? vendorAgreesWithDerived(row[key], sec![field] as number, operands)
+          : vendorAgreesWithFiled(row[key], sec![field] as number))) : undefined;
         if (!sec || !proof || !conflictField ||
           proof.unit !== row.reportedCurrency || !proof.periodStart || proof.filings.length === 0 ||
           (row.periodStart != null && row.periodStart !== proof.periodStart) ||
           (row.cik != null && Number(row.cik) !== Number(facts.cik))) return row;
-        if (member !== "cashflowQuarterly" && (bankStatementRouting(registrant) || !proof.tags.some(tag => totalTags.includes(tag)) || !reconciles(sec))) return row;
+        if (member !== "cashflowQuarterly") {
+          if (bankStatementRouting(registrant) || !proof.tags.some(tag => totalTags.includes(tag))) return row;
+          if (member === "incomeQuarterly" && proof.filings.length === 1) {
+            const accn = proof.filings[0]!.accn;
+            if (!filingRows.has(accn)) filingRows.set(accn, buildStatementsFromCompanyFacts(factsForFilings(facts, [accn]), buildOptions(cik10)).incomeQuarterly.rows);
+            sec = filingRows.get(accn)!.find(candidate => candidate.date === row.date) ?? sec;
+          }
+          if (!reconciles(sec) || member === "incomeQuarterly" && proof.filings.length !== 1) {
+            if (member === "incomeAnnual") return row;
+            const reason = `Vendor quarterly revenue ${row.revenue} conflicts with filed-operand revenue ${sec.revenue} ${proof.unit} at ${row.date}; a reconciled whole income row from one filing is unavailable. Revenue and dependent gross-margin fields withheld; vendor observations retained.`;
+            gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "warn" });
+            return { ...row, revenue: null, grossProfit: null, grossProfitRatio: null, grossProfitMargin: null,
+              fieldConflicts: { ...row.fieldConflicts, revenue: { usable: false as const, vendorValue: row.revenue as number, secValue: sec.revenue as number, secEvidence: proof, reason } } };
+          }
+        }
         // Canonical CFO derivation rejects incompatible YTD lineages. Require
         // its actual operating-cash-flow tag, not a proxy or a vendor alias.
         if (member === "cashflowQuarterly" && !proof.tags.includes("us-gaap/NetCashProvidedByUsedInOperatingActivities")) return row;

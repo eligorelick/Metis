@@ -104,6 +104,8 @@ export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
  * equity-method result then sits inside revenue). Never a chain line item.
  */
 export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
+/** Direct consolidated totals eligible for an N3/N4b whole-row switch. */
+export const FILED_REVENUE_TOTAL_TAGS = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"] as const;
 
 export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",

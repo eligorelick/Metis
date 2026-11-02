@@ -426,6 +426,14 @@ return with the current cost of equity, as it did before.
 
 ## Growth, annual returns and capital diagnostics
 
+N4b L10 display: Requested CAGR windows that produce the identical measured
+window, rate, end date and source appear once, named for their actual measured
+span. The separate latest-year window remains. Calculations, grade inputs and
+retained records are unchanged. Currency amounts from one million use the
+compact M/B/T scale; below a million only a whole number of thousands is
+compact ("$122K", not "$122,000.00"), and any other amount, such as a price
+per tonne, keeps two decimals. Per-share amounts retain decimals.
+
 `src/pipeline/stageB/growth.ts` reports requested 1/3/5/10-year revenue,
 diluted-EPS and before-SBC FCF CAGRs as `(end/start)^(1/years) − 1`.
 Non-positive endpoints or sign flips withhold the CAGR. Short history degrades
@@ -2840,6 +2848,11 @@ P/FFO and P/AFFO are computed from these figures. When the REIT sub-map is
 `undetermined` (*The REIT sub-map*, above) every FFO-based figure is withheld.
 
 ### Forensic batteries by route
+
+N4b L8: The receivables-versus-revenue growth flag uses the same financial-
+forensics applicability predicate as Beneish M (including DSRI). When that
+predicate suppresses Beneish, the standalone receivables flag is also withheld
+with the same reason. Non-financial issuers retain the flag and thresholds.
 
 Piotroski (2000) built the F-score on non-financial firms; Altman excluded
 financial institutions from every Z-model estimation sample; Beneish (1999)
@@ -6467,6 +6480,11 @@ stated as Class X common shares or shares also block 1:1 admission.
 
 ## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
 
+N4b L5 applies the same evidenced-lender refusal to quarterly vendor gross
+margin and to the provider enterprise value in market data. The quarterly
+column is omitted and provider EV is marked not applicable with the filed
+lender reason; filed operating margins remain available.
+
 The general route has a narrow owner-FCF applicability exception. It requires
 SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
 retained primary 10-Q/10-K statement of cash flows explicitly reporting nonzero
@@ -6563,6 +6581,20 @@ because an applicable model consumes their discount rate.
 
 ## SEC-built rows on a filed-total conflict (N3)
 
+N4b L3: A later 10-Q/10-K comparative is a filed value for the quarter.
+Income-quarter discovery does not require a comparative balance-sheet instant.
+When quarterly vendor revenue conflicts, auto mode switches the whole row only
+if one filing supplies a reconciled operating statement. Otherwise revenue is
+withheld with both observations; a derived cross-filing Q4 total cannot silently
+replace the vendor row. Quarterly YoY prefers the current filing's comparative;
+YoY and QoQ divide filed operands on one presentation, or vendor operands on
+one vendor basis, and disclose any refusal. Matched FY-minus-nine-month pairs
+can establish a Q4 growth comparison independently of a refused vendor row.
+A successor comparative cannot truncate otherwise eligible predecessor income
+quarters when the existing earnings and per-share continuity test proves one
+reporting entity; fill only missing older quarters, never duplicate periods.
+Without that continuity evidence, retain the original strict history cutoff.
+
 N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
 with a directly tagged filed total permits a whole SEC-built income row only
 when the filed operating statement reconciles on matching periods, currency
@@ -6598,7 +6630,16 @@ derived operands retain their existing rounding allowance. Missing canonical
 SEC cash-capex is an explicit investment-scope refusal on the replacement
 row, so runway cannot use an older vendor quarter to bypass the missing
 operand. A missing canonical quarter is never synthesized from a later-filed
-prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
+prior YTD operand. N4b L4 nevertheless refuses a vendor quarter contradicted
+by those retained YTD operands, naming both filings and the implied difference;
+the standalone quarter stays withheld under the existing filing-lineage rule.
+A canonical standalone quarter derived from compatible earlier cumulative
+filings remains usable, but the quarterly table and model context explicitly
+label it derived across filings and name those filings.
+When the quarterly CFO sum is incomplete or contradicted, TTM CFO may use
+filed fiscal year + current YTD - prior-year YTD, with both YTD values
+from the same current 10-Q. The exact operands, currency and filings are
+disclosed. This identity supplies no cash-capex or standalone quarter. Mixed whole-row cash-flow windows disclose remaining vendor
 quarters and do not claim a single-lineage filed SEC TTM.
 
 ## P2 DCF inputs and seasonality (2026-11-02)

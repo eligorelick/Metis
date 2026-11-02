@@ -3927,3 +3927,54 @@ For an SEC-evidenced non-bank lender without an applicable FCFF or excess-return
 model, retain rate-input refusals at info severity with the no-consumer reason.
 Do not supply a fallback rate. Preserve bank, insurer and ordinary general-route
 critical severity. Header completeness follows the retained manifest severity.
+
+## D-next (N4b) - Filed quarterly presentations (L3)
+
+Later core-form comparatives qualify as filed quarter values. Switch a conflicting vendor quarterly income row only as a whole, reconciled row from one filing; otherwise refuse its revenue with both observations. Growth uses two filed operands on one presentation (preferring current-filing YoY comparatives), or one vendor basis, never mixed sources. Matched filed FY-minus-nine-month presentations may establish Q4 growth while a conflicting vendor Q4 row remains refused. Stored reports and shared stamps remain unchanged.
+
+## D-next (N4b) - Filed operating cash-flow operands (L4)
+
+A vendor CFO refuted by retained filed YTD operands is refused even when a
+later-filed prior YTD cannot establish a canonical quarter. Withhold that
+standalone quarter under the existing house lineage rule. An incomplete or
+contradicted TTM CFO sum may use FY + current YTD - prior-year YTD, provided
+both YTD operands belong to the same current 10-Q. Disclose all operands and
+filings; infer no capex or standalone quarter.
+
+## D-next (N4b) - Lender display consistency (L5)
+
+Use the evidenced held-for-sale lender applicability decision for quarterly
+vendor gross margin and market-data provider EV. Omit gross margin and label
+provider EV not applicable with the lender reason. Preserve filed operating
+margins and the independent internal context-EV policy.
+
+## D-next (N4b) - Receivables forensic applicability (L8)
+
+Apply the exact financial-forensics predicate that withholds Beneish to the
+standalone receivables-versus-revenue flag, whose relation is also DSRI.
+Disclose the refusal reason; retain non-financial flags and thresholds.
+
+## D-next (N4b) - Measured CAGR windows and currency scale (L10)
+
+Collapse explicit, identical measured CAGR observations into one row naming
+the measured span. Keep distinct windows and values. Money uses the compact
+scale from one million and, below it, only for whole thousands (K); any other
+amount keeps two decimals (coordinator review: a K scale from 1,000 printed
+$1,234.50 as $1.2K and a price per tonne to one decimal of a thousand).
+Preserve per-share precision. Pure display grouping does not alter retained figures or scores.
+
+### D-next (N4b) - Census and regression controls
+
+A successor comparative discovered for L3 must not truncate valid predecessor
+income history when the existing earnings and per-share continuity evidence
+proves one reporting entity. Fill missing older quarters without duplicates;
+retain the strict cutoff when continuity is absent. Add the two presentation
+helpers to risk coverage. Update only defect-encoding anchor/CFO/amount pins;
+leave thresholds, shared stamps and payload/audit goldens unchanged.
+
+### D-next (N4b) - Standalone CFO derivation disclosure (L4)
+
+Accepted canonical quarters formed from compatible earlier cumulative filings
+are labelled derived across filings, with filing identities, in quarterly
+table notes and model context. Late-operand Q3 remains withheld. No quarterly
+amount, TTM identity, score, stamp or stored report changes in this follow-up.
