@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { DISCLAIMER_TEXT, REPORT_SPEC_VERSION } from "@/report/schema";
-import { PAYLOAD_VERSION } from "@/pipeline/stageC/payload";
+import { PAYLOAD_BUDGETS, PAYLOAD_VERSION } from "@/pipeline/stageC/payload";
 import { STAGE_B_IMPLEMENTATION_VERSION } from "@/pipeline/runInputSnapshot";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { classifyAccrualBand } from "@/pipeline/stageB/forensics";
@@ -11,7 +11,7 @@ const flat = (s: string) => s.replace(/\s+/g, " ");
 it("DOC-101 places the three bank rows in the metric table and refuses component sums", () => {
  const text=read("docs/METHODOLOGY.md");
  const table=text.slice(text.indexOf("| Net interest margin |" )).split(/\n(?!\|)/)[0];
- for(const name of ["NPL ratio", "Provisions / loans", "Cost of deposits"]) expect(table).toContain(`| ${name} |`);
+ for(const name of ["NPL ratio", "Provisions / loans", "Cost of deposits"]) { expect(table).toContain(`| ${name} |`); expect(text.split("\n").filter(l=>l.startsWith(`| ${name} |`))).toHaveLength(1); }
  const row=text.split("\n").find(l=>l.startsWith("| Provisions / loans |"))!;
  for(const tag of PROVISION_TAGS) expect(row).toContain(tag);
  expect(row).toContain("components are not summed");
@@ -50,4 +50,12 @@ it("DOC-204 discloses excerpt families, budgets and issuer website egress",()=>{
  for(const s of ["12,000 for quarterly MD&A","24,000","10-K Item 1 or 20-F Item 4","Part I Item 1","Part II Item 5","Part I Item 4","dated officer signatures","EX-99.2","reconciliation tables","material-event 8-K items","official company statements","MetisResearch/1.0 (public investor-relations announcement discovery)"]) expect(t).toContain(s);
  expect(flat(read("README.md"))).toContain("an EDGAR-confirmed issuer's own website");
  expect(read("docs/DATA-RIGHTS.md")).toContain("**Issuer websites.**");
+});
+
+it("DOC-204 pins all named payload budgets and excerpt families",()=>{
+ const privacy=flat(read("docs/PRIVACY.md"));
+ for(const key of ["item1aChars","item1aMaxChars","businessChars","tenQNotesChars","tenKNotesChars","tenQOtherChars","mdnaChars","tenQMdnaChars","newsChars","earningsReleaseChars","cfoCommentaryChars","eightKEventChars","eightKCreditEventChars","eightKEventsTotalChars"] as const) expect(privacy,key).toContain(PAYLOAD_BUDGETS[key].toLocaleString("en-US"));
+ const families:Record<string,string>={"edgar:10-K item1":"10-K Item 1 or 20-F Item 4","edgar:20-F item4":"10-K Item 1 or 20-F Item 4","edgar:10-K item1A":"10-K Item 1A or 20-F Item 3.D","edgar:20-F item3D":"10-K Item 1A or 20-F Item 3.D","edgar:10-K item7":"10-K Item 7 or 20-F Item 5","edgar:20-F item5":"10-K Item 7 or 20-F Item 5","edgar:10-K notes":"10-K's notes","edgar:10-Q notes":"Part I Item 1","edgar:10-Q item2":"Part I Item 2","edgar:10-Q item4":"Part I Item 4","edgar:10-Q item5":"Part II Item 5","edgar:10-Q signatures":"dated officer signatures","edgar:8-K":"material-event 8-K items","edgar:8-K EX-99 reconciliation":"reconciliation tables","edgar:8-K EX-99.1":"EX-99.1","edgar:8-K EX-99.2":"EX-99.2","edgar:xbrl segment revenue":"segments"};
+ const source=read("src/pipeline/stageC/payload.ts");
+ for(const [,id] of source.matchAll(/["`](edgar:[^"`$]+?)\s*(?=["`$])/g)) { expect(families,id).toHaveProperty(id.trim()); expect(privacy).toContain(families[id.trim()]); }
 });

@@ -126,7 +126,7 @@ on bottom-up beta as a research direction).
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.56.0 / payload 1.60.0, Stage B `STAGE_B_2026_11_CLAUDE_REPAIRS_39` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants.
+The current source declares report 1.56.0 / payload 1.60.0, Stage B `STAGE_B_2026_11_CLAUDE_REPAIRS_39` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -3547,8 +3547,7 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`, stamped
-when D-61 changed the durability and buyback-timing bands). Each metric is mapped to 0–100 by piecewise-linear
+(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`, reflecting the current financial-route evidence conventions). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
 These bands have not been outcome-backtested.
@@ -3574,9 +3573,6 @@ funding:
 | Net charge-offs / average loans | 0.25 | ≤ 0.25% → 85, 0.5% → 70, 1% → 50, 2% → 25, ≥ 3% → 10; the FDIC Quarterly Banking Profile rate definition |
 | NPL ratio (nonaccrual / loans) | 0.15 | ≤ 0.25% → 85, 0.5% → 75, 1% → 60, 2% → 40, ≥ 4% → 15 |
 | Loans / deposits | 0.20 | ≤ 80% → 80, 90% → 70, 100% → 50, 110% → 30, ≥ 125% → 15; a low ratio is not penalised, because custody and trust banks run low by design |
-| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
-| Provisions / loans | provision for credit losses / total loans | when none of `ProvisionForLoanLeaseAndOtherLosses`, `ProvisionForLoanLossesExpensed`, `ProvisionForCreditLossExpenseReversal` or `ProvisionForLoanAndLeaseLosses` is tagged for the fiscal year, or total loans are unavailable or not positive. For component-only filers the components are not summed: financing-receivable and off-balance-sheet expenses need not establish the whole provision |
-| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 The aspect is graded only when tangible common equity / tangible assets and at
 least one other input are on file; otherwise it is unscored with that reason
