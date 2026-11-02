@@ -105,14 +105,27 @@ The next default-parallel product run had no verifier failures, but timed out
 two unrelated existing tests at 5,000ms: the legacy minimatch rule diagnostic
 and the stored sensitivity-grid intersection test (14,432 passes, three skips,
 two timeouts). `r5-timeout-controls` passes both unchanged files, **12 tests**,
-with `VITEST_MAX_WORKERS=2`. The final full gate uses that supported Vitest
-environment override to bound concurrency; no timeout, test assertion, coverage
-threshold or package script was changed. The wrapper's command remains `verify`.
+with `VITEST_MAX_WORKERS=2`. That environment override was then rejected as the
+final method because it also overrides nested one-worker test configurations;
+the next run was stopped after the native-SQLite ordering control failed (and
+one coverage-contract case exceeded its 5s deadline). Instead, constrain only
+the launching PowerShell process and its children to four available CPUs, with
+the environment override removed. Node reports four available CPUs; product/core
+retain their configured 50% workers, risk retains one worker, and nested tests
+retain their own configurations. `r5-nested-runner-controls` passes all four
+unchanged affected files, **51 tests**, under this CPU budget. No timeout, test
+assertion, coverage threshold or package script was changed. The wrapper's
+command remains `verify`.
 These receipts are UTF-16LE logs with JSON exit-code companions in the isolated
 wrapper directory. The final committed revision is checked with:
 
 ```powershell
-$env:VITEST_MAX_WORKERS = '2'
+Remove-Item Env:VITEST_MAX_WORKERS -ErrorAction SilentlyContinue
+$r5VerifyProcess = [Diagnostics.Process]::GetCurrentProcess()
+if (($r5VerifyProcess.ProcessorAffinity.ToInt64() -band 15) -ne 15) {
+  throw 'First four CPUs are outside the inherited affinity'
+}
+$r5VerifyProcess.ProcessorAffinity = [IntPtr]15
 & tmp/claude-2026-11-01/run.ps1 -Name r5-verify -NpmScript verify
 ```
 
