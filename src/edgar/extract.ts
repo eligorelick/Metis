@@ -877,6 +877,30 @@ function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { te
   return { text: fullText.slice(chosen.index, end).trim(), zeroCandidates: false };
 }
 
+/** Unlettered 20-F risk factors require standalone Item 3/4 boundaries. */
+function unletteredTwentyFRisk(pre: string, fullText: string): string | null {
+  // Preserve block evidence: prose references are not headings. Inline
+  // formatting may split words (including TSMC's nested spans).
+  const inline = String.raw`(?:\s|&(?:#\d+|#x[\da-f]+|nbsp);|<\/?(?:span|b|strong|em|i)\b[^>]*>)*`;
+  const standalone = (title: string): number[] => {
+    const pattern = title.split(" ").join(inline);
+    const re = new RegExp(`<(h[1-6]|p|div)\\b[^>]*>${inline}${pattern}${inline}</\\1\\s*>`, "gi");
+    return [...pre.matchAll(re)].map(match =>
+      htmlToText(pre.slice(0, match.index + match[0].length)).length - htmlToText(match[0]).length);
+  };
+  // Reuse every existing cross-reference rejection rule, then additionally
+  // require standalone boundaries so later quoted Item 3 references cannot win.
+  const starts = standalone(String.raw`Item 3\.? Key Information`);
+  const ends = standalone(String.raw`Item 4\.? Information on the Company`);
+  const start = findHeaderCandidates(fullText, { id: "3", title: /Key\s+Information/i })
+    .filter(c => starts.includes(c.index)).at(-1);
+  if (!start) return null;
+  const end = findHeaderCandidates(fullText, { id: "4", title: /Information\s+on\s+the\s+Company/i })
+    .find(c => c.index > start.index && ends.includes(c.index));
+  if (!end) return null;
+  const risk = standalone("Risk Factors").find(index => index > start.index + start.matchText.length && index < end.index);
+  return risk === undefined ? null : fullText.slice(risk, end.index).trim();
+}
 // ---------------------------------------------------------------------------
 // Layer 3 — stub detection & redirects
 // ---------------------------------------------------------------------------
@@ -1251,6 +1275,15 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
       zeroCandidates = false;
     } else if (l2 !== null) {
       zeroCandidates = true;
+    }
+  }
+
+  if (sectionText === null && spec.form === "20-F" && spec.item === "3D") {
+    layersTried.push("layer2-unlettered-20f-risk");
+    sectionText = unletteredTwentyFRisk(pre, fullText);
+    if (sectionText !== null) {
+      method = "header-regex";
+      notes.push("20-F unlettered Risk Factors heading bounded by Item 3 and Item 4");
     }
   }
 

@@ -4,6 +4,7 @@ import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEnt
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
+import { reasoningClaims } from "@/report/presentation";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -118,9 +119,9 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
         `run-rate companion; excludes quarter ending ${concentration.quarterEnd}; other three quarters x 4/3`)!;
       next.fundamentals.fcf.push({label:`After-SBC FCF run-rate companion. ${concentration.basis}`,values:[{period:"Run-rate companion (other three quarters x 4/3)",value}]});
     }
-    if (!next.catalystsRisks.risks.some(r => r.reasoning.text.includes(concentration.basis))) {
+    if (!next.catalystsRisks.risks.some(r => reasoningClaims(r.reasoning).some(claim => claim.text.includes(concentration.basis)))) {
       next.catalystsRisks.risks.push({title:"SBC concentration in trailing cash flow",severity:"medium",probability:"unknown",source:"computed.capital.current.sbcConcentration",
-        reasoning:{label:"JUDGMENT",source:"computed.capital.current.sbcConcentration",asOf:current!.asOf,text:concentration.basis}});
+        reasoning:[{label:"JUDGMENT",source:"computed.capital.current.sbcConcentration",asOf:current!.asOf,text:concentration.basis}]});
     }
   }
   const accrual = computed.forensics?.accruals;

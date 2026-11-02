@@ -36,14 +36,14 @@ describe("payload-only evidence disclosure (AMZN audit 2026-10-20 finding 17)", 
     expect(evidenceScopeSummary(r)).toBe(SCOPE);
   });
 
-  it("appears in the report header and run details, and in the print header", () => {
+  it("appears in About this report and run details in markdown and print", () => {
     const r = planReport();
     const markdown = reportToMarkdown(r);
-    expect(markdown.slice(0, markdown.indexOf("### Key data"))).toContain(`| Evidence | ${SCOPE} |`);
+    expect(markdown.slice(markdown.indexOf("### About this report"), markdown.indexOf("### Methodology and limitations"))).toContain(`| Evidence | ${SCOPE} |`);
     const run = markdown.slice(markdown.indexOf("### Run details"));
     expect(run.slice(0, run.indexOf("### Verification"))).toContain(`| Evidence | ${SCOPE} |`);
     const print = reportToPrintBody(r);
-    const header = print.slice(0, print.indexOf("</header>"));
+    const header = print.slice(print.indexOf("<h3>About this report"), print.indexOf("<h3>Methodology and limitations"));
     expect(header).toContain("<td>Evidence</td>");
     expect(header).toContain(SCOPE);
     expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).toContain(SCOPE);
@@ -100,7 +100,7 @@ describe("contradicted count (AMZN audit 2026-10-20 finding 12)", () => {
       .toBe("1 (1 cited figure, 0 prose claims)");
     expect(reportToAuditMarkdown(r).split("\n").find((line) => line.startsWith("| 185000 USD: annual salary |"))).toContain("| contradicted |");
     const markdown = reportToMarkdown(r);
-    expect(markdown.slice(0, markdown.indexOf("### Key data"))).toContain("1 contradicted (1 cited figure, 0 prose claims)");
+    expect(markdown.slice(markdown.indexOf("### About this report"), markdown.indexOf("### Methodology and limitations"))).toContain("1 contradicted (1 cited figure, 0 prose claims)");
     expect(markdown).toContain("| Claims contradicted by their cited source | 1 (1 cited figure, 0 prose claims) |");
     expect(reportToAuditMarkdown(r)).toContain("| Claims contradicted by their cited source | 1 (1 cited figure, 0 prose claims) |");
     expect(reportToPrintBody(r)).toContain("1 contradicted (1 cited figure, 0 prose claims)");

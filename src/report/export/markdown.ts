@@ -243,6 +243,11 @@ function withStatusMark(claim: SourcedClaim): string {
   return mark === null ? "" : ` ${mark}`;
 }
 
+function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
+  if (!Array.isArray(reasoning)) return `${displayProse(reasoning.text, reasoning.source)}${withStatusMark(reasoning)}`;
+  return reasoning.map(claim => `[${claim.label}] ${displayClaimText(claim)} (${claimCitation(claim)})${withStatusMark(claim)}`).join(" ");
+}
+
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
@@ -341,12 +346,10 @@ function auditTableBlocks(tables: readonly ReportAuditTable[], level = "###"): s
  * Header, key data, verdict
  * ======================================================================== */
 
-function renderHeader(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
+function renderAboutReport(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const m = report.meta;
   const lines: string[] = [
-    `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Research Report`,
-    "",
-    "*Metis · Equity research*",
+    "### About this report",
     "",
     table(
       ["Report", "Detail"],
@@ -366,13 +369,19 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
-    "",
-    // Mandatory disclaimer, verbatim.
+  ];
+  return lines.join("\n");
+}
+
+function renderHeader(report: Report): string {
+  const m = report.meta;
+  return [
+    `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Equity Research Report`, "",
+    "*Metis · Equity research*", "", `Report date: ${markdownProse(m.generatedAt.slice(0, 10))}`, "",
     `> ${markdownBlockquote(m.disclaimer)}`,
     ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
     ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
-  ];
-  return lines.join("\n");
+  ].join("\n");
 }
 
 /** The page-1 key-data box (audit P1-12); rows without inputs are omitted. */
@@ -451,6 +460,7 @@ function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): s
   const quarterly = auditTableBlocks(extra);
   const lines: string[] = [sectionHeading("business"), ""];
   lines.push(...subsection("### What they sell", claimList(b.whatTheySell)));
+  if (b.marketStructure?.length) lines.push(...subsection("### Market & industry structure", claimList(b.marketStructure)));
   lines.push(...quarterly);
   // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
   if (showAnnualSegments(quarterly.length > 0)) {
@@ -782,7 +792,7 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
   const peerList = report ? providerPeerListPresentation(report) : { heading: "Peer table" };
   lines.push(`### ${peerList.heading}`, "");
   if (peerList.note) lines.push(markdownProse(peerList.note), "");
-  if (c.peerTable.length > 0) {
+  if (!peerList.hideTable && c.peerTable.length > 0) {
     // Columns keyed by the metric, not by position (peerMetricKey), headed by reader labels.
     const { keys: metricKeys, headings } = peerTableColumns(c.peerTable);
     const rows = c.peerTable.map((p) => {
@@ -798,9 +808,10 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
       ];
     });
     lines.push(table(["Peer", "Symbol", ...headings], rows), "");
-  } else {
+  } else if (!peerList.hideTable) {
     lines.push("_No peer data._", "");
   }
+  if (c.competitors?.length) lines.push(...subsection("### Competitors", claimList(c.competitors)));
   if (c.moatAssessment.length > 0) {
     lines.push("### Moat assessment", "");
     for (const m of c.moatAssessment) {
@@ -817,11 +828,11 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(...subsection("### Catalysts", bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, `${displayProse(c.reasoning.text, c.reasoning.source)}${withStatusMark(c.reasoning)}`]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, claimReasoning(c.reasoning)]),
   )));
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), `${displayProse(r.reasoning.text, r.reasoning.source)}${withStatusMark(r.reasoning)}`]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), claimReasoning(r.reasoning)]),
     ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));
@@ -910,6 +921,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
   const a: Appendix = report.appendix;
   const m = report.meta;
   const lines: string[] = [sectionHeading("appendix"), ""];
+  lines.push(renderAboutReport(report, completeness, context), "");
 
   // D-62: the standard limitations, stated once.
   lines.push("### Methodology and limitations", "", ...methodologyNotes(report).map((note) => `- ${markdownListItem(note)}`), "");
@@ -1006,7 +1018,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     report.appendix.sources,
   );
   const blocks: string[] = [
-    renderHeader(report, completeness, context),
+    renderHeader(report),
     scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "",
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
     newerResultsBanner(report.filingDisclosures) ? blockquote(newerResultsBanner(report.filingDisclosures)!, "Newer results not reflected.") : "",

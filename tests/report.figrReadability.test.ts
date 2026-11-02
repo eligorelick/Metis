@@ -187,15 +187,16 @@ describe("R3 FIGR reader presentation", () => {
     expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).toContain("/api/export/1?format=audit");
   });
 
-  it("9: labels an excluded provider peer list as scale context, not comparables", () => {
+  it("9: replaces an excluded provider peer list with one explanation", () => {
     const r = lenderReport();
     const p = r.competitive.peerTable[0]!;
     r.competitive.peerTable = [{ ...p, symbol: "COIN", name: "Coinbase" }];
     r.valuation.peerCoverage = { candidates: 1, evaluated: 1, eligible: [], methodology: [], exclusions: [{ symbol: "COIN", reason: "business model excluded" }] } as unknown as NonNullable<Report["valuation"]["peerCoverage"]>;
+    r.competitive.competitors = [{ text: "Rocket Companies competes with the company in home-equity lending.", label: "FACT", source: "edgar.10-K.item1", asOf: "2025-12-31" }];
     for (const text of surfaces(r)) {
-      expect(text).toContain("Provider peer list");
-      expect(text).toContain("shown for scale only");
-      expect(text).toContain("not used as comparables");
+      expect(text).toContain("peer list contained no comparable companies");
+      expect(text).toContain("competitors are discussed in this section");
+      expect(text).not.toContain("Coinbase");
     }
   });
 });

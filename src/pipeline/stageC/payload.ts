@@ -465,7 +465,9 @@ export interface ContextPayload {
 // governance passages, insider coverage, the aggregate P/E construction and filed figure bases alter admitted context.
 // 1.62.0 (D-163 to D-167, FIGR extra-high audit): the settled-session price history and the evidence and figure bases
 // that round added alter admitted context.
-export const PAYLOAD_VERSION = "1.62.0" as const;
+// 1.63.0 (D-168 to D-172, priority fixes): a 20-F's unlettered Risk Factors sub-heading inside Item 3 reaches the payload,
+// and the TTM cash-flow window gate changes current-capital operands.
+export const PAYLOAD_VERSION = "1.63.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

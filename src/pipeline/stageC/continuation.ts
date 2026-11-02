@@ -196,11 +196,10 @@ export function sectionRequestInstruction(
     "This response is produced in parts so that no single part runs into the provider's response time limit. " +
     `Return a single JSON object containing ONLY these top-level sections now: ${requestKeys.join(", ")}. ` +
     "Use the same schema for them and do not include any other section." +
-    // FIGR paid runs (2026-11-02): the sections written before catalystsRisks carry
-    // list-shaped `reasoning`, and both judges copied that shape and paid a repair.
+    // Keep the section request aligned with the canonical generated claim lists.
     (requestKeys.includes("catalystsRisks")
-      ? " In catalystsRisks, each catalyst's and each risk's `reasoning` is ONE claim object (text, label, source, asOf), not an array;" +
-        " when it states a sourced fact with your interpretation, label it JUDGMENT and keep the cited figures exact."
+      ? " In catalystsRisks, each catalyst's and each risk's `reasoning` is an array of 1–4 concise claims that read as one short paragraph;" +
+        " give each claim its own source and asOf date. Keep sourced statements FACT and your interpretation in separate JUDGMENT claims, with cited figures exact."
       : "") +
     (later.length > 0 ? ` The remaining sections (${later.join(", ")}) will be requested next.` : "") +
     (done.length > 0

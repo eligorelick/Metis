@@ -157,7 +157,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.58.0 (D-163 to D-167, FIGR extra-high audit): read-time labels for an unfinished session bar, executive assessment
 // reasons, shared table qualifications stated once, parser diagnostics in the audit companion, and the evidence and
 // deterministic bases that round added. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.58.0" as const;
+// 1.59.0 (D-168 to D-172, priority fixes): catalyst/risk reasoning may be a list of sourced claims, optional market-structure
+// and competitor claims, the run-process table in the appendix, and no provider peer list when none is comparable.
+// Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.59.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -969,6 +972,8 @@ export type SegmentRow = z.infer<typeof SegmentRowSchema>;
 export const BusinessSchema = z
   .object({
     whatTheySell: z.array(SourcedClaimSchema),
+    /** Market economics and sourced size/growth/share; absent on historical reports. */
+    marketStructure: z.array(SourcedClaimSchema).optional().describe("Served-market size, growth and company share only where cited evidence states them; industry structure, value accrual and company position. FACT with a source; JUDGMENT for interpretation; never invent market sizes."),
     segments: z
       .object({
         product: z.array(SegmentRowSchema),
@@ -1417,6 +1422,8 @@ export const CompetitiveSchema = z
   .object({
     moatGraded: GradeBlockSchema,
     peerTable: z.array(PeerRowSchema),
+    /** Named competitors and the basis of competition; absent on historical reports. */
+    competitors: z.array(SourcedClaimSchema).optional().describe("Main competitors named in the 10-K business excerpt or analysts' cited sources; how each competes and where the company wins or loses. FACT with a source; JUDGMENT for interpretation."),
     moatAssessment: z.array(MoatAssessmentSchema),
     marketShareDirection: ratingSafeString(),
   })
@@ -1427,13 +1434,17 @@ export type Competitive = z.infer<typeof CompetitiveSchema>;
  * §7.10 catalysts & risks
  * ------------------------------------------------------------------------ */
 
+// Saved reports retain their object and verification paths. New judge output
+// uses a list so each sentence can retain its own citation and evidence label.
+export const CatalystRiskReasoningSchema = z.union([SourcedClaimSchema, z.array(SourcedClaimSchema).min(1)]);
+
 export const CatalystSchema = z
   .object({
     title: z.string(),
     expectedDate: z.string().nullable(),
     direction: z.enum(["positive", "negative", "mixed"]),
     significance: SignificanceSchema,
-    reasoning: SourcedClaimSchema,
+    reasoning: CatalystRiskReasoningSchema,
   })
   .strict();
 export type Catalyst = z.infer<typeof CatalystSchema>;
@@ -1446,7 +1457,7 @@ export const RiskSchema = z
     // The existing labels remain valid for persisted reports.
     probability: z.enum(["high", "medium", "low", "unknown"]),
     source: z.string(),
-    reasoning: SourcedClaimSchema,
+    reasoning: CatalystRiskReasoningSchema,
   })
   .strict();
 export type Risk = z.infer<typeof RiskSchema>;
@@ -1458,6 +1469,12 @@ export const CatalystsRisksSchema = z
   })
   .strict();
 export type CatalystsRisks = z.infer<typeof CatalystsRisksSchema>;
+
+/** New generation always requests claim lists; saved reports accept both forms. */
+const GeneratedCatalystsRisksSchema = CatalystsRisksSchema.extend({
+  catalysts: z.array(CatalystSchema.extend({ reasoning: z.array(SourcedClaimSchema).min(1) })),
+  risks: z.array(RiskSchema.extend({ reasoning: z.array(SourcedClaimSchema).min(1) })),
+});
 
 /* ------------------------------------------------------------------------ *
  * §7.11 future outlook
@@ -3011,7 +3028,7 @@ function collapseNullableUnion(node: Record<string, unknown>): boolean {
  * Non-destructive: returns a new value, never mutates the input.
  */
 export function fillNullableGaps(schema: z.ZodType, data: unknown): unknown {
-  const def = (schema as unknown as { def: { type: string; innerType?: z.ZodType; shape?: Record<string, z.ZodType>; element?: z.ZodType } }).def;
+  const def = (schema as unknown as { def: { type: string; innerType?: z.ZodType; shape?: Record<string, z.ZodType>; element?: z.ZodType; options?: z.ZodType[] } }).def;
   switch (def.type) {
     case "nullable":
       return data === undefined ? null : fillNullableGaps(def.innerType as z.ZodType, data);
@@ -3029,6 +3046,15 @@ export function fillNullableGaps(schema: z.ZodType, data: unknown): unknown {
     case "array": {
       if (!Array.isArray(data)) return data;
       return data.map((item) => fillNullableGaps(def.element as z.ZodType, item));
+    }
+    case "union": {
+      // Nullable omissions inside a legacy-object/new-list union need the same
+      // restoration as other generated claims. Keep invalid values invalid.
+      for (const option of def.options ?? []) {
+        const filled = fillNullableGaps(option, data);
+        if (option.safeParse(filled).success) return filled;
+      }
+      return data;
     }
     default:
       return data;
@@ -3128,6 +3154,8 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "insiderActivity",
   "compensation",
   "tam",
+  "marketStructure",
+  "competitors",
   // Fresh model output carries the canonical source identity separately from
   // the legacy display field. The Zod field stays optional so old persisted
   // reports remain readable; a blank or null value from a model that had no
@@ -3324,7 +3352,7 @@ export function toStructuredJsonSchema(
 
 /** JSON Schema for the FULL report (rarely sent to the model directly). */
 export function reportToJsonSchema(): Record<string, unknown> {
-  return toStructuredJsonSchema(ReportObjectSchema);
+  return toStructuredJsonSchema(ReportObjectSchema.extend({ catalystsRisks: GeneratedCatalystsRisksSchema }));
 }
 
 /** JSON Schema the judge/synthesis pass requests (report minus meta/appendix). */
@@ -3332,6 +3360,7 @@ export function judgeOutputToJsonSchema(): Record<string, unknown> {
   return toStructuredJsonSchema(JudgeOutputObjectSchema.extend({
     verdict: VerdictSchema.extend({ synthesis: ratingSafeString().min(1) }),
     business: BusinessSchema.extend({ whatTheySell: z.array(SourcedClaimSchema).min(1) }),
+    catalystsRisks: GeneratedCatalystsRisksSchema,
   }));
 }
 

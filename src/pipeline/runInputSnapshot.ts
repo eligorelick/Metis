@@ -43,7 +43,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // historical EPS/share fields and admits dated compact guidance. Older input
 // snapshots require their original engine; do not relabel their materialized rows.
 // FIN-401 / FIN-401-V1 (B4b): an old Stage B result used the earlier equity-method reading and must be recomputed.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FIGR_XHIGH_AUDIT_41" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PRIORITY_FIXES_42" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -78,7 +78,6 @@ import {
   OutlookSection,
   ProjectionsSection,
   QualityFlags,
-  ReportMetaStrip,
   TechnicalsSection,
   ValuationSection,
   VerdictHeader,
@@ -181,6 +180,7 @@ export function ReportView({
   layout = "classic",
   headerNotices = false,
   selectedReportId,
+  selectedReportStatus,
 }: {
   report: Report;
   technicalsChart?: ReactNode;
@@ -188,6 +188,7 @@ export function ReportView({
   layout?: "classic" | "dossier";
   headerNotices?: boolean;
   selectedReportId?: number;
+  selectedReportStatus?: string;
 }) {
   const report = withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))));
   const lenderTables = lenderConventionTables(sourceReport);
@@ -230,7 +231,7 @@ export function ReportView({
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: unavailableCashFlowModel(report) ? null : report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : layout === "dossier" ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
-    appendix: <AppendixSection report={report} selectedReportId={reportId} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
+    appendix: <AppendixSection report={report} selectedReportId={reportId} selectedReportStatus={selectedReportStatus} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
   };
 
   return (
@@ -243,11 +244,15 @@ export function ReportView({
       </div>}
       {/* Sticky grade strip — clickable, deep-links to each graded section. */}
       <div className="report-grade-strip sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
-        {layout === "dossier" && <div className="report-sticky-context"><span>{report.meta.symbol} · {reportId === undefined ? "saved snapshot" : `#${reportId}`}</span><ReportContents key={`${report.meta.symbol}:${report.meta.generatedAt}`} reportIdentity={`${report.meta.symbol}:${reportId ?? report.meta.generatedAt}`} hasProjections={report.projections !== undefined} /></div>}
+        {layout === "dossier" && <div className="report-sticky-context"><span>{report.meta.symbol}</span><ReportContents key={`${report.meta.symbol}:${report.meta.generatedAt}`} reportIdentity={`${report.meta.symbol}:${reportId ?? report.meta.generatedAt}`} hasProjections={report.projections !== undefined} /></div>}
         <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact presentation={layout === "dossier" ? "dossier" : "default"} />
       </div>
 
-      {report.meta && (layout === "dossier" ? <details className="report-snapshot-details"><summary>Run, usage &amp; provenance details</summary><ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} /></details> : <ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} />)}
+      {!headerNotices && <header>
+        <h1>{report.meta.companyName} ({report.meta.symbol})</h1>
+        <p>Equity Research Report · <time dateTime={report.meta.generatedAt}>{report.meta.generatedAt.slice(0, 10)}</time></p>
+        <p className="text-[10px] text-faint">{report.meta.disclaimer}</p>
+      </header>}
       {!headerNotices && <RunNotices report={report} notices="body" />}
 
       {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}

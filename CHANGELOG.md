@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.58.0** and
-payload **1.62.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run and extra-high audit fixes). The
+Current source declares application **0.1.0**, report spec **1.59.0** and
+payload **1.63.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes and the priority fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,39 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - 20-F risk factors under an unlettered sub-heading (2026-11-03)
+
+- Recover an unlettered Risk Factors heading within standalone 20-F Item 3 / Item 4 boundaries when the existing extraction layers find no section. Preserve cross-reference rejection, stub detection and existing lettered/10-K paths.
+- Offline regressions include a trimmed TSMC fixture and a lettered control. The read-only cached FY2025 TSMC filing yields 60,948 characters. A payload version bump is required when integrating this changed analyst input for affected filers; no stamps are bumped here.
+
+## Unreleased - Review fixes for the priority round (2026-11-03)
+
+- A writing request that cannot launch after paid research keeps the research charge on the pass record.
+- Research notes come from every billed message (a resumed search turn included), with each cited span's URLs beside it, bounded at 40,000 characters and 200 sources.
+- Analysts carry sourced market and competitor findings into their cases for the judge.
+- The price stance uses sector-appropriate multiples against the company's own growth and returns, and never an unverified provider-EPS multiple.
+- The peer note names a competitor discussion only when the report has one. Excluded rows listed beside admitted peers are captioned as scale only.
+- Upgrade note: a synthesis paused mid-run before this release re-requests its finished sections once.
+- See D-168 to D-172.
+
+## Unreleased - Company and market analysis (2026-11-03)
+
+- Add optional sourced market-structure and competitor claims across generation, verification and all report views. Historical reports remain readable without added fields.
+- Lead the analyst summary with the business debate and assess meaningful multiples even without an intrinsic-value or peer anchor. Replace wholly excluded provider peer lists with one explanation.
+- Move process, usage and provenance details to “About this report” first in the appendix; keep key data before the verdict. No version stamps changed; integration must advance the report-spec and pipeline stamps.
+
+## Unreleased - Multi-claim catalyst and risk reasoning (2026-11-03)
+
+- Accept catalyst/risk reasoning as a legacy single sourced claim or a non-empty claim list. New judge schemas and generation use lists; prompts ask for one to four separately sourced FACT/JUDGMENT claims.
+- Keep legacy objects, verification paths and UI/Markdown/print/audit output unchanged. Render new claim lists as short paragraphs with individual citations and verification marks; check every claim at its indexed path.
+- Replay the retained extra-high FIGR section offline (seven catalysts and twelve risks) without a repair request. Restore omitted nullable dates within the object/list union; reject empty lists and malformed claims. Add legacy presentation goldens and independent sibling-claim verification regressions.
+- Stamps for this round move once at integration (D-172). No live provider calls, stored-report migration or financial methodology changes.
+
+## Unreleased - Separate analyst research from writing (2026-11-03)
+
+- Analysts now research without a JSON grammar, then write without tools. Each request uses existing spend admission and settlement; notes and fetched sources survive repairs and worker restarts through the existing recovery checkpoint and pass artifacts. Failed research stops the pass; empty successful research is retained as an evidence limitation. Subscription providers already run without search and keep their existing sectioned path.
+- Synthesis caches the payload and case prefix for one hour. Cache writes use reported 5m/1h billing buckets, with conservative 1h pricing when the breakdown is absent. Reservations and the generated pricing estimate include the new request structure. No version stamps changed.
 
 ## Unreleased - PR #83 review fixes (2026-11-02)
 

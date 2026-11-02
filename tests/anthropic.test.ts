@@ -37,6 +37,7 @@ import {
   _setTransportRetrySleepForTests,
   buildPassParams,
   collectFetchedUrls,
+  collectFetchedSources,
   computeCostUsd,
   connectionFailureCode,
   detectFallbackUsed,
@@ -67,10 +68,45 @@ import {
   supportsEffort,
   thinkingConfigFor,
   webSearchTool,
+  collectResearchText,
 } from "@/providers/anthropic";
 
 afterEach(() => {
   _resetAnthropicForTests();
+});
+
+describe("TTL-aware prompt cache billing", () => {
+  it("retains fetched source titles and page ages, never citation-shaped output text", () => {
+    const message = syntheticMessage({ content: [
+      { type: "text", text: "https://invented.example/" },
+      { type: "web_search_tool_result", tool_use_id: "search", content: [
+        { type: "web_search_result", url: "https://example.com/news", title: "A launch", page_age: "Yesterday" },
+      ] },
+    ] });
+    expect(collectFetchedSources(message)).toEqual([{ url: "https://example.com/news", title: "A launch", pageAge: "Yesterday" }]);
+  });
+  it("prices mixed server-tool 5m writes and explicit 1h writes separately", () => {
+    const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 3000,
+      cache_read_input_tokens: 4000,
+      cache_creation: { ephemeral_5m_input_tokens: 1000, ephemeral_1h_input_tokens: 2000 } };
+    expect(computeCostUsd(usage, "claude-opus-5-5")).toBeCloseTo((100 * 4 + 50 * 20 + 1000 * 5 + 2000 * 8 + 4000 * 0.2) / 1e6);
+  });
+
+  it("uses the sent 1h TTL for missing breakdowns in actual request settlement", () => {
+    const message = syntheticMessage({ usage: syntheticUsage({ cache_creation_input_tokens: 1000 }) });
+    const result = interpretPassMessage(message, { model: "claude-opus-5-5", system: "s", maxTokens: 10,
+      messages: [{ role: "user", content: [{ type: "text", text: "payload", cache_control: { type: "ephemeral", ttl: "1h" } }] }] });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.data.costUsd).toBeCloseTo(0.008);
+  });
+
+  it("reserves 1h prefixes at the 1h rate without adding search exposure to writers", () => {
+    const model = registryEntryFor("claude-opus-5-5");
+    const opts = { model: model.id, system: "s", maxTokens: 10, reservationPass: "synthesize" as const,
+      messages: [{ role: "user" as const, content: [{ type: "text" as const, text: "p", cache_control: { type: "ephemeral" as const, ttl: "1h" as const } }] }] };
+    expect(requestReservationUsd(opts)).toBe((model.contextWindowTokens * 8 + model.maxOutputTokens * 20) / 1e6);
+    expect(requestReservationUsd({ ...opts, reservationPass: "bull" })).toBe(requestReservationUsd(opts));
+  });
 });
 
 /* ------------------------------------------------------------------------ *
@@ -264,7 +300,7 @@ describe("computeCostUsd", () => {
     expect(computeCostUsd({ input_tokens: 100_000, output_tokens: 50_000, cache_creation_input_tokens: 200_000,
       cache_read_input_tokens: 1_000_000 }, model, 3, at)).toBeCloseTo(0.2 + 0.5 + 0.5 + 0.1 + 0.03, 10);
     // Full-context cache WRITE reservation + maximum output, without search.
-    expect(maximumRequestCostUsd(model, "synthesize")).toBe(3.78);
+    expect(maximumRequestCostUsd(model, "synthesize")).toBe(5.28);
   });
   it("prices plain input/output tokens (opus-4-8: $5/$25 per MTok)", () => {
     const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 };
@@ -1689,7 +1725,7 @@ describe("runPassStreaming transport retry", () => {
     _resetAnthropicForTests(client);
     const result = await runPassStreaming({ ...streamingOpts, model: "claude-fable-5", admission }).result;
     if (result.ok) throw new Error("expected failure");
-    expect(result.error.costUsd).toBe(maximumRequestCostUsd("claude-fable-5", "bull"));
+    expect(result.error.costUsd).toBe(requestReservationUsd({ ...streamingOpts, model: "claude-fable-5" }));
     expect(result.error.presumed).toBe(true);
     expect(settled).toHaveLength(1);
     expect(settled[0]).toMatchObject({ costUsd: result.error.costUsd, presumed: true });
@@ -2888,5 +2924,24 @@ describe("a ledger write that gives up abandons its permit (final review I2)", (
 
     expect(result.ok).toBe(true);
     expect(log).toEqual(["settled"]);
+  });
+});
+
+// Review of the combined priority fixes (2026-11-03), finding 2.
+describe("collectResearchText", () => {
+  it("joins every billed message's text in order and keeps each cited span's URLs", () => {
+    const paused = { content: [{ type: "text", text: "Before the pause. " }] } as never;
+    const resumed = { content: [
+      { type: "server_tool_use", id: "s1", name: "web_search", input: {} },
+      { type: "text", text: "Market grew 12%.", citations: [
+        { type: "web_search_result_location", url: "https://example.com/a?utm_source=x", title: "A", cited_text: "grew 12%", encrypted_index: "e" },
+        { type: "web_search_result_location", url: "https://example.com/a?utm_source=x", title: "A", cited_text: "12%", encrypted_index: "f" },
+      ] },
+      { type: "text", text: " Done." },
+    ] } as never;
+    const text = collectResearchText([paused, resumed]);
+    expect(text.startsWith("Before the pause. Market grew 12%. [sources: ")).toBe(true);
+    expect(text.match(/\[sources: /g)).toHaveLength(1);
+    expect(text.endsWith(" Done.")).toBe(true);
   });
 });

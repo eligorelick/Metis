@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { ProviderFailureSchema, type ProviderFailure } from "@/ai/providerFailure";
 import { getDb, type ThesisDb } from "@/db";
 import {
@@ -42,7 +43,19 @@ export interface PassTelemetry {
   fetchedUrls: string[];
 }
 
+/** Untrusted research retained independently of any rejected analyst JSON. */
+export const AnalystResearchSchema = z.object({
+  notes: z.string().max(1_000_000),
+  sources: z.array(z.object({
+    url: z.string().url().max(8_192),
+    title: z.string().max(8_192),
+    pageAge: z.string().max(1_024).nullable(),
+  }).strict()).max(1_000),
+}).strict();
+export type AnalystResearch = z.infer<typeof AnalystResearchSchema>;
+
 export interface SerializedPassFailure {
+  research?: AnalystResearch;
   providerFailure?: ProviderFailure;
   name: string;
   message: string;
@@ -71,7 +84,7 @@ export interface SerializedPassFailure {
 }
 
 export type PassSettlement<T> =
-  | { outcome: "success"; data: T; telemetry: PassTelemetry }
+  | { outcome: "success"; data: T; telemetry: PassTelemetry; research?: AnalystResearch }
   | { outcome: "failure"; failure: SerializedPassFailure; telemetry: PassTelemetry };
 
 export type PassSettlementHook<T> = (
@@ -82,6 +95,7 @@ export type PassArtifactEnvelope<T> =
   | {
       artifactVersion: typeof PASS_ARTIFACT_ENVELOPE_VERSION;
       outcome: "success";
+      research?: AnalystResearch;
       data: T;
       payloadFingerprint: string | null;
     }
@@ -232,7 +246,7 @@ function boundedText(value: unknown, fallback: string, max: number): string {
 
 export function serializePassFailure(
   error: unknown,
-  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string; rejectedText?: string; responseShape?: string; providerFailure?: ProviderFailure } = {},
+  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string; rejectedText?: string; responseShape?: string; providerFailure?: ProviderFailure; research?: AnalystResearch } = {},
 ): SerializedPassFailure {
   const candidate = error instanceof Error ? error : null;
   const failure: SerializedPassFailure = {
@@ -248,6 +262,7 @@ export function serializePassFailure(
   if (details.partialText) failure.partialText = details.partialText.slice(0, 1_000_000);
   if (details.rejectedText) failure.rejectedText = details.rejectedText.slice(0, 1_000_000);
   if (details.responseShape) failure.responseShape = details.responseShape.slice(0, 1_024);
+  if (details.research) failure.research = AnalystResearchSchema.parse(details.research);
   return failure;
 }
 
@@ -279,6 +294,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
   if ("partialText" in value) allowed.push("partialText");
   if ("rejectedText" in value) allowed.push("rejectedText");
   if ("responseShape" in value) allowed.push("responseShape");
+  if ("research" in value) allowed.push("research");
   if (!hasExactKeys(value, allowed)) throw new Error("jobArtifacts: unexpected failure fields");
   if (
     typeof value.name !== "string" ||
@@ -308,6 +324,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     ...(value.partialText === undefined ? {} : { partialText: value.partialText }),
     ...(value.rejectedText === undefined ? {} : { rejectedText: value.rejectedText }),
     ...(value.responseShape === undefined ? {} : { responseShape: value.responseShape }),
+    ...(value.research === undefined ? {} : { research: AnalystResearchSchema.parse(value.research) }),
   };
 }
 
@@ -615,13 +632,14 @@ export function parsePassArtifactEnvelope<T = unknown>(
   }
   const payloadFingerprint = parseFingerprint(raw.payloadFingerprint);
   if (raw.outcome === "success") {
-    if (!hasExactKeys(raw, ["artifactVersion", "outcome", "data", "payloadFingerprint"])) {
+    if (!hasExactKeys(raw, ["artifactVersion", "outcome", "data", "payloadFingerprint", ...("research" in raw ? ["research"] : [])])) {
       throw new Error("jobArtifacts: unexpected success envelope fields");
     }
     return {
       artifactVersion: PASS_ARTIFACT_ENVELOPE_VERSION,
       outcome: "success",
       data: parseOutput(pass, raw.data) as T,
+      ...(raw.research === undefined ? {} : { research: AnalystResearchSchema.parse(raw.research) }),
       payloadFingerprint,
     };
   }
@@ -804,6 +822,7 @@ export function preparePassSettlement<T>(
           artifactVersion: PASS_ARTIFACT_ENVELOPE_VERSION,
           outcome: "success",
           data: parseOutput(input.pass, input.settlement.data) as T,
+          ...(input.settlement.research === undefined ? {} : { research: AnalystResearchSchema.parse(input.settlement.research) }),
           payloadFingerprint,
         }
       : {

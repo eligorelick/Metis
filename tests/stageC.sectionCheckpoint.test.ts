@@ -8,6 +8,18 @@ import { parsePassArtifactEnvelope, serializePassFailure } from "@/pipeline/jobA
 const directories: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const dir of directories.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 describe("durable section checkpoints", () => {
+  it("round-trips research separately from rejected writing and isolates each side", () => {
+    const research = { notes: "Dated notes", sources: [{ url: "https://example.com/news", title: "News", pageAge: null }] };
+    const failure = serializePassFailure(new Error("empty outline"), { kind: "schema", research, rejectedText: '{"thesis":[]}' });
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, research: { ...research, sources: [{ url: "invented" }] } } })).toThrow();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "metis-research-")); directories.push(dir);
+    createSectionCheckpoint("job/payload/model/effort", dir).save("llm.bull:research", { research });
+    const restarted = createSectionCheckpoint("job/payload/model/effort", dir);
+    expect(restarted.load("llm.bull:research")).toEqual({ research });
+    expect(restarted.load("llm.bear:research")).toEqual({});
+  });
   it("round-trips bounded rejected diagnostics independently of recovery text", () => {
     const partialText = '{"thesis":[]}';
     const failure = serializePassFailure(new Error("invalid section"), { kind: "schema", partialText, rejectedText: "x".repeat(1_000_001) });

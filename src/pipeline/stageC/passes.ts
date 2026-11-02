@@ -8,8 +8,8 @@
  * gap (rule #4).
  *
  * Passes:
- *  - runBullPass / runBearPass: web search on (max ~8 uses), ANALYST_CASE_SCHEMA
- *    structured output. runBullThenBear sequences them per the prompt-cache
+ *  - runBullPass / runBearPass: plain-text web research (max ~8 uses), then
+ *    tool-free ANALYST_CASE_SCHEMA writing. runBullThenBear sequences research per the prompt-cache
  *    rule (fire bull, await its first streamed token so the cache entry becomes
  *    readable, then fire bear — avoids a double 1.25x cache write, the prompt-cache rule).
  *  - runJudgePass: payload + both cases -> JSON-only JUDGE_OUTPUT_SCHEMA,
@@ -148,6 +148,8 @@ import {
   SHARED_RULES_BLOCK,
   buildBullFraming,
   buildBearFraming,
+  buildAnalystResearchFraming,
+  buildAnalystResearchMaterial,
   buildJudgeFraming,
 } from "@/pipeline/stageC/prompts";
 // WS7 (D-20) begin.
@@ -186,6 +188,8 @@ import type {
 // WS7 (D-20) end.
 import {
   PassSettlementHookError,
+  AnalystResearchSchema,
+  type AnalystResearch,
   invokePassSettlementHook,
   serializePassFailure,
   type PassSettlement,
@@ -231,6 +235,9 @@ export interface PassMessage {
 
 /** The success branch of the provider's Sourced<PassOutcome>. */
 export interface PassOutcomeLike {
+  fetchedSources?: AnalystResearch["sources"];
+  /** Text of every billed research message with cited URLs (Anthropic); the final message's text otherwise. */
+  researchText?: string;
   presumed?: boolean;
   execution?: ProviderExecution;
   message: PassMessage;
@@ -244,6 +251,7 @@ export interface PassOutcomeLike {
 /** Structural mirror of the provider's typed PassError (kinds incl. the
  * Stage-C-fabricated parse/schema/transport — see PassErrorKind docs). */
 export interface PassErrorLike {
+  research?: AnalystResearch;
   providerFailure?: import("@/ai/providerFailure").ProviderFailure;
   presumed?: boolean;
   execution?: ProviderExecution;
@@ -408,6 +416,7 @@ export interface PassDeps {
 
 /** Successful pass output plus its usage/cost provenance. */
 export interface PassResult<T> {
+  research?: AnalystResearch;
   presumed?: boolean;
   execution?: ProviderExecution;
   output: T;
@@ -716,19 +725,20 @@ export function payloadUserTurn(payload: ContextPayload): string {
  * byte-identical payload as the FIRST content block, carrying the
  * `cache_control` breakpoint (a cache entry
  * covers everything in the prefix up to and including this block, so `tools`
- * and `system` being identical across passes is what lets bear/subsequent
- * passes read the entry bull's request writes), followed by the pass-specific
+ * and `system` being identical is what lets the two research requests share a
+ * prefix, separately from tool-free writing), followed by the pass-specific
  * volatile framing as a SECOND block, positioned after the breakpoint so it
  * never perturbs the cached prefix.
  */
 export function buildCachedUserMessage(
   payload: ContextPayload,
   framing: string,
+  ttl: "5m" | "1h" = "5m",
 ): { role: "user"; content: RunPassContentBlock[] } {
   return {
     role: "user",
     content: [
-      { type: "text", text: payloadUserTurn(payload), cache_control: { type: "ephemeral" } },
+      { type: "text", text: payloadUserTurn(payload), cache_control: { type: "ephemeral", ...(ttl === "1h" ? { ttl } : {}) } },
       { type: "text", text: framing },
     ],
   };
@@ -751,16 +761,8 @@ interface StructuredPassArgs<T> {
 }
 
 /**
- * Shared tool array for the analyst passes — identical shape keeps the cache
- * warm across bull/bear. Judge/verify get NO tools (return undefined) rather
- * than a declared-but-crippled `max_uses:1` web_search tool: that shape (a)
- * still isn't byte-identical to bull/bear's `max_uses:8` tool, so it bought no
- * cache-prefix parity anyway, and (b) permits the judge model to legally issue
- * one live web search on the SAME request as `output_config.format` (structured
- * output) — a combination the Anthropic API contract explicitly flags as
- * PENDING LIVE VERIFICATION, and the judge/verify design intent (the cost model,
- * the Anthropic API contract) is "no web search" for these passes. Omitting
- * `tools` entirely enforces that intent instead of merely making it likely.
+ * Identical research tools preserve bull/bear research-prefix parity. Writing,
+ * judge and verify have no tools; strict JSON never constrains search iterations.
  */
 function toolsFor(deps: PassDeps, useWebSearch: boolean, model: string): unknown[] | undefined {
   if (!deps.webSearchTool || !useWebSearch) return undefined;
@@ -1140,7 +1142,7 @@ export function buildAnalystRunPassArgs(
         side === "bull" ? buildBullFraming() : buildBearFraming(),
       ),
     ],
-    tools: toolsFor(deps, true, deps.model),
+    // Writing is tool-free. Research uses a separate request without a grammar.
     outputSchema: analystCaseToJsonSchema(),
     maxTokens: ANALYST_MAX_TOKENS,
     effort: deps.effort ?? "high",
@@ -1465,7 +1467,7 @@ const parseAnalystCase = (raw: unknown) => {
     : ({ ok: false, error: `the case is incomplete: ${gaps.join("; ")}` } as const);
 };
 
-/** Run the bull pass. Web search on, ANALYST_CASE_SCHEMA structured output. */
+/** Pass accounting includes research and writing, even when writing is rejected. */
 function telemetryFromPassRun<T>(
   run: PassRun<T>,
   requestedModel: string,
@@ -1476,7 +1478,7 @@ function telemetryFromPassRun<T>(
         const canonical = canonicalizeFetchedUrl(url);
         return canonical ? [canonical] : [];
       }))].sort()
-    : [];
+    : [...new Set((run.error.research?.sources ?? []).map(source => source.url))].sort();
   return {
     model: run.ok ? run.result.model : (run.model ?? requestedModel),
     inputTokens: usage?.input_tokens ?? 0,
@@ -1498,7 +1500,7 @@ function settlementFromPassRun<T>(
   requestedModel: string,
 ): PassSettlement<T> {
   const telemetry = telemetryFromPassRun(run, requestedModel);
-  if (run.ok) return { outcome: "success", data: run.result.output, telemetry };
+  if (run.ok) return { outcome: "success", data: run.result.output, telemetry, ...(run.result.research ? { research: run.result.research } : {}) };
   return {
     outcome: "failure",
     failure: serializePassFailure(new Error(run.error.message), {
@@ -1512,6 +1514,7 @@ function settlementFromPassRun<T>(
       partialText: run.error.partialText,
       rejectedText: run.rejectedText ?? run.rawText,
       responseShape: run.responseShape,
+      research: run.error.research,
     }),
     telemetry,
   };
@@ -1558,8 +1561,8 @@ export async function runBearPass(
  * received but rejected by the ANALYST_CASE schema (a haiku bull pass wrote
  * "2026-Q1" for `asOf` on 2026-09-02 and the pair was lost). The runner
  * drives the attempt under its own settlement checkpoint; here the cached
- * payload turn and the tools stay byte-identical to the first attempt (a
- * cache read) and the error plus the rejected output ride in a second user
+ * payload turn and schema stay byte-identical to the first writing attempt;
+ * successful research is reused and the error plus rejected output ride in a second user
  * turn, exactly as the judge's repair turn does.
  */
 export function analystRepairFeedback(validationFeedback: string): string {
@@ -1636,6 +1639,105 @@ async function runAnalystRequest(
   request: RunPassArgs,
   side: "bull" | "bear",
   completed: Record<string, unknown> = {},
+): Promise<PassRun<AnalystCase>> {
+  return startAnalystRequest(deps, request, side, completed).result;
+}
+
+/** Bounds on research carried into the writing request, so its size can never fail the writer's preflight. */
+export const ANALYST_RESEARCH_NOTES_MAX_CHARS = 40_000;
+const ANALYST_RESEARCH_MAX_SOURCES = 200;
+
+function boundedResearch(notes: string, sources: AnalystResearch["sources"]): AnalystResearch {
+  const kept = notes.length <= ANALYST_RESEARCH_NOTES_MAX_CHARS ? notes
+    : `${notes.slice(0, ANALYST_RESEARCH_NOTES_MAX_CHARS)}
+[research notes truncated at ${ANALYST_RESEARCH_NOTES_MAX_CHARS} characters]`;
+  return AnalystResearchSchema.parse({ notes: kept, sources: sources.slice(0, ANALYST_RESEARCH_MAX_SOURCES).map((source) => ({
+    url: source.url, title: source.title.slice(0, 500), pageAge: source.pageAge === null ? null : source.pageAge.slice(0, 100),
+  })) });
+}
+
+/** Research and writing are separate provider invocations, each with its own permit.
+ * The checkpoint is written before writing starts, including empty research. */
+function startAnalystRequest(
+  deps: PassDeps,
+  request: RunPassArgs,
+  side: "bull" | "bear",
+  completed: Record<string, unknown> = {},
+  streaming = false,
+): { firstToken: Promise<FirstStreamEvent>; result: Promise<PassRun<AnalystCase>> } {
+  const checkpointField = `llm.${side}:research`;
+  const saved = AnalystResearchSchema.safeParse(deps.sectionCheckpoint?.load(checkpointField).research);
+  const launch = (args: RunPassArgs): StreamingHandleLike => {
+    deps.validateRunPass?.(args);
+    return streaming && deps.runPassStreaming
+      ? deps.runPassStreaming(args)
+      : { firstToken: Promise.resolve("streamEvent"), result: deps.runPass(args) };
+  };
+  const write = (args: RunPassArgs): { firstToken: Promise<FirstStreamEvent>; result: Promise<PassRun<AnalystCase>> } => {
+    if (deps.sectionedOutput) return { firstToken: Promise.resolve("streamEvent"), result: writeAnalystRequest(deps, args, side, completed) };
+    const handle = launch(args);
+    return { firstToken: handle.firstToken, result: handle.result.then(outcome => finishStructuredPass(outcome,
+      raw => parseAnalystCase(mergeContinuation(completed, raw)), `llm.${side}`, deps.model)) };
+  };
+  const withNotes = (research: AnalystResearch): RunPassArgs => {
+    const messages = [...request.messages];
+    const first = messages[0];
+    if (!first || typeof first.content === "string") throw new Error("analyst writer requires a cached payload block");
+    messages[0] = { ...first, content: [first.content[0],
+      { type: "text", text: buildAnalystResearchMaterial(side, renderUntrustedJson(research)) },
+      ...first.content.slice(1)] };
+    return { ...request, messages };
+  };
+  const attach = (run: PassRun<AnalystCase>, research: AnalystResearch, charge?: PassOutcomeLike): PassRun<AnalystCase> => {
+    const current = run.ok ? run.result : run;
+    const usage = charge ? sumUsage(charge.usage, current.usage ?? { input_tokens: 0, output_tokens: 0 }) : current.usage;
+    const totals = {
+      usage,
+      costUsd: (current.costUsd ?? 0) + (charge?.costUsd ?? 0),
+      webSearches: (current.webSearches ?? 0) + (charge ? webSearchesOf(charge.usage) : 0),
+      fallbackUsed: current.fallbackUsed === true || charge?.fallbackUsed === true,
+      ...((current.presumed || charge?.presumed) ? { presumed: true } : {}),
+    };
+    return run.ok
+      ? { ...run, result: { ...run.result, ...totals, usage: usage!, research,
+          fetchedUrls: [...new Set([...run.result.fetchedUrls, ...research.sources.map(source => source.url)])].sort() } }
+      : { ...run, ...totals, error: { ...run.error, research } };
+  };
+  if (saved.success) {
+    const handle = write(withNotes(saved.data));
+    return { firstToken: handle.firstToken, result: handle.result.then(run => attach(run, saved.data)) };
+  }
+  const tools = toolsFor(deps, true, deps.model);
+  if (!tools) return write(request);
+  const researchRequest: RunPassArgs = { ...request, tools, outputSchema: undefined,
+    messages: [{ role: "user", content: [
+      ...(typeof request.messages[0].content === "string" ? [] : request.messages[0].content.slice(0, 1)),
+      { type: "text", text: buildAnalystResearchFraming(side) },
+    ] }] };
+  const researchHandle = launch(researchRequest);
+  return { firstToken: researchHandle.firstToken, result: researchHandle.result.then(async outcome => {
+    // A failed research request is a failed pass, never valid writing or reusable research.
+    if (!outcome.ok) return finishStructuredPass(outcome, parseAnalystCase, `llm.${side}`, deps.model);
+    const data = outcome.value.data;
+    const urls = new Set((data.fetchedUrls ?? []).flatMap(url => canonicalizeFetchedUrl(url) ?? []));
+    const sources = (data.fetchedSources ?? []).filter(source => urls.has(source.url));
+    let research: AnalystResearch = { notes: "", sources: [] };
+    try {
+      research = boundedResearch(data.researchText ?? extractText(data.message), [
+        ...sources, ...[...urls].filter(url => !sources.some(source => source.url === url)).map(url => ({ url, title: "", pageAge: null })),
+      ]);
+      deps.sectionCheckpoint?.save(checkpointField, { research });
+      return attach(await write(withNotes(research)).result, research, data);
+    } catch (error) {
+      // The research request was billed: a writer that cannot launch (preflight,
+      // checkpoint or a thrown transport) keeps that charge on the pass record.
+      return attach(hardFailure(`llm.${side}`, error, deps.model), research, data);
+    }
+  }) };
+}
+
+async function writeAnalystRequest(
+  deps: PassDeps, request: RunPassArgs, side: "bull" | "bear", completed: Record<string, unknown>,
 ): Promise<PassRun<AnalystCase>> {
   const parse = (raw: unknown) => parseAnalystCase(mergeContinuation(completed, raw));
   if (deps.sectionedOutput) {
@@ -1950,12 +2052,12 @@ export async function runBullThenBear(
      */
     const labelled = (side: "bull" | "bear", run: PassRun<AnalystCase>): PassRun<AnalystCase> =>
       wasCutShort(side, run) ? abandonedSibling(run, side, side === "bull" ? "bear" : "bull") : run;
-    const bullHandle = deps.runPassStreaming({
+    const bullHandle = startAnalystRequest(deps, {
       ...buildAnalystRunPassArgs(deps, payload, "bull"),
       signal: siblingAbortSignal(deps.signal, abandon.bull),
-    });
+    }, "bull", {}, true);
     const bullRun = tapFinish(bullHandle.result, hooks, "bull").then(
-      (outcome) => finishStructuredPass(outcome, parseAnalystCase, "llm.bull", deps.model),
+      (outcome) => outcome,
       (error: unknown) => hardFailure("llm.bull", error, deps.model),
     );
     // Attached before bear is launched, so an already-doomed bull hands bear a
@@ -2037,10 +2139,10 @@ export async function runBullThenBear(
         safeHook(hooks.onPassStart, "bear");
         await hooks.beforeProviderLaunch?.("bear");
         bearLaunched = true;
-        return deps.runPassStreaming!({
+        return startAnalystRequest(deps, {
           ...buildAnalystRunPassArgs(deps, payload, "bear"),
           signal: siblingAbortSignal(deps.signal, abandon.bear),
-        });
+        }, "bear", {}, true);
       },
       () => bearLaunched,
     );
@@ -2052,7 +2154,7 @@ export async function runBullThenBear(
       return { bull: bullOnly[0].value, bear: siblingNeverLaunched("bear", "bull") };
     }
     const bearRun = tapFinish(bearHandle.result, hooks, "bear").then(
-      (outcome) => finishStructuredPass(outcome, parseAnalystCase, "llm.bear", deps.model),
+      (outcome) => outcome,
       (error: unknown) => hardFailure("llm.bear", error, deps.model),
     );
     void bearRun.then(
@@ -2170,8 +2272,7 @@ export function judgeUserTurns(
     ].join("\n");
   };
   const [first, second] = orderedSides(order);
-  return [
-    buildCachedUserMessage(
+  const message = buildCachedUserMessage(
       payload,
       [
         // WS7 (D-20), N11: the order sentence follows the SETTING, exactly as
@@ -2184,15 +2285,19 @@ export function judgeUserTurns(
         "",
         caseBlock(second),
         entityConflictBlock,
-        "",
+      ].join("\n"),
+      "1h",
+    );
+  message.content[1].cache_control = { type: "ephemeral", ttl: "1h" };
+  message.content.push({ type: "text", text: [
         ...(sectioned ? ["Report content is assembled across separate requests. Emit only the sections and subset schema requested in the final turn."] : [
           "JUDGE_OUTPUT JSON Schema reference:", JSON.stringify(judgeOutputToJsonSchema()), "",
           "Adjudicate on the evidence and emit the JUDGE_OUTPUT schema.",
         ]),
         "Return ONLY valid JSON matching that schema. Do not wrap it in Markdown and do not add prose before or after the JSON.",
       ].join("\n"),
-    ),
-  ];
+    });
+  return [message];
 }
 
 function analystClaimTexts(value: unknown): string[] {
@@ -2355,11 +2460,24 @@ function splitEmbeddedJudgments(value: unknown): unknown {
 }
 
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = splitEmbeddedJudgments(normalizeKnownEnumCasing(normalizeCitationFields(raw)));
+  const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }
   const root = { ...(enumNormalized as Record<string, unknown>) };
+
+  // Generation uses lists even when a model supplies a legacy single claim.
+  // Do this before splitting embedded judgments so facts keep their own label.
+  // ReportSchema deliberately preserves saved single objects and their paths.
+  if (isPlainObject(root.catalystsRisks)) {
+    const section = { ...root.catalystsRisks };
+    for (const key of ["catalysts", "risks"]) {
+      if (Array.isArray(section[key])) section[key] = section[key].map(item =>
+        isPlainObject(item) && isPlainObject(item.reasoning)
+          ? { ...item, reasoning: [item.reasoning] } : item);
+    }
+    root.catalystsRisks = section;
+  }
 
   if (root.macro !== null && typeof root.macro === "object" && !Array.isArray(root.macro)) {
     root.macro = {
@@ -2409,7 +2527,7 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     root.valuation = valuation;
   }
 
-  return root;
+  return splitEmbeddedJudgments(root);
 }
 
 const parseJudgeOutput = (raw: unknown) => {
@@ -2429,6 +2547,13 @@ function invalidJudgeGenerationSections(sections: Record<string, unknown>): stri
   if (isPlainObject(sections.verdict) && typeof sections.verdict.synthesis === "string" && !sections.verdict.synthesis.trim()) invalid.push("verdict");
   if (isPlainObject(sections.business) && Array.isArray(sections.business.whatTheySell) &&
       (sections.business.whatTheySell.length === 0 || sections.business.whatTheySell.some(claim => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()))) invalid.push("business");
+  // The arrays may be empty or absent (historical output), but a carried blank
+  // claim must be regenerated just as it would be in a complete response.
+  for (const [section, field] of [["business", "marketStructure"], ["competitive", "competitors"]] as const) {
+    const value = sections[section];
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(claim =>
+      isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()) && !invalid.includes(section)) invalid.push(section);
+  }
   return invalid;
 }
 
@@ -2920,7 +3045,7 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
   return out;
 }
 
-/** A sourced claim plus its exact report path for citation-coverage accounting. */
+/** A sourced claim plus its exact report path, including optional market/competitor claims. */
 interface SourcedClaimRef {
   claim: SourcedClaim;
   path: string;

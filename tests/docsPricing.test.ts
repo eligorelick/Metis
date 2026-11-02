@@ -53,9 +53,9 @@ describe("generated pricing block", () => {
       expect(block).toContain(`| ${model.displayName} |`);
     }
     // Server search can bill ten sampling inputs within one request.
-    expect(block).toMatch(/\| Claude Sonnet 5 \| \$26\.36 \| \$3\.78 \| \$948\.96 \| \$\d/);
+    expect(block).toMatch(/\| Claude Sonnet 5 \| \$26\.36 \| \$5\.28 \| \$971\.64 \| \$\d/);
     // Haiku's synthesize figure is Sonnet 5.5's, because that pass is floored.
-    expect(block).toMatch(/\| Claude Haiku 4\.5 \| \$2\.90 \| \$3\.78 \|/);
+    expect(block).toMatch(/\| Claude Haiku 4\.5 \| \$2\.90 \| \$5\.28 \|/);
     expect(block).toContain(`(${PASS_MAX_REQUESTS}: six transport`);
     expect(block).toContain("reported, not");
     expect(block).toContain("not a measurement");
@@ -82,9 +82,9 @@ describe("generated pricing block", () => {
 
     const block = renderPricingBlock(MODEL_REGISTRY, sizing);
     // 64K then 128K output at $50/MTok.
-    expect(block).toContain("| Claude Fable 5.1 | $197.18 | $28.35 | $7,098.48 | $3.20 → $6.40 |");
+    expect(block).toContain("| Claude Fable 5.1 | $197.18 | $39.60 | $7,268.58 | $3.20 → $6.40 |");
     // 64K at $10/MTok, and no arrow: the step does not exist on this model.
-    expect(block).toContain("| Claude Haiku 4.5 | $2.90 | $3.78 | $104.40 | $0.32 |");
+    expect(block).toContain("| Claude Haiku 4.5 | $2.90 | $5.28 | $107.82 | $0.32 |");
     expect(block).toContain("does NOT scale with effort");
   });
 
@@ -92,7 +92,7 @@ describe("generated pricing block", () => {
     const { estimateRunCostUsd, FIXTURE_RUN_SHAPE } = await load();
     const sonnet = MODEL_REGISTRY.models.find((m) => m.id === "claude-sonnet-5")!;
     const haiku = MODEL_REGISTRY.models.find((m) => m.id === "claude-haiku-4-5")!;
-    expect(FIXTURE_RUN_SHAPE.passes.map((p) => p.pass)).toEqual(["bull", "bear", "synthesize"]);
+    expect(FIXTURE_RUN_SHAPE.passes.map((p) => p.pass)).toEqual(["bull", "bull", "bear", "bear", "synthesize"]);
 
     const sonnetRun = estimateRunCostUsd(sonnet, sonnet, 0.01);
     const haikuRun = estimateRunCostUsd(haiku, sonnet, 0.01);

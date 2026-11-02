@@ -455,6 +455,11 @@ export function claimCitation(claim: Pick<SourcedClaim, "source" | "sourceId" | 
   return parts.join(" · ");
 }
 
+/** Read legacy reasoning without rewriting its object or verification path. */
+export function reasoningClaims(reasoning: SourcedClaim | readonly SourcedClaim[]): readonly SourcedClaim[] {
+  return Array.isArray(reasoning) ? reasoning : [reasoning as SourcedClaim];
+}
+
 /* ======================================================================== *
  * Figure rows: human label, rounded value, deduplication
  * ======================================================================== */

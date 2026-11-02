@@ -94,13 +94,23 @@ export function cashFlowModelExplanation(report: Pick<Report, "filingDisclosures
     : "DCF, reverse DCF, scenario targets and weighted projections are unavailable for this company's valuation route or retained inputs; no numerical forecast or scenario probability is implied.";
 }
 
-export function providerPeerListPresentation(report: Pick<Report, "competitive"> & Partial<Pick<Report, "valuation" | "meta">>): { heading: string; note?: string } {
+export function providerPeerListPresentation(report: Pick<Report, "competitive"> & Partial<Pick<Report, "valuation" | "meta">>): { heading: string; note?: string; hideTable?: boolean } {
   const coverage = report.valuation?.peerCoverage;
-  // FIGR extra-high audit: the model may list the subject itself as the first
-  // row; it is not a provider peer and must not hide the scale-only caption.
+  // A subject row or incomplete model-authored peer rows cannot override the
+  // pipeline's comparable screen. With no screen recorded, preserve old tables.
+  if (coverage && coverage.candidates > 0 && coverage.eligible.length === 0) {
+    // Only point at a competitor discussion the report actually carries.
+    const discussed = (report.competitive.competitors?.length ?? 0) > 0;
+    return { heading: "Peer table", hideTable: true,
+      note: `The data provider's peer list contained no comparable companies${discussed ? "; competitors are discussed in this section" : ""}.` };
+  }
+  // Some peers passed the screen, but every listed row is an excluded issuer
+  // (the subject's own row aside): the rows stay, captioned as scale only.
   const subject = report.meta?.symbol?.toUpperCase();
   const listed = report.competitive.peerTable.filter(p => !(subject && p.symbol?.toUpperCase() === subject));
-  const excluded = listed.length > 0 && coverage && listed.every(p => p.symbol &&
+  const allListedExcluded = listed.length > 0 && coverage && listed.every(p => p.symbol &&
     !coverage.eligible.includes(p.symbol) && coverage.exclusions.some(e => e.symbol === p.symbol));
-  return excluded ? { heading: "Provider peer list", note: "The provider's list is shown for scale only; these issuers were excluded by the comparable screen and are not used as comparables." } : { heading: "Peer table" };
+  return allListedExcluded
+    ? { heading: "Provider peer list", note: "The provider's list is shown for scale only; these issuers were excluded by the comparable screen and are not used as comparables." }
+    : { heading: "Peer table" };
 }
