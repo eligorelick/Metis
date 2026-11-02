@@ -363,6 +363,18 @@ export function bootstrapSchema(sqlite: Database.Database): void {
     // release without it.
     ensureColumn(sqlite, "job_llm_leases", "model", "TEXT NOT NULL DEFAULT ''");
     sqlite.exec(INDEX_DDL);
+    // Preserve existing alias jobs and paid work; defer the stronger index until
+    // those jobs drain. Admission already folds aliases under BEGIN IMMEDIATE.
+    const aliasDuplicates = sqlite.prepare(`SELECT 1 FROM jobs
+      WHERE status IN ('queued', 'running')
+      GROUP BY upper(replace(symbol, '-', '.')) HAVING count(*) > 1 LIMIT 1`).get();
+    if (aliasDuplicates === undefined) {
+      sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_active_entity
+        ON jobs (upper(replace("symbol", '-', '.')))
+        WHERE status IN ('queued', 'running');
+        DROP INDEX IF EXISTS idx_jobs_active_symbol;`);
+    }
+
   }).immediate();
 }
 

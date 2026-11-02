@@ -215,6 +215,19 @@ function seedResumableJob(symbol = "AAPL"): string {
  * ------------------------------------------------------------------------ */
 
 describe("POST /api/report", () => {
+  it("JOB-213 attaches share-class aliases and refuses Retry while either is active", async () => {
+    const target = seedResumableJob("BRK-B");
+    const first = await reportPOST(reportRequest({ symbol: "BRK.B" }));
+    const firstBody = await first.json();
+    const second = await reportPOST(reportRequest({ symbol: "BRK-B" }));
+    expect(await second.json()).toMatchObject({ jobId: firstBody.jobId, existing: true });
+    const retry = await retryPOST(new Request(`http://localhost/api/report/${target}/retry`, {
+      method: "POST", headers: { host: "localhost", ...SAME_ORIGIN },
+    }), { params: Promise.resolve({ jobId: target }) });
+    expect(retry.status).toBe(409);
+    expect(handle.db.select().from(jobs).all().filter(row => row.status === "queued")).toHaveLength(1);
+  });
+
   it("rejects a non-JSON body with 400", async () => {
     const req = new Request("http://localhost/api/report", {
       method: "POST",

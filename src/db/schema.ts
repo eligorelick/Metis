@@ -152,8 +152,8 @@ export const jobs = sqliteTable(
   (t) => [
     index("idx_jobs_symbol").on(t.symbol),
     index("idx_jobs_status").on(t.status),
-    uniqueIndex("idx_jobs_active_symbol")
-      .on(t.symbol)
+    uniqueIndex("idx_jobs_active_entity")
+      .on(sql`upper(replace("symbol", '-', '.'))`)
       .where(sql`${t.status} IN ('queued', 'running')`),
     index("idx_jobs_queue_claim").on(t.status, t.notBefore, t.queuedAt),
     index("idx_jobs_lease_expiry").on(t.status, t.leaseExpiresAt),

@@ -37,7 +37,7 @@ import { requestedAnalysisModel } from "@/ai/analysisRoute";
 import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
 import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/schema";
 import { getConfig } from "@/config/env";
@@ -1812,7 +1812,7 @@ export function getOrCreateJobForSymbol(
     const active = tx
       .select({ id: jobs.id, status: jobs.status, updatedAt: jobs.updatedAt })
       .from(jobs)
-      .where(and(eq(jobs.symbol, sym), inArray(jobs.status, ["queued", "running"])))
+      .where(and(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym.replaceAll("-", ".")), inArray(jobs.status, ["queued", "running"])))
       .orderBy(desc(jobs.updatedAt), desc(jobs.id))
       .get();
     if (active && isReusableStatus(active.status)) {
@@ -1872,7 +1872,7 @@ export function getReusableActiveJobForSymbol(
       leaseExpiresAt: jobs.leaseExpiresAt,
     })
     .from(jobs)
-    .where(eq(jobs.symbol, sym))
+    .where(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym.replaceAll("-", ".")))
     .all()
     .filter((row): row is typeof row & { status: ReusableActiveJob["status"] } =>
       row.status === "queued" ||

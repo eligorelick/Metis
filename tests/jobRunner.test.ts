@@ -1956,6 +1956,27 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it("JOB-213 defers the issuer index without discarding duplicate accepted work", () => {
+    handle.sqlite.exec("DROP INDEX idx_jobs_active_entity; CREATE UNIQUE INDEX idx_jobs_active_symbol ON jobs(symbol) WHERE status IN ('queued','running')");
+    const a = createJob("BRK.B"); const b = createJob("BRK-B");
+    bootstrapSchema(handle.sqlite);
+    expect(handle.db.select().from(jobs).all().map(row => row.id).sort()).toEqual([a.jobId, b.jobId].sort());
+    expect(handle.db.select().from(jobs).all().every(row => row.status === "queued")).toBe(true);
+    handle.db.update(jobs).set({ status: "error" }).where(eq(jobs.id, b.jobId)).run();
+    bootstrapSchema(handle.sqlite);
+    expect(() => createJob("BRK-B")).toThrow(/UNIQUE/);
+  });
+
+  it("JOB-213 attaches alias admission and detects the alias for Retry", () => {
+    const first = getOrCreateJobForSymbol("BRK.B");
+    const second = getOrCreateJobForSymbol("BRK-B");
+    expect(second).toMatchObject({ jobId: first.jobId, existing: true });
+    expect(getReusableActiveJobForSymbol("BRK-B")?.jobId).toBe(first.jobId);
+    expect(isSymbolJobActive("BRK-B")).toBe(true);
+    expect(handle.db.select().from(jobs).all()).toHaveLength(1);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+  });
+
   it("JOB-206 tolerates only transient writer locks with sufficient expiry slack", async () => {
     const { renewalFailureTolerable, connectionBusyTimeoutMs } = await import("@/pipeline/jobScheduler");
     const input = { error: Object.assign(new Error("locked"), { code: "SQLITE_BUSY" }),

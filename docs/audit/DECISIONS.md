@@ -1,6 +1,10 @@
 # Decisions
 
-## D-next (P4): preserve accepted and in-flight work (JOB-202, JOB-206)
+## D-next (P4): preserve accepted and in-flight work (JOB-202, JOB-206, JOB-213)
+
+B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
+attachment. Defer the issuer index while existing active alias rows drain;
+never terminalize or delete their accepted work to force a migration.
 
 B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
 exceeds now plus the next beat and SQLite busy timeout. Successful complete

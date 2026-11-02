@@ -39,6 +39,13 @@ async function render(symbol = "DEMO", initialJobId: string | null = "job-A") {
       createElement(GenerateReport, { key: symbol, symbol, initialJobId })))));
 }
 describe("saved-page attachment to an authoritative active run", () => {
+  it("JOB-213 accepts a snapshot under the other share-class spelling", async () => {
+    await render("BRK-B");
+    await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({
+      symbol: "BRK.B", status: "running", totalCostUsd: 1.25 })));
+    expect(container.textContent).toContain("1.2500");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("does not present report generation as usable before hydration", () => {
     const html = renderToStaticMarkup(createElement(UiDesignProvider,{initialDesign:"current",layout:"dossier"},createElement(GenerateReport,{symbol:"DEMO"})));
     expect(html).toMatch(/<button[^>]+disabled=""[^>]*>Generate report<\/button>/);

@@ -6,7 +6,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | --- | --- | --- | --- | --- |
 | JOB-202 | Fixed: compatible accepted-work reuse loads frozen lineage inputs and Stage B configuration, preserving hash and capture time | Owning JOB-202 commit | JOB-202-red, JOB-202-real-red / JOB-202-green, JOB-202-real-green | No rewrite; newly resumed reports retain source input provenance |
 | JOB-206 | Fixed: tolerate busy renewal only with proven lease slack | Owning JOB-206 commit | JOB-206-red / JOB-206-green2 | None |
-| JOB-213 | Not started | — | — | None |
+| JOB-213 | Fixed: folded admission, Retry lookup, database constraint and client fences | Owning JOB-213 commit | JOB-213-red / JOB-213-green2, JOB-213-controls2 | None |
 | DOC-203 | Not started | — | — | None |
 | AI-510 | Not started | — | — | None |
 | JOB-201 | Not started | — | — | None |
@@ -43,3 +43,7 @@ JOB-206: injected SQLITE_BUSY on either renewal beat aborted 2/2 runs before
 the fix; both now retain one analyst launch and exactly one bull ledger row.
 Six focused tests pass, including expiry boundaries, non-busy errors and lost
 owner controls. No accounting, schema, prompt, stamp or stored-report change.
+
+JOB-213: alias admission changes from two queued jobs to one; no provider
+requests or ledger rows are added by attachment. Existing duplicate aliases
+are preserved during bootstrap until the new index can be safely installed.

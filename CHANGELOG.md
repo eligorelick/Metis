@@ -20,6 +20,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P4 paid-work lifecycle (2026-11-02)
 
+JOB-213: Active job admission and Retry fold share-class spellings. The client
+accepts attached alias snapshots. Existing duplicate active aliases drain
+without discarding work before the stronger database index is installed.
+
 JOB-206: A transient SQLite renewal lock waits for the next beat only when the
 known lease has room for that beat and the connection busy timeout. Authority
 loss, exhausted slack and other errors still abort; no request is replayed.

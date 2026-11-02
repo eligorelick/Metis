@@ -409,3 +409,7 @@ A transient SQLite writer lock during job or paid-request lease renewal waits
 for the next renewal beat only while the known lease expiry leaves room for
 that beat and the connection busy timeout. Lost authority, insufficient slack
 or another error still aborts; this never replays the provider request.
+
+Active-job admission and Retry treat dot/hyphen share-class aliases as one
+issuer. Existing duplicate active aliases are preserved; the stronger unique
+issuer index is installed at a later startup after those jobs drain.
