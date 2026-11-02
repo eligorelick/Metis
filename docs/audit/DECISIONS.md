@@ -1,5 +1,14 @@
 # Decisions
 
+## D-next (N3) - XBRL conflict labels
+
+The owner delegated this decision to the coordinator on 2026-11-01. A retained
+revenue classification conflict records a completed comparison, even when a
+downstream validation cannot compare the refused value. Headers and exports
+say conflict found and vendor revenue refused or replaced. The reason is to
+describe what XBRL actually established instead of calling it skipped. Stored
+metadata and report bytes remain unchanged; the label reads retained evidence.
+
 ## D-next (N3) - revenue multiple eligibility
 
 The owner delegated this decision to the coordinator on 2026-11-01. An open

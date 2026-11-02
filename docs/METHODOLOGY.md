@@ -17,6 +17,11 @@ An open annual revenue-definition conflict, recorded by validation or an
 explicit annual row refusal, also withholds EV/Sales and its history/peer
 ranking. A populated TTM vendor denominator cannot bypass that refusal.
 
+A retained XBRL revenue conflict is a completed comparison: completeness
+labels say conflict found and vendor revenue refused or replaced, even when
+downstream validation sees only the refused value. This display reading also
+uses retained evidence in stored reports without rewriting their metadata.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

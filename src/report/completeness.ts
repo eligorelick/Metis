@@ -23,6 +23,13 @@ export function buildDataCompleteness(
   return classifyCompleteness(gaps, false);
 }
 
+/** Retained statement evidence records a completed comparison before refusal. */
+function revenueConflictLabel(gaps: readonly ManifestEntry[]): string | null {
+  const replaced = gaps.some(g => /^statements\.sourceSwitch\.income(?:Annual|Quarterly)\./.test(g.field));
+  const refused = gaps.some(g => /^statements\.income\.[^.]+\.revenue$/.test(g.field) && /Income classification conflict for revenue:/.test(g.reason));
+  return replaced || refused ? `conflict found; vendor revenue ${refused ? "refused" : "replaced"}` : null;
+}
+
 /**
  * `edgarNotesCount`: the rule before report 1.44.0, under which an `info`
  * EDGAR entry also marked EDGAR missing. Only the check of a stored report's
@@ -74,7 +81,7 @@ function classifyCompleteness(
         gap.reason,
       ),
   );
-  const xbrl = fixtureOnly ? "skipped" as const : xbrlGaps.length === 0
+  const xbrl = fixtureOnly ? "skipped" as const : revenueConflictLabel(gaps) !== null ? "failed" as const : xbrlGaps.length === 0
     ? "checked" as const
     : xbrlCheckFailed
       ? "failed" as const
@@ -255,6 +262,8 @@ export interface ReportCompletenessPresentation {
   warningCount: number | "unknown";
   edgar: PersistedDataCompleteness["edgar"] | "partial" | "unknown";
   xbrl: PersistedDataCompleteness["xbrl"] | "unknown";
+  /** Display-only reading of retained conflict evidence; never rewrites metadata. */
+  xbrlLabel?: string;
   forensicValidation: PersistedDataCompleteness["forensicValidation"] | "unknown";
   bannerText: string | null;
   manifestText: string;
@@ -318,12 +327,14 @@ export function deriveReportCompletenessPresentation(
   const fixtureOnly = gaps.some((gap) => gap.field.startsWith(`${RESERVED_FIXTURE_MANIFEST_FIELD}(`));
   const edgar = metadataStatus !== "confirmed" ? "unknown" : persisted!.edgar === "missing" && !fixtureOnly &&
     retainedSources.some((source) => source.provider === "edgar" && source.endpoint.trim() !== "") ? "partial" : persisted!.edgar;
+  const conflictLabel = revenueConflictLabel(gaps);
+  const xbrlLabel = conflictLabel ?? (metadataStatus === "confirmed" ? persisted!.xbrl : "unknown");
 
   const statusText = metadataStatus === "confirmed"
-    ? `Data completeness: ${persisted!.state}; recorded entries: critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${edgar}; XBRL ${persisted!.xbrl}; forensics ${persisted!.forensicValidation}.`
+    ? `Data completeness: ${persisted!.state}; recorded entries: critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${edgar}; XBRL ${xbrlLabel}; forensics ${persisted!.forensicValidation}.`
     : metadataStatus === "missing"
-      ? "Completeness unknown: persisted completeness metadata was not recorded."
-      : "Completeness unknown: persisted completeness metadata could not be confirmed against the missing-data manifest.";
+      ? `Completeness unknown: persisted completeness metadata was not recorded.${conflictLabel ? ` XBRL ${conflictLabel}.` : ""}`
+      : `Completeness unknown: persisted completeness metadata could not be confirmed against the missing-data manifest.${conflictLabel ? ` XBRL ${conflictLabel}.` : ""}`;
 
   const manifestParts: string[] = [];
   if (gaps.length === 0) {
@@ -368,6 +379,7 @@ export function deriveReportCompletenessPresentation(
     warningCount: metadataStatus === "confirmed" ? persisted!.warningCount : "unknown",
     edgar,
     xbrl: metadataStatus === "confirmed" ? persisted!.xbrl : "unknown",
+    xbrlLabel,
     forensicValidation: metadataStatus === "confirmed"
       ? persisted!.forensicValidation
       : "unknown",

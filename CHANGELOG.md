@@ -27,6 +27,8 @@ filing identities and mixed-source TTM windows. Original vendor responses and
 stored reports remain immutable. Shared version stamps are unchanged.
 An open annual revenue-definition conflict now also withholds EV/Sales,
 including own-history and peer rankings, until eligible filed rows replace it.
+XBRL labels now distinguish a found revenue conflict (vendor revenue refused
+or replaced) from a comparison that was skipped.
 
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 
