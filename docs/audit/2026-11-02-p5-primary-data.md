@@ -155,3 +155,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F7 (DATA-110) | Fixed: Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. | This commit | fixround-b7-red / fixround-b7-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F8 (DATA-102) | Fixed: The SEC-fallback peer profile depends on its own submissions freshness only. | This commit | fixround-b8-red / fixround-b8-green | No persisted rewrite |

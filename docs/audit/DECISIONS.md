@@ -3167,3 +3167,8 @@ Priority selects the capped filing set only; read and output the chosen set by f
 ### D-next (P5): B-F7 (DATA-110) review correction
 
 Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. Count dated action paragraphs independently of successful person/role reads so one parsed row cannot imply the section was fully read. Unread paragraphs remain in the analyst excerpt; the table renders unknown expiry as Not recorded. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F8 (DATA-102) review correction
+
+The SEC-fallback peer profile depends on its own submissions freshness only. Coordinator decision: subject submissions establish SIC comparison but must not mark the peer profile stale; stale peer submissions, facts, quotes and split evidence still propagate through their own envelopes. Stored report bytes are unchanged.

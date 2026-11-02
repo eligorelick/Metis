@@ -106,3 +106,18 @@ describe("DATA-102 fallback freshness", () => {
     expect(envelope).toMatchObject({ ok: true, value: { stale: true, staleReason: "empty-refresh-preserved" } });
   });
 });
+
+it("DATA-102 a fresh peer profile does not inherit subject submissions staleness",async()=>{
+ const c=clients(),original=c.edgar.submissions;
+ c.edgar.submissions=async(...args)=>{
+  const r=await original(...args);
+  return r.ok && String(args[0]).endsWith("1045810") ? {...r,value:{...r.value,stale:true,staleReason:"refresh-failed"}} : r;
+ };
+ const result=await loadPeerFromFilings("AVGO",subjectProfile,c,NOW);
+ if("reason" in result)throw Error(result.reason);
+ expect(result.profile.ok).toBe(true);
+ if(result.profile.ok) {
+  expect(result.profile.value.stale).not.toBe(true);
+  expect(result.profile.value.staleReason).toBeUndefined();
+ }
+});

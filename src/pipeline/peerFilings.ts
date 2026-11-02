@@ -57,7 +57,7 @@ export async function loadPeerFromFilings(symbol: string, subject: FmpProfileRow
     };
     const quoteRow: FmpQuoteRow = { ...price, symbol, marketCap: price.price * shares.value };
     return {
-      profile: sourced([profile], "edgar", "submissions", own.asOf, own.fetchedAt, [own, theirs]),
+      profile: sourced([profile], "edgar", "submissions", own.asOf, own.fetchedAt, [own]),
       quote: sourced([quoteRow], "yahoo", `${quote.endpoint} × SEC shares ${shares.asOf}`, quote.asOf, quote.fetchedAt, [quote, splits, facts]),
       incomeQuarterly: sourced(built.incomeQuarterly.rows, "edgar", "companyfacts→income-statement(quarter)", facts.asOf, facts.fetchedAt, [facts]),
       balanceQuarterly: sourced(built.balanceQuarterly.rows, "edgar", "companyfacts→balance-sheet(quarter)", facts.asOf, facts.fetchedAt, [facts]),
