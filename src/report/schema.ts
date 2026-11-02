@@ -150,6 +150,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
 // D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
+// FIN-401 / FIN-401-V1 (B4b): equity-method income and its stake are valued once; older reports keep their bytes.
 export const REPORT_SPEC_VERSION = "1.56.0" as const;
 
 /* ------------------------------------------------------------------------ *
@@ -1080,6 +1081,8 @@ export const DcfSchema = z
     sensitivityNotes: z.array(z.string()).optional(),
     upsidePct: z.number().nullable(),
     bridge: z.object({
+      convertibles: z.array(z.object({ kind: z.enum(["notes", "preferred"]), conversionShares: z.number(), claim: z.number().nullable(),
+        reading: z.enum(["claim", "converted", "net-share", "unresolved"]), sharesRemoved: z.number(), restored: z.number(), basis: z.string() }).strict()).optional(),
       enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
       preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
       presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),

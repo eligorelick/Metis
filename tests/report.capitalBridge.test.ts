@@ -1,5 +1,6 @@
 import { BalanceSheetSection } from "@/components/report/sections";
 import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { valuationAuditTables } from "@/report/auditTables";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -127,4 +128,21 @@ it("RPT-216: balance section deduplicates grade figures using metric identities"
  const count=(s:string)=>(s.match(/120\.00/g)??[]).length;
  const baseline=count(render()); expect(baseline).toBeGreaterThan(0); r.balanceSheet.debtProfile.numbers=[{...n}];
  expect(count(render())).toBe(baseline);
+});
+
+it("F3: convertible audit rows are memos within the arithmetic bridge", () => {
+  const report = loadTask28Fixture();
+  const bridge = report.valuation.dcf.bridge = {
+    presentValueExplicit: 400e6, presentValueTerminal: 600e6, enterpriseValue: 1000e6,
+    netDebt: 100e6, minorityInterest: 0, preferredEquity: 50e6, equityValue: 850e6,
+    dilutedShares: 100e6, currency: "USD", asOf: "2026-03-31", convertibles: [],
+  } as NonNullable<typeof report.valuation.dcf.bridge>;
+  bridge.convertibles = [{ kind: "preferred", claim: 50e6, conversionShares: 10e6, reading: "claim", sharesRemoved: 10e6, restored: 0, basis: "filed" }];
+  const table = valuationAuditTables(report.valuation.dcf).find(t => t.heading === "Enterprise value to equity bridge")!;
+  const row = table.rows.find(r => r[0].startsWith("Convertible preferred"))!;
+  expect(row[0]).toContain("memo; inside the lines above");
+  expect(row[1]).toBe("\u2014");
+  expect(row[0]).toContain("10");
+  delete bridge.convertibles;
+  expect(valuationAuditTables(report.valuation.dcf).find(t => t.heading === table.heading)!.rows.some(r => r[0].startsWith("Convertible"))).toBe(false);
 });

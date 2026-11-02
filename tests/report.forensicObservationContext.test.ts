@@ -144,6 +144,12 @@ describe("retained forensic observation context on real data-only exports", () =
   });
 
   it("pins complete pre-fix Stage B output apart from the owned context", () => {
-    expect(invariantHash(runStageB(fixture(), { evIncludeLeases: false }))).toBe("50ef4b29f0195312a3f9231860ea9b799ae8b1a495a183c89fcf277f30fd0d8e");
+    const computed = runStageB(fixture(), { evIncludeLeases: false });
+    // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
+    // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
+    // stamps and no value, so the hash is re-pinned for them alone.
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39");
+    expect(invariantHash(computed)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
 });

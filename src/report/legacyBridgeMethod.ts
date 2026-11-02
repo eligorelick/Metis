@@ -27,6 +27,8 @@ import type { Report } from "@/report/schema";
  * (`LEGACY_BRIDGE_CLAUSES`); there is no module-wide early return.
  */
 export const BRIDGE_METHOD_SINCE_SPEC_VERSION = "1.50.0";
+/** Frozen at the FIN-401 / FIN-401-V1 repair, independently of later report stamps (D-67). */
+export const BRIDGE_READINGS_SINCE_SPEC_VERSION = "1.56.0";
 
 const SINCE = BRIDGE_METHOD_SINCE_SPEC_VERSION;
 const NOTE_PREFIX = "Valued under the equity-bridge method before report spec ";
@@ -152,6 +154,51 @@ function addReitNote(report: Report): Report {
   return { ...report, routeMetrics: { ...routeMetrics, notes: [...routeMetrics.notes, REIT_NOTE] } };
 }
 
+/** Only the completed B4b equity-method family is marked here; later B4b repairs add their own clauses. */
+function addEquityMethodReadingNote(report: Report): Report {
+  const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier equity-method reading`;
+  const fairValue = report.fairValue;
+  if (fairValue?.status !== "available" || fairValue.method !== "fcff-dcf" || fairValue.basis.some(line => line.startsWith(prefix))) return report;
+  const hasStake = (report.valuation.dcf.bridge?.nonOperatingComponents ?? []).some(c => c.label.startsWith("long-term investments"));
+  // Task 15b's old valuation.notes sentence was payload-only: DcfSchema stores no notes array. The actual stored
+  // method evidence is the sales-to-capital assumption that removed LTI as non-operating beside the bridge add-back.
+  // It establishes the earlier treatment, not the income's true placement, so the consequence stays conditional.
+  const nonOperatingBasis = report.valuation.dcf.assumptions.some(row => row.name.startsWith("sales-to-capital")
+    && /longTermInvestments|long-term investments/.test(row.basis) && row.basis.includes("non-operating"));
+  if (!hasStake || !nonOperatingBasis) return report;
+  return { ...report, fairValue: { ...fairValue, basis: [...fairValue.basis,
+    `${prefix}: its long-term investments were assumed to sit below operating income; if its income was inside operating income, that stake was valued twice. Re-run the report for the current method.`] } };
+}
+
+function addFinancialDateNote(report: Report): Report {
+  const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier financial value date`;
+  const fv = report.fairValue;
+  if (fv?.status !== "available" || fv.method !== "excess-return" || fv.basis.some(line => line.startsWith(prefix))) return report;
+  return { ...report, fairValue: { ...fv, basis: [...fv.basis,
+    `${prefix}: the figure stayed at its opening-book date; its stored headline date may show the run date. Re-run the report for the current method.`] } };
+}
+
+function explainLegacyClassEps(report: Report): Report {
+  const projections = report.projections;
+  if (projections === undefined) return report;
+  const suffix = `(withheld under the rule before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION}: that sentence admits the diluted count; it was not a refusal)`;
+  let changed = false;
+  const series = projections.series.map(row => ({ ...row, disclosures: row.disclosures.map(entry => {
+    if (!entry.reason.startsWith("Forecast operating EPS withheld: Diluted shares on the issuer-economic basis") || entry.reason.includes(suffix)) return entry;
+    changed = true;
+    return { ...entry, reason: `${entry.reason} ${suffix}` };
+  }) }));
+  return changed ? { ...report, projections: { ...projections, series } } : report;
+}
+
+function addConvertibleReadingNote(report: Report): Report {
+  const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier convertible reading`;
+  const fv = report.fairValue;
+  if (fv?.status !== "available" || (fv.method !== "fcff-dcf" && fv.method !== "excess-return") || fv.basis.some(line => line.startsWith(prefix))) return report;
+  return { ...report, fairValue: { ...fv, basis: [...fv.basis,
+    `${prefix}: if a convertible's if-converted shares were in the diluted count, its claim could also be deducted, and a convertible preferred tagged only as convertible preferred was not deducted. Re-run the report for the current method.`] } };
+}
+
 /**
  * The clauses, each with its own part's cutoff. `withLegacyBridgeMethod` checks every clause's `since` on its own and has
  * no module-wide early return, so a later part's clauses (Task 15b, under their own frozen since-version) still reach a
@@ -161,6 +208,10 @@ export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Repor
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: addMethodNote },
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: addReitNote },
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: correctFinanceLeaseSentence },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addEquityMethodReadingNote },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addConvertibleReadingNote },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: explainLegacyClassEps },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addFinancialDateNote },
 ];
 
 export function withLegacyBridgeMethod(report: Report): Report {

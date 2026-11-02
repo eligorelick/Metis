@@ -112,7 +112,7 @@ import { diffReports } from "@/report/diff";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { getLatestDoneReport } from "@/report/query";
-import { BRIDGE_METHOD_SINCE_SPEC_VERSION } from "@/report/legacyBridgeMethod";
+import { BRIDGE_METHOD_SINCE_SPEC_VERSION, BRIDGE_READINGS_SINCE_SPEC_VERSION } from "@/report/legacyBridgeMethod";
 import { ANNUALIZATION_CONVENTION_SPEC } from "@/report/legacyValuationNotes";
 import { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/legacyEdgarDerivedLines";
 import { PAYLOAD_RECORD_CORRECTION_SPEC, specVersionBefore } from "@/report/legacyPayloadRecordSafety";
@@ -156,8 +156,8 @@ describe("new version stamps", () => {
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
     expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.52.0");
     expect(specVersionBefore(IMPLIED_RETURN_SHARE_BASIS_SPEC, REPORT_SPEC_VERSION)).toBe(true);
-    expect(FAIR_VALUE_METHOD_VERSION).toBe("FAIR_VALUE_2026_10_D135");
-    expect(SCENARIO_TARGET_METHOD_VERSION).toBe("SCENARIO_TARGETS_2026_10_D135");
+    expect(FAIR_VALUE_METHOD_VERSION).toBe("FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39");
+    expect(SCENARIO_TARGET_METHOD_VERSION).toBe("SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39");
   });
 
   it("freezes the bridge-method since-version at the report stamp that introduced it", () => {
@@ -171,6 +171,12 @@ describe("new version stamps", () => {
   it("freezes the EDGAR-derived-lines since-version at the report stamp that introduced it", () => {
     expect(EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION).toBe("1.49.0");
     expect(specVersionBefore(REPORT_SPEC_VERSION, EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION)).toBe(false);
+  });
+
+  it("freezes the equity-method reading cutoff independently of the prior bridge note", () => {
+    expect(BRIDGE_READINGS_SINCE_SPEC_VERSION).toBe("1.56.0");
+    expect(specVersionBefore(REPORT_SPEC_VERSION, BRIDGE_READINGS_SINCE_SPEC_VERSION)).toBe(false);
+    expect(specVersionBefore(BRIDGE_METHOD_SINCE_SPEC_VERSION, BRIDGE_READINGS_SINCE_SPEC_VERSION)).toBe(true);
   });
 
   it("stamps a newly built report and payload with them", () => {

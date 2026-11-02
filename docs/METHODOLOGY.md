@@ -4,7 +4,7 @@ What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The current source declares report 1.56.0 / payload 1.60.0 and Stage B
-STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P1/B4b, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -1685,9 +1685,9 @@ back. The **Provider enterprise value (vendor definition, period end)** is the
 vendor's own figure at its period end (that date's market cap + debt − cash and
 equivalents) and is shown only as provider data.
 
-**Long-term investments (D-65).** Sales-to-capital removes the balance sheet's
-long-term investments from invested capital as non-operating (D-60); the bridge
-now adds the same amount back at its filed carrying value, so an asset left out
+**Long-term investments (D-65; FIN-401 / FIN-401-V1).** Sales-to-capital removes
+the non-operating portion of the balance sheet's long-term investments from
+invested capital (D-60); the bridge adds that same portion at its filed carrying value, so an asset left out
 of operating capital is never left out of value too; a holding that meets or exceeds
 invested capital is added back all the same (sales-to-capital takes the house cap,
 FIN-304). Where the companyfacts
@@ -1702,10 +1702,117 @@ tags them with a non-current investment element (below). Those tagged only with
 a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
 public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
 
+An equity-method stake and its income are counted on the same side (OD-5).
+SEC-built income rows record `equityMethodIncomePlacement`, using the actual
+EBIT derivation's subtracted amounts or the filed operating subtotal's pretax
+reconciliation. Component arithmetic can establish inclusion; a nonoperating
+aggregate can itself contain the income and cannot establish inclusion from a
+zero residual (C1). A before-equity-method pretax element also tests revenue
+less costs. The house reconciliation tolerance is max(0.1% of absolute pretax
+income, 1M source monetary units), not an accounting materiality threshold.
+
+When all base quarters (or the annual fallback) establish inclusion with a
+measured result, subtract that signed income from the DCF EBIT seed and each
+independently measured annual margin only when positive bridge-date LTI is added
+back and holds the stake (FIN-401-V1, review R-2). A same-date equity-method
+stake fact establishes this directly. Otherwise, the confirmed issuer's most
+recent filing that breaks out the stake must show it inside LTI at a balance
+date no more than 12 months before the bridge date: that filing's same-date,
+same-currency LTI must be at least its stake, and bridge-date LTI must also be
+at least that stake. Both prior facts must come from the same filing, observed
+by the run's acquisition cutoff. The older breakout establishes placement only;
+no stake amount is carried forward or estimated. All valuation amounts remain
+filed bridge-date values. Notes identify the evidence filing, its filing date
+and balance date. With no LTI add-back, LTI smaller than the last stake, a stake
+outside prior LTI, or no qualifying breakout within 12 months, keep the income
+in EBIT so the stake is valued through its income. This avoids both the R-2
+zero-count path and FIN-401-V1's double count. A filed zero or result within the tolerance of zero counts as measured and takes the
+window's placement; a window of only such periods does not establish inclusion.
+Fourth-quarter operands use the builder's existing one-presentation FY-minus-YTD
+or FY-minus-quarters resolver; a refused operand cannot become zero (I4).
+When inclusion is established but income is untagged in any base quarter and
+the located stake is greater than zero, the window is operating, including a
+window mixing that quarter with measured below-operating quarters. Apply that treatment to the seed and every history
+year: add back each period's measured equity-method income previously subtracted
+from EBIT, and keep that period's stake in operating capital, including the
+sales-to-capital history. Measured income already inside EBIT stays there. The
+stake receives no separate bridge add-back or investment-sale tax (FIN-401
+review R-1/R-3/R-6). That portion is the whole LTI when its provenance names only equity-method investments; otherwise it is
+the lesser of LTI and the same-date, same-currency filed equity-method stake.
+The operating treatment and any partial-composition split still require a
+same-date stake amount; older placement evidence cannot size that split. If no
+same-date stake is located and the measured-income evidence rule above is not
+met, income stays in EBIT and the existing investment treatment is retained;
+notes state the unlocated stake and undetermined placement instead of claiming
+operating capital or a separate stake add-back (review R-2/R-4). Below-operating results
+keep the add-back.
+Other mixed or undetermined windows retain the prior treatment and explicitly
+say income is **assumed** below operating income under Regulation S-X Rule 5-03.
+When no row in the window carries placement evidence, retain the prior
+long-term-investment wording without calling placement undetermined (review
+R-5). Provider-built rows with no placement field take that same prior wording.
+
+**Financial value dates (FIN-309).** Bank, insurer and mortgage-REIT
+excess-return values roll from the opening-book date to the observed quote date
+at the cost of equity: (1 + CoE)^(days/365.25), only for 1-200 elapsed days.
+This is gross of distributions: interim dividends and buybacks are not deducted.
+When the headline qualifies, each fiscal-year alternative and sensitivity cell
+rolls from its own opening-book date at its own column's CoE, including an older
+alternative beyond 200 days. An alternative with an unknown opening date has
+no quoted-date per-share or grid cell. Reverse valuation discounts the quote
+price (or disclosed market-cap fallback) by the headline factor and retains
+the selected convertible divisor/claim. Book paths, opening equity, implied
+P/B and continuing-value share remain book-date diagnostics. Beyond 200 days
+the value stays at book with an explicit gap. Headline fair value and per-share
+payload citations use the value's actual date; book inputs retain their dates.
+No missing-input or currency refusal is relaxed. Legacy pre-1.56.0 financial
+values receive a display explanation of the earlier book/run-date mismatch;
+saved figures and dates are never rewritten.
+
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides.
+
+*Convertibles (FIN-302 / FIN-302-V1; OD-2).* Both DCF and excess-return
+compare claim and converted readings at the model's own value, publishing the
+lower (claim wins ties). The claim reading removes the same-period filed
+conversion increment from the divisor; converted keeps it and restores only
+the carrying claim already deducted. All combinations of notes and preferred
+are compared. Re-runs, grids and inverse calculations inherit that choice.
+Preferred option-value claims join the permanent preferred deduction. When
+both tags may overlap, deduct the larger and warn; add them only with an
+independently filed inclusive carrying total equal to their sum. Names in free
+text are not series evidence. Inclusive notes payable is never added to its
+current component. Claims match the bridge date; increments match the exact
+divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
+filed by acquisition. An unestablished claim or full-share settlement retains
+both claim and shares with a warning bounding understatement at N/(D - N).
+A cash-principal note keeps its principal and conversion-spread shares.
+Forecast operating EPS follows the selected divisor. A converted note removes
+interest only on the restored claim using the issuer's blended effective debt rate
+(not the note's coupon; may overstate the add-back);
+the reduction is capped at total interest. Without that rate interest remains
+and the assumption says so. All EPS scenarios and share-count alternatives use
+the same reading (FIN-302-V2); a preferred claim still withholds unallocated
+future common earnings.
+Forecast EPS uses the DCF's admitted positive divisor, including economic
+quoted-share units for multiple common classes (FIN-407). An informational
+class admission is not a refusal; warn/critical scope refusals still withhold
+EPS. Legacy pre-1.56.0 admission-withholding sentences receive an explanation,
+with their saved EPS paths and all other figures retained.
+
+
+A note needs a same-currency conversion price K within 366 days. Across the
+95%-105% conversion-count band, a flat-top blend weights the consistent
+adjustments: full for abs(N/(C/K) - 1) <= 0.03, then linearly down to zero
+at 0.05 (weight = max(0, min(1, (0.05 - abs(r - 1))/0.02))). This continuously meets the conservative unchanged value;
+preferred uses full weight. Conversion-option time value is not modelled.
+Offline measurement on 2026-11-02 found no recent K among 45 census issuers
+(three before 2020; one IFRS issuer lacks the US-GAAP Assets anchor). Thus notes
+rarely qualify: the two readings mainly reach convertible preferred. A tagged
+claim with no matching increment gets an info disclosure. Stored pre-1.56.0
+valuations get a conditional convertible note without changing figures or bytes.
 
 *Loss periods (FIN-404).* A period with a loss from continuing operations files
 a diluted count equal to its basic count, because every potential share is
@@ -2977,7 +3084,9 @@ says so.
 Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
 total debt (less the proven operating-lease slice on the default lease switch,
 FIN-303) + temporary equity + equity − cash and short-term investments −
-long-term investments, whose income is below the EBIT the DCF projects. The
+the non-operating portion of long-term investments. An equity-method stake whose
+income is inside EBIT but unmeasured stays in operating capital (FIN-401,
+as described under "Long-term investments"). The
 temporary equity is the redeemable preferred and redeemable non-controlling
 interests the bridge deducts, which are financing capital whichever caption
 holds them; a refused operand
@@ -3177,8 +3286,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D135 (D-102 added
-the domain test on each run; D-135 moved the bridge each target re-runs), and the fair value FAIR_VALUE_2026_10_D135. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs), and the fair value FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -3983,6 +4092,18 @@ A report carrying either class's text never gains the other's. A report at or af
 the since-version, or in neither class (an FMP-route report), is returned as the
 identical object.
 
+A stored FCFF DCF made before report spec 1.56.0 gains a separate equity-method
+reading note only when its stored bridge has a long-term-investments component
+and its stored sales-to-capital basis treats long-term investments as non-operating
+(FIN-401 / FIN-401-V1). DCF notes were payload-only and have no stored schema field.
+The note explains that
+the earlier treatment could value a stake twice if its income was inside EBIT.
+`BRIDGE_READINGS_SINCE_SPEC_VERSION` is frozen at 1.56.0; the B4a cutoff remains
+1.50.0. Both notes compose in that order, once, in classic/dossier views and
+Markdown/print exports. Figures, stored versions and stored bytes stay intact
+(D-67). This bounded repair adds no convertible or fair-value-asset legacy clause;
+those B4b families have not been implemented here.
+
 A stored DCF, excess-return or REIT value made before the equity-bridge batch
 (audit 2026-10-27 B4a, D-67) is shown through `withLegacyBridgeMethod`
 (`src/report/legacyBridgeMethod.ts`), which follows the EDGAR-derived-lines view
@@ -4377,7 +4498,12 @@ stake counted as zero in the equity bridge and stayed inside the operating
 capital that sales-to-capital divides by. Amazon carries its Anthropic and
 OpenAI stakes in "Other assets", not on a line of their own. The SEC statements
 now fill `longTermInvestments` with the filed `LongTermInvestments` total when
-the filing tags one. Otherwise they add up the non-current pieces the filing does
+the filing tags one that is not below the same-date `EquityMethodInvestments`
+component by more than max(0.5% of that component, 2M source monetary units).
+A smaller total falls through to the piece sum with the builder's component-floor
+note. The provider stakes fill evaluates this same chain, including the floor,
+and retains its provenance and missing-piece disclosures (FIN-401 / I5).
+Otherwise they add up the non-current pieces the filing does
 tag:
 
 - non-current debt securities (`MarketableSecuritiesNoncurrent`, else
@@ -5963,6 +6089,50 @@ P0 L-2: In no-split EPS comparisons, either cent-precision value may establish r
 P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
+
+## P1 equity bridge review corrections (2026-11-02)
+
+### P1 review correction F1/F7 (2026-11-02)
+
+Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
+
+### P1 review correction F2 (2026-11-02)
+
+Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+
+
+### P1 review correction F3 (2026-11-02)
+
+The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+
+
+### P1 review correction F4 (2026-11-02)
+
+The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+
+### P1 review correction F5 (2026-11-02)
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+
+### P1 review correction F6 (2026-11-02)
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+
+
+### P1 review correction F8 (2026-11-02)
+
+D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+
+
+With BV0=520M and V(BV0)=1306.690026744M, the preferred holder receives
+V(BV0)-V(BV0-C)=125.64M by keeping the claim versus
+N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
+better for the holder is worse for common. Thus the minimum rule selects
+11.8104675494/share, while the converted reading is 11.8790002431. The
+coordinator corrected the original brief pin, which assumed conversion binds.
 
 ## Registry figure descriptions (AI-407)
 

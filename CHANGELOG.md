@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.56.0** and
-payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes). The
+payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes and the P1/B4b equity-method repair). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,50 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
+
+- F1 coordinator correction: the retained mortgage-REIT claim reading binds
+  at 11.8104675494/share; the holder prefers 125.64M to 118.79M on conversion.
+
+- Review F8: D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+
+- Review F6: The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+
+- Review F5: Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+- Review F4: The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+- Review F3: The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+
+- Review F2: Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+
+- Review F1/F7: Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
+- FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
+  and derivation provenance. Remove measured inside income from projected EBIT;
+  keep an unmeasured inside stake in operating capital. Preserve aggregate-path
+  ambiguity, filed-zero quarters and one-presentation fourth-quarter derivations.
+- Share the long-term-investments component floor between SEC statements and
+  provider stakes fill. Explain affected stored valuations at display time under
+  the frozen 1.56.0 cutoff, without rewriting figures or bytes.
+- FIN-302 / FIN-302-V1: choose one convertible reading across the DCF and
+  financial routes, with exact-period filing evidence, preferred overlap guards,
+  conservative settlement refusals and continuous conversion-count edges.
+  Every re-run and stored-report disclosure retains the chosen basis.
+- FIN-302-V2: forecast EPS follows the selected convertible divisor and removes
+  converted-note interest only at an evidenced effective rate.
+- FIN-407: admitted multi-class EPS uses the valuation's quoted-share divisor;
+  scope refusals still withhold. Explain older admission-withholding text.
+- VAL-14: record the OD-9 admission gate as blocked. Retained undivided AFS
+  facts do not establish outside-cash placement; no asset or value is added.
+- FIN-309: roll financial excess-return values to the observed quote date within
+  200 days, with matching alternative/grid/reverse arithmetic and citation dates.
+  Retain book dates beyond the limit and qualify earlier stored date labels.
+- Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
+  scenario-target stamps move with the bridge. No prompt rule text changes.
+  Seven findings are fixed; VAL-14 is blocked by the binding admission guard.
+  See the B4b disposition for measurements, receipts and remaining evidence.
 
 ## Unreleased - P7 display and history (2026-11-02)
 

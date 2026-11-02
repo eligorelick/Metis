@@ -1,5 +1,146 @@
 # Decisions
 
+## D-next (P1/B4b): equity bridge and invested capital (2026-11-02)
+
+FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on
+`eecd2703`. A filed operating subtotal is classified by pretax/component
+arithmetic; a nonoperating aggregate cannot establish inclusion from a zero
+residual. Derived EBIT records the subtraction pass's actual amounts and pretax
+base tags. Placement uses the house tolerance max(0.1% of absolute pretax, 1M).
+Measured inside income leaves the DCF seed and independently measured annual
+margin history, with its stake added once; an inside but unmeasured result keeps
+the equity-method portion in operating capital and out of the add-back and
+sale-tax lines. Filed immaterial/zero quarters take the measured window's
+placement. Fourth-quarter operands reuse the one-presentation resolver; refused
+operands never become zero. A window with an unmeasured inside quarter is
+operating throughout; other mixed/undetermined windows retain the disclosed
+S-X Rule 5-03 assumption. The review correction below governs seed and history.
+
+The existing B13 `unlessBelow` mechanism rejects an LTI total below its
+same-date equity-method component outside max(0.5%, 2M), and the provider fill
+uses the builder's chain rather than a copied tag list. Existing missing-piece
+and provenance disclosures are preserved. No income or stake amount is invented.
+
+Report/payload/Stage B stamps are the brief's reserved 1.56.0 / 1.60.0 /
+`STAGE_B_2026_11_CLAUDE_REPAIRS_39`. Fair-value/scenario-target method stamps use
+the same `2026_11_CLAUDE_REPAIRS_39` suffix because they rerun this bridge. Prompt
+rules and their pipeline version do not change. Under D-67, the separate
+equity-method legacy note uses frozen cutoff 1.56.0 and requires both the stored
+LTI component and the sales-to-capital basis's non-operating LTI treatment.
+Task 15b's proposed DCF-notes detector is adapted: those notes were payload-only,
+not a stored DcfSchema field. The actual stored basis establishes the old treatment,
+and the note's income-placement consequence remains conditional. It changes no
+figure and no stored byte. The conditional convertible clause is now implemented; the financial-asset clause
+awaits its disposition. The integrator assigns this D-next number; intended deltas cite
+the existing D-60/D-65 conventions until then.
+
+The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
+to 196.0576271333 per share. The revised R-2 placement-evidence guard restores
+BA from 27.7411147513 to the FIN-401-V1 value 27.1152067083; GOOGL, AMZN and the other required controls
+keep their values or refusals. Evidence and the explicitly unstarted items are recorded in
+[the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+
+FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
+period/end and acquisition cutoffs on both routes. Unknown settlement retains
+the conservative claim-plus-shares value and a quantified bound; cash-principal
+notes retain spread shares. Each preferred claim is deducted once, using the
+larger ambiguous overlap or the sum only when an independent filed inclusive
+carrying total proves separate series. GOOGL has no permanent preferred tag at
+its bridge date, so its new 18.023B claim is deducted directly. Restore caps use
+only deducted claims. The M6 ruling is a triangular conservative adjustment
+weight across 95%-105% (full at 100%, zero at both edges), continuously returning
+to the unchanged lower value. Incorrect settlement evidence would retain too
+much claim/dilution rather than increase value. Source conventions are the
+reviewed OD-2 citations; no fresh source/network verification is claimed.
+
+FIN-302-V2 extends that same reading to every operating EPS path and share
+alternative. Converted interest uses the issuer's blended effective debt rate
+(not the note's coupon; may overstate the add-back) times the restored claim,
+capped at total interest. With no evidenced effective rate, keep interest and
+state the conservative limitation; no coupon is inferred. This is the OD-2
+approximation, not a GAAP diluted-EPS forecast. No prompt text or stamp changes.
+
+FIN-407 uses the admitted DCF divisor for operating EPS, including B-37's
+quoted-share economic units, loss-period awards and convertible readings.
+Scope refusals match non-info entries. The prior missing-count test now removes
+both the authoritative bridge count and the fallback count; its no-EPS and
+three-other-series assertions remain unchanged. Legacy admission-withholding
+text gains the specified explanation under cutoff 1.56.0; no number changes.
+
+VAL-14 stops at OD-9 Task25 Step0. All 45 retained issuers were measured;
+For AMZN's 97.9B undivided AFS fact, structured facts do not establish placement;
+the filing text does, but text is not admitted as evidence under C2. The broad
+rule also admits ordinary portfolio totals. The existing
+D-98 exclusion stays; no new verified financial-asset claim is asserted. This
+is blocked before Step1, not a completed admission repair. The exact census
+and required future placement/overlap evidence are in the same B4b disposition.
+No external research was fetched under the offline instruction.
+
+FIN-309 completes Task11's dependent financial-date work: roll only when the
+headline is 1-200 days after opening book, at CoE and gross of distributions.
+Alternatives/grid cells use their own book dates and rates, with no separate
+200-day cutoff once the headline qualifies. Reverse valuation discounts the
+price target (market-cap fallback only if needed) by the same headline factor
+and keeps the selected convertible reading. Book diagnostics are unchanged.
+Fair-value and per-share payload dates reflect quote versus book truthfully;
+legacy figures/dates are retained with a display explanation under 1.56.0.
+No prompt text changes; pipeline version stays stage-c-1.6.17.
+
+## D-next (P1/B4b review): one operating basis across seed and history (2026-11-02)
+
+FIN-401 review R-1/R-3/R-6: an operating-treated window governs every seed
+quarter and history year. Restore each period's measured, derivation-subtracted
+equity-method income to EBIT, retain measured inside income, and keep its
+located stake in operating capital throughout the sales-to-capital history.
+A window mixing an unmeasured inside quarter with measured below-operating
+quarters is operating throughout. Other mixed/undetermined windows retain the
+prior treatment. This supersedes the original mixed-history benchmark: XOM
+178.0877966043 -> 196.0576271333 per share in real code; BA and the controls
+are unchanged in the R-1-only replay. The audit benchmark used the same mixed
+history and is not the correct target. See the review-corrections section in the B4b disposition.
+
+FIN-401-V1 review R-2 asks whether the bridge's positive added-back LTI holds
+the stake, rather than requiring a same-date amount for every income removal.
+Subtract the measured inside income if a same-date stake fact exists, or if
+the confirmed issuer's most recent stake-breakout filing has a balance date
+within 12 months before the bridge and shows LTI at least as large as the stake,
+with bridge-date LTI also at least that stake. The prior stake and LTI must be
+same-date, same-currency facts from that filing, available by the run's cutoff.
+Use only that most recent breakout; an older inside reading cannot override a
+newer outside reading. With null/zero LTI, bridge LTI smaller than the last
+stake, a stake outside LTI, or no qualifying breakout within 12 months, keep
+income in EBIT. This prevents both zero valuation on the reviewer's dropPath
+and double valuation on FIN-401-V1's BA trigger.
+
+The older breakout is placement evidence only, never a carried-forward stake
+amount. Notes cite the form, accession, filing date and balance date; every
+valuation amount remains a filed bridge-date value. Operating treatment and
+partial-composition splits still require a positive same-date located amount
+(R-4). BA's 997M stake is inside its 1.048B LTI at 2025-12-31 in 10-K
+0001628280-26-004357, filed 2026-01-30. Its 2026-06-30 LTI is 1.117B and
+exceeds that stake, so measured income 35M leaves EBIT and the existing 1.117B
+add-back and 234.57M tax remain. BA returns 27.7411147513 -> 27.1152067083;
+XOM remains 196.0576271333 and every other census issuer is unchanged. This
+methodology decision replaces the previously accepted BA deviation on its
+merits; no amount is estimated and no issuer-specific exception is introduced.
+
+## D-next (P1/B4b review): no placement evidence keeps prior wording (2026-11-02)
+
+FIN-401 review R-5: distinguish a window carrying no placement metadata from
+one with explicitly undetermined or mixed placement evidence. No placement
+on any row keeps the prior long-term-investment note, without the new
+"placement is undetermined" or Rule 5-03 assumption. Explicitly undetermined
+or other mixed windows keep the disclosed assumption. This restores the
+GOOGL/DEMO notes without changing a figure or score. The real AMZN window has
+explicit aggregate-path undetermined placements and therefore keeps the
+assumption note; the review's no-placement premise did not hold for it. Re-pin only DEMO's
+`stageB.valuation.notes.7` text in the existing intended-delta group, naming
+R-5; report/payload/method stamps stay at the shared values. The integrator's
+earlier confirmation to retain both deviations is superseded for BA by the
+R-2 methodology decision above. AMZN's explicit-ambiguity note outcome remains
+as confirmed; no prior-date amount carry-forward or ticker-specific note
+exception is authorized.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and
@@ -3062,6 +3203,62 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Enforcement and invariants.** The dependency-shape gate checks real package identities through npm `--long` metadata and lock link targets, including nested and aliased upstream copies. The genuine upstream version set is exactly 11.0.1, while the own facade is separately identified as 1.0.0; brace-expansion is exactly 5.0.12 after removal of the old engine. Unrelated lock entries, optional cross-platform dependencies, ESLint 9.39.5, Next 16.4.2, lint configuration and the include-dev/low/failure audit script remain intact. No report source, financial arithmetic, schema, stamp, payload, golden or intended delta changes; methodology therefore requires no financial revision. Focused execution receipts and remaining final-head acceptance are recorded separately in the private Task 12 report.
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
 
+
+## D-next (P1): F1/F7 (2026-11-02)
+
+Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F2 (2026-11-02)
+
+Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F3 (2026-11-02)
+
+The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F4 (2026-11-02)
+
+The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F5 (2026-11-02)
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F6 (2026-11-02)
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F8 (2026-11-02)
+
+D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+With BV0=520M and V(BV0)=1306.690026744M, the preferred holder receives
+V(BV0)-V(BV0-C)=125.64M by keeping the claim versus
+N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
+better for the holder is worse for common. Thus the minimum rule selects
+11.8104675494/share, while the converted reading is 11.8790002431. The
+coordinator corrected the original brief pin, which assumed conversion binds.
 
 ### D-next (P0): review corrections to source comparison, date qualification and recovery
 
