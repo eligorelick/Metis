@@ -1740,6 +1740,10 @@ function rawTextOfError(err: unknown): string {
  */
 export const MAX_ANALYST_REPAIRS = 1;
 
+/** OD-10: the same provider class controls both backoff and explanation. */
+export const PROVIDER_BUSY_PATTERN = /server_is_overloaded|server_error|subscription_sharing_(?:usage|user)_unavailable|HTTP (?:429|5\d\d)\b|rate_limit_exceeded/i;
+export function providerWasBusy(error: unknown): boolean { return PROVIDER_BUSY_PATTERN.test(errMessage(error)); }
+
 /** True when a pass failed in transit (dropped stream), not on a rejected output. */
 function isTransportFailure(err: unknown): boolean {
   return err !== null && typeof err === "object" && (err as { kind?: unknown }).kind === "transport";
@@ -2952,7 +2956,7 @@ export async function runJob<TPayload = unknown>(
   const overloadBackoffMs = Math.max(0, opts.overloadBackoffMs ?? OVERLOAD_BACKOFF_MS);
   /** Wait out a provider overload before retrying; returns early if the job is canceled. */
   const backOffIfOverloaded = async (err: unknown, attemptNumber: number, step: PipelineStep): Promise<void> => {
-    if (!/server_is_overloaded|server_error/.test(errMessage(err)) || overloadBackoffMs === 0) return;
+    if (!providerWasBusy(err) || overloadBackoffMs === 0) return;
     const wait = overloadBackoffMs * attemptNumber;
     updateRunningStepDetail(state, step, `provider reported it is overloaded or failing; waiting ${Math.round(wait / 1000)}s before retrying`);
     await new Promise<void>((resolve) => {
@@ -3384,6 +3388,8 @@ export async function runJob<TPayload = unknown>(
       let repairRejectedComplete = false;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
+      let judgeAttemptsBusy = 0;
+      let lastJudgeBusy = false;
       let judgeAttemptsInTransit = 0;
       let lastJudgeInTransit = false;
       let judgeAttemptsSeen = 0;
@@ -3478,7 +3484,9 @@ export async function runJob<TPayload = unknown>(
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
             lastJudgeInTransit = isTransportFailure(err);
-            if (lastJudgeInTransit) judgeAttemptsInTransit++;
+            lastJudgeBusy = providerWasBusy(err);
+            if (lastJudgeBusy) judgeAttemptsBusy++;
+            else if (lastJudgeInTransit) judgeAttemptsInTransit++;
             lastValidationDetail = errMessage(err);
             repairRejectedComplete = false;
             if (err !== null && typeof err === "object") {
@@ -3705,6 +3713,7 @@ export async function runJob<TPayload = unknown>(
           // provider-free attempt).
           const reusedArtifact = bull === null || bear === null;
           lastJudgeInTransit = false;
+          lastJudgeBusy = false;
           lastValidationDetail = reusedArtifact
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
@@ -3756,7 +3765,11 @@ export async function runJob<TPayload = unknown>(
       // "skipped" — same convention as the bull/bear-failure path.
       if (assembled === null) {
         const plainDetail = withPlainIssueList(lastValidationDetail);
-        const detail = lastJudgeInTransit
+        const detail = lastJudgeBusy
+          ? `judge provider was busy or unavailable ${judgeAttemptsBusy === judgeAttemptsSeen ? "on all" : "after"} ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeInTransit && judgeAttemptsBusy > 0
+          ? `judge requests were cut off or the provider was busy or unavailable across ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeInTransit
           ? `judge request was cut off ${judgeAttemptsInTransit === judgeAttemptsSeen ? "on all" : "after"} ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
           : lastJudgeFailureRetryable
           ? `report failed schema validation after ${maxJudgeRetries + 1} attempt(s): ${plainDetail}`
@@ -3887,7 +3900,7 @@ export async function runJob<TPayload = unknown>(
       updateRunningStepDetail(
         state,
         side,
-        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${mode === "repair" ? plainRejectionNote(failureDetail) : failureDetail}`,
+        `${side} attempt ${attemptLabel}: ${mode === "retry" && providerWasBusy(failureDetail) ? "retrying after the provider was busy or unavailable" : RECOVERY_LABEL[mode]} — ${mode === "repair" ? plainRejectionNote(failureDetail) : failureDetail}`,
       );
       const checkpoint = createSettlementCheckpoint<AnalystCase>(
         state,
@@ -3985,7 +3998,7 @@ export async function runJob<TPayload = unknown>(
         const canResend = plan && resends > 0 && isTransportFailure(out.error) && isRetryableJudgeError(out.error);
         if (!canRepair && !canResend) {
           computed.gaps.push({ field: `llm.${side}`,
-            reason: `${RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
+            reason: `${mode === "retry" && providerWasBusy(currentDetail) ? "retry after the provider was busy or unavailable also failed" : RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
             severity: "critical", attemptedSources: out.launched ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [] });
           closeQueuedRepairs(`not repaired: the ${side} repair failed`);
           markSkipped(state, "synthesize", "upstream bull/bear pass failed");
