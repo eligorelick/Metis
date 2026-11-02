@@ -1,5 +1,14 @@
 # Decisions
 
+## D-next (N3) - revenue multiple eligibility
+
+The owner delegated this decision to the coordinator on 2026-11-01. An open
+annual vendor/filed revenue-definition conflict withholds EV/Sales, its own
+history rank and peer comparison. An explicit row refusal has the same effect
+as a failed validation check. A whole reconciled SEC row may restore
+eligibility. The reason is to prevent a multiple using revenue the app itself
+has refused, including a still-populated quarterly denominator.
+
 ## D-next (N3) - whole filed income rows
 
 The owner delegated this decision to the coordinator on 2026-11-01. In auto

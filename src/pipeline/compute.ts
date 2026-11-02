@@ -2007,7 +2007,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))
     ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
-  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id));
+  const refusedAnnualRevenue = rowsOf(bundle.statements.incomeAnnual).find(row => row.fieldConflicts?.revenue?.usable === false);
+  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id)) ??
+    (refusedAnnualRevenue ? { id: `statements.income.${refusedAnnualRevenue.date}.revenue`, detail: refusedAnnualRevenue.fieldConflicts!.revenue!.reason } : null);
   const revenueEligibilityReason = revenueConflict
     ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
 
@@ -2441,6 +2443,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
+    revenueEligibilityReason,
     // FIN-121: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
@@ -3331,6 +3334,7 @@ function computeReturns(
 
 interface ValuationCtx {
   route: CompanyRouteResult;
+  revenueEligibilityReason: string | null;
   /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
   finOtherOcfExemption: boolean;
   incomeAnnual: FmpIncomeStatementRow[];
@@ -4076,6 +4080,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const affoApprox = nareitFfo.affo;
 
   const multiples: MultiplesFrameworkInputs = {
+    revenueEligibilityReason: ctx.revenueEligibilityReason,
     quote: multiplesQuote,
     economicShareEvidence: bundle.economicShareEvidence,
     securityBasisAsOf: bundle.builtAt.slice(0, 10),

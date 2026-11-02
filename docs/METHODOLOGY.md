@@ -13,6 +13,10 @@ Manifests name both values, filings and mixed whole-row sources in TTM windows;
 existing TTM completeness and currency gates continue to apply. Vendor raw
 responses and stored reports are unchanged.
 
+An open annual revenue-definition conflict, recorded by validation or an
+explicit annual row refusal, also withholds EV/Sales and its history/peer
+ranking. A populated TTM vendor denominator cannot bypass that refusal.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

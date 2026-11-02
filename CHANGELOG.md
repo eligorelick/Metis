@@ -25,6 +25,8 @@ reconciled SEC-built row, including its EPS. Quarterly cash-flow conflicts use
 the whole canonical SEC quarter. Manifest notes retain both observations,
 filing identities and mixed-source TTM windows. Original vendor responses and
 stored reports remain immutable. Shared version stamps are unchanged.
+An open annual revenue-definition conflict now also withholds EV/Sales,
+including own-history and peer rankings, until eligible filed rows replace it.
 
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 

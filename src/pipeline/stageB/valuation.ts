@@ -3887,6 +3887,8 @@ export interface PeerMultiples {
 }
 
 export interface MultiplesFrameworkInputs {
+  /** An open filed/vendor annual definition conflict invalidates revenue multiples. */
+  revenueEligibilityReason?: string | null;
   quote: MultiplesQuoteInputs;
   /** Statements' reportedCurrency — mismatch vs quote.currency flags the ADR case. */
   reportedCurrency?: string | null;
@@ -5030,6 +5032,9 @@ export function multiplesFramework(
     priceToAffo: "marketCap / AFFO (rough, caller-provided)",
   };
   const multiples: MultipleStat[] = keys.map((key) => {
+    if (key === "evToSales" && inputs.revenueEligibilityReason) {
+      return { key, current: null, basis: inputs.revenueEligibilityReason, ownHistory: null, peers: null };
+    }
     if (ffoSubmapUndetermined && (key === "priceToFfo" || key === "priceToAffo")) {
       return { key, current: null, basis: ffoSubmapReason, ownHistory: null, peers: null };
     }
