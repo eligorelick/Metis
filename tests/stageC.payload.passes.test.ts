@@ -174,6 +174,7 @@ import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
 import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
 import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityPayloadGolden";
 import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
+import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -726,7 +727,8 @@ describe("payload determinism + provenance", () => {
   };
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
     // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(buildInputs())))))));
+    // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(buildInputs()))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>

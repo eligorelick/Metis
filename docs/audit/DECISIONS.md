@@ -4114,15 +4114,20 @@ definitions and exemption qualifications, source offsets and filing identity.
 No ticker exception, voting-rights inference from economic equality, current
 count inference from IPO conversions, or assumption that every available
 exchange exemption was elected is permitted. The frozen FIGR 10-K has the
-needed text; no fetch-time expansion was necessary. Fictional long-section
+needed text; no fetch-time expansion was necessary. "Voting power" triggers the
+reading only as a holder's share of the vote or a class's voting power: a
+regulatory ownership threshold in a licensing change-of-control rule brought
+unrelated licensing passages into FIGR's excerpt (integration review). Fictional long-section
 and missing-rights cases cover admission. Shared versions remain for integration.
 
 ## D-next (R6) - Show the selected aggregate P/E earnings construction
 
 B-09: the selected denominator was correct but did not accompany the displayed
 multiple. Carry the admitted TTM common-income quarters out of the same
-normalized/supplemented input rows and print their amounts, intervals, tags,
-derivations and filings in the existing multiple-basis field. Register total
+normalized/supplemented input rows and print their amounts, quarter ends,
+derivations and filing forms and dates in the existing multiple-basis field.
+That field is the reader's table cell, so amounts are compact ("43.78M") and XBRL
+tag names and accession numbers stay out of it (integration review). Register total
 and components as payload figures. Retain the filed Basic EPS common-stockholder
 convention, its participating-security limitation and no second preferred/NCI
 deduction. An annual fallback is identified as annual, with no fabricated
@@ -4131,7 +4136,8 @@ quarter trail. Fictional route tests inspect payload and all three report surfac
 ## D-next (R6) - Bound insider coverage and distinguish proposed from executed sales
 
 B-21: completed-quarter statistics and later individual rows were not joined
-by an explicit coverage statement. Keep the aggregate window, report the latest
+by an explicit coverage statement. The statement is one citable figure ("Insider
+filing coverage"), not also a note repeating it (integration review). Keep the aggregate window, report the latest
 explicit Form 4 or 4/A filing date in retained provider rows, and summarize dated
 post-window rows by code. Counts and shares remain reported-row totals, possibly
 overlapping across joint owners/amendments, not a complete SEC review or unique

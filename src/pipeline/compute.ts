@@ -4126,9 +4126,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
             return { period: String(row.date), periodStart: evidence?.periodStart ?? null,
               value: Number(row.netIncomeAvailableToCommon),
-              basis: evidence
-                ? `${evidence.tags.join(", ")}; ${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}`
-                : "provider-supplied common income; filing basis unavailable" };
+              derivation: evidence?.derivation ?? null,
+              filings: evidence ? evidence.filings.map(f => ({ form: f.form, filed: f.filed })) : null };
           }),
         } : {}),
         commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,

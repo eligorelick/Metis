@@ -19,23 +19,30 @@ describe("insider inspected coverage", () => {
       { transactionDate: "2026-07-03", filingDate: "2026-07-06", formType: "144", transactionType: "S-Sale", securitiesTransacted: 9000 },
       { transactionDate: "2026-06-01", filingDate: "2026-06-03", formType: "4", transactionType: "S-Sale", securitiesTransacted: 200 },
     ];
-    const notes = payload(rows).insiders.notes.join(" ");
+    const p = payload(rows);
+    const notes = p.insiders.notes.join(" ");
+    // Integration review (R6): the coverage statement is one citable figure,
+    // not also a note repeating it word for word.
+    const coverage = String(p.insiders.figures.find(f => f.label === "Insider filing coverage")?.value);
     expect(notes).toContain("2026-04-01 to 2026-06-30");
-    expect(notes).toContain("last Form 4 filing date inspected: 2026-07-06");
+    expect(coverage).toMatch(/^Last Form 4 filing date inspected: 2026-07-06\. /);
+    expect(notes).not.toContain("Form 4 filing date inspected");
     expect(notes).toContain("after 2026-06-30");
     expect(notes).toContain("S: 1 reported transaction row, 300 shares");
     expect(notes).toContain("F: 1 reported transaction row, 80 shares");
-    expect(notes).toContain("Form 144 proposed-sale notices are not collected");
+    expect(coverage).toContain("Form 144 proposed-sale notices are not collected");
+    expect(coverage).toContain("selected provider rows");
     expect(notes).toContain("selected provider rows");
     expect(notes).not.toContain("9300 shares");
     expect(notes).not.toContain("9000 @");
   });
 
   it("does not infer a filing date from transaction dates or claim no activity for missing records", () => {
-    const notes = payload([{ transactionDate: "2026-07-01", transactionType: "S-Sale", securitiesTransacted: 50 }]).insiders.notes.join(" ");
-    expect(notes).toContain("last Form 4 filing date inspected: unavailable");
-    expect(notes).toContain("Form 144 proposed-sale notices are not collected");
-    expect(notes).not.toContain("last Form 4 filing date inspected: 2026-07-01");
+    const p = payload([{ transactionDate: "2026-07-01", transactionType: "S-Sale", securitiesTransacted: 50 }]);
+    const coverage = String(p.insiders.figures.find(f => f.label === "Insider filing coverage")?.value);
+    expect(coverage).toContain("Last Form 4 filing date inspected: unavailable");
+    expect(coverage).toContain("Form 144 proposed-sale notices are not collected");
+    expect(coverage).not.toContain("inspected: 2026-07-01");
   });
 
   it("registers post-window row sums and coverage text so the judge can cite them", () => {

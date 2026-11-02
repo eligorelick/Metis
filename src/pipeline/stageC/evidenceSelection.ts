@@ -326,11 +326,27 @@ const TABLE_TOKEN = /^(?:[$(]?[\d,.]+\)?%?|\$|%|\(|\)|—|–|-)$/;
  * Keep the filed words, including adjacent definitions and elected/available
  * exemption qualifiers. Never derive present ownership from an IPO event.
  */
+/**
+ * Class votes, a holder's share of the vote, or controlled-company status.
+ * Integration review (R6): "voting power" alone also names regulatory
+ * ownership thresholds ("10% or more of the outstanding interests or voting
+ * power of our Company" in a state-licensing change-of-control rule), which
+ * brought unrelated licensing passages into FIGR's governance excerpt.
+ */
+const GOVERNANCE_TRIGGER = new RegExp([
+  String.raw`\bvotes? per share\b`,
+  String.raw`\bvoting (?:rights|ratio)\b`,
+  String.raw`\bcontrolled.company\b`,
+  String.raw`\b(?:combined|aggregate|total) voting power\b`,
+  String.raw`\bvoting power of (?:all )?(?:our |the )?(?:outstanding )?(?:capital|common|ordinary) (?:stock|shares)\b`,
+  String.raw`\d+(?:\.\d+)?\s?%\s+of\s+(?:the\s+|our\s+)?(?:combined\s+|aggregate\s+|total\s+|outstanding\s+)?voting power\b`,
+].join("|"), "i");
+
 export function selectGovernanceEvidence(text: string, maxChars: number): SelectedEvidence | null {
   const all = passages(text, "risk");
   const indices = new Set<number>();
   for (const [i, passage] of all.entries()) {
-    if (!/\b(?:votes? per share|voting (?:rights|power|ratio)|controlled.company)\b/i.test(passage.text)) continue;
+    if (!GOVERNANCE_TRIGGER.test(passage.text)) continue;
     for (let j = Math.max(0, i - 1); j <= Math.min(all.length - 1, i + 2); j++) indices.add(j);
   }
   const separator = "\n\n[OMITTED SOURCE PASSAGES]\n\n";

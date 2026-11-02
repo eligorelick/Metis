@@ -3716,7 +3716,25 @@ export interface CommonIncomeQuarter {
   period: string;
   periodStart: string | null;
   value: number;
-  basis: string;
+  /** How a non-standalone quarter was derived from filed flows; null = a direct filed (or provider) quarter. */
+  derivation: string | null;
+  /** The filings behind the value; null = provider-supplied, no filing basis. */
+  filings: { form: string; filed: string }[] | null;
+}
+
+const QUARTER_DERIVATION_TEXT: Record<string, string> = {
+  "fy-minus-ytd": "fiscal year less nine months",
+  "ytd-difference": "year-to-date difference",
+  "fy-minus-quarters": "fiscal year less the other three quarters",
+};
+
+/** Integration review (R6): one quarter of the P/E bridge in reader terms. */
+function commonIncomeQuarterText(q: CommonIncomeQuarter): string {
+  const parts = [`quarter ended ${q.period}`];
+  if (q.derivation !== null) parts.push(QUARTER_DERIVATION_TEXT[q.derivation] ?? q.derivation);
+  parts.push(q.filings === null || q.filings.length === 0 ? "provider-supplied, no filing basis"
+    : q.filings.map((f) => `${f.form} filed ${f.filed}`).join(" and "));
+  return `${fmtMoney(q.value)} (${parts.join("; ")})`;
 }
 
 /** TTM income statement slice (FMP names). */
@@ -5054,9 +5072,9 @@ export function multiplesFramework(
     ? undefined : { value: capital.commonIncome, currency: inputs.reportedCurrency,
       period: inc.date, quarters: inc.basis === "ttm" ? inc.commonIncomeQuarters ?? [] : [] };
   const denominatorText = commonDenominator === undefined ? "" :
-    `. Common-income denominator ${commonDenominator.value} ${commonDenominator.currency}, ${incomeBasisLabel} ended ${commonDenominator.period}` +
+    `. Common income ${fmtMoney(commonDenominator.value)} ${commonDenominator.currency}, ${incomeBasisLabel} ended ${commonDenominator.period}` +
     (commonDenominator.quarters.length === 4
-      ? ": " + [...commonDenominator.quarters].reverse().map(q => `${q.period}: ${q.value} ${commonDenominator.currency} (${q.periodStart ?? "start unavailable"} to ${q.period}; ${q.basis})`).join(" + ")
+      ? " = " + [...commonDenominator.quarters].reverse().map(commonIncomeQuarterText).join(" + ")
       : inc?.basis === "annual" ? "; filed annual flow, not four quarterly observations" : "; four-quarter component evidence unavailable") + ".";
   const basisByKey: Record<MultipleKey, string> = {
     peTtm: (price !== null && eps !== null

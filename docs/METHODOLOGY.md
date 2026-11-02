@@ -6458,8 +6458,12 @@ observation-cutoff refusals), while the original admission rules remain in force
 
 **Voting control evidence (R6, B-05).** A separate governance reading of retained
 annual risk factors, annual/interim notes and business text keeps passages on
-votes per share, voting rights/power and controlled-company status, together
-with adjacent definitions and qualifications. It has a 16,000-character total
+votes per share, voting rights, a holder's share of the vote (a percentage of,
+or the combined, aggregate or total, voting power, or the voting power of the
+capital or common stock) and controlled-company status, together with adjacent
+definitions and qualifications. A regulatory ownership threshold ("10% or more
+of the outstanding interests or voting power" in a licensing change-of-control
+rule) is not voting control and does not trigger the reading. It has a 16,000-character total
 budget, at most 10,000 per source, separate from financial materiality scoring.
 Each excerpt retains its original source offsets, filing accession, report end
 and filing date under a distinct governance citation. Selection is incomplete

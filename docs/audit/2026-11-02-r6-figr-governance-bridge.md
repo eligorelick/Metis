@@ -33,9 +33,16 @@ it could choose board/committee exemptions in the future. Those are filed
 2025 observations, not November 2026 voting counts; the IPO conversion count
 of 39,393,047 is never promoted to a current balance.
 
-The selected P/E remains 24.3074x. The new basis says:
+The selected P/E remains 24.3074x. The new basis says (reader form after the
+integration review; the delegate's first form printed raw digits, tag names and
+accessions in the reader's table cell):
 
-> Common-income denominator 199202000 USD, TTM ended 2026-06-30
+> Common income 199.2M USD, TTM ended 2026-06-30 = 43.78M (quarter ended 2025-09-30; 10-Q filed 2025-11-13) + 23.03M (quarter ended 2025-12-31; fiscal year less nine months; 10-K filed 2026-03-16 and 10-Q filed 2025-11-13) + 44.95M (quarter ended 2026-03-31; 10-Q filed 2026-05-15) + 87.45M (quarter ended 2026-06-30; 10-Q filed 2026-08-14).
+
+The integration review also narrowed the governance trigger: "voting power"
+counts only as a holder's share of the vote or a class's voting power, so the
+state-licensing threshold passage ("10% or more of the outstanding interests or
+voting power of our Company") and its neighbours left the excerpt.
 
 | Quarter interval | Common income (USD) | Filing basis |
 | --- | ---: | --- |

@@ -33,6 +33,16 @@ original versions and bytes; source merge does not deploy or publish a release.
   limit. Selected rows may overlap across owners; plan capacity and proposed
   sales are never called executed sales.
 
+- Integration review: the P/E bridge reads as amounts, quarter ends, derivations
+  and filing forms and dates ("Common income 199.2M USD, TTM ended 2026-06-30 =
+  43.78M (quarter ended 2025-09-30; 10-Q filed 2025-11-13) + ..."); the basis is
+  the reader's table cell, so XBRL tag names and accession numbers stay out of
+  it. "Voting power" admits governance text only as a holder's share of the
+  vote or a class's voting power; a regulatory ownership threshold (FIGR's
+  state-licensing "10% or more of the outstanding interests or voting power of
+  our Company") no longer brings licensing passages in. The insider coverage
+  statement is one citable figure; it was also printed as an identical note.
+
 Fictional regression tests and a read-only replay of the paid snapshot are
 recorded in [the R6 disposition](docs/audit/2026-11-02-r6-figr-governance-bridge.md).
 Stored reports are unchanged. Shared version stamps are reserved for the integrator.

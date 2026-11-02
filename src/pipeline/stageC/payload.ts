@@ -2046,10 +2046,11 @@ function insidersSection(bundle: DataBundle): PayloadSection {
   const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
     .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
   const lastFiling = filingDates.at(-1) ?? null;
-  const coverage = `Insider coverage: last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
+  // Integration review (R6): one citable figure; the same words as a note too
+  // printed the statement twice in every payload.
+  const coverage = `Last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
     "This is the latest filing date among selected provider rows, not proof of a complete SEC filing review; transaction dates and filing dates differ. " +
     "Form 144 proposed-sale notices are not collected by the current providers and were not inspected. Proposed sales and Rule 10b5-1 plan capacity are not executed sales.";
-  notes.push(coverage);
   figures.push({ label: "Insider filing coverage", value: coverage, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0, 10) });
   if (win) {
     const after = observed.filter(tr => {

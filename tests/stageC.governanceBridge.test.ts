@@ -31,6 +31,21 @@ describe("filed governance evidence admission", () => {
     expect(p.citationRegistry?.some(r => r.id === "edgar:10-K item1A governance")).toBe(true);
   });
 
+  // Integration review (R6): FIGR's risk factors put a state-licensing
+  // change-of-control threshold ("10% or more of the outstanding interests or
+  // voting power of our Company") and its unrelated neighbours in the
+  // governance excerpt. A regulatory ownership threshold is not class voting control.
+  it("does not admit a licensing ownership threshold as voting control", () => {
+    const licensing = "Certain business changes require the approval of persons with a direct or indirect ownership interest of 10% or more of the outstanding interests or voting power of our Company.";
+    const rights = "Our Class A common stock has one vote per share and our Class B common stock has ten votes per share.";
+    const p = payload("Changes in law could make our business cost-prohibitive in the affected states. " + licensing + " " +
+      "Servicing and funding risks may affect our results. ".repeat(40) + rights);
+    const text = p.filings.filter(e => /governance/i.test(e.title)).map(e => e.text).join(" ");
+    expect(text).toContain(rights);
+    expect(text).not.toContain("outstanding interests or voting power");
+    expect(text).not.toContain("cost-prohibitive");
+  });
+
   it("does not invent votes or a current count from an IPO conversion", () => {
     const p = payload("At our IPO, 18,000 Class A shares held by the Controlling Party were converted to Class B shares.");
     expect(p.filings.filter(e => /governance/i.test(e.title))).toEqual([]);
