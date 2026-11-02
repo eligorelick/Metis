@@ -503,6 +503,18 @@ export function periodsAgree(
   return named.every(agrees);
 }
 
+/** A complete ordered interval must be established by the record, never just its end date. */
+export function recordEstablishesInterval(supplied: string, record: NumericProvenanceRecord): boolean {
+  const interval = /^(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})$/.exec(supplied.trim());
+  if (!interval || !isIsoDate(interval[1]) || !isIsoDate(interval[2]) || interval[1] > interval[2]) return false;
+  const registered = /^(?:(?:ttm|ltm|ytd):\s*)?(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})$/i.exec(record.period ?? "");
+  const parsed = record.periodContext === undefined ? undefined : PeriodContextSchema.safeParse(record.periodContext);
+  if (parsed?.success === false) return false;
+  if (parsed?.success && (parsed.data.kind !== "duration" || parsed.data.start !== interval[1] || parsed.data.end !== interval[2])) return false;
+  return registered !== null ? registered[1] === interval[1] && registered[2] === interval[2]
+    : parsed?.success === true && record.period === interval[2];
+}
+
 /** Match every numeric dimension against the exact named registry record. */
 export function matchProvenanceRecord(
   candidate: ProvenanceCandidate,

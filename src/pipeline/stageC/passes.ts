@@ -104,6 +104,7 @@ import {
   matchProvenanceRecord,
   namedUnitMatchesRecord,
   periodsAgree,
+  recordEstablishesInterval,
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
   type ProvenanceFailureReason,
@@ -3297,7 +3298,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           record.period !== null &&
           number.period != null &&
           number.period !== record.period &&
-          periodsAgree(number.period, record.period, record.fiscalPeriod ?? null)
+          (periodsAgree(number.period, record.period, record.fiscalPeriod ?? null) || recordEstablishesInterval(number.period, record))
         ) {
           periodNote = `period "${number.period}" read as ${record.period}`;
           number.period = record.period;
@@ -3492,7 +3493,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           ? "computed-derived"
           : validated && registryRecord
             ? "payload-match"
-            : "source-cited"
+            : validated && validation.spans.length > 0 ? "excerpt-match" : "source-cited"
         : "untraced",
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",

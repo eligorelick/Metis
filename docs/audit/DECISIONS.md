@@ -4240,3 +4240,72 @@ quarterly trend one column states one basis: provider cells beside quarters
 built from SEC filings are withheld with one note, and otherwise one note
 states the provider basis. The trend notes only the quarterly rows it shows.
 Tests: `tests/r2.operatingExpenseReview.test.ts`.
+
+
+## D-next (R5) - Producer-bound numeric prose readings
+
+The frozen paid FIGR report contained correct scores, completeness fractions,
+negative tax expense, signed cash flows and the financial Piotroski variant
+that failed only because annotations, implicit dimensionless units or producer
+names were read as metric mismatches. Recognize equivalent readings only under
+the producing record's explicit contract. Check house grade/neutral metadata
+and Piotroski evaluated/total counts before masking them; preserve offsets.
+A fraction requires explicit unit-scale metadata. Cash-flow legends never erase
+the signed value check. Known aliases retain formula operand order, current vs
+forward basis, restricted-cash scope, insider transaction kind and every
+aggregate disposition category. ISO month labels are periods, not amounts.
+These are numeric-only matches; no surrounding proposition is certified.
+Record ids and payload labels stay unchanged, so no golden/intended-deltas or
+shared stamp change is needed. Tests: stageC.claimEvidence.figr.test.ts.
+
+## D-next (R5) - Complete registered intervals on traced figures
+
+A printed start-to-end interval is the registered interval only when both
+ordered, calendar-valid endpoints agree with the explicit period string or a
+valid source duration context whose end agrees with the record period. Reject
+reversed, shifted, partial and conflicting intervals. Normalize only after this
+proof, retaining the exact record matcher and supplied context checks. Restores
+FIGR's TTM CFO and four-calendar-quarter insider count figures. It does not
+infer a fiscal label or duration from an end date. Tests: R5 FIGR sweep,
+accepts only the complete ordered registered interval on a traced figure.
+
+## D-next (R5) - Same-row excerpt comparisons and explicit support scope
+
+FIGR's release prints Q2/Q2/6M-YTD/6M-YTD headers, repeated years, then two YoY
+columns. Admit only the complete layout and exact row width, keep the header's
+money scale and each level's period, exclude header/change quantities from
+level evidence, and end the prior table at a malformed later header. A
+comparison can validate numerically when its two levels independently pass all
+ordinary source checks in the same row and disjoint rounding intervals prove
+the claimed direction. Prose matches to filing/transcript spans now use the
+existing excerpt-match trace kind, weaker than a registry match; overall prose
+outcome stays unverified and claimSupportStatus stays numeric-only.
+Do not introduce a broad multi-quantity presence/own-description fallback: it
+would bypass the existing clause ambiguity, period, definition and reversed
+operand protections. The real USD 717 / USD 11,109 benchmark is retained as an
+unchecked control, including reversed figures. Other unresolved excerpt
+paraphrases remain disclosed in the R5 sweep. Tests:
+stageC.claimEvidence.figrExcerpt.test.ts and the existing verifier refusal suite.
+
+
+## D-next (R5) - Quarter-header scale conflict safeguard
+
+Final review found the new quarter header's declared scale could override a
+conflicting later parenthetical scale, making 4,259 look like 4.259 billion
+even when the retained table also declared thousands. Withhold a binding when
+either declaration conflicts; retain any explicit per-share qualifier. The
+regression checks the correct amount, a thousandfold error and both readings
+of a conflicting header. This closes an introduced acceptance before handback;
+the paid FIGR replay counts are unchanged. Evidence: r5-scale-conflict-red /
+r5-scale-conflict-green (15 files, 2,464 tests).
+
+
+## D-next (R5) - Preserve generic forensic score unit refusals
+
+The complete product gate caught one over-broad score-unit reading introduced
+by R5: a bare Beneish score became numerically validated despite the existing
+explicit-unit contract. Restrict bare-score inference to the financial
+Piotroski producer whose score and coverage metadata are explicitly recognized.
+House score claims still state their 0-100 scale. The existing Beneish refusal
+is unchanged. Expanded targeted evidence: r5-score-scope-green (16 files, 2,469
+tests); r5-score-scope-replay keeps the paid before/after counts unchanged.

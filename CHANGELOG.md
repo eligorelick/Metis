@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
+
+- Recover supported numeric prose through producer-bound score/grade, fraction,
+  Piotroski coverage, signed cash-flow and metric-name readings. Accept complete
+  registered date intervals on traced figures without discarding either endpoint.
+- Bind the release's explicit quarter/year columns and compare two dated levels
+  only in the same table row. Numeric prose matched to an excerpt now records
+  `excerpt-match`; the surrounding proposition remains unchecked. Broad ambiguous
+  multi-quantity excerpt matches remain refused.
+- Frozen paid FIGR replay: numeric validations 108 to 149, unchecked 116 to 75;
+  traced figures 79/84 to 82/84. Record ids, payload labels, shared stamps and saved
+  reports are unchanged. See [R5 evidence](docs/audit/2026-11-02-r5-figr-verifier.md).
+
 ## Unreleased - R2 FIGR figure fixes (2026-11-02)
 
 - Reconcile operating-income/revenue bases before quarterly, annual and TTM calculations; withhold unmatched margins and unproved operating-expense subtotals with dated explanations. Integration review: a provider operating-expense amount that bridges its row's gross profit to its operating income stays (the first rule removed 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots), and the quarterly trend states one basis per column.

@@ -3834,6 +3834,42 @@ record is `computed-derived`; a forecast never becomes an observed fact
 because its calculation can be traced. Unresolved claims remain disclosed,
 and retrieved citation dates do not permit arbitrary report dates to verify.
 
+R5 (2026-11-02) keeps numeric support separate from the truth of the complete
+prose proposition. Registry matches retain `payload-match` or
+`computed-derived`. Prose whose quantities pass the source-span checks against
+its exact cited filing/transcript excerpt records `excerpt-match`, as excerpt
+numbers already do. Its numeric status is `validated`, its prose support is
+`numeric-only`, and its overall outcome remains `unverified`; a matched number
+does not certify accompanying judgments or causal explanations. Citation-only
+content remains `source-cited` with numeric status `cited` or `unchecked`.
+
+Producer-bound readings recognize a house score's correct grade annotation,
+the financial Piotroski variant's explicitly declared evaluated/total signal
+counts, and legacy cash-flow sign legends. A negative income-tax expense may
+be described as a benefit; signed cash outflows still have to match the signed
+record. Bare dimensionless fractions require explicit `unitScale: fraction`;
+ordinary multiples do not acquire that meaning. Generic forensic scores still
+require an explicit score unit; the declared financial Piotroski variant has
+its own producer-bound bare-score reading. Equivalent metric names apply
+only to the known producing contract, preserving definition words, aggregation
+categories and operand order. A monthly sentiment record establishes only its
+explicit month. A complete ordered date interval on a traced figure must match
+both endpoints of the record's declared interval or valid duration context;
+sharing an end date is insufficient.
+
+The excerpt reader also recognizes a complete repeated quarter/year header
+with four level columns and two YoY columns. Row width, units, money scale,
+precision and each period remain mandatory. Header tokens and change columns
+are not level evidence, and an invalid later header ends the preceding table's
+scope. A two-value rise/decline claim can be matched only when each explicitly
+dated level independently passes the ordinary checks, both belong to the same
+source table row, and their non-overlapping rounding intervals establish the
+direction. Lists, mixed metrics, missing units, guidance ranges and unrelated
+passages do not receive a quantity-presence fallback. In particular, locating
+both USD 717 and USD 11,109 in a benchmark sentence does not resolve its metric,
+comparison and period bindings. Such content remains unchecked under the
+existing ambiguity safeguards (see the R5 audit record).
+
 Provider rows rendered as text notes (news, insider trades, key executives,
 and, since 2026-10-13, the next scheduled earnings date) end in one
 assembler-owned tag. Only that trailing, allowlisted tag is registered as a
