@@ -3135,3 +3135,18 @@ PERF-201 caches successes by exact bytes/path and returns clones; unchanged call
 ## D-next (P6): Effective legacy Fast speed
 
 SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+
+## D-next (P9) - FIN-306: applicable Piotroski evidence (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
+route-suppressed tests leave the applicable ceiling, while missing supported
+tests still reduce evidence. The used Piotroski weight stays outOf/9 (D-24);
+the applicable weight becomes (9 - routeWithheld)/9 (D-50). This supersedes
+D-137 OD-5's deferral because supported financial tests must be able to reach
+applicable completeness 1. Unresolved eligibility is still missing evidence.
+The old bank 8/9 fixture and B-to-C transition control were retired because
+that battery is impossible on the route and the transition pinned the wrong
+denominator. The replacement pins full supported completeness and loss of
+completeness with supported data missing. No band threshold changes. Census
+measurements are in the P9 disposition; stored reports retain their bytes.

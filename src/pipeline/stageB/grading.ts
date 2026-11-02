@@ -123,6 +123,8 @@ interface Signal {
    * weight.
    */
   evidenceFraction?: number;
+  /** FIN-306: share supported by route design; missing supported data still counts. */
+  applicableFraction?: number;
 }
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
@@ -187,7 +189,7 @@ function scoreAspect(
   for (const s of signals) {
     if (s.suppressedBy && policy.suppress.includes(s.suppressedBy)) continue;
     // Applicable to this route (not policy-suppressed), whether or not data exists.
-    applicableWeight += s.weight;
+    applicableWeight += s.weight * Math.min(1, Math.max(0, s.applicableFraction ?? 1));
     if (!isNum(s.raw)) continue;
     const sub = bandScore(s.raw, s.band);
     const evidence = Math.min(1, Math.max(0, s.evidenceFraction ?? 1));
@@ -937,6 +939,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         band: PIOTROSKI_BAND,
         suppressedBy: "piotroskiF",
         evidenceFraction: forensics.piotroski && forensics.piotroski.outOf > 0 ? Math.min(1, forensics.piotroski.outOf / 9) : 1,
+        applicableFraction: (9 - Math.min(9, Math.max(0, forensics.piotroski?.routeWithheld ?? 0))) / 9,
       },
       // The driver is the score AFTER the affine map onto the original
       // variant's 1.81/2.99 zones (normalizeAltmanForBanding) — the number the

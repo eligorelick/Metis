@@ -2782,10 +2782,15 @@ weighted by the share of the nine signals that were evaluable, and the
 shortfall counts against the quality aspect's data completeness — two
 coin-flip signals cannot swing the aspect the way nine do.
 
-Known limitation (FIN-306): for reduced financial or eligibility-held batteries,
-the completeness ceiling still includes tests withheld by route. Quality and
-composite coverage can therefore understate the evidence the route can use.
-The proposed correction remains deferred; existing scoring behavior is preserved.
+FIN-306 (P9): route-withheld tests are excluded from the applicable ceiling:
+three tests remain on a bank, insurer or mortgage REIT, and five on a fee-based
+FIN-OTHER route. The forensic result records the route-withheld count separately
+from missing supported data. Used weight remains outOf/9; applicable weight is
+(9 - routeWithheld)/9. A fully observed supported battery therefore has
+applicable completeness 1, while missing supported tests still reduce quality
+confidence and composite evidence. An unresolved operating-method eligibility
+refusal is not a designed route exclusion. Legacy results without the count
+retain their recorded completeness; stored reports are never rewritten.
 
 | Scale | Applies to | Signals withheld |
 | --- | --- | --- |

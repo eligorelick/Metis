@@ -810,6 +810,8 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
       valuation: bankExcessReturn(),
       // D-46: capital, credit and funding, all four inputs on file.
       financialMetrics: bankRouteMetrics({ tangibleLeverage: 7, ncoToAverageLoans: 0.6, nplRatio: 0.8, loansToDeposits: 85 }),
+      // FIN-306: the real bank route supports three tests, not the old impossible 8/9 battery.
+      forensics: forensics({ piotroski: { ...forensics().piotroski!, score: 3, outOf: 3, routeWithheld: 6 } as NonNullable<ForensicsReport["piotroski"]> }),
       // D-61: a well-timed repurchaser (bought 12% below each year's average),
       // so the stewardship aspect reads strong as the old premium-to-quote
       // fixture did and the band comparison below still has a B to lose.
@@ -874,7 +876,9 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //  - Leadership 0.69 -> 1.00 (D-61): capitalDeployment (the ROIC − WACC
     //    spread scored a second time) is gone, so both remaining stewardship
     //    signals are route-applicable and observed: +7·(1 − 0.6875) = +2.19.
-    expect(round2(compWeight)).toBe(78.32);
+    // FIN-306: retain the 3/9 evidence weight; exclude the six route-withheld tests from the ceiling.
+    expect(round2(compWeight)).toBe(74.51);
+    expect(s.assessments?.evidenceCompleteness).toBe(1);
     // Review of D-50: over what the route supports, every aspect of this bank
     // is fully observed, which is what the confidence ceiling reads.
     for (const a of Object.values(s.aspects)) {
@@ -885,8 +889,15 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     // by ×0.7897 toward 50 — a structural cap the fix removes.
     const oldShrunk = round2(50 + (raw - 50) * Math.min(1, compWeight / 100));
     expect(oldShrunk).toBeLessThan(s.composite.score!);
-    // For this fixture the cap pushed the grade down a full band (B → C).
-    expect(scoreToBand(oldShrunk)).not.toBe(s.composite.band);
+    // FIN-306 retires the old B-to-C control: it depended on an impossible bank
+    // 8/9 battery and the wrong denominator. Pin the intended numerical shrinkage
+    // and missing-supported-data response instead; band crossing is incidental.
+    expect(s.composite.score! - oldShrunk).toBeGreaterThan(0);
+    const missing = fullyObservedBank();
+    missing.forensics = forensics({ piotroski: { ...missing.forensics.piotroski!, score: 2, outOf: 2 } });
+    const thinBank = computeScores(missing);
+    expect(thinBank.aspects.quality.applicableCompleteness).toBeLessThan(1);
+    expect(thinBank.assessments?.evidenceCompleteness).toBeLessThan(1);
   });
 
   it("a genuinely thin GENERAL company is still shrunk toward neutral", () => {

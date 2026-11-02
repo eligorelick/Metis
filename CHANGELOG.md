@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P9 methodology decisions (2026-11-02)
+
+- FIN-306: exclude route-withheld Piotroski tests from applicable evidence while retaining the reduced battery's evidence weight and penalties for missing supported inputs.
+
 ## Unreleased - P6 local security (2026-11-02)
 
 - SEC-205: capture unsupported legacy Fast as Standard without rewriting saved selections.
