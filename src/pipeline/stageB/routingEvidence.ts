@@ -9,22 +9,17 @@
  * Evidence rules (the WS5 methodology, "Routing evidence"):
  * - deposits AND (loans OR net interest income)      → bank
  * - premiums earned/written AND loss/policy reserves → insurer
- * - RealEstateInvestmentPropertyNet (or at cost)     → equity REIT
- * - mortgage-backed securities or loans held for investment WITHOUT investment
- *   property                                          → mortgage REIT
+ * - net investment property >= half of same-filing Assets -> property REIT
+ * - mortgage loans plus MBS >= half of same-filing Assets -> mortgage REIT
+ * FIN-308 P9: token holdings, gross cost alone and generic loan tags do not
+ * establish either type. Both majorities (including 50/50) stay undetermined.
  * - regulatory assets or rate-regulated revenue       → regulated-utility
  *   overlay evidence only (audit 2026-10-22 B-13; never a base route)
  *
- * Two rules fire on a single tag group: the equity-REIT rule (investment
- * property) and the mortgage-REIT rule (mortgage assets without investment
- * property). The mortgage rule's elements must be specific to that business
- * model (they are: every tag below names mortgage-backed securities or
- * mortgage loans) AND the routing layer requires corroboration — repo funding,
- * or an already-financial SIC or sector — before the tags alone may set a base
- * route. The equity-REIT rule needs no corroboration only because the routing
- * layer lets evidence SET a route solely on an undecided (no industry string)
- * or financial-classified profile; against a declared non-financial industry
- * and SIC either rule is disclosed as a routing-evidence conflict instead.
+ * REIT rules require a filed asset majority. Mortgage assets additionally
+ * need corroboration (repo funding or an already-financial classification)
+ * before setting a base route. A declared non-financial industry is retained
+ * with a conflict disclosure when financial evidence disagrees.
  *
  * A tag counts as present only when it carries a non-zero core-form fact whose
  * period end is within `recencyMonths` of the newest evidence fact on file, so
@@ -87,9 +82,8 @@ export interface RoutingEvidence {
    */
   suggests: EvidenceClass | null;
   /**
-   * The REIT sub-map the tags support: "equity" when investment property is
-   * tagged, "mortgage" when MBS / loans-held-for-investment are tagged without
-   * investment property, null when neither.
+   * The REIT sub-map the tags support: "equity" for a net property majority,
+   * "mortgage" for a mortgage-asset majority, null when neither or both.
    */
   reitSubmap: "equity" | "mortgage" | null;
   /** Plain-English statement of the rule that produced `suggests`. */
@@ -211,13 +205,13 @@ function addMonths(iso: string, months: number): string {
 }
 
 /** Newest deduped core-form point of a tag with a finite non-zero value (filed by `filedBy`, when given), or null. */
-function newestPoint(facts: CompanyFacts, tag: string, filedBy?: string): { point: FactPoint; unit: string } | null {
+function newestPoint(facts: CompanyFacts, tag: string, filedBy?: string, includeZero = false): { point: FactPoint; unit: string } | null {
   const tp = tagPoints(facts, tag);
   if (tp === null) return null;
   let best: FactPoint | null = null;
   // Filed-by first: a period re-filed after the run is read as it was filed before it.
   for (const p of dedupFactPoints(filedBy === undefined ? tp.points : tp.points.filter((q) => q.filed <= filedBy))) {
-    if (!Number.isFinite(p.val) || p.val === 0) continue;
+    if (!Number.isFinite(p.val) || (!includeZero && p.val === 0)) continue;
     if (best === null || p.end > best.end || (p.end === best.end && p.filed > best.filed)) best = p;
   }
   return best === null ? null : { point: best, unit: tp.unit };
@@ -278,12 +272,13 @@ export function deriveRoutingEvidence(
   const recencyMonths = opts.recencyMonths ?? ROUTING_EVIDENCE_RECENCY_MONTHS;
 
   const groups: Record<string, readonly string[]> = {
+    assets: ["Assets"],
     deposits: BANK_DEPOSIT_TAGS,
     loans: BANK_LOAN_TAGS,
     nii: BANK_NII_TAGS,
     premiums: INSURER_PREMIUM_TAGS,
     reserves: INSURER_RESERVE_TAGS,
-    property: EQUITY_REIT_PROPERTY_TAGS,
+    property: [...EQUITY_REIT_PROPERTY_TAGS, "RealEstateInvestmentPropertyAccumulatedDepreciation"],
     mbs: MORTGAGE_REIT_MBS_TAGS,
     mortgageLoans: MORTGAGE_REIT_LOAN_TAGS,
     repo: MORTGAGE_REIT_FUNDING_TAGS,
@@ -323,17 +318,42 @@ export function deriveRoutingEvidence(
   const nii = recent(groups.nii);
   const premiums = recent(groups.premiums);
   const reserves = recent(groups.reserves);
-  const property = recent(groups.property);
-  const mbs = recent(groups.mbs);
-  const mortgageLoans = recent(groups.mortgageLoans);
   const repo = recent(groups.repo);
 
   const bank = deposits.length > 0 && (loans.length > 0 || nii.length > 0) ? [...deposits, ...loans, ...nii] : [];
   const insurer = premiums.length > 0 && reserves.length > 0 ? [...premiums, ...reserves] : [];
-  const equityReit = property;
-  const mortgageReit = property.length === 0 && (mbs.length > 0 || mortgageLoans.length > 0)
-    ? [...mbs, ...mortgageLoans, ...repo]
-    : [];
+  // FIN-308 P9: a token holding does not establish a business model. Compare
+  // net property or mortgage assets to Assets on the SAME instant, currency
+  // and filing. Alias totals are selected once, never summed as components.
+  const assetsHit = newestPoint(facts, "Assets", opts.today?.slice(0, 10));
+  const assets = assetsHit ? toSignal("Assets", assetsHit) : undefined;
+  const assetCutoff = opts.today ? addMonths(opts.today.slice(0, 10), -recencyMonths) : cutoff;
+  const same = (tags: readonly string[]): EvidenceSignal | undefined => tags.map(t => {
+    const hit = newestPoint(facts, t, opts.today?.slice(0, 10), true);
+    return hit ? toSignal(t, hit) : undefined;
+  }).find(s =>
+    s !== undefined && assets !== undefined && assets.value > 0 && !assets.start && !s.start &&
+    assets.end >= assetCutoff && s.end === assets.end && s.accn === assets.accn && s.unit === assets.unit && s.value >= 0);
+  const net = same(["RealEstateInvestmentPropertyNet"]);
+  const cost = same(["RealEstateInvestmentPropertyAtCost"]);
+  const depreciation = same(["RealEstateInvestmentPropertyAccumulatedDepreciation", "RealEstateAccumulatedDepreciation"]);
+  const propertyValue = net?.value ?? (cost && depreciation ? cost.value - depreciation.value : null);
+  const propertySignals = net ? [net] : cost && depreciation ? [cost, depreciation] : [];
+  const afs = same(["MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure"]);
+  const mbsSignals = [
+    ...(afs ? [afs] : [same(["MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure"]),
+      same(["MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure"])].filter((s): s is EvidenceSignal => s !== undefined)),
+    ...[same(["MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure"])].filter((s): s is EvidenceSignal => s !== undefined),
+  ];
+  const loan = same(MORTGAGE_REIT_LOAN_TAGS.filter(t => t !== "LoansReceivableHeldForInvestmentNet"));
+  const mortgageSignals = [...mbsSignals, ...(loan ? [loan] : [])];
+  const mortgageValue = mortgageSignals.reduce((sum, s) => sum + s.value, 0);
+  const majority = (v: number | null): boolean => assets !== undefined && v !== null && v >= assets.value * 0.5 && v <= assets.value && assets.value > 0;
+  const propertyMajority = majority(propertyValue);
+  const mortgageMajority = majority(mortgageValue);
+  // Both majorities would assert incompatible types (including a 50/50 book).
+  const equityReit = propertyMajority && !mortgageMajority ? [...propertySignals, assets!] : [];
+  const mortgageReit = mortgageMajority && !propertyMajority ? [...mortgageSignals, assets!, ...repo] : [];
 
   let suggests: EvidenceClass | null = null;
   let basis: string | null = null;
@@ -347,13 +367,10 @@ export function deriveRoutingEvidence(
     basis = `premiums (${describeSignals(premiums)}) with loss/policy reserves (${describeSignals(reserves)}) → insurer`;
   } else if (equityReit.length > 0) {
     suggests = "reit";
-    basis = `investment property (${describeSignals(property)}) → equity REIT`;
+    basis = `net investment property (${describeSignals(propertySignals)}) is at least 50% of same-filing Assets (${describeSignals([assets!])}) → equity REIT`;
   } else if (mortgageReit.length > 0) {
     suggests = "reit-mortgage";
-    basis =
-      `${mbs.length > 0 ? `mortgage-backed securities (${describeSignals(mbs)})` : ""}${mbs.length > 0 && mortgageLoans.length > 0 ? " and " : ""}` +
-      `${mortgageLoans.length > 0 ? `loans held for investment (${describeSignals(mortgageLoans)})` : ""}` +
-      `${repo.length > 0 ? `, repo funding (${describeSignals(repo)})` : ""} without RealEstateInvestmentPropertyNet → mortgage REIT`;
+    basis = `mortgage-backed securities and mortgage loans (${describeSignals(mortgageSignals)}) are at least 50% of same-filing Assets (${describeSignals([assets!])}) → mortgage REIT`;
   }
 
   const reitSubmap: RoutingEvidence["reitSubmap"] =

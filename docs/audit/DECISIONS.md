@@ -3162,3 +3162,31 @@ and the AI prompt. No calculation or display repair was necessary. Existing
 currency/class refusals and the per-ADS guard remain. This preserves a useful
 aggregate model while explicitly stating its unverified capitalization scope;
 it does not establish depositary ratios or validate market equity.
+
+
+## D-next (P9) - FIN-308: filed REIT majority and common grading (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
+prefer positive filed asset evidence over blanket withholding. Net investment
+property >= 50% of Assets establishes a property REIT; mortgage loans plus MBS
+>= 50% establishes a mortgage REIT, using the tags, alias precedence, same
+instant/currency/accession, filed-by and recency checks named in METHODOLOGY.
+Gross property less accumulated depreciation is an evidenced net composition;
+generic PP&E and generic financing receivables are insufficient. Both
+majorities or neither means no filed type. The threshold defines majority
+business-model exposure; it is a house model-selection convention, not a
+legal REIT test. No ticker exceptions. Explicit vendor subtype handling and
+conflict disclosure stay in place.
+
+For still-undetermined types, grade only signals common to both maps: revenue
+growth, stewardship, technicals and three common Piotroski outcomes. Withhold
+map-specific valuation, balance-sheet and moat grades, FCF growth, margins,
+capital-return spread and incompatible forensic grading; disclose the reason.
+Individual common Piotroski operands explain the grade while the complete
+forensic table remains recorded. This supersedes D-137 OD-7's preservation
+deferral and extends D-16. The trimmed O/NNN fixtures omit all property asset
+tags and remain undetermined: O 44.20 -> 46.50 D, NNN 50.73 -> 50.28 D.
+Full census O, NNN and PLD have positive same-filing majorities and remain
+property REITs; AMT lacks qualifying property evidence and moves 52.77 ->
+56.18 (D -> C). Details and every census/fixture mover are in the disposition.
+Stored reports are immutable; these are new-computation rules only.

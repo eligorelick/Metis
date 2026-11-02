@@ -2087,7 +2087,7 @@ code, and tag evidence read from EDGAR companyfacts.
 | --- | --- |
 | deposits **and** (loans **or** net interest income) | bank |
 | premiums earned **and** loss or policy reserves | insurer |
-| `RealEstateInvestmentPropertyNet` / `…AtCost` | equity REIT |
+| Same-filing net property >= 50% of `Assets` | equity REIT (P9) |
 | mortgage-backed securities **or** mortgage loans held for investment, **and no** investment property, **corroborated** (see below) | mortgage REIT |
 
 Deliberate properties:
@@ -2163,8 +2163,26 @@ whose assets are marked securities and whose headline is book value.
 The sub-map is therefore decided by evidence or by an explicit vendor sub-type,
 never by the SIC:
 
-- `RealEstateInvestmentPropertyNet` present → **equity**.
-- Mortgage assets present without investment property → **mortgage**.
+- **Property/equity**: `RealEstateInvestmentPropertyNet` is at least 50% of
+  `Assets`; if net is absent, use `RealEstateInvestmentPropertyAtCost` less
+  `RealEstateInvestmentPropertyAccumulatedDepreciation` (legacy synonym
+  `RealEstateAccumulatedDepreciation`). Gross cost alone is insufficient.
+- **Mortgage**: mortgage loans plus MBS are at least 50% of `Assets`.
+  Direct-loan synonyms, selected once in order: `MortgageLoansOnRealEstate`,
+  `MortgageLoansOnRealEstateCarryingAmountOfMortgages`, then
+  `MortgageLoansOnRealEstateCommercialAndConsumer`. Generic
+  `LoansReceivableHeldForInvestmentNet` is insufficient. MBS use
+  `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`, otherwise the
+  sum of `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`
+  and `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`;
+  add the distinct held-to-maturity bucket
+  `MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`. Do not sum aliases.
+- Each numerator operand and `Assets` must share the instant, currency and
+  accession. Only facts filed by the run date and within the recency window
+  qualify. Negative or above-total amounts cannot classify. Both majorities
+  (including 50/50) leave the type unknown. This definitional house majority
+  rule selects a model; it is not a statutory REIT asset test. It uses the
+  named filed carrying/fair-value disclosures.
 - Vendor industry naming a sub-type (`REIT - Mortgage`, `REIT - Industrial`) →
   that sub-map. A vendor mortgage label contradicted by filed investment
   property is kept but flagged (`route.reitSubmap.conflict`).
@@ -2181,11 +2199,17 @@ interest spread and assets/equity leverage on the other — with the reason on t
 `route.reitSubmap` manifest entry. Publishing either set would assert a business
 model the evidence does not support.
 
-Known limitation (FIN-308): an undetermined sub-map still uses the existing
-industrial grading and forensic policy. A broader hold remains deferred because
-the plan's protected saved O and NNN cases also have undetermined sub-maps;
-their current figures are retained. This does not establish that industrial
-signals fit every undetermined REIT.
+FIN-308 (P9): when the type remains undetermined, grading keeps common revenue
+growth, capital stewardship and technical signals, plus the three common
+Piotroski tests (positive ROA, improved ROA, no equity issuance). The Piotroski
+used and applicable weight are both at most 3/9; missing common tests still
+reduce evidence. The grading audit cites these individual outcomes, not the
+full battery's total. Map-specific valuation, balance-sheet and moat signals
+are withheld, together with FCF growth, margin slope, capital-return spread,
+Altman, Beneish and accrual grading. The reason appears in route and score
+notes and in the gap manifest. Raw financial/forensic figures remain reported
+with their existing limitations; the grade does not silently assert a property
+or mortgage business model. Stored reports remain as recorded.
 
 ### Valuing a financial company
 

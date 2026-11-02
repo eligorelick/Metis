@@ -587,7 +587,7 @@ export function routeCompany(
         ? "no XBRL evidence supplied"
         : !evidence.available
           ? (evidence.unavailableReason ?? "EDGAR companyfacts unavailable")
-          : "companyfacts carry neither investment-property nor MBS / loans-held-for-investment tags";
+          : "companyfacts do not establish a same-filing net-property or mortgage-asset majority (at least 50% of Assets)";
 
     if (industryExplicitMortgage) {
       reitSubmap = "mortgage";
@@ -639,6 +639,7 @@ export function routeCompany(
     } else {
       base = "reit";
       reitSubmap = "undetermined";
+      notes.push("REIT type undetermined: grading withholds signals whose meaning differs between mortgage and property maps (industrial cash-flow growth, margins, leverage, coverage, capital returns and incompatible forensic tests). Common revenue growth, stewardship, technicals and common Piotroski tests remain applicable.");
       notes.push(
         `REIT sub-map UNDETERMINED: ${
           industryRaw === null
@@ -652,7 +653,7 @@ export function routeCompany(
         reason:
           `REIT sub-map undetermined: SIC 6798 / industry '${industryRaw ?? "(missing)"}' cover both equity and ` +
           `mortgage REITs and ${evidenceState} — FFO/AFFO, P/FFO, book value per share, net interest spread and ` +
-          "leverage withheld",
+          "leverage and grading signals specific to either REIT map withheld; common signals remain applicable",
         severity: "warn",
         attemptedSources: [
           evidence?.source ?? "edgar:companyfacts us-gaap",

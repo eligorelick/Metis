@@ -202,7 +202,17 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const metric = id === "beneishM" || id === "beneishMSgiNeutral" ? i.forensics.beneish : id === "piotroskiF" ? i.forensics.piotroski : id === "accrualsRatioAbs" ? i.forensics.accruals : null;
       const p = metric?.asOf;
       dates(p && "prior2" in p ? p.prior2 ?? p.prior : p?.prior, p?.current);
-      if (id === "piotroskiF") { operand("signals passed", i.forensics.piotroski?.score, "computed.forensics.piotroski.score"); operand("signals assessed", i.forensics.piotroski?.outOf, "computed.forensics.piotroski.outOf"); }
+      if (id === "piotroskiF") {
+        if (i.route.base === "reit" && i.route.reitSubmap === "undetermined") {
+          for (const name of ["roaPositive", "roaImproved", "noEquityIssuance"] as const) {
+            operand(name, i.forensics.piotroski?.signals[name]?.value, `computed.forensics.piotroski.signals.${name}.value`);
+          }
+          result.fallbackReason = "REIT type undetermined: only the three Piotroski tests common to property and mortgage maps are graded; the full forensic battery is reported separately.";
+        } else {
+          operand("signals passed", i.forensics.piotroski?.score, "computed.forensics.piotroski.score");
+          operand("signals assessed", i.forensics.piotroski?.outOf, "computed.forensics.piotroski.outOf");
+        }
+      }
       else if (id === "accrualsRatioAbs") {
         operand("cash-flow accrual ratio before absolute transform", i.forensics.accruals?.cashFlowAccrualRatio, "computed.forensics.accruals.cashFlowAccrualRatio");
         if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).";

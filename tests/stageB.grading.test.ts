@@ -146,6 +146,27 @@ function forensics(over: Partial<ForensicsReport> = {}): ForensicsReport {
   } as ForensicsReport;
 }
 
+it("FIN-308 P9: an undetermined REIT grades only signals common to both maps", () => {
+  const r = { ...route("reit"), reitSubmap: "undetermined" as const };
+  const f = forensics();
+  f.piotroski = { ...f.piotroski!, score: 9, outOf: 9, signals: {
+    roaPositive: { value: 1, detail: "observed" }, roaImproved: { value: 1, detail: "observed" },
+    noEquityIssuance: { value: 1, detail: "observed" },
+  } as NonNullable<ForensicsReport["piotroski"]>["signals"] };
+  const s = computeScores(makeInputs({ route: r, policy: metricPolicy(r), forensics: f }));
+  expect(s.aspects.balanceSheet.score).toBeNull();
+  expect(s.aspects.valuation.score).toBeNull();
+  expect(s.aspects.moat.score).toBeNull();
+  expect(s.aspects.quality.signals?.map(x => x.id)).toEqual(["piotroskiF"]);
+  expect(s.aspects.quality.signals?.[0]?.evidenceFraction).toBe(3 / 9);
+  expect(s.aspects.quality.applicableCompleteness).toBe(1);
+  expect(s.aspects.quality.signals?.[0]?.operands.map(o => o.value)).toEqual([1, 1, 1]);
+  expect(s.aspects.fundamentals.signals?.map(x => x.id)).toEqual(["revenueCagr"]);
+  expect(s.aspects.leadership.score).not.toBeNull();
+  expect(s.aspects.technicals.score).not.toBeNull();
+  expect(s.aspects.moat.notApplicableReason).toMatch(/undetermined.*mortgage.*property/i);
+});
+
 function technicals(): TechnicalsResult {
   return {
     asOf: "2025-09-30",

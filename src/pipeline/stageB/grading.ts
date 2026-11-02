@@ -792,7 +792,13 @@ export interface ScoringInputs {
 }
 
 export function computeScores(inputs: ScoringInputs): Scoring {
-  const { route, policy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
+  const { route, policy: routePolicy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
+  const undeterminedReit = route.base === "reit" && route.reitSubmap === "undetermined";
+  const reitGradeReason = "REIT type undetermined: mortgage and property maps disagree on these grading signals; withheld until filed evidence establishes the type.";
+  // FIN-308: grading-only exclusions. Do not erase otherwise reported raw
+  // figures or substitute a financial return model on an unproved type.
+  const policy = undeterminedReit ? { ...routePolicy, suppress: [...routePolicy.suppress,
+    "roicVsWacc", "fcfGrowth", "operatingMargin", "grossMargin", "altmanZ", "beneishM", "accrualsRatio"] } : routePolicy;
   const weights = weightsForRoute(route);
   const financial = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
   const currentCapital = capital.current;
@@ -875,7 +881,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ? "Valuation withheld: model applicability unresolved (see valuation.modelEligibility) — counted as missing evidence, not as a route without valuation"
     : null;
   const valuationScore =
-    valuation.kind === "pre-revenue"
+    undeterminedReit
+      ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, reitGradeReason, policy, reitGradeReason)
+      : valuation.kind === "pre-revenue"
       ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, "Valuation not modelled for pre-revenue companies (runway framing instead).", policy, "Pre-revenue: no meaningful intrinsic-value model.")
       : scoreAspect(
           "valuation",
@@ -897,9 +905,18 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   }
 
   // --- Quality (value creation + accounting integrity) --------------------
+  // Only the three Piotroski tests common to property and mortgage maps may
+  // grade an undetermined REIT. Keep the full forensic table as computed.
+  const commonPiotroski = undeterminedReit && forensics.piotroski
+    ? ["roaPositive", "roaImproved", "noEquityIssuance"]
+      .map(name => forensics.piotroski!.signals[name as keyof typeof forensics.piotroski.signals]?.value)
+      .filter((v): v is 0 | 1 => v === 0 || v === 1) : null;
+  const gradingPiotroski = commonPiotroski ? {
+    outOf: commonPiotroski.length, score: commonPiotroski.reduce<number>((sum, v) => sum + v, 0), routeWithheld: 6,
+  } : forensics.piotroski;
   const piotroskiFrac =
-    forensics.piotroski && isNum(forensics.piotroski.score) && forensics.piotroski.outOf > 0
-      ? forensics.piotroski.score / forensics.piotroski.outOf
+    gradingPiotroski && isNum(gradingPiotroski.score) && gradingPiotroski.outOf > 0
+      ? gradingPiotroski.score / gradingPiotroski.outOf
       : null;
   // Financial routes suppress ROIC − WACC because invested capital is undefined
   // when deposits fund the balance sheet; the route's own disclosure names the
@@ -938,8 +955,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         weight: 0.22,
         band: PIOTROSKI_BAND,
         suppressedBy: "piotroskiF",
-        evidenceFraction: forensics.piotroski && forensics.piotroski.outOf > 0 ? Math.min(1, forensics.piotroski.outOf / 9) : 1,
-        applicableFraction: (9 - Math.min(9, Math.max(0, forensics.piotroski?.routeWithheld ?? 0))) / 9,
+        evidenceFraction: gradingPiotroski && gradingPiotroski.outOf > 0 ? Math.min(1, gradingPiotroski.outOf / 9) : 1,
+        applicableFraction: (9 - Math.min(9, Math.max(0, gradingPiotroski?.routeWithheld ?? 0))) / 9,
       },
       // The driver is the score AFTER the affine map onto the original
       // variant's 1.81/2.99 zones (normalizeAltmanForBanding) — the number the
@@ -979,7 +996,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     currentCapital ? currentCapital.fcfBeforeSbc : capital.fcf.latestFcfBeforeSbc,
     currentCapital ? currentCapital.cashBridge.stockBasedCompensation : capital.sbc.latest,
   ) ? SBC_FCF_BAND[SBC_FCF_BAND.length - 1][0] : null);
-  const balanceSheet = route.base === "bank"
+  const balanceSheet = undeterminedReit
+    ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, reitGradeReason, policy, reitGradeReason)
+    : route.base === "bank"
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : !financial && route.overlays.includes("regulated-utility")
     ? utilityBalanceSheet(inputs.utilityCredit ?? null, weights.balanceSheet, inputs.asOf, policy)
@@ -1049,7 +1068,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       ];
   const moat = scoreAspect(
     "moat",
-    [
+    undeterminedReit ? [] : [
       ...moatReturnSignals,
       // Gross margin is a hard-suppressed metric on some routes (banks: FMP emits
       // garbage revenue−costOfRevenue on an interest-income statement; pre-revenue:
@@ -1063,7 +1082,13 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)." +
       (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
+    undeterminedReit ? reitGradeReason : null,
   );
+
+  if (undeterminedReit) {
+    quality.aspect.note += ` ${reitGradeReason} Piotroski grades only ROA positive, ROA improved and no equity issuance, the three common tests.`;
+    fundamentals.aspect.note += ` ${reitGradeReason} Revenue growth remains applicable.`;
+  }
 
   // --- Leadership (deterministic capital-stewardship proxy) ----------------
   // D-61: two signals that measure capital stewardship directly. The ROIC −
