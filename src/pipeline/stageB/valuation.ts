@@ -5015,7 +5015,7 @@ export function multiplesFramework(
   const basisByKey: Record<MultipleKey, string> = {
     peTtm: (price !== null && eps !== null
       ? `${epsBasis} (${incomeBasisLabel})`
-      : `marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) +
+      : `marketCap / common income (${incomeBasisLabel}; aggregate basis; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) +
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),

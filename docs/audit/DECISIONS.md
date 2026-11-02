@@ -3783,3 +3783,12 @@ sentence establishes identical dividend/liquidation economics. Use one sentence
 matcher for retained counts and the cover parser. Keep contrary-rights refusal,
 provider quote-title binding and same-price approximation. Stored reports remain
 immutable; the shared report/payload/Stage B/pipeline stamps remain unchanged.
+
+## D-next (N4a) - Aggregate P/E from four filed common quarters (L2)
+
+Keep the ownership gate. The failure was the missing Q1 common-income field in
+a retained vendor row, despite the exact filed numerator in companyfacts; Q4's
+FY-minus-nine-month numerator already existed. Supplement only an absent,
+non-refused common field with exact issuer/period/currency/cutoff proof through
+the existing SEC resolver. Per-share P/E stays first choice. The aggregate
+fallback states its construction and Basic common-stockholder allocation.

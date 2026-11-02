@@ -2159,6 +2159,18 @@ and sector screens still apply, and no additional SEC request is made.
 
 ---
 
+L2 (N4a): per-share P/E remains first choice. If quarterly common earnings are
+missing from a retained provider row, issuer-admitted companyfacts acquired
+by the run cutoff may supply the exact same period and currency's filed Basic
+common-stockholder numerator. Explicit refusals and supplied values are never
+replaced. The existing SEC flow resolver derives Q4 as FY less nine months
+when its filed lineage/presentation checks admit both operands. Four contiguous
+quarters are summed; annual plus current YTD less prior YTD is not substituted
+across changing participating-security allocations. EPS is never subtracted or
+invented across an IPO. Capitalization divided by those common earnings is
+labelled aggregate basis, with the Basic allocation convention disclosed.
+This repairs a missing common-income input, not the ownership admission gate.
+
 ## Financial-company routes
 
 How a company is routed, what each route withholds and why, how a financial is
