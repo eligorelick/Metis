@@ -418,3 +418,8 @@ The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
 legacy shell and launcher values. Uncomment only intentional overrides: even a
 blank canonical assignment wins. Startup warns about conflicting aliases using
 key names only, never their values.
+
+A resumed missing analyst side receives the same recovery as a fresh side:
+one rejected-output repair and, on plan connections, up to three zero-cost
+dropped-request resends. Repair feedback is preserved across a dropped repair;
+a newly rejected output starts a whole-case repair without continuation.

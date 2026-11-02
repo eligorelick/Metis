@@ -8,8 +8,8 @@ This batch preserves accepted work and safe in-flight renewals.
 | JOB-206 | Fixed: tolerate busy renewal only with proven lease slack | Owning JOB-206 commit | JOB-206-red / JOB-206-green2 | None |
 | JOB-213 | Fixed: folded admission, Retry lookup, database constraint and client fences | Owning JOB-213 commit | JOB-213-red / JOB-213-green2, JOB-213-controls2 | None |
 | DOC-203 | Fixed: commented canonical defaults and key-only startup warnings | Owning DOC-203 commit | DOC-203-red / DOC-203-green2 | None |
-| AI-510 | Not started | — | — | None |
-| JOB-201 | Not started | — | — | None |
+| AI-510 | Fixed: shared recovery with independent repair and plan resend allowances | Owning AI-510/JOB-201 commit | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
+| JOB-201 | Fixed: shared recovery with independent repair and plan resend allowances | Owning AI-510/JOB-201 commit | AI-510-JOB-201-red / AI-510-JOB-201-green4 | None |
 | JOB-301 | Not started; reproduction still required | — | — | None |
 | AI-110 | Not started | — | — | None |
 | AI-115 | Not started | — | — | None |
@@ -47,3 +47,10 @@ owner controls. No accounting, schema, prompt, stamp or stored-report change.
 JOB-213: alias admission changes from two queued jobs to one; no provider
 requests or ledger rows are added by attachment. Existing duplicate aliases
 are preserved during bootstrap until the new index can be safely installed.
+
+AI-510/JOB-201: fresh and resumed drop-to-rejection cases changed from data-only
+to complete analysis; mirror repair-to-drop preserves feedback byte for byte.
+Plan analyst ledger remains zero dollars; accepted siblings are called zero
+additional times. All 289 runner tests pass, including paid repair, refused
+passes, launch authority, synthesis allowance and exact-ledger controls. No
+prompt or schema change; stored reports and stamps are unchanged.

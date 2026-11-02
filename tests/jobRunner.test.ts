@@ -1956,6 +1956,50 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it.each([[false, false], [true, false], [false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s)", async (resume, mirror) => {
+    vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = { ...testAnalystPass("bull", 0), model: "chatgpt/gpt-6.1-sol" };
+    const bear = { ...testAnalystPass("bear", 0), model: "chatgpt/gpt-6.1-sol" };
+    passes.fingerprintPayload = () => "fp";
+    if (resume) {
+      persistPassSettlement({ jobId, runGeneration: 0, attemptId: "accepted-bull", pass: "bull",
+        settlement: testSuccessSettlement(bull, false), payloadFingerprint: "fp", settledAt: NOW().toISOString() });
+      handle.db.update(jobs).set({ status: "error", error: "abandoned" }).where(eq(jobs.id, jobId)).run();
+    }
+    const judge = passes.runJudgePass;
+    passes.runJudgePass = async (...args) => ({ ...(await judge(...args)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" });
+    const verify = passes.runVerifyPass;
+    passes.runVerifyPass = async (...args) => ({ ...(await verify(...args)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" });
+    let pairCalls = 0;
+    passes.runBullThenBear = async (_deps, hooks) => {
+      pairCalls++;
+      await launchTestAnalystSide(hooks, "bull"); await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("dropped"), { bull, bullLaunched: true, bearLaunched: true,
+        bearRetryable: true, bearFailureKind: mirror ? "schema" : "transport",
+        bearRawText: mirror ? "rejected-output" : undefined, bearError: "first failure" });
+    };
+    const seen: Array<{ feedback?: string; continuation: unknown }> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, launch, feedback, continuation) => {
+      expect(side).toBe("bear"); await launch?.(); seen.push({ feedback, continuation });
+      if ((resume || mirror) && seen.length === 1) throw Object.assign(new Error("dropped"), { kind: "transport", retryable: true });
+      if (!mirror && seen.length === (resume ? 2 : 1)) throw Object.assign(new Error("schema-invalid output"), {
+        kind: "schema", retryable: true, rawText: "rejected-output" });
+      await settlement?.(testSuccessSettlement(bear, false)); return bear;
+    };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW,
+      resume, overloadBackoffMs: 0 });
+    expect(result.dataOnly).toBe(false);
+    expect(pairCalls).toBe(resume ? 0 : 1);
+    expect(seen).toHaveLength(resume ? 3 : 2);
+    expect(seen.at(-1)?.feedback).toContain("rejected-output");
+    expect(seen.at(-1)?.continuation).toBeUndefined();
+    const rows = handle.db.select().from(costLog).all().filter(row => row.step === "bull" || row.step === "bear");
+    expect(rows.map(row => ({ step: row.step, cost: row.costUsd }))).toEqual(resume ? [] : [{ step: "bull", cost: 0 }]);
+    if (mirror) expect(seen[0]?.feedback).toBe(seen[1]?.feedback);
+  });
+
   it("JOB-213 defers the issuer index without discarding duplicate accepted work", () => {
     handle.sqlite.exec("DROP INDEX idx_jobs_active_entity; CREATE UNIQUE INDEX idx_jobs_active_symbol ON jobs(symbol) WHERE status IN ('queued','running')");
     const a = createJob("BRK.B"); const b = createJob("BRK-B");

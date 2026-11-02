@@ -5,6 +5,11 @@
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
 
+B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
+sides. Rejected-output repair and zero-cost plan resends have independent
+allowances; a repair resend retains feedback and uses no continuation.
+Keep per-attempt checkpoint identity and pre-dispatch accounting unchanged.
+
 B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
 attachment. Defer the issuer index while existing active alias rows drain;
 never terminalize or delete their accepted work to force a migration.

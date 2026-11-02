@@ -24,6 +24,11 @@ DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.
 
+AI-510 / JOB-201: Fresh and resumed analyst recovery share one settlement
+path, with one rejected-output repair and three zero-cost plan resends counted
+separately. A dropped repair retains identical feedback; a rejection clears
+continuation. Accepted siblings are reused.
+
 JOB-213: Active job admission and Retry fold share-class spellings. The client
 accepts attached alias snapshots. Existing duplicate active aliases drain
 without discarding work before the stronger database index is installed.
