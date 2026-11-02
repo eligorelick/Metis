@@ -440,9 +440,7 @@ translation in the period rather than of accounting behaviour.
 
 **House rule — the bands.** Sloan's result is a **decile** result: the extreme
 accrual deciles underperform. It contains no bright line, and any threshold is
-therefore a display convention, not a finding. This project uses |ratio| < 0.10
-*unremarkable*, < 0.20 *elevated*, otherwise *red*, and labels them heuristic
-wherever they appear.
+therefore a display convention, not a finding. This project bands the signed cash-flow accrual ratio: below 0.10 *unremarkable*, 0.10 up to 0.20 *elevated*, 0.20 and above *red* (`FORENSICS_HOUSE_RULES`), labelled heuristic. Negative ratios carry a cash-sustainability note rather than an earnings-inflation flag. The quality grade still scores the absolute ratio (`ACCRUALS_ABS_BAND`), so large negative ratios can lower that grade: a kept limitation.
 
 `computeAccruals` defines each period's `NOA = total assets − cash and
 short-term investments − long-term investments − (total liabilities − total
@@ -1009,7 +1007,7 @@ decayed to zero, largely through hedge-fund capital exploiting it. The
 accounting fact — accruals persist less than cash flows — survives; the
 return signal does not.
 
-**What the code has.** Fixed bands (|ratio| 0.10 / 0.20), labelled heuristic
+**What the code has.** Fixed bands on the signed ratio (0.10 / 0.20), labelled heuristic
 wherever they print (§4.3).
 
 **Cost.** A contemporaneous cross-section needs a universe. The SEC's

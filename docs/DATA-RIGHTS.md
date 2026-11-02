@@ -132,3 +132,5 @@ require consideration of the underlying rights. Metis does not filter exports
 by license, obtain display permission or remove restricted sources for you.
 
 Reports are informational only. They are not investment advice.
+
+**Issuer websites.** For an EDGAR-confirmed issuer whose profile names a website, public home, investor-relations, news and release pages can confirm earnings dates and provide up to three official material-event statements. Discovery makes at most six requests; excerpts sent to AI are labelled as issuer statements. Each website's terms govern its content.

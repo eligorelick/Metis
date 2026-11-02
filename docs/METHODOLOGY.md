@@ -126,12 +126,7 @@ on bottom-up beta as a research direction).
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.56.0 / payload 1.60.0 and Stage B
-STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P1/B4b, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
-extend the growth-anchor, scenario-horizon, research-reliability and prior audit
-rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
-research rationale; a passing test validates implementation behavior, not the
-predictive validity of a model or a live provider's contract.
+The current source declares report 1.56.0 / payload 1.60.0, Stage B `STAGE_B_2026_11_CLAUDE_REPAIRS_39` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -1423,7 +1418,7 @@ here calls a live provider: every tested behaviour is on synthetic responses.
 | FMP `shares-float` `outstandingShares`, `enterprise-values` `numberOfShares` | "historical prices and shares outstanding are adjusted for splits" | by the FAQ's wording, which names no endpoint or field | not tested |
 | FMP `income-statement` `eps`, `epsDiluted`, `weightedAverageShsOut`, `weightedAverageShsOutDil` | not stated by the FAQ | **no** | for a row for a period before a known split, each field is kept only when it matches the filer's same field on the same basis (±3% relative to the filer's magnitude; zero must match exactly); no absolute EPS allowance can approve a large proportional difference in a small amount. A field that does not match, or that the filer does not state, is withheld on its own, and EPS is never rebuilt from net income (`guardVendorShareFields`) |
 | FMP `key-metrics`, `ratios` (own-history multiples) | ratios of price to per-share figures; basis-invariant only if both sides share one | not stated | not tested |
-| FMP `analyst-estimates` `epsAvg` | not stated | **no** | not tested; shown as "currency unknown" and not registered (D-28) |
+| FMP `analyst-estimates` `epsAvg` | not stated | **no** | split basis not tested. Currency (D-57): explicit row currency when present; otherwise inherited only for a non-ADR issuer with matching model and listing currencies, registered with `currencyBasis: "inherited"`; otherwise currency remains unknown. Currency and split-basis admission are separate |
 | Yahoo chart `close` | adjusted for the splits the same answer lists | no published contract (unofficial endpoint) | synthetic responses only |
 | Yahoo chart `adjclose` | splits and dividends | no published contract | synthetic responses only (beta) |
 | Yahoo chart `events.splits` | dated by the first split-adjusted session; `numerator`/`denominator` post:pre | no published contract | synthetic responses only (`tests/yahoo.client.test.ts`) |
@@ -2642,8 +2637,8 @@ g = min(ROTE × retention, terminal-growth cap 2.5%, risk-free rate)
 Two things it is **not**:
 
 - It is **not the forward model read as a multiple.** *The excess-return equity
-  model* fades ROE linearly to the cost of equity over ten years and adds no
-  continuing value; this identity
+  model* fades ROE to cost of equity plus evidenced persistent excess, and
+  adds a continuing value only when that excess is carried; this identity
   assumes ROTE persists in perpetuity. They rest on different assumptions and
   can legitimately disagree — the difference is the value of persistence, and
   the basis string says so. (An earlier version of this section, and of the
@@ -2695,6 +2690,9 @@ independently selected share-count input retains its existing admission rule.
 | Tangible leverage | (equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles) | computed whenever equity and assets are on file, CET1 or not (D-46); marked a stand-in only when CET1 is untagged. Its numerator and denominator differ from regulatory CET1, so it is not comparable and has no guaranteed ordering relative to it. [Basel risk weights](https://www.bis.org/committees/bcbs/basel-framework/standard/cre/20/inforce/2023-01-01/published/2022-12-08) can exceed 100%. |
 | Net charge-offs / average loans | the fiscal year's charge-offs net of recoveries / average of the same loan element at the two year ends (the FDIC Quarterly Banking Profile net charge-off rate) | when no fiscal-year after-recovery element or write-off/recovery pair from one family is tagged, a pair's periods differ, or the prior year-end loan balance is not tagged under the same element (D-46) |
 | Loans / deposits | total loans / `Deposits` at one balance-sheet date | when either is untagged or the two dates differ (D-46) |
+| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
+| Provisions / loans | provision for credit losses / total loans | when none of `ProvisionForLoanLeaseAndOtherLosses`, `ProvisionForLoanLossesExpensed`, `ProvisionForCreditLossExpenseReversal` or `ProvisionForLoanAndLeaseLosses` is tagged for the fiscal year, or total loans are unavailable or not positive. For component-only filers the components are not summed: financing-receivable and off-balance-sheet expenses need not establish the whole provision |
+| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 "Total loans" in these ratios is gross of the allowance first
 (`FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss`, then
@@ -2734,9 +2732,6 @@ funded by selling the securities (a sticky deposit base offsets them), loan
 growth to be said to include acquisitions, a count of signs never to be
 presented as a probability, and the figures to be called public-filing
 proxies with no supervisory rating.
-| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
-| Provisions / loans | provision for credit losses / total loans | when neither the provision element nor its component sum resolves |
-| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 #### Insurers
 
@@ -3552,7 +3547,7 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_NVDA_AUDIT`, stamped
+(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`, stamped
 when D-61 changed the durability and buyback-timing bands). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
@@ -3579,6 +3574,9 @@ funding:
 | Net charge-offs / average loans | 0.25 | ≤ 0.25% → 85, 0.5% → 70, 1% → 50, 2% → 25, ≥ 3% → 10; the FDIC Quarterly Banking Profile rate definition |
 | NPL ratio (nonaccrual / loans) | 0.15 | ≤ 0.25% → 85, 0.5% → 75, 1% → 60, 2% → 40, ≥ 4% → 15 |
 | Loans / deposits | 0.20 | ≤ 80% → 80, 90% → 70, 100% → 50, 110% → 30, ≥ 125% → 15; a low ratio is not penalised, because custody and trust banks run low by design |
+| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
+| Provisions / loans | provision for credit losses / total loans | when none of `ProvisionForLoanLeaseAndOtherLosses`, `ProvisionForLoanLossesExpensed`, `ProvisionForCreditLossExpenseReversal` or `ProvisionForLoanAndLeaseLosses` is tagged for the fiscal year, or total loans are unavailable or not positive. For component-only filers the components are not summed: financing-receivable and off-balance-sheet expenses need not establish the whole provision |
+| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 The aspect is graded only when tangible common equity / tangible assets and at
 least one other input are on file; otherwise it is unscored with that reason
@@ -4377,12 +4375,9 @@ settled costs remain intact and saved reports are never rewritten.
 New reports carry this text verbatim; historical reports retain the disclaimer
 saved when they were generated:
 
-> Informational only — not investment advice. This report contains A-F letter
-> grades and scenario price targets; both are model outputs derived from the
-> data and assumptions disclosed here, and neither is a recommendation to buy,
-> sell, or hold any security.
+> Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.
 
-The disclaimer names the report's output families. Seven aspects have
+The disclaimer names the report's output families only where present (D-79). Seven aspects have
 deterministic numeric scores and A–F bands when applicable evidence supports
 them; AI reports additionally carry model-authored qualitative grades. Data-only
 reports do not invent narrative assessments, and unsupported aspects can remain

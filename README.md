@@ -8,7 +8,7 @@ Metis is a local-first equity research app with financial calculations and optio
 
 ## What it does
 
-- Fetches typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance,
+- Fetches typed data from Financial Modeling Prep, SEC EDGAR and an EDGAR-confirmed issuer's own website, Yahoo Finance,
   FINRA, FRED, Finnhub and the U.S. Treasury (risk-free fallback), and validates
   freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
 - Computes growth, returns, capital structure, valuation, scenarios,
@@ -203,7 +203,7 @@ end-to-end costs have not been measured in live Metis runs for this update.
 ## Running it safely
 
 Metis has no telemetry, analytics or update check;
-its own outbound traffic goes only to the providers you configure. The Next.js
+its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js
 CLI has separate anonymous telemetry, off when the shipped
 `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`).
 [Privacy and safety](docs/PRIVACY.md) names what each receives, where the local
