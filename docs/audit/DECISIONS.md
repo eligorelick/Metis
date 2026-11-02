@@ -3121,3 +3121,5 @@ DB-005: Withhold score and grade comparisons when both recorded band tables diff
 RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
 
 RPT-203: Use band-safe formatting for prose scores.
+
+RPT-205: Preserve the geographic scope actually named by the source row.

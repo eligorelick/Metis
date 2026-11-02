@@ -557,7 +557,6 @@ export function geographyLabel(name: string): string {
   const fixed: Record<string, string> = {
     "TAIWAN, PROVINCE OF CHINA": "Taiwan",
     "TAIWAN": "Taiwan",
-    "CHINA": "China (incl. Hong Kong)",
     "UNITED STATES": "United States",
     "KOREA, REPUBLIC OF": "South Korea",
     "UNITED KINGDOM": "United Kingdom",

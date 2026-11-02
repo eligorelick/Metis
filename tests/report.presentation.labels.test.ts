@@ -68,7 +68,8 @@ describe("reader text helpers", () => {
 
   it("names geographies and moat sources for readers", () => {
     expect(geographyLabel("TAIWAN, PROVINCE OF CHINA")).toBe("Taiwan");
-    expect(geographyLabel("CHINA")).toBe("China (incl. Hong Kong)");
+    // RPT-205: the source name does not establish Hong Kong scope.
+    expect(geographyLabel("CHINA")).toBe("China");
     expect(geographyLabel("OTHER COUNTRIES")).toBe("Other Countries");
     expect(geographyLabel("Other Americas")).toBe("Other Americas");
     expect(moatHeading({ source: "scale", strength: "wide" })).toBe("Scale — wide");
@@ -80,4 +81,9 @@ describe("reader text helpers", () => {
     expect(annualSegmentHeading("Product", rows, false)).toBe("Product segments");
     expect(annualSegmentHeading("Geographic", rows, true)).toBe("Geographic segments — annual, fiscal year ended 2026-01-25 (prior presentation)");
   });
+});
+
+it("RPT-205: geographic labels add no unrecorded scope", () => {
+ expect(geographyLabel("CHINA")).toBe("China");
+ expect(geographyLabel("China including Hong Kong")).toBe("China including Hong Kong");
 });
