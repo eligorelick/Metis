@@ -35,3 +35,11 @@ These are comparable targeted runs, not claims about the full base suite. Named 
 ## Residuals
 
 No calibration or forecast-accuracy evidence is claimed. The manual reading script retains 48px slack based on the recorded samples; broader live-layout confirmation remains future manual work. Fresh-head full product, risk and core receipt results are recorded in the implementation handoff.
+
+## Base details and scope measurements
+
+The base already declared the shared report, payload and Stage B stamps correctly, and CHANGELOG already matched them: those DOC-202 subclaims were not reproduced. The stale score-band name, missing header score-band clause, EPS row and continuing-value prose still reproduced. All six documentation contracts failed before the edits.
+
+Read-only owner-checkout measurements (owner-scope-measure and owner-lint-measure) show compiler inputs 939 -> 925: exactly the 14 untracked independent-audit scripts drop, with no tracked file lost. Lint drops 211 untracked code inputs to zero, with no tracked input lost. The 66 current TSX files each have a named placement. Three logic candidates remain exempt with their measured targeted figures and owning tests; full-suite candidate measurements are retained with the handoff.
+
+The coverage-instrumented inventory test exceeded its original five-second timeout while enumerating every tracked lint input. A 30-second timeout permits the same complete assertions; scope-risk-repro is red and scope-risk-green passes. No assertion or coverage floor was relaxed. ESM transport, loopback, SEC opt-in and inherited foreign directory controls pass in test203-esm-controls. Review also caught and removed duplicate bank definitions; docs-review-red/green retain that correction.

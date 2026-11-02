@@ -89,6 +89,8 @@ of the U.S. government are not subject to copyright in the United States; see
 the [government-work copyright provision](https://www.copyright.gov/title17/92chap1.html#105)
 and the Treasury's [site policies and notices](https://home.treasury.gov/footer/site-policies-and-notices).
 
+**Issuer websites.** For an EDGAR-confirmed issuer whose profile names a website, public home, investor-relations, news and release pages can confirm earnings dates and provide up to three official material-event statements. Discovery makes at most six requests; excerpts sent to AI are labelled as issuer statements. Each website's terms govern its content.
+
 **Finnhub.** Used for insider sentiment, news/earnings fallback and certain
 sector data. Its posted terms limit personal plans, restrict business use even
 internally without written approval, and restrict sharing of data or derived
@@ -132,5 +134,3 @@ require consideration of the underlying rights. Metis does not filter exports
 by license, obtain display permission or remove restricted sources for you.
 
 Reports are informational only. They are not investment advice.
-
-**Issuer websites.** For an EDGAR-confirmed issuer whose profile names a website, public home, investor-relations, news and release pages can confirm earnings dates and provide up to three official material-event statements. Discovery makes at most six requests; excerpts sent to AI are labelled as issuer statements. Each website's terms govern its content.

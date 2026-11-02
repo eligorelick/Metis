@@ -240,12 +240,12 @@ const EXPECTED_RISK_SOURCES = [
  * so a new module has to be placed on purpose (audit 2026-09-06, F200).
  */
 const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
-  "src/app/company/[symbol]/GenerateReport.tsx": "UI behavior exercised by tests/api.routes.export.test.ts, tests/company.generateReport.persistence.test.ts, tests/company.generateReport.resume.test.ts, tests/company.generateReport.route.test.ts, tests/company.generateReport.stream.test.ts, tests/company.generateReport.unsupported.test.ts, tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts, tests/report.dossier.test.ts, tests/report.surface.client.test.ts",
+  "src/app/company/[symbol]/GenerateReport.tsx": "Measured 79.24/84.44/96.25/83.68 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/api.routes.export.test.ts, tests/company.generateReport.persistence.test.ts, tests/company.generateReport.resume.test.ts, tests/company.generateReport.route.test.ts, tests/company.generateReport.stream.test.ts, tests/company.generateReport.unsupported.test.ts, tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts, tests/report.dossier.test.ts, tests/report.surface.client.test.ts",
   "src/app/company/[symbol]/history/diff/diff-body.tsx": "UI behavior exercised by tests/report.history.export.test.ts",
   "src/app/company/[symbol]/history/diff/page.tsx": "UI behavior exercised by tests/company.routes.symbol.test.ts, tests/report.history.export.test.ts, tests/report.revisionDigest.test.ts",
   "src/app/company/[symbol]/history/HistoryCompare.tsx": "history selection navigation exercised by tests/report.history.export.test.ts",
   "src/app/company/[symbol]/history/page.tsx": "UI behavior exercised by tests/company.routes.symbol.test.ts, tests/report.history.export.test.ts, tests/report.revisionDigest.test.ts",
-  "src/app/company/[symbol]/page.tsx": "UI behavior exercised by tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts",
+  "src/app/company/[symbol]/page.tsx": "Measured 79.71/66.84/60.29/80.42 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts",
   "src/app/company/[symbol]/report/[reportId]/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
   "src/app/company/[symbol]/report/[reportId]/print/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
   "src/app/company/[symbol]/ReportTabs.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts",
@@ -257,7 +257,7 @@ const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
   "src/app/settings/AppearanceSettings.tsx": "UI behavior exercised by tests/appearance.surfaces.test.ts",
   "src/app/settings/page.tsx": "render only: React presentation; no research calculation or persisted report mutation",
   "src/app/settings/ProviderCredentials.tsx": "UI behavior exercised by tests/settings.credentials.ui.test.ts",
-  "src/app/settings/ResumeQueueControl.tsx": "UI behavior exercised by tests/settings.resumeQueue.test.ts",
+  "src/app/settings/ResumeQueueControl.tsx": "Measured 95/70.58/80/94.73 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/settings.resumeQueue.test.ts",
   "src/app/settings/SettingsPageView.tsx": "UI behavior exercised by tests/settings.page.test.ts, tests/settings.resumeQueue.test.ts",
   "src/appearance/UiDesignProvider.tsx": "UI behavior exercised by tests/appearance.density.test.ts, tests/appearance.surfaces.test.ts, tests/charts.evidenceSurfaces.test.ts, tests/charts.evidenceTable.test.ts, tests/commandPalette.test.ts, tests/company.generateReport.persistence.test.ts, tests/report.evidenceDrilldown.test.ts, tests/report.exportMenu.test.ts, tests/report.provenanceDetails.test.ts, tests/report.publicReadiness.test.ts",
   "src/brand/MetisLogo.tsx": "render only: React presentation; no research calculation or persisted report mutation",

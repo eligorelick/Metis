@@ -22,4 +22,4 @@ it("TEST-202 excludes owner code but keeps tracked lint inputs",async()=>{
  for(const f of ["docs/owner-untracked/probe.ts","brag-output-new/video.js"]) expect(await eslint.isPathIgnored(f),f).toBe(true);
  const files=execFileSync("git",["ls-files","-z"],{encoding:"utf8"}).split("\0").filter(f=>/\.(?:tsx?|mjs|cjs|js)$/.test(f)&&f!=="next-env.d.ts");
  for(const f of files) expect(await eslint.isPathIgnored(f),f).toBe(false);
-});
+}, 30_000);

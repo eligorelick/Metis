@@ -13,11 +13,17 @@ it("TEST-203 refuses Node transports before reaching a socket or resolver, passi
   try {
    installNoLiveNetworkGuard();
    const call=Reflect.get(module,key) as (...args: unknown[])=>unknown;
+   const named=await import(module===http?"node:http":module===https?"node:https":module===dns?"node:dns":"node:dns/promises");
+   expect(Reflect.get(named,key)).toBe(call);
    try { await call(module===dns||module===dnsPromises?"example.invalid":"https://example.invalid/"); expect.fail("guard accepted remote transport"); }
    catch(e){ expect(String(e)).toContain("live network is disabled in the test suite"); }
    expect(stub).not.toHaveBeenCalled();
    await call(module===dns||module===dnsPromises?"127.0.0.1":"http://127.0.0.1/");
    expect(stub).toHaveBeenCalledTimes(1);
+   const previousSmoke=process.env.EDGAR_LIVE_SMOKE;
+   process.env.EDGAR_LIVE_SMOKE="1";
+   try { await call(module===dns||module===dnsPromises?"data.sec.gov":"https://data.sec.gov/"); expect(stub).toHaveBeenCalledTimes(2); }
+   finally { if(previousSmoke===undefined) delete process.env.EDGAR_LIVE_SMOKE; else process.env.EDGAR_LIVE_SMOKE=previousSmoke; }
   } finally { Object.defineProperty(module,key,{value:original,writable:true,configurable:true}); syncBuiltinESMExports(); }
  }
 });
