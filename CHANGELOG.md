@@ -18,6 +18,20 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R8 FIGR evidence selection (2026-11-02)
+
+- Keep complete filing sentences, referenced KPI definitions and footnotes,
+  financing lifecycle qualifications, material component and sensitivity tables,
+  expense drivers, dated repurchase capacity and third-party cash context.
+- Retain omitted acquisition-facility closures from the existing shared 8-K
+  pool. Reserve coverage overhead from lower-ranked source text; no caps rise.
+- Bound insider row coverage separately from aggregate windows, disclose absent
+  per-code share totals and potentially incomplete acquisitions, and explain
+  FRED monthly observation dates and CPI year-over-year transforms.
+- Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
+  341,152 characters (−1,003). Shared stamps and stored data are unchanged.
+  See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
+
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 
 - End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026

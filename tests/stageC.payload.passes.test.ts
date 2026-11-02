@@ -176,6 +176,7 @@ import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
 import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityPayloadGolden";
 import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
 import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
+import { restoreR8EvidenceBasisGolden } from "./helpers/r8EvidenceBasisGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -730,7 +731,8 @@ describe("payload determinism + provenance", () => {
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
     // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
     // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(buildInputs()))))))));
+    // R8 restores only its reviewed evidence qualifications before the R6 pin.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(buildInputs())))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -6228,6 +6230,11 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
 });
 
 describe("macro figures carry their units", () => {
+  it("names monthly observation dates and CPI year-over-year transforms beside the series (R8)", () => {
+    const { payload } = buildInputs();
+    expect(payload.macro.notes.join(" ")).toMatch(/monthly.*first day.*observation month.*not.*release date/i);
+    expect(payload.macro.notes.join(" ")).toContain("CPIAUCSL: year-over-year %");
+  });
   it("shows FRED rates in percent and registers them so a cited yield traces", () => {
     const { payload } = buildInputs();
     const dgs10 = payload.macro.figures.find((f) => f.source === "fred:DGS10");
