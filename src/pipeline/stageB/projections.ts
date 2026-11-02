@@ -202,9 +202,9 @@ function point(period: string, value: number, unit: string, metric: ProjectionMe
 
 /** Fiscal-year label from an ISO date; falls back to the raw string. */
 function fyLabel(row: {date:string;fiscalYear?:string|null}, history: readonly {date:string;fiscalYear?:string|null}[]): string {
-  const year = (r: typeof row) => typeof r.fiscalYear === "string" && /^\d{4}$/.test(r.fiscalYear) ? r.fiscalYear : r.date.slice(0,4);
+  const year = (r: typeof row) => typeof r.fiscalYear === "string" && /^\d{4}$/.test(r.fiscalYear) ? r.fiscalYear : null;
   const y = year(row);
-  return history.some(other => other.date !== row.date && year(other) === y) ? `FY${y} (ended ${row.date})` : `FY${y}`;
+  return y === null || history.some(other => other.date !== row.date && year(other) === y) ? `FY ending ${row.date}` : `FY${y}`;
 }
 
 /** Weighted blend of three same-length scenario paths. */

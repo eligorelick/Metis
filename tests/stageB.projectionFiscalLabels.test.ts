@@ -10,6 +10,7 @@ it("preserves every actual at January collisions and uses the filed fiscal year 
   const base={route:c.route,valuation:c.valuation,waccPct:c.returns.wacc.waccPct,dilutedShares:100e6,shareCountAnnualizedPct:null,currency:"USD",asOf:"2026-07-06"};
   const p=computeProjections({...base,incomeHistory:dates.map((date,i)=>({date,revenue:100+i*10,ebit:20,epsDiluted:1,netIncome:15})),fcfHistory:dates.map(date=>({date,fcf:10}))});
   for(const s of p.series) {
+    expect(s.historical.every(p=>p.period.startsWith("FY ending "))).toBe(true);
     expect(new Set(s.historical.map(p=>p.period)).size).toBe(s.historical.length);
     expect(projectionPeriodRows(s).filter(row=>projectionCellPoint(row,"historical",s.unit)!==null).length).toBe(s.historical.length);
   }
