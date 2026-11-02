@@ -5168,6 +5168,10 @@ export interface ExcessReturnInputs {
     basis: "fiscal-year-rote" | "fiscal-year-common-roe";
     asOf: string | null;
     bookValue: number;
+    /** F4: preferred claims on this book's date; absent means no dated claim. */
+    convertiblePreferredClaim?: number | null;
+    permanentPreferred?: number | null;
+    preferredSeriesDistinct?: boolean;
   } | null;
   /**
    * Optional caller override of the TERMINAL ROE (percent). Without an override,
@@ -5544,9 +5548,13 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const preferredFold = foldConvertiblePreferred(inputs.permanentPreferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
   const additionalPreferred = Math.max(0, (preferredFold.preferred ?? 0) - (inputs.permanentPreferred ?? 0));
   if (preferredFold.gap) gaps.push(preferredFold.gap);
-  if (additionalPreferred > 0) inputs = { ...inputs,
+  const alternative = inputs.startAlternative;
+  const alternativeFold = foldConvertiblePreferred(alternative?.permanentPreferred ?? null,
+    alternative?.convertiblePreferredClaim, alternative?.preferredSeriesDistinct);
+  const additionalAlternativePreferred = Math.max(0, (alternativeFold.preferred ?? 0) - (alternative?.permanentPreferred ?? 0));
+  inputs = { ...inputs,
     bookValue: inputs.bookValue == null ? null : inputs.bookValue - additionalPreferred,
-    startAlternative: inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue - additionalPreferred } : inputs.startAlternative };
+    startAlternative: alternative ? { ...alternative, bookValue: alternative.bookValue - additionalAlternativePreferred } : alternative };
   const years = inputs.years ?? EXCESS_RETURN_YEARS;
   const reverseNotes: string[] = [];
   // WS5: the horizon, the discount rate and the opening book value are printed
@@ -5772,6 +5780,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   let valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   let shares = posOrNull(inputs.dilutedShares);
   let restoredBook = 0;
+  let restoredPreferredBook = 0;
   let readings: ConvertibleReading[] | undefined;
   if (inputs.convertibles?.length && shares !== null) {
     const filedShares = shares;
@@ -5783,7 +5792,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // residual returns. A face-value add-back after valuation is inconsistent.
       const candidate = excessReturnValue(bv0 + c, roePath, coe, payoutPath, continuing);
       const value = candidate.equityValue / d;
-      if (d > 0 && value < best) { best = value; shares = d; restoredBook = c; readings = variant.readings; valued = candidate; }
+      if (d > 0 && value < best) { best = value; shares = d; restoredBook = c; restoredPreferredBook = variant.restored.preferred; readings = variant.readings; valued = candidate; }
     }
     bv0 += restoredBook;
     const entries = convertibleReadingGaps(readings ?? [], filedShares);
@@ -5799,7 +5808,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   // C-10: the fiscal-year start, valued with the same fade target, carry and
   // payout from its own book value, so the reader sees what the start choice is worth.
   let startAlternative: ExcessReturnStartAlternative | undefined;
-  const alt = inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue + restoredBook } : null;
+  // F4: the selected conversion fraction restores only preferred present at the alternative date.
+  const preferredConversionFraction = (inputs.convertiblePreferredClaim ?? 0) > 0
+    ? restoredPreferredBook / inputs.convertiblePreferredClaim! : 0;
+  const alternativeRestoredBook = restoredBook - restoredPreferredBook +
+    preferredConversionFraction * Math.min(alternativeFold.preferred ?? 0, alternative?.convertiblePreferredClaim ?? 0);
+  const alt = inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue + alternativeRestoredBook } : null;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
     const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
     const differencePp = alt.roePct - roeStart;

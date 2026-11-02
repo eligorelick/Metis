@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
 
+- Review F4: The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
 - Review F3: The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
 
 - Review F2: Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.

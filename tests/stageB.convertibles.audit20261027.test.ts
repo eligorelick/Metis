@@ -98,7 +98,7 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
     const full = excessReturnModel(base);
     const less = excessReturnModel({ ...base, bookValue: 950 });
     const expected = Math.min(less.equityValue! / 100, full.equityValue! / 110);
-    const v = excessReturnModel({ ...base, convertiblePreferredClaim: 50, convertibles: [pref], price: expected });
+    const v = excessReturnModel({ ...base, startAlternative: { ...base.startAlternative, convertiblePreferredClaim: 50 }, convertiblePreferredClaim: 50, convertibles: [pref], price: expected });
     const converted = v.convertibles![0].reading === "converted";
     expect(v.perShare).toBeCloseTo(expected, 9);
     const reference = excessReturnModel({ ...base, bookValue: converted ? 1000 : 950, dilutedShares: converted ? 110 : 100, price: expected,
@@ -153,5 +153,41 @@ describe("F2: market EV and own-history count tagged preferred once", () => {
     expect(current.percentileRank).toBe(100); // dated 500M current claim exceeds historical 50M claims
     expect(current.rankedCurrent).toEqual(prior.rankedCurrent);
     expect(after.multiples.find(row => row.key === "evToSales")!.current! - before.multiples.find(row => row.key === "evToSales")!.current!).toBeGreaterThan(0);
+  });
+});
+
+
+describe("F4: fiscal-year preferred is measured at its own book date", () => {
+  it.each(["bank", "insurer", "reit"] as const)("%s never subtracts a later claim from the FY alternative", route => {
+    const b = buildSyntheticRouteBundle(route);
+    if (!b.profile.ok) throw new Error("profile");
+    if (route === "reit") b.profile.value.data.rows[0].industry = "REIT - Mortgage";
+    for (const result of [b.statements.balanceAnnual, b.statements.balanceQuarterly]) {
+      if (!result.ok) throw new Error("balance");
+      for (const row of result.value.data.rows) row.preferredStock = 0;
+    }
+    withIssuerFacts(b, { cik: 42, entityName: "Test", facts: {} });
+    const control = runStageB(structuredClone(b)).valuation.excessReturn!;
+    for (const prior of [null, 0, 50 * M]) {
+      const copy = structuredClone(b);
+      withIssuerFacts(copy, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+        ConvertiblePreferredStockNonredeemableOrRedeemableIssuerOptionValue: { units: { USD: [
+          { end: "2026-03-31", val: 180 * M, form: "10-Q", filed: "2026-04-30", accn: "current" },
+          ...(prior === null ? [] : [{ end: "2025-12-31", val: prior, form: "10-K", filed: "2026-02-10", accn: "prior" }]),
+        ] } },
+      } } });
+      const er = runStageB(copy).valuation.excessReturn!;
+      const book = control.startAlternative!.bookValue - (prior ?? 0);
+      expect(er.startAlternative!.bookValue).toBe(book);
+      expect(er.startAlternative!.perShare).toBeCloseTo(control.startAlternative!.perShare! * book / control.startAlternative!.bookValue, 9);
+      expect(er.startCoeGrid!.rows.some(row => row.bookValue === book)).toBe(true);
+    }
+  });
+  it("does not restore a later converted preferred into an earlier book", () => {
+    const base = { bookValue: 1000, currentRoePct: 15, costOfEquityPct: 10, payoutRatioPct: 50, dilutedShares: 110,
+      startAlternative: { roePct: 12, basis: "fiscal-year-common-roe" as const, asOf: "2025-12-31", bookValue: 900 } };
+    const v = excessReturnModel({ ...base, convertiblePreferredClaim: 50, convertibles: [{ kind: "preferred", conversionShares: 10, claim: 50, settlement: "full-shares", conversionPrice: null, period: { start: "2026-01-01", end: "2026-03-31" }, basis: "filed" }] });
+    expect(v.convertibles![0].reading).toBe("converted");
+    expect(v.startAlternative!.bookValue).toBe(900);
   });
 });

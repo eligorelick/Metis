@@ -637,3 +637,12 @@ The bridge audit table labels each convertible reading as a memo inside the prec
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | F3 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f3-red-confirmed` / `f3-green` | Saved figures/bytes retained; re-run uses corrected method |
+
+
+## Review round 2: F4
+
+The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F4 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f4-red` / `f4-green` | Saved figures/bytes retained; re-run uses corrected method |

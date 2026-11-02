@@ -4172,6 +4172,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const combinationYears = financialRoute
     ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
     : new Map<string, string>();
+  const fiscalYearBalance = ctx.balanceAnnual.find(row => isoDay(row.date) === commonReturns.asOf);
+  const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
@@ -4181,7 +4183,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
           currentRoeAsOf: ttmStart?.asOf ?? commonReturns.asOf,
           startAlternative: ttmStart !== null && commonReturns.latestRotePct !== null && commonReturns.latestTangibleCommonEquity !== null && commonReturns.latestTangibleCommonEquity > 0
-            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity }
+            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity,
+              convertiblePreferredClaim: fiscalYearConvertibles.convertiblePreferredClaim,
+              permanentPreferred: num(fiscalYearBalance?.preferredStock), preferredSeriesDistinct: fiscalYearConvertibles.preferredSeriesDistinct }
             : null,
           // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
