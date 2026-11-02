@@ -127,6 +127,11 @@ import { setSetting } from "@/settings/settings";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE } from "@/ai/store";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { buildDataBundle } from "@/pipeline/dataBundle";
+vi.mock("@/pipeline/dataBundle", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/pipeline/dataBundle")>();
+  return { ...actual, buildDataBundle: vi.fn(actual.buildDataBundle) };
+});
 import { createRuntimeArtifactManifest } from "../scripts/runtime-artifact-manifest.mjs";
 import { explainAnalysisModel } from "@/settings/contracts";
 import {
@@ -1712,6 +1717,7 @@ describe("runJob - durable paid-pass settlements", () => {
         .toEqual([]);
       const report = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
       const parsed = ReportSchema.parse(JSON.parse(report.reportJson!));
+      expect(parsed.appendix.missingData.find(gap => gap.field === `llm.${side}`)?.reason).toContain("resumed side failed");
       expect(parsed.appendix.missingData).toEqual(expect.arrayContaining([
         expect.objectContaining({ field: `llm.${side}`, attemptedSources: [] }),
       ]));
@@ -1949,6 +1955,231 @@ describe("runJob - durable paid-pass settlements", () => {
     releaseBear.resolve(undefined);
     expect((await running).status).toBe("done");
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
+  });
+
+  it.each(["stream cut off", "server_error"])("JOB-205 names exhausted judge failures by cause (%s)", async (reason) => {
+    const { jobId } = createJob("AAPL"); const { passes } = mockPasses();
+    let requests = 0;
+    passes.runJudgePass = async () => { requests++; throw Object.assign(new Error(reason), { kind: "transport", retryable: true }); };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 0 });
+    expect(requests).toBe(3);
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find(gap => gap.field === "llm.judge")?.reason).toMatch(reason === "server_error" ? /busy or unavailable.*3 attempt/ : /cut off.*3 attempt/);
+    expect(handle.db.select().from(costLog).all().map(row => row.costUsd)).toEqual([0.9, 0.47]);
+  });
+
+  it.each(["executive", "manifest"])("AI-110 persists consistent safe data-only output after %s rejection", async (trigger) => {
+    const { jobId } = createJob("AAPL");
+    const bundle = fakeBundle();
+    if (trigger === "manifest") bundle.gaps.push({ field: "keyMetrics", reason: "Upstream says Strong Buy.", severity: "warn" });
+    else bundle.executives = { ok: true, value: { data: { rows: [{ name: "Jane Doe", title: "Chief Financial Officer. Strong Buy" }], raw: {} },
+      source: "fmp", endpoint: "synthetic-executives", asOf: "2026-07-06", fetchedAt: NOW().toISOString() } };
+    const result = await runJob(jobId, mockPasses().passes, { bundle, hasAnthropicKey: false, now: NOW });
+    expect(result.status).toBe("done");
+    const row = handle.db.select().from(reports).get()!;
+    expect(row.reportJson).not.toContain("Strong Buy");
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(report.appendix.missingData.some(gap => gap.field === "analysis.llm" && /safety schema/.test(gap.reason))).toBe(true);
+    const { buildDataCompleteness } = await import("@/report/completeness");
+    expect(report.meta.dataCompleteness).toEqual(buildDataCompleteness(report.appendix.missingData));
+    const stated = /(\d+) data gaps? disclosed in the appendix/.exec(report.verdict.synthesis);
+    if (stated !== null) expect(Number(stated[1])).toBe(report.appendix.missingData.length);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+  });
+
+  it("JOB-301 fresh-page discovery exposes a terminal job with accepted analyst work", async () => {
+    const { jobId } = createJob("AAPL");
+    seedResumableLegacyJob(jobId);
+    const { activeRunIdentity } = await import("@/pipeline/companyJobIdentity");
+    const before = handle.db.select().from(jobs).all();
+    expect(await activeRunIdentity("AAPL")).toBe(jobId);
+    expect(handle.db.select().from(jobs).all()).toEqual(before);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+    const newer = createJob("AAPL");
+    handle.db.update(jobs).set({ status: "error", updatedAt: "2099-01-01T00:00:00.000Z" }).where(eq(jobs.id, newer.jobId)).run();
+    // B8-OD-4: a newer ineligible attempt must not resurrect an older lineage.
+    expect(await activeRunIdentity("AAPL")).toBeNull();
+  });
+
+  it("P4-4 retains provider attribution when a paid repair is blocked before launch", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull"); await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("rejected"), { bull, bullLaunched: true, bearLaunched: true,
+        bearRetryable: true, bearFailureKind: "schema", bearError: "schema-invalid output" });
+    };
+    let bearPreflights = 0;
+    passes.preflightPass = (_deps, request) => { if (request.pass === "bear" && ++bearPreflights > 1) throw new Error("paid bear pass blocked by job-budget"); };
+    passes.runAnalystPass = async () => { throw new Error("must not launch"); };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result.dataOnly).toBe(true);
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find(gap => gap.field === "llm.bear")?.attemptedSources).toEqual(["anthropic"]);
+  });
+
+  it.each([[false, false, false], [true, false, false], [false, true, false], [false, false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s budget=%s)", async (resume, mirror, budget) => {
+    vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = { ...testAnalystPass("bull", 0), model: "chatgpt/gpt-6.1-sol" };
+    const bear = { ...testAnalystPass("bear", 0), model: "chatgpt/gpt-6.1-sol" };
+    passes.fingerprintPayload = () => "fp";
+    if (resume) {
+      persistPassSettlement({ jobId, runGeneration: 0, attemptId: "accepted-bull", pass: "bull",
+        settlement: testSuccessSettlement(bull, false), payloadFingerprint: "fp", settledAt: NOW().toISOString() });
+      handle.db.update(jobs).set({ status: "error", error: "abandoned" }).where(eq(jobs.id, jobId)).run();
+    }
+    const judge = passes.runJudgePass;
+    passes.runJudgePass = async (...args) => ({ ...(await judge(...args)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" });
+    const verify = passes.runVerifyPass;
+    passes.runVerifyPass = async (...args) => ({ ...(await verify(...args)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" });
+    let pairCalls = 0;
+    passes.runBullThenBear = async (_deps, hooks) => {
+      pairCalls++;
+      await launchTestAnalystSide(hooks, "bull"); await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("dropped"), { bull, bullLaunched: true, bearLaunched: true,
+        bearRetryable: true, bearFailureKind: mirror ? "schema" : "transport",
+        bearRawText: mirror ? "rejected-output" : undefined, bearError: "first failure" });
+    };
+    const seen: Array<{ feedback?: string; continuation: unknown }> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, launch, feedback, continuation) => {
+      expect(side).toBe("bear"); await launch?.(); seen.push({ feedback, continuation });
+      if (((resume || mirror) && seen.length === 1) || (budget && seen.length <= 2)) throw Object.assign(new Error("dropped"), { kind: "transport", retryable: true });
+      if (!mirror && seen.length === (budget ? 3 : resume ? 2 : 1)) throw Object.assign(new Error("schema-invalid output"), {
+        kind: "schema", retryable: true, rawText: "rejected-output" });
+      await settlement?.(testSuccessSettlement(bear, false)); return bear;
+    };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW,
+      resume, overloadBackoffMs: 0 });
+    expect(result.dataOnly).toBe(false);
+    expect(pairCalls).toBe(resume ? 0 : 1);
+    expect(seen).toHaveLength(budget ? 4 : resume ? 3 : 2);
+    expect(seen.at(-1)?.feedback).toContain("rejected-output");
+    expect(seen.at(-1)?.continuation).toBeUndefined();
+    const rows = handle.db.select().from(costLog).all().filter(row => row.step === "bull" || row.step === "bear");
+    expect(rows.map(row => ({ step: row.step, cost: row.costUsd }))).toEqual(resume ? [] : [{ step: "bull", cost: 0 }]);
+    if (mirror) expect(seen[0]?.feedback).toBe(seen[1]?.feedback);
+  });
+
+  it("JOB-213 defers the issuer index without discarding duplicate accepted work", () => {
+    handle.sqlite.exec("DROP INDEX idx_jobs_active_entity; CREATE UNIQUE INDEX idx_jobs_active_symbol ON jobs(symbol) WHERE status IN ('queued','running')");
+    const a = createJob("BRK.B"); const b = createJob("BRK-B");
+    bootstrapSchema(handle.sqlite);
+    expect(handle.db.select().from(jobs).all().map(row => row.id).sort()).toEqual([a.jobId, b.jobId].sort());
+    expect(handle.db.select().from(jobs).all().every(row => row.status === "queued")).toBe(true);
+    handle.db.update(jobs).set({ status: "error" }).where(eq(jobs.id, b.jobId)).run();
+    bootstrapSchema(handle.sqlite);
+    expect(() => createJob("BRK-B")).toThrow(/UNIQUE/);
+  });
+
+  it("JOB-213 attaches alias admission and detects the alias for Retry", () => {
+    const first = getOrCreateJobForSymbol("BRK.B");
+    const second = getOrCreateJobForSymbol("BRK-B");
+    expect(second).toMatchObject({ jobId: first.jobId, existing: true });
+    expect(getReusableActiveJobForSymbol("BRK-B")?.jobId).toBe(first.jobId);
+    expect(isSymbolJobActive("BRK-B")).toBe(true);
+    expect(handle.db.select().from(jobs).all()).toHaveLength(1);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+  });
+
+  it("JOB-206 survives actual SQLite writer contention on job and paid renewals", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    const memory = handle;
+    const directory = mkdtempSync(join(tmpdir(), "metis-renewal-contention-"));
+    handle = createDatabase(join(directory, "jobs.db")); setDbForTests(handle.db);
+    const other = createDatabase(join(directory, "jobs.db"));
+    const release = deferred();
+    try {
+      handle.sqlite.pragma("busy_timeout = 0");
+      const { jobId } = createJob("AAPL");
+      const scheduler = await import("@/pipeline/jobScheduler");
+      const limits = { maxActiveJobs: 1, maxActiveLlmCalls: 1, maxRollingCostUsd: null,
+        rollingCostWindowMs: 3600000, paidPassLeaseTtlMs: 200, jobLeaseTtlMs: 200 };
+      const claim = scheduler.claimQueuedJobById(jobId, "real-lock", new Date(), limits)!;
+      const acquired = deferred(); let signal: AbortSignal | undefined; let requests = 0;
+      const passes = mockPasses().passes;
+      passes.runBullThenBear = async (...raw: unknown[]) => {
+        requests++; signal = (raw[0] as { signal?: AbortSignal }).signal;
+        const { lifecycle, settlements } = testAnalystHooks(raw);
+        await launchTestAnalystSide(lifecycle, "bull"); acquired.resolve(undefined);
+        await release.promise;
+        await settlements?.bull?.(testSuccessSettlement(testAnalystPass("bull")));
+        throw new BullBearPassFailure("bear not launched", { bullLaunched: true, bearLaunched: false, bearError: "not launched" });
+      };
+      const running = runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, claim, schedulerLimits: limits });
+      await acquired.promise;
+      other.sqlite.exec("BEGIN IMMEDIATE");
+      await vi.advanceTimersByTimeAsync(50);
+      const aborted = signal?.aborted;
+      other.sqlite.exec("ROLLBACK");
+      await vi.advanceTimersByTimeAsync(50);
+      release.resolve(undefined); await running;
+      expect(aborted).toBe(false); expect(requests).toBe(1);
+      expect(handle.db.select().from(costLog).all().map(row => [row.step, row.costUsd])).toEqual([["bull", 0.9]]);
+    } finally {
+      release.resolve(undefined); other.sqlite.close(); handle.sqlite.close();
+      handle = memory; setDbForTests(memory.db); rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("JOB-206 tolerates only transient writer locks with sufficient expiry slack", async () => {
+    const { renewalFailureTolerable, connectionBusyTimeoutMs } = await import("@/pipeline/jobScheduler");
+    const input = { error: Object.assign(new Error("locked"), { code: "SQLITE_BUSY" }),
+      knownLeaseExpiresAtMs: 900000, nowMs: 230000, beatMs: 225000, busyTimeoutMs: 5000 };
+    expect(connectionBusyTimeoutMs()).toBe(5000);
+    expect(renewalFailureTolerable(input)).toBe(true);
+    expect(renewalFailureTolerable({ ...input, nowMs: 455000 })).toBe(true);
+    expect(renewalFailureTolerable({ ...input, nowMs: 670000 })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, nowMs: 680000 })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, error: { code: "SQLITE_BUSY_SNAPSHOT" } })).toBe(true);
+    expect(renewalFailureTolerable({ ...input, error: { code: "SQLITE_LOCKED" } })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, error: new Error("disk error") })).toBe(false);
+  });
+
+  it.each(["paid", "job"] as const)("JOB-206 survives one transient %s renewal lock without replay", async (kind) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    handle.sqlite.pragma("busy_timeout = 0");
+    const { jobId } = createJob("AAPL");
+    const scheduler = await import("@/pipeline/jobScheduler");
+    const limits = { maxActiveJobs: 1, maxActiveLlmCalls: 1, maxRollingCostUsd: null,
+      rollingCostWindowMs: 3600000, paidPassLeaseTtlMs: 200, jobLeaseTtlMs: 200 };
+    const claim = scheduler.claimQueuedJobById(jobId, "busy-beat", new Date(), limits)!;
+    const target = kind === "paid" ? "renewPaidPassLease" : "renewJobLease";
+    const original = scheduler[target];
+    const spy = vi.spyOn(scheduler, target).mockImplementationOnce(() => {
+      throw Object.assign(new Error("database is locked"), { code: "SQLITE_BUSY" });
+    }).mockImplementation(original as never);
+    const acquired = deferred();
+    const release = deferred();
+    const base = mockPasses();
+    let signal: AbortSignal | undefined;
+    let calls = 0;
+    const passes: PipelinePasses = { ...base.passes, runBullThenBear: async (...raw: unknown[]) => {
+      calls++;
+      signal = (raw[0] as { signal?: AbortSignal }).signal;
+      const { lifecycle, settlements } = testAnalystHooks(raw);
+      await launchTestAnalystSide(lifecycle, "bull");
+      acquired.resolve(undefined);
+      await release.promise;
+      await settlements?.bull?.(testSuccessSettlement(testAnalystPass("bull")));
+      lifecycle?.onPassFinish?.("bull");
+      throw new BullBearPassFailure("bear was not launched", {
+        bullLaunched: true, bearLaunched: false, bearError: "not launched" });
+    }};
+    const running = runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true,
+      now: NOW, claim, schedulerLimits: limits });
+    await acquired.promise;
+    await vi.advanceTimersByTimeAsync(100);
+    const aborted = signal?.aborted;
+    release.resolve(undefined);
+    await running;
+    spy.mockRestore();
+    expect(aborted).toBe(false);
+    expect(calls).toBe(1);
+    expect(handle.db.select().from(costLog).all().filter(row => row.step === "bull")).toHaveLength(1);
   });
 
   it("renews a long paid attempt before lease expiry and settles through the same owner", async () => {
@@ -4416,7 +4647,7 @@ describe("runJob - durable paid-pass settlements", () => {
     },
   );
 
-  it("keeps the discarded mark on a rejected bull row when durable recovery builds the report", async () => {
+  it.each([false, true])("keeps the discarded mark on a rejected bull row when durable recovery builds the report (identical carried section=%s)", async (identicalCarried) => {
     // RPT-210: recovery used to rebuild the breakdown straight from the ledger,
     // dropping the discarded mark that the live path gave a rejected attempt.
     const { jobId } = createJob("AAPL");
@@ -4434,8 +4665,17 @@ describe("runJob - durable paid-pass settlements", () => {
         payloadFingerprint,
         settledAt: NOW().toISOString(),
       });
-    persist("rpt210-bull-rejected", "bull", testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON"));
-    persist("rpt210-bull", "bull", testSuccessSettlement(testAnalystPass("bull")));
+    const failed = testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON");
+    const accepted = testSuccessSettlement(testAnalystPass("bull"));
+    if (identicalCarried && failed.outcome === "failure") {
+      const thesis = testAnalystPass("bull").data.thesis;
+      // L-4: exact matching bytes in a rejected complete answer confer no recovery credit.
+      Object.assign(failed.failure, { rejectedText: JSON.stringify(testAnalystPass("bull").data) });
+      Object.assign(accepted.telemetry, { execution: { requestedModel: "claude-opus-4-8", modelObserved: true,
+        carriedSections: [{ section: "thesis", digest: sectionDigest(thesis), modelObserved: true, usageReported: true }] } });
+    }
+    persist("rpt210-bull-rejected", "bull", failed);
+    persist("rpt210-bull", "bull", accepted);
     persist("rpt210-bear", "bear", testSuccessSettlement(testAnalystPass("bear")));
     // Review of RPT-210: an earlier judge attempt that succeeded but (in a process that no longer
     // exists) could not be assembled leaves no trace but a success artifact and its cost row.
@@ -6411,15 +6651,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    // FIN-401 / FIN-401-V1: fresh reports store the repaired equity-method convention.
-    expect(repRow?.specVersion).toBe("1.56.0");
+    expect(repRow?.specVersion).toBe("1.56.0"); // AI-407: prior agent moved the shared report stamp
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.17");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.18");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -8284,6 +8523,56 @@ describe("runJob — per-pass timing", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — resume from persisted analyst snapshots", () => {
+  it.each(["current", "legacy", "old versions"] as const)("JOB-202: %s inputs retain identity and exact paid settlements", async (mode) => {
+    const { jobId } = createJob("SYNTH");
+    const original = fakeBundle("SYNTH");
+    original.quote = { ok: true, value: {
+      data: { rows: [{ symbol: "SYNTH", price: 200, volume: 1_000_000 }], raw: {} },
+      asOf: "2026-07-06", source: "fmp", endpoint: "quote", fetchedAt: NOW().toISOString(), stale: false,
+    } };
+    const moved = structuredClone(original);
+    if (moved.profile.ok) moved.profile.value.data.rows[0].price = 201;
+    if (moved.quote.ok) moved.quote.value.data.rows[0].price = 201;
+    const payload = pipelinePasses.assembleContextPayload;
+    const fingerprint = pipelinePasses.fingerprintPayload!;
+    const first = failingJudgePasses();
+    await runJob(jobId, { ...first.passes, assembleContextPayload: payload, fingerprintPayload: fingerprint },
+      { bundle: original, hasAnthropicKey: true, now: NOW });
+    expect(first.calls).toEqual(["runBullThenBear", "runJudgePass"]);
+    const source = readJobRunSnapshotRef(jobId, 0)!;
+    if (mode !== "current") {
+      handle.sqlite.prepare('DELETE FROM job_run_inputs WHERE jobId = ? AND runGeneration = 0').run(jobId);
+      if (mode === "old versions") {
+        const snapshot = readRunInputSnapshot(source.hash)!;
+        persistRunInputSnapshot(jobId, 0, captureRunInputSnapshot(original, { evIncludeLeases: false },
+          { ...snapshot.content.versions, stageB: "OLDER_ENGINE" }), source.capturedAt);
+      }
+    }
+    const second = mockPasses();
+    const fetch = vi.mocked(buildDataBundle).mockResolvedValueOnce(moved);
+    const callsBefore = fetch.mock.calls.length;
+    const resumed = runJob(jobId, { ...second.passes, assembleContextPayload: payload, fingerprintPayload: fingerprint },
+      { hasAnthropicKey: true, now: NOW, resume: true });
+    if (mode === "current") {
+      const result = await resumed;
+      expect(result.dataOnly).toBe(false);
+      expect(fetch.mock.calls.length - callsBefore).toBe(0);
+      expect(second.calls).toEqual(["runJudgePass", "runVerifyPass"]);
+      expect(readJobRunSnapshotRef(jobId, 1)).toEqual(source);
+      const report = JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!);
+      expect(report.meta.runSnapshot).toEqual(source);
+    } else {
+      await expect(resumed).rejects.toThrow(/fingerprint mismatch/);
+      expect(fetch.mock.calls.length - callsBefore).toBe(1);
+      expect(second.calls).toEqual([]);
+    }
+    const rows = handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all();
+    expect(rows.map(row => row.step).sort()).toEqual(mode === "current" ? ["bear", "bull", "synthesize", "verify"] : ["bear", "bull"]);
+    expect(rows.filter(row => row.step === "bull").map(row => row.costUsd)).toEqual([0.9]);
+    expect(rows.filter(row => row.step === "bear").map(row => row.costUsd)).toEqual([0.47]);
+    expect(rows.map(row => row.costUsd).sort()).toEqual(mode === "current" ? [0.2, 0.4, 0.47, 0.9] : [0.47, 0.9]);
+    fetch.mockReset();
+  });
   /** mockPasses whose judge fails hard (non-retryable) on the first run. */
   function failingJudgePasses(): { passes: PipelinePasses; calls: string[] } {
     const base = mockPasses();
@@ -10691,21 +10980,23 @@ describe("immutable normalized run input persistence", () => {
     }
   });
 
-  it("retains the original frozen inputs when a durable verification resume skips fetch", async () => {
+  it.each([0, 1])("JOB-207 retains the effective verify generation inputs (source=%s)", async (generation) => {
     const { jobId } = createJob("AAPL");
     const snapshot = captureRunInputSnapshot(fakeBundle(), { evIncludeLeases: false });
-    const sourceRef = persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
-    persistPassSettlement({ jobId, runGeneration: 0, attemptId: "snapshot-source-verify", pass: "verify",
+    persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
+    const effective = generation === 0 ? snapshot : captureRunInputSnapshot({ ...fakeBundle(), builtAt: "2026-07-06T01:00:00.000Z" }, { evIncludeLeases: false });
+    const sourceRef = persistRunInputSnapshot(jobId, generation, effective, generation === 0 ? NOW().toISOString() : "2026-07-06T01:00:00.000Z");
+    persistPassSettlement({ jobId, runGeneration: generation, attemptId: "snapshot-source-verify", pass: "verify",
       settlement: testSuccessSettlement({ data: fakeReport(fakeJudgeOutput()), model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
       payloadFingerprint: null, settledAt: NOW().toISOString() });
-    handle.db.update(jobs).set({ status: "error", error: "report link interrupted" }).where(eq(jobs.id, jobId)).run();
+    handle.db.update(jobs).set({ status: "error", error: "report link interrupted", runGeneration: generation, resumeSourceGeneration: generation === 0 ? null : 0 }).where(eq(jobs.id, jobId)).run();
     const options: RunJobOptions = { now: NOW, resume: true };
     Object.defineProperty(options, "bundle", { get: () => { throw new Error("resume must not fetch replacement inputs"); } });
     const result = await runJob(jobId, mockPasses().passes, options);
     expect(result.status).toBe("done");
     const stored = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
     expect(stored.meta.runSnapshot).toEqual(sourceRef);
-    expect(readJobRunSnapshotRef(jobId, 1)).toEqual(sourceRef);
+    expect(readJobRunSnapshotRef(jobId, generation + 1)).toEqual(sourceRef);
   });
   it("saves frozen inputs before Stage B and stamps the persisted data-only report", async () => {
     const { jobId } = createJob("AAPL");

@@ -713,13 +713,18 @@ function macroSection(bundle: DataBundle, stub: Report["macro"]): Report["macro"
     for (const seriesId of Object.keys(record).sort()) {
       const result = record[seriesId];
       if (!result?.ok) continue;
+      const existing = rows.find(row => row.seriesId === seriesId);
+      if (existing) {
+        existing.relevance += bundle.macro.gicsSector ? ` Also sector-routed for ${bundle.macro.gicsSector}.` : " Also sector-routed.";
+        continue;
+      }
       const observations = result.value.data;
       const last = observations[observations.length - 1];
       if (!last) continue;
       const latest = macroTraced(seriesId, unitsOf(seriesId), last.value, last.date);
       if (latest === null) continue;
       const figureUnit = fredFigureUnit(seriesId, unitsOf(seriesId));
-      const rawLabel = labels.get(seriesId) ?? seriesId;
+      const rawLabel = coreUnits.get(seriesId) === unitsOf(seriesId) ? (labels.get(seriesId) ?? seriesId) : seriesId;
       const name = figureUnit.scale === 1 ? rawLabel : rawLabel.replace(/\s*\(thous\.\)/g, "");
       rows.push({ seriesId, name, latest, relevance: figureUnit.qualifier ? `${relevance} Displayed in ${figureUnit.qualifier}.` : relevance });
     }

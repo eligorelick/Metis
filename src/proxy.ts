@@ -29,9 +29,12 @@ export function proxy(request: NextRequest): Response {
   if (rejectedHost !== null) return denyFraming(rejectedHost);
 
   const method = request.method.toUpperCase();
-  if (method === "GET" || method === "HEAD") {
-    const pathname = new URL(request.url).pathname;
-    if (COMPANY_LANDING_PATH.test(pathname)) {
+  const pathname = new URL(request.url).pathname;
+  if (COMPANY_LANDING_PATH.test(pathname)) {
+    if (method !== "GET" && method !== "HEAD") {
+      return denyFraming(new Response(null, { status: 405, headers: { Allow: "GET, HEAD", "Cache-Control": "no-store" } }));
+    }
+    {
       const rejectedMetadata = assertHeavyGetMetadata(request, requestCarriesToken);
       if (rejectedMetadata !== null) return denyFraming(rejectedMetadata);
     }

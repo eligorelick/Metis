@@ -192,6 +192,8 @@ export function formatMoneyAmount(
  * a share count as "15,204,000,000.00 shares" and an RSI as "55.00 rsi".
  */
 function formatPipelineUnit(value: number, unit: string): string | null {
+  // RPT-204: lowercase m is the Beneish score, not millions.
+  if (unit.trim() === "m") return formatNumber(value, 2);
   switch (unit.trim().toLowerCase()) {
     case "shares":
       return `${formatLargeNumber(value)} shares`;

@@ -117,6 +117,19 @@ export function isTransientWriterLock(error: unknown): boolean {
   return false;
 }
 
+/** A busy beat can wait only if another whole beat and SQLite wait fit. */
+export function renewalFailureTolerable(input: {
+  error: unknown; knownLeaseExpiresAtMs: number; nowMs: number; beatMs: number; busyTimeoutMs: number;
+}): boolean {
+  return isTransientWriterLock(input.error) &&
+    input.nowMs + input.beatMs + input.busyTimeoutMs < input.knownLeaseExpiresAtMs;
+}
+
+export function connectionBusyTimeoutMs(db: ThesisDb = getDb()): number {
+  return Number((db as ThesisDb & { $client: { pragma(sql: string, options: { simple: true }): unknown } })
+    .$client.pragma("busy_timeout", { simple: true }));
+}
+
 export function configuredSchedulerLimits(): SchedulerLimits {
   const config = getConfig();
   return {

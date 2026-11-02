@@ -4,7 +4,7 @@ What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The current source declares report 1.56.0 / payload 1.60.0 and Stage B
-STAGE_B_2026_11_CLAUDE_REPAIRS_39 (2026-11-02, P1/B4b; final release verification pending). Its bounded evidence fixes
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P1/B4b, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -4244,6 +4244,11 @@ does not recompute them. See `tests/stageC.deterministicInjection.test.ts`,
 `tests/stageC.provenance.test.ts`, `tests/stageC.verifyChecks.test.ts`,
 `tests/degradation.report.test.ts` and `tests/report.executionMetadata.test.ts`.
 
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
 ## Disclaimer scope
 
 New reports carry this text verbatim; historical reports retain the disclaimer
@@ -4311,6 +4316,13 @@ with present code, and a lock hash does not attest installed dependencies.
 See the [implementation disposition](audit/2026-10-17-book-to-code-disposition.md)
 and [verification record](audit/2026-10-17-safeguard-verification.md) for the
 bounded scope, evidence and remaining analytical work.
+
+Retry that reuses accepted analysts or synthesis rebuilds from the lineage's
+frozen acquired inputs and Stage B configuration when snapshot versions match.
+The original capture time remains the report's input provenance. Validation
+uses the new run clock, and the payload fingerprint must still match the reused
+work. Missing legacy snapshots or incompatible versions use freshly acquired
+inputs under the same fingerprint guard. Stored reports are never rewritten.
 
 ### Common-cash payout admission
 
@@ -6070,6 +6082,15 @@ observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
 
+P0 M-1: No-split vendor/SEC per-share comparisons require established ordinary-share units. A registrant with one listed SEC symbol is compared directly. With several symbols (a second class, or preferred and note series), the unit is established only by a comparable no-split period in which the vendor's weighted-average share count, basic or diluted, agrees with the filer's within 3%; a statement series that establishes it governs the vendor's other series for the issuer. ADRs and unknown listings remain incomparable; split reconciliation is unchanged.
+
+P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.
+
+P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
+
+P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
+
+## P1 equity bridge review corrections (2026-11-02)
 
 ### P1 review correction F1/F7 (2026-11-02)
 
@@ -6112,3 +6133,71 @@ N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
 better for the holder is worse for common. Thus the minimum rule selects
 11.8104675494/share, while the converted reading is 11.8790002431. The
 coordinator corrected the original brief pin, which assumed conversion binds.
+
+## Registry figure descriptions (AI-407)
+
+A registry figure is also read against the description printed beside it: a
+metric row label, segment name, or worded unit. Peer, macro series and scenario
+names do not describe metrics. A detected conflict in level, share basis,
+non-default basis, segment member or metric head leaves the figure unverified
+and unchecked, never contradicted. A printed source naming another registry
+record also fails closed. Empty descriptions and records without labels retain
+their identity-based matching behavior. Citation coverage excludes these refused
+figures; the same verification status reaches report tables and exports. Stored
+reports are unchanged; this rule applies when verification runs.
+
+MetricRow columns (AI-408): a date or explicit fiscal label must be established by the cited record. Other columns and window spellings are logged as not period-checked. On a period-less record, an established as-of decoration is erased; a decidable conflicting supplied period stays unverified.
+
+AI-501: a direction word in a registry record's own label is part of its metric. The claim must name it. An attached direction on a claim is also read as the claim's relation; this does not change excerpt matching or make increase-named rows signed-change records.
+
+AI-502 / OD-6: percentage points alone never establish movement. Slopes are changes; other percentage-point records need a change-named final slug and no difference operator in their label. Movement/comparative prose against spreads, divergence and yield-curve levels stays unchecked; numeric sign conflicts still compare values.
+
+AI-504: a difference or ratio record is named only when its operands occur in record order. Reversed operands stay unchecked; the verifier never computes a reciprocal or negated replacement. Absolute differences have no operand order; grammatical to, date intervals, P/E and parenthetical em dashes are not operators.
+
+AI-116: insider owner types are read role by role, preserving commas inside an officer title. Historical audit logs before 1.56.0 that rejected a potentially dropped role say the title was not rechecked; recorded outcomes and raw report bytes remain unchanged.
+
+AI-103 / OD-4: registered issuer entities may cite issuer filings, transcripts, press releases and registered issuer-data records carried in the payload, or registered issuer pages. Third-party news and unregistered sources remain non-primary. The analyst source rule is unchanged.
+
+AI-104: recovery language must govern the hurdle. A later fade, convergence or decline toward cost of equity is not a recovery, even after an earlier rise; continued rising toward it still triggers the warning.
+
+AI-111 / OD-5: listed honorific periods and contextual name initials do not start rating sentences. Initial surnames require a dash, comma, parenthesis or possessive. Whole-sentence rating words and unlisted abbreviations remain refused.
+
+RPT-504 / B10-OD-11: data-only reports show no checked citation/provenance share on reader surfaces, including legacy reports carrying counts and job-panel summaries carrying a recorded citation rate. The audit retains raw evidence-class counts under an explicit no-citation-check disclosure.
+
+DB-004/RPT-209 / B10-OD-2: read and corrected-export paths carry completeness under its recorded convention. Absent metadata stays absent; unconfirmable records stay recorded. Added legacy gaps recount confirmed records under their original rule.
+
+RPT-212 / B10-OD-5: each run-level synthetic/provider-fallback notice appears once: in the saved-snapshot header when mounted, otherwise at the report body head in either layout. Exports retain their existing notice placement.
+
+RPT-206: the data-only banner reports classified D-67 data-gap counts, with notes and analysis-process disclosures apart. Reader state follows these counts; persisted entry-based state and confidence rules are unchanged.
+
+RPT-207: FMP failures count per dataset: per symbol for issuer/benchmark price histories, and per period for statements. Subject datasets merge with matching keyless verdicts. Peer requests retain their symbols and stay separate; unknown issuers are not guessed.
+
+RPT-206 review: the shared saved-snapshot header labels Research with the recorded research state, including process warnings. Data-gap summaries retain separately classified counts.
+
+AI-111 review: a name initial before Buy/Sell/Hold accepts a comma only before the appositive words the, a, an, our, its, who or whose. Comma-led rating directives remain refused.
+
+AI-104 review: decline/fall words in a bounded origin phrase (from, after, since, following) do not suppress a recovery-toward-hurdle warning. Forward fade predicates retain their exclusion.
+
+AI-116 review: the historical title-check qualification requires an explicit parenthesized multi-role owner listing in the claim/check note, in either role order. Single officer titles, including internal title commas, do not qualify.
+
+RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.
+
+Data-only macro tables list each FRED series once, keeping the core transform and merging sector relevance (AI-201). Identical stored rows merge for display only.
+
+The live reverse-DCF growth solve is starting revenue growth that fades to terminal, with the base year-one rate alongside it; it is not the path CAGR (RPT-501).
+
+History withholds score and grade comparisons across score band-table versions: "Score band tables differ". Other families retain their own comparability (DB-005).
+
+The projection fan joins history to forecast only across adjacent periods; an open seam caption gives the first forecast window start (RPT-102).
+
+Band-safe score precision also applies to 0-100 scores written in analyst prose (RPT-203).
+
+Classic and exported excess-return values use model-value labels and omit DCF/WACC headings (RPT-213). Stored scenario sentences remain recorded prose. The Damodaran rationale is cited as summarised by the remediation decisions; no source fetch was performed in this offline batch.
+
+Before frozen report spec 1.56.0, a legacy report without fairValue reads pipeline zero placeholders (or a suppressed per-share zero) as unavailable. Zero pipeline scenario targets are likewise withheld, and all-placeholder data-only probabilities become unavailable. Recorded bytes stay unchanged (RPT-215).
+
+Near-52-week price flags round the recorded high or low to cents; computed levels remain unchanged (RPT-103).
+
+Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
+
+Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).

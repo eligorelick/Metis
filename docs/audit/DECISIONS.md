@@ -152,6 +152,78 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-next (P4) - 2026-11-02: preserve accepted work, paid lifecycle and spend limits
+
+B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
+alias names at startup without values. Keep explicit canonical precedence.
+
+B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
+sides. Rejected-output repair and zero-cost plan resends have independent
+allowances; a repair resend retains feedback and uses no continuation.
+Keep per-attempt checkpoint identity and pre-dispatch accounting unchanged.
+
+B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
+attachment. Defer the issuer index while existing active alias rows drain;
+never terminalize or delete their accepted work to force a migration.
+
+B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
+exceeds now plus the next beat and SQLite busy timeout. Successful complete
+beats advance the local expiry; partial beats do not. False renewals still
+abort immediately. Request identities and settlement accounting stay intact.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+B8-OD-10: use one provider-busy predicate for bounded backoff and failure
+wording. Temporary 429/5xx, overload and unavailable responses are distinguished
+from cut-off streams. Retry-After parsing remains outside this batch.
+
+Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
+the lineage root's integrity-checked snapshot. Matching snapshot versions use
+its acquired bundle and Stage B configuration and preserve its hash and capture
+time. Missing legacy or version-incompatible snapshots fall back to acquisition.
+Corrupt snapshots fail closed. Validation retains the retry's clock and the
+existing fingerprint guard remains mandatory before resumed model dispatch.
+
+This extends D-51/D-81 without changing settlement/checkpoint identity, synthesis
+allowance, accepted-section reuse, or pre-dispatch versus uncertain accounting.
+No automatic paid retry or replay is added; terminal refusals remain terminal.
+Stored reports are never rewritten. Payload, prompts, financial formulas and
+their version stamps are unchanged. The real payload/fingerprint runner tests
+prove moved quotes no longer prevent compatible frozen-input reuse, with exact
+analyst ledger rows and model-pass counts.
+
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.
@@ -1277,6 +1349,8 @@ Original report bytes and production report history are preserved.
 - **Revised by D-129 (B2 OD-1, audit 2026-10-27 AI-305)**: on the second gate an excerpt figure also binds only to its own description, which narrows the same-sentence residual accepted above: a figure the sentence gives to another noun no longer verifies a number or claim that names a different metric. Figures that share every description word ("Standardized and Advanced CET1 ratios were 14.6% and 14.1%") still cannot be told apart. See the entry "Audit batch B2: an excerpt figure binds only to its own description".
 
 ## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
+
+Revised by D-next (P3, OD-2 / AI-407) below for registry description conflicts.
 
 - **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
   - "RSI" and "RSI index" (5): the bare-ISO-code branch of
@@ -3185,3 +3259,122 @@ N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
 better for the holder is worse for common. Thus the minimum rule selects
 11.8104675494/share, while the converted reading is 11.8790002431. The
 coordinator corrected the original brief pin, which assumed conversion binds.
+
+### D-next (P0): review corrections to source comparison, date qualification and recovery
+
+No-split share comparisons require a confirmed single-ticker ordinary-share scope. Cent rounding is symmetric; earlier matching exact-interval filings are described as superseded. Provider calendar qualification binds within punctuation-delimited clauses, yields to registered SEC/official issuer sources, preserves citation credit, and uses non-counted audit rows. Complete rejected responses persist as rejectedText only. Report spec 1.56.0, payload 1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39. No prompt text changed; pipeline remains stage-c-1.6.17. Stored reports are never rewritten.
+
+## D-next (P3) Verifier identity and truthful trust/completeness labels
+
+Implement the settled OD-2 conflict rule rather than silently substituting a
+record label. Compare metric rows and worded units for level, share basis,
+non-default basis and disjoint metric heads; compare segment names to their
+registered member. Other named rows name entities, not metrics. Ignore macro
+section tags when reading basis. A different printed registry source is also a
+conflict; reader URLs remain permitted. Refusals are unchecked, never contradicted.
+This revises D-44's indicator-only description guard. See METHODOLOGY.md
+"Registry figure descriptions (AI-407)". Stored reports are never rewritten.
+
+OD-3: readable column dates/fiscal labels must match the record. Fiscal agreement compares the declared fiscal label directly, including period-less typed contexts; it does not require an invented ISO period. Windows and unreadable columns retain existing matching with an explicit log note. Period-less records establish only their as-of, typed context end/instant, and fiscal label; decidable supplied conflicts are refused. Paired facade replay over 43, 46, 48, 49 and 50 found zero numeric status deltas.
+
+AI-501 follows Task 17: preserve defining direction nouns in record labels, with two claim readings only when direction attaches to the figure. Level claims against increase rows become unchecked; verb-change recall remains deliberately withheld. No payload or stored bytes change.
+
+AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differences do not establish temporal movement or a comparative standard; both stay unchecked. Temporal slopes and change-named percentage-point records retain direction checks, except labels naming differences. New unknown records default to non-change. Comparative recall is deliberately withheld.
+
+AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compare distinct stemmed heads only after metric agreement. Refuse reversed order as unchecked. Preserve symmetric absolute differences and ordinary grammatical/date uses. Five assembled facade replays retain numeric statuses.
+
+AI-116 restores every listed insider role, splitting only before recognized owner-role prefixes. The historical audit qualification is frozen at 1.56.0; it claims no historical re-verification. Paired facade numeric statuses remain unchanged.
+
+AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.
+
+AI-104 scopes the recovery predicate through the hurdle noun. Intervening fade predicates and completed rises followed by a new non-recovery clause end its reach. No numeric values or status marks change.
+
+AI-111 adopts the closed OD-5 abbreviation mask without changing rating patterns. Ordinary-word continuations after initials and bare rating sentences stay fail-closed. Stored report gate outcomes remain unchanged in the five assembled controls.
+
+RPT-504 applies the existing data-only builder rule at every reader coverage call. The helper preserves header versus appendix block precedence for analysed reports. Stored provenance is retained, not scrubbed, and remains in the audit export with a qualification.
+
+DB-004 and RPT-209 apply B10-OD-2 to the corrected CLI and entity-safety view. Confirmed pre-1.44.0 records keep the old EDGAR rule; confirmed current records recount under the current rule. Equal field/severity/expected manifests preserve identity. Absent/unconfirmable metadata is carried; the CLI only creates a count when it adds legacy audit gaps. Original database bytes are never rewritten.
+
+RPT-212 implements B10-OD-5/R-OD-4 once through RunNotices and headerNotices forwarding on the two saved routes. Headerless live/sample bodies show notices in both layouts. This revises D-111 placement without changing report bytes or export wording.
+
+RPT-206 adopts B10-OD-8. The banner and state word share classified data counts with the header; note-only manifests say no data gaps, with a separate disclosure count. Historic metadata is not rewritten.
+
+RPT-207 preserves FMP endpoint arguments when they identify different datasets. Issuer inference excludes peer/benchmark endpoints and plan-limit dataset names, with a sector-ETF subject fallback on ties. Statement and price labels name the retained scope. Raw manifest entries and persisted completeness stay unchanged.
+
+RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
+
+Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
+
+## D-next (P6): Company landing methods
+
+SEC-201: refuse all non-GET/HEAD methods on company landings only, including token-bearing requests. No Server Actions use this page. Saved reports and stamps are unchanged.
+
+## D-next (P6): LAN credential management
+
+SEC-202 adopts OD-3: refuse management in configured LAN mode including forged loopback Host. Malformed allowlists fail closed; loopback allowlists remain local. Reports/actions remain unauthenticated, subject to existing spending safeguards.
+
+## D-next (P6): Unreadable AI storage
+
+SEC-204 adopts OD-1: preserve shell availability with environment data keys, withhold both billed Anthropic keys, refuse capture and writes, retain original bytes, and retry failures after 30 seconds or immediately on changed bytes. Recovery is named in OPERATIONS.
+
+## D-next (P6): Visible default AI selection
+
+SEC-206 follows server selection on credential refresh only for an implicit default with no unsaved edit. Explicit saved choices and all unsaved fields remain authoritative.
+
+## D-next (P6): Recovery retention
+
+SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retries and manual audit. Document plain text, writer evidence, independent data-dir placement and stopped-app deletion. Purging would lose evidence and re-consume plan allowance.
+
+## D-next (P6): Protected-store snapshot
+
+PERF-201 caches successes by exact bytes/path and returns clones; unchanged callbacks skip protection and rename. Real mutations remain mutex serialized with atomic write-through. Stat fields cannot safely identify rotating tokens. Failed callbacks cannot mutate the cache.
+
+## D-next (P6): Effective legacy Fast speed
+
+SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+## D-next (P7) - Display and history (2026-11-02)
+
+AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.
+
+DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+
+RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+
+DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+
+RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+
+RPT-203: Use band-safe formatting for prose scores.
+
+RPT-205: Preserve the geographic scope actually named by the source row.
+
+RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+
+RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+
+RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+
+DB-003: Show observed API models as well as account models and name unrecorded passes.
+
+DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+
+RPT-001: Identify the symbol, company and saved report id in print page metadata.
+
+RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+
+RPT-204: Render the Beneish M score without a misleading m unit suffix.
+
+RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+
+RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+
+RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+
+RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+
+P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RPT-503 successful retries appear once as completed, individual failures stay in run details, and requested-configuration reader labels share judge attempt names. RPT-215 adds a read-time clarification to the existing legacy scope section.
+
+P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.
+
+P7 full-suite verification: the prior P3 records test pinned P3 as the first changelog heading. On integration that test is position-independent: it requires the P3 heading anywhere in the changelog, so later batches can head it; the methodology uniqueness and encoding assertions remain unchanged.

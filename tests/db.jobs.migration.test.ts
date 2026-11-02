@@ -495,7 +495,7 @@ describe("durable job schema migration", () => {
       expect(sqlite.prepare(`SELECT count(*) AS "count" FROM "job_pass_artifacts"`).get()).toEqual({ count: 1 });
 
       const indexMatrix = [
-        ["jobs", "idx_jobs_active_symbol", 1, 1],
+        ["jobs", "idx_jobs_active_entity", 1, 1], // JOB-213: enforce share-class identity
         ["jobs", "idx_jobs_queue_claim", 0, 0],
         ["jobs", "idx_jobs_lease_expiry", 0, 0],
         ["cost_log", "idx_cost_log_billed_attempt_pass", 1, 1],
@@ -591,4 +591,15 @@ describe("durable job schema migration", () => {
       sqlite.close();
     }
   }, 15_000);
+});
+
+it("P4-6 repeated bootstrap does not rebuild the obsolete exact-symbol index", () => {
+  const sqlite = openSqlite(tempDbPath());
+  try {
+    bootstrapSchema(sqlite);
+    const version = sqlite.pragma("schema_version", { simple: true });
+    bootstrapSchema(sqlite);
+    expect(sqlite.pragma("schema_version", { simple: true })).toBe(version);
+    expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'idx_jobs_active_symbol'").get()).toBeUndefined();
+  } finally { sqlite.close(); }
 });

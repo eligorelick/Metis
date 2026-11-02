@@ -63,3 +63,23 @@ describe("audit disclosures across live, Markdown and print reports",()=>{
     expect(factualValidationText()).toBeNull();
   });
 });
+
+it("RPT-211 includes body-table figures without relying on verification logs", async () => {
+ const { completeCurrencyBundle } = await import("./helpers/currencyBundle");
+ const { runStageB } = await import("@/pipeline/compute");
+ const { buildDataOnlyReport } = await import("@/pipeline/jobRunner");
+ const bundle = completeCurrencyBundle({ debt: 300 });
+ const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Synthetic", generatedAt: bundle.builtAt, model: "none", costUsd: 0, bundle, validation: { checks: [], flags: [], gaps: [] }, computed: runStageB(bundle), costBreakdown: [], reason: "no analysis" });
+ const figures = [...report.fundamentals.growthTable, ...report.fundamentals.marginTrend, ...report.fundamentals.returns, ...report.fundamentals.fcf].flatMap(row => row.values.map(v => v.value));
+ expect(report.valuation.dcf.perShare).not.toBeNull();
+ figures.push(report.valuation.dcf.perShare!, ...report.valuation.scenarios.flatMap(s => s.priceTarget ? [s.priceTarget] : []), ...report.macro.relevantSeries.map(s => s.latest));
+ const audit = reportToAuditMarkdown(report).split("## Figure registry")[1]?.split("## Evidence timing")[0] ?? "";
+ expect(figures.length).toBeGreaterThan(20);
+ for (const n of figures) {
+  if (n.sourceId) expect(audit).toContain(n.sourceId);
+  expect(audit).toContain(String(n.value));
+ }
+ expect(audit).toContain("Fundamentals tables");
+ expect(audit).toContain("Valuation model");
+ expect(audit).toContain("Macro");
+});

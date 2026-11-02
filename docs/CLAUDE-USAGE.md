@@ -27,10 +27,10 @@ account allowance. Provider credit settings still apply. The app's USD caps
 do not cap subscription tokens or provider credits. There is no automatic
 switch to paid Claude API usage after a subscription connection fails.
 
-Before a connection store exists, an existing installation with a Claude key
-defaults to Claude; without a key it defaults to AI off. Once stored, the
-connection selection is authoritative, including AI off. Creating the store
-during account setup can therefore require explicitly selecting Claude again.
+An implicit default, before or after a connection store exists, follows the
+saved or environment Claude key: Claude when present, AI off otherwise. An
+explicitly saved selection is authoritative, including AI off. Creating a store
+for credentials or account setup alone does not make the default explicit.
 Claude's analysis model/effort settings are separate from this connection store.
 
 The saved connection selection outranks the Claude model setting. The home page
@@ -164,6 +164,10 @@ retry if its evidence and execution fingerprint still match.
 Retrying a data-only report reuses the analyst passes that already finished and
 replaces the fallback with the new run's report. If that run fails again, it
 saves a new data-only report and Retry stays available.
+When snapshot versions match, reused analysts or synthesis use their lineage's
+frozen inputs and Stage B configuration with the original capture time. The
+payload fingerprint still has to match; validation runs against the retry's
+clock. Legacy or version-incompatible snapshots require fetching inputs again.
 
 ## Request ceilings, caching and retries
 

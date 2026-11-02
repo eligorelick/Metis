@@ -37,6 +37,7 @@ export interface AiConnectionSummary {
 }
 
 export interface AiConnectionsView {
+  selectionIsDefault?: boolean;
   selection: AiSelection;
   connections: AiConnectionSummary[];
   hasAnthropicKey: boolean;

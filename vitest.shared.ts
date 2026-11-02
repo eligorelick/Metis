@@ -93,6 +93,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageC/payload.ts",
   "src/pipeline/stageC/prompts.ts",
   "src/pipeline/stageC/provenance.ts",
+  "src/pipeline/companyJobIdentity.ts",
   "src/pipeline/jobArtifacts.ts",
   "src/pipeline/jobRunner.ts",
   "src/pipeline/sectionLimits.ts",

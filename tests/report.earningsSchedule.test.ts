@@ -1,9 +1,53 @@
 import { describe, expect, it } from "vitest";
+import { isCountedClaimEntry } from "@/report/claimMatching";
 import { guardEarningsSchedule } from "@/report/earningsSchedule";
 
 const note = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-04 [finnhub:earnings-calendar · 2026-11-01]";
 
 describe("provider earnings-date qualification boundaries", () => {
+  it.each(["Earnings rose 5% year over year; the special dividend is payable 2026-11-04.", "Earnings rose 5%, the dividend is payable 2026-11-04."])("keeps coincident dividend dates: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
+  });
+  // A spaced em/en dash separates clauses just like a semicolon (written as
+  // escapes so file encoding cannot change the character).
+  it.each(["Earnings rose 5% year over year \u2014 the special dividend is payable 2026-11-04.",
+    "Earnings rose 5% year over year \u2013 the special dividend is payable 2026-11-04."])("keeps a dividend date after a dash: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
+  });
+  // A bare date phrase set off by a comma still belongs to the event clause beside it.
+  it.each(["On 2026-11-04, Figma will report third-quarter results.",
+    "Figma will report results after the close on Wednesday, 2026-11-04."])("qualifies an earnings date in a bare date phrase: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    const out = guardEarningsSchedule(input, [note]);
+    expect(out.report.verdict.executiveSummary[0]!.text).toContain("2026-11-04 (Finnhub calendar estimate; company confirmation not established)");
+    expect(out.report.verdict.executiveSummary[0]!.label).toBe("ESTIMATE");
+    expect(out.log).toHaveLength(1);
+  });
+  it("qualifies only the comma piece that states the event when the same date appears twice", () => {
+    const text = "Results are due 2026-11-04, and the dividend is payable 2026-11-04.";
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note]).report.verdict.executiveSummary[0]!.text).toBe(
+      "Results are due 2026-11-04 (Finnhub calendar estimate; company confirmation not established), and the dividend is payable 2026-11-04.");
+  });
+  it("keeps registered SEC confirmation", () => {
+    const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }])).toMatchObject({ report: input, log: [] });
+  });
+  it("keeps a registered official company source without trusting an unregistered source name", () => {
+    const source = "https://issuer.example/news/results";
+    const input = { verdict: { executiveSummary: [{ text: "Company will report results on 2026-11-04.", label: "FACT", sourceId: source, source: "legacy", asOf: "2026-11-01" }] } };
+    const registry = [{ id: source, kind: "payload-text" as const, origin: source, asOf: "2026-11-01" }];
+    expect(guardEarningsSchedule(input, [note], registry, [source])).toMatchObject({ report: input, log: [] });
+    expect(guardEarningsSchedule(input, [note], [], [source]).log).toHaveLength(1);
+  });
+  it("does not count qualification audit rows as another claim", () => {
+    const input = { verdict: { executiveSummary: [{ text: "Earnings are due 2026-11-04.", label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    const out = guardEarningsSchedule(input, [note]);
+    expect(out.log).toHaveLength(1);
+    expect(out.log.filter(entry => isCountedClaimEntry(entry, "factual-claim"))).toEqual([]);
+  });
   it("does not apply an earnings qualification to a date in a different sentence", () => {
     const input = { verdict: { executiveSummary: [{ text: "The results exceeded expectations. The filing was signed on 2026-11-04.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-04" }] } };
     expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });

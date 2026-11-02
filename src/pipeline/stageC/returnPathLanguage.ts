@@ -48,6 +48,23 @@ const RETURN_RECOVERY = new RegExp(`${RETURN}[^;,]{0,40}?${RECOVERY}|${RECOVERY}
 // not a recovery toward it, so those words end the reach.
 const TOWARD_HURDLE = /\b(?:toward|towards|to)\b(?:(?!\b(?:above|over|beyond|exceed\w*|surpass\w*|top\w*)\b)[^;]){0,60}?\b(?:cost of equity|CoE)\b|\brecovery path\b/i;
 
+const FADE = /\b(?:fad(?:e|es|ed|ing)|converg\w*|declin\w*|decreas\w*|fall(?:s|ing)?|fell|normali[sz]\w*|revert\w*|compress\w*|erod\w*|drift\w*|glid\w*|taper\w*|moderat\w*)\b/i;
+function governsHurdle(sentence: string): boolean {
+  const hurdles = [...sentence.matchAll(new RegExp(TOWARD_HURDLE.source, "gi"))];
+  return [...sentence.matchAll(new RegExp(RETURN_RECOVERY.source, "gi"))].some(recovery => hurdles.some(hurdle => {
+    const noun = /\b(?:cost of equity|CoE)\b|\brecovery path\b/i.exec(hurdle[0]);
+    const end = hurdle.index! + (noun?.index ?? 0);
+    const start = recovery.index! + recovery[0].length;
+    if (end < start) return true;
+    const span = sentence.slice(start, end);
+    // An origin decline describes the starting point, not the forward path.
+    const pathSpan = span.replace(/\b(?:from|after|since|following)\b[^,;]{0,40}?\b(?:declin|fall|fell|decreas|erod|compress)\w*/gi, "");
+    if (FADE.test(pathSpan)) return false;
+    const level = /\bto\s+[-+\u2212]?\d[\d.,]*\s*%[\s\S]*?\b(?:and|but|then|while|before|after|with)\b/i.exec(span);
+    return !level || new RegExp(RECOVERY, "i").test(span.slice(level.index + level[0].length));
+  }));
+}
+
 function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 0);
 }
@@ -57,7 +74,7 @@ export function returnPathLanguageFindings(input: ReturnPathLanguageInput): Retu
   if (ttm == null || !Number.isFinite(ttm) || input.terminalTargetPct === null || !(ttm > input.terminalTargetPct)) return [];
   return input.texts.flatMap(({ path, text }) =>
     sentences(text)
-      .filter((sentence) => RETURN_RECOVERY.test(sentence) && TOWARD_HURDLE.test(sentence))
+      .filter((sentence) => governsHurdle(sentence))
       .map((sentence) => ({ path, sentence })));
 }
 

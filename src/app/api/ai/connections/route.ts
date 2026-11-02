@@ -1,3 +1,4 @@
+import { assertLocalOnlyRoute } from "@/app/requestSecurity";
 import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
 import { connectionsView, describeAnalysisRoute, selectConnection } from "@/ai/connections";
@@ -14,19 +15,13 @@ function withRoute<T extends object>(view: T): T & { route?: ReturnType<typeof d
   try { return { ...view, route: describeAnalysisRoute() }; } catch { return view; }
 }
 function guard(request: Request) {
-  const denied = assertSameOrigin(request);
-  if (denied) return denied;
-  // Local account credentials are never served through the optional LAN mode.
-  if (!/^(?:localhost|127\.0\.0\.1|\[::1\])(?::[1-9]\d{0,4})?$/.test(request.headers.get("host") ?? "")) {
-    return response({ error: "AI connections require local access on this computer." }, 403);
-  }
-  return null;
+  return assertSameOrigin(request) ?? assertLocalOnlyRoute(request);
 }
 
 export async function GET(request: Request) {
   const denied = guard(request); if (denied) return denied;
   try { return response(withRoute(connectionsView())); }
-  catch { return response({ error: "AI connection storage is unavailable. Existing credentials were not replaced." }, 500); }
+  catch { return response({ error: "AI connection storage is unavailable. Existing credentials were not replaced. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500); }
 }
 
 export async function POST(request: Request) {
@@ -54,7 +49,7 @@ export async function POST(request: Request) {
     }
     return response(withRoute({ ...connectionsView(), ...(message ? { message } : {}) }));
   } catch (error) {
-    const message = error instanceof Error && /^(Choose |Connect |Install |Unknown ChatGPT|ChatGPT |Gemini |AI credentials|AI connections|Too many|Invalid AI)/.test(error.message)
+    const message = error instanceof Error && /^(Choose |Connect |Install |Unknown ChatGPT|ChatGPT |Gemini |AI credentials|AI connections|AI connection storage|Too many|Invalid AI)/.test(error.message)
       ? error.message : "The connection action could not be completed. No paid request was sent.";
     return response({ error: message }, 400);
   }

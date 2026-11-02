@@ -56,11 +56,11 @@ Connections have offline test coverage, and complete reports have run live throu
 
 <!-- BEGIN GENERATED: config -->
 
-Every key is optional. This table is generated from `.env.example`, which
-carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;
-explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).
+Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
+Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy
+`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).
 
-| Key | Shipped value / opt-in example | What it does |
+| Key | Shipped value, built-in default or opt-in example | What it does |
 | --- | --- | --- |
 | `FMP_API_KEY` | unset | Financial Modeling Prep key — any plan. |
 | `ANTHROPIC_API_KEY` | unset | Anthropic key enables Claude analyst/judge passes when Claude API is selected. |
@@ -135,6 +135,7 @@ coefficients, estimation populations and limits; the source cites it by section.
 
 With AI off or unavailable, reports retain deterministic results and disclose
 missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
+Plan-run recovery files in `<data dir>/recovery/sections` stay until deleted with Metis stopped. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. Settings follows a saved Claude key unless a connection was chosen explicitly. LAN mode disables credential and connection management.
 ## AI analysis
 
 Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.

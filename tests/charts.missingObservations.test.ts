@@ -61,3 +61,11 @@ describe("chart missing observations", () => {
     expect(data.find((row) => row.period === "FY2027")).toMatchObject({ hist: null, weighted: null, band: null });
   });
 });
+
+it("RPT-102: leaves nonadjacent history and forecast unjoined", () => {
+ const point=(period:string, value:number)=>({period,value:{value,unit:"USD",source:"computed",asOf:"2025-12-31"}});
+ const forward=[{...point("12M ending 2027-07-26",220),periodStart:"2026-07-27",periodEnd:"2027-07-26"}];
+ const series={metric:"revenue",unit:"USD",historical:[point("FY2026",160)],bull:forward,base:forward,bear:forward,weighted:forward} as ProjectionSeries;
+ const data=chartProps(ProjectionFanChart({series}),ComposedChart)[0]!.data as Array<Record<string,unknown>>;
+ expect(data[0]).toMatchObject({hist:160,weighted:null,band:null});
+});

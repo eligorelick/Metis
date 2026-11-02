@@ -389,3 +389,11 @@ describe("read-only legacy export safety", () => {
     expect(parseStoredReportWithSafety(JSON.stringify({ meta: { symbol: "LLY" } }))).toBeNull();
   });
 });
+
+it("RPT-209 does not manufacture absent completeness metadata", () => {
+ const report = fixtureReport("DEMO"); delete report.meta.dataCompleteness;
+ report.verdict.synthesis = "DemoMedd succeeds and DEMO-TRIAL evaluates ControlMed.";
+ const safe = sanitizeLegacyEntityConflicts(report, SYNTHETIC_ENTITY_REGISTRY).report;
+ expect(safe.appendix.missingData.some(g => g.field === "legacy.entityValidation")).toBe(true);
+ expect(safe.meta.dataCompleteness).toBeUndefined();
+});

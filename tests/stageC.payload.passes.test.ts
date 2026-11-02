@@ -116,11 +116,13 @@ describe("current-main report generation integrity regressions", () => {
     const mock = new MockRunPass();
     mock.onJson(`llm.${side}`, rejected);
     let retained: string | undefined;
+    let partial: string | undefined;
     const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload, (settlement) => {
-      if (settlement.outcome === "failure") retained = settlement.failure.partialText;
+      if (settlement.outcome === "failure") { retained = settlement.failure.rejectedText; partial = settlement.failure.partialText; }
     });
     expect(run.ok).toBe(false);
     expect(retained).toBe(JSON.stringify(rejected));
+    expect(partial).toBeUndefined(); // L-4: complete schema rejection cannot claim recovered sections.
     const checked = checkCarriedAnalystSections(JSON.parse(retained!));
     expect(checked.dropped).toContain("evidence");
     expect(checked.kept.thesis).toEqual(rejected.thesis);
@@ -2558,8 +2560,7 @@ describe("verify-pass tracing", () => {
     // tag. A live haiku run (2026-09-02) filled `period` with the as-of date on
     // 40 such numbers and every one failed period-mismatch, capping citation
     // coverage at 71% for figures whose id, value and as-of all matched exactly.
-    // A dimension the registry does not carry cannot be wrong: it is adopted
-    // from the record (null) and the number traces.
+    // AI-408: the matching as-of decoration traces; FY1999 is not established.
     const { payload } = buildInputs();
     const deps = makeDeps(new MockRunPass());
     const record = payload.provenanceRegistry!.find(
@@ -2573,11 +2574,11 @@ describe("verify-pass tracing", () => {
       ],
     };
     const { verificationRate, log, verifiedReport } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
-    expect(verificationRate).toBe(1);
-    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(false);
-    // The decoration is normalised away so the persisted number carries the
-    // registry's (absent) period, not an invented one.
-    for (const number of collectTracedNumbers(verifiedReport)) expect(number.period ?? null).toBeNull();
+    expect(verificationRate).toBe(0.5); // AI-408: formerly 1, falsely accepting FY1999.
+    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(true);
+    const numbers = collectTracedNumbers(verifiedReport);
+    expect(numbers[0].period ?? null).toBeNull();
+    expect(numbers[1].period).toBe("FY1999");
   });
 
   it("reads a fiscal spelling of a registered ISO period as that period, and still rejects another year", async () => {
@@ -2765,7 +2766,7 @@ describe("verify-pass tracing", () => {
     const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
     expect(log.filter((entry) => entry.outcome === "unverified" && entry.validationStatus !== "cited").map((entry) => entry.reason))
-      .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
+      .toEqual(["earnings-date-qualified", "value-mismatch", "value-mismatch", "earnings-date-qualified"]); // M-2: two report-date clauses are qualified and remain unchecked.
   });
 
   it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
@@ -3069,7 +3070,7 @@ describe("assembleReport", () => {
       data: { symbol: "AAPL", date: "2026-11-04", confirmation: "vendor_estimate" } } };
     const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
     const output = judgeOutput();
-    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:income-statement(annual)", asOf: "2025-09-27" }];
+    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:earnings-calendar", asOf: "2026-07-06" }];
     output.disagreements = [{ topic: "Growth", bullView: "Growth accelerated", bearView: "Guidance slows", kind: "interpretation", judgeResolution: "Results on 2026-11-04 will clarify the trend." }];
     const original = JSON.stringify(output);
     const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
@@ -3078,6 +3079,7 @@ describe("assembleReport", () => {
     expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; company confirmation not established");
     const log = result.log.filter(e => e.path === "verdict.executiveSummary[0]");
     expect(log.some(e => e.reason === "earnings-date-qualified" && e.claim === output.verdict.executiveSummary![0]!.text)).toBe(true);
+    expect(log.find(e => e.outcome !== "removed")?.claimSupportStatus).toBe("cited");
     expect(log.every(e => e.validationStatus !== "validated" && e.numericSupportStatus !== "validated")).toBe(true);
     const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: result.verifiedReport,
       verify: result, costEntries: [], model: "none" }, GENERATED_AT);

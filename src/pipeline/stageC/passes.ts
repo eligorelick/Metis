@@ -18,7 +18,8 @@
  *    it as too large; the schema is included as prompt text instead.
  *  - runVerifyPass: measures CITATION COVERAGE (provenance, NOT correctness).
  *    Every TracedNumber must resolve an exact registry ID and match value, unit,
- *    currency, period, and as-of. Prose citations must resolve an exact payload
+ *    currency, period, and as-of. Its printed description must not conflict with
+ *    the cited metric (AI-407). Prose citations must resolve an exact payload
  *    source/date or an observed fetched URL; this is counted separately from
  *    numeric prose support. Prose numbers additionally require a typed value
  *    or an unambiguous metric/unit/period binding to retained source spans.
@@ -108,8 +109,10 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { unitLabel } from "@/report/format";
+import { descriptionConflictsWithRecord, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
+  parseCitationRef,
   citationAsOf,
   citationSourceId,
   serializeCitationRef,
@@ -1483,11 +1486,9 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
-      // A complete answer rejected by validation is still paid-for evidence.
-      // Retain it in the bounded recovery field just like a truncated answer;
-      // carried-section validation still excludes invalid content on reuse.
-      partialText: run.error.partialText ?? run.rawText,
-      rejectedText: run.rejectedText,
+      // Complete rejected bytes are diagnostic evidence, not recovered sections.
+      partialText: run.error.partialText,
+      rejectedText: run.rejectedText ?? run.rawText,
     }),
     telemetry,
   };
@@ -2203,6 +2204,16 @@ function entityConflictsForCases(
   );
 }
 
+/** OD-4: payload membership and issuer origin are both required. */
+export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
+  return id => {
+    if (id.startsWith("edgar:")) return (payload.filings ?? []).some(row => row.source === id) || (payload.citationRegistry ?? []).some(row => row.id === id);
+    if (id === "fmp:earning-call-transcript") return payload.transcript != null;
+    if (id === "fmp:press-release") return (payload.citationRegistry ?? []).some(row => row.id === id);
+    return /^(?:payload\.(?:statements|issuer-filings|filing-facts|segments|segment-revenue|leadership|insiders|computed)\.|computed\.)/.test(id) && (payload.provenanceRegistry ?? []).some(row => row.id === id);
+  };
+}
+
 function unresolvedJudgeEntityConflicts(
   payload: ContextPayload,
   bull: AnalystCase,
@@ -2219,7 +2230,7 @@ function unresolvedJudgeEntityConflicts(
   const walk = (node: unknown, structuredSource: string | null = null): void => {
     if (typeof node === "string") {
       reportIssues.push(
-        ...validateEntityText(node, registry, structuredSource).issues.filter(
+        ...validateEntityText(node, registry, structuredSource, issuerPrimarySource(payload)).issues.filter(
           (issue) => structuredSource !== null || issue.code !== "primary-source-required",
         ),
       );
@@ -2234,7 +2245,7 @@ function unresolvedJudgeEntityConflicts(
     if (typeof record.text === "string" && typeof record.label === "string") {
       const rawSource = citationSourceId(record);
       const primarySource = rawSource?.startsWith("web:") ? rawSource.slice(4) : rawSource;
-      reportIssues.push(...validateEntityText(record.text, registry, primarySource).issues);
+      reportIssues.push(...validateEntityText(record.text, registry, primarySource, issuerPrimarySource(payload)).issues);
       for (const [key, value] of Object.entries(record)) {
         if (key !== "text") walk(value);
       }
@@ -2786,9 +2797,27 @@ interface TracedNumberRef {
   /**
    * The label of the metric row the number sits in ({label, values[]}), the
    * only description a TracedNumber has besides its unit. Read by the
-   * excerpt-text match (D-45); never by the registry match.
+   * excerpt-text match (D-45) and registry description conflict check (AI-407).
    */
   rowLabel?: string;
+  rowKind?: "metric-row" | "named-row";
+  cellPeriod?: string;
+}
+
+/** OD-3: null means the spelling/window is outside this cell check. */
+function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): boolean | null {
+  if (/\b(?:ttm|12m|ending|ended|to)\b/i.test(label)) return null;
+  const date = label.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
+  if (date) {
+    if (record.period !== null) return /^\d{4}-\d{2}-\d{2}$/.test(record.period) ? date === record.period : null;
+    const context = record.periodContext;
+    return date === record.asOf || date === (context?.kind === "instant" ? context.at : context?.end);
+  }
+  if (/\b(?:Q[1-4]\s*)?FY\s*\d{4}\b/i.test(label)) {
+    const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel;
+    return fiscal ? periodsAgree(label, fiscal, fiscal) : false;
+  }
+  return null;
 }
 
 function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
@@ -2799,17 +2828,17 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     (typeof o.sourceId === "string" || typeof o.source === "string") &&
     ("asOf" in o) &&
     ("verified" in o);
-  const walk = (node: unknown, path: string, rowLabel: string | undefined): void => {
+  const walk = (node: unknown, path: string, rowLabel: string | undefined, rowKind?: TracedNumberRef["rowKind"], cellPeriod?: string): void => {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (let index = 0; index < node.length; index++) {
-        walk(node[index], `${path}[${index}]`, rowLabel);
+        walk(node[index], `${path}[${index}]`, rowLabel, rowKind, cellPeriod);
       }
       return;
     }
     const obj = node as Record<string, unknown>;
     if (isTraced(obj)) {
-      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel }) });
+      out.push({ number: obj as unknown as TracedNumber, path: path || "$", cellPeriod, ...(rowLabel === undefined ? {} : { rowLabel, rowKind }) });
       return; // a TracedNumber has no nested TracedNumbers
     }
     // A MetricRow ({label, values: [{period, value}]}) labels the numbers
@@ -2825,7 +2854,9 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
       const childLabel = ownRowLabel !== undefined
         ? key === "values" ? ownRowLabel : undefined
         : ownName ?? rowLabel;
-      walk(obj[key], path ? `${path}.${key}` : key, childLabel);
+      walk(obj[key], path ? `${path}.${key}` : key, childLabel,
+        ownRowLabel !== undefined ? key === "values" ? "metric-row" : undefined : ownName !== undefined ? "named-row" : rowKind,
+        rowKind === "metric-row" && key === "value" && typeof obj.period === "string" ? obj.period : cellPeriod);
     }
   };
   walk(root, "", undefined);
@@ -3047,7 +3078,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   }
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
-  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? []);
+  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, (payload.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
   Object.assign(verifiedReport, guardedSchedule.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
@@ -3108,7 +3139,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
   const seriesLatest = reportedSeriesLatest(registry);
 
-  for (const { number, path, rowLabel } of numbers) {
+  for (const { number, path, rowLabel, rowKind, cellPeriod } of numbers) {
     const sourceId = citationSourceId(number);
     const sourceAsOf = citationAsOf(number);
     if (sourceId !== null) number.sourceId = sourceId;
@@ -3215,16 +3246,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // drops one, adopt the record's value — the registry id already pins the
         // exact record (and hence its period/currency). A SUPPLIED-but-wrong
         // period or currency still mismatches, so a genuine error is not masked.
-        // A dimension the registry does not carry cannot be wrong. Aspect
-        // scores, CAGRs, technicals and returns are registered with NO period
-        // (their labels name none) and the prompt never renders one, yet a
-        // model that fills `period` with the as-of date — haiku did, on 40
-        // numbers in one live run (2026-09-02) — failed every one of them as
-        // period-mismatch while id, value and as-of matched exactly, capping
-        // citation coverage at 71%. Adopt the record's null and drop the
-        // decoration so the stored figure carries the registry's period, not
-        // an invented one. A registered period is still compared exactly.
-        if (record.period === null && number.period != null) number.period = null;
+        // AI-408 / OD-3: retain decidable conflicts before erasing the
+        // period-less as-of decoration used by the historical haiku output.
+        const suppliedPeriodConflict = record.period === null && number.period != null &&
+          recordPeriodAgreement(number.period, record) === false;
+        if (record.period === null && number.period != null && !suppliedPeriodConflict) number.period = null;
         // A spelling of the registered period ("total debt 2025-12-31", or
         // "FY2025" when the issuer's own label for the row is FY2025) is the
         // same period; adopt the registry's spelling and say so in the log.
@@ -3254,6 +3280,27 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
+        const columnAgreement = cellPeriod === undefined ? null : recordPeriodAgreement(cellPeriod, record);
+        if (cellPeriod !== undefined && columnAgreement === null) {
+          periodNote = [periodNote, `column "${cellPeriod}" not period-checked`].filter(Boolean).join("; ");
+        }
+        if (ok && (suppliedPeriodConflict || columnAgreement === false)) {
+          ok = false;
+          reason = "period-mismatch";
+        }
+        if (ok) {
+          const words = unitLabel(number.unit) ?? "";
+          const conflict = descriptionConflictsWithRecord({
+            metric: `${rowKind === "metric-row" ? (rowLabel ?? "").replace(/^(?:FACT|ESTIMATE|JUDGMENT)\s*[:\u2010-\u2014-]\s*/i, "") : ""} ${words}`,
+            segment: `${rowLabel ?? ""} ${words}`,
+          }, record, issuerWords);
+          const printed = typeof number.source === "string" ? parseCitationRef(number.source)?.sourceId : undefined;
+          if (conflict || (printed && printed !== sourceId && registry.some(entry => entry.id === printed))) {
+            ok = false;
+            reason = "text-context-mismatch";
+            excerptNote = conflict ? `the printed description names another metric: ${conflict}` : "the printed source names another record";
+          }
+        }
         // Exact matching validates any registry context before it can pass.
         // Fresh AI output omits this source-owned metadata; retain the trusted
         // window on the verified number without sharing the payload object.
@@ -3335,7 +3382,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // the finding sitting next to it in the same appendix.
     const rejected = consistency.rejectedClaimPaths.has(path);
     const scheduleQualified = guardedSchedule.qualifiedClaimPaths.has(path);
-    const supported = match.supported && !rejected && !scheduleQualified;
+    const supported = match.supported && !rejected;
     const judgment = claim.label === "JUDGMENT";
     const registryRecord = sourceId === null
       ? undefined
@@ -3348,7 +3395,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
-    const validation = supported && sourceId !== null
+    const validation = supported && !scheduleQualified && sourceId !== null
       ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
@@ -3363,7 +3410,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // A period or unit word the check could not establish against the cited
     // record is a metadata gap: the claim is unverified, never validated, and
     // contradicted only when its value conflicts as well.
-    const validationStatus = semanticFailure === undefined ? validation.status
+    const validationStatus = scheduleQualified ? "unchecked" : semanticFailure === undefined ? validation.status
       : semanticFailure.check === "direction" || validation.status === "contradicted" ? "contradicted" : "unchecked";
     // The recorded reason names the conflict, so a contradicted entry never
     // carries a metadata reason (presentation reads such legacy entries as
@@ -4144,7 +4191,9 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     }
     const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
     const scheduleNote = nextEarningsNote(args.bundle);
-    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote]);
+    const schedulePayload = payloadContextReady ? assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] }) : undefined;
+    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote], schedulePayload?.citationRegistry,
+      (schedulePayload?.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
     scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
     assembled = scheduleGuard.report;
   }

@@ -148,7 +148,7 @@ function ReportRow({
       </td>
       <td className="px-2 py-1.5">
         <span className="mono text-[11px] text-muted" title={`Requested model: ${r.model}`}>
-          {r.actualModels?.length ? r.actualModels.map(shortModel).join(" · ") : `Requested: ${shortModel(r.model)}; actual model not recorded`}
+          {modelText(r)}
         </span>
       </td>
       <td className="px-2 py-1.5">
@@ -210,7 +210,7 @@ export default async function HistoryPage({
 
   const compareOptions: CompareOption[] = reports.map((r) => ({
     id: r.id,
-    label: `#${r.id} · ${r.createdAt.slice(0, 10)} · ${r.actualModels?.length ? r.actualModels.map(shortModel).join(" · ") : `Requested: ${shortModel(r.model)}; actual model not recorded`}`,
+    label: `#${r.id} · ${r.createdAt.slice(0, 10)} · ${modelText(r)}`,
   }));
   const displayedGradeSurfaces = GRADE_SURFACES.filter((descriptor) =>
     reports.some((report) => report.gradeStrip?.some((cell) => cell.key === descriptor.key)));
@@ -333,4 +333,8 @@ function Th({
       {children}
     </th>
   );
+}
+
+function modelText(r: ReportSummary): string {
+ return r.actualModels?.length ? r.actualModels.map(shortModel).join(" \u00b7 ") + (r.unrecordedModelSteps?.length ? `; not recorded for ${r.unrecordedModelSteps.join(", ")}` : "") : `Requested: ${shortModel(r.model)}; actual model not recorded`;
 }

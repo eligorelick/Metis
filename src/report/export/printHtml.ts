@@ -1,3 +1,5 @@
+import { macroDisplayRows } from "@/report/presentation";
+import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
@@ -346,8 +348,8 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Usage", usageSummary(report)],
       ["Data completeness", dataStateText(completeness)],
       ...evidenceRow(report),
-      ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-      ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
+      ["Verification", trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+      ...(provenanceHeadline(displayedProvenanceCoverage(report, "header")) ? [["Provenance", provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog)!]] : []),
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );
@@ -489,8 +491,8 @@ function sectionValuation(
   const dcfPs = v.dcf.perShare;
   parts.push(
     dcfPs
-      ? `<h3>DCF</h3><p>Intrinsic value per share: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
-      : `<h3>DCF</h3><p>Intrinsic value per share: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
+      ? `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
+      : `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
   );
   // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
   const degraded = dcfPs ? fairValueDegradedText(fairValue) : null;
@@ -718,7 +720,7 @@ function sectionProjections(p: Projections): string {
 function sectionMacro(m: Macro): string {
   const series = table(
     ["Series", "Name", "Latest", "As of", "Relevance"],
-    m.relevantSeries.map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
+    macroDisplayRows(m).map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
   );
   return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }
@@ -739,7 +741,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   ];
   const run = `<h3>Run details</h3>${table(["Item", "Detail"], runRows.map((row) => row.map(esc)))}`;
   const dataOnly = a.missingData.some((gap) => gap.field === "analysis.llm");
-  const trust = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
+  const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), a.verificationLog);
   const checks = a.consistencyChecks;
   const checkLine = checks
     ? (() => {

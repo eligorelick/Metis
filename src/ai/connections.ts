@@ -11,7 +11,10 @@ export function captureAiSelection(): AiSelection {
   // Existing API installations retain their explicitly configured key route;
   // once a connection choice is saved, it is authoritative even after sign-out.
   const store = readAiStore();
-  return store && !store.selectionIsDefault ? store.selection : { provider: getConfig().hasAnthropicKey ? "anthropic" : "none" };
+  const selection: AiSelection = store && !store.selectionIsDefault ? store.selection : { provider: getConfig().hasAnthropicKey ? "anthropic" : "none" };
+  // SEC-205: legacy saved Fast must match the Standard speed shown in Settings.
+  return selection.provider === "chatgpt" && selection.serviceTier === "fast" && !chatGptFastOffered(selection.model)
+    ? { ...selection, serviceTier: "default" } : selection;
 }
 
 export function selectionIsConnected(selection: AiSelection): boolean {
@@ -31,7 +34,7 @@ export function describeAnalysisRoute(): AnalysisRoute {
 export function connectionsView(): AiConnectionsView {
   const store = readAiStore();
   const google = geminiPending(); const openai = chatGptPending();
-  return { selection: captureAiSelection(), hasAnthropicKey: getConfig().hasAnthropicKey, geminiInstalled: geminiExecutable() !== null,
+  return { selectionIsDefault: !store || store.selectionIsDefault === true, selection: captureAiSelection(), hasAnthropicKey: getConfig().hasAnthropicKey, geminiInstalled: geminiExecutable() !== null,
     pending: google?.status === "waiting" ? google : openai?.status === "waiting" ? openai : google ?? openai,
     connections: [
       ...(store?.profiles ?? []).map((p, index) => ({ id: p.id, provider: "chatgpt" as const, label: `${p.email ?? "ChatGPT account"} · connection ${index + 1}`, connected: !!p.tokens, planEnabled: p.tokens?.scopes.includes("chatgpt.tokens.use.direct") ?? false })),

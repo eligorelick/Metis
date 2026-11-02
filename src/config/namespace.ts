@@ -21,3 +21,21 @@ export function withMetisAliases(
     key.startsWith("METIS_") ? metisEnv(key.slice("METIS_".length), env) : env[key],
   ]));
 }
+
+/** Startup diagnostics disclose names only; canonical presence still wins. */
+export function warnMetisAliasConflicts(
+  env: Record<string, string | undefined> = process.env,
+  warn: (message: string) => void = console.warn,
+): void {
+  const suffixes = ["STATEMENT_SOURCE", "JUDGE_ORDER", "MAX_ACTIVE_JOBS", "MAX_ACTIVE_LLM_CALLS",
+    "MAX_JOB_COST_USD", "MAX_ROLLING_COST_USD", "RESERVATION_MODE", "STREAM_IDLE_SECONDS",
+    "ROLLING_COST_WINDOW_MINUTES", "PAID_PASS_LEASE_SECONDS", "JOB_LEASE_SECONDS", "RESUME_ON_START",
+    "EV_INCLUDE_LEASES", "ALLOWED_HOST", "TOKEN_FILE", "DB_PATH", "DATA_DIR", "IMPORT_LEGACY_DB", "UI_REDESIGN"];
+  for (const suffix of suffixes) {
+    const key = `METIS_${suffix}`;
+    const alias = `THESIS_${key.slice(6)}`;
+    if (env[key] !== undefined && env[alias] !== undefined && env[key] !== env[alias]) {
+      warn(`[config] ${key} overrides conflicting ${alias}; remove the unused alias.`);
+    }
+  }
+}

@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const fake = vi.hoisted(() => ({ protect: vi.fn() }));
 vi.mock("node:child_process", () => ({ execFileSync: (...args: unknown[]) => fake.protect(...args) }));
-import { aiDirectory, ensurePrivateDirectory, readAiStore, withAiStore } from "@/ai/store";
+import { aiDirectory, ensurePrivateDirectory, readAiStore, withAiStore, resetAiStoreCacheForTests, type AiStore } from "@/ai/store";
 const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "thesis-store-failures-"));
 let directory: string;
@@ -92,7 +92,8 @@ describe("credential protection and lock failures", () => {
     const failure = Object.assign(new Error("credential I/O failed"), { code: "EIO" });
     if (operation === "write") vi.spyOn(fs, "writeFileSync").mockImplementation(() => { throw failure; });
     else vi.spyOn(fs, "renameSync").mockImplementation(() => { throw failure; });
-    const mutate = vi.fn(() => {});
+    // PERF-201: unchanged callbacks no longer write; exercise a real mutation.
+    const mutate = vi.fn((store: AiStore) => { store.profiles.push({ id: "pending", clientId: "example" }); });
     await expect(withAiStore(mutate)).rejects.toBe(failure); expect(mutate).toHaveBeenCalledTimes(1);
     expect(fs.readFileSync(file, "utf8")).toBe(saved);
     expect(fs.existsSync(path.join(aiDirectory(), "connections.lock"))).toBe(true);
@@ -124,6 +125,8 @@ describe("credential protection and lock failures", () => {
     expect(readAiStore()?.hostId).toBe(host);
     const file = path.join(aiDirectory(), "connections.v1.json"); const saved = fs.readFileSync(file, "utf8");
     fake.protect.mockImplementation(() => { throw new Error("OS key unavailable"); });
+    // PERF-201: simulate a fresh process without a decrypted snapshot.
+    resetAiStoreCacheForTests();
     expect(() => readAiStore()).toThrow("credentials were not replaced");
     expect(fs.readFileSync(file, "utf8")).toBe(saved);
   });
@@ -166,6 +169,8 @@ describe("credential protection and lock failures", () => {
     { protection: "owner-only", data: JSON.stringify({ version: 1, hostId: "urn:uuid:x", profiles: {} }) },
   ])("refuses an invalid store envelope %j", (envelope) => {
     ensurePrivateDirectory(aiDirectory()); fs.writeFileSync(path.join(aiDirectory(), "connections.v1.json"), JSON.stringify(envelope));
+    // PERF-201: simulate a fresh process without a decrypted snapshot.
+    resetAiStoreCacheForTests();
     expect(() => readAiStore()).toThrow("credentials were not replaced");
   });
 });

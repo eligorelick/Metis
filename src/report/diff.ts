@@ -157,6 +157,7 @@ export type DiffReasonCode =
   | "duplicate-target-identity"
   | "duplicate-projection-identity"
   | "projection-period-conflict"
+  | "score-bands-version-mismatch"
   | "unit-mismatch"
   | "currency-mismatch"
   | "period-mismatch";
@@ -747,6 +748,7 @@ export function diffReports(
     return emptyReportDiff(context, globalReasons, fromReport, toReport);
   }
 
+  const bandReasons: DiffReasonCode[] = fromReport.scores?.bandsVersion && toReport.scores?.bandsVersion && fromReport.scores.bandsVersion !== toReport.scores.bandsVersion ? ["score-bands-version-mismatch"] : [];
   const gradeChanges: GradeChange[] = [];
   for (const descriptor of GRADE_SURFACES) {
     const fromBlock = fromReport.verdict.gradeStrip[descriptor.key];
@@ -755,12 +757,12 @@ export function diffReports(
     const to = toBlock ? gradeForDisplay(toBlock) : null;
     if (from === to) continue;
     const transition =
-      from === null ? "added" : to === null ? "removed" : "changed";
+      fromBlock === undefined ? "added" : toBlock === undefined ? "removed" : from === null ? "became-available" : to === null ? "became-unavailable" : "changed";
     gradeChanges.push({
       section: descriptor.key,
       from,
       to,
-      ...transitionComparison(transition, globalReasons),
+      ...transitionComparison(transition, [...globalReasons, ...bandReasons]),
     });
   }
 
@@ -804,7 +806,7 @@ export function diffReports(
       toValue: toEndpoint?.value ?? null,
       fromBand: fromEndpoint?.band ?? null,
       toBand: toEndpoint?.band ?? null,
-      ...transitionComparison(transition, globalReasons),
+      ...transitionComparison(transition, [...globalReasons, ...bandReasons]),
     });
   }
 
@@ -1096,8 +1098,8 @@ export function diffReports(
         };
 
   const familyComparisons: FamilyComparisons = {
-    grades: comparisonFor(globalReasons),
-    scores: comparisonFor(globalReasons),
+    grades: comparisonFor([...globalReasons, ...bandReasons]),
+    scores: comparisonFor([...globalReasons, ...bandReasons]),
     weights: comparisonFor(globalReasons),
     drivers: comparisonFor([
       ...globalReasons,
@@ -1153,7 +1155,7 @@ export function diffReports(
   };
 
   const notComparableReasons = uniqueReasons([
-    ...globalReasons,
+    ...globalReasons, ...bandReasons,
     ...driverFamilyReasons,
     ...targetFamilyReasons,
     ...PROJECTION_PATH_ORDER.flatMap((path) => projectionFamilyReasons[path]),

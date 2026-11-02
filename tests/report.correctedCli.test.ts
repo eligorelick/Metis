@@ -34,6 +34,7 @@ interface CorrectedCliSummary extends CorrectedCliArguments {
   verificationRate: number | null;
   provenanceCoverage: unknown;
   dataCompleteness: unknown;
+  recordedDataCompleteness: unknown;
   execution: unknown[];
 }
 
@@ -230,6 +231,7 @@ describe("corrected report CLI", () => {
       expect(Object.keys(summary).sort()).toEqual(
         [
           "dataCompleteness",
+        "recordedDataCompleteness",
           "dbFile",
           "execution",
           "outputHtml",
@@ -446,3 +448,16 @@ describe("corrected report CLI", () => {
     }
   }, 20_000);
 });
+
+it("DB-004 preserves absent metadata when no legacy source entry is needed", async () => {
+ const dir = mkdtempSync(path.join(os.tmpdir(), "p3-cli-"));
+ try {
+  const report = JSON.parse(readFileSync(REPORT_FIXTURE, "utf8")); delete report.meta.dataCompleteness;
+  report.appendix.sources.push({ ...report.appendix.sources[0], provider: "edgar", endpoint: "/api/xbrl/companyfacts/CIK0000000001.json" });
+  const dbFile = path.join(dir, "reports.db"); seedReportDatabase(dbFile, JSON.stringify(report));
+  const cli = await loadCli();
+  const summary = cli.runCorrectedExport({ dbFile, reportId: 7, outputHtml: path.join(dir, "copy.html") });
+  expect(summary.dataCompleteness).toBeUndefined();
+  expect(summary.recordedDataCompleteness).toBeNull();
+ } finally { rmSync(dir, { recursive: true, force: true }); }
+}, EXPORT_IO_TIMEOUT_MS);
