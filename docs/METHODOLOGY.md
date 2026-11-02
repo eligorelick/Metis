@@ -4,7 +4,7 @@ What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The current source declares report 1.56.0 / payload 1.60.0 and Stage B
-STAGE_B_2026_11_CLAUDE_REPAIRS_39 (P0 review fixes; final merged release verification pending). Its bounded evidence fixes
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -5963,3 +5963,51 @@ P0 L-2: In no-split EPS comparisons, either cent-precision value may establish r
 P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
+
+## Registry figure descriptions (AI-407)
+
+A registry figure is also read against the description printed beside it: a
+metric row label, segment name, or worded unit. Peer, macro series and scenario
+names do not describe metrics. A detected conflict in level, share basis,
+non-default basis, segment member or metric head leaves the figure unverified
+and unchecked, never contradicted. A printed source naming another registry
+record also fails closed. Empty descriptions and records without labels retain
+their identity-based matching behavior. Citation coverage excludes these refused
+figures; the same verification status reaches report tables and exports. Stored
+reports are unchanged; this rule applies when verification runs.
+
+MetricRow columns (AI-408): a date or explicit fiscal label must be established by the cited record. Other columns and window spellings are logged as not period-checked. On a period-less record, an established as-of decoration is erased; a decidable conflicting supplied period stays unverified.
+
+AI-501: a direction word in a registry record's own label is part of its metric. The claim must name it. An attached direction on a claim is also read as the claim's relation; this does not change excerpt matching or make increase-named rows signed-change records.
+
+AI-502 / OD-6: percentage points alone never establish movement. Slopes are changes; other percentage-point records need a change-named final slug and no difference operator in their label. Movement/comparative prose against spreads, divergence and yield-curve levels stays unchecked; numeric sign conflicts still compare values.
+
+AI-504: a difference or ratio record is named only when its operands occur in record order. Reversed operands stay unchecked; the verifier never computes a reciprocal or negated replacement. Absolute differences have no operand order; grammatical to, date intervals, P/E and parenthetical em dashes are not operators.
+
+AI-116: insider owner types are read role by role, preserving commas inside an officer title. Historical audit logs before 1.56.0 that rejected a potentially dropped role say the title was not rechecked; recorded outcomes and raw report bytes remain unchanged.
+
+AI-103 / OD-4: registered issuer entities may cite issuer filings, transcripts, press releases and registered issuer-data records carried in the payload, or registered issuer pages. Third-party news and unregistered sources remain non-primary. The analyst source rule is unchanged.
+
+AI-104: recovery language must govern the hurdle. A later fade, convergence or decline toward cost of equity is not a recovery, even after an earlier rise; continued rising toward it still triggers the warning.
+
+AI-111 / OD-5: listed honorific periods and contextual name initials do not start rating sentences. Initial surnames require a dash, comma, parenthesis or possessive. Whole-sentence rating words and unlisted abbreviations remain refused.
+
+RPT-504 / B10-OD-11: data-only reports show no checked citation/provenance share on reader surfaces, including legacy reports carrying counts and job-panel summaries carrying a recorded citation rate. The audit retains raw evidence-class counts under an explicit no-citation-check disclosure.
+
+DB-004/RPT-209 / B10-OD-2: read and corrected-export paths carry completeness under its recorded convention. Absent metadata stays absent; unconfirmable records stay recorded. Added legacy gaps recount confirmed records under their original rule.
+
+RPT-212 / B10-OD-5: each run-level synthetic/provider-fallback notice appears once: in the saved-snapshot header when mounted, otherwise at the report body head in either layout. Exports retain their existing notice placement.
+
+RPT-206: the data-only banner reports classified D-67 data-gap counts, with notes and analysis-process disclosures apart. Reader state follows these counts; persisted entry-based state and confidence rules are unchanged.
+
+RPT-207: FMP failures count per dataset: per symbol for issuer/benchmark price histories, and per period for statements. Subject datasets merge with matching keyless verdicts. Peer requests retain their symbols and stay separate; unknown issuers are not guessed.
+
+RPT-206 review: the shared saved-snapshot header labels Research with the recorded research state, including process warnings. Data-gap summaries retain separately classified counts.
+
+AI-111 review: a name initial before Buy/Sell/Hold accepts a comma only before the appositive words the, a, an, our, its, who or whose. Comma-led rating directives remain refused.
+
+AI-104 review: decline/fall words in a bounded origin phrase (from, after, since, following) do not suppress a recovery-toward-hurdle warning. Forward fade predicates retain their exclusion.
+
+AI-116 review: the historical title-check qualification requires an explicit parenthesized multi-role owner listing in the claim/check note, in either role order. Single officer titles, including internal title commas, do not qualify.
+
+RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.

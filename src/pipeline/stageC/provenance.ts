@@ -282,7 +282,8 @@ export function canonicalizeTracedUnit(
   // stockholders equity", "% Standardized CET1"): the model sometimes writes the
   // figure label into the unit slot. The first token still has to be a canonical
   // unit, and id, value, currency, period and as-of are all matched separately,
-  // so the description cannot change what is verified. "% points" is excluded:
+  // so canonicalization reads only the unit. AI-407 separately checks the
+  // printed description for conflicts with the matched record in the verifier. "% points" is excluded:
   // it would silently turn percentage points into a percent.
   const tail = /^(\S+)\s+(.+)$/.exec(raw);
   if (tail && !/^(points?|pts?|pp)\b/i.test(tail[2]!)) {

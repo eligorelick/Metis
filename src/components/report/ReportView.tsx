@@ -1,3 +1,4 @@
+import { RunNotices } from "./RunNotices";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
  * (src/report/schema.ts). Renders the full report (report sections 1–14)
@@ -45,8 +46,7 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, presentationReportId, syntheticNotice, routeMetricsForDisplay } from "@/report/presentation";
-import { providerFallbackNotice } from "@/report/providerFallback";
+import { dataStateText, presentationReportId, routeMetricsForDisplay } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
@@ -178,12 +178,14 @@ export function ReportView({
   /** Optional chart node mounted inside the Fundamentals section. */
   fundamentalsChart,
   layout = "classic",
+  headerNotices = false,
   selectedReportId,
 }: {
   report: Report;
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
   layout?: "classic" | "dossier";
+  headerNotices?: boolean;
   selectedReportId?: number;
 }) {
   const report = withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))))))));
@@ -244,8 +246,7 @@ export function ReportView({
       </div>
 
       {report.meta && (layout === "dossier" ? <details className="report-snapshot-details"><summary>Run, usage &amp; provenance details</summary><ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} /></details> : <ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} />)}
-      {layout === "classic" && syntheticNotice(report) && <p className="text-warn">{syntheticNotice(report)}</p>}
-      {layout === "classic" && providerFallbackNotice(report) && <p className="text-warn">{providerFallbackNotice(report)}</p>}
+      {!headerNotices && <RunNotices report={report} notices="body" />}
 
       {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
 

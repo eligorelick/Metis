@@ -4,7 +4,7 @@ import { ReportView } from "./ReportView";
 import { getConfig } from "@/config/env";
 
 /** Render a persisted report from only the data stored in its snapshot. */
-export function PersistedReportView({ report, selectedReportId }: { report: Report; selectedReportId?: number }) {
-  const context = selectedReportId === undefined ? {} : {selectedReportId};
+export function PersistedReportView({ report, selectedReportId, headerNotices }: { report: Report; selectedReportId?: number; headerNotices?: boolean }) {
+  const context = { ...(selectedReportId === undefined ? {} : { selectedReportId }), ...(headerNotices === undefined ? {} : { headerNotices }) };
   return getConfig().uiRedesign ? <ReportView report={report} layout="dossier" {...context} /> : <ReportView report={report} {...context} />;
 }

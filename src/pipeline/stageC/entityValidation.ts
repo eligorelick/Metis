@@ -259,6 +259,7 @@ export function validateEntityText(
   text: string,
   registry: EntityRegistry,
   sourceId: string | null,
+  isPrimary?: (sourceId: string) => boolean,
 ): EntityValidationResult {
   const mentions = mentionsIn(text, registry);
   const issues: EntityIssue[] = [];
@@ -273,10 +274,10 @@ export function validateEntityText(
         sourceId,
         recordId: record.id,
       });
-    } else if (sourceId !== null && !record.primarySourceIds.includes(sourceId)) {
+    } else if (sourceId !== null && !record.primarySourceIds.includes(sourceId) && !isPrimary?.(sourceId)) {
       issues.push({
         code: "primary-source-required",
-        text: `${record.canonicalName} requires a registered primary source`,
+        text: `${record.canonicalName} requires a primary source: the issuer's filings, call transcript or press releases in the payload, or a registered issuer page`,
         canonicalName: record.canonicalName,
         observed: mention.observed,
         sourceId,

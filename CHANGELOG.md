@@ -18,6 +18,40 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P3 verifier and trust labels (2026-11-02)
+
+- RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.
+
+- RPT-207: count and label FMP failures by symbol and statement period, retaining matching keyless merges.
+
+- RPT-206: align banner/state wording with classified data gaps, keeping process disclosures apart.
+
+- RPT-212: show synthetic/provider-fallback notices once across saved, live and sample report layouts.
+
+- DB-004, RPT-209: preserve recorded completeness conventions and absent metadata through corrected exports and entity safety.
+
+- RPT-504: hide stored citation/provenance shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
+
+- AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
+
+- AI-104: avoid false recovery warnings on accurate fading-to-hurdle commentary.
+
+- AI-103: accept payload-carried issuer disclosures as primary entity sources and explain the rule to the judge; pipeline stage-c-1.6.18.
+
+- AI-116: read combined insider roles and qualify historical title refusals in audit notes.
+
+- AI-504: refuse claims that reverse the operands of a recorded ratio or difference.
+
+- AI-502: classify percentage-point differences as levels, leaving unsupported movement unchecked.
+
+- AI-501: retain defining direction nouns in record metrics; refuse balance-level claims citing increases.
+
+- AI-408: check readable MetricRow column periods and refuse unestablished supplied dates/fiscal labels; disclose unchecked column spellings.
+
+- AI-407: registry figures printed under conflicting metric or segment descriptions
+  lose their verification mark and count as unchecked. Different printed registry
+  sources also fail closed. Stored reports are unchanged.
+
 ## Unreleased - P4 paid-work lifecycle (2026-11-02)
 
 Independent review follow-up: keep already-finished resumable jobs reachable on

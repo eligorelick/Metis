@@ -1,3 +1,5 @@
+import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
+import { shownDataState } from "@/report/completeness";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
@@ -1529,7 +1531,7 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
   // contradiction: the data state follows the data counts, and the sentence
   // says that it is the analysis that is blocked.
   const processBlocked = c.state === "blocked" && c.dataCriticalCount === 0 && c.processDisclosureCount > 0;
-  const shown = processBlocked ? (c.dataWarningCount > 0 ? "degraded" : "complete") : c.state;
+  const shown = shownDataState(c);
   const state = shown === "complete" ? "Complete" : shown === "degraded" ? "Degraded" : shown === "blocked" ? "Blocked" : "Unknown";
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // D-67: one count per underlying data gap; how the passes ran is counted apart.
@@ -1653,6 +1655,7 @@ export function gapCountText(gaps: readonly ManifestEntry[], c?: Pick<ReportComp
 
 const DATASET_LABEL: Record<string, string> = {
   marketCapHistory: "Market-cap history",
+  eodPrices: "Issuer price history", spy: `${SPY_BENCHMARK} benchmark price history`, sectorEtf: "Sector ETF price history",
 };
 
 const STATEMENT_LABEL: Record<string, string> = {
@@ -1671,6 +1674,15 @@ const PROCESS_LABEL: ReadonlyArray<readonly [RegExp, (m: RegExpExecArray) => str
 export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const field = gap.fields[0] ?? gap.key;
   if (DATASET_LABEL[gap.key] !== undefined) return DATASET_LABEL[gap.key]!;
+  const price = /^historicalPriceEodFull\(([^)]+)\)$/.exec(gap.key);
+  if (price) return `Price history (${price[1]})`;
+  const statementField = gap.fields.map(f => /^fmp\.(incomeStatement|balanceSheet|cashFlow)\(([^,]+),(annual|quarter)\)$/.exec(f)).find(Boolean);
+  if (statementField) {
+    const [, endpoint, symbol, period] = statementField;
+    const key = `${({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint]}${period === "annual" ? "Annual" : "Quarterly"}`;
+    const label = STATEMENT_LABEL[key];
+    return label[0].toUpperCase() + label.slice(1) + (gap.key.startsWith(`${endpoint}(${symbol}`) ? ` (${symbol})` : "");
+  }
   for (const [pattern, label] of PROCESS_LABEL) {
     const match = pattern.exec(field);
     if (match) return label(match);
@@ -1678,7 +1690,10 @@ export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const withheld = /^keyless\.([A-Za-z]+)\.backfill\.withheld\.([A-Za-z]+)$/.exec(field);
   if (withheld) return `${sentence(segmentWords(withheld[2]!))} withheld from the ${STATEMENT_LABEL[withheld[1]!] ?? segmentWords(withheld[1]!).join(" ")} backfill`;
   const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
-  if (fmp) return `${sentence(segmentWords(fmp[1]!))} (FMP)`;
+  if (fmp) {
+    const symbol = /^fmp\.[A-Za-z]+\(([^,)]+)/.exec(field)?.[1];
+    return `${sentence(segmentWords(fmp[1]!))} (FMP${symbol && gap.key.startsWith(`${fmp[1]}(${symbol}`) ? `, ${symbol}` : ""})`;
+  }
   if (field === "analysis.llm") return "Analysis not completed";
   return sentence(segmentWords(field.replace(/\([^)]*\)/g, "").replace(/[.:]/g, " ")));
 }
@@ -1928,4 +1943,10 @@ export function factorExposureTable(scores: NonNullable<Report["scores"]>): Body
     headers: ["Factor family", "Weight", "Points vs 50"],
     rows: scores.factorExposure.map((x) => [sentence(segmentWords(x.family)), formatPct(x.weightPct, 1), signedPoints(x.aboveNeutralPoints)]),
   };
+}
+
+/** OD-11: data-only runs performed no citation-check pass. */
+export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appendix">, scope: "header" | "appendix"): ProvenanceCoverage | undefined {
+  if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
+  return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
 }

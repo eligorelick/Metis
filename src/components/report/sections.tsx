@@ -1,3 +1,5 @@
+import { shownDataState } from "@/report/completeness";
+import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
  * consistent, and provenance-first: figures render as {@link TracedFigure}s
@@ -2005,7 +2007,7 @@ export function AppendixSection({
   const rate = appendix.verificationRate;
   const dataOnly = appendix.missingData.some((gap) => gap.field === "analysis.llm");
   const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
-  const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage, appendix.verificationLog);
+  const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const checks = appendix.consistencyChecks; // WS7 (D-20)
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
@@ -2126,8 +2128,8 @@ export function ReportMetaStrip({
     report.appendix.missingData,
     report.appendix.sources,
   );
-  const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
-  const provenance = provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog);
+  const verification = trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
+  const provenance = provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const identityNote = reportIdentityNote(report,{selectedReportId});
   return (
@@ -2159,9 +2161,9 @@ export function ReportMetaStrip({
         </span>
         <span className="mono">spec {m.specVersion}</span>
         <span
-          className={presentation.state === "blocked"
+          className={shownDataState(presentation) === "blocked"
             ? "font-semibold text-red-500"
-            : presentation.state === "degraded" || presentation.state === "unknown"
+            : shownDataState(presentation) === "degraded" || shownDataState(presentation) === "unknown"
               ? "font-semibold text-amber-500"
               : "text-muted"}
           title="Data state; metadata agreement is a separate reconciliation check."

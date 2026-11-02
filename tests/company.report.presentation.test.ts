@@ -353,7 +353,7 @@ describe("persisted report presentation", () => {
   it("delegates both persisted routes to one exact report-only boundary", async () => {
     expectTypeOf<PersistedReportViewExport>()
       .parameter(0)
-      .toEqualTypeOf<{ report: Report; selectedReportId?: number }>();
+      .toEqualTypeOf<{ report: Report; selectedReportId?: number; headerNotices?: boolean }>(); // RPT-212: explicit notice ownership
 
     const companyTree = await CompanyBody({ symbol: "DEMO" });
     const tabs = elementsWithin(companyTree).find((element) => element.type === ReportTabs);
@@ -373,7 +373,7 @@ describe("persisted report presentation", () => {
     expect(harness.runStageB).toHaveBeenCalledTimes(1);
 
     expect(companyPersisted.props).toEqual({report,selectedReportId:42});
-    expect(savedPersisted!.props).toEqual({report,selectedReportId:42});
+    expect(savedPersisted!.props).toEqual({report,selectedReportId:42,headerNotices:true}); // RPT-212: the saved route mounts the notice header
     expect(companyPersisted.type).toBe(savedPersisted!.type);
     // Identical report bytes in different saved rows must not retain a previous
     // row's interactive selection. React's key is outside the report-only props.

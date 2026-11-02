@@ -953,7 +953,7 @@ export default async function CompanyPage({ params, searchParams }: {
             controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
           {!dossier && resumableJobId !== null && <p className="text-[12px] text-muted">A previous run stopped with reusable analyst work. Open Live analysis to resume it.</p>}
-          <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
+          <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} headerNotices />
         </div>
       </AppShell>
     );

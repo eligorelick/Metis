@@ -1,3 +1,4 @@
+import { INSIDER_ROLES_READ_FROM } from "@/report/claimMatching";
 /**
  * Version stamps after the 2026-10-04 audit follow-up, and legacy reads.
  * Report 1.10.0 and payload 1.11.0 admit a 3y/5y revenue CAGR to the DCF
@@ -99,7 +100,7 @@ import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { IMPLIED_RETURN_SHARE_BASIS_SPEC } from "@/report/legacyImpliedReturnShareBasis";
 import { FAIR_VALUE_METHOD_VERSION } from "@/pipeline/stageB/fairValue";
 import { SCENARIO_TARGET_METHOD_VERSION } from "@/pipeline/stageB/scenarioTargets";
-import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { buildDataOnlyReport, PIPELINE_VERSION } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import {
   PAYLOAD_VERSION,
@@ -149,6 +150,8 @@ describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.60.0");
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.18"); // AI-103 judge instruction
+    expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_CLAUDE_REPAIRS_39");
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
     expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.52.0");

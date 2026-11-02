@@ -1209,6 +1209,8 @@ Original report bytes and production report history are preserved.
 
 ## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
 
+Revised by D-next (P3, OD-2 / AI-407) below for registry description conflicts.
+
 - **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
   - "RSI" and "RSI index" (5): the bare-ISO-code branch of
     `canonicalizeTracedUnit` ran before the indicator spellings and read "RSI"
@@ -3064,3 +3066,44 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 ### D-next (P0): review corrections to source comparison, date qualification and recovery
 
 No-split share comparisons require a confirmed single-ticker ordinary-share scope. Cent rounding is symmetric; earlier matching exact-interval filings are described as superseded. Provider calendar qualification binds within punctuation-delimited clauses, yields to registered SEC/official issuer sources, preserves citation credit, and uses non-counted audit rows. Complete rejected responses persist as rejectedText only. Report spec 1.56.0, payload 1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39. No prompt text changed; pipeline remains stage-c-1.6.17. Stored reports are never rewritten.
+
+## D-next (P3) Verifier identity and truthful trust/completeness labels
+
+Implement the settled OD-2 conflict rule rather than silently substituting a
+record label. Compare metric rows and worded units for level, share basis,
+non-default basis and disjoint metric heads; compare segment names to their
+registered member. Other named rows name entities, not metrics. Ignore macro
+section tags when reading basis. A different printed registry source is also a
+conflict; reader URLs remain permitted. Refusals are unchecked, never contradicted.
+This revises D-44's indicator-only description guard. See METHODOLOGY.md
+"Registry figure descriptions (AI-407)". Stored reports are never rewritten.
+
+OD-3: readable column dates/fiscal labels must match the record. Fiscal agreement compares the declared fiscal label directly, including period-less typed contexts; it does not require an invented ISO period. Windows and unreadable columns retain existing matching with an explicit log note. Period-less records establish only their as-of, typed context end/instant, and fiscal label; decidable supplied conflicts are refused. Paired facade replay over 43, 46, 48, 49 and 50 found zero numeric status deltas.
+
+AI-501 follows Task 17: preserve defining direction nouns in record labels, with two claim readings only when direction attaches to the figure. Level claims against increase rows become unchecked; verb-change recall remains deliberately withheld. No payload or stored bytes change.
+
+AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differences do not establish temporal movement or a comparative standard; both stay unchecked. Temporal slopes and change-named percentage-point records retain direction checks, except labels naming differences. New unknown records default to non-change. Comparative recall is deliberately withheld.
+
+AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compare distinct stemmed heads only after metric agreement. Refuse reversed order as unchecked. Preserve symmetric absolute differences and ordinary grammatical/date uses. Five assembled facade replays retain numeric statuses.
+
+AI-116 restores every listed insider role, splitting only before recognized owner-role prefixes. The historical audit qualification is frozen at 1.56.0; it claims no historical re-verification. Paired facade numeric statuses remain unchanged.
+
+AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.
+
+AI-104 scopes the recovery predicate through the hurdle noun. Intervening fade predicates and completed rises followed by a new non-recovery clause end its reach. No numeric values or status marks change.
+
+AI-111 adopts the closed OD-5 abbreviation mask without changing rating patterns. Ordinary-word continuations after initials and bare rating sentences stay fail-closed. Stored report gate outcomes remain unchanged in the five assembled controls.
+
+RPT-504 applies the existing data-only builder rule at every reader coverage call. The helper preserves header versus appendix block precedence for analysed reports. Stored provenance is retained, not scrubbed, and remains in the audit export with a qualification.
+
+DB-004 and RPT-209 apply B10-OD-2 to the corrected CLI and entity-safety view. Confirmed pre-1.44.0 records keep the old EDGAR rule; confirmed current records recount under the current rule. Equal field/severity/expected manifests preserve identity. Absent/unconfirmable metadata is carried; the CLI only creates a count when it adds legacy audit gaps. Original database bytes are never rewritten.
+
+RPT-212 implements B10-OD-5/R-OD-4 once through RunNotices and headerNotices forwarding on the two saved routes. Headerless live/sample bodies show notices in both layouts. This revises D-111 placement without changing report bytes or export wording.
+
+RPT-206 adopts B10-OD-8. The banner and state word share classified data counts with the header; note-only manifests say no data gaps, with a separate disclosure count. Historic metadata is not rewritten.
+
+RPT-207 preserves FMP endpoint arguments when they identify different datasets. Issuer inference excludes peer/benchmark endpoints and plan-limit dataset names, with a sector-ETF subject fallback on ties. Statement and price labels name the retained scope. Raw manifest entries and persisted completeness stay unchanged.
+
+RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
+
+Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.

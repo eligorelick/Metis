@@ -35,13 +35,13 @@ describe("reader trust refinement", () => {
     expect(c.state).toBe("blocked");
     expect(c.criticalCount).toBe(1);
     expect(c.dataCriticalCount).toBe(0);
-    expect(c.dataWarningCount).toBe(14);
+    expect(c.dataWarningCount).toBe(15); // RPT-207: SPY and sector histories are separate datasets
     expect(c.processDisclosureCount).toBe(1);
     const rows = manifestReconciliationRows(gaps,c);
     expect(rows.reduce((sum,row)=>sum+row.entries,0)).toBe(gaps.length);
     expect(rows.find(row=>row.kind==="data")?.entries).toBe(15);
     expect(rows.find(row=>row.kind==="process")?.entries).toBe(1);
-    expect(dataStateText(c)).toContain("14 data issues");
+    expect(dataStateText(c)).toContain("15 data issues");
     expect(dataStateText(c)).toContain("analysis-process");
   });
 
