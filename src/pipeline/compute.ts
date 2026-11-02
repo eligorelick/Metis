@@ -3338,6 +3338,15 @@ function computeReturns(
     }
   }
 
+  // L9: the evidenced non-bank lender has neither an applicable FCFF DCF
+  // nor an excess-return model. A refused, unconsumed rate is disclosure.
+  if (route.base === "general" && route.cashFlowApplicability?.status === "not-applicable") {
+    for (const gap of wacc.gaps) if (gap.severity === "critical") {
+      gap.severity = "info";
+      gap.reason += ". Disclosure only: no applicable model consumes this discount rate; the evidenced lender's FCFF DCF is not applicable and no excess-return model is used.";
+    }
+  }
+
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of
   // its numerator because its denominator already excludes preferred.
   const preferredByDate = new Map<string, FmpCashFlowRow>(

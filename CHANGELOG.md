@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
 
+- L9: classify refused discount-rate inputs as disclosure when no applicable
+  model consumes them on the evidenced non-bank lender route.
 - L7: withhold award-overhang attribution for a fiscal year spanning filed
   conversion or IPO/participating-security evidence; retain raw counts.
 - L6: exclude profile-only peers as unconfirmed for an SEC-evidenced lender.

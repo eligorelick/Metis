@@ -3806,3 +3806,10 @@ annual diluted/basic gap. Withhold the award attribution, preserve both
 counts and identify the filed evidence. Keep the fiscal-year window bounded
 when annual rows are missing. Move the shared evidence tag lists into the
 central taxonomy table; the annual share-trend rule keeps its admission rules.
+
+## D-next (N4a) - Unconsumed lender discount rates are disclosures (L9)
+
+For an SEC-evidenced non-bank lender without an applicable FCFF or excess-return
+model, retain rate-input refusals at info severity with the no-consumer reason.
+Do not supply a fallback rate. Preserve bank, insurer and ordinary general-route
+critical severity. Header completeness follows the retained manifest severity.

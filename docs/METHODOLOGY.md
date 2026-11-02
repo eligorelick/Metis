@@ -6555,6 +6555,13 @@ requirements are not established by the current retained inputs; no numerical
 fallback is represented as implemented or validated (see RESEARCH section 8.4
 on bottom-up beta as a research direction).
 
+L9 (N4a): when the SEC-evidenced non-bank lender rule suppresses the FCFF DCF
+and no excess-return model applies, a refused beta/WACC input is retained as
+an informational disclosure. It supplies no rate or fallback estimate and
+cannot alone make the header Blocked. The numerical refusal is unchanged.
+Banks, insurers and ordinary general-route issuers retain the existing severity
+because an applicable model consumes their discount rate.
+
 ## SEC-built rows on a filed-total conflict (N3)
 
 N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
