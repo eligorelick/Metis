@@ -26,7 +26,9 @@ reconciled one-filing row is unavailable. Quarterly growth uses matched filed
 operands or discloses its refusal. Refuted quarterly CFO and dependent FCF
 are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Evidenced
 lenders omit quarterly gross margin and mark provider EV not applicable. The
-receivables flag follows Beneish financial-forensics applicability. Shared stamps and stored reports are unchanged.
+receivables flag follows Beneish financial-forensics applicability. Identical
+measured CAGR windows collapse into one row and currency amounts share K/M/B/T
+formatting. Shared stamps and stored reports are unchanged.
 
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 

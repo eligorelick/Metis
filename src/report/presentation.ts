@@ -4,6 +4,7 @@ import { shownDataState } from "@/report/completeness";
 import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
+import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -1219,13 +1220,13 @@ export function withoutTabled(report: Pick<Report, "filingDisclosures">, numbers
 }
 
 /** MetricRow groups with tabled values removed (rows left empty are dropped). */
-export function metricRowsWithoutTabled<T extends { label: string; values: readonly { value: TracedNumber }[] }>(
+export function metricRowsWithoutTabled<T extends { label: string; values: readonly { period?: string; value: TracedNumber }[] }>(
   report: Pick<Report, "filingDisclosures">,
   rows: readonly T[],
 ): { kept: T[]; homes: string[] } {
   const homes: string[] = [];
   const kept = rows.flatMap((row) => {
-    const values = row.values.filter((v) => {
+    const values = collapseMeasuredCagrValues(row.values).filter((v) => {
       const home = filingTableHome(report, v.value.source);
       if (home !== null && !homes.includes(home)) homes.push(home);
       return home === null;

@@ -39,6 +39,7 @@ import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
+import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
@@ -322,7 +323,7 @@ function cagrRow(
         : "";
     values.push({ period: `${point.windowYears}y CAGR${spanNote}`, value });
   }
-  return values.length > 0 ? { label, values } : null;
+  return values.length > 0 ? { label, values: collapseMeasuredCagrValues(values) } : null;
 }
 
 function seriesRow(

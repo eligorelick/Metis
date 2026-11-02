@@ -3800,3 +3800,10 @@ margins and the independent internal context-EV policy.
 Apply the exact financial-forensics predicate that withholds Beneish to the
 standalone receivables-versus-revenue flag, whose relation is also DSRI.
 Disclose the refusal reason; retain non-financial flags and thresholds.
+
+## D-next (N4b) - Measured CAGR windows and currency scale (L10)
+
+Collapse explicit, identical measured CAGR observations into one row naming
+the measured span. Keep distinct windows and values. Use the same compact
+K/M/B/T amount scale for segment and fundamentals money; preserve per-share
+precision. Pure display grouping does not alter retained figures or scores.

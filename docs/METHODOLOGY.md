@@ -431,6 +431,12 @@ return with the current cost of equity, as it did before.
 
 ## Growth, annual returns and capital diagnostics
 
+N4b L10 display: Requested CAGR windows that produce the identical measured
+window, rate, end date and source appear once, named for their actual measured
+span. The separate latest-year window remains. Calculations, grade inputs and
+retained records are unchanged. Segment and fundamentals currency amounts use
+the shared compact K/M/B/T scale from 1,000; per-share amounts retain decimals.
+
 `src/pipeline/stageB/growth.ts` reports requested 1/3/5/10-year revenue,
 diluted-EPS and before-SBC FCF CAGRs as `(end/start)^(1/years) − 1`.
 Non-positive endpoints or sign flips withhold the CAGR. Short history degrades

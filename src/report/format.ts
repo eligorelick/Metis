@@ -269,7 +269,7 @@ function scaledMoneyAmount(value: number, code: string, scale: string, currency?
   if (amount !== 0 && Math.abs(amount) < 0.005) {
     return withCurrency(`${amount < 0 ? "-" : ""}${Math.abs(amount).toPrecision(3)}`, established);
   }
-  return formatMoney(amount, established, Math.abs(amount) >= 1e6);
+  return formatMoney(amount, established, Math.abs(amount) >= 1e3);
 }
 
 export function formatFinancialValue(
@@ -290,7 +290,7 @@ export function formatFinancialValue(
   switch (canonical) {
     case "percent": return formatPct(value);
     case "multiple": return formatMultiple(value);
-    case "usd": return formatMoney(value, establishedCurrency(unit, currency), Math.abs(value) >= 1e6);
+    case "usd": return formatMoney(value, establishedCurrency(unit, currency), Math.abs(value) >= 1e3);
     case "usd-per-share": return formatMoney(value, establishedCurrency(unit, currency), false);
     case "large-count": return formatLargeNumber(value);
     case "basis-points": return `${formatNumber(value, 0)} bps`;
