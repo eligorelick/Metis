@@ -58,8 +58,13 @@ describe("R3 FIGR reader presentation", () => {
     const r = lenderReport();
     // Use the resolved scope already exercised by the market-scope contract.
     r.valuation.marketValueScope = { status: "resolved", enterpriseValue: 5e9, enterpriseValueBasis: "Capitalization hash abc123; lease methodology; Payables to third-party loan owners 506686000", currency: "USD", marketCap: 4e9, economicShares: null, basis: "test", shareCountAsOf: null, priceAsOf: null } as Report["valuation"]["marketValueScope"];
+    r.valuation.multiplesBasis = r.valuation.marketValueScope!.enterpriseValueBasis!;
     const row = keyDataRows(r).find(x => x.label === "Enterprise value (market)")!;
     expect(row.note).toBe("Issuer-common market capitalization plus the disclosed net claims; full bridge in the companion audit export.");
+    for (const text of surfaces(r)) {
+      expect(text).not.toContain("Capitalization hash abc123");
+      expect(text).not.toContain("lease methodology");
+    }
     expect(reportToAuditMarkdown(r)).toContain("Capitalization hash abc123");
   });
 

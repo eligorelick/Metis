@@ -72,6 +72,9 @@ export function withReaderConventions(report: Report): Report {
   view.valuation = { ...view.valuation, multiples: view.valuation.multiples.map((m, i) => ({
     ...m, basis: report.valuation.multiples[i]?.basis === undefined ? undefined : readerConventionText(report.valuation.multiples[i]!.basis!, m.name),
   })) };
+  if (report.valuation.multiplesBasis && lenderConventionExplanation(report)) {
+    view.valuation.multiplesBasis = "Market enterprise value is context only for this non-bank lender; full bridge details are in the companion audit export (see Lender conventions).";
+  }
   return view;
 }
 

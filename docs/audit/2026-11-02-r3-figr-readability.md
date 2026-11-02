@@ -3,7 +3,7 @@
 | Finding | Fix | Commit | Test |
 | --- | --- | --- | --- |
 | 1 / B-15 repeated lender paragraph | One full Lender conventions block in Fundamentals; metric-specific short reasons in the reader copy, including legacy reports without the dedicated disclosure field. Full detail remains in the audit. | 291d7fef | `report.figrReadability`: `1: states lender conventions once…`; `1 legacy: finds the recorded lender explanation…` |
-| 2 / B-15 market EV key-data cell | One short sentence in Key data; the complete recorded market-EV basis has its own audit section. | 291d7fef | `2: gives market EV one short sentence…` |
+| 2 / B-15 market EV key-data cell | One short sentence in Key data; a short lender context note in Valuation replaces the duplicated long bridge. The complete recorded market-EV basis has its own audit section. | 291d7fef + this commit (EV detail) | `2: gives market EV one short sentence…` |
 | 3 / B-14 absent objects and internal route ids | Define FCF only when an FCF cell is shown. Replace unavailable DCF/reverse DCF, targets, sensitivity/common assumptions and weighted-projection scaffolding with one route explanation. Keep meaningful input-refusal evidence and available entity models. | 291d7fef | `3: suppresses absent DCF scaffolding…`; `3 control: preserves an available entity model…`; `stageB.recentIpoCostOfEquity` |
 | 4 / B-18 quarterly caption | Latest eight available quarters; name interior missing quarter ends, retaining only the original rows. | 291d7fef | `3a/4: describes available quarters…`; `filingDisclosures.trendBasis.audit20261027` |
 | 5a / B-22 registry labels | Prefer retained explicit labels and compact Piotroski diagnostics. Legacy numeric traces do not retain a separate registry label, so use the stable id's named variant and evaluable-signal count as the fallback. | 291d7fef | `5a: preserves an explicit record label…` |
@@ -52,6 +52,11 @@ isolated data paths. Logs are UTF-16LE.
   `ClassifiedGap.field` instead of its existing `key`. The follow-up uses that
   key as display context; no classification or stored field changes. The final
   gate is rerun after that correction is committed.
+- Final review found the same long lender EV bridge still duplicated in the
+  valuation body. `r3-ev-detail-red` reproduces it; the follow-up reader copy
+  uses a short context note while the audit retains both full recorded bases.
+  The intervening gate was interrupted for this correction and is superseded
+  by the final committed-head run.
 
 Existing wording pins were updated because captions now describe retained
 available rows, no FCF definition appears without an FCF cell, extraction
