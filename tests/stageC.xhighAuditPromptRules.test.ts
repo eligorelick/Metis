@@ -51,3 +51,19 @@ describe("FIGR extra-high audit rules reach every analysis role", () => {
     });
   }
 });
+
+// The judge explains the deterministic scores; the analysts do not receive that block.
+const JUDGE_RULES: Array<[string, RegExp]> = [
+  // A2-27: "the four aspects with no score are pulled toward the midpoint".
+  ["route-excluded aspects do not move the composite", /no signal that applies on the route are left out of the composite and do not move it/],
+  ["missing applicable evidence shrinks the composite, not the aspects", /distance from 50 is scaled by the\s+evidence-completeness share\. Unscored aspects are not themselves pulled toward any value/],
+];
+
+describe("FIGR extra-high audit rules for the judge's score explanation", () => {
+  const framings = { judge: buildJudgeFraming(), sectionedJudge: buildJudgeFraming(undefined, true) };
+  for (const [name, pattern] of JUDGE_RULES) {
+    it(name, () => {
+      for (const [role, text] of Object.entries(framings)) expect(text, role).toMatch(pattern);
+    });
+  }
+});

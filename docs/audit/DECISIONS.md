@@ -4459,8 +4459,10 @@ later transaction; no unsupported either/or cause or unscoped superlative;
 executive execution evidence is company results during a tenure, not a
 personal record; a missing valuation anchor is not a missing multiple; every
 retained guidance period is compared; a defined KPI's movement is not its
-cause; specialist terms are defined on first use. Whether a model follows them
-can only be confirmed in a future paid run.
+cause; specialist terms are defined on first use. The judge also reads that
+aspects with no route-applicable signal are left out of the composite, while
+missing applicable evidence scales the composite's distance from 50 (A2-27).
+Whether a model follows them can only be confirmed in a future paid run.
 
 ### D-163: How a rejected answer ended is recorded
 

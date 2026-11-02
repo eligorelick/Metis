@@ -601,6 +601,11 @@ export function buildJudgeFraming(
     // sheet and leadership were each called "the neutral D band" in prose.
     "  An aspect with no score (grade n/a) is not assessed: it has no band and no grade. Never call it neutral, a D",
     "  or a default band. The composite's pull toward 50 for missing evidence is a rule of the composite, not a grade.",
+    // FIGR extra-high audit A2-27: "the four aspects with no score are pulled toward the
+    // midpoint" blended aspects the route excludes with applicable evidence that is missing.
+    "  Aspects with no signal that applies on the route are left out of the composite and do not move it. Missing",
+    "  evidence the route could supply shrinks the composite toward 50: its distance from 50 is scaled by the",
+    "  evidence-completeness share. Unscored aspects are not themselves pulled toward any value.",
     "  Every grade block must emit overrideRationale; use an empty reason and empty evidenceSources when unchanged.",
     "  For a changed grade supply that section's graded.overrideRationale (moatGraded for moat) with a nonempty reason and evidenceSources",
     "  containing exact source IDs of that section's cited reasoning. Unadmitted evidence or a wider change",
