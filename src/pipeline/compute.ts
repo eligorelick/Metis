@@ -137,14 +137,14 @@ import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type 
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
+import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying, validDay } from "@/pipeline/stageB/marketableEquity";
 import { millions } from "@/pipeline/stageB/netDebt";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
@@ -3478,8 +3478,10 @@ function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs[
 }
 
 /** FIN-401 / OD-5: only a complete measured window permits an income subtraction. */
-function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined"; income: number | null } {
+function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined" | null; income: number | null } {
   const placements = rows.map(row => row.equityMethodIncomePlacement);
+  // FIN-401 review R-5: no filed placement is distinct from ambiguous evidence.
+  if (placements.every(p => p === undefined)) return { placement: null, income: null };
   if (placements.some(p => p?.placement === "in-operating-income" && p.income === null)) return { placement: "in-operating-income", income: null };
   if (placements.length > 0 && placements.every(p => p !== undefined && (p.placement === "in-operating-income" || p.placement === "immaterial") && p.income !== null)
     && placements.some(p => p?.placement === "in-operating-income")) {
@@ -3579,36 +3581,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         .filter((r) => r.date.length > 0)
     : null;
 
-  const equityWindow = equityMethodWindow(ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : []);
-  const adjustEbit = (value: number | null, reading: ReturnType<typeof equityMethodWindow>) => value !== null && reading.placement === "in-operating-income" && reading.income !== null
-    ? value - reading.income : value;
-  const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
-    ? {
-        date: ttmInc.date,
-        days: ttmInc.days,
-        basis: "ttm",
-        revenue: ttmInc.revenue,
-        operatingIncome: adjustEbit(ttmInc.operatingIncome, equityWindow),
-        grossProfit: ttmInc.grossProfit ?? null,
-        incomeBeforeTax: ttmInc.incomeBeforeTax,
-        incomeTaxExpense: ttmInc.incomeTaxExpense,
-      }
-    : inc0
-      ? {
-          date: String(inc0.date ?? ""),
-          days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
-          basis: "annual",
-          revenue: num(inc0.revenue),
-          operatingIncome: adjustEbit(num(inc0.operatingIncome), equityWindow),
-          grossProfit: num(inc0.grossProfit),
-          incomeBeforeTax: num(inc0.incomeBeforeTax),
-          incomeTaxExpense: num(inc0.incomeTaxExpense),
-        }
-      : null;
+  const equityWindowRows = ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : [];
+  const equityWindow = equityMethodWindow(equityWindowRows);
 
   // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
   // date (D-65), not the newest row the market EV uses.
-  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
+  const bridge = dcfBridgeRow(isoDay(ttmInc?.date ?? inc0?.date), ttmInc ? "ttm" : inc0 ? "annual" : null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
   const bridgePoint = bridge.row;
   const bridgePointBasis = bridge.basis;
   const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
@@ -3622,16 +3600,82 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     const stake = equityMethodFacts === null || ctx.modelCurrency === null ? null : instantFact(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency, date, bundle.builtAt.slice(0, 10));
     return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
   };
+  const equityMethodStakeValue = bridgePoint === null ? 0 : equityMethodStakeAt(bridgePoint);
+  // FIN-401-V1 / review R-2: a recent breakout can establish placement inside
+  // the added-back LTI, but cannot supply a bridge-date stake amount.
+  const priorStakePlacement = (() => {
+    const date = isoDay(bridgePoint?.date), lti = num(bridgePoint?.longTermInvestments);
+    if (equityMethodFacts === null || ctx.modelCurrency === null || date === null || lti === null || lti <= 0) return null;
+    const stakes = tagPoints(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency);
+    const investments = tagPoints(equityMethodFacts, "LongTermInvestments", ctx.modelCurrency);
+    if (stakes?.unit !== ctx.modelCurrency || investments?.unit !== ctx.modelCurrency) return null;
+    const observedDay = bundle.builtAt.slice(0, 10);
+    const stake = stakes.points.filter(p => p.start === undefined && validDay(p.end) && p.end < date &&
+      CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed <= observedDay && Number.isFinite(p.val) && p.val >= 0)
+      .sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn) || b.end.localeCompare(a.end))[0];
+    if (stake === undefined || stake.val <= 0 || lti < stake.val) return null;
+    const cutoff = new Date(`${date}T00:00:00Z`);
+    cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
+    // Clamp February 29 to February 28 when the preceding year is not a leap year.
+    if (cutoff.getUTCMonth() !== Number(date.slice(5, 7)) - 1) cutoff.setUTCDate(0);
+    if (stake.end < cutoff.toISOString().slice(0, 10)) return null;
+    const priorLti = investments.points.find(p => p.start === undefined && p.end === stake.end &&
+      p.accn === stake.accn && p.filed === stake.filed && p.form === stake.form && Number.isFinite(p.val) && p.val >= stake.val);
+    return priorLti === undefined ? null : `${stake.form} ${stake.accn} filed ${stake.filed}, balance ${stake.end}, places the equity-method stake inside long-term investments; the bridge uses only its filed ${date} LTI amount, with no prior stake amount carried forward`;
+  })();
+  const incomeExcludedFromEbit = equityWindow.placement === "in-operating-income" && equityWindow.income !== null &&
+    (equityMethodStakeValue > 0 || priorStakePlacement !== null);
   const equityMethodStake: DcfAssumptionInputs["equityMethodStake"] = bridgePoint === null ? null : {
-    value: equityMethodStakeAt(bridgePoint), treatment: equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
+    value: equityMethodStakeValue, treatment: equityMethodStakeValue > 0 && equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
     incomePlacement: equityWindow.placement,
-    basis: equityWindow.placement === "in-operating-income" && equityWindow.income !== null
-      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back`
+    incomeExcludedFromEbit,
+    basis: equityWindow.placement === "in-operating-income" && equityMethodStakeValue <= 0 && !incomeExcludedFromEbit
+      ? "equity-method income stays in EBIT because its stake could not be located in long-term investments; the existing investment add-back is retained without establishing a separate stake amount"
+      : equityWindow.placement === "in-operating-income" && equityWindow.income !== null
+      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back${equityMethodStakeValue <= 0 && priorStakePlacement !== null ? `; placement evidence: ${priorStakePlacement}` : ""}`
       : equityWindow.placement === "in-operating-income"
         ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
         : equityWindow.placement === "below-operating-income" ? "equity-method income is below operating income; its stake is added back once"
+          : equityWindow.placement === null ? "no equity-method income placement is filed; the existing investment treatment is retained"
           : "equity-method income is assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined and the existing stake treatment is retained",
   };
+
+  // FIN-401 review R-1/R-6: the window's treatment also governs its quarters
+  // and all history years. Restore only income already removed from EBIT.
+  const adjustEbit = (value: number | null, rows: readonly FmpIncomeStatementRow[]): number | null => {
+    // R-2 needs evidence that added-back LTI holds the measured-income stake.
+    // R-4's operating capital split still requires a same-date stake amount.
+    if (value === null || (equityMethodStakeValue <= 0 && !incomeExcludedFromEbit)) return value;
+    if (equityMethodStake?.treatment === "operating") return value + rows.reduce((sum, row) => {
+      const p = row.equityMethodIncomePlacement;
+      return sum + (p?.placement === "below-operating-income" && p.income !== null ? p.income : 0);
+    }, 0);
+    const reading = equityMethodWindow(rows);
+    return reading.placement === "in-operating-income" && reading.income !== null ? value - reading.income : value;
+  };
+  const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
+    ? {
+        date: ttmInc.date,
+        days: ttmInc.days,
+        basis: "ttm",
+        revenue: ttmInc.revenue,
+        operatingIncome: adjustEbit(ttmInc.operatingIncome, equityWindowRows),
+        grossProfit: ttmInc.grossProfit ?? null,
+        incomeBeforeTax: ttmInc.incomeBeforeTax,
+        incomeTaxExpense: ttmInc.incomeTaxExpense,
+      }
+    : inc0
+      ? {
+          date: String(inc0.date ?? ""),
+          days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
+          basis: "annual",
+          revenue: num(inc0.revenue),
+          operatingIncome: adjustEbit(num(inc0.operatingIncome), equityWindowRows),
+          grossProfit: num(inc0.grossProfit),
+          incomeBeforeTax: num(inc0.incomeBeforeTax),
+          incomeTaxExpense: num(inc0.incomeTaxExpense),
+        }
+      : null;
 
   // Same deduped rows the projection history uses: the DCF's near-term growth
   // path is fitted to this series, so a restated fiscal year appearing twice
@@ -3639,7 +3683,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const dcfIncomeHistory: DcfIncomeRow[] = normalizeQuarterRows(incomeAnnual).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
-    operatingIncome: adjustEbit(num(r.operatingIncome), equityMethodWindow([r])),
+    operatingIncome: adjustEbit(num(r.operatingIncome), [r]),
     grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
@@ -3668,9 +3712,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
   const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => {
     const result = toDcfBalance(row, "annual");
-    const income = incomeAnnual.find(r => r.date === row.date);
-    const reading = equityMethodWindow(income ? [income] : []);
-    if (reading.placement === "in-operating-income" && reading.income === null && result.longTermInvestments != null) result.longTermInvestments -= equityMethodStakeAt(row);
+    if (equityMethodStake?.treatment === "operating" && result.longTermInvestments != null) result.longTermInvestments -= equityMethodStakeAt(row);
     return result;
   });
 

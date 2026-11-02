@@ -12,8 +12,9 @@ margin history, with its stake added once; an inside but unmeasured result keeps
 the equity-method portion in operating capital and out of the add-back and
 sale-tax lines. Filed immaterial/zero quarters take the measured window's
 placement. Fourth-quarter operands reuse the one-presentation resolver; refused
-operands never become zero. Mixed/undetermined windows and provider rows without
-placement retain the disclosed S-X Rule 5-03 assumption.
+operands never become zero. A window with an unmeasured inside quarter is
+operating throughout; other mixed/undetermined windows retain the disclosed
+S-X Rule 5-03 assumption. The review correction below governs seed and history.
 
 The existing B13 `unlessBelow` mechanism rejects an LTI total below its
 same-date equity-method component outside max(0.5%, 2M), and the provider fill
@@ -33,9 +34,10 @@ figure and no stored byte. The conditional convertible clause is now implemented
 awaits its disposition. The integrator assigns this D-next number; intended deltas cite
 the existing D-60/D-65 conventions until then.
 
-The FIN-401 family replay moves XOM 191.7389267225 to 178.0877966043 per share and BA
-27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
-values or refusals for that family. Continuation evidence and the VAL-14 gate are recorded in
+The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
+to 196.0576271333 per share. The revised R-2 placement-evidence guard restores
+BA from 27.7411147513 to the FIN-401-V1 value 27.1152067083; GOOGL, AMZN and the other required controls
+keep their values or refusals. Evidence and the explicitly unstarted items are recorded in
 [the B4b disposition](2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
@@ -81,6 +83,61 @@ and keeps the selected convertible reading. Book diagnostics are unchanged.
 Fair-value and per-share payload dates reflect quote versus book truthfully;
 legacy figures/dates are retained with a display explanation under 1.56.0.
 No prompt text changes; pipeline version stays stage-c-1.6.17.
+
+## D-next (P1/B4b review): one operating basis across seed and history (2026-11-02)
+
+FIN-401 review R-1/R-3/R-6: an operating-treated window governs every seed
+quarter and history year. Restore each period's measured, derivation-subtracted
+equity-method income to EBIT, retain measured inside income, and keep its
+located stake in operating capital throughout the sales-to-capital history.
+A window mixing an unmeasured inside quarter with measured below-operating
+quarters is operating throughout. Other mixed/undetermined windows retain the
+prior treatment. This supersedes the original mixed-history benchmark: XOM
+178.0877966043 -> 196.0576271333 per share in real code; BA and the controls
+are unchanged in the R-1-only replay. The audit benchmark used the same mixed
+history and is not the correct target. See the review-corrections section in the B4b disposition.
+
+FIN-401-V1 review R-2 asks whether the bridge's positive added-back LTI holds
+the stake, rather than requiring a same-date amount for every income removal.
+Subtract the measured inside income if a same-date stake fact exists, or if
+the confirmed issuer's most recent stake-breakout filing has a balance date
+within 12 months before the bridge and shows LTI at least as large as the stake,
+with bridge-date LTI also at least that stake. The prior stake and LTI must be
+same-date, same-currency facts from that filing, available by the run's cutoff.
+Use only that most recent breakout; an older inside reading cannot override a
+newer outside reading. With null/zero LTI, bridge LTI smaller than the last
+stake, a stake outside LTI, or no qualifying breakout within 12 months, keep
+income in EBIT. This prevents both zero valuation on the reviewer's dropPath
+and double valuation on FIN-401-V1's BA trigger.
+
+The older breakout is placement evidence only, never a carried-forward stake
+amount. Notes cite the form, accession, filing date and balance date; every
+valuation amount remains a filed bridge-date value. Operating treatment and
+partial-composition splits still require a positive same-date located amount
+(R-4). BA's 997M stake is inside its 1.048B LTI at 2025-12-31 in 10-K
+0001628280-26-004357, filed 2026-01-30. Its 2026-06-30 LTI is 1.117B and
+exceeds that stake, so measured income 35M leaves EBIT and the existing 1.117B
+add-back and 234.57M tax remain. BA returns 27.7411147513 -> 27.1152067083;
+XOM remains 196.0576271333 and every other census issuer is unchanged. This
+methodology decision replaces the previously accepted BA deviation on its
+merits; no amount is estimated and no issuer-specific exception is introduced.
+
+## D-next (P1/B4b review): no placement evidence keeps prior wording (2026-11-02)
+
+FIN-401 review R-5: distinguish a window carrying no placement metadata from
+one with explicitly undetermined or mixed placement evidence. No placement
+on any row keeps the prior long-term-investment note, without the new
+"placement is undetermined" or Rule 5-03 assumption. Explicitly undetermined
+or other mixed windows keep the disclosed assumption. This restores the
+GOOGL/DEMO notes without changing a figure or score. The real AMZN window has
+explicit aggregate-path undetermined placements and therefore keeps the
+assumption note; the review's no-placement premise did not hold for it. Re-pin only DEMO's
+`stageB.valuation.notes.7` text in the existing intended-delta group, naming
+R-5; report/payload/method stamps stay at the shared values. The integrator's
+earlier confirmation to retain both deviations is superseded for BA by the
+R-2 methodology decision above. AMZN's explicit-ambiguity note outcome remains
+as confirmed; no prior-date amount carry-forward or ticker-specific note
+exception is authorized.
 
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier

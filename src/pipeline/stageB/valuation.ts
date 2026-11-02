@@ -818,7 +818,7 @@ export interface DcfRevenueTrend {
 
 export interface DcfAssumptionInputs {
   /** FIN-401 / OD-5: the stake and its income must be on the same side of the DCF. */
-  equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined"; basis: string } | null;
+  equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined" | null; incomeExcludedFromEbit?: boolean; basis: string } | null;
   /**
    * FIN-303 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s `evIncludeLeases`).
    * Absent is false, the default: sales-to-capital and its A-2 history remove the proven operating-lease slice
@@ -6885,13 +6885,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         const placement = c.kind === "long-term-investments" ? dcfIn.equityMethodStake : null;
         notes.push(
           `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
-            (placement?.incomePlacement === "in-operating-income" && placement.treatment === "added-back"
+            (placement?.incomePlacement === "in-operating-income" && placement.treatment === "added-back" && (placement.incomeExcludedFromEbit ?? placement.value > 0)
               ? `They are not cash: ${placement.basis}; no marketability discount or fair-value estimate is applied.`
               : placement?.treatment === "operating"
                 ? `The equity-method portion ${millions(placement.value)} stays in operating capital; this line adds only the remaining non-operating investments, with no marketability discount or fair-value estimate.`
-                : placement?.incomePlacement === "below-operating-income" || c.kind !== "long-term-investments"
+                : placement?.incomePlacement == null || placement.incomePlacement === "below-operating-income" || c.kind !== "long-term-investments"
                   ? "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
-                  : "They are not cash: their gains and losses are assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined, so the existing add-back is retained, with no marketability discount or fair-value estimate."),
+                  : "They are not cash: their gains and losses are assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined, so the existing add-back is retained, with no marketability discount or fair-value estimate." +
+                    (placement?.incomePlacement === "in-operating-income" && placement.value <= 0 ? ` ${placement.basis}.` : "")),
         );
       }
       if (dcfIn.equityMethodStake?.treatment === "operating") notes.push(`DCF equity-method treatment: ${dcfIn.equityMethodStake.basis}.`);
