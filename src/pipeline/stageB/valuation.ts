@@ -752,6 +752,7 @@ export interface ConsensusPathRow {
 
 /** Income-statement slice used by the DCF builder (FMP field names). */
 export interface DcfIncomeRow {
+  unusualOperatingItems?: number | null;
   date: string;
   /** Inclusive filed duration, or the gap to the preceding period end. */
   days?: number | null;
@@ -884,6 +885,7 @@ export interface DcfAssumptionInputs {
   unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
+  recurringOperatingItemsBasis?: string;
   /** Unambiguous weekday year-end rule established from filed annual ends. */
   fiscalCalendar?: FiscalYearRule | null;
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
@@ -2065,7 +2067,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   } else if (unusual !== null && unusual.withheld.length > 0) {
     notes.push(`EBIT margin seed keeps tagged one-off items the filings don't place inside the ${periodBasis} window: ${unusual.basis}`);
   }
-  const histMarginPoints = inputs.incomeHistory
+  const normalizedHistory = inputs.incomeHistory.map(row => ({ ...row, operatingIncome: row.operatingIncome === null ? null : row.operatingIncome - (row.unusualOperatingItems ?? 0) }));
+  const normalizedTtm = inputs.incomeTtm == null ? null : { ...inputs.incomeTtm,
+    operatingIncome: normalizeUnusual ? (filedOperatingIncome as number) - inputs.unusualOperatingItems!.value : filedOperatingIncome };
+  const normalizedYears = inputs.incomeHistory.filter(row => row.unusualOperatingItems).map(row => `${row.date}: ${row.unusualOperatingItems}`).join(", ");
+  if (normalizedYears) notes.push(`EBIT margin history excludes tagged one-off items (${normalizedYears}); the scenario ceiling reads the same rows.`);
+  if (inputs.recurringOperatingItemsBasis) notes.push(inputs.recurringOperatingItemsBasis);
+  const histMarginPoints = normalizedHistory
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 5)
@@ -2162,7 +2170,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     // (today's gross margin less its leanest operating-expense ratio, the
     // scenario ceiling). Without a gross margin to bound it, it stays flat.
     const improvingCeiling = regime === "improving" && marginSlope !== null
-      ? scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory)
+      ? scenarioMarginCeiling(normalizedTtm, normalizedHistory)
       : null;
     const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
     const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
@@ -2214,10 +2222,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // --- Tax rate path: company history, never a universal domicile assumption -
   const pretax = zeroAsNull(inputs.incomeTtm?.incomeBeforeTax);
   const taxExp = inputs.incomeTtm?.incomeTaxExpense ?? null;
-  const currentTaxRate =
-    pretax !== null && pretax > 0 && isNum(taxExp) && taxExp >= 0
-      ? clampWithNote((taxExp / pretax) * 100, 0, 35, "effective tax rate (pct)", notes)
-      : null;
   const historicalTaxRates = inputs.incomeHistory.flatMap((row): number[] => {
     const rowPretax = zeroAsNull(row.incomeBeforeTax);
     const rowTax = row.incomeTaxExpense ?? null;
@@ -2225,6 +2229,15 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     return [Math.min(35, Math.max(0, (rowTax / rowPretax) * 100))];
   });
   const historicalMedianTax = medianOf(historicalTaxRates);
+  const { pct: taxFloor, basis: taxFloorText } = marginalTaxFloor(inputs.domicileCountry);
+  const observedCurrentTaxRate =
+    pretax !== null && pretax > 0 && isNum(taxExp) && taxExp >= 0
+      ? clampWithNote((taxExp / pretax) * 100, 0, 35, "effective tax rate (pct)", notes)
+      : null;
+  const rereadTax = normalizeUnusual ? taxRateWithoutOneOffs({ pretax, taxExpense: taxExp, oneOff: inputs.unusualOperatingItems!.value, marginalPct: taxFloor, historicalMedianPct: historicalMedianTax }) : null;
+  const currentTaxRate = rereadTax?.pct ?? observedCurrentTaxRate;
+  const rereadBasis = rereadTax === null ? null : `${periodBasis} effective rate re-read without tagged one-off items of ${fmtNum(inputs.unusualOperatingItems!.value)}: ${fmtNum(rereadTax.noTaxEffectPct)}% with no tax effect on them, ${fmtNum(rereadTax.marginalEffectPct)}% taxed at the ${fmtNum(taxFloor)}% marginal rate; year one ${fmtNum(rereadTax.pct)}% (${rereadTax.source === "marginal-reading" ? "no historical median: the marginal-rate reading" : `the company historical median ${fmtNum(historicalMedianTax!)}% held within that range`})`;
+  if (rereadBasis) notes.push(rereadBasis);
   const companyTerminalTax = historicalMedianTax ?? currentTaxRate;
   if (currentTaxRate === null && companyTerminalTax === null) {
     gaps.push(
@@ -2241,10 +2254,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // the marginal rate (Damodaran), never below the 15% global minimum (OECD
   // Pillar Two). NVDA's terminal NOPAT was taxed at its 8.9% historical median
   // while it guides 16-18%. A company whose own history is higher keeps it.
-  const { pct: taxFloor, basis: taxFloorText } = marginalTaxFloor(inputs.domicileCountry);
+
   const companyTax = companyTerminalTax as number;
   const taxTerminal = Math.max(companyTax, taxFloor);
-  const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate`;
+  const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate${rereadTax ? " re-read without tagged one-off items" : ""}`;
   const terminalTaxText = taxTerminal > companyTax
     ? `the ${companyTaxText} ${fmtNum(companyTax)}% floored at ${fmtNum(taxTerminal)}% = ${taxFloorText} (house rule D-58: the terminal rate converges toward the marginal rate)`
     : `the ${companyTaxText} ${fmtNum(taxTerminal)}%, at or above the ${fmtNum(taxFloor)}% floor = ${taxFloorText}`;
@@ -2273,13 +2286,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const taxBasis =
     guidedTax !== null
       ? `guided GAAP effective rate ${fmtNum(guidedTax)}% (${guide?.taxRatePeriod ?? "guided period"}, ${guide?.source ?? "earnings release"})` +
-        `${currentTaxRate === null ? "" : ` against the ${periodBasis} observed ${fmtNum(currentTaxRate)}%`}` +
+        `${currentTaxRate === null ? "" : ` against the ${periodBasis} ${rereadTax ? "rate re-read without tagged one-off items," : "observed"} ${fmtNum(currentTaxRate)}%`}` +
         `${tEff === taxTerminal ? ` held flat: terminal rate is ${terminalTaxText}` : ` fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`} (house rule D-60: tax guidance sets year one)`
       : currentTaxRate === null
       ? `${periodBasis} effective rate not computable (pre-tax income ≤ 0 or tax expense missing) — held at ${terminalTaxText} for all ${years} years`
       : tEff === taxTerminal
-        ? `${periodBasis} effective rate ${fmtNum(tEff)}% held flat: terminal rate is ${terminalTaxText}`
-        : `${periodBasis} effective rate ${fmtNum(tEff)}% fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`;
+        ? `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} held flat: terminal rate is ${terminalTaxText}`
+        : `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`;
   const taxRatePath = fadePath(tEff, taxTerminal, years);
 
   // --- Sales-to-capital ------------------------------------------------------
@@ -2432,7 +2445,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // D-60: the ceiling the bull/bear margin shocks may not cross. The scenario
   // construction text states it; it does not bind the base path.
-  const scenarioCeiling = scenarioMarginCeiling(inputs.incomeTtm, inputs.incomeHistory);
+  const scenarioCeiling = scenarioMarginCeiling(normalizedTtm, normalizedHistory);
 
   // D-65: the explicit windows start the day after the statement date, so the
   // flows are discounted to that date; the price they are compared with is a
@@ -7179,4 +7192,14 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   }
   divisorDisclosure(dcf?.perShare);
   return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, growthMarginGrid: growthMargin, reverseDcf: reverse, multiples, notes, gaps };
+}
+
+/** OD-12: bounded tax reread; the tax deductibility of a tag is not assumed. */
+export function taxRateWithoutOneOffs(i: { pretax: number | null; taxExpense: number | null; oneOff: number; marginalPct: number; historicalMedianPct: number | null }): { pct: number; noTaxEffectPct: number; marginalEffectPct: number; source: "historical-median-inside" | "historical-median-held" | "marginal-reading" } | null {
+  if (!isNum(i.pretax) || !isNum(i.taxExpense) || i.taxExpense < 0 || i.pretax - i.oneOff <= 0) return null;
+  const hold = (n: number) => Math.min(35, Math.max(0, n));
+  const noTaxEffectPct = hold(i.taxExpense / (i.pretax - i.oneOff) * 100);
+  const marginalEffectPct = hold((i.taxExpense - i.marginalPct / 100 * i.oneOff) / (i.pretax - i.oneOff) * 100);
+  const pct = isNum(i.historicalMedianPct) ? Math.min(Math.max(noTaxEffectPct, marginalEffectPct), Math.max(Math.min(noTaxEffectPct, marginalEffectPct), i.historicalMedianPct)) : marginalEffectPct;
+  return { pct, noTaxEffectPct, marginalEffectPct, source: !isNum(i.historicalMedianPct) ? "marginal-reading" : pct === i.historicalMedianPct ? "historical-median-inside" : "historical-median-held" };
 }

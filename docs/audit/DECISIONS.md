@@ -3568,3 +3568,12 @@ Remove an unsupported maxRetries option from the FMP test fixture; the real clie
 ### D-next (P5): B-F4 consumer fixtures (AI-512-V1) review correction
 
 Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions. The full product suite exposed two synthetic fixtures whose real NVIDIA labels contradicted their unrelated calendar-year statement metadata. The shared contradiction rule is retained; source labels now agree for these must-not-move currency and whole-row controls. Stored report bytes are unchanged.
+
+## D-next (P2) - Consistent DCF operating income (2026-11-02)
+
+FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502 follow B5 OD-7/OD-12: use admitted
+one-offs consistently in coverage, terminal evidence, margin history/ceiling
+and the bounded tax reread. Historical families recurring in at least three of
+five years remain costs. Reported ROIC remains GAAP. Unknown deductibility is
+bounded rather than guessed. Stored reports are immutable; proven mismatched
+tax seeds receive a display note below the frozen 1.56.0 cutoff.

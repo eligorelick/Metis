@@ -152,7 +152,7 @@ import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtComplete
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
-import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
+import { unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   adjacentQuarterEnds,
   normalizeQuarterRows,
@@ -1748,7 +1748,7 @@ function bookDebtOnLeaseBasis(
 export function priorYearCostOfDebt(
   incomeAnnual: readonly FmpIncomeStatementRow[],
   balanceAnnual: readonly FmpBalanceSheetRow[],
-  options: { includeOperatingLeases?: boolean } = {},
+  options: { includeOperatingLeases?: boolean; unusualByYear?: ReadonlyMap<string, number> } = {},
 ): PriorYearCostOfDebt | null {
   const includeOperatingLeases = options.includeOperatingLeases === true;
   for (let index = 1; index < incomeAnnual.length && index <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK; index += 1) {
@@ -1774,7 +1774,8 @@ export function priorYearCostOfDebt(
       yearsBack: index,
       interestExpense,
       totalDebtAvg,
-      ebit: num(income?.operatingIncome),
+      ebit: num(income?.operatingIncome) === null ? null : num(income?.operatingIncome)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
+      coverageBasis: options.unusualByYear?.get(fiscalYearEnd) ? `FY ${fiscalYearEnd} operating income excluding tagged one-off items of ${options.unusualByYear.get(fiscalYearEnd)}` : undefined,
     };
   }
   return null;
@@ -3110,6 +3111,19 @@ function computeReturns(
       );
     }
   }
+  const annualUnusual = unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+    fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: modelCurrency, observedAt: bundle.builtAt,
+  });
+  const coverageUnusual = ebitTtm !== null && ebitForWacc === ebitTtm
+    ? unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+      ttmEnd: ttmInc!.date, fiscalYearEnd: incomeAnnual.map(r => isoDay(r.date) ?? "").find(d => d <= ttmInc!.date) ?? null, unit: modelCurrency, observedAt: bundle.builtAt,
+    }) : annualUnusual.get(annualDate);
+  if (ebitForWacc !== null && coverageUnusual && coverageUnusual.value !== 0) {
+    ebitForWacc -= coverageUnusual.value;
+    coverageBasis += ` operating income excluding tagged one-off items of ${coverageUnusual.value}: ${coverageUnusual.basis}`;
+  }
+  const historyUnusual = withoutRecurringFamilies(annualUnusual, incomeAnnual.map(r => isoDay(r.date) ?? ""));
+  const recurrenceBasis = recurringOperatingItemsBasis(historyUnusual.recurring);
   const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt));
 
   // D-60: the beta's regression window, frequency and fit. A vendor beta
@@ -3159,7 +3173,7 @@ function computeReturns(
     // equity carried" outcome.
     priorYearCostOfDebt:
       !isFinancial && (interestExpenseForWacc === null || interestExpenseForWacc <= 0)
-        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases })
+        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases, unusualByYear: new Map([...annualUnusual].map(([date, value]) => [date, value.value])) })
         : null,
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
@@ -3245,6 +3259,7 @@ function computeReturns(
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        unusualByYear: new Map([...historyUnusual.byYear].map(([date, value]) => [date, value.value])),
         // FIN-119-V1: the annual balance dates whose temporary-equity enrichment was withheld (the M11 matcher Task 2 uses for the bridge).
         temporaryEquityUnknownDates: balanceAnnual.flatMap((r) => {
           const unknown = temporaryEquityUnknownAt(r, isoDay(r.date), bundle.gaps);
@@ -3253,6 +3268,7 @@ function computeReturns(
         // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
         // that same balance refusal withholds the latest fiscal year's ROIC.
         waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
+  if (recurrenceBasis) roic.notes.push(recurrenceBasis);
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
@@ -3680,10 +3696,14 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // Same deduped rows the projection history uses: the DCF's near-term growth
   // path is fitted to this series, so a restated fiscal year appearing twice
   // biases the base case exactly as it biased the dispersion.
+  const guardedAnnualUnusual = withoutRecurringFamilies(unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+    fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: ctx.modelCurrency, observedAt: bundle.builtAt,
+  }), incomeAnnual.map(r => isoDay(r.date) ?? ""));
   const dcfIncomeHistory: DcfIncomeRow[] = normalizeQuarterRows(incomeAnnual).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
     operatingIncome: adjustEbit(num(r.operatingIncome), [r]),
+    unusualOperatingItems: guardedAnnualUnusual.byYear.get(rowDate(r))?.value ?? null,
     grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
@@ -3868,6 +3888,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             observedAt: bundle.builtAt,
           }),
           incomeHistory: dcfIncomeHistory,
+          recurringOperatingItemsBasis: recurringOperatingItemsBasis(guardedAnnualUnusual.recurring),
           fiscalCalendar: fiscalYearRule(normalizeQuarterRows(incomeAnnual).rows.map(row => String(row.date))),
           balance: dcfBalance,
           // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
@@ -3883,7 +3904,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             const point = waccByYear.get(y.date);
             return {
               date: y.date,
-              roicPct: y.roicPct,
+              roicPct: y.terminalEvidenceRoicPct ?? y.roicPct,
               waccPct: point?.waccPct ?? null,
               waccAsOf: point?.riskFreeAsOf ?? null,
             };

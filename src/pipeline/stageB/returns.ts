@@ -305,6 +305,7 @@ export type CostOfDebtMethod = "effective" | "historical" | "synthetic" | "none"
  * fiscal year before the latest annual row.
  */
 export interface PriorYearCostOfDebt {
+  coverageBasis?: string;
   pct: number;
   fiscalYearEnd: string;
   yearsBack: number;
@@ -811,7 +812,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
         intExp !== null && intExp > 0
           ? { interest: intExp, ebit: inputs.ebitTtm, label: currentBasis }
           : priorUsable && isFiniteNumber(prior.ebit) && prior.interestExpense > 0
-            ? { interest: prior.interestExpense, ebit: prior.ebit, label: `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
+            ? { interest: prior.interestExpense, ebit: prior.ebit, label: prior.coverageBasis ?? `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
             : null;
       if (coverageBasis === null) {
         costOfDebtMethod = "unavailable";
@@ -1328,6 +1329,8 @@ export interface ReturnsBalanceRow {
 }
 
 export interface RoicYear {
+  /** Separate DCF terminal evidence; reported/graded ROIC stays unchanged. */
+  terminalEvidenceRoicPct?: number | null;
   date: string;
   /** NOPAT / avg invested capital, percent, full precision. Null when uncomputable. */
   roicPct: number | null;
@@ -1583,6 +1586,7 @@ function normalizeAnnualRows<T extends { date: string }>(
 }
 
 export interface RoicOptions {
+  unusualByYear?: ReadonlyMap<string, number>;
   /**
    * Keep the operating-lease liability inside invested capital
    * (THESIS_EV_INCLUDE_LEASES=1), so ROIC and the EV bridge share one lease
@@ -1828,7 +1832,10 @@ export function computeRoic(
     const pretax = row.incomeBeforeTax;
     const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
     const t = lossYearFloor !== null ? lossYearFloor.pct / 100 : yearTaxRate(row, yearNotes);
-    if (t === null) {
+    const normalizedEbit = ebit - (options.unusualByYear?.get(row.date) ?? 0);
+    const terminalTax = normalizedEbit > 0
+      ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : null;
+    if (t === null && terminalTax === null) {
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,
@@ -1843,7 +1850,7 @@ export function computeRoic(
       yearNotes.push(basis);
       gaps.push({ field: "returns.roic.taxRate", reason: `${row.date}: ${basis}`, severity: "info" });
     }
-    const nopat = ebit * (1 - t);
+    const nopat = t === null ? null : ebit * (1 - t);
     entry.taxRateUsed = t;
     entry.nopat = nopat;
 
@@ -1896,7 +1903,8 @@ export function computeRoic(
       continue;
     }
     entry.investedCapitalAvg = icAvg;
-    entry.roicPct = (nopat / icAvg) * 100;
+    entry.roicPct = nopat === null ? null : (nopat / icAvg) * 100;
+    entry.terminalEvidenceRoicPct = terminalTax === null ? null : normalizedEbit * (1 - terminalTax) / icAvg * 100;
   }
 
   for (const date of [...new Set(options.temporaryEquityUnknownDates ?? [])].sort().reverse()) {

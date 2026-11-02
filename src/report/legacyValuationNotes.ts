@@ -5,6 +5,7 @@ import type { Report } from "@/report/schema";
 export const LEGACY_VALUATION_NOTE_FIELD = "presentation.legacyValuation";
 /** Frozen at this convention's introduction, independent of later report stamps. */
 export const ANNUALIZATION_CONVENTION_SPEC = "1.51.0";
+export const DCF_INPUTS_CONVENTION_SPEC = "1.56.0";
 
 type FiledPeriod = { start: string; end: string; basis: "fiscal-quarter" | "fiscal-year"; days: number; revenue: number | null };
 function filedPeriods(value: unknown): FiledPeriod[] {
@@ -83,5 +84,14 @@ export function withLegacyValuationNotes(report: Report): Report {
     const reason = row.note(basis, periods);
     return reason === null ? [] : [{ field, reason, severity: "info" as const, expected: true }];
   });
+  const taxField = `${LEGACY_VALUATION_NOTE_FIELD}.taxSeedOneOff`;
+  const assumptions = report.valuation.dcf.assumptions;
+  const marginNormalized = assumptions.some(row => /EBIT margin/i.test(row.name) && /excluding tagged one-off items/.test(row.basis));
+  const tax = assumptions.find(row => /tax rate/i.test(row.name) && /^(TTM|latest annual FY \S+) effective rate \d/.test(row.basis));
+  if (specVersionBefore(report.meta.specVersion ?? "", DCF_INPUTS_CONVENTION_SPEC) && marginNormalized && tax &&
+      !report.appendix.missingData.some(entry => entry.field === taxField)) {
+    const rate = /effective rate ([\d.]+%)/.exec(tax.basis)?.[1] ?? "stored";
+    added.push({ field: taxField, reason: `Built before spec ${DCF_INPUTS_CONVENTION_SPEC}: year one's tax rate (${rate}) was measured on pre-tax income that still held the tagged one-off items the margin seed removed. From ${DCF_INPUTS_CONVENTION_SPEC} it is re-read between no-tax-effect and marginal-rate readings. Stored figures are unchanged.`, severity: "info", expected: true });
+  }
   return added.length === 0 ? report : { ...report, appendix: { ...report.appendix, missingData: [...report.appendix.missingData, ...added] } };
 }

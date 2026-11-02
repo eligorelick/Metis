@@ -88,3 +88,17 @@ describe("stored valuation convention notes (D136)", () => {
     expect(chain(chain(r))).toEqual(chain(r));
   });
 });
+
+it("qualifies the historical tax seed without changing stored assumptions (FIN-502)", () => {
+  const r = cloneTask28(loadTask28Fixture());
+  r.meta.specVersion = "1.44.0";
+  r.valuation.dcf.assumptions.push({name:"EBIT margin (yr1 -> yrN)",value:"26%",basis:"TTM, excluding tagged one-off items"},
+    {name:"forecast tax rate (yr1 -> yrN)",value:"35%",basis:"TTM effective rate 35% fading to 21%"});
+  const before = JSON.stringify(r);
+  const view = withLegacyValuationNotes(r);
+  expect(view.appendix.missingData.find(g => g.field.endsWith("taxSeedOneOff"))?.reason).toMatch(/tax rate.*35%.*tagged one-off/);
+  expect(JSON.stringify(r)).toBe(before);
+  expect(withLegacyValuationNotes(view)).toBe(view);
+  r.meta.specVersion = "1.56.0";
+  expect(withLegacyValuationNotes(r)).toBe(r);
+});

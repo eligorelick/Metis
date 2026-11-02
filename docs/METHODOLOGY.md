@@ -6300,3 +6300,19 @@ Near-52-week price flags round the recorded high or low to cents; computed level
 Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
 
 Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).
+
+### P2 consistent operating-income inputs (2026-11-02)
+
+Admitted tagged operating one-offs leave coverage EBIT on that leg's own TTM
+or annual window, the DCF margin seed, annual margin history and scenario
+ceiling, and separate terminal-return evidence. Reported and graded GAAP ROIC
+are unchanged. A tag family filed in at least three of the latest five fiscal
+years remains a recurring operating cost in history and terminal evidence;
+the basis names its years. A withheld amount stays in the filed row.
+
+When the margin seed removes a one-off, the tax seed is re-read on normalized
+pre-tax income. The company historical median is held between the rate with
+no tax effect on the item and the rate with a marginal-rate tax effect; without
+history the marginal reading supplies it. Negative tax expense retains the
+existing fallback. Guidance still sets year one. A display-only note qualifies
+older stored tax seeds when their stored margin basis proves this mismatch.

@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P2 DCF inputs and seasonality (2026-11-02)
+
+- FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502: consistent operating one-offs across coverage, separate terminal evidence, margin history/ceiling and bounded tax seed. Recurring families remain historical costs. Reported ROIC and stored figures are unchanged.
+- Shared report, payload, Stage B and pipeline stamps retain their integration values.
+
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 
 - PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.

@@ -615,3 +615,12 @@ export function floorsFor(item: LineItem): string[] {
   const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
   return [...(entryFor.unlessBelow ?? [])];
 }
+
+// P2: admitted operating one-offs; total wins over components.
+export const UNUSUAL_OPERATING_GAIN_TAGS = ["InsuredEventGainLoss"] as const;
+export const UNUSUAL_OPERATING_CHARGE_TOTAL_TAG = "AssetImpairmentCharges";
+export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
+  "GoodwillImpairmentLoss",
+  "ImpairmentOfLongLivedAssetsHeldForUse",
+  "ImpairmentOfIntangibleAssetsExcludingGoodwill",
+] as const;
