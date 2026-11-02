@@ -1,3 +1,4 @@
+import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
@@ -833,7 +834,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
   // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
-  const newer = report.filingDisclosures?.newerResults;
+  const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
   if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
     rows.push({
       label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,

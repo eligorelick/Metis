@@ -5985,3 +5985,6 @@ Segment presentation-change notes identify the change filing, its stated windows
 
 
 Segment presentation-change notes identify the change filing, stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
+
+
+AI-512-V1: guidance uses the run income rows to withhold a disputed fiscal label, never replace it. A completed label disagrees at its date or belongs to a quarter more than 45 days earlier. An outlook label already ended when filed becomes "fiscal quarter" or "fiscal year" with its amounts retained. Paired guidance checks with contradicted labels are excluded from the track record. Commentary uses the quarter end when the fiscal label is contradicted. Saved displays apply the same comparison to their own quarterly trend without rewriting bytes.

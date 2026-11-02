@@ -62,3 +62,6 @@ Continuation limits: AI-508 implements the arithmetic, analyst exclusion and com
 
 
 AI-508 completion: detailed filing/window/quarter-end notes and moved-together/repeated-change controls. ai508-detail-red: 2 failures, 5 passes; ai508-detail-green verifies corrected notes and controls. Retained inputs contain no recast trigger; stored-series replay is a must-not-move control.
+
+
+AI-512-V1 fixed: ai512-red reproduces retained #43; ai512-green has 330 passes and 12 pre-existing excerpt-title test failures. ai512-baseline-controls reproduces the identical 12 missing-title failures using starting-HEAD versions of all changed disclosure/display modules. The normal-suite tests are synthetic; retained tests run separately offline. No excerpt policy, prompt text, stamps or goldens changed.

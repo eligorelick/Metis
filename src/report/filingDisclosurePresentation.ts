@@ -76,7 +76,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
       heading: `Management guidance${g.reportedPeriod ? ` (issued with ${g.reportedPeriod} results)` : ""}`,
       headers: ["Period", "Metric", "Basis", "Low", "Midpoint", "High", "Stated as", ...(revisions ? ["Previous guidance"] : []), ...(growth ? ["Current growth", "Previous growth"] : [])],
       rows: g.rows.map((row) => [
-        row.period,
+        /^(fiscal quarter|fiscal year)$/.test(row.period) ? `${row.period} (issuer label withheld: statement periods contradict it)` : row.period,
         METRIC_LABELS[row.metric],
         basis(row.basis),
         row.form === "range" || row.form === "plus-minus" ? value(row, row.low, d.currency) : DASH,
@@ -351,7 +351,7 @@ export function newerResultsSentence(n: Pick<NonNullable<FilingDisclosures["newe
 
 /** The report banner, when the report has a newer-results notice. */
 export function newerResultsBanner(d: FilingDisclosures | undefined): string | null {
-  return d?.newerResults ? newerResultsSentence(d.newerResults) : null;
+  return d?.newerResults ? newerResultsSentence(shownFilingDisclosures(d).newerResults!) : null;
 }
 
 /**
@@ -370,6 +370,7 @@ export function newerFilingBanner(d: FilingDisclosures | undefined): string | nu
 
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return section === "catalystsRisks" ? materialEventTables(d) : [];
+  d = shownFilingDisclosures(d);
   switch (section) {
     case "business": return [...segmentTables(d), ...segmentPerformanceTables(d)];
     case "fundamentals": return trendTables(d);
@@ -391,4 +392,46 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
 
 export function withoutTocStubs(summary:string):string {
  return summary.replace(/Item \d\.\d{2}: \d{1,3}(?: Table of Contents)?(?=\s+Item \d\.\d{2}:|\s*$)/g, "").replace(/\s+/g," ").trim();
+}
+
+export interface FiscalLabelledPeriod { end: string; label: string }
+const fiscalYearOf = (label: string) => /FY(\d{4})$/.exec(label)?.[1];
+export function fiscalLabelContradictedAt(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ return periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000 &&
+  (fiscalYearOf(p.label)!==fiscalYearOf(label) || (p.label.startsWith("Q") && label.startsWith("Q") && p.label!==label)));
+}
+export function fiscalLabelEndedBy(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ return periods.some(p=>p.label===label && p.end<=cutoff);
+}
+export function fiscalLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ return fiscalLabelContradictedAt(periods,label,end) || periods.some(p=>p.label===label && Date.parse(end)-Date.parse(p.end)>45*86400000);
+}
+/** AI-512-V1: withhold disputed labels; never replace them with a guessed fiscal period. */
+export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d:T, periods: readonly FiscalLabelledPeriod[]):T {
+ const removed: string[]=[];
+ const completed=(label:string|null,end:string|null)=>label!==null && end!==null && fiscalLabelContradicted(periods,label,end);
+ let guidance=d.guidance;
+ if(guidance) {
+  const reported=completed(guidance.reportedPeriod,guidance.reportedPeriodEnd);
+  const rows=guidance.rows.map(r=>{
+   if(!fiscalLabelEndedBy(periods,r.period,guidance!.source.filingDate)) return r;
+   removed.push("an outlook label");
+   return {...r,period:r.period.startsWith("Q")?"fiscal quarter":"fiscal year"};
+  });
+  if(reported) removed.push(`the issued-with label for quarter ended ${guidance.reportedPeriodEnd}`);
+  guidance={...guidance,reportedPeriod:reported?null:guidance.reportedPeriod,rows};
+ }
+ const guidanceChecks=d.guidanceChecks.filter(c=>{
+  if(!completed(c.period,c.periodEnd) && !fiscalLabelEndedBy(periods,c.period,c.guidance.filingDate)) return true;
+  removed.push(`results against prior guidance for quarter ended ${c.periodEnd}`);return false;
+ });
+ let newerResults=d.newerResults;
+ if(newerResults?.reportedPeriod && (completed(newerResults.reportedPeriod,newerResults.reportedPeriodEnd) || (!newerResults.reportedPeriodEnd && fiscalLabelEndedBy(periods,newerResults.reportedPeriod,newerResults.statementsEnd)))) {
+  removed.push("the newer-results label");newerResults={...newerResults,reportedPeriod:null};
+ }
+ if(!removed.length) return d;
+ return {...d,guidance,guidanceChecks,...(newerResults?{newerResults}:{}),notes:[...d.notes,`Issuer fiscal labels withheld because the statement periods contradict them: ${removed.join("; ")}. Results paired only by those labels are left out.`]};
+}
+export function shownFilingDisclosures<T extends FilingDisclosures>(d:T):T {
+ return withholdContradictedReleaseLabels(d,d.quarterlyTrend.flatMap(r=>r.fiscalLabel?[{end:r.periodEnd,label:r.fiscalLabel}]:[]));
 }

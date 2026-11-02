@@ -1,3 +1,4 @@
+import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
@@ -243,7 +244,7 @@ function newerResultsNotice(bundle: DataBundle, currency: string | null): Filing
   const shown = headline?.revenue && headline.epsDiluted && usd(headline.revenue.symbol) && usd(headline.epsDiluted.symbol) ? headline : null;
   return {
     source: releaseRef(release, release.resultsExhibit ?? (release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1")),
-    reportedPeriod: release.reported.fiscal?.label ?? null,
+    reportedPeriod: release.reported.fiscal?.label && !(found.reportedPeriodEnd ? fiscalLabelContradicted(statementFiscalPeriods(bundle),release.reported.fiscal.label,found.reportedPeriodEnd) : fiscalLabelEndedBy(statementFiscalPeriods(bundle),release.reported.fiscal.label,found.statementsEnd)) ? release.reported.fiscal.label : null,
     reportedPeriodEnd: found.reportedPeriodEnd,
     statementsEnd,
     revenue: shown?.revenue?.value ?? null,
@@ -355,14 +356,14 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const annualRanges = new Map(annual.map(i => [`${i.low}|${i.high}`, i]));
   const annualComparison = annualRanges.size === 1 ? [...annualRanges.values()][0]! : null;
   return {
-    periodLabel: item.period.label,
+    periodLabel: fiscalLabelEndedBy(statementFiscalPeriods(bundle),item.period.label,release.filingDate) ? "fiscal quarter" : item.period.label,
     fiscalYear: item.period.fiscalYear,
     fiscalQuarter: item.period.fiscalQuarter,
     low: item.low,
     mid: item.mid,
     high: item.high,
     currency,
-    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: annualComparison.period.label,
+    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: fiscalLabelEndedBy(statementFiscalPeriods(bundle),annualComparison.period.label,release.filingDate) ? "fiscal year" : annualComparison.period.label,
       fiscalYear: annualComparison.period.fiscalYear, low: annualComparison.low, high: annualComparison.high, currency } }),
     filingDate: release.filingDate,
     accession: release.accession,
@@ -372,7 +373,7 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
       fiscalYearRule(normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)).rows.map(row => String(row.date)))),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,
     taxRatePct: tax?.mid ?? null,
-    taxRatePeriod: tax?.period.label ?? null,
+    taxRatePeriod: tax && !fiscalLabelEndedBy(statementFiscalPeriods(bundle),tax.period.label,release.filingDate) ? tax.period.label : null,
     grossMarginLowPct: gm?.low ?? null,
   };
 }
@@ -1013,7 +1014,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   };
   // D-66: the notes', statements' and commentary's facts; officers and votes.
 
-  return {
+  return withholdContradictedReleaseLabels({
     version: "1.0.0",
     ...(materialEventItems.success ? { materialEventItems: [...new Set(materialEventItems.data)].sort() } : {}),
     currency,
@@ -1043,7 +1044,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(newerResults === null ? {} : { newerResults }),
     ...(newerFiling === null ? {} : { newerFiling }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
-  };
+  }, statementFiscalPeriods(bundle));
 }
 
 type FilingFactRow = NonNullable<FilingDisclosures["filingFacts"]>[number];
@@ -1166,8 +1167,9 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
     const periodEnd = release.reported.periodEnd;
     if (wc == null || periodEnd === null) continue;
     const source = releaseRef(release, release.commentaryUrl === null ? "EX-99.1" : "EX-99.2");
-    const sourceTag = `edgar:8-K ${source.exhibit} ${release.reported.fiscal?.label ?? periodEnd} commentary`;
-    const fiscal = release.reported.fiscal?.label ?? null;
+    const sourceTag = `edgar:8-K ${source.exhibit} ${release.reported.fiscal?.label && !fiscalLabelContradicted(statementFiscalPeriods(bundle),release.reported.fiscal.label,periodEnd) ? release.reported.fiscal.label : periodEnd} commentary`;
+    const stated = release.reported.fiscal?.label ?? null;
+    const fiscal = stated && fiscalLabelContradicted(statementFiscalPeriods(bundle),stated,periodEnd) ? null : stated;
     const text = wc.sentence ?? "";
     const rows: FilingFact[] = [];
     if (wc.dso !== null) rows.push({ key: "dso", label: "days sales outstanding (DSO)", value: wc.dso, unit: "days", symbol: null, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
@@ -1261,4 +1263,11 @@ function tradingArrangementRows(bundle: DataBundle): NonNullable<FilingDisclosur
   const other = sectionRef(bundle.edgar?.tenQOther);
   if (other === null) return [];
   return parseTradingArrangements(other.data.text).map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
+}
+
+export function statementFiscalPeriods(bundle: DataBundle): FiscalLabelledPeriod[] {
+ return [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly),...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)].flatMap(r=>{
+  const year=String(r.fiscalYear??"").trim(), period=String(r.period??"").trim().toUpperCase(), end=day(r.date);
+  return end && /^(?:19|20)\d{2}$/.test(year) && /^(FY|Q[1-4])$/.test(period)?[{end,label:period==="FY"?`FY${year}`:`${period} FY${year}`}]:[];
+ });
 }

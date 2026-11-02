@@ -3049,3 +3049,8 @@ DATA-109 removes bounded page-number-only sections at parsing and replay, and st
 ### D-next (P5): AI-508 presentation detail
 
 OD-11 retains moved-together current operands, withholds unproven mixed operands and uses the latest stable presentation after repeated changes. Notes name filing accession/date, stated windows and affected ends. No stored report is rewritten.
+
+
+### D-next (P5): AI-512-V1 fiscal labels
+
+Apply OD-12 withhold-never-replace to guidance, paired checks, commentary and newer notices. Preserve the stricter existing excerpt-title policy unchanged. Retained AMZN #43: issued-with Q2 FY2025 -> null, outlook Q3 FY2025 -> fiscal quarter, 197-202 billion unchanged; two checks -> zero. Stored displays use their own trend.

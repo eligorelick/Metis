@@ -2156,6 +2156,7 @@ const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
 
 export const GuidanceRowSchema = z
   .object({
+    /** Issuer fiscal label, or fiscal quarter/year when contradicted (AI-512-V1). */
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
