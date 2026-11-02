@@ -1,6 +1,6 @@
 # P8 methodology documentation and test guards
 
-Base: b64e0433. All ten findings reproduced at this base: docs-red (six doc contracts), test201-red, test202-red, test203-red and test204-red retain the failing receipts. No product financial computation, prompt, payload golden, shared version stamp or stored report changed. DOC-301 is deferred until B5 and is outside this batch.
+Base: b64e0433. All ten findings reproduced at this base: docs-red (six doc contracts), test201-red, test202-red, test203-red and test204-red retain the failing receipts. No product financial computation, prompt, payload golden, shared version stamp or stored report changed. DOC-301 was deferred until B5 and was applied after the P2 merge (see the DOC-301 row).
 
 | Finding | Disposition | Commit | Red / green receipt | Stored report impact |
 | --- | --- | --- | --- | --- |
@@ -14,6 +14,7 @@ Base: b64e0433. All ten findings reproduced at this base: docs-red (six doc cont
 | TEST-202 | Fixed: declared compiler/lint roots; tracked inputs remain admitted | 056275db | test202-red / test202-green | none |
 | TEST-203 | Fixed: Node transports guarded; XDG_DATA_HOME and APPDATA isolated | 5f180338 | test203-red / test203-green | none |
 | TEST-204 | Fixed: recorded overflow and no-op jump refused | 53ab708e | test204-red / test204-green | none |
+| DOC-301 | Fixed after P2 (B12-OD-8): the next fiscal year takes the quarterly shape; the worked example is the synthetic D-99 fixture recomputed by tests/docs.p8Agreement.test.ts (570 shaped, 627.53 even) | this branch | doc301-red / doc301-green | none |
 
 TEST-204 is unit-tested on recorded measurements only; live confirmation skipped by decision (decisions spec 4.3). No preview, server or live reading run was started.
 
