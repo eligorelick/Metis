@@ -3948,3 +3948,19 @@ Accepted canonical quarters formed from compatible earlier cumulative filings
 are labelled derived across filings, with filing identities, in quarterly
 table notes and model context. Late-operand Q3 remains withheld. No quarterly
 amount, TTM identity, score, stamp or stored report changes in this follow-up.
+
+### D-155: Review correction - canonical derived quarters (2026-11-02)
+
+The final live FIGR preflight showed the one-filing rule refusing the standard
+Q4: the vendor's Q4 2025 revenue (223,181,000) conflicted with the filed fiscal
+year less nine months (506,865,000 - 346,952,000 = 159,913,000), the revenue was
+withheld, the TTM window fell back to the annual statement and the headline P/E
+moved to the IPO-distorted fiscal year. N4b's frozen replays had not exercised
+the fetch-time switch, and its fixture's vendor Q4 equalled the filed value.
+Every Q4 is derived from two filings, so the rule also contradicted the Q4
+growth comparison it already accepted. A derived quarter (fiscal year less
+year-to-date, or a year-to-date difference) is therefore a whole filed row when
+each operand is the current period of its own filing and the earlier
+year-to-date was filed no later than the total, with the operating statement
+reconciling as before (N3, D-151). A quarter built only from later comparatives
+(FIGR's Q4 2024) stays refused. Stored reports and shared stamps are unchanged.

@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Final FIGR preflight correction (2026-11-02)
+
+- D-155 review: a conflicting vendor quarter is replaced by the filed fiscal-year-less-nine-months (or year-to-date difference) row when each operand is the current period of its own filing and the year-to-date was filed first; quarters derived only from later comparatives stay refused. Restores FIGR's live Q4 2025 revenue (159.913M filed, not the vendor's 223.181M) and its TTM window.
+
 ## Unreleased - N4b filed quarterly series and lender display (2026-11-02)
 
 Quarterly income comparatives can establish a whole filed row without a

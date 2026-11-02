@@ -1569,6 +1569,25 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         isFiniteNumber(row.grossProfit) && isFiniteNumber(row.operatingExpenses) &&
         vendorAgreesWithDerived(row.operatingIncome, row.grossProfit - row.operatingExpenses, [row.grossProfit, row.operatingExpenses]);
     };
+    // D-155 review: the standard derived quarter (fiscal year less nine months, or
+    // a year-to-date difference) is a whole filed row on its canonical lineage:
+    // each operand is the current period of its own filing and the earlier
+    // year-to-date was filed no later than the total. A quarter derived from
+    // later comparatives stays refused under the one-filing rule.
+    const canonicalDerivedQuarter = (proof: StatementFieldProvenance, date: string): boolean => {
+      if ((proof.derivation !== "fy-minus-ytd" && proof.derivation !== "ytd-difference") || proof.filings.length !== 2 ||
+        !proof.periodStart || proof.tags.length !== 1) return false;
+      const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[proof.tags[0]!.replace(/^us-gaap\//, "")]);
+      if (!parsed.success) return false;
+      const points = parseFactPoints(parsed.data.units[proof.unit] ?? []).filter(p =>
+        CORE_FACT_FORMS.has(p.form) && p.filed <= inputs.today && proof.filings.some(f => f.accn === p.accn));
+      const priorEnd = new Date(Date.parse(proof.periodStart) - 86_400_000).toISOString().slice(0, 10);
+      const total = points.find(p => p.end === date && p.start && p.start < proof.periodStart!);
+      const prior = total && points.find(p => p.end === priorEnd && p.start === total.start);
+      if (!total || !prior || total.accn === prior.accn || prior.filed > total.filed) return false;
+      const latestEnd = (accn: string) => points.filter(p => p.accn === accn).reduce((latest, p) => p.end > latest ? p.end : latest, "");
+      return latestEnd(total.accn) === total.end && latestEnd(prior.accn) === prior.end;
+    };
     for (const member of ["incomeAnnual", "incomeQuarterly", "cashflowQuarterly"] as const) {
       const current = members[member];
       if (!current.ok || current.value.source === "edgar") continue;
@@ -1594,6 +1613,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
           proof.unit !== row.reportedCurrency || !proof.periodStart || proof.filings.length === 0 ||
           (row.periodStart != null && row.periodStart !== proof.periodStart) ||
           (row.cik != null && Number(row.cik) !== Number(facts.cik))) return row;
+        const canonicalDerived = member === "incomeQuarterly" && proof.filings.length !== 1 && canonicalDerivedQuarter(proof, String(row.date));
         if (member !== "cashflowQuarterly") {
           if (bankStatementRouting(registrant) || !proof.tags.some(tag => totalTags.includes(tag))) return row;
           if (member === "incomeQuarterly" && proof.filings.length === 1) {
@@ -1601,7 +1621,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
             if (!filingRows.has(accn)) filingRows.set(accn, buildStatementsFromCompanyFacts(factsForFilings(facts, [accn]), buildOptions(cik10)).incomeQuarterly.rows);
             sec = filingRows.get(accn)!.find(candidate => candidate.date === row.date) ?? sec;
           }
-          if (!reconciles(sec) || member === "incomeQuarterly" && proof.filings.length !== 1) {
+          if (!reconciles(sec) || member === "incomeQuarterly" && proof.filings.length !== 1 && !canonicalDerived) {
             if (member === "incomeAnnual") return row;
             const reason = `Vendor quarterly revenue ${row.revenue} conflicts with filed-operand revenue ${sec.revenue} ${proof.unit} at ${row.date}; a reconciled whole income row from one filing is unavailable. Revenue and dependent gross-margin fields withheld; vendor observations retained.`;
             gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "warn" });
@@ -1612,7 +1632,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         // Canonical CFO derivation rejects incompatible YTD lineages. Require
         // its actual operating-cash-flow tag, not a proxy or a vendor alias.
         if (member === "cashflowQuarterly" && !proof.tags.includes("us-gaap/NetCashProvidedByUsedInOperatingActivities")) return row;
-        const reason = `Vendor ${conflictField} ${row[conflictField]} conflicts with filed ${sec[field]} ${proof.unit} for ${proof.periodStart} through ${row.date}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}. Whole SEC-built row replaced the vendor row in auto mode; ${member === "cashflowQuarterly" ? "quarterly CFO resolved on the canonical filing lineage" : "filed operating statement reconciles"}; no fields or EPS mixed with the vendor row.`;
+        const reason = `Vendor ${conflictField} ${row[conflictField]} conflicts with filed ${sec[field]} ${proof.unit} for ${proof.periodStart} through ${row.date}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}. Whole SEC-built row replaced the vendor row in auto mode; ${member === "cashflowQuarterly" ? "quarterly CFO resolved on the canonical filing lineage" : canonicalDerived ? `filed operating statement reconciles; quarter derived (${proof.derivation}) on the canonical filing lineage, each operand the current period of its own filing` : "filed operating statement reconciles"}; no fields or EPS mixed with the vendor row.`;
         gaps.push({ field: `statements.sourceSwitch.${member}.${row.date}`, reason, severity: "info", attemptedSources: [current.value.endpoint, STATEMENT_ENDPOINTS[member]] });
         const capexRefusal = member === "cashflowQuarterly" && !isFiniteNumber(sec.capitalExpenditure)
           ? { capitalExpenditure: { usable: false as const, vendorValue: isFiniteNumber(row.capitalExpenditure) ? row.capitalExpenditure : null, secValue: null,

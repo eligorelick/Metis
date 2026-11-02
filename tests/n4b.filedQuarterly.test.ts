@@ -53,6 +53,27 @@ describe("N4b L3 filed comparative quarterly series", () => {
     expect(out.gaps.find(g => g.field === "statements.income.2024-12-31.revenue")?.reason).toMatch(/68120000.*83855000|83855000.*68120000/);
     expect(JSON.stringify(i.fmp)).toBe(before);
   });
+  // Coordinator review of the final live preflight (2026-11-02): the live vendor
+  // Q4 2025 revenue was 223,181,000 against the filed 506,865,000 less nine months
+  // 346,952,000. The standard fiscal-year-less-nine-months quarter, each operand the
+  // current period of its own filing and the nine months filed first, is a whole
+  // filed row (N3). A derivation from later comparatives (Q4 2024) stays refused.
+  it("switches a conflicting Q4 to the filed FY-minus-nine-months row on its canonical lineage", async () => {
+    const i = fixture();
+    if (!i.fmp.incomeQuarterly.ok) throw Error("fixture");
+    i.fmp.incomeQuarterly.value.data.rows.find(r => r.date === "2025-12-31")!.revenue = 223181000;
+    const out = await applyKeylessFallbacks(i);
+    if (!out.members.incomeQuarterly.ok) throw Error("fixture");
+    const rows = out.members.incomeQuarterly.value.data.rows;
+    const switched = rows.find(r => r.date === "2025-12-31")!;
+    expect(switched).toMatchObject({ revenue: 159913000, source: "edgar" });
+    expect(switched).not.toHaveProperty("vendorOnly");
+    expect(switched.fieldProvenance?.revenue?.derivation).toBe("fy-minus-ytd");
+    expect(switched.fieldProvenance?.revenue?.filings).toHaveLength(2);
+    expect(out.gaps.find(g => g.field === "statements.sourceSwitch.incomeQuarterly.2025-12-31")?.reason).toMatch(/canonical filing lineage/);
+    expect(out.gaps.some(g => g.field === "statements.income.2025-12-31.revenue")).toBe(false);
+    expect(rows.find(r => r.date === "2024-12-31")?.revenue).toBeNull();
+  });
   it("uses current-filing YoY comparatives and matched filed Q4 operands, never cross-source growth", async () => {
     const i = fixture(), out = await applyKeylessFallbacks(i), b = completeCurrencyBundle({});
     b.builtAt = at; b.edgar.companyFacts = i.edgar.companyFacts; b.edgar.registrant = i.edgar.registrant; b.edgar.cik = i.edgar.cik;

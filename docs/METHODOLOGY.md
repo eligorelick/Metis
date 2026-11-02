@@ -6585,8 +6585,11 @@ N4b L3: A later 10-Q/10-K comparative is a filed value for the quarter.
 Income-quarter discovery does not require a comparative balance-sheet instant.
 When quarterly vendor revenue conflicts, auto mode switches the whole row only
 if one filing supplies a reconciled operating statement. Otherwise revenue is
-withheld with both observations; a derived cross-filing Q4 total cannot silently
-replace the vendor row. Quarterly YoY prefers the current filing's comparative;
+withheld with both observations. A quarter derived across filings replaces the
+vendor row only on its canonical lineage: fiscal year less nine months, or a
+year-to-date difference, where each operand is the current period of its own
+filing and the earlier year-to-date was filed no later than the total (the
+standard Q4). A quarter derived from later comparatives stays refused. Quarterly YoY prefers the current filing's comparative;
 YoY and QoQ divide filed operands on one presentation, or vendor operands on
 one vendor basis, and disclose any refusal. Matched FY-minus-nine-month pairs
 can establish a Q4 growth comparison independently of a refused vendor row.
