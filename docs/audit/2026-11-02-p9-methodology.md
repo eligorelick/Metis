@@ -107,3 +107,11 @@ METHODOLOGY and recorded as owner-delegated. FIG: retained vendor capex
 18.238M versus PP&E-only 16.936M; the difference 1.302M is 0.6% of retained
 231.012M FCF. A PP&E-plus-software basis would be another convention, requiring
 comparable period evidence and dependent FCF/P/FCF/DCF-seed review across issuers.
+
+
+FIN-306 missing-battery review: an entirely absent bank battery previously
+left all nine tests in the ceiling. fin306-missing-red reproduced evidence
+0.9269662921 versus intended 0.9744094488 on the otherwise full control;
+fin306-missing-green verifies the supported maximum even with no result.
+Missing supported tests still penalize evidence, and unresolved eligibility
+retains its refusal. This adds no ticker exception or stored reinterpretation.

@@ -2822,7 +2822,9 @@ FIN-306 (P9): route-withheld tests are excluded from the applicable ceiling:
 three tests remain on a bank, insurer or mortgage REIT, and five on a fee-based
 FIN-OTHER route. The forensic result records the route-withheld count separately
 from missing supported data. Used weight remains outOf/9; applicable weight is
-(9 - routeWithheld)/9. A fully observed supported battery therefore has
+(9 - routeWithheld)/9. An entirely absent battery on an established financial
+route retains the known supported maximum of three or five tests. A fully
+observed supported battery therefore has
 applicable completeness 1, while missing supported tests still reduce quality
 confidence and composite evidence. An unresolved operating-method eligibility
 refusal is not a designed route exclusion. Legacy results without the count

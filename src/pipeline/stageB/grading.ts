@@ -34,7 +34,7 @@ import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pip
 import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import type { UtilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
+import { ALTMAN_ZONES, isFinancialForensicsSuppressed, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import { isStartingGrowthFamily, type ValuationResult } from "@/pipeline/stageB/valuation";
 import type { Grade } from "@/types/core";
@@ -914,6 +914,12 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   const gradingPiotroski = commonPiotroski ? {
     outOf: commonPiotroski.length, score: commonPiotroski.reduce<number>((sum, v) => sum + v, 0), routeWithheld: 6,
   } : forensics.piotroski;
+  // A missing entire battery (e.g. fewer than two fiscal years) still has a
+  // known supported maximum on an established financial route. Legacy results
+  // that do carry a battery but no count retain their recorded interpretation.
+  const piotroskiRouteWithheld = gradingPiotroski?.routeWithheld ??
+    (gradingPiotroski === null && route.modelEligibility?.status !== "unresolved" && isFinancialForensicsSuppressed(route)
+      ? financial ? 6 : 4 : 0);
   const piotroskiFrac =
     gradingPiotroski && isNum(gradingPiotroski.score) && gradingPiotroski.outOf > 0
       ? gradingPiotroski.score / gradingPiotroski.outOf
@@ -956,7 +962,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         band: PIOTROSKI_BAND,
         suppressedBy: "piotroskiF",
         evidenceFraction: gradingPiotroski && gradingPiotroski.outOf > 0 ? Math.min(1, gradingPiotroski.outOf / 9) : 1,
-        applicableFraction: (9 - Math.min(9, Math.max(0, gradingPiotroski?.routeWithheld ?? 0))) / 9,
+        applicableFraction: (9 - Math.min(9, Math.max(0, piotroskiRouteWithheld))) / 9,
       },
       // The driver is the score AFTER the affine map onto the original
       // variant's 1.81/2.99 zones (normalizeAltmanForBanding) — the number the

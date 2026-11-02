@@ -3148,7 +3148,9 @@ applicable completeness 1. Unresolved eligibility is still missing evidence.
 The old bank 8/9 fixture and B-to-C transition control were retired because
 that battery is impossible on the route and the transition pinned the wrong
 denominator. The replacement pins full supported completeness and loss of
-completeness with supported data missing. No band threshold changes. Census
+completeness with supported data missing.
+Even when the entire battery is absent, established financial routes retain
+their supported maximum (3 or 5), while unresolved eligibility stays missing. No band threshold changes. Census
 measurements are in the P9 disposition; stored reports retain their bytes.
 
 

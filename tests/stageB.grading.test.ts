@@ -943,6 +943,17 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     expect(thin.aspects.fundamentals.dataCompleteness).toBeLessThan(1);
     expect(thin.composite.score!).toBeLessThan(round2(raw)); // shrunk
   });
+
+  it("FIN-306: an entirely missing battery still excludes route-impossible tests from the ceiling", () => {
+    const full = computeScores(fullyObservedBank());
+    const inputs = fullyObservedBank();
+    inputs.forensics = forensics({ piotroski: null });
+    const missing = computeScores(inputs);
+    const supportedWeight = full.composite.weights.quality * 0.22 * 3 / 9;
+    const ceiling = rawAndCompWeight(full).compWeight;
+    expect(missing.assessments?.evidenceCompleteness).toBeCloseTo((ceiling - supportedWeight) / ceiling, 12);
+    expect(missing.aspects.quality.applicableCompleteness).toBeLessThan(1);
+  });
 });
 
 /* ------------------------------------------------------------------------ *
