@@ -18,6 +18,25 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R6 FIGR paid-run audit: governance control, P/E denominator and insider coverage (2026-11-02)
+
+- B-05: a separate, bounded filing reading admits voting rights, dated controllers
+  and controlled-company disclosures with adjacent exemption qualifications.
+  Economic class equality does not establish voting equality, and IPO conversion
+  counts are not current balances.
+- B-09: aggregate P/E carries its selected common-income denominator and the
+  four admitted quarterly amounts, intervals and filing bases into the payload
+  and the multiple's displayed basis. The filed Basic EPS convention,
+  participating-security caveat and no-second-deduction rule remain intact.
+- B-21: insider evidence states the aggregate window, latest inspected Form 4
+  filing date, bounded activity after that window, and the uncollected Form 144
+  limit. Selected rows may overlap across owners; plan capacity and proposed
+  sales are never called executed sales.
+
+Fictional regression tests and a read-only replay of the paid snapshot are
+recorded in [the R6 disposition](docs/audit/2026-11-02-r6-figr-governance-bridge.md).
+Stored reports are unchanged. Shared version stamps are reserved for the integrator.
+
 ## Unreleased - R1/R4 FIGR paid-run audit: evidence, run accounting and analysis rules (2026-11-02)
 
 The paid FIGR report (claude-opus-5-5, high effort, $4.71) was audited against

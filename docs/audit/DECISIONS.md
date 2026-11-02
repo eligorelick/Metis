@@ -4095,3 +4095,40 @@ citation.
 
 PIPELINE_VERSION moves to stage-c-1.6.19. These rules change what the model is
 asked to do; only a later paid run can show their effect.
+
+## D-next (R6) - Preserve filed voting control independently of economic rights
+
+B-05: financial materiality selection omitted the paid snapshot's explicit
+votes-per-share, named control and controlled-company risk-factor passages.
+A bounded governance reading now admits those filed words with neighboring
+definitions and exemption qualifications, source offsets and filing identity.
+No ticker exception, voting-rights inference from economic equality, current
+count inference from IPO conversions, or assumption that every available
+exchange exemption was elected is permitted. The frozen FIGR 10-K has the
+needed text; no fetch-time expansion was necessary. Fictional long-section
+and missing-rights cases cover admission. Shared versions remain for integration.
+
+## D-next (R6) - Show the selected aggregate P/E earnings construction
+
+B-09: the selected denominator was correct but did not accompany the displayed
+multiple. Carry the admitted TTM common-income quarters out of the same
+normalized/supplemented input rows and print their amounts, intervals, tags,
+derivations and filings in the existing multiple-basis field. Register total
+and components as payload figures. Retain the filed Basic EPS common-stockholder
+convention, its participating-security limitation and no second preferred/NCI
+deduction. An annual fallback is identified as annual, with no fabricated
+quarter trail. Fictional route tests inspect payload and all three report surfaces.
+
+## D-next (R6) - Bound insider coverage and distinguish proposed from executed sales
+
+B-21: completed-quarter statistics and later individual rows were not joined
+by an explicit coverage statement. Keep the aggregate window, report the latest
+explicit Form 4 or 4/A filing date in retained provider rows, and summarize dated
+post-window rows by code. Counts and shares remain reported-row totals, possibly
+overlapping across joint owners/amendments, not a complete SEC review or unique
+shares sold. Non-Form-4 records do not enter executed-transaction summaries.
+Current provider code collects FMP transaction/statistics and Finnhub sentiment,
+not Form 144 proposed-sale notices; disclose those notices as uncollected and
+unreviewed. Trading-plan capacity and proposed sales are not executed sales.
+Fictional tests cover filing versus transaction dates, non-Form-4 exclusion,
+post-window counts, missing dates and citable coverage.

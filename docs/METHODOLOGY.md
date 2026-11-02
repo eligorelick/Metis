@@ -361,6 +361,21 @@ are, a repeated quarter keeps its first row, and a sum with a missing value is
 withheld. With no complete quarter there is no statistics figure and a note
 says which quarter is in progress. Covered by `tests/stageC.insiderStatistics.test.ts`.
 
+**Insider filing coverage (R6, B-21).** The payload separately states the last
+explicit Form 4 or 4/A filing date among all retained provider rows, before the
+individual display-row cap. Transaction dates and the provider's as-of do not
+substitute for a filing date. Dated Form 4 transactions after the aggregate
+window are summarized by transaction code, as counts of reported rows and
+reported shares. These are selected provider observations, not a complete
+intervening-quarter aggregate; joint owners and amendments may overlap, so the
+sum is not unique shares sold. Code F is not a sale code. Rows whose filing or
+transaction dates are missing or future do not establish the post-window sum.
+Non-Form-4 rows are excluded from the executed-transaction list and summary.
+The current providers do not collect Form 144 proposed-sale notices: they are
+unreviewed, not zero. Proposed sales and Rule 10b5-1 capacity are separate from
+executed sales. Coverage text and post-window counts/shares have payload
+citations. See `tests/stageC.insiderCoverage.test.ts`.
+
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
 `tests/currency.annualCompatibility.test.ts`,
@@ -4457,6 +4472,19 @@ house return convention are not redefined. Missing evidence and the retained
 annual zero-closing-NCI inference are documented limits. See the
 [admission tests, conventions and remaining limits](audit/2026-10-18-common-earnings-admission.md).
 
+**Aggregate P/E denominator bridge (R6, B-09).** When P/E uses market cap over
+common income, its basis also prints the selected denominator, currency and
+period end. For a TTM built from four admitted common-income quarters it lists
+all four amounts, actual field intervals, XBRL tags, direct versus FY-minus-YTD
+derivation and filing identities/dates. The adapter uses the same normalized,
+supplemented rows as the TTM constructor; it does not reconstruct a second
+earnings measure. The payload registers the total and each quarter as numeric
+evidence. The existing multiple-basis display carries the bridge in the report,
+Markdown and print exports. An annual fallback remains an annual flow; missing
+quarterly components are disclosed rather than invented. Filed Basic EPS
+common-stockholder income retains the participating-security caveat and no
+second preferred or NCI deduction. See `tests/stageB.peDenominatorBridge.test.ts`.
+
 ### Reported fiscal commitment payment evidence
 
 The existing commitment disclosure can retain optional issuer-reported fiscal
@@ -6427,6 +6455,20 @@ Lender ROTE refusal reports carry the exact common-income gate reason (including
 observation-cutoff refusals), while the original admission rules remain in force.
 
 ## Filed common-class inventory alternative (R-FIGR-3, N2)
+
+**Voting control evidence (R6, B-05).** A separate governance reading of retained
+annual risk factors, annual/interim notes and business text keeps passages on
+votes per share, voting rights/power and controlled-company status, together
+with adjacent definitions and qualifications. It has a 16,000-character total
+budget, at most 10,000 per source, separate from financial materiality scoring.
+Each excerpt retains its original source offsets, filing accession, report end
+and filing date under a distinct governance citation. Selection is incomplete
+and disclosed as such; absent text is not evidence that an exemption or control
+arrangement does not exist. The leadership instructions date control/count
+observations, distinguish elected exemptions from available or contemplated
+ones, and never treat an IPO conversion count as a current class balance.
+This does not change economic share weights or infer current voting control
+from old counts. See `tests/stageC.governanceBridge.test.ts`.
 
 When no complete inline cover inventory is retained, a primary 10-Q/10-K
 balance sheet can establish an economic share denominator. All common classes

@@ -220,9 +220,13 @@ export function buildLeadershipGuidance(
     "- Insider net activity trailing 12 months (payload insider trades + statistics). State the window the totals",
     "  cover. Attribute sales to tax withholding or a Rule 10b5-1 plan only for transactions the records classify that",
     "  way; neither establishes motive, and plan capacity is not an executed sale.",
+    "  State the last Form 4 filing date inspected, the bounded post-window activity and the Form 144 collection limit.",
+    "  Selected provider rows are not a complete SEC review; do not describe proposed Form 144 sales as executed sales.",
     // FIGR paid audit (2026-11-02, B-05): three share classes, no word on who controls the vote.
     "- Control: when the company has more than one class of common stock, state each class's voting rights and who",
     "  holds voting control where the filings name them, and say what is not established.",
+    "  Date the filed control/count observations; an IPO conversion count is not a current Class B balance.",
+    "  Distinguish controlled-company exemptions the issuer says it elected from exemptions merely available or contemplated.",
     "- Compensation vs performance (executive-compensation rows vs the return/margin trend).",
     "- Tenure and turnover (titleSince dates; frequent C-suite churn is a JUDGMENT signal).",
     // D-63 (audit P1-10): the gate became reachable (D-59) but the judge gave
