@@ -2000,7 +2000,7 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(await activeRunIdentity("AAPL")).toBeNull();
   });
 
-  it.each([[false, false], [true, false], [false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s)", async (resume, mirror) => {
+  it.each([[false, false, false], [true, false, false], [false, true, false], [false, false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s budget=%s)", async (resume, mirror, budget) => {
     vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
@@ -2027,8 +2027,8 @@ describe("runJob - durable paid-pass settlements", () => {
     const seen: Array<{ feedback?: string; continuation: unknown }> = [];
     passes.runAnalystPass = async (_deps, side, settlement, launch, feedback, continuation) => {
       expect(side).toBe("bear"); await launch?.(); seen.push({ feedback, continuation });
-      if ((resume || mirror) && seen.length === 1) throw Object.assign(new Error("dropped"), { kind: "transport", retryable: true });
-      if (!mirror && seen.length === (resume ? 2 : 1)) throw Object.assign(new Error("schema-invalid output"), {
+      if (((resume || mirror) && seen.length === 1) || (budget && seen.length <= 2)) throw Object.assign(new Error("dropped"), { kind: "transport", retryable: true });
+      if (!mirror && seen.length === (budget ? 3 : resume ? 2 : 1)) throw Object.assign(new Error("schema-invalid output"), {
         kind: "schema", retryable: true, rawText: "rejected-output" });
       await settlement?.(testSuccessSettlement(bear, false)); return bear;
     };
@@ -2036,7 +2036,7 @@ describe("runJob - durable paid-pass settlements", () => {
       resume, overloadBackoffMs: 0 });
     expect(result.dataOnly).toBe(false);
     expect(pairCalls).toBe(resume ? 0 : 1);
-    expect(seen).toHaveLength(resume ? 3 : 2);
+    expect(seen).toHaveLength(budget ? 4 : resume ? 3 : 2);
     expect(seen.at(-1)?.feedback).toContain("rejected-output");
     expect(seen.at(-1)?.continuation).toBeUndefined();
     const rows = handle.db.select().from(costLog).all().filter(row => row.step === "bull" || row.step === "bear");
