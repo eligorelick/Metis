@@ -70,6 +70,18 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     expect(out.rows[0]?.epsDiluted).toBe(filed === 0.04 ? undefined : vendor);
   });
 
+  it("identifies a vendor value superseded by a later exact-interval filing", () => {
+    const facts = factsFor([{ ...primaryQuarter, epsDiluted: 0.13 }]);
+    const concept = facts.facts["us-gaap"]![tags.epsDiluted] as { units: Record<string, FactPoint[]> };
+    concept.units["USD/shares"]!.push({ ...concept.units["USD/shares"]![0]!, val: 0.10, filed: "2025-05-10", accn: "0001628280-25-000001" });
+    const primary = built(facts);
+    const out = guardVendorShareFields([{ ...primaryQuarter, epsDiluted: 0.10 }], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+    expect(out.rows[0]?.epsDiluted).toBeUndefined();
+    expect(out.rows[0]?.fieldConflicts?.epsDiluted?.reason).toMatch(/matches an earlier filing.*superseded by a later filing/);
+    expect(out.withheld.find(entry => entry.field === "epsDiluted")?.reason).not.toContain("differs from");
+  });
+
   it("rejects FIG's opposite-sign Q1 EPS and inflated denominator without requiring a split", () => {
     const facts = factsFor([primaryQuarter]);
     const primary = built(facts);

@@ -427,7 +427,7 @@ function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareRecon
 /** Only direct, unambiguous filed facts with the same issuer, interval, currency
  * and ordinary-share unit can contradict a vendor field without a known split. */
 function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR_SHARE_FIELDS)[number],
-  context: PrimaryShareReconciliation | undefined, splits: StockSplits, basisDay: string): { value: number; evidence: StatementFieldProvenance } | null {
+  context: PrimaryShareReconciliation | undefined, splits: StockSplits, basisDay: string): { value: number; evidence: StatementFieldProvenance; superseded?: boolean } | null {
   if (!context || context.isAdr !== false || context.registrantTickers?.length !== 1 ||
     !context.registrantTickers[0]?.trim()) return null;
   const cik = (value: unknown): string | null => /^\d{1,10}$/.test(String(value)) && Number(value) > 0 ? String(Number(value)) : null;
@@ -450,7 +450,7 @@ function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR
       CORE_FACT_FORMS.has(point.form) && validSharePeriodDay(point.filed) && point.filed <= splits.asOf);
   });
   if (!currencyEstablished) return null;
-  let selected: { value: number; evidence: StatementFieldProvenance } | null = null;
+  let selected: { value: number; evidence: StatementFieldProvenance; superseded?: boolean } | null = null;
   for (const tag of tagsFor(field)) {
     const concept = conceptFactsSchema.safeParse(context.companyFacts.facts["us-gaap"]?.[tag]);
     if (!concept.success) continue;
@@ -466,7 +466,13 @@ function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR
     const value = expectedUnit === "shares" ? point.val * basis.factor : point.val / basis.factor;
     if (!isFiniteNumber(value) || (expectedUnit === "shares" && value <= 0)) return null;
     if (selected !== null && selected.value !== value) return null;
-    selected ??= { value, evidence: { source: "edgar", unit: expectedUnit, periodStart: start, periodEnd: row.date,
+    const superseded = points.some(earlier => {
+      if (earlier.filed >= point.filed) return false;
+      const earlierBasis = shareBasisFactor(splits, earlier.filed, null, basisDay);
+      if ("withheld" in earlierBasis) return false;
+      return (expectedUnit === "shares" ? earlier.val * earlierBasis.factor : earlier.val / earlierBasis.factor) === row[field];
+    });
+    selected ??= { value, superseded, evidence: { source: "edgar", unit: expectedUnit, periodStart: start, periodEnd: row.date,
       observedAt: context.observedAt ?? "", tags: [`us-gaap/${tag}`], filings: [{ accn: point.accn, filed: point.filed, form: point.form }] } };
   }
   return selected;
@@ -535,7 +541,9 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
           (Number(vendorValue.toFixed(2)) === vendorValue && Number(filerValue.toFixed(2)) === vendorValue));
         const agrees = vendorValue === filerValue || roundingOnly || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
         if (!agrees) {
-          reason = `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis` +
+          reason = (primary?.superseded
+            ? `the vendor's ${label} for ${date} (${vendorValue}) matches an earlier filing for the exact interval, superseded by a later filing (${filerValue}) on the ${basisDay} basis`
+            : `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis`) +
             (splitCheck ? `, across ${against}` : `; exact ${proof!.periodStart} through ${proof!.periodEnd} ${proof!.unit}; field unavailable until reconciled`);
         }
       }
