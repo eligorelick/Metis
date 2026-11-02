@@ -74,7 +74,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { admittedGeography, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -2806,21 +2806,23 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
       for (const i of columns) {
         const q = axis.quarters[i]!;
         const value = row.values[i] ?? null;
-        if (value === null) continue;
+        if (value === null || row.earlierPresentationAt?.includes(i)) continue;
+        const cross = row.crossFilingAt?.includes(i) === true;
         // D-63: a cell filled as the total less the other rows says so.
         const residual = row.residualAt?.includes(i) === true;
         figures.push({
-          label: `${axis.axisLabel}: ${row.label} revenue${residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
+          label: `${axis.axisLabel}: ${row.label} revenue${cross ? " (derived across two filings)" : residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
           value,
           unit: "currency",
           currency: axis.currency,
           period: q.end,
           periodContext: { kind: "duration", start: q.start, end: q.end, basis: "fiscal-quarter" },
-          source: residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
+          source: cross ? "computed:xbrl segment cross-filing difference" : residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
           asOf,
         });
       }
     }
+    notes.push(crossFilingClause(axis.quarters.filter((_,i)=>axis.totalCrossFilingAt?.includes(i)||axis.rows.some(r=>r.crossFilingAt?.includes(i))).map(q=>q.end)));
     const children = axis.rows.filter((r) => r.childOf !== null);
     if (children.length > 0) notes.push(`${axis.axisLabel}: ${children.map((c) => c.label).join(" and ")} are components of ${axis.rows.find((r) => r.member === children[0]!.childOf)?.label ?? "another row"} (they sum to it in the latest quarter).`);
     if (axis.priorPresentation.length > 0) notes.push(`${axis.axisLabel}: members tagged only in earlier quarters (a prior presentation) are not shown: ${axis.priorPresentation.join(", ")}.`);
@@ -2866,19 +2868,20 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
       const latestEnd = ends[0]!;
       for (const row of axis.rows) {
         const latest = row.values[0];
-        if (latest === null || latest === undefined) continue;
+        if (latest === null || latest === undefined || row.earlierPresentationAt?.includes(0)) continue;
         const growth = (i: number | undefined): number | null => {
-          const prior = i === undefined ? null : row.values[i] ?? null;
+          const prior = i === undefined || !sameSegmentBasis(row.earlierPresentationAt,0,i) ? null : row.values[i] ?? null;
           return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
+        const sourceFor = (i: number | null, share = false) => row.crossFilingAt?.includes(0) || (i !== null && row.crossFilingAt?.includes(i)) || (share && axis.totalCrossFilingAt?.includes(0)) ? "computed:xbrl segment cross-filing difference" : base.source;
         // AI-406: a rate is computed only against the quarter its label names.
         const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
         const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
-        if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
-        if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
+        if (qoq !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, QOQ_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
+        if (yoy !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, YOY_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
         const total = axis.total[0];
-        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
+        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, source: sourceFor(null, true), label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
       }
     }
   }

@@ -1,4 +1,4 @@
-import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
@@ -267,12 +267,13 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const rows = s.rows.map((r) => [
       r.childOf === null ? r.label : `  ↳ ${r.label}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
-      growth(r.values, quarterAgo),
-      growth(r.values, yearAgo),
+      sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
+      sameSegmentBasis(r.earlierPresentationAt,0,yearAgo) ? growth(r.values, yearAgo) : DASH,
       total !== null && total > 0 && r.values[0] !== null && r.values[0] !== undefined ? pct((r.values[0] / total) * 100) : DASH,
     ]);
-    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), growth(s.total, quarterAgo), growth(s.total, yearAgo), total !== null ? "100.0%" : DASH]);
+    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), sameSegmentBasis(s.totalEarlierPresentationAt,0,quarterAgo) ? growth(s.total, quarterAgo) : DASH, sameSegmentBasis(s.totalEarlierPresentationAt,0,yearAgo) ? growth(s.total, yearAgo) : DASH, total !== null ? "100.0%" : DASH]);
     const notes = [
+      crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",

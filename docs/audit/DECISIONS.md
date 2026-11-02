@@ -3000,3 +3000,7 @@ DATA-103: carry the existing bank revenue routing into income classification and
 ### D-next (P5): Presentation currency precedes statement resolution
 
 DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period unit, break ties by total anchor points, USD, then alphabetical. Withhold other-unit-only history and disclose unused convenience amounts. No currency conversion is inferred. Mixed-currency valuation remains withheld.
+
+### D-next (P5): Segment presentation continuity
+
+AI-508 implements B9 OD-11: detect member changes on shared stated/implied windows beyond 1% and 2 million; retain earlier levels only in the classic table, exclude them from analysts, and withhold cross-basis arithmetic. Unproven cross-filing quarters remain computed estimates with a disclosure that a change first shown in a 10-K cannot yet be ruled out. Saved report bytes are unchanged.

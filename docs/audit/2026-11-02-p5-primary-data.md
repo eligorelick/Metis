@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- |
 | DATA-103 | Fixed | b0ed6bb9 | data103-red / data103-green | None; saved bytes unchanged |
 | DATA-104 | Fixed | d0feb95f | data104-red / data104-green | None; saved bytes unchanged |
-| AI-508 | Not started | - | - | Not assessed |
+| AI-508 | Fixed | Owning AI-508 commit | ai508-red / ai508-green-2 | Legacy arrays without metadata unchanged |
 | AI-202-V1 | Not started | - | - | Not assessed |
 | RPT-201 | Not started | - | - | Not assessed |
 | DATA-114 | Not started | - | - | Not assessed |
@@ -35,3 +35,5 @@ Offline retained-input replay (p5-retained-replay) compares both classification 
 This is an incomplete batch: two findings fixed, nineteen not started. AI-508 was inspected but no regression or implementation was committed. Resume there in the requested order. No blocker or non-reproduction is claimed for unstarted findings.
 
 Validation: data103-green (432 tests), data103-docs-controls (119), data104-green (508), p5-controls-3 (167), p5-retained-replay (5), p5-typecheck-2 and p5-lint-1 passed. The first typecheck caught an introduced fixture typing error, corrected in d0feb95f. The first p5-controls-2 run hit the tracked-file inventory gate before the new test was staged; p5-controls-3 passes after staging. Neither is a pre-existing failure. Existing Vite CommonJS configuration warnings remain.
+
+AI-508: synthetic Devices [57,66,64,62,48] becomes [57,null,64,62,48] after a proven recast. The unproven annual-minus-nine-months case retains 18 (not invented 54 or 66), explicitly computed and disclosed under OD-11. Earlier-presentation levels are excluded from analysts; growth across presentations is withheld. No stamps, prompts or goldens change.

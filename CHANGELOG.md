@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- AI-508: guard segment growth and cross-filing subtraction across proven presentation changes; disclose retained cross-filing estimates.
+
 - DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.
 - DATA-103: preserve SIC-routed bank total net revenue in income classification and SEC peer statements.
 

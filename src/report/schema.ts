@@ -2295,11 +2295,13 @@ export const FilingDisclosuresSchema = z
           quarters: z.array(IsoDaySchema),
           rows: z.array(
             z
-              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()) })
+              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()), earlierPresentationAt: z.array(z.number().int().nonnegative()).optional(), crossFilingAt: z.array(z.number().int().nonnegative()).optional() })
               .strict(),
           ),
           total: z.array(z.number().nullable()),
           priorPresentation: z.array(z.string()),
+          totalEarlierPresentationAt: z.array(z.number().int().nonnegative()).optional(),
+          totalCrossFilingAt: z.array(z.number().int().nonnegative()).optional(),
           derivedCells: z.number().int().nonnegative(),
           /** D-63: cells filled as the quarter's total less the other top-level rows. Optional on older reports. */
           residualCells: z.number().int().nonnegative().optional(),

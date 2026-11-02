@@ -5957,3 +5957,5 @@ P0 L-3: When a refused vendor value exactly matches an earlier filing for the sa
 The income-classification check rebuilds filed statements with the issuer's SIC routing. A bank's total net revenue is compared with the bank revenue chain; an SEC-served peer bank uses the same chain.
 
 Statements built from SEC companyfacts use the presentation currency covering the most anchor periods in the newest annual filing (ties: total anchor points, then USD, then alphabetical). Convenience translations never replace the presentation history; other-currency-only years are withheld with a mixed_unit note. Existing mixed-currency valuation guards still apply.
+
+Segment presentation continuity (AI-508): shared stated or implied windows differing by more than 1% and 2 million establish a member recast. Earlier filed levels remain in classic tables with a note, are excluded from analyst context, and cannot feed growth across the change. Cross-filing differences require both operands on the current presentation after a proven change. Without proof of a change they remain computed estimates, disclosed with the 10-K-to-next-10-Q blind spot (B9 OD-11).

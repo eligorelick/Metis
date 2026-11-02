@@ -856,14 +856,18 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       label: safeText(r.label, "(member label withheld)"),
       childOf: r.childOf === null ? null : axis.rows.find((p) => p.member === r.childOf)?.label ?? null,
       values: r.values,
+      ...(r.earlierPresentationAt ? {earlierPresentationAt:r.earlierPresentationAt}:{}),
+      ...(r.crossFilingAt ? {crossFilingAt:r.crossFilingAt}:{}),
     })),
     total: axis.total,
+    ...(axis.totalEarlierPresentationAt ? {totalEarlierPresentationAt:axis.totalEarlierPresentationAt}:{}),
+    ...(axis.totalCrossFilingAt ? {totalCrossFilingAt:axis.totalCrossFilingAt}:{}),
     priorPresentation: axis.priorPresentation,
     derivedCells: axis.derivedCells,
     ...(axis.residualCells > 0 ? { residualCells: axis.residualCells } : {}),
     sources: segments!.filings.map((f) => `${f.form} ${f.accession} (filed ${f.filingDate})`),
   }));
-  if (segments && segments.notes.length > 0) notes.push(...segments.notes.map((n) => `Segment XBRL: ${n}`));
+  if (segments && segments.notes.length > 0) notes.push(...segments.notes.map((n) => `Segment XBRL, ${n}`));
   for (const axis of segments?.axes ?? []) {
     if (axis.residualCells > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
   }

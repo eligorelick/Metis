@@ -1,0 +1,64 @@
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { runStageB } from "@/pipeline/compute";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import type { ValidationReport } from "@/pipeline/stageA/validate";
+import { describe, expect, it } from "vitest";
+import { buildQuarterlySegments, type FilingRevenue, type RevenueFact } from "@/edgar/segmentFacts";
+const S = 1e8;
+const AX = "us-gaap:StatementBusinessSegmentsAxis";
+type W = { start: string; end: string };
+const fact = (member: string | null, w: W, v: number): RevenueFact =>
+  ({ axis: member === null ? null : AX, member, start: w.start, end: w.end, value: v * S, currency: "USD", concept: "us-gaap:Revenues" });
+const trio = (w: W, x: number, y: number): RevenueFact[] => [fact(null, w, x + y), fact("p:CloudMember", w, x), fact("p:DevicesMember", w, y)];
+const filing = (accession: string, form: string, filingDate: string, facts: RevenueFact[]) => ({ accession, form, filingDate, concept: "us-gaap:Revenues", facts }) as FilingRevenue & { concept: string | null };
+const labels = { "p:CloudMember": "Cloud", "p:DevicesMember": "Devices" };
+
+const Q1 = { start: "2025-01-01", end: "2025-03-31" }, Q2 = { start: "2025-04-01", end: "2025-06-30" }, H1 = { start: "2025-01-01", end: "2025-06-30" };
+const Q3 = { start: "2025-07-01", end: "2025-09-30" }, M9 = { start: "2025-01-01", end: "2025-09-30" }, FY = { start: "2025-01-01", end: "2025-12-31" };
+const Q1N = { start: "2026-01-01", end: "2026-03-31" };
+// Old presentation FY2025: Cloud 200/210/220/230 (FY 860), Devices 60/62/64/66 (FY 252).
+// The reorganisation moves a line worth 12 a quarter from Devices to Cloud; member QNames unchanged.
+const q1Old = filing("0001111111-25-000001", "10-Q", "2025-04-29", trio(Q1, 200, 60));
+const q2Old = filing("0001111111-25-000002", "10-Q", "2025-07-29", [...trio(Q2, 210, 62), ...trio(H1, 410, 122)]);
+const q3Old = filing("0001111111-25-000003", "10-Q", "2025-10-28", [...trio(Q3, 220, 64), ...trio(M9, 630, 186)]);
+const kOld = filing("0001111111-26-000001", "10-K", "2026-02-10", trio(FY, 860, 252));
+// (a) Q1 2026 10-Q on the new basis: Q1'26 Cloud 250, Devices 57; restated Q1'25 Cloud 212, Devices 48.
+const q1New = filing("0001111111-26-000002", "10-Q", "2026-04-28", [...trio(Q1N, 250, 57), ...trio(Q1, 212, 48)]);
+// (b) The 10-K itself presents FY2025 on the new basis: Cloud 908, Devices 204.
+const kNew = filing("0001111111-26-000003", "10-K", "2026-02-10", trio(FY, 908, 204));
+// New-basis Devices: 48/50/52/54; old basis 60/62/64/66. Same-basis QoQ for Q1'26 Devices: 57/54-1 = +5.56%; old-on-new mix: 57/66-1 = -13.64%.
+
+
+describe("AI-508 presentation lineage", () => {
+ it("withholds a cross-filing quarter before a proven recast", () => {
+  const s = buildQuarterlySegments([q1New,kOld,q3Old,q2Old],labels)!;
+  expect(s.axes[0]!.rows.find(r=>r.label === "Devices")!.values.map(v=>v===null?null:v/S)).toEqual([57,null,64,62,48]);
+ });
+ it("retains and marks an unproven cross-filing estimate (OD-11)",()=>{
+  const s=buildQuarterlySegments([kNew,q3Old,q2Old,q1Old],labels)!;
+  const row=s.axes[0]!.rows.find(r=>r.label === "Devices")!;
+  expect(row.values[0]).toBe(18*S);
+  expect(row).toHaveProperty("crossFilingAt",[0]);
+ });
+});
+
+function surfaces(filings: (FilingRevenue & {concept:string|null})[]) {
+ const data=buildQuarterlySegments(filings,labels)!;
+ const b=completeCurrencyBundle({});
+ b.edgar!.quarterlySegments={ok:true,value:{data,asOf:data.quarters[0]!.end,source:"edgar",endpoint:"fixture",fetchedAt:b.builtAt}};
+ return {payload:assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport),table:filingDisclosureTables(buildFilingDisclosures(b),"business").find(t=>t.heading.startsWith("Segment revenue by quarter"))!};
+}
+it("excludes earlier basis levels and growth from analysts and explains the classic dash",()=>{
+ const {payload,table}=surfaces([q1New,kOld,q3Old,q2Old]);
+ expect(payload.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
+ expect(payload.segmentRevenue?.figures.some(f=>/Devices.*2025-06-30/.test(f.label))).toBe(false);
+ expect(table.note).toContain("presentation changed");
+ expect(table.rows.find(r=>r[0]==="Devices")!.at(-3)).toBe("\u2014");
+});
+it("registers retained cross-filing levels as computed and discloses the 10-K blind spot",()=>{
+ const {payload,table}=surfaces([kNew,q3Old,q2Old,q1Old]);
+ expect(payload.segmentRevenue?.figures.find(f=>/Devices revenue.*2025-12-31/.test(f.label))).toMatchObject({value:18*S,source:"computed:xbrl segment cross-filing difference"});
+ expect(table.note).toContain("until the next 10-Q");
+});
