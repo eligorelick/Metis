@@ -6359,3 +6359,14 @@ P2 (FIN-512): Scenario shocks retain their existing 25pp growth and 12pp margin 
 P2 (RPT-502): Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged.
 
 P2 (N1): When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence.
+
+
+P2 stored DCF inputs: below the frozen 1.56.0 cutoff, a display-only view notes
+proven skipped terminal years, old all-equity/new-debt inconsistencies and
+unsupported reverse-growth bounds. It corrects current-capital date metadata
+only from one established annual context or four contiguous filed quarters;
+claim text and verification marks retain their recorded wording. Headline
+provider labels use the stored valuation dependencies. Only the exact obsolete
+scenario-method sentence is replaced. No stored value or report byte changes.
+The 51-report offline replay is immutable and idempotent, including early
+reports without score arrays. Unknown evidence receives no guessed correction.

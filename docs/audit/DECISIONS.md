@@ -3645,3 +3645,15 @@ Available-scenario assumptions now state that runs outside the DCF domain are wi
 ## D-next (P2) - N1 (2026-11-02)
 
 When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence. Stored reports remain immutable.
+
+
+## D-next (P2) - Stored input-convention display (2026-11-02)
+
+FIN-102/104/113/116/118 and RPT-502 apply the frozen 1.56.0 display cutoff.
+Only established stored evidence permits a correction or qualification. Old
+terminal years, debt-leg and range claims receive notes. Current-capital
+metadata can take an unambiguous filed start; commentary text with verification
+marks stays recorded. Degradation labels follow actual stored dependencies;
+the exact obsolete scenario-method sentence takes the domain convention.
+All source bytes and numeric figures remain immutable. The 51-report replay
+also covers missing early score arrays and repeated view application.

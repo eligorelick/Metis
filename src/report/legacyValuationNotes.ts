@@ -1,3 +1,5 @@
+import { degradedInputsReason } from "@/pipeline/stageB/fairValue";
+import type { ManifestEntry } from "@/types/core";
 import { periodDays, weeksOf } from "@/pipeline/stageB/fiscalCalendar";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
@@ -78,7 +80,7 @@ const ROWS = [
 export function withLegacyValuationNotes(report: Report): Report {
   const basis = report.valuation.dcf.assumptions.find(row => row.name === "year-one revenue anchor")?.basis ?? "";
   const periods = filedPeriods(report);
-  const added = ROWS.flatMap(row => {
+  const added: ManifestEntry[] = ROWS.flatMap(row => {
     const field = `${LEGACY_VALUATION_NOTE_FIELD}.${row.key}`;
     if (!specVersionBefore(report.meta.specVersion ?? "", row.since) || report.appendix.missingData.some(entry => entry.field === field)) return [];
     const reason = row.note(basis, periods);
@@ -100,5 +102,80 @@ export function withLegacyValuationNotes(report: Report): Report {
       !report.appendix.missingData.some(entry => entry.field === sigmaField)) {
     added.push({field:sigmaField,reason:`Built before spec ${DCF_INPUTS_CONVENTION_SPEC}: scenario sigmas are at the house 25pp growth or 12pp margin bounds. The uncapped sample was not recorded, so these bounded shocks must not be read as uncapped sample dispersion. Stored figures are unchanged.`,severity:"info",expected:true});
   }
-  return added.length === 0 ? report : { ...report, appendix: { ...report.appendix, missingData: [...report.appendix.missingData, ...added] } };
+  const correction = legacyInputCorrections(report, periods);
+  added.push(...correction.notes);
+  const view = correction.view;
+  return added.length === 0 ? view : { ...view, appendix: { ...view.appendix, missingData: [...view.appendix.missingData, ...added] } };
+}
+
+/** Display adaptations read stored evidence only; commentary/verification text is immutable. */
+function legacyInputCorrections(report: Report, periods: FiledPeriod[]): {view:Report;notes:ManifestEntry[]} {
+  if (!specVersionBefore(report.meta.specVersion ?? "", DCF_INPUTS_CONVENTION_SPEC)) return {view:report,notes:[]};
+  let view = report;
+  const notes: ManifestEntry[] = [];
+  const edit = (): Report => { if (view === report) view = structuredClone(report); return view; };
+  const note = (key:string, reason:string):void => {
+    const field = `${LEGACY_VALUATION_NOTE_FIELD}.${key}`;
+    if (!report.appendix.missingData.some(entry => entry.field === field)) notes.push({field,reason,severity:"info",expected:true});
+  };
+  const assumptions = report.valuation.dcf.assumptions;
+  for (const row of assumptions.filter(row => /terminal ROIC/i.test(row.name))) {
+    const match = /in each of the last (\d+) fiscal years \((\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/.exec(row.basis);
+    if (match && Math.round((Date.parse(match[3]!) - Date.parse(match[2]!)) / (365.25 * 86400000)) + 1 > Number(match[1])) {
+      note("terminalYearSkipped", `The terminal ROIC rule read ${match[1]} of the fiscal years from ${match[2]} to ${match[3]}; a year without a return was left out. From ${DCF_INPUTS_CONVENTION_SPEC} an operating-loss year counts below WACC; a pre-tax-loss year's positive EBIT uses the marginal-rate floor. This stored terminal ROIC may be higher than current rules give. Stored figures are unchanged.`);
+    }
+  }
+  const waccBasis = assumptions.filter(row => /WACC/i.test(row.name)).map(row => row.basis).join(" ");
+  if (/E 100% \/ D 0%/.test(waccBasis)) {
+    const numbers = report.balanceSheet.debtProfile.numbers;
+    const amount = (key:string) => numbers.find(n => (n.sourceId ?? "").endsWith(key) || n.source.endsWith(key))?.value;
+    const debt=amount("totalDebtIncludingLeases"), leases=amount("operatingLeases");
+    if (typeof debt === "number" && typeof leases === "number" && debt-leases > 0) note("newBorrower", `The WACC was all-equity although the latest balance carried debt; from ${DCF_INPUTS_CONVENTION_SPEC} it is withheld until the debt cost is established. Stored figures are unchanged.`);
+  }
+  if (report.appendix.missingData.some(g => g.field === "valuation.reverseDcf.growthBracket" && /the price implies year-one growth (?:above|below) [\d.]+%/.test(g.reason))) {
+    note("reverseRangeEnd", `The stored reverse-growth range end may rest on scan points outside the DCF domain. From ${DCF_INPUTS_CONVENTION_SPEC} only in-domain candidates supply brackets and bounds; incomplete scans support no outside-range inference. Stored figures are unchanged.`);
+  }
+  const unique = [...new Map(periods.map(p => [`${p.basis}|${p.start}|${p.end}`,p])).values()];
+  const shift = (date:string, days:number) => new Date(Date.parse(date)+days*86400000).toISOString().slice(0,10);
+  const filedStart = (end:string):string|null => {
+    const annual = unique.filter(p => p.basis === "fiscal-year" && p.end === end && p.days >= 357 && p.days <= 380);
+    if (annual.length > 0) return annual.length === 1 ? annual[0]!.start : null;
+    let cursor=end, start:string|null=null;
+    for (let i=0;i<4;i++) {
+      const matches=unique.filter(p => p.basis === "fiscal-quarter" && p.end === cursor);
+      if (matches.length !== 1) return null;
+      start=matches[0]!.start;cursor=shift(start,-1);
+    }
+    return start;
+  };
+  const currentPeriods = new Set([...report.balanceSheet.coverage.numbers,...(report.scores?.aspects?.balanceSheet?.drivers ?? [])].map(n => n.period));
+  for (const period of currentPeriods) {
+    const match = /^ttm: (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})$/.exec(period ?? "");
+    if (!match) continue;
+    const start=filedStart(match[2]!);
+    if (start === null || start === match[1]) continue;
+    const corrected=`ttm: ${start} to ${match[2]}`;
+    const next=edit();
+    for (const n of [...next.balanceSheet.coverage.numbers,...(next.scores?.aspects?.balanceSheet?.drivers ?? [])]) if (n.period === period) n.period=corrected;
+    for (const signal of next.scores?.aspects?.balanceSheet?.signals ?? []) if (signal.period === period) {signal.period=corrected;signal.startDate=start;}
+    note("currentCapitalStart", `Presentation correction: the current-capital window starts on ${start}, the filed start, not ${match[1]} (the Capital grading basis line keeps its stored wording and verification mark). No figure changed.`);
+  }
+  const oldDegraded = report.fairValue?.reasons.find(g => g.field === "valuation.fairValue.degradedInputs" && g.reason.startsWith("Degraded inputs:"));
+  if (oldDegraded && report.appendix.missingData.some(g => /^keyless\.[^.]+$/.test(g.field))) {
+    const candidate=degradedInputsReason({riskFree:{pct:null,asOf:null,seriesId:null},betaUsesRegression:/keyless profile regression/.test(waccBasis),bundleGaps:report.appendix.missingData,valuationGaps:[]});
+    const body=oldDegraded.reason.replace(/^Degraded inputs: /,"").replace(/\. A run with these providers healthy can give a different value\.$/,"");
+    const retained=body.split("; ").filter(clause => /risk-free rate|ROIC-vs-WACC history|analyst-consensus growth method/.test(clause));
+    if (candidate) retained.push(candidate.reason.replace(/^Degraded inputs: /,"").replace(/\. A run with these providers healthy can give a different value\.$/,""));
+    const reason=retained.length === 0 ? null : `Degraded inputs: ${retained.join("; ")}. A run with these providers healthy can give a different value.`;
+    if (reason !== oldDegraded.reason) {
+      const next=edit();next.fairValue!.reasons=next.fairValue!.reasons.flatMap(g => g.field === oldDegraded.field ? reason === null ? [] : [{...g,reason}] : [g]);
+      note("degradedInputs","Presentation correction: members the fair value does not read are no longer named. Provider-fallback evidence and stored figures are unchanged.");
+    }
+  }
+  const floor="Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast.";
+  if (report.valuation.scenarios.some(s => s.assumptions.includes(floor))) {
+    for (const scenario of edit().valuation.scenarios) scenario.assumptions=scenario.assumptions.map(text => text === floor ? "Targets are labeled by per-share value; runs outside the DCF domain are withheld. No scenario is a future-price forecast." : text);
+    note("scenarioDomain","Presentation correction: obsolete scenario zero-floor wording is replaced by the domain-withholding convention. Stored figures and authored commentary are unchanged.");
+  }
+  return {view,notes};
 }
