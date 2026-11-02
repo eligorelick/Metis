@@ -5951,3 +5951,7 @@ P0 L-2: In no-split EPS comparisons, either cent-precision value may establish r
 P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
+
+### P5 primary-source data and freshness
+
+The income-classification check rebuilds filed statements with the issuer's SIC routing. A bank's total net revenue is compared with the bank revenue chain; an SEC-served peer bank uses the same chain.

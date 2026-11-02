@@ -25,9 +25,9 @@ function facts(): CompanyFacts {
     dei: { EntityCommonStockSharesOutstanding: { label: "Shares", units: { shares: [{ ...point("2026-09-05", 4.7e9) }] } } },
   } };
 }
-function clients(overrides: Partial<{ sic: string; mapped: boolean; facts: () => CompanyFacts }> = {}): PeerFilingClients {
+function clients(overrides: Partial<{ sic: string; subjectSic: string; mapped: boolean; facts: () => CompanyFacts }> = {}): PeerFilingClients {
   const submission = (cik: string): EdgarSubmissions => ({ cik, name: cik.endsWith("1045810") ? "NVIDIA CORP" : "Broadcom Inc.",
-    sic: cik.endsWith("1045810") ? "3674" : overrides.sic ?? "3674", sicDescription: "Semiconductors & Related Devices", fiscalYearEnd: null,
+    sic: cik.endsWith("1045810") ? overrides.subjectSic ?? "3674" : overrides.sic ?? "3674", sicDescription: "Semiconductors & Related Devices", fiscalYearEnd: null,
     stateOfIncorporation: null, tickers: [], exchanges: [], recentFilings: [], olderPages: [] });
   return {
     edgar: {
@@ -66,5 +66,24 @@ describe("peer fundamentals from SEC filings", () => {
   ] as const)("withholds the peer for %s", async (_case, overrides, reason) => {
     const filed = await loadPeerFromFilings("AVGO", subjectProfile, clients(overrides), NOW);
     expect(filed).toEqual({ reason: expect.stringMatching(reason) });
+  });
+});
+
+
+describe("DATA-103 bank peer routing", () => {
+  it.each(["6022", "3674"])("uses the peer own SIC %s revenue definition", async sic => {
+    const bankFacts = () => {
+      const f = facts();
+      const anchor = f.facts["us-gaap"]!.Revenues!;
+      delete f.facts["us-gaap"]!.Revenues;
+      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense = structuredClone(anchor);
+      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense!.units.USD![0]!.val = 5_000e6;
+      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax = structuredClone(anchor);
+      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax!.units.USD![0]!.val = 700e6;
+      return f;
+    };
+    const peer = await loadPeerFromFilings("AVGO", subjectProfile, clients({ sic, subjectSic: sic, facts: bankFacts }), NOW);
+    if ("reason" in peer) throw Error(peer.reason);
+    expect(peer.incomeQuarterly.ok && peer.incomeQuarterly.value.data.rows[0]!.revenue).toBe(sic === "6022" ? 5_000e6 : 700e6);
   });
 });

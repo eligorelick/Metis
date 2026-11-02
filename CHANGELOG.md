@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P5 primary-source data and freshness (2026-11-02)
+
+- DATA-103: preserve SIC-routed bank total net revenue in income classification and SEC peer statements.
+
 ## Unreleased - P0 review fixes (2026-11-02)
 
 Require established ordinary-share units for no-split reconciliation (one listed symbol, or a matching filed share count when several are listed), accept symmetric cent rounding, and identify superseded filings. Bind earnings-date qualification to clauses and respect registered company sources, preserving citation credit and one counted claim. Keep complete schema rejections separate from partial recovery bytes. Report 1.56.0, payload 1.60.0, Stage B repair stamp 39; prompt stamp unchanged.

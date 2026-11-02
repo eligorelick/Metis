@@ -2210,7 +2210,7 @@ function describePublicFloatAge(
  * net-interest-income line to protect, and forcing the bank chain there would
  * discard a correct ASC-606 revenue.
  */
-export function bankStatementRouting(registrant: EdgarRegistrant | null): boolean {
+export function bankStatementRouting(registrant: Pick<EdgarRegistrant, "sic"> | null): boolean {
   const industry = sectorIndustryForSic(registrant?.sic ?? null).industry;
   return industry !== null && industry.toLowerCase().startsWith("banks");
 }

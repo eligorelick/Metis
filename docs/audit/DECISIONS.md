@@ -2992,3 +2992,7 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 ### D-next (P0): review corrections to source comparison, date qualification and recovery
 
 No-split share comparisons require a confirmed single-ticker ordinary-share scope. Cent rounding is symmetric; earlier matching exact-interval filings are described as superseded. Provider calendar qualification binds within punctuation-delimited clauses, yields to registered SEC/official issuer sources, preserves citation credit, and uses non-counted audit rows. Complete rejected responses persist as rejectedText only. Report spec 1.56.0, payload 1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39. No prompt text changed; pipeline remains stage-c-1.6.17. Stored reports are never rewritten.
+
+### D-next (P5): Bank classification uses issuer SIC routing
+
+DATA-103: carry the existing bank revenue routing into income classification and SEC peer statement construction. Compare total net revenue on its own definition; retain vendor disagreement refusals and industrial ASC-606 routing. Stored reports retain their bytes.

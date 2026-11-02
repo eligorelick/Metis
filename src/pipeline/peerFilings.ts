@@ -1,3 +1,4 @@
+import { bankStatementRouting } from "@/pipeline/keyless";
 /**
  * Peer fundamentals from SEC filings for a candidate FMP refuses by symbol
  * (NVDA report 34: AVGO, HTTP 402). Statements come from companyfacts, the
@@ -41,7 +42,7 @@ export async function loadPeerFromFilings(symbol: string, subject: FmpProfileRow
     const vendorSplits = mergeSplitEvidence([splits.data, quote.data.splitEvents].filter((answer): answer is VendorSplitEvidence => answer !== undefined));
     const built = buildStatementsFromCompanyFacts(facts.data, {
       symbol, cik, annualPeriods: 2, quarterlyPeriods: 6, asOf: now.toISOString().slice(0, 10),
-      factsObservedAt: facts.fetchedAt, vendorSplits, basisDay: quote.asOf,
+      bankRevenue: bankStatementRouting(own.data), factsObservedAt: facts.fetchedAt, vendorSplits, basisDay: quote.asOf,
     });
     const shares = built.shares.outstanding;
     if (!shares) return { reason: "no SEC share count established on the quote's split basis" };

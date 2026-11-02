@@ -138,7 +138,7 @@ import {
   type XbrlSummary,
 } from "@/pipeline/types";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
-import { applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
+import { bankStatementRouting, applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -2380,8 +2380,8 @@ export async function buildDataBundle(
     const facts = edgarBundle.companyFacts.value.data;
     const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
     const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
-    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt);
-    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt);
+    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
+    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
       incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
     // Review m6: one completion and one stakes entry for both families, each listing its dates.
