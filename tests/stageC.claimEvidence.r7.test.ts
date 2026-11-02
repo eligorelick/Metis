@@ -175,7 +175,7 @@ describe("R7 FIGR excerpt bindings", () => {
     }
   });
   it("does not prefer a table value over a conflicting narrative restatement", () => {
-    const source = frozen.filings.find(e => e.source === "edgar:8-K EX-99.1")!;
+    const source = frozen.filings.find(e => e.source === "edgar:8-K EX-99.1")! as TextExcerpt;
     const text = source.text.replace("Consumer Loan Marketplace volume was $4.3 billion", "Consumer Loan Marketplace volume was $8.3 billion");
     const excerpt = { ...source, text, spans: [{ start: 0, end: text.length, text }] };
     const result = validateClaimNumericSupport({ label: "FACT", text: "Consumer Loan Marketplace volume was USD 4.259 billion in Q2 2026.", source: source.source, asOf: source.asOf },

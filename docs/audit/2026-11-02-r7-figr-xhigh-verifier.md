@@ -71,6 +71,12 @@ Existing rejection tests exposed and prevented a fiscal-context conflict,
 an R5 precision regression and an own-description status regression during
 development; no assertion, timeout, package script or coverage floor was relaxed.
 Only the requested audit path was added to the release document inventory.
+The initial full gate stopped at typecheck because the conflicting-narrative
+test passed a widened JSON coverage category as a typed excerpt. An explicit
+`TextExcerpt` fixture annotation corrects that test typing; `r7-typecheck`
+passes with exit 0. The initial receipt is retained as
+`r7-verify-initial-typecheck`; the complete `r7-verify` gate is rerun on the
+commit containing this correction.
 
 The required final command is:
 
