@@ -79,18 +79,17 @@ function renderAll(report: Report): { md: string; html: string; view: string } {
   };
 }
 
-// L10: only amount scale pins change; per-share precision controls remain.
 describe("which evidence establishes a figure's currency", () => {
   it.each([
-    ["explicit non-USD field", { currency: "TWD" }, "1.2K TWD"],
-    ["explicit USD field (control)", { currency: "USD" }, "$1.2K"],
-    ["explicit unknown (null)", { currency: null }, "1.2K (currency unknown)"],
-    ["absent, generic unit", {}, "1.2K (currency unknown)"],
+    ["explicit non-USD field", { currency: "TWD" }, "1,234.50 TWD"],
+    ["explicit USD field (control)", { currency: "USD" }, "$1,234.50"],
+    ["explicit unknown (null)", { currency: null }, "1,234.50 (currency unknown)"],
+    ["absent, generic unit", {}, "1,234.50 (currency unknown)"],
     ["absent, generic per-share unit", { unit: "usd/share" }, "1,234.50 (currency unknown)"],
-    ["absent, explicit USD unit", { unit: "USD" }, "$1.2K"],
+    ["absent, explicit USD unit", { unit: "USD" }, "$1,234.50"],
     ["absent, explicit USD per-share unit", { unit: "USD/share" }, "$1,234.50"],
     ["absent, explicit TWD per-share unit", { unit: "TWD/share" }, "1,234.50 TWD/share"],
-    ["field and unit disagree", { unit: "USD", currency: "TWD" }, "1.2K (currency unknown)"],
+    ["field and unit disagree", { unit: "USD", currency: "TWD" }, "1,234.50 (currency unknown)"],
   ] as const)("%s", (_label, over, expected) => {
     expect(formatTracedValue(traced(over as Partial<TracedNumber>))).toBe(expected);
   });

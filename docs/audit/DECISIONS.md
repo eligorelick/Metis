@@ -3957,9 +3957,11 @@ Disclose the refusal reason; retain non-financial flags and thresholds.
 ## D-next (N4b) - Measured CAGR windows and currency scale (L10)
 
 Collapse explicit, identical measured CAGR observations into one row naming
-the measured span. Keep distinct windows and values. Use the same compact
-K/M/B/T amount scale for segment and fundamentals money; preserve per-share
-precision. Pure display grouping does not alter retained figures or scores.
+the measured span. Keep distinct windows and values. Money uses the compact
+scale from one million and, below it, only for whole thousands (K); any other
+amount keeps two decimals (coordinator review: a K scale from 1,000 printed
+$1,234.50 as $1.2K and a price per tonne to one decimal of a thousand).
+Preserve per-share precision. Pure display grouping does not alter retained figures or scores.
 
 ### D-next (N4b) - Census and regression controls
 

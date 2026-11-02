@@ -33,4 +33,15 @@ describe("N4b L10 measured windows and amount scales", () => {
     expect(formatFinancialValue(122000, "currency/share", "USD")).toBe("$122,000.00");
     expect(formatFinancialValue(-122000, "currency", "TWD")).toBe("\u2212122K TWD");
   });
+  it("keeps exact amounts below a million unless they are whole thousands", () => {
+    // Coordinator review: only the whole-thousand case ("$122,000.00") needed the
+    // compact scale. A price per tonne or an exact amount keeps its precision.
+    expect(formatFinancialValue(1234.5, "USD")).toBe("$1,234.50");
+    expect(formatFinancialValue(9512.34, "USD")).toBe("$9,512.34");
+    expect(formatFinancialValue(2099, "USD")).toBe("$2,099.00");
+    expect(formatFinancialValue(122500, "currency", "USD")).toBe("$122,500.00");
+    expect(formatFinancialValue(1.5, "USD thousands:")).toBe("$1,500.00");
+    expect(formatFinancialValue(250000, "USD")).toBe("$250K");
+    expect(formatFinancialValue(1234567, "USD")).toBe("$1.23M");
+  });
 });

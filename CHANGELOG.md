@@ -27,8 +27,8 @@ operands or discloses its refusal. Refuted quarterly CFO and dependent FCF
 are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Evidenced
 lenders omit quarterly gross margin and mark provider EV not applicable. The
 receivables flag follows Beneish financial-forensics applicability. Identical
-measured CAGR windows collapse into one row and currency amounts share K/M/B/T
-formatting. Shared stamps and stored reports are unchanged.
+measured CAGR windows collapse into one row; whole-thousand currency amounts
+below a million show as K while other amounts keep their decimals. Shared stamps and stored reports are unchanged.
 
 ## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
 
