@@ -2047,7 +2047,7 @@ export function AppendixSection({
 
       <SubBlock label="run details">
         <ul className="flex flex-col gap-0.5 text-[11px] text-muted">
-          {(m.execution ?? []).map((entry, i) => <li key={`${entry.step}-${i}`} className="mono">{passLine(entry)}</li>)}
+          {(m.execution ?? []).map((entry, i) => <li key={`${entry.step}-${i}`} className="mono">{passLine(entry, report.appendix.costBreakdown)}</li>)}
           {m.judgeProtocol && <li>{m.judgeProtocol.note}</li>}
           {m.verifyModel !== undefined && <li>verify model {m.verifyModel}</li>}
           <li>{usageSummary(report)}</li>

@@ -152,7 +152,7 @@ describe("new version stamps", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.56.0");
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.60.0");
-    expect(PIPELINE_VERSION).toBe("stage-c-1.6.18"); // AI-103 judge instruction
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.19"); // R1/R4 FIGR paid-audit instructions and claim normalization
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_CLAUDE_REPAIRS_39");
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");

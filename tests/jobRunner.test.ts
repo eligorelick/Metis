@@ -3882,6 +3882,53 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(report.meta.costUsd).toBeCloseTo(2.15, 10);
   });
 
+  // R1 (FIGR paid audit): the stored report's usage line totals the cost rows'
+  // tokens, so a request settled while the report was being assembled must
+  // reach the stored breakdown with its own counts. (The persistence step's
+  // ledger read uses the shared reader; its row type requires the counts.)
+  it("keeps a late ledger row's settled token counts in the stored report", async () => {
+    const { jobId } = createJob("AAPL");
+    const base = mockPasses();
+    const passes: PipelinePasses = {
+      ...base.passes,
+      runVerifyPass: async () => {
+        throw new Error("deterministic verification unavailable");
+      },
+      assembleReport: (input) => {
+        persistPassSettlement({
+          jobId,
+          runGeneration: 0,
+          attemptId: "generation-0-late-verify-tokens",
+          pass: "verify",
+          settlement: testSuccessSettlement({
+            data: fakeReport(input.judgeOutput),
+            model: "late-ledger-model",
+            costUsd: 0.07,
+            fallbackUsed: false,
+            usage: { input_tokens: 1200, output_tokens: 300 },
+          }),
+          payloadFingerprint: "1.3.0:late-ledger-tokens",
+          settledAt: NOW().toISOString(),
+        });
+        return fakeReport(input.judgeOutput);
+      },
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const stored = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    const report = ReportSchema.parse(JSON.parse(stored.reportJson!));
+    expect(report.appendix.costBreakdown.at(-1)).toEqual({
+      step: "verify",
+      model: "late-ledger-model",
+      costUsd: 0.07,
+      fallbackUsed: false,
+      inputTokens: 1200,
+      outputTokens: 300,
+    });
+  });
+
   it("duplicate settlement callback bills exactly once", async () => {
     const { jobId } = createJob("AAPL");
     const base = mockPasses({ verifyCostUsd: 0 });
@@ -6658,7 +6705,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.18");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.19");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

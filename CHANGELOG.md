@@ -18,6 +18,60 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R1/R4 FIGR paid-run audit: evidence, run accounting and analysis rules (2026-11-02)
+
+The paid FIGR report (claude-opus-5-5, high effort, $4.71) was audited against
+the filings. These fixes come from that audit:
+
+- **8-K transactions.** An acquisition's completion or a merger agreement now
+  keeps its dated lead, the consideration and the funding. The excerpt rules:
+  - the dated lead comes first, then amounts, then passages that only define
+    a party;
+  - a dated lead may follow an item sub-heading;
+  - defined terms may have spaces inside their quotes;
+  - amounts written out in digits count as amounts;
+  - transactions get a 1,800-character budget.
+
+  FIGR's Kiavi completion lost "approximately $590 million". Coverage version:
+  `section-evidence-6/event`.
+- **Operating updates.** The newest operating update filed after the latest
+  results release now has its own retained slot and excerpt. It is labelled
+  as not a results release, and it never takes the results narrative or
+  supplies release figures. FIGR's October preliminary Q3 volume ($5,119
+  million) was dropped because four results releases filled the four slots.
+- **Outlook statements.** Every retained release's unparsed outlook statement
+  now reaches the passes with its filing and period, outside the
+  diagnostic-note cap. FIGR's May "Q2 2026 Guidance … $3.8 - $4.1" was the
+  seventh note.
+- **Blank dates.** A blank `asOf` on a claim or number is read as no date.
+  Two blank dates cost a whole $0.37 bear case.
+- **Earnings-date qualifier.** The qualifier now names the confirming sources
+  ("not confirmed by an SEC filing or a company-hosted release").
+- **Usage and run details.** These count every recorded request: tokens, the
+  number of requests and how many were discarded. Earlier they counted only
+  each pass's accepted attempt, while the cost counted all requests.
+- **FACT claims.** A FACT keeps only its sourced statement; an embedded
+  "In our judgment …" sentence becomes its own JUDGMENT.
+- **New analysis rules.** Analysts and judge get rules on:
+  - metric identity and issuer KPI definitions;
+  - share arithmetic;
+  - derivative notionals;
+  - the period of a change;
+  - deconsolidated facilities;
+  - third-party cash;
+  - market-share direction;
+  - consensus remainders;
+  - conflicting passages;
+  - guidance records;
+  - citation binding;
+  - a valuation stance when no suited measure exists;
+  - unassessed grades;
+  - the plain-language business model;
+  - insider-sale attribution;
+  - voting control.
+- Pipeline version is now **stage-c-1.6.19**. Report spec and payload versions
+  are set at batch integration. Stored reports are unchanged.
+
 ## Unreleased - Final FIGR preflight correction (2026-11-02)
 
 - D-155 review: a conflicting vendor quarter is replaced by the filed fiscal-year-less-nine-months (or year-to-date difference) row when each operand is the current period of its own filing and the year-to-date was filed first; quarters derived only from later comparatives stay refused. Restores FIGR's live Q4 2025 revenue (159.913M filed, not the vendor's 223.181M) and its TTM window.

@@ -3964,3 +3964,134 @@ each operand is the current period of its own filing and the earlier
 year-to-date was filed no later than the total, with the operating statement
 reconciling as before (N3, D-151). A quarter built only from later comparatives
 (FIGR's Q4 2024) stays refused. Stored reports and shared stamps are unchanged.
+
+## D-next (R1) - 8-K transaction excerpts keep the deal's terms (2026-11-02)
+
+The paid FIGR report said the Kiavi acquisition's consideration was "not
+established". The completion 8-K stated "approximately $590 million" in cash,
+net of cash acquired, but the event excerpt dropped it. Priority passages were
+taken in source order, and a passage that only defines a term ("Kiavi (the
+"Merger")") used the room first.
+
+The event reading now ranks priority passages in tiers, in source order within
+each tier:
+
+1. the dated lead;
+2. amounts and credit-support clauses;
+3. passages that only define a party.
+
+Three related fixes:
+
+- A dated lead may follow a short item sub-heading ("Merger Agreement On June
+  10, 2026").
+- A defined term may be printed with spaces inside its quotes.
+- An amount written out in digits to the millions ("$532,426,000") counts as an
+  amount.
+
+An acquisition's completion (Item 2.01), and an Item 1.01 merger or purchase
+agreement, keep 1,800 characters, as credit-support agreements do. The default
+is 1,200; the shared 8,600-character total still binds. Coverage version:
+`section-evidence-6/event`. Stored reports are unchanged.
+
+## D-next (R1) - The newest operating update has its own slot and excerpt (2026-11-02)
+
+OD-10 and AI-506 kept results releases ahead of operating updates for the four
+retained slots. With four results releases on file, FIGR's October 7
+preliminary Q3 operating data (marketplace volume $5,119 million, at the high
+end of guidance) was dropped. The report then saw only a news headline.
+
+The newest operating update filed after the latest results release now has a
+fifth slot and keeps its release text. The payload prints that text as its own
+excerpt, titled as an operating update and not a results release, and cited by
+its accession. The rest of AI-506 is unchanged:
+
+- The results release still owns the earnings-release narrative.
+- Capital return, issuer FCF and reconciliation rows still come only from the
+  results release.
+- Older operating updates keep no text.
+
+With no results release retained, the newest update's text is that one
+excerpt, and release rows stay withheld (D-148).
+
+## D-next (R1) - Unparsed issuer outlook statements reach the passes (2026-11-02)
+
+An outlook statement the guidance parser cannot read is still the issuer's
+guidance. FIGR's releases print volume guidance as a table ("Q2 2026 Guidance
+$ in billions Consumer Loan Marketplace Volume $3.8 - $4.1"). The May
+statement was the seventh current-report note, and only the first six reached
+the model, so it could not compare Q2 guidance with the Q2 result.
+
+Each retained release's unparsed outlook statements now go to the passes, each
+with its accession, filing date and release period, outside the diagnostic
+cap. The old diagnostic form of these notes is no longer repeated.
+
+## D-next (R1) - A blank claim or number date is no date (2026-11-02)
+
+`asOf` on a claim or number is nullable, and null means no date. In the paid
+FIGR run, two claims sent `""`, and that rejected a whole bear case: 15,653
+output tokens, $0.37. A blank date on a claim or number is now read as null. A
+malformed, non-blank date still fails. This follows the blank-`sourceId` rule
+(D-114).
+
+## D-next (R1) - The earnings-date qualifier names its confirming sources (2026-11-02)
+
+The qualifier "company confirmation not established" sat beside the model's own
+"a company newswire release … gives the same date". Under the
+earnings-confirmation rule, a newswire copy confirms nothing; only an SEC
+filing or a release hosted by the company does. That rule is unchanged. The
+qualifier now names those sources: "(FMP calendar estimate; not confirmed by an
+SEC filing or a company-hosted release)".
+
+## D-next (R1) - Usage counts every recorded request (2026-11-02)
+
+The paid FIGR report showed "$4.712836 recorded API cost; 134,019 input /
+29,782 output tokens". The dollars covered all eight requests. The tokens
+covered only each pass's accepted attempt, missing:
+
+- the two discarded first attempts;
+- the three judge section-group requests whose twelve sections the report
+  kept.
+
+Cost-breakdown rows now carry each settled request's own input and output
+tokens. Presumed rows, and rows written without usage, carry none. Usage and
+each pass's run-details line total those rows, with the number of requests and
+how many were discarded. Reports whose rows carry no tokens keep the earlier
+wording.
+
+## D-next (R4) - Analysis rules from the FIGR paid-run audit (2026-11-02)
+
+Two independent reviews of the paid FIGR report found reasoning slips that
+instructions can prevent. The analysts' and the judge's reconciliation rules
+now add a short "reading the evidence accurately" list. Each line answers one
+finding:
+
+- metric identity and issuer KPI definitions;
+- share-of-revenue arithmetic;
+- derivative notionals;
+- the period of a change;
+- deconsolidated facilities;
+- third-party cash in liquidity;
+- market-share direction;
+- the consensus remainder;
+- conflicting passages;
+- guidance records, operating metrics included;
+- citation binding.
+
+The judge also gets four rules:
+
+- When no valuation measure suited to the company is available, the price
+  "cannot be judged on this evidence". A missing anchor is not evidence that
+  the price is about right.
+- An unscored aspect has no band and no grade, never "neutral" or "D".
+- The business section opens with how the company makes money.
+- Two leadership rules: sales are attributed to tax withholding or a 10b5-1
+  plan only where the records classify them, and voting control is stated
+  when there are several share classes.
+
+A deterministic backstop applies to judge-output claim lists. A FACT keeps
+only its sourced statement; from the first sentence that opens as an
+interpretation ("In our judgment …"), the text becomes a JUDGMENT with the same
+citation.
+
+PIPELINE_VERSION moves to stage-c-1.6.19. These rules change what the model is
+asked to do; only a later paid run can show their effect.

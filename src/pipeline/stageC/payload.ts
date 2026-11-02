@@ -154,10 +154,22 @@ export const PAYLOAD_BUDGETS = {
    * quarter's operating-cash-flow drop.
    */
   cfoCommentaryChars: 11_000,
+  /**
+   * R1 (FIGR paid audit): the newest operating update filed after the results
+   * release (FIGR's preliminary Q3 marketplace volume of $5,119 million was
+   * read only from a news headline).
+   */
+  operatingUpdateChars: 2_500,
   /** One ordinary material-event 8-K's item text. */
   eightKEventChars: 1_200,
   /** Credit-support agreements retain named parties, caps, options and contractual offsets. */
   eightKCreditEventChars: 1_800,
+  /**
+   * R1 (FIGR paid audit): an acquisition's completion (Item 2.01) or a merger
+   * or purchase agreement (Item 1.01) keeps its dated lead, the consideration
+   * and how it was funded; at 1,200 the completion 8-K's consideration was cut.
+   */
+  eightKTransactionEventChars: 1_800,
   /** All material-event 8-K excerpts together. */
   eightKEventsTotalChars: 8_600,
 } as const;
@@ -2456,6 +2468,19 @@ function companyIrMaterialExcerpts(bundle: DataBundle): TextExcerpt[] {
   });
 }
 
+const TRANSACTION_AGREEMENT = /\b(?:Agreement and Plan of Merger|merger agreement|(?:stock|share|asset|equity|unit|membership interests?) purchase agreement|purchase and sale agreement|business combination agreement)\b/i;
+
+/**
+ * One material-event 8-K excerpt's budget: credit-support agreements and
+ * transactions (an acquisition's completion, Item 2.01, or a merger or
+ * purchase agreement under Item 1.01) keep more of their operative terms.
+ */
+export function eightKEventBudget(items: readonly string[], body: string): number {
+  if (materialCreditSupportClauses(body).length > 0) return PAYLOAD_BUDGETS.eightKCreditEventChars;
+  if (items.includes("2.01") || (items.includes("1.01") && TRANSACTION_AGREEMENT.test(body))) return PAYLOAD_BUDGETS.eightKTransactionEventChars;
+  return PAYLOAD_BUDGETS.eightKEventChars;
+}
+
 /**
  * The latest earnings release and CFO commentary narratives, and one excerpt
  * per material-event 8-K (audit work package 3). Each 8-K excerpt has its own
@@ -2487,6 +2512,23 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
+  // R1 (FIGR paid audit): the newest operating update filed after the results
+  // release (preliminary operating data, monthly sales) is its own excerpt,
+  // cited by its accession. AI-506: it is never the earnings-release narrative
+  // and supplies no release figures.
+  const releases = res.value.data.releases;
+  const update = releases.slice(0, latest === undefined ? releases.length : releases.indexOf(latest))
+    .find((record) => record.reportsResults === false && typeof record.releaseNarrative === "string" && record.releaseNarrative.trim() !== "" && isIsoDate(record.filingDate));
+  if (update !== undefined) {
+    const cut = selectMaterialEvidence(update.releaseNarrative!, PAYLOAD_BUDGETS.operatingUpdateChars);
+    const periodEnd = update.reported.periodEnd !== null && isIsoDate(update.reported.periodEnd) ? `; period ended ${update.reported.periodEnd}` : "";
+    const exhibit = update.releaseExhibit ?? "primary document";
+    out.push({
+      title: `8-K ${exhibit} — operating update (not a results release: no earnings, EPS or operating-income amount was read${periodEnd}; 8-K ${update.accession}; filed ${update.filingDate})`,
+      text: cut.text, source: `edgar:8-K ${update.accession}`, asOf: update.filingDate,
+      truncated: cut.truncated, originalChars: cut.originalChars, spans: cut.spans, coverage: cut.coverage,
+    });
+  }
   let used = 0;
   for (const event of res.value.data.events) {
     if (!isIsoDate(event.filingDate) || event.sections.length === 0) continue;
@@ -2498,7 +2540,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     if(!body.trim())continue;
     // D-63: the operative paragraph's dated lead, named parties and amounts
     // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
-    const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;
+    const eventBudget = eightKEventBudget([...new Set(event.sections.map((s) => s.item))], body);
     const cut = selectMaterialEvidence(body, Math.min(eventBudget, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";

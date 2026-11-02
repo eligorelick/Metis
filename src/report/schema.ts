@@ -1710,6 +1710,13 @@ export const CostBreakdownEntrySchema = z
     discarded: z.boolean().optional(),
     /** Why it was discarded, in the words the failure was recorded under. */
     discardedReason: z.string().optional(),
+    /**
+     * R1 (FIGR paid audit): the tokens this request's settled usage reported
+     * (uncached input and output). Absent on presumed rows, plan-allowance rows
+     * and reports saved before the field existed.
+     */
+    inputTokens: z.number().int().nonnegative().optional(),
+    outputTokens: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type CostBreakdownEntry = z.infer<typeof CostBreakdownEntrySchema>;

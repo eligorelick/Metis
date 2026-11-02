@@ -880,7 +880,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
   lines.push("### Methodology and limitations", "", ...methodologyNotes(report).map((note) => `- ${markdownListItem(note)}`), "");
 
   const runRows: string[][] = [
-    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
+    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry, report.appendix.costBreakdown)]),
     ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],

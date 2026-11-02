@@ -60,6 +60,8 @@ export const SHARED_RULES_BLOCK = [
   "- FACT: a value or statement taken directly from the payload or a cited fetched source.",
   "- ESTIMATE: an analyst or model projection (yours or a consensus figure).",
   "- JUDGMENT: your interpretation of facts. Say it is a judgment.",
+  // FIGR paid audit (2026-11-02, B-17): FACT claims carried "In our judgment …".
+  "- A FACT holds only the sourced statement. Put your interpretation of it in a separate JUDGMENT claim, never inside the FACT.",
   "- Methodology, data-gap and coverage statements describe this analysis: label them JUDGMENT, not issuer FACT.",
   "- Reconcile dated corporate events across retained sources: a later issuer-stated completion supersedes an earlier pending agreement for current status. Keep any explicitly retained historical closing window as dated history; integration and financial results may remain prospective. Completion alone establishes neither final consideration nor funding.",
   "- Provider EPS with unverified accounting basis is not established GAAP or adjusted EPS. Do not compare it or its price quotient with GAAP TTM/historical multiples, adjusted guidance or model operating EPS as though the earnings definitions match. Numerical proximity is not source evidence of basis.",
@@ -215,7 +217,12 @@ export function buildLeadershipGuidance(
     "- ROIC / margin trend over the executive's tenure: the computed growth & margins and returns",
     "  figures plus the statement extracts, read against the titleSince dates.",
     `- Capital-allocation record: buyback timing vs price paid (the capital section's buyback-price analysis and the cash-flow extract), M&A${options.webSearch ? " (web search for deals)" : " (as the analyst cases cite it — this pass has no web search)"}.`,
-    "- Insider net activity trailing 12 months (payload insider trades + statistics).",
+    "- Insider net activity trailing 12 months (payload insider trades + statistics). State the window the totals",
+    "  cover. Attribute sales to tax withholding or a Rule 10b5-1 plan only for transactions the records classify that",
+    "  way; neither establishes motive, and plan capacity is not an executed sale.",
+    // FIGR paid audit (2026-11-02, B-05): three share classes, no word on who controls the vote.
+    "- Control: when the company has more than one class of common stock, state each class's voting rights and who",
+    "  holds voting control where the filings name them, and say what is not established.",
     "- Compensation vs performance (executive-compensation rows vs the return/margin trend).",
     "- Tenure and turnover (titleSince dates; frequent C-suite churn is a JUDGMENT signal).",
     // D-63 (audit P1-10): the gate became reachable (D-59) but the judge gave
@@ -370,6 +377,25 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "CATALYSTS: give each catalyst the date or window its evidence states (the next earnings date row, a product's",
   "launch quarter, a deal's expected close, when a guarantee takes effect) and cite it; write it undated only when no",
   "payload row or excerpt dates it.",
+  // FIGR paid audit (2026-11-02): each line answers a misreading in that report.
+  "READING THE EVIDENCE ACCURATELY:",
+  "- Name each figure by its own metric: revenue growth is not profit growth. Read a KPI the issuer defines (a take rate,",
+  "  an adjusted margin) by the issuer's definition; a change in it is not by itself a price change.",
+  "- Before calling a group of lines 'most' of revenue, or stating their share, add them up from the cited rows.",
+  "- A derivative's notional amount is not a recorded balance: state the fair value when saying what is recorded.",
+  "- Keep each change in its own period: a change between two balance dates happened by the later date, not after it.",
+  "- Before treating a facility, subsidiary or agreement as a current obligation or catalyst, check the retained notes",
+  "  for a later deconsolidation, merger, repayment or termination; the later statement governs.",
+  "- In liquidity, separate cash the filings say is held for third parties or restricted from cash the company can use.",
+  "- Call market share rising or falling only when the evidence gives share at two dates on one basis; volume growth",
+  "  is not a share gain.",
+  "- Before saying what a consensus figure requires, compute the remainder it implies after the reported year-to-date",
+  "  figures and compare it with the latest quarter's run rate. Whether consensus includes an acquisition is unknown",
+  "  unless a source says so.",
+  "- When two retained passages give different figures for one measure, say so and cite both rather than choosing one.",
+  "- An issuer's guidance for a period and the later reported or preliminary result for that period are a guidance",
+  "  record, operating metrics such as volume included: compare them whenever both are retained, citing both.",
+  "- Cite the passage that states a fact, not a neighbouring filing that only mentions the subject.",
 ].join("\n");
 
 /** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */
@@ -539,6 +565,10 @@ export function buildJudgeFraming(
     "  deviate by at most ONE letter, and ONLY with an explicit, evidence-based reason stated in that",
     "  section's reasoning (e.g. a red flag the score cannot see). Do not silently override the score.",
     "  The ordered bands are A, B, C, D, F; D to F is one step. Keep strip and section grades identical.",
+    // FIGR paid audit (2026-11-02, B-02): unscored valuation, quality, balance
+    // sheet and leadership were each called "the neutral D band" in prose.
+    "  An aspect with no score (grade n/a) is not assessed: it has no band and no grade. Never call it neutral, a D",
+    "  or a default band. The composite's pull toward 50 for missing evidence is a rule of the composite, not a grade.",
     "  Every grade block must emit overrideRationale; use an empty reason and empty evidenceSources when unchanged.",
     "  For a changed grade supply that section's graded.overrideRationale (moatGraded for moat) with a nonempty reason and evidenceSources",
     "  containing exact source IDs of that section's cited reasoning. Unadmitted evidence or a wider change",
@@ -563,6 +593,9 @@ export function buildJudgeFraming(
     "  fixed display weights or present-value upside as an expected future stock return.",
     "",
     "WHAT TO EMIT:",
+    // FIGR paid audit (2026-11-02, B-06): a lender's report never said how it earns money.
+    "- `business` opens with how the company makes money in plain words: what it sells, to whom, how it is paid,",
+    "  and which risks stay on its own balance sheet after a sale.",
     "- Section grades A–F for fundamentals, valuation, technicals, quality, leadership, moat, AND",
     "  balanceSheet (balance sheet & capital). Each grade block carries a one-line why, SourcedClaim",
     "  reasoning, a confidence level, the key numbers behind it, AND a short `interpretation` paragraph",
@@ -576,7 +609,10 @@ export function buildJudgeFraming(
     // price target against the DCF value.
     "  Its first claim takes a stance: a JUDGMENT saying whether, on this evidence, the current share price looks",
     "  undemanding, about right or demanding, and which evidence decides it. That is a valuation judgment, not a rating",
-    "  or an allocation directive. State each evidence limit once, where it bears on the view: a sentence saying what is",
+    "  or an allocation directive. When no valuation measure suited to this company is available (no route-appropriate",
+    "  intrinsic value, no peer median, valuation unscored), the stance is that the price cannot be judged on this",
+    "  evidence, with the evidence that would decide it: a missing valuation anchor is not evidence that the price is",
+    "  about right. State each evidence limit once, where it bears on the view: a sentence saying what is",
     "  not established is a limit, not a conclusion, and the summary is not built from them. When the analyst estimates",
     "  section carries a \"Consensus target vs our value\" note that calls the two materially different, the summary",
     "  reconciles the price target consensus with our model value as that note asks, citing both rows.",

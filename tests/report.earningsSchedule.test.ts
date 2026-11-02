@@ -21,7 +21,7 @@ describe("provider earnings-date qualification boundaries", () => {
     "Figma will report results after the close on Wednesday, 2026-11-04."])("qualifies an earnings date in a bare date phrase: %s", text => {
     const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
     const out = guardEarningsSchedule(input, [note]);
-    expect(out.report.verdict.executiveSummary[0]!.text).toContain("2026-11-04 (Finnhub calendar estimate; company confirmation not established)");
+    expect(out.report.verdict.executiveSummary[0]!.text).toContain("2026-11-04 (Finnhub calendar estimate; not confirmed by an SEC filing or a company-hosted release)");
     expect(out.report.verdict.executiveSummary[0]!.label).toBe("ESTIMATE");
     expect(out.log).toHaveLength(1);
   });
@@ -29,7 +29,18 @@ describe("provider earnings-date qualification boundaries", () => {
     const text = "Results are due 2026-11-04, and the dividend is payable 2026-11-04.";
     const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note]).report.verdict.executiveSummary[0]!.text).toBe(
-      "Results are due 2026-11-04 (Finnhub calendar estimate; company confirmation not established), and the dividend is payable 2026-11-04.");
+      "Results are due 2026-11-04 (Finnhub calendar estimate; not confirmed by an SEC filing or a company-hosted release), and the dividend is payable 2026-11-04.");
+  });
+  // FIGR paid audit (2026-11-02): "company confirmation not established" sat
+  // beside the model's own "a company newswire release ... gives the same
+  // date". A wire copy is neither confirming source; the qualifier names them.
+  it("names the sources that would confirm the date, so a newswire mention beside it reads consistently", () => {
+    const fmpNote = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-12 [fmp:earnings-calendar · 2026-11-02]";
+    const text = "The provider earnings calendar schedules the Q3 2026 report for 2026-11-12, and a company newswire release of 2026-10-22 gives the same date.";
+    const input = { catalystsRisks: { catalysts: [{ reasoning: { text, label: "JUDGMENT", source: "fmp:earnings-calendar", asOf: "2026-11-02" } }] } };
+    const out = guardEarningsSchedule(input, [fmpNote]).report.catalystsRisks.catalysts[0]!.reasoning.text;
+    expect(out).toBe("The provider earnings calendar schedules the Q3 2026 report for 2026-11-12 (FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release), and a company newswire release of 2026-10-22 gives the same date.");
+    expect(out).not.toContain("company confirmation not established");
   });
   it("keeps registered SEC confirmation", () => {
     const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
@@ -61,7 +72,7 @@ describe("provider earnings-date qualification boundaries", () => {
       expect(guardEarningsSchedule(input, [bad]).log).toEqual([]);
     }
     const out = guardEarningsSchedule(input, [note]);
-    expect(out.report.outlook.scenarioNarratives.y1[0]!.text).toContain("Finnhub calendar estimate; company confirmation not established");
+    expect(out.report.outlook.scenarioNarratives.y1[0]!.text).toContain("Finnhub calendar estimate; not confirmed by an SEC filing or a company-hosted release");
     expect(out.report.outlook.scenarioNarratives.y1[0]!.asOf).toBe("2026-11-01");
     expect(out.report.appendix).toEqual(input.appendix);
     expect(out.log[0]!.claim).toBe(input.outlook.scenarioNarratives.y1[0]!.text);

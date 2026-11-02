@@ -5142,7 +5142,7 @@ stopped mid-stream. The run details then name that section; they no longer say
 the provider did not report.
 
 A resumed pass's tokens count only its own requests, and the run details say
-so. A failed attempt whose sections reached the report is described as kept,
+so. R1 (FIGR paid audit, 2026-11-02): a report whose cost-breakdown rows carry each settled request's tokens totals usage over every recorded request, the same requests the cost covers, and each pass line gives its requests, how many were discarded and their tokens. Presumed rows and rows written without usage carry no tokens; a report with such rows keeps the per-pass execution totals. A failed attempt whose sections reached the report is described as kept,
 not thrown away.
 
 **An empty analyst case is repaired (D-113).** The schema checks the shape of
@@ -5481,7 +5481,7 @@ dated the release, which would have raised a false notice. This is only the part
 notice needs; ordering releases that state no period is left for a later
 batch.
 
-**8-K event excerpts (D-124).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`.
+**8-K event excerpts (D-124).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`. R1 (FIGR paid audit, 2026-11-02): the priority passages are kept in tiers, in source order within a tier: the dated lead (which may follow a short item sub-heading such as "Merger Agreement On June 10, 2026"), then amounts and credit-support clauses (an amount written out in digits to the millions counts), then passages that only define a party (a defined term may have spaces inside its quotes). An acquisition completion (Item 2.01) or an Item 1.01 merger or purchase agreement keeps 1,800 characters, as a credit-support agreement does; other events keep 1,200 within the 8,600-character total. Coverage version `section-evidence-6/event`.
 
 **A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
 reaches the analysis passes as a 12,000-character selection read for
@@ -6192,7 +6192,7 @@ P0 M-1: No-split vendor/SEC per-share comparisons require established ordinary-s
 
 P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.
 
-P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
+P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim. R1 (FIGR paid audit, 2026-11-02): the qualification names the sources that would confirm the date, "(FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release)", because a newswire copy of the company's release beside it confirms nothing under this rule.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
 
@@ -6216,7 +6216,7 @@ A keyless run prices its profile and quote from the same successful Yahoo five-d
 
 A date printed in filing prose is read as that calendar day in every time zone, without local-midnight conversion. The same rule governs issuer announcement datelines (DATA-111).
 
-Earnings-release narrative and release-derived capital return/FCF follow the newest retained record stating results. Newer operating updates remain typed records with a leading note; they cannot occupy the earnings-release narrative slot (AI-506, OD-10).
+Earnings-release narrative and release-derived capital return/FCF follow the newest retained record stating results. Newer operating updates remain typed records with a leading note; they cannot occupy the earnings-release narrative slot (AI-506, OD-10). R1 (FIGR paid audit, 2026-11-02): the newest operating update filed after the latest results release takes a fifth retained slot and keeps its release text, which the passes receive as its own excerpt, titled as an operating update rather than a results release and cited by its accession. It never supplies release figures; older operating updates keep no text. Each retained release's outlook statement that the parser could not read as structured guidance reaches the passes with its accession, filing date and release period, outside the six-note diagnostic cap.
 
 Material 8-K events include bankruptcy (1.03), cyber incidents (1.05), acceleration (2.04), delisting (3.01), dilution (3.02), holders' rights (3.03) and control changes (5.01). The first four receive priority under the ten-filing cap. Unsupported non-event item filings are named; excerpt titles name only retained sections. Saved scope metadata remains authoritative (DATA-107, OD-2).
 
@@ -6723,3 +6723,41 @@ nonpositive capital base remains missing; no loss flag supplies a zero return.
 P2 FIN-111/FIN-402-V2: the recurring-one-off window takes the latest five
 admitted full fiscal years. A transition stub occupies no slot in that window,
 matching the annual rows used by margin history and terminal evidence.
+
+## FIGR paid-run audit: claim structure and analysis rules (R1/R4, 2026-11-02)
+
+**Blank dates.** A claim or number whose `asOf` is blank is read as having
+no date (null), as the schema defines it. A malformed, non-blank date still
+fails the pass.
+
+**A FACT holds only its sourced statement.** In any list of claims in the
+judge's output, the sentences of a FACT from the first one that opens as an
+interpretation ("In our judgment", "In our view", "We think", "We believe",
+"We judge", "We read", "We consider") become a JUDGMENT claim with the same
+citation. A FACT that opens that way is a JUDGMENT. A claim that stands alone
+in its slot is not split.
+
+**Analysis rules.** The analysts and the judge are told to:
+
+- name each figure by its own metric, and read an issuer-defined KPI by its
+  definition;
+- add up lines before calling them most of revenue;
+- distinguish a derivative's notional from its recorded fair value;
+- keep each change in its own period;
+- check for a later deconsolidation or termination before treating a facility
+  as current;
+- separate cash held for third parties from cash the company can use;
+- call market share rising or falling only on share observed at two dates;
+- compute a consensus figure's remainder after reported year-to-date results;
+- cite both of two conflicting passages;
+- compare issuer guidance with the later reported or preliminary result,
+  operating metrics included;
+- cite the passage that states a fact.
+
+The judge's opening stance is "cannot be judged on this evidence" when no
+valuation measure suited to the company is available. An unscored aspect has
+no band and no grade. The business section opens with how the company makes
+money. Insider sales are attributed to withholding or a plan only where the
+records classify them. Voting control is stated when there are several share
+classes. These rules shape what the model writes; their effect is observable
+only in a later paid run.
