@@ -3785,7 +3785,9 @@ the financial Piotroski variant's explicitly declared evaluated/total signal
 counts, and legacy cash-flow sign legends. A negative income-tax expense may
 be described as a benefit; signed cash outflows still have to match the signed
 record. Bare dimensionless fractions require explicit `unitScale: fraction`;
-ordinary multiples do not acquire that meaning. Equivalent metric names apply
+ordinary multiples do not acquire that meaning. Generic forensic scores still
+require an explicit score unit; the declared financial Piotroski variant has
+its own producer-bound bare-score reading. Equivalent metric names apply
 only to the known producing contract, preserving definition words, aggregation
 categories and operand order. A monthly sentiment record establishes only its
 explicit month. A complete ordered date interval on a traced figure must match

@@ -94,6 +94,13 @@ requested audit document. Added only that exact Markdown path to the allowed
 and required lists; `r5-release-allowlist-green` passes all 18 release tests.
 That gate was stopped after the known packaging failure and rerun on the updated
 commit. No verifier assertion or coverage threshold was relaxed.
+The complete product suite then caught one introduced generic-score acceptance:
+the existing `stageC.liveVerifier.test.ts` requires an explicit unit for a bare
+Beneish score. That full run had 14,433 passes, three skips and one failure.
+Narrowed bare-score inference to the declared financial Piotroski producer;
+kept that existing rejection unchanged. `r5-score-scope-green` passes **16 files /
+2,469 tests** and `r5-score-scope-replay` retains the same paid counts. The full
+gate is rerun on the commit containing this scope correction.
 These receipts are UTF-16LE logs with JSON exit-code companions in the isolated
 wrapper directory. The final committed revision is checked with:
 

@@ -4022,3 +4022,14 @@ regression checks the correct amount, a thousandfold error and both readings
 of a conflicting header. This closes an introduced acceptance before handback;
 the paid FIGR replay counts are unchanged. Evidence: r5-scale-conflict-red /
 r5-scale-conflict-green (15 files, 2,464 tests).
+
+
+## D-next (R5) - Preserve generic forensic score unit refusals
+
+The complete product gate caught one over-broad score-unit reading introduced
+by R5: a bare Beneish score became numerically validated despite the existing
+explicit-unit contract. Restrict bare-score inference to the financial
+Piotroski producer whose score and coverage metadata are explicitly recognized.
+House score claims still state their 0-100 scale. The existing Beneish refusal
+is unchanged. Expanded targeted evidence: r5-score-scope-green (16 files, 2,469
+tests); r5-score-scope-replay keeps the paid before/after counts unchanged.

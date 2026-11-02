@@ -1386,10 +1386,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if (direction !== null && record.value !== 0 && direction.polarity !== Math.sign(record.value)) {
       return support("contradicted", "direction-mismatch", "prose direction contradicts the signed change in its cited typed record");
     }
-    // A fraction is dimensionless only when the record declares it. A named
-    // score supplies its unit in the metric, independently of the record.
+    // A fraction is dimensionless only when the record declares it. Only the
+    // producer's declared financial Piotroski variant supplies a bare score
+    // reading; generic forensic scores still need an explicit unit suffix.
     const explicitUnit = quantity.unit === null && record.unitScale === "fraction" && record.unit === "ratio" ? "ratio"
-      : quantity.unit === null && /\bscore\b/i.test(own.label) && record.unit === "score" ? "score"
+      : quantity.unit === null && /\bscore\b/i.test(own.label) && financialPiotroskiCoverage(record) !== null ? "score"
         : quantity.unit === null && /\b(?:count|transactions?)\b/i.test(own.label) && record.unit === "count" ? "count"
           : quantity.unit === null && /\bindex\b/i.test(own.label) && record.unit === "index" ? "index" : quantity.unit;
     if (explicitUnit === null) return support("unchecked", "text-ambiguous", "prose quantity has no established unit");
