@@ -3051,3 +3051,7 @@ monotonic revision checks; cancellation and unmount clear pending timers.
 JOB-215: Completion updates surrounding research once per job. A live-view
 completion navigates to saved research instead of rebuilding live inputs;
 subsequent settlement revisions still update progress without another refresh.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.

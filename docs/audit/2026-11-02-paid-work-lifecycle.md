@@ -17,7 +17,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | JOB-205 | Fixed: distinguish transport exhaustion from schema rejection | Owning JOB-205 commit | JOB-205-red / JOB-205-green | Newly persisted wording only |
 | JOB-214 | Fixed: open recovery and fenced CLOSED stream reopening | Owning JOB-214 commit | JOB-214-red / JOB-214-green2 | None |
 | JOB-215 | Fixed: once-per-job refresh; live completion opens saved route | Owning JOB-215 commit | JOB-215-red / JOB-215-green2 | None |
-| PERF-202 | Not started | — | — | None |
+| PERF-202 | Fixed: revision-first polling and terminal-only resume fold | Owning PERF-202 commit | PERF-202-red / PERF-202-green | None |
 
 The regression uses the repository runner harness, real Stage C payload assembly
 and fingerprint, synthetic quote 200 then 201, and hermetic mock model passes.
