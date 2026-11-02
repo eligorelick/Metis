@@ -11,6 +11,8 @@ Every replay is offline. Stored reports are never rewritten.
 | FIN-402-V2 | Fixed: history and ceiling normalize together; recurring costs retained | Owning family commit | fin-402-family-red / fin-402-family-green-03 | Existing figures remain |
 | FIN-502 | Fixed: bounded normalized tax seed | Owning family commit | fin-402-family-red; fin-502-legacy-red / fin-402-family-docs-green | Display note for proven old mismatch |
 
+| FIN-102 | Fixed: known operating losses remain terminal misses | Owning FIN-102 commit | fin-102-red / fin-102-green | Immutable prior figures |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

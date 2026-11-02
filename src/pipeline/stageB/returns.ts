@@ -1331,6 +1331,7 @@ export interface ReturnsBalanceRow {
 export interface RoicYear {
   /** Separate DCF terminal evidence; reported/graded ROIC stays unchanged. */
   terminalEvidenceRoicPct?: number | null;
+  operatingLoss?: boolean;
   date: string;
   /** NOPAT / avg invested capital, percent, full precision. Null when uncomputable. */
   roicPct: number | null;
@@ -1833,8 +1834,9 @@ export function computeRoic(
     const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
     const t = lossYearFloor !== null ? lossYearFloor.pct / 100 : yearTaxRate(row, yearNotes);
     const normalizedEbit = ebit - (options.unusualByYear?.get(row.date) ?? 0);
+    entry.operatingLoss = normalizedEbit <= 0;
     const terminalTax = normalizedEbit > 0
-      ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : null;
+      ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null && terminalTax === null) {
       gaps.push({
         field: "returns.roic.taxRate",

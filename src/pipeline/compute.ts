@@ -3905,6 +3905,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             return {
               date: y.date,
               roicPct: y.terminalEvidenceRoicPct ?? y.roicPct,
+              operatingLoss: y.operatingLoss,
               waccPct: point?.waccPct ?? null,
               waccAsOf: point?.riskFreeAsOf ?? null,
             };

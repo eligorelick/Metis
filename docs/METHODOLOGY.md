@@ -6316,3 +6316,8 @@ no tax effect on the item and the rate with a marginal-rate tax effect; without
 history the marginal reading supplies it. Negative tax expense retains the
 existing fallback. Guidance still sets year one. A display-only note qualifies
 older stored tax seeds when their stored margin basis proves this mismatch.
+
+For the FCFF terminal every-year hurdle only (FIN-102, B5 OD-2), a known
+operating loss remains a miss in the evidence window, at a zero tax rate.
+Normalized losses after admitted one-offs count; reported ROIC and moat grades
+keep their existing treatment. The terminal note names each operating loss.

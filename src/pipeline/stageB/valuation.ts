@@ -1038,6 +1038,7 @@ export interface RevenueAnchor {
 }
 
 export interface DcfRoicYear {
+  operatingLoss?: boolean;
   date: string;
   roicPct: number | null;
   /**
@@ -1128,6 +1129,7 @@ export function terminalRoic(
   const byDate = [...history].sort((a, b) => b.date.localeCompare(a.date));
   const window = fourOfFive ? byDate.slice(0, 5) : byDate;
   const years = window
+    .map(y => !fourOfFive && y.operatingLoss && !isNum(y.roicPct) ? { ...y, roicPct: 0 } : y)
     .filter((y): y is DcfRoicYear & { roicPct: number } => isNum(y.roicPct))
     .slice(0, 5);
   const n = years.length;
@@ -1176,10 +1178,10 @@ export function terminalRoic(
   const misses = below.filter((y) => !setAside.includes(y));
   const above = n - below.length;
   const missText = (list: typeof years): string =>
-    list.map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`).join("; ");
+    list.map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}%${y.operatingLoss ? " (operating loss)" : ""} vs ${RATE} ${fmtNum(waccForYear(y))}%`).join("; ");
   const setAsideText = setAside.length === 0
     ? ""
-    : `; set aside as business-combination year${setAside.length === 1 ? "" : "s"}, not counted as a miss: ${setAside.map((y) => `${y.date} (${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%, ${y.combinationEvidence})`).join("; ")}` +
+    : `; set aside as business-combination year${setAside.length === 1 ? "" : "s"}, not counted as a miss: ${setAside.map((y) => `${y.date} (${RET} ${fmtNum(y.roicPct)}%${y.operatingLoss ? " (operating loss)" : ""} vs ${RATE} ${fmtNum(waccForYear(y))}%, ${y.combinationEvidence})`).join("; ")}` +
       (combinationBelow.length > 1 ? `; only one business-combination year is set aside, so ${combinationBelow.slice(1).map((y) => y.date).join(", ")} count${combinationBelow.length === 2 ? "s" : ""} as ${combinationBelow.length === 2 ? "a miss" : "misses"}` : "");
   const combinationAbove = fourOfFive
     ? years.filter((y) => !below.includes(y) && typeof y.combinationEvidence === "string" && y.combinationEvidence !== "")
@@ -1197,7 +1199,7 @@ export function terminalRoic(
   if (!fourOfFive && below.length > 0) {
     return hold(
       `terminal ${RET} held at ${RATE}: ${RET} was at or below that year's ${RATE} in ${below.length} of the last ${n} fiscal years (${below
-        .map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`)
+        .map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}%${y.operatingLoss ? " (operating loss)" : ""} vs ${RATE} ${fmtNum(waccForYear(y))}%`)
         .join("; ")}) — excess returns not evidenced as durable (house convention)`,
       waccBasis,
       waccBasisNote,

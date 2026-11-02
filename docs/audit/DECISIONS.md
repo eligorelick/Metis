@@ -3577,3 +3577,10 @@ and the bounded tax reread. Historical families recurring in at least three of
 five years remain costs. Reported ROIC remains GAAP. Unknown deductibility is
 bounded rather than guessed. Stored reports are immutable; proven mismatched
 tax seeds receive a display note below the frozen 1.56.0 cutoff.
+
+## D-next (P2) - Retain terminal operating losses (2026-11-02)
+
+FIN-102 implements B5 OD-2, revising D-99 only for FCFF terminal evidence:
+a known operating loss counts against the every-year hurdle at zero tax.
+Reported ROIC, moat grades and excess-return financial routes retain their
+conventions. A normalized profitable year remains profitable evidence.
