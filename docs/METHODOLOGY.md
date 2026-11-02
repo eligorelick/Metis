@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.53.0 / payload 1.55.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_34 (2026-10-30, D-138; final release verification pending). Its bounded evidence fixes
+The current source declares report 1.56.0 / payload 1.60.0 and Stage B
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 (2026-11-02, P1/B4b; final release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -1685,9 +1685,9 @@ back. The **Provider enterprise value (vendor definition, period end)** is the
 vendor's own figure at its period end (that date's market cap + debt − cash and
 equivalents) and is shown only as provider data.
 
-**Long-term investments (D-65).** Sales-to-capital removes the balance sheet's
-long-term investments from invested capital as non-operating (D-60); the bridge
-now adds the same amount back at its filed carrying value, so an asset left out
+**Long-term investments (D-65; FIN-401 / FIN-401-V1).** Sales-to-capital removes
+the non-operating portion of the balance sheet's long-term investments from
+invested capital (D-60); the bridge adds that same portion at its filed carrying value, so an asset left out
 of operating capital is never left out of value too; a holding that meets or exceeds
 invested capital is added back all the same (sales-to-capital takes the house cap,
 FIN-304). Where the companyfacts
@@ -1701,6 +1701,32 @@ Equity stakes a filing places inside other assets are counted when the filing
 tags them with a non-current investment element (below). Those tagged only with
 a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
 public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
+
+An equity-method stake and its income are counted on the same side (OD-5).
+SEC-built income rows record `equityMethodIncomePlacement`, using the actual
+EBIT derivation's subtracted amounts or the filed operating subtotal's pretax
+reconciliation. Component arithmetic can establish inclusion; a nonoperating
+aggregate can itself contain the income and cannot establish inclusion from a
+zero residual (C1). A before-equity-method pretax element also tests revenue
+less costs. The house reconciliation tolerance is max(0.1% of absolute pretax
+income, 1M source monetary units), not an accounting materiality threshold.
+
+When all base quarters (or the annual fallback) establish inclusion with a
+measured result, the DCF subtracts that signed income from its EBIT seed and
+each independently measured annual margin, and adds the stake once. A filed
+zero or result within the tolerance of zero counts as measured and takes the
+window's placement; a window of only such periods does not establish inclusion.
+Fourth-quarter operands use the builder's existing one-presentation FY-minus-YTD
+or FY-minus-quarters resolver; a refused operand cannot become zero (I4).
+When inclusion is established but income is untagged, the equity-method portion
+stays in operating capital, including the sales-to-capital history, and receives
+no separate bridge add-back or investment-sale tax. That portion is the whole
+LTI when its provenance names only equity-method investments; otherwise it is
+the lesser of LTI and the same-date, same-currency filed equity-method stake.
+No stake amount is estimated. Below-operating results keep the add-back.
+Mixed or undetermined windows retain the prior treatment and explicitly say
+income is **assumed** below operating income under Regulation S-X Rule 5-03.
+Provider-built rows carry no placement field and take this disclosed default.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
@@ -2977,7 +3003,9 @@ says so.
 Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
 total debt (less the proven operating-lease slice on the default lease switch,
 FIN-303) + temporary equity + equity − cash and short-term investments −
-long-term investments, whose income is below the EBIT the DCF projects. The
+the non-operating portion of long-term investments. An equity-method stake whose
+income is inside EBIT but unmeasured stays in operating capital (FIN-401,
+as described under "Long-term investments"). The
 temporary equity is the redeemable preferred and redeemable non-controlling
 interests the bridge deducts, which are financing capital whichever caption
 holds them; a refused operand
@@ -3177,8 +3205,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D135 (D-102 added
-the domain test on each run; D-135 moved the bridge each target re-runs), and the fair value FAIR_VALUE_2026_10_D135. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs), and the fair value FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -3983,6 +4011,18 @@ A report carrying either class's text never gains the other's. A report at or af
 the since-version, or in neither class (an FMP-route report), is returned as the
 identical object.
 
+A stored FCFF DCF made before report spec 1.56.0 gains a separate equity-method
+reading note only when its stored bridge has a long-term-investments component
+and its stored sales-to-capital basis treats long-term investments as non-operating
+(FIN-401 / FIN-401-V1). DCF notes were payload-only and have no stored schema field.
+The note explains that
+the earlier treatment could value a stake twice if its income was inside EBIT.
+`BRIDGE_READINGS_SINCE_SPEC_VERSION` is frozen at 1.56.0; the B4a cutoff remains
+1.50.0. Both notes compose in that order, once, in classic/dossier views and
+Markdown/print exports. Figures, stored versions and stored bytes stay intact
+(D-67). This bounded repair adds no convertible or fair-value-asset legacy clause;
+those B4b families have not been implemented here.
+
 A stored DCF, excess-return or REIT value made before the equity-bridge batch
 (audit 2026-10-27 B4a, D-67) is shown through `withLegacyBridgeMethod`
 (`src/report/legacyBridgeMethod.ts`), which follows the EDGAR-derived-lines view
@@ -4365,7 +4405,12 @@ stake counted as zero in the equity bridge and stayed inside the operating
 capital that sales-to-capital divides by. Amazon carries its Anthropic and
 OpenAI stakes in "Other assets", not on a line of their own. The SEC statements
 now fill `longTermInvestments` with the filed `LongTermInvestments` total when
-the filing tags one. Otherwise they add up the non-current pieces the filing does
+the filing tags one that is not below the same-date `EquityMethodInvestments`
+component by more than max(0.5% of that component, 2M source monetary units).
+A smaller total falls through to the piece sum with the builder's component-floor
+note. The provider stakes fill evaluates this same chain, including the floor,
+and retains its provenance and missing-piece disclosures (FIN-401 / I5).
+Otherwise they add up the non-current pieces the filing does
 tag:
 
 - non-current debt securities (`MarketableSecuritiesNoncurrent`, else

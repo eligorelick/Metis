@@ -17,7 +17,7 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { BRIDGE_METHOD_SINCE_SPEC_VERSION, LEGACY_BRIDGE_CLAUSES, withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
-import type { Report } from "@/report/schema";
+import { ReportSchema, type Report } from "@/report/schema";
 
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
@@ -95,11 +95,49 @@ const bridgeWith = (nonOperatingComponents: { label: string; value: number }[]):
   presentValueExplicit: null, presentValueTerminal: null, currency: "USD", asOf: null, nonOperatingComponents,
 });
 
+describe("FIN-401 / FIN-401-V1: stored equity-method readings", () => {
+  const readingNote = /Valued before report spec 1\.56\.0 under the earlier equity-method reading/;
+  const old = (version: string) => {
+    const report = base(version);
+    report.valuation.dcf.bridge = bridgeWith([{ label: "long-term investments (filed carrying value)", value: 300 }]);
+    report.valuation.dcf.assumptions = [{ name: "sales-to-capital", value: "2.0", basis:
+      "TTM revenue / operating invested capital - longTermInvestments 300M; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value" }];
+    return report;
+  };
+  it("marks only a stored old stake reading, at the frozen cutoff, without rewriting figures or bytes", () => {
+    const report = old("1.55.0");
+    expect(() => ReportSchema.parse(report)).not.toThrow();
+    const bytes = JSON.stringify(report);
+    const view = withLegacyBridgeMethod(report);
+    expect(view.fairValue!.basis.join(" ")).toMatch(readingNote);
+    expect(view.fairValue!.basis.join(" ")).toMatch(/if its income was inside operating income, that stake was valued twice/);
+    expect(view.valuation).toEqual(report.valuation);
+    expect(view.fairValue!.perShare).toBe(report.fairValue!.perShare);
+    expect(withLegacyBridgeMethod(view)).toEqual(view);
+    expect(JSON.stringify(report)).toBe(bytes);
+    for (const version of ["1.56.0", "9.0.0"]) expect(withLegacyBridgeMethod(old(version))).toEqual(old(version));
+    const noComponent = old("1.55.0");
+    noComponent.valuation.dcf.bridge = bridgeWith([]);
+    expect(withLegacyBridgeMethod(noComponent).fairValue!.basis.join(" ")).not.toMatch(readingNote);
+    const noBasis = old("1.55.0");
+    noBasis.valuation.dcf.assumptions = [];
+    expect(withLegacyBridgeMethod(noBasis).fairValue!.basis.join(" ")).not.toMatch(readingNote);
+  });
+  it("composes the two parts in order and reaches classic, dossier, Markdown and print", () => {
+    const report = old("1.44.0");
+    const view = withLegacyBridgeMethod(report);
+    const notes = view.fairValue!.basis;
+    expect(notes.findIndex(line => readingNote.test(line))).toBeGreaterThan(notes.findIndex(line => NOTE.test(line)));
+    for (const surface of surfaces(report)) expect(count(surface, readingNote)).toBe(1);
+  });
+});
+
 const count = (text: string, re: RegExp): number => (text.replace(/\s+/g, " ").match(new RegExp(re.source, `${re.flags.replace("g", "")}g`)) ?? []).length;
 const surfaces = (report: Report): string[] => [
   reportToMarkdown(report),
   reportToPrintBody(report),
   renderToStaticMarkup(createElement(ReportView, { report })),
+  renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
 ];
 
 describe("legacy equity-bridge method note", () => {

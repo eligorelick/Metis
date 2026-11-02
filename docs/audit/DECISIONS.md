@@ -1,5 +1,43 @@
 # Decisions
 
+## D-next (P1/B4b): equity-method income and stakes counted once (2026-11-02)
+
+FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on
+`eecd2703`. A filed operating subtotal is classified by pretax/component
+arithmetic; a nonoperating aggregate cannot establish inclusion from a zero
+residual. Derived EBIT records the subtraction pass's actual amounts and pretax
+base tags. Placement uses the house tolerance max(0.1% of absolute pretax, 1M).
+Measured inside income leaves the DCF seed and independently measured annual
+margin history, with its stake added once; an inside but unmeasured result keeps
+the equity-method portion in operating capital and out of the add-back and
+sale-tax lines. Filed immaterial/zero quarters take the measured window's
+placement. Fourth-quarter operands reuse the one-presentation resolver; refused
+operands never become zero. Mixed/undetermined windows and provider rows without
+placement retain the disclosed S-X Rule 5-03 assumption.
+
+The existing B13 `unlessBelow` mechanism rejects an LTI total below its
+same-date equity-method component outside max(0.5%, 2M), and the provider fill
+uses the builder's chain rather than a copied tag list. Existing missing-piece
+and provenance disclosures are preserved. No income or stake amount is invented.
+
+Report/payload/Stage B stamps are the brief's reserved 1.56.0 / 1.60.0 /
+`STAGE_B_2026_11_CLAUDE_REPAIRS_39`. Fair-value/scenario-target method stamps use
+the same `2026_11_CLAUDE_REPAIRS_39` suffix because they rerun this bridge. Prompt
+rules and their pipeline version do not change. Under D-67, the separate
+equity-method legacy note uses frozen cutoff 1.56.0 and requires both the stored
+LTI component and the sales-to-capital basis's non-operating LTI treatment.
+Task 15b's proposed DCF-notes detector is adapted: those notes were payload-only,
+not a stored DcfSchema field. The actual stored basis establishes the old treatment,
+and the note's income-placement consequence remains conditional. It changes no
+figure and no stored byte. Convertible and financial-asset clauses wait for
+their repairs. The integrator assigns this D-next number; intended deltas cite
+the existing D-60/D-65 conventions until then.
+
+The rebuilt census moves XOM 191.7389267225 to 178.0877966043 per share and BA
+27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
+values or refusals. Evidence and the explicitly unstarted items are recorded in
+[the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

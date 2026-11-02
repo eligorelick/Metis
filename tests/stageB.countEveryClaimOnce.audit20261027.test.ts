@@ -165,6 +165,36 @@ describe("B4a Task 14: one lease basis and one caption across invested capital",
 });
 
 describe("B4a Task 14: one divisor, each claim once", () => {
+  it("B4b FIN-401: an equity-method stake appears once, on the income's side", () => {
+    const runStake = (placement: "in-operating-income" | "below-operating-income") => {
+      const bundle = bundleFor(BASE);
+      for (const member of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
+        if (!member.ok) throw new Error("fixture balances");
+        for (const row of member.value.data.rows) {
+          row.longTermInvestments = 80 * M;
+          row.fieldProvenance = { ...row.fieldProvenance, longTermInvestments: { source: "edgar", unit: "USD", periodStart: null,
+            periodEnd: String(row.date), observedAt: bundle.builtAt, tags: ["us-gaap/EquityMethodInvestments"], filings: [] } };
+        }
+      }
+      for (const member of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
+        if (!member.ok) throw new Error("fixture income");
+        for (const row of member.value.data.rows) row.equityMethodIncomePlacement = { placement, income: null, basis: "test" };
+      }
+      const valuation = runStageB(bundle).valuation;
+      if (valuation.kind !== "dcf" || valuation.dcf === null || valuation.assumptions === null) throw new Error("fixture DCF");
+      return valuation;
+    };
+    const below = runStake("below-operating-income");
+    const inside = runStake("in-operating-income");
+    expect(below.dcf!.bridge.nonOperatingComponents?.filter(c => c.kind === "long-term-investments")).toMatchObject([{ value: 80 * M }]);
+    expect((inside.dcf!.bridge.nonOperatingComponents ?? []).filter(c => c.kind === "long-term-investments")).toHaveLength(0);
+    expect(inside.assumptions!.salesToCapital.value).toBeLessThan(below.assumptions!.salesToCapital.value);
+    // All the B4a claim deductions remain intact on both readings.
+    expect(inside.dcf!.bridge.preferred).toBe(below.dcf!.bridge.preferred);
+    expect(inside.dcf!.bridge.minorityInterest).toBe(below.dcf!.bridge.minorityInterest);
+    expect(inside.dcf!.bridge.dilutedShares).toBe(below.dcf!.bridge.dilutedShares);
+  });
+
   it("per share x divisor = equity value", () => {
     const { dcf } = run(BASE);
     expect(dcf.perShare).not.toBeNull();

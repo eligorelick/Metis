@@ -136,7 +136,8 @@ import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type 
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
+import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
+import { millions } from "@/pipeline/stageB/netDebt";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
@@ -3475,6 +3476,18 @@ function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs[
   return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 
+/** FIN-401 / OD-5: only a complete measured window permits an income subtraction. */
+function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined"; income: number | null } {
+  const placements = rows.map(row => row.equityMethodIncomePlacement);
+  if (placements.some(p => p?.placement === "in-operating-income" && p.income === null)) return { placement: "in-operating-income", income: null };
+  if (placements.length > 0 && placements.every(p => p !== undefined && (p.placement === "in-operating-income" || p.placement === "immaterial") && p.income !== null)
+    && placements.some(p => p?.placement === "in-operating-income")) {
+    return { placement: "in-operating-income", income: placements.reduce((sum, p) => sum + p!.income!, 0) };
+  }
+  return { placement: placements.length > 0 && placements.every(p => p?.placement === "below-operating-income" || p?.placement === "immaterial")
+    && placements.some(p => p?.placement === "below-operating-income") ? "below-operating-income" : "undetermined", income: null };
+}
+
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
@@ -3565,13 +3578,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         .filter((r) => r.date.length > 0)
     : null;
 
+  const equityWindow = equityMethodWindow(ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : []);
+  const adjustEbit = (value: number | null, reading: ReturnType<typeof equityMethodWindow>) => value !== null && reading.placement === "in-operating-income" && reading.income !== null
+    ? value - reading.income : value;
   const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
         days: ttmInc.days,
         basis: "ttm",
         revenue: ttmInc.revenue,
-        operatingIncome: ttmInc.operatingIncome,
+        operatingIncome: adjustEbit(ttmInc.operatingIncome, equityWindow),
         grossProfit: ttmInc.grossProfit ?? null,
         incomeBeforeTax: ttmInc.incomeBeforeTax,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
@@ -3582,7 +3598,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
           basis: "annual",
           revenue: num(inc0.revenue),
-          operatingIncome: num(inc0.operatingIncome),
+          operatingIncome: adjustEbit(num(inc0.operatingIncome), equityWindow),
           grossProfit: num(inc0.grossProfit),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
@@ -3595,6 +3611,26 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const bridgePoint = bridge.row;
   const bridgePointBasis = bridge.basis;
   const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
+  const equityMethodFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const equityMethodStakeAt = (row: FmpBalanceSheetRow): number => {
+    const lti = num(row.longTermInvestments);
+    const date = isoDay(row.date);
+    if (lti === null || lti <= 0 || date === null) return 0;
+    const tags = row.fieldProvenance?.longTermInvestments?.tags ?? [];
+    if (tags.length > 0 && tags.every(tag => tag === "us-gaap/EquityMethodInvestments")) return lti;
+    const stake = equityMethodFacts === null || ctx.modelCurrency === null ? null : instantFact(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency, date, bundle.builtAt.slice(0, 10));
+    return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
+  };
+  const equityMethodStake: DcfAssumptionInputs["equityMethodStake"] = bridgePoint === null ? null : {
+    value: equityMethodStakeAt(bridgePoint), treatment: equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
+    incomePlacement: equityWindow.placement,
+    basis: equityWindow.placement === "in-operating-income" && equityWindow.income !== null
+      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back`
+      : equityWindow.placement === "in-operating-income"
+        ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
+        : equityWindow.placement === "below-operating-income" ? "equity-method income is below operating income; its stake is added back once"
+          : "equity-method income is assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined and the existing stake treatment is retained",
+  };
 
   // Same deduped rows the projection history uses: the DCF's near-term growth
   // path is fitted to this series, so a restated fiscal year appearing twice
@@ -3602,7 +3638,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const dcfIncomeHistory: DcfIncomeRow[] = normalizeQuarterRows(incomeAnnual).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: adjustEbit(num(r.operatingIncome), equityMethodWindow([r])),
     grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
@@ -3629,7 +3665,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   });
   const dcfBalance: DcfBalanceRow | null = bridgePoint && bridgePointBasis ? toDcfBalance(bridgePoint, bridgePointBasis) : null;
   // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
-  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => toDcfBalance(row, "annual"));
+  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => {
+    const result = toDcfBalance(row, "annual");
+    const income = incomeAnnual.find(r => r.date === row.date);
+    const reading = equityMethodWindow(income ? [income] : []);
+    if (reading.placement === "in-operating-income" && reading.income === null && result.longTermInvestments != null) result.longTermInvestments -= equityMethodStakeAt(row);
+    return result;
+  });
 
   // D-58: the run-rate quarters — the TTM window's newest quarter and the same
   // fiscal quarter a year earlier, the latter only when its own currency
@@ -3774,6 +3816,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          equityMethodStake,
           // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
           unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
             ttmEnd: dcfIncomeTtm.date,

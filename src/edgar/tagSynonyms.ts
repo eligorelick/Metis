@@ -451,7 +451,7 @@ export const LINE_ITEM_TAGS = {
    * `AvailableForSaleSecuritiesDebtSecurities` total usually also holds
    * current and cash-equivalent securities, so it is never one.
    */
-  longTermInvestments: entry(["LongTermInvestments"]),
+  longTermInvestments: entry(["LongTermInvestments"], undefined, ["EquityMethodInvestments"]),
   noncurrentDebtSecurities: entry(["MarketableSecuritiesNoncurrent", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"]),
   /** A filed "other investments" line, which holds the two pieces after it when it is tagged. */
   otherLongTermInvestments: entry(["OtherLongTermInvestments"]),

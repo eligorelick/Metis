@@ -443,7 +443,8 @@ export interface ContextPayload {
 // require fresh model/checkpoint identity; historical report bytes are unchanged.
 // FIG report review: primary EPS/share refusals, dated guidance, estimate-period
 // and Form 4 venue scope. Accepted model work from earlier payloads is incompatible.
-export const PAYLOAD_VERSION = "1.59.0" as const;
+// FIN-401 / FIN-401-V1 (B4b): corrected DCF operands and placement notes invalidate prior payload checkpoints.
+export const PAYLOAD_VERSION = "1.60.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

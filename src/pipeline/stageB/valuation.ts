@@ -816,6 +816,8 @@ export interface DcfRevenueTrend {
 }
 
 export interface DcfAssumptionInputs {
+  /** FIN-401 / OD-5: the stake and its income must be on the same side of the DCF. */
+  equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined"; basis: string } | null;
   /**
    * FIN-303 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s `evIncludeLeases`).
    * Absent is false, the default: sales-to-capital and its A-2 history remove the proven operating-lease slice
@@ -2197,10 +2199,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const regimeText = regime === null
     ? "no 5y margin history for a fade target"
     : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
-  const marginBasis = cappedTarget === m0
+  let marginBasis = cappedTarget === m0
     ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
     : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
       `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
+  if (inputs.equityMethodStake?.incomePlacement === "in-operating-income") marginBasis += `; ${inputs.equityMethodStake.basis}`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
       `EBIT margin path leaves [${MARGIN_WARN_BAND_PP[0]}%, ${MARGIN_WARN_BAND_PP[1]}%] — unusual outside software; review (house-rule warning)`,
@@ -2356,7 +2359,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // removing them would leave no operating capital (FIN-304), the operating
   // ratio is unbounded and takes the house cap, and the bridge still adds the
   // holding back. (Capital emptied by the lease removal is `emptiedHistory`'s.)
-  const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
+  const filedLti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : 0;
+  const operatingStake = inputs.equityMethodStake?.treatment === "operating" ? Math.min(filedLti, Math.max(0, inputs.equityMethodStake.value)) : 0;
+  const lti = filedLti - operatingStake > 0 ? filedLti - operatingStake : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
   const exceedsBasis = holdingExceedsCapital
@@ -2393,6 +2398,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
     `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
   else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
+  if (operatingStake > 0) s2cBasis += ` The equity-method stake ${millions(operatingStake)} stays in operating capital: its income is inside EBIT but unmeasured (FIN-401).`;
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);
@@ -2535,7 +2541,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsHoldingClause } : emptiedHistory !== null ? { basis: emptiedHoldingClause } : {}) } } : {}),
+    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date,
+      ...(operatingStake > 0 || exceedsBasis !== null || emptiedHistory !== null ? { basis: [
+        ...(operatingStake > 0 ? [`only the remaining non-operating investments ${millions(lti)} are removed; the equity-method stake ${millions(operatingStake)} stays in operating capital`] : []),
+        ...(exceedsBasis !== null ? [exceedsHoldingClause] : emptiedHistory !== null ? [emptiedHoldingClause] : []),
+      ].join("; ") } : {}) } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
@@ -6800,11 +6810,19 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             .replace(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE, lti.basis ?? LONG_TERM_INVESTMENTS_REMOVED_CLAUSE) });
       }
       for (const c of components) {
+        const placement = c.kind === "long-term-investments" ? dcfIn.equityMethodStake : null;
         notes.push(
           `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
-            "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
+            (placement?.incomePlacement === "in-operating-income" && placement.treatment === "added-back"
+              ? `They are not cash: ${placement.basis}; no marketability discount or fair-value estimate is applied.`
+              : placement?.treatment === "operating"
+                ? `The equity-method portion ${millions(placement.value)} stays in operating capital; this line adds only the remaining non-operating investments, with no marketability discount or fair-value estimate.`
+                : placement?.incomePlacement === "below-operating-income" || c.kind !== "long-term-investments"
+                  ? "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+                  : "They are not cash: their gains and losses are assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined, so the existing add-back is retained, with no marketability discount or fair-value estimate."),
         );
       }
+      if (dcfIn.equityMethodStake?.treatment === "operating") notes.push(`DCF equity-method treatment: ${dcfIn.equityMethodStake.basis}.`);
       // AMZN audit 2026-10-20: a stake reaches shareholders by being sold, and
       // the gain is taxed. The basis of each holding is not in the statements,
       // so the whole carrying value is taxed at the marginal rate: an upper

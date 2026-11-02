@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.55.0** and
-payload **1.59.0** (including the FIG source-reconciliation and disclosure fixes). The
+Current source declares application **0.1.0**, report spec **1.56.0** and
+payload **1.60.0** (including the P1/B4b equity-method repair). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,20 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## P1 / B4b: equity-method stakes (2026-11-02)
+
+- FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
+  and derivation provenance. Remove measured inside income from projected EBIT;
+  keep an unmeasured inside stake in operating capital. Preserve aggregate-path
+  ambiguity, filed-zero quarters and one-presentation fourth-quarter derivations.
+- Share the long-term-investments component floor between SEC statements and
+  provider stakes fill. Explain affected stored valuations at display time under
+  the frozen 1.56.0 cutoff, without rewriting figures or bytes.
+- Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
+  scenario-target stamps move with the bridge. No prompt rule text changes.
+  Remaining convertible, multi-class, fair-value-asset and book-date items are
+  not started in this bounded commit; see the B4b disposition note.
 
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 
