@@ -367,3 +367,15 @@ export function annotateSharedModelFamily(
       : { ...entry },
   );
 }
+
+/** DB-003: observed model identities, including API models. */
+export function executionModelSummary(entries: readonly ExecutionMetadataEntry[] | undefined): {models:string[];unrecordedSteps:string[]} {
+ const models = new Set<string>(), unrecordedSteps = new Set<string>();
+ for (const entry of entries ?? []) {
+  if (entry.effectiveModel === "unknown") { unrecordedSteps.add(entry.step.replace(/ attempt \d+$/,"").replace(/^synthesize$/,"judge")); continue; }
+  if (["none","deterministic"].includes(entry.effectiveModel)) continue;
+  const subscription=subscriptionExecutionModels([entry]);
+  for(const model of subscription.length ? subscription : [entry.effectiveModel]) models.add(model);
+ }
+ return {models:[...models],unrecordedSteps:[...unrecordedSteps]};
+}

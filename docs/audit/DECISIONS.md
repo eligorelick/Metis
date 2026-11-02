@@ -3129,3 +3129,5 @@ RPT-213: Label excess-return values by their recorded method on classic and expo
 RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
 
 RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+
+DB-003: Show observed API models as well as account models and name unrecorded passes.
