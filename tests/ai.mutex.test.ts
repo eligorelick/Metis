@@ -195,7 +195,7 @@ it("AI-115 lifetime lock is reentrant and rejects incompatible marker databases"
   expect(holdProcessLifetimeLock(runtime)).toBe(true);
   const invalid = path.join(directory, "invalid.lock");
   const db = new Database(invalid); db.pragma("application_id = 1"); db.close();
-  expect(() => holdProcessLifetimeLock(invalid)).toThrow(/incompatible|damaged/);
+  expect(() => holdProcessLifetimeLock(invalid)).toThrow(/(?:incompatible|damaged).*runtime\.lock/);
   const corrupt = path.join(directory, "corrupt.lock"); fs.writeFileSync(corrupt, "not a sqlite database");
-  expect(() => holdProcessLifetimeLock(corrupt)).toThrow(/incompatible|damaged/);
+  expect(() => holdProcessLifetimeLock(corrupt)).toThrow(/(?:incompatible|damaged).*runtime\.lock/);
 });
