@@ -11,8 +11,8 @@ describe("provider earnings-date qualification boundaries", () => {
   });
   // A spaced em/en dash separates clauses just like a semicolon (written as
   // escapes so file encoding cannot change the character).
-  it.each(["Earnings rose 5% year over year — the special dividend is payable 2026-11-04.",
-    "Earnings rose 5% year over year – the special dividend is payable 2026-11-04."])("keeps a dividend date after a dash: %s", text => {
+  it.each(["Earnings rose 5% year over year \u2014 the special dividend is payable 2026-11-04.",
+    "Earnings rose 5% year over year \u2013 the special dividend is payable 2026-11-04."])("keeps a dividend date after a dash: %s", text => {
     const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
   });

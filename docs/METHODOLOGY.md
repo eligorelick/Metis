@@ -5944,7 +5944,7 @@ observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
 
-P0 M-1: No-split vendor/SEC per-share comparisons require a confirmed single-ticker registrant and established ordinary-share units. Multiple or unknown listed classes remain incomparable; split reconciliation is unchanged.
+P0 M-1: No-split vendor/SEC per-share comparisons require established ordinary-share units. A registrant with one listed SEC symbol is compared directly. With several symbols (a second class, or preferred and note series), the unit is established only by a comparable no-split period in which the vendor's weighted-average share count, basic or diluted, agrees with the filer's within 3%; a statement series that establishes it governs the vendor's other series for the issuer. ADRs and unknown listings remain incomparable; split reconciliation is unchanged.
 
 P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.
 

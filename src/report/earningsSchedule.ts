@@ -9,7 +9,7 @@ const PROVIDER_NOTE = /^next scheduled earnings date per provider calendar \(a p
 const PROSE_KEYS = new Set(["synthesis", "judgeResolution", "bullView", "bearView", "narrative", "trend", "momentum", "keyLevels", "relativeStrength"]);
 // Hard clause boundaries: sentence ends, semicolons outside parentheses and
 // spaced em/en dashes (escapes, so file encoding cannot alter the characters).
-const HARD_CLAUSE = /(;(?![^()]*\))|(?<=[.!?])\s+(?=[A-Z])|\s+[—–]\s+)/u;
+const HARD_CLAUSE = /(;(?![^()]*\))|(?<=[.!?])\s+(?=[A-Z])|\s+[\u2014\u2013]\s+)/u;
 const EVENT_TERM = /\b(?:earnings|results|report|reports|reporting|call)\b/i;
 // Words a bare date phrase may contain besides the date ("On <date>", "on Wednesday, <date>").
 const DATE_PHRASE_WORDS = new Set(["on", "by", "as", "of", "around", "about", "after", "before", "from", "starting",

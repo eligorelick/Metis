@@ -62,6 +62,41 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     expect(out.withheld).toEqual([]);
   });
 
+  // A registrant whose SEC ticker list names several symbols (FIGR lists FIGR
+  // and FGRS; banks list preferred series) is compared once a comparable period
+  // shows the vendor counts shares in the filer's unit.
+  const multiTicker = (facts: CompanyFacts) => ({ companyFacts: facts, registrantTickers: ["FIGR", "FGRS"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" as const });
+
+  it("compares a multi-ticker registrant once one period establishes the vendor's share unit", () => {
+    const current = fiscalRow("2026-03-31", "Q1", { eps: -0.27, epsDiluted: -0.27, weightedAverageShsOut: 523_485_000, weightedAverageShsOutDil: 523_485_000 });
+    const facts = factsFor([primaryQuarter, current]);
+    const primary = built(facts);
+    const result = guardVendorShareFields([quarter, current], primary.incomeQuarterly.rows, primary.splits, AS_OF, multiTicker(facts));
+    expect(result.rows[1]).toBe(current);
+    expect(result.rows[0]?.epsDiluted).toBeUndefined();
+    expect(result.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
+    expect(result.rows[0]?.fieldConflicts?.epsDiluted).toMatchObject({ vendorValue: -2.05, secValue: 0.04, usable: false });
+    expect(result.withheld).toHaveLength(4);
+  });
+
+  it.each([[1.02, 2], [1.04, 0]])("establishes a multi-ticker share unit only within the existing tolerance: vendor counts at %sx withhold %s field(s)", (ratio, refused) => {
+    const facts = factsFor([primaryQuarter]);
+    const primary = built(facts);
+    const row = { ...quarter, weightedAverageShsOut: Math.round(231_076_000 * ratio), weightedAverageShsOutDil: Math.round(231_076_000 * ratio) };
+    const result = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF, multiTicker(facts));
+    expect(result.withheld.map(entry => entry.field)).toEqual(["eps", "epsDiluted"].slice(0, refused));
+    if (refused === 0) expect(result.rows[0]).toBe(row);
+  });
+
+  it("does not establish a multi-ticker share unit from a period the filer does not state", () => {
+    const facts = factsFor([primaryQuarter]);
+    const primary = built(facts);
+    const unfiled = fiscalRow("2025-06-30", "Q2", { weightedAverageShsOut: 231_076_000, weightedAverageShsOutDil: 231_076_000 });
+    const result = guardVendorShareFields([quarter, unfiled], primary.incomeQuarterly.rows, primary.splits, AS_OF, multiTicker(facts));
+    expect(result.rows).toEqual([quarter, unfiled]);
+    expect(result.withheld).toEqual([]);
+  });
+
   it.each([[0.035, 0.04], [0.005, 0.01], [-0.004, 0], [0.04, 0.06]])("rounds at the coarser cent precision: filed %s vendor %s", (filed, vendor) => {
     const facts = factsFor([{ ...primaryQuarter, epsDiluted: filed }]);
     const primary = built(facts);
@@ -303,6 +338,27 @@ describe("the producer's refused share fields reach calculation, grades, payload
     const { inputs } = producerFixture();
     if (!inputs.edgar.companyFacts.ok) throw new Error("missing fixture facts");
     inputs.edgar.companyFacts.value.data.cik = 42;
+    const result = await applyKeylessFallbacks(inputs);
+    expect(result.members.incomeAnnual).toBe(inputs.fmp.incomeAnnual);
+    expect(result.members.incomeQuarterly).toBe(inputs.fmp.incomeQuarterly);
+  });
+
+  // FIGR's vendor FY2025 counts are twice the 10-K's while its 2026 quarters match the 10-Qs.
+  it("lets a quarterly series that shows a multi-ticker registrant's share unit govern the annual rows", async () => {
+    const { inputs } = producerFixture();
+    inputs.edgar.registrant = { ...inputs.edgar.registrant!, tickers: ["FIGR", "FGRS"] };
+    const quarterly = inputs.fmp.incomeQuarterly;
+    if (!quarterly.ok) throw new Error("income fixture unavailable");
+    quarterly.value.data.rows = quarterly.value.data.rows.map(row => ({ ...row, eps: (row.eps as number) / 4, epsDiluted: (row.epsDiluted as number) / 4,
+      weightedAverageShsOut: (row.weightedAverageShsOut as number) / 4, weightedAverageShsOutDil: (row.weightedAverageShsOutDil as number) / 4 }));
+    const result = await applyKeylessFallbacks(inputs);
+    expect(result.members.incomeQuarterly).toBe(quarterly);
+    expect(rowsOf(result.members.incomeAnnual).every(row => row.epsDiluted === undefined && row.weightedAverageShsOutDil === undefined)).toBe(true);
+  });
+
+  it("compares neither series when none shows a multi-ticker registrant's share unit", async () => {
+    const { inputs } = producerFixture();
+    inputs.edgar.registrant = { ...inputs.edgar.registrant!, tickers: ["FIGR", "FGRS"] };
     const result = await applyKeylessFallbacks(inputs);
     expect(result.members.incomeAnnual).toBe(inputs.fmp.incomeAnnual);
     expect(result.members.incomeQuarterly).toBe(inputs.fmp.incomeQuarterly);
