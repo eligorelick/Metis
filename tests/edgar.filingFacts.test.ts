@@ -247,3 +247,21 @@ it("DATA-110 prose capacity reaches disclosures, presentation and provenance", (
   const capacities = (payload.provenanceRegistry ?? []).filter(r => /plan share capacity/.test(r.label ?? ""));
   expect(capacities.map(r => r.value)).toEqual([63743, 783, 13361, 6172]);
 });
+
+it("DATA-110 termination may omit expiration",()=>{
+ const rows=parseTradingArrangements("On June 1, 2026, Jane Roe, Chief Operating Officer, terminated a Rule 10b5-1 trading arrangement.");
+ expect(rows).toEqual([{person:"Jane Roe",role:"Chief Operating Officer",action:"termination",date:"2026-06-01",shares:null,includesFutureAwards:false,expires:null}]);
+});
+it.each([
+ "On June 1, 2026, Jane Roe, Senior Vice President, Worldwide Operations, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares ending on December 31, 2026.",
+ "On June 1, 2026, Jos\u00e9 M\u00fcller, Chief Operating Officer, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares ending on December 31, 2026.",
+ "On June 1, 2026, Jane Roe, Chief Operating Officer, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares; the plan expires on December 31, 2026.",
+])("DATA-110 discloses a partially unread plan section: %s",unread=>{
+ const first=prosePlans.slice(0,prosePlans.indexOf("On May 4, 2026 , Daniel"));
+ const b=completeCurrencyBundle({});b.edgar.tenQOther=section("tenQItem5",first+" "+unread);
+ const d=buildFilingDisclosures(b)!;
+ expect(d.tradingArrangements).toHaveLength(1);
+ expect(d.notes.join(" ")).toContain("arrangements that could not be read as rows");
+ const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
+ expect(p.filings.some(e=>e.text.includes(unread))).toBe(true);
+});

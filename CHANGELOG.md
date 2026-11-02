@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- B-F7 (DATA-110): Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null.
+
 - B-F6 (DATA-107): Priority selects the capped filing set only; read and output the chosen set by filing date, newest first.
 
 - B-F4 (AI-512-V1): Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date.

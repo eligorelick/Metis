@@ -3162,3 +3162,8 @@ Use one shared completed-release contradiction rule for excerpt titles and table
 ### D-next (P5): B-F6 (DATA-107) review correction
 
 Priority selects the capped filing set only; read and output the chosen set by filing date, newest first. Coordinator decision: urgent older items remain included when the cap binds, while newest events lead tables, filingDisclosures.events and the payload budget. The previous priority-first read assertion is re-pinned from a10 to a0 with inclusion of a10 still required. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F7 (DATA-110) review correction
+
+Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. Count dated action paragraphs independently of successful person/role reads so one parsed row cannot imply the section was fully read. Unread paragraphs remain in the analyst excerpt; the table renders unknown expiry as Not recorded. Stored report bytes are unchanged.

@@ -46,6 +46,7 @@ import {
   parseSayOnPay,
   parseStatementFacts,
   parseTradingArrangements,
+  tradingArrangementParagraphCount,
   type FilingFact,
 } from "@/edgar/filingFacts";
 import { CommitmentPaymentTimingSchema, MaterialEventItemsSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
@@ -1267,7 +1268,7 @@ function tradingArrangementRows(bundle: DataBundle, notes: string[]): NonNullabl
   const other = sectionRef(bundle.edgar?.tenQOther);
   if (other === null) return [];
   const rows = parseTradingArrangements(other.data.text);
-  if (rows.length === 0 && /\b10b5-1\b/.test(other.data.text) && /\b(?:adopt|terminat|modif)/i.test(other.data.text)) {
+  if (rows.length < tradingArrangementParagraphCount(other.data.text) || (rows.length === 0 && /\b10b5-1\b/.test(other.data.text) && /\b(?:adopt|terminat|modif)/i.test(other.data.text))) {
     notes.push(`Item 5 of ${other.data.form} ${other.data.accession} mentions Rule 10b5-1 arrangements that could not be read as rows; the excerpt is in the AI context.`);
   }
   return rows.map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));

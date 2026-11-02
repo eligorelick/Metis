@@ -554,6 +554,12 @@ function usDate(text: string): string | null {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
+/** Count dated plan paragraphs even when a conservative person/role reader refuses one. */
+export function tradingArrangementParagraphCount(rawText: string): number {
+ return normalizeFilingText(rawText).split(new RegExp(String.raw`(?=\bOn ${MONTH_DATE}\s*,)`))
+  .filter(p=>new RegExp(String.raw`^On ${MONTH_DATE}\s*,`,"i").test(p.trim()) && /\b(?:adopted|modified|terminated)\b/i.test(p) && /\b10b5-1\b/.test(p)).length;
+}
+
 /** 10-Q / 10-K "Other Information": the Rule 10b5-1 trading arrangements table. */
 export function parseTradingArrangements(itemText: string): TradingArrangement[] {
   const text = normalizeFilingText(itemText);
@@ -570,9 +576,9 @@ export function parseTradingArrangements(itemText: string): TradingArrangement[]
       if (!m || !/\b10b5-1\b/.test(paragraph) || !/^[A-Z][A-Za-z .'-]+\s+[A-Z][A-Za-z .'-]+$/.test(m[2]!.trim())) continue;
       const date = isoFromMonthDate(m[1]!);
       const expiry = new RegExp(String.raw`\b(?:ending on|until|expiring on|through) (${MONTH_DATE})`, "i").exec(paragraph);
-      if (date === null || expiry === null) continue;
-      const expires = isoFromMonthDate(expiry[1]!);
-      if (expires === null) continue;
+      if (date === null || (expiry === null && m[4]!.toLowerCase() !== "terminated")) continue;
+      const expires = expiry === null ? null : isoFromMonthDate(expiry[1]!);
+      if (expiry !== null && expires === null) continue;
       const capacity = /\b(?:to sell|for the sale of) up to ([\d,]+) shares\b/i.exec(paragraph);
       const role = m[3]!.trim();
       if (!ROLE_START.test(role) && !/^a member of (?:our|the) Board of Directors$/i.test(role)) continue;

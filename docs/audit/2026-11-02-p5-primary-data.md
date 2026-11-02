@@ -150,3 +150,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F6 (DATA-107) | Fixed: Priority selects the capped filing set only; read and output the chosen set by filing date, newest first. | This commit | fixround-b6-red / fixround-b6-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F7 (DATA-110) | Fixed: Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. | This commit | fixround-b7-red / fixround-b7-green | No persisted rewrite |
