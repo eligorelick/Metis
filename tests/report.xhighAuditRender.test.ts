@@ -205,11 +205,26 @@ describe("B2-18: reader tables carry each qualification once and leave diagnosti
     expect(JSON.stringify(workingCapital!.rows)).toContain("Derived: 37,858,000 USD tagged change x -1");
     expect(JSON.stringify(workingCapital!.rows)).toContain("Signed cash-flow contributions for identified standard components only");
     for (const t of [sbc!, workingCapital!]) expect(JSON.stringify(t)).not.toContain("us-gaap/");
+    // The rows already say no FCF deduction is made, so the table does not add it again.
+    expect(sbc!.note!.match(/FCF/g)).toHaveLength(1);
 
     const r = report();
     r.filingDisclosures = { ...buildFilingDisclosures(completeCurrencyBundle({}))!, filingFacts: [sbcFact(51_976_000, "2026-01-01"), sbcFact(26_100_000, "2026-04-01"), receivables] };
     for (const text of surfaces(r)) expect(text).not.toContain("us-gaap/AllocatedShareBasedCompensationExpense");
     expect(reportToAuditMarkdown(r)).toContain("us-gaap/AllocatedShareBasedCompensationExpense");
+  });
+
+  it("states the cash liquidity limit once, and still states it when the rows do not", () => {
+    const cashFact = (key: string, value: number, asOf: string, text: string) => ({
+      key, label: key, value, unit: "currency" as const, asOf, period: null, qualifier: null, computed: null, sourceTag: "edgar:xbrl", source, text,
+    });
+    const LIMIT = "Cash including restrictions is not all available liquidity. These are same-date, same-currency balances from one filing.";
+    const [stated] = filingFactTables({ currency: "USD", filingFacts: [
+      cashFact("composition-cash-unrestricted", 1.44e9, "2026-06-30", LIMIT), cashFact("composition-cash-combined", 1.53e9, "2026-06-30", LIMIT)] });
+    expect(stated!.note!.match(/available liquidity/g)).toHaveLength(1);
+    expect(stated!.note).toContain("Each balance keeps its own date and primary filing.");
+    const [unstated] = filingFactTables({ currency: "USD", filingFacts: [cashFact("composition-cash-combined", 1.53e9, "2026-06-30", "Reported combined balance.")] });
+    expect(unstated!.note).toContain("A combined balance including restrictions is not available liquidity.");
   });
 
   it("keeps parser diagnostics out of the reader's guidance notes", () => {

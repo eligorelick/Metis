@@ -54,12 +54,18 @@ function sentences(text: string): string[] {
  */
 export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
   if (!d.filingFacts?.length) return [];
-  const groups = [
-    { prefix: "composition-sbc-", heading: "SBC composition: separately reported expense and capitalization", note: "These amounts do not change FCF." },
-    { prefix: "composition-cash-", heading: "Cash composition: restrictions and reported combined balance", note: "Each balance keeps its own date and primary filing; a combined balance including restrictions is not available liquidity." },
-    { prefix: "composition-working-capital-", heading: "Working capital: identified standard cash-flow components (partial)", note: "Identified signed components and any partial subtotal do not establish complete working capital or a normalized cash-flow estimate." },
-    { prefix: "composition-tax-", heading: "Income-tax balances: gross receivable and current payable", note: "Separate gross balances do not establish receivable maturity, an occupancy-tax pair or legal netting." },
-    { prefix: "", heading: "Filing notes: customer, investment and transaction disclosures", note: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive. Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers." },
+  // A table-level sentence is skipped when every row's own text already says
+  // it (the SBC rows state their FCF treatment, the cash rows their liquidity
+  // limit), so the note does not print the same qualification twice.
+  const groups: Array<{ prefix: string; heading: string; notes: Array<{ text: string; unlessEveryRow?: RegExp }> }> = [
+    { prefix: "composition-sbc-", heading: "SBC composition: separately reported expense and capitalization",
+      notes: [{ text: "These amounts do not change FCF.", unlessEveryRow: /\bFCF\b/ }] },
+    { prefix: "composition-cash-", heading: "Cash composition: restrictions and reported combined balance",
+      notes: [{ text: "Each balance keeps its own date and primary filing." },
+        { text: "A combined balance including restrictions is not available liquidity.", unlessEveryRow: /including restrictions is not (?:all )?available liquidity/i }] },
+    { prefix: "composition-working-capital-", heading: "Working capital: identified standard cash-flow components (partial)", notes: [{ text: "Identified signed components and any partial subtotal do not establish complete working capital or a normalized cash-flow estimate." }] },
+    { prefix: "composition-tax-", heading: "Income-tax balances: gross receivable and current payable", notes: [{ text: "Separate gross balances do not establish receivable maturity, an occupancy-tax pair or legal netting." }] },
+    { prefix: "", heading: "Filing notes: customer, investment and transaction disclosures", notes: [{ text: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive. Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers." }] },
   ];
   return groups.flatMap(group => {
     const facts = d.filingFacts!.filter(f => group.prefix === "" ? !f.key?.startsWith("composition-") : f.key?.startsWith(group.prefix));
@@ -68,6 +74,8 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
     const shared = facts.length > 1 ? bases[0]!.filter((s) => bases.every((basis) => basis.includes(s))) : [];
     const rowBases = bases.map((basis) => basis.filter((s) => !shared.includes(s)).join(" "));
     const showBasis = rowBases.some((basis) => basis !== "");
+    const groupNote = group.notes.filter((n) => !n.unlessEveryRow || !bases.every((basis) => n.unlessEveryRow!.test(basis.join(" "))))
+      .map((n) => n.text).join(" ");
     return [{
       heading: group.heading,
       headers: ["Disclosure", "Value as stated", "Period / as of", ...(showBasis ? ["Basis / issuer context"] : []), "Source"],
@@ -79,7 +87,7 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
           ...(showBasis ? [rowBases[i]!] : []), sourceText(f.source)];
       }),
       // Each shared sentence was written for one row ("These are same-date ... balances").
-      note: [shared.length ? `Applies to each row: ${shared.join(" ")}` : "", group.note].filter(Boolean).join(" "),
+      note: [shared.length ? `Applies to each row: ${shared.join(" ")}` : "", groupNote].filter(Boolean).join(" "),
     }];
   });
 }
