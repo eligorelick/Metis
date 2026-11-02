@@ -590,8 +590,17 @@ export class YahooClient {
   }
 
   async quote(symbol: string): Promise<FetchResult<FmpPayload<FmpQuoteRow>>> {
+    return quoteFromMetaResult(symbol,await this.meta(symbol));
+  }
+
+}
+
+export function createYahooClient(config: YahooClientConfig = {}): YahooClient {
+  return new YahooClient(config);
+}
+
+export function quoteFromMetaResult(symbol:string,metaRes:Awaited<ReturnType<YahooClient["meta"]>>):FetchResult<FmpPayload<FmpQuoteRow>> {
     const field = `yahoo.quote(${symbol.trim().toUpperCase()})`;
-    const metaRes = await this.meta(symbol);
     if (!metaRes.ok) return { ok: false, gap: { ...metaRes.gap, field } };
 
     const m = metaRes.value.data;
@@ -648,8 +657,3 @@ export class YahooClient {
       },
     };
   }
-}
-
-export function createYahooClient(config: YahooClientConfig = {}): YahooClient {
-  return new YahooClient(config);
-}

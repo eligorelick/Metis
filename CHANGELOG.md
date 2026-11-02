@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- DATA-113: price keyless profile and quote from one successful chart observation.
 - DATA-112: refresh expired current-date history before serving a post-close answer.
 - DATA-114: retain and disclose compatible cached history after transient window-rollover failures.
 - RPT-201: annualize dividends by established frequency and disclose the legacy quarterly assumption.

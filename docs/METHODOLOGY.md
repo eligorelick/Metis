@@ -5967,3 +5967,5 @@ Dividend yields (RPT-201, B9 OD-5) annualize stated regular frequencies: monthly
 Price history may retain a prior compatible window after a transient failure (DATA-114, OD-4). Both endpoints must be within seven days of the requested window, for the same provider and symbol, and acquisition age cannot exceed seven days. It stays stale with the last bar's date and a manifest disclosure. Provider refusals and unknown symbols are never covered.
 
 Current-date price history (DATA-112, OD-3) uses the D-113 session clock at the durable adapter: 15 minutes during the session, with the same post-close settling rule as quotes. Expired tails refresh before return; failed refreshes serve stale with a manifest warning, and empty refreshes preserve last-good data inside the stale ceiling. Historical windows retain 24 hours.
+
+A keyless run prices its profile and quote from the same successful Yahoo five-day chart observation. Both preserve that observation's stale flags and acquisition time. If meta failed, quote retains its independent retry and disclosure (DATA-113).

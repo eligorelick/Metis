@@ -3020,3 +3020,7 @@ DATA-114 applies OD-4 at the durable-cache adapter boundary, only to canonical F
 ### D-next (P5): History-tail freshness follows the US session
 
 DATA-112 implements OD-3 in the common durable adapters using canonical history keys, so both clients share one freshness rule. Expired current-date tails refresh before return with last-good empty-body preservation and explicit refresh-failed disclosure. Older windows retain their TTL.
+
+### D-next (P5): One keyless price observation
+
+DATA-113 derives quote from the successful meta result already used for profile, retaining stale flags and acquisition time for both. Failed meta preserves the prior quote retry and failure disclosure.
