@@ -23,6 +23,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.
 - DATA-115: surviving cache-miss joiners retry with their own loader after the leader is canceled.
 - DATA-102: preserve freshness flags on SEC fallback peer envelopes, including split/share dependencies.
+- DATA-110: read bounded prose Rule 10b5-1 arrangements and disclose unparsed plan mentions.
 - DATA-116: classify parameter subscription refusals as expected, unlearned disclosures; name non-JSON outages and rate limits without vendor body text.
 - DATA-106: refuse EDGAR contact characters outside printable ASCII and Latin-1 before saving or testing.
 

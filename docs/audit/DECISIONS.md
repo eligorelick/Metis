@@ -3023,3 +3023,8 @@ Use leader signal state rather than error wording. A surviving joiner retries on
 ### D-next (P5-lows): DATA-102 uniform stale peer admission
 
 Follow B9-OD-6: preserve stale and staleReason from submissions, companyfacts, quote and split evidence. Derived market cap also depends on companyfacts shares. Retain the existing stale exclusion gate; do not resolve postponed F-14.
+
+
+### D-next (P5-lows): DATA-110 conservative prose arrangements
+
+Require a dated named-person action with role and expiry. Missing share counts remain null; company repurchase narratives do not become insider plans. Table treatment of future grants stays unchanged. Unparsed plan mentions receive a limitation note.
