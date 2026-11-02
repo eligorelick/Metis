@@ -68,6 +68,7 @@ import {
   supportsEffort,
   thinkingConfigFor,
   webSearchTool,
+  collectResearchText,
 } from "@/providers/anthropic";
 
 afterEach(() => {
@@ -2923,5 +2924,24 @@ describe("a ledger write that gives up abandons its permit (final review I2)", (
 
     expect(result.ok).toBe(true);
     expect(log).toEqual(["settled"]);
+  });
+});
+
+// Review of the combined priority fixes (2026-11-03), finding 2.
+describe("collectResearchText", () => {
+  it("joins every billed message's text in order and keeps each cited span's URLs", () => {
+    const paused = { content: [{ type: "text", text: "Before the pause. " }] } as never;
+    const resumed = { content: [
+      { type: "server_tool_use", id: "s1", name: "web_search", input: {} },
+      { type: "text", text: "Market grew 12%.", citations: [
+        { type: "web_search_result_location", url: "https://example.com/a?utm_source=x", title: "A", cited_text: "grew 12%", encrypted_index: "e" },
+        { type: "web_search_result_location", url: "https://example.com/a?utm_source=x", title: "A", cited_text: "12%", encrypted_index: "f" },
+      ] },
+      { type: "text", text: " Done." },
+    ] } as never;
+    const text = collectResearchText([paused, resumed]);
+    expect(text.startsWith("Before the pause. Market grew 12%. [sources: ")).toBe(true);
+    expect(text.match(/\[sources: /g)).toHaveLength(1);
+    expect(text.endsWith(" Done.")).toBe(true);
   });
 });
