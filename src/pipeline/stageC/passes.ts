@@ -18,7 +18,8 @@
  *    it as too large; the schema is included as prompt text instead.
  *  - runVerifyPass: measures CITATION COVERAGE (provenance, NOT correctness).
  *    Every TracedNumber must resolve an exact registry ID and match value, unit,
- *    currency, period, and as-of. Prose citations must resolve an exact payload
+ *    currency, period, and as-of. Its printed description must not conflict with
+ *    the cited metric (AI-407). Prose citations must resolve an exact payload
  *    source/date or an observed fetched URL; this is counted separately from
  *    numeric prose support. Prose numbers additionally require a typed value
  *    or an unambiguous metric/unit/period binding to retained source spans.
@@ -108,8 +109,10 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { unitLabel } from "@/report/format";
+import { descriptionConflictsWithRecord, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
+  parseCitationRef,
   citationAsOf,
   citationSourceId,
   serializeCitationRef,
@@ -2786,9 +2789,10 @@ interface TracedNumberRef {
   /**
    * The label of the metric row the number sits in ({label, values[]}), the
    * only description a TracedNumber has besides its unit. Read by the
-   * excerpt-text match (D-45); never by the registry match.
+   * excerpt-text match (D-45) and registry description conflict check (AI-407).
    */
   rowLabel?: string;
+  rowKind?: "metric-row" | "named-row";
 }
 
 function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
@@ -2799,17 +2803,17 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     (typeof o.sourceId === "string" || typeof o.source === "string") &&
     ("asOf" in o) &&
     ("verified" in o);
-  const walk = (node: unknown, path: string, rowLabel: string | undefined): void => {
+  const walk = (node: unknown, path: string, rowLabel: string | undefined, rowKind?: TracedNumberRef["rowKind"]): void => {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (let index = 0; index < node.length; index++) {
-        walk(node[index], `${path}[${index}]`, rowLabel);
+        walk(node[index], `${path}[${index}]`, rowLabel, rowKind);
       }
       return;
     }
     const obj = node as Record<string, unknown>;
     if (isTraced(obj)) {
-      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel }) });
+      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel, rowKind }) });
       return; // a TracedNumber has no nested TracedNumbers
     }
     // A MetricRow ({label, values: [{period, value}]}) labels the numbers
@@ -2825,7 +2829,8 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
       const childLabel = ownRowLabel !== undefined
         ? key === "values" ? ownRowLabel : undefined
         : ownName ?? rowLabel;
-      walk(obj[key], path ? `${path}.${key}` : key, childLabel);
+      walk(obj[key], path ? `${path}.${key}` : key, childLabel,
+        ownRowLabel !== undefined ? key === "values" ? "metric-row" : undefined : ownName !== undefined ? "named-row" : rowKind);
     }
   };
   walk(root, "", undefined);
@@ -3108,7 +3113,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
   const seriesLatest = reportedSeriesLatest(registry);
 
-  for (const { number, path, rowLabel } of numbers) {
+  for (const { number, path, rowLabel, rowKind } of numbers) {
     const sourceId = citationSourceId(number);
     const sourceAsOf = citationAsOf(number);
     if (sourceId !== null) number.sourceId = sourceId;
@@ -3254,6 +3259,19 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
+        if (ok) {
+          const words = unitLabel(number.unit) ?? "";
+          const conflict = descriptionConflictsWithRecord({
+            metric: `${rowKind === "metric-row" ? (rowLabel ?? "").replace(/^(?:FACT|ESTIMATE|JUDGMENT)\s*[:\u2010-\u2014-]\s*/i, "") : ""} ${words}`,
+            segment: `${rowLabel ?? ""} ${words}`,
+          }, record, issuerWords);
+          const printed = typeof number.source === "string" ? parseCitationRef(number.source)?.sourceId : undefined;
+          if (conflict || (printed && printed !== sourceId && registry.some(entry => entry.id === printed))) {
+            ok = false;
+            reason = "text-context-mismatch";
+            excerptNote = conflict ? `the printed description names another metric: ${conflict}` : "the printed source names another record";
+          }
+        }
         // Exact matching validates any registry context before it can pass.
         // Fresh AI output omits this source-owned metadata; retain the trusted
         // window on the verified number without sharing the payload object.

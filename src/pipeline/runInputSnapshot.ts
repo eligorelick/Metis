@@ -42,7 +42,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // FIG report audit: source admission now withholds independently contradicted
 // historical EPS/share fields and admits dated compact guidance. Older input
 // snapshots require their original engine; do not relabel their materialized rows.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FIG_SOURCE_RECONCILIATION_38" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_CLAUDE_REPAIRS_39" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

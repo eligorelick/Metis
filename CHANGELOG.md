@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.55.0** and
-payload **1.59.0** (including the FIG source-reconciliation and disclosure fixes). The
+Current source declares application **0.1.0**, report spec **1.56.0** and
+payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## P3 - verifier and trust labels (2026-11-02)
+
+- AI-407: registry figures printed under conflicting metric or segment descriptions
+  lose their verification mark and count as unchecked. Different printed registry
+  sources also fail closed. Stored reports are unchanged.
 
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 

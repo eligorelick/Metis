@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.53.0 / payload 1.55.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_34 (2026-10-30, D-138; final release verification pending). Its bounded evidence fixes
+The current source declares report 1.56.0 / payload 1.60.0 and Stage B
+STAGE_B_2026_11_CLAUDE_REPAIRS_39 (P3 / AI-407; final release verification pending). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -5943,3 +5943,15 @@ quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
+
+## Registry figure descriptions (AI-407)
+
+A registry figure is also read against the description printed beside it: a
+metric row label, segment name, or worded unit. Peer, macro series and scenario
+names do not describe metrics. A detected conflict in level, share basis,
+non-default basis, segment member or metric head leaves the figure unverified
+and unchecked, never contradicted. A printed source naming another registry
+record also fails closed. Empty descriptions and records without labels retain
+their identity-based matching behavior. Citation coverage excludes these refused
+figures; the same verification status reaches report tables and exports. Stored
+reports are unchanged; this rule applies when verification runs.

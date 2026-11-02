@@ -1137,6 +1137,8 @@ Original report bytes and production report history are preserved.
 
 ## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
 
+Revised by D-next (P3, OD-2 / AI-407) below for registry description conflicts.
+
 - **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
   - "RSI" and "RSI index" (5): the bare-ISO-code branch of
     `canonicalizeTracedUnit` ran before the indicator spellings and read "RSI"
@@ -2987,3 +2989,14 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Compatibility boundary and cost.** Legacy patterns retain trimming, literal parent segments (optimization level zero) and native Windows separator handling; callers' explicit options remain effective. The project already requires Node >=24. The facade uses Node's documented [synchronous ESM/CommonJS interoperability export](https://nodejs.org/api/modules.html#loading-ecmascript-modules-using-require) plus an ESM default export, retaining existing lint rules without a suppression. Cost: this is a scoped adapter for the installed consumer APIs, not full minimatch 3 compatibility; future consumer upgrades require the same real rule/selection regressions. Upstream 11's matching semantics apply outside the explicitly adapted legacy options.
 - **Enforcement and invariants.** The dependency-shape gate checks real package identities through npm `--long` metadata and lock link targets, including nested and aliased upstream copies. The genuine upstream version set is exactly 11.0.1, while the own facade is separately identified as 1.0.0; brace-expansion is exactly 5.0.12 after removal of the old engine. Unrelated lock entries, optional cross-platform dependencies, ESLint 9.39.5, Next 16.4.2, lint configuration and the include-dev/low/failure audit script remain intact. No report source, financial arithmetic, schema, stamp, payload, golden or intended delta changes; methodology therefore requires no financial revision. Focused execution receipts and remaining final-head acceptance are recorded separately in the private Task 12 report.
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
+
+## D-next (P3) Fail closed on conflicting registry figure descriptions (AI-407; OD-2)
+
+Implement the settled OD-2 conflict rule rather than silently substituting a
+record label. Compare metric rows and worded units for level, share basis,
+non-default basis and disjoint metric heads; compare segment names to their
+registered member. Other named rows name entities, not metrics. Ignore macro
+section tags when reading basis. A different printed registry source is also a
+conflict; reader URLs remain permitted. Refusals are unchecked, never contradicted.
+This revises D-44's indicator-only description guard. See METHODOLOGY.md
+"Registry figure descriptions (AI-407)". Stored reports are never rewritten.

@@ -13,7 +13,8 @@ export function restoreResearchReliabilityGolden(input: { computed: ComputedMetr
   restoreFigInsiderLabels(payload);
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.
-  expect(payload.payloadVersion).toBe("1.59.0");
+  // AI-407: 1.59.0 -> 1.60.0 is a stamp-only change for this golden.
+  expect(payload.payloadVersion).toBe("1.60.0");
   payload.payloadVersion = "1.56.0";
   // D-140: retain every older pin.
   expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");

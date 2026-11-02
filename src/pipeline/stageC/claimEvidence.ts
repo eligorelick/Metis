@@ -612,6 +612,47 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
   const tokens = withSynonyms(words);
   return [...new Set(tokens.filter((word) => !METRIC_GRAMMAR.has(word) && !PERIOD_DESCRIPTORS.has(word) && !ignored.has(word)))];
 }
+/** AI-407 / OD-2: reject detected conflicts, preserving legitimate paraphrases. */
+export function descriptionConflictsWithRecord(
+  description: { metric: string; segment: string }, record: NumericProvenanceRecord, ignore: readonly string[],
+): string | null {
+  if (!record.label) return null;
+  const label = record.id.startsWith("payload.macro.") ? record.label.replace(/ \(core\)$| \(sector\)$/i, "") : record.label;
+  const tokens = (text: string) => new Set(metricTokens(text
+    .replace(/\breturn on invested capital\b/gi, "roic")
+    .replace(/\breturn on equity\b/gi, "roe").replace(/\breturn on assets\b/gi, "roa")
+    .replace(/\bpre[ -]tax\b/gi, "pretax").replace(/\bpro[ -]forma\b/gi, "proforma"), ignore));
+  const printed = tokens(description.metric), cited = tokens(label);
+  const subset = (words: string[], side: Set<string>) => words.filter(w => side.has(w));
+  for (const [name, words] of [
+    ["level", ["gross", "operating", "net", "pretax", "ebit", "ebitda"]],
+    ["share basis", ["basic", "diluted"]],
+  ] as const) {
+    const a = subset([...words], printed), b = subset([...words], cited);
+    if (a.length && b.length && (a.length !== b.length || a.some(w => !b.includes(w)))) return `${name} differs`;
+  }
+  const basis = ["non-gaap", "adjusted", "core", "underlying", "organic", "proforma", "normalized"];
+  if (printed.size && cited.size && Boolean(subset(basis, printed).length) !== Boolean(subset(basis, cited).length)) return "non-default basis differs";
+  if (/^payload\.(?:segments|segment-revenue)\./.test(record.id)) {
+    const start = label.indexOf(": ");
+    if (start >= 0) {
+      let member = label.slice(start + 2);
+      if (record.id.startsWith("payload.segment-revenue.")) member = member.split(/ revenue\b/i)[0];
+      const shown = tokens(description.segment);
+      if (shown.size && [...tokens(member)].some(w => !shown.has(w))) return "segment member differs";
+    }
+  }
+  const heads = [
+    ["revenue", "revenues", "sales", "turnover"], ["income", "earnings", "profit", "profits"],
+    ["eps"], ["margin"], ["cash"], ["debt"], ["equity"], ["assets"],
+    ["capex", "expenditure", "expenditures"], ["dividend", "dividends"], ["ebitda"],
+    ["roic"], ["roe"], ["roa"], ["price"], ["yield"], ["shares"],
+  ];
+  // Normalize the vocabulary with the same synonym/stem reader as the labels.
+  const present = (side: Set<string>) => heads.map((words, i) => words.some(w => [...tokens(w)].some(t => side.has(t))) ? i : -1).filter(i => i >= 0);
+  const a = present(printed), b = present(cited);
+  return a.length && b.length && !a.some(i => b.includes(i)) ? "metric head differs" : null;
+}
 /**
  * Windows a typed record establishes from its issuer fiscal basis ("Q2 FY2027"
  * is a quarter). Prose may name them, or leave them unstated as before; a

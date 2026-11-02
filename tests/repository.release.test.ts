@@ -24,6 +24,7 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   ".github/workflows/ci.yml",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
@@ -56,6 +57,7 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   "docs/audit/2026-11-01-current-main-integration.md",
   "README.md",
   "CHANGELOG.md",
