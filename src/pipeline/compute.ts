@@ -2288,6 +2288,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       quoteCurrency: str(profile?.currency),
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
       repurchaseExecutions: repurchaseExecutions.rows,
+      companyFacts,
+      asOf: bundle.builtAt,
       // AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA on the EV's lease basis.
       evIncludeLeases,
     },

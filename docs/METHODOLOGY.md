@@ -22,6 +22,14 @@ labels say conflict found and vendor revenue refused or replaced, even when
 downstream validation sees only the refused value. This display reading also
 uses retained evidence in stored reports without rewriting their metadata.
 
+A rising annual weighted-share trend spanning filed common conversion facts,
+or an IPO with a same-filing two-class participating-security allocation,
+does not establish economic dilution. The signal is withheld from scoring and
+share-trend projections; original counts, dates and the filing reason remain
+visible. Only issuer-admitted core-form facts available by the run cutoff
+qualify. IPO proceeds alone do not establish a conversion; ordinary issuance
+remains a dilution signal.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 

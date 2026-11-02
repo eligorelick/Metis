@@ -30,6 +30,7 @@ import { operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } f
 import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/quarterWindows";
 import type { CurrentCapitalSnapshot } from "@/pipeline/stageB/currentCapital";
 import type { RepurchaseExecution } from "@/pipeline/stageB/repurchaseExecutions";
+import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 
 // ---------------------------------------------------------------------------
 // Input interfaces — FMP field names
@@ -123,6 +124,9 @@ export interface QuoteInput {
  * number that is off by the FX rate or the ADS ratio.
  */
 export interface CapitalOptions {
+  /** Issuer-admitted, retained facts only; used to identify conversion windows. */
+  companyFacts?: CompanyFacts | null;
+  asOf?: string;
   modelEligibilityReason?: string;
   /** Banks, insurers and mortgage REITs have no industrial FCF/debt diagnostics. */
   route?: SectorRoute;
@@ -981,6 +985,32 @@ export function computeCapital(
         actualYears: years,
         note: trendNotes.join("; "),
       };
+      // N3: weighted common denominators spanning an IPO/preferred conversion
+      // do not establish economic dilution. Preserve observations, remove the
+      // signal (and therefore its score/projection weight), and name the filing.
+      if (trendPct > 0 && options.companyFacts && options.asOf && Number.isFinite(Date.parse(options.asOf))) {
+        const cutoff = options.asOf.slice(0, 10);
+        const points = (tag: string, unit: string) => {
+          const concept = conceptFactsSchema.safeParse(options.companyFacts!.facts["us-gaap"]?.[tag]);
+          return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
+            CORE_FACT_FORMS.has(p.form) && p.filed <= cutoff && p.end <= cutoff &&
+            p.end >= start.date && p.end <= end.date && p.val !== 0) : [];
+        };
+        const conversions = ["StockIssuedDuringPeriodSharesConversionOfConvertibleSecurities", "ConversionOfStockSharesConverted"]
+          .flatMap(tag => points(tag, "shares").filter(p => p.val > 0).map(p => ({ tag, point: p })));
+        const currency = options.reportedCurrency;
+        const ipo = currency ? points("ProceedsFromIssuanceInitialPublicOffering", currency).filter(p => p.val > 0) : [];
+        const allocations = currency ? ["UndistributedEarningsLossAllocatedToParticipatingSecuritiesBasic", "UndistributedEarningsLossAllocatedToParticipatingSecuritiesDiluted"]
+          .flatMap(tag => points(tag, currency)) : [];
+        const twoClassIpo = ipo.find(p => allocations.some(a => a.accn === p.accn && a.end === p.end));
+        const evidence = conversions[0]?.point ?? twoClassIpo;
+        if (evidence) {
+          const reason = `Annual share-count signal withheld: filed ${conversions[0]?.tag ?? "IPO with two-class participating-security allocation"} (${evidence.form} ${evidence.accn}, filed ${evidence.filed}, period ending ${evidence.end}) spans ${start.date} through ${end.date}. A conversion changes the common weighted denominator and is not evidence of economic dilution; reported share observations are retained.`;
+          shareCount = { ...shareCount, trendPct: null, annualizedPct: null, direction: null, note: reason };
+          notes.push(reason);
+          gaps.push({ field: "capital.shareCountTrend.conversion", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
+        }
+      }
       // Audit 2026-10-27 B3 (AI-306): a short or irregular window reaches the
       // notes channel, so the payload's span label has its reason beside it.
       if (trendNotes.length > 1) {

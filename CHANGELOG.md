@@ -29,6 +29,9 @@ An open annual revenue-definition conflict now also withholds EV/Sales,
 including own-history and peer rankings, until eligible filed rows replace it.
 XBRL labels now distinguish a found revenue conflict (vendor revenue refused
 or replaced) from a comparison that was skipped.
+Annual weighted-share jumps spanning filed conversions or an IPO with a
+same-filing two-class allocation no longer score as economic dilution. Counts
+and the refusal reason remain disclosed; genuine issuance controls still score.
 
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 

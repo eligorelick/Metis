@@ -1,5 +1,15 @@
 # Decisions
 
+## D-next (N3) - IPO conversion is not dilution
+
+The owner delegated this decision to the coordinator on 2026-11-01. A rising
+annual weighted-share trend spanning filed conversion facts, or a filed IPO
+with a same-filing two-class participating-security allocation, is withheld
+with its filing and reason. The counts remain visible. The reason is that a
+change in the common EPS denominator does not prove economic dilution. This
+uses issuer-admitted facts available by the run cutoff, never a ticker rule;
+ordinary issuance and IPO-only evidence leave genuine dilution measurable.
+
 ## D-next (N3) - XBRL conflict labels
 
 The owner delegated this decision to the coordinator on 2026-11-01. A retained
