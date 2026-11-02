@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 
 import Database from "better-sqlite3";
 
-import { buildDataCompleteness } from "@/report/completeness";
+import { buildDataCompleteness, carryRecordedCompleteness, recordedCompletenessRule } from "@/report/completeness";
 import { buildExecutionMetadataEntry } from "@/report/execution";
 import { reportToPrintHtml } from "@/report/export/printHtml";
 import {
@@ -28,6 +28,7 @@ export interface CorrectedCliSummary extends CorrectedCliArguments {
   verificationRate: Report["meta"]["verificationRate"];
   provenanceCoverage: Report["meta"]["provenanceCoverage"];
   dataCompleteness: Report["meta"]["dataCompleteness"];
+  recordedDataCompleteness: Report["meta"]["dataCompleteness"] | null;
   execution: Report["meta"]["execution"];
   /** Present only when this export includes a deterministic principal-summary correction. */
   principalCorrectionAudit?: string;
@@ -202,6 +203,8 @@ export function runCorrectedExport({
       });
     }
 
+    const beforeGaps = [...report.appendix.missingData];
+    const recorded = report.meta.dataCompleteness;
     const hasEdgar = report.appendix.sources.some(
       (source) => source.provider.toLowerCase() === "edgar",
     );
@@ -225,9 +228,11 @@ export function runCorrectedExport({
         attemptedSources: ["persisted source manifest"],
       });
     }
-    report.meta.dataCompleteness = buildDataCompleteness(
-      report.appendix.missingData,
-    );
+    const carried = (!hasEdgar || !hasXbrl) && recordedCompletenessRule(recorded, beforeGaps) === null
+      ? buildDataCompleteness(report.appendix.missingData)
+      : carryRecordedCompleteness(recorded, beforeGaps, report.appendix.missingData);
+    if (carried === undefined) delete report.meta.dataCompleteness;
+    else report.meta.dataCompleteness = carried;
     const validated = validateStoredReportInReadMode(report, safety.readMode);
     if (validated === null) {
       throw new Error(
@@ -276,6 +281,7 @@ export function runCorrectedExport({
       verificationRate: validated.meta.verificationRate,
       provenanceCoverage: validated.meta.provenanceCoverage,
       dataCompleteness: validated.meta.dataCompleteness,
+      recordedDataCompleteness: originalReport.meta.dataCompleteness ?? null,
       execution: validated.meta.execution,
     };
   } finally {

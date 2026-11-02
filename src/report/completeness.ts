@@ -345,3 +345,15 @@ export function deriveReportCompletenessPresentation(
     statusText,
   };
 }
+
+/** B10-OD-2: confirm the recorded convention before carrying added gaps. */
+export function recordedCompletenessRule(persisted: PersistedDataCompleteness | undefined, gaps: readonly ManifestEntry[]): "current" | "pre-1.44.0" | null {
+ if (!persisted) return null;
+ if (completenessMatches(persisted, buildDataCompleteness(gaps))) return "current";
+ return completenessMatches(persisted, classifyCompleteness(gaps, true)) ? "pre-1.44.0" : null;
+}
+export function carryRecordedCompleteness(persisted: PersistedDataCompleteness | undefined, before: readonly ManifestEntry[], after: readonly ManifestEntry[]): PersistedDataCompleteness | undefined {
+ if (before.length === after.length && before.every((row, i) => row.field === after[i].field && row.severity === after[i].severity && row.expected === after[i].expected)) return persisted;
+ const rule = recordedCompletenessRule(persisted, before);
+ return rule === "current" ? buildDataCompleteness(after) : rule === "pre-1.44.0" ? classifyCompleteness(after, true) : persisted;
+}

@@ -6,7 +6,7 @@ import {
   type EntityIssue,
   type EntityRegistry,
 } from "@/pipeline/stageC/entityValidation";
-import { buildDataCompleteness } from "@/report/completeness";
+import { carryRecordedCompleteness } from "@/report/completeness";
 import { claimCoverageWithout, factualValidationWithout, isCountedClaimEntry } from "@/report/claimMatching";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
@@ -205,6 +205,7 @@ export function sanitizeLegacyEntityConflicts(
     if (safe.appendix.provenanceCoverage) safe.appendix.provenanceCoverage = without(safe.appendix.provenanceCoverage);
   }
   if (withheldCount > 0 || invalidCitationCount > 0) {
+    const beforeGaps = safe.appendix.missingData;
     safe.appendix.missingData = [
       ...(withheldCount > 0 ? [{
         field: "legacy.entityValidation",
@@ -221,7 +222,9 @@ export function sanitizeLegacyEntityConflicts(
         gap.field !== "legacy.entityValidation" && gap.field !== "legacy.citationValidation"
       ),
     ];
-    safe.meta.dataCompleteness = buildDataCompleteness(safe.appendix.missingData);
+    const carried = carryRecordedCompleteness(safe.meta.dataCompleteness, beforeGaps, safe.appendix.missingData);
+    if (carried === undefined) delete safe.meta.dataCompleteness;
+    else safe.meta.dataCompleteness = carried;
     if (withheldCount > 0 && !safe.disagreements.some((item) => item.kind === "entity")) {
       safe.disagreements.push({
         topic: "Legacy entity and trial associations",

@@ -14,8 +14,8 @@ AI-407 is implemented under OD-2. All other requested findings are not started.
 | AI-104 | Fixed | Owning AI-104 commit | AI-104-red / AI-104-green; AI-104-controls; AI-104-replay | No stored writes or replay manifest deltas |
 | AI-111 | Fixed | Owning AI-111 commit | AI-111-red / AI-111-final-green; AI-111-replay | No stored writes; rating outcomes unchanged on replay strings |
 | RPT-504 | Fixed | Owning RPT-504 commit | RPT-504-red / RPT-504-green | Reader shares hidden for data-only; raw audit counts retained |
-| DB-004 | Not started | - | - | None |
-| RPT-209 | Not started | - | - | None |
+| DB-004 | Fixed | Owning completeness commit | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
+| RPT-209 | Fixed | Owning completeness commit | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
 | RPT-212 | Not started | - | - | None |
 | RPT-206 | Not started | - | - | None |
 | RPT-207 | Not started | - | - | None |

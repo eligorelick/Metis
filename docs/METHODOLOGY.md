@@ -5975,3 +5975,5 @@ AI-104: recovery language must govern the hurdle. A later fade, convergence or d
 AI-111 / OD-5: listed honorific periods and contextual name initials do not start rating sentences. Initial surnames require a dash, comma, parenthesis or possessive. Whole-sentence rating words and unlisted abbreviations remain refused.
 
 RPT-504 / B10-OD-11: data-only reports show no checked citation/provenance share on reader surfaces, including legacy reports carrying counts. The audit retains raw evidence-class counts under an explicit no-citation-check disclosure.
+
+DB-004/RPT-209 / B10-OD-2: read and corrected-export paths carry completeness under its recorded convention. Absent metadata stays absent; unconfirmable records stay recorded. Added legacy gaps recount confirmed records under their original rule.

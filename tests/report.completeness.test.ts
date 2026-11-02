@@ -469,3 +469,18 @@ describe("Task 28 completeness presentation truth table", () => {
     expect(JSON.stringify({ persisted, gaps })).toBe(before);
   });
 });
+
+it("DB-004/RPT-209 carries confirmed old conventions, absent and unconfirmable records", async () => {
+ const { carryRecordedCompleteness, recordedCompletenessRule } = await import("@/report/completeness");
+ const before = [{ field: "edgar.annualGeography", severity: "info" as const, reason: "No unique matched annual geography revenue table" }];
+ const old = { state: "degraded" as const, criticalCount: 0, warningCount: 0, edgar: "missing" as const, xbrl: "checked" as const, forensicValidation: "provisional" as const };
+ expect(recordedCompletenessRule(old, before)).toBe("pre-1.44.0");
+ const after = [...before, { field: "legacy.entityValidation", severity: "critical" as const, reason: "withheld" }];
+ expect(carryRecordedCompleteness(old, before, after)).toEqual({ ...old, state: "blocked", criticalCount: 1 });
+ expect(carryRecordedCompleteness(undefined, before, after)).toBeUndefined();
+ const unconfirmed = { ...old, warningCount: 99 };
+ expect(carryRecordedCompleteness(unconfirmed, before, after)).toBe(unconfirmed);
+ expect(carryRecordedCompleteness(old, before, structuredClone(before))).toBe(old);
+ const current = buildDataCompleteness(before);
+ expect(carryRecordedCompleteness(current, before, after)).toEqual(buildDataCompleteness(after));
+});

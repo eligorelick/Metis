@@ -399,3 +399,5 @@ fingerprint and execution telemetry paths. It does not change stored preferences
 the public report endpoint continues to use the user's selected connection.
 
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.
+
+Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
