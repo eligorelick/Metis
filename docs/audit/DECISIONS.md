@@ -3139,3 +3139,5 @@ RPT-001: Identify the symbol, company and saved report id in print page metadata
 RPT-103: Round near-52-week flag price levels to cents; do not change the level.
 
 RPT-204: Render the Beneish M score without a misleading m unit suffix.
+
+RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
