@@ -25,6 +25,7 @@ const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
+  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
   "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
   "docs/audit/2026-11-02-r2-figr-figures.md",
@@ -76,6 +77,7 @@ const REQUIRED_RELEASE_FILES = [
 const ALLOWED_MARKDOWN = new Set([
   // R9's requested audit record is part of the tracked release documentation.
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
+  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
   "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
   "docs/audit/2026-11-02-r2-figr-figures.md",
@@ -695,6 +697,8 @@ describe("public release contract", () => {
       // D-87: public restriction and debt-carrying reconciliations.
       read("tests/financialComposition.cashScope.test.ts"),
       read("tests/edgar.debtNoteCarrying.test.ts"),
+      // R8: the public acquisition-closing item exercises bounded lifecycle context.
+      read("tests/stageC.eventContextBudget.test.ts"),
         // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
         read("tests/edgar.operatingExpenseScope.test.ts"),
       // Independent audit 2026-10-19: five trimmed live-run companyfacts payloads.
@@ -703,7 +707,8 @@ describe("public release contract", () => {
 
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
-    expect(edgarFixtures).toHaveLength(51);
+    // R8 adds one referenced public 8-K item; no private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(52);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

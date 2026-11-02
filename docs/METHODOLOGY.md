@@ -387,16 +387,18 @@ rule of D-28 is restored.
 
 **Insider statistics (AI-117, D-125).** FMP's insider statistics are
 calendar-quarter rows. Its `totalPurchases` and `totalSales` are counts of
-open-market transactions (Form 4 codes P and S), not shares; the acquired and
-disposed share volumes are separate fields that cover every reported
-acquisition or disposition, awards, option exercises, gifts and tax
-withholding included (SEC, "Ownership Form Codes"). The payload sums the
+open-market or private transactions (Form 4 codes P and S), not shares; the
+acquired and disposed share volumes are separate provider fields intended to
+include all reported codes, such as awards, option exercises, gifts and tax
+withholding (SEC, "Ownership Form Codes"). R8 qualifies that the acquired-share
+subtotal can be incomplete; these are not a complete SEC transaction inventory,
+and aggregate per-code share totals are unavailable. The payload sums the
 trailing four complete calendar quarters before the quarter that contains the
 fetch day and states the window in every label ("four calendar quarters ended
 2026-06-30"), in the record's `period` (the window end) and in its
 `periodContext` (`duration`, with `basis: "rolling-12-month"` when four quarters
 are summed). The end date is named because FMP may serve no row for the newest
-complete quarter. Five figures are registered: open-market purchase and sale
+complete quarter. Five figures are registered: purchase and sale
 transaction counts (unit `count`), shares acquired and shares disposed (unit
 `shares`), and the acquired/disposed transaction-count ratio (acquired
 transactions over disposed transactions, all codes). The quarter in progress is
@@ -5643,6 +5645,41 @@ notice needs; ordering releases that state no period is left for a later
 batch.
 
 **8-K event excerpts (D-124).** An Item's operative passages keep its dated lead, the parties it names and its amounts, and an award of shares ("for 4,912 shares") ranks with the dollar amounts. Only for 8-K event excerpts, a selected passage that begins with an honorific and surname ("Ms. Testcase’s annual salary is ...") is added together with the nearest earlier passage that names that surname in full, and a passage that begins with a third-person pronoun (optionally after an introductory "In 2026," phrase) is added together with the passage immediately before it, whatever that passage says. This repeats for up to three referent hops, stopping at a passage already kept or one the chain already holds (a cycle); when an honorific has no earlier full name, the passage is kept alone. The chain is all or nothing: if it does not fit the remaining budget, none of it is added. A continuation passage that already keeps its previous passage (funding, marketing or backlog context) keeps that one passage instead of a chain. Coverage version `section-evidence-5/event`; the business, financial and interim readings keep `section-evidence-2`. R1 (FIGR paid audit, 2026-11-02): the priority passages are kept in tiers, in source order within a tier: the dated lead (which may follow a short item sub-heading such as "Merger Agreement On June 10, 2026"), then amounts and credit-support clauses (an amount written out in digits to the millions counts), then passages that only define a party (a defined term may have spaces inside its quotes). An acquisition completion (Item 2.01) or an Item 1.01 merger or purchase agreement keeps 1,800 characters, as a credit-support agreement does; other events keep 1,200 within the 8,600-character total. Coverage version `section-evidence-6/event`.
+
+**Qualifying filing context (R8, FIGR paid audit, 2026-11-02).** Quarterly
+MD&A and annual/interim notes retain whole sentences and flattened tables
+instead of splitting them every 1,100 characters. Referenced KPI footnotes,
+metric deductions and denominators, subsequent definition changes and
+retrospective application travel as atomic context groups. Local financing
+status (unused, repaid, terminated or deconsolidated) binds adjacent terms;
+conditional termination rights do not establish an actual closure. Component
+tables, related-party liability classification, quantitative fair-value
+sensitivities with shock headers and independence/ownership limitations,
+material expense causes, third-party cash and dated remaining repurchase
+authorization receive priority over repeated numeric discussion. Oversized
+groups are omitted together, with source offsets and omission coverage.
+
+After critical disclosures and superseding operating measures, qualifying
+contexts rotate by kind within 75% of the source cap; existing priorities and
+financial families then use the remaining space. For cut notes and quarterly
+MD&A, the serialized category-coverage estimate (capped at 10% of the source
+cap) is reserved in addition to the existing truncation-marker allowance.
+Lower-ranked text pays for those disclosures. All payload caps stay fixed.
+An omitted 8-K financing-status group may take a separate excerpt of at most
+1,200 characters from the same 8,600-character event pool, before lower-ranked
+later event text. The primary transaction excerpt remains capped at 1,800.
+Inline numbered 8-K clauses stay together; supplements retain the accession,
+filing date and original offsets, and do not repeat the full family matrix.
+Risk/business readings and the ordinary financial reading retain their prior
+selection behavior. Shared version stamps are left for integration.
+
+The insider block separately dates eligible provider transaction rows and the
+smaller displayed detail sample. Neither establishes complete aggregate-window
+coverage. Aggregate per-code share totals are unavailable, selected withholding
+rows cannot establish the withholding proportion, and the provider's acquired
+subtotal can omit transactions such as option exercises. FRED monthly dates
+label observation months by their first day, not release dates; core CPI
+transforms are explicitly identified as year-over-year percentages.
 
 **A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
 reaches the analysis passes as a 12,000-character selection read for

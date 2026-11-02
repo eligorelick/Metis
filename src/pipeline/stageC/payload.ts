@@ -81,7 +81,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { operatingMeasuresStated, selectMaterialEvidence, selectGovernanceEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
+import { operatingMeasuresStated, selectMaterialEvidence, selectGovernanceEvidence, selectEventLifecycleEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -2063,7 +2063,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
     notes.push(
       `Insider statistics: FMP calendar quarters ${list} (${win.start} to ${win.end}) summed` +
         `${win.inProgress ? `; ${win.inProgress.year} Q${win.inProgress.quarter} is in progress at ${statsAsOf} and is left out (its Form 4 rows are listed below)` : ""}. ` +
-        "Purchase and sale figures count open-market or private transactions (Form 4 codes P and S), not shares; their venue and motive are not established. The share volumes cover every reported acquisition or disposition.",
+        "Purchase and sale figures count open-market or private transactions (Form 4 codes P and S), not shares; their venue and motive are not established. Per-code share totals for the aggregate window are not available; selected F-code rows do not establish the tax-withholding share of total dispositions. The provider's acquired-share subtotal can be incomplete, including option exercises; these are provider aggregates, not a complete SEC transaction inventory.",
     );
   } else if (statsAsOf !== null) {
     const current = insiderQuarterContaining(statsAsOf);
@@ -2073,12 +2073,18 @@ function insidersSection(bundle: DataBundle): PayloadSection {
     }
   }
   const observed = rowsOf(bundle.insiderTrades).filter(tr => tr.formType === undefined || /^4(?:\/A)?$/.test(tr.formType));
+  const trades = observed.slice(0, PAYLOAD_BUDGETS.listRows);
+  const transactionSpan = (rows: typeof observed): string => {
+    const days = rows.map(tr => isoDay(tr.transactionDate)).filter((day): day is string => day !== null && isIsoDate(day)).sort();
+    return days.length > 0 ? `${days[0]} to ${days.at(-1)}` : "unavailable";
+  };
   const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
     .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
   const lastFiling = filingDates.at(-1) ?? null;
   // Integration review (R6): one citable figure; the same words as a note too
   // printed the statement twice in every payload.
   const coverage = `Last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
+    `${observed.length} selected provider rows cover transaction dates ${transactionSpan(observed)}; ${trades.length} detailed rows shown cover only ${transactionSpan(trades)}. Neither span establishes coverage outside those dates or a complete aggregate-window code breakdown. ` +
     "This is the latest filing date among selected provider rows, not proof of a complete SEC filing review; transaction dates and filing dates differ. " +
     "Form 144 proposed-sale notices are not collected by the current providers and were not inspected. Proposed sales and Rule 10b5-1 plan capacity are not executed sales.";
   figures.push({ label: "Insider filing coverage", value: coverage, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0, 10) });
@@ -2107,7 +2113,6 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       }).join("; ") + ". Codes S/P are reported sales/purchases; F is not a sale code. These row totals are not a complete post-window aggregate and may overlap across joint owners or amendments; do not infer unique shares sold or motive.");
     } else notes.push(`No dated post-window Form 4 rows are available in the selected provider rows after ${win.end}; this does not establish no activity.`);
   }
-  const trades = observed.slice(0, PAYLOAD_BUDGETS.listRows);
   for (const tr of trades) {
     const d = isoDay(tr.transactionDate) ?? isoDay(tr.filingDate) ?? "unknown";
     notes.push(
@@ -2256,6 +2261,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
 function macroSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const conversions: string[] = [];
+  const transforms: string[] = [];
   // Core series carry the transform the dashboard fetched them with (CPI is
   // YoY %); sector series are fetched as levels (dataBundle: units "lin").
   const coreUnits = new Map(CORE_SERIES.map((spec) => [spec.id, spec.units]));
@@ -2284,6 +2290,7 @@ function macroSection(bundle: DataBundle): PayloadSection {
             asOf: last.date,
           });
           if (figureUnit.qualifier !== null) conversions.push(`${seriesId}: ${figureUnit.qualifier}`);
+          if (unitsOf(seriesId) === "pc1") transforms.push(`${seriesId}: year-over-year %`);
         }
       }
     }
@@ -2297,7 +2304,10 @@ function macroSection(bundle: DataBundle): PayloadSection {
   return payloadSection({
     title: "Macro (FRED latest values)",
     figures,
-    notes: [bundle.macro.attribution, ...(conversions.length > 0 ? [`Units: ${conversions.join("; ")}`] : [])],
+    notes: [bundle.macro.attribution,
+      "FRED monthly series use the first day to label the observation month, not the release date; daily series retain their observation day.",
+      ...(transforms.length > 0 ? [`Transforms: ${transforms.join("; ")}`] : []),
+      ...(conversions.length > 0 ? [`Units: ${conversions.join("; ")}`] : [])],
   });
 }
 
@@ -2571,7 +2581,8 @@ export function eightKEventBudget(items: readonly string[], body: string): numbe
 
 /**
  * The latest earnings release and CFO commentary narratives, and one excerpt
- * per material-event 8-K (audit work package 3). Each 8-K excerpt has its own
+ * per material-event 8-K, with omitted financing status funded from the shared
+ * event pool (R8). Each 8-K excerpt has its own
  * source (the accession) and as-of (its filing date), so a sentence citing it
  * is read against that filing's text only (D-45 excerpt matching).
  */
@@ -2643,6 +2654,13 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
       spans: cut.spans,
       coverage: cut.coverage,
     });
+    const status = selectEventLifecycleEvidence(body, Math.min(PAYLOAD_BUDGETS.eightKEventChars, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), cut.spans);
+    if (status !== null) {
+      used += status.text.length;
+      out.push({ title: `8-K financing lifecycle (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+        source: `edgar:8-K ${event.accession}`, asOf: event.filingDate,
+        text: status.text, truncated: status.truncated, originalChars: status.originalChars, spans: status.spans, coverage: status.coverage });
+    }
   }
   return out;
 }

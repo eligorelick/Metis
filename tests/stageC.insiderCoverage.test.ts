@@ -12,6 +12,19 @@ function payload(trades: Record<string, unknown>[]) {
 }
 
 describe("insider inspected coverage", () => {
+  it("bounds both selected-row date spans and refuses aggregate code attribution or acquisition completeness (R8)", () => {
+    const p = payload(Array.from({ length: 100 }, (_, i) => ({
+      transactionDate: i === 99 ? "2026-03-24" : "2026-07-01", filingDate: "2026-07-02", formType: "4", transactionType: "F-InKind", securitiesTransacted: 80,
+    })));
+    const text = p.insiders.notes.join(" ") + " " + p.insiders.figures.find(f => f.label === "Insider filing coverage")?.value;
+    expect(text).toContain("100 selected provider rows");
+    expect(text).toContain("2026-03-24 to 2026-07-01");
+    expect(text).toContain("12 detailed rows shown");
+    expect(text).toContain("2026-07-01 to 2026-07-01");
+    expect(text).toMatch(/per-code share totals.*aggregate window.*not available/i);
+    expect(text).toMatch(/acquired-share subtotal.*incomplete/i);
+    expect(text).not.toContain("share volumes cover every reported acquisition");
+  });
   it("separates aggregate dates, last inspected Form 4 filing, post-window codes and uncollected Form 144 notices", () => {
     const rows = [
       { transactionDate: "2026-07-01", filingDate: "2026-07-02", formType: "4", transactionType: "S-Sale", securitiesTransacted: 300 },

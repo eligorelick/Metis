@@ -41,6 +41,17 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Deterministic (R9): Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
 - Deterministic (R9): Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
 - Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+- Evidence (R8): Keep complete filing sentences, referenced KPI definitions and footnotes,
+  financing lifecycle qualifications, material component and sensitivity tables,
+  expense drivers, dated repurchase capacity and third-party cash context.
+- Evidence (R8): Retain omitted acquisition-facility closures from the existing shared 8-K
+  pool. Reserve coverage overhead from lower-ranked source text; no caps rise.
+- Evidence (R8): Bound insider row coverage separately from aggregate windows, disclose absent
+  per-code share totals and potentially incomplete acquisitions, and explain
+  FRED monthly observation dates and CPI year-over-year transforms.
+- Evidence (R8): Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
+  341,152 characters (−1,003). Stored data are unchanged.
+  See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
 
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 

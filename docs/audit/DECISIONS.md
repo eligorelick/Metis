@@ -4507,3 +4507,41 @@ composition and Stage C byte pins remain covered. R9 restores only its reviewed
 SBC label/id leaves before historical byte pins; no shared stamp is changed.
 Read-only frozen-input replay and check receipts:
 `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+
+## D-next (R8)
+
+### Qualifying source context within existing payload caps (2026-11-02)
+
+The paid FIGR audit found complete facts in the frozen filings whose selected
+excerpts omitted definitions, later financing status, component tables or
+causal explanations. Retain whole notes/interim sentences and tables. Bind
+referenced KPI footnotes and metric deductions/denominators, definition
+changes and retrospective application, adjacent facility/control status,
+income components, and sensitivity shock headers with their assumptions and
+ownership limitations. Prioritize material drivers, related-party liability
+classification, third-party cash and dated unused repurchase authorization.
+Atomic groups that cannot fit are omitted together with explicit coverage.
+
+Qualifying contexts rotate within 75% of the source cap after critical and
+superseding evidence. Coverage metadata is funded from lower-ranked text,
+with its reservation capped at 10%. Inline 8-K enumerations remain one
+sentence. Omitted financing closure context can use a separate 1,200-character
+excerpt from the existing 8,600-character event pool before later event text;
+primary transaction excerpts remain capped at 1,800. Conditional termination
+rights are not actual closures. No payload caps or shared stamps change.
+
+The insider block dates eligible and displayed selected rows separately from
+the provider aggregate window, states unavailable aggregate per-code share
+totals, and qualifies potentially incomplete acquired-share subtotals. The
+macro block explains monthly observation dates and core CPI YoY transforms.
+
+Tests: `tests/evidenceSelection.context.test.ts`,
+`tests/stageC.eventContextBudget.test.ts`, `tests/stageC.insiderCoverage.test.ts`,
+and the macro/payload pin cases in `tests/stageC.payload.passes.test.ts`.
+Historical financial pins remain intact through an explicitly asserted R8
+wording restoration; the public fixture inventory adds one referenced item.
+
+Offline frozen replay: 342,155 → 341,152 characters (−1,003), fingerprint
+`1.61.0:cef2673b`; all eleven requested evidence items retained. No paid API,
+real database, prompts, report/export code or verifier was changed. See
+[R8 audit and replay lines](2026-11-02-r8-figr-evidence-selection.md).
