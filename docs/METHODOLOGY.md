@@ -6013,3 +6013,5 @@ AI-116 review: the historical title-check qualification requires an explicit par
 RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.
 
 Data-only macro tables list each FRED series once, keeping the core transform and merging sector relevance (AI-201). Identical stored rows merge for display only.
+
+The live reverse-DCF growth solve is starting revenue growth that fades to terminal, with the base year-one rate alongside it; it is not the path CAGR (RPT-501).

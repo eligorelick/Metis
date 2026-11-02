@@ -3113,3 +3113,5 @@ Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word 
 AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.
 
 DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+
+RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
