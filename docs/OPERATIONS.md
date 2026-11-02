@@ -468,3 +468,5 @@ This contract reproduces Stage B calculations and preserves the evidence acquire
 P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
 
 Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
+
+History comparisons distinguish a withheld grade (became unavailable or available) from an added or removed section (DB-002).

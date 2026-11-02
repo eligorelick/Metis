@@ -25,3 +25,7 @@ export const DIFF_REASON_LABELS: Record<DiffReasonCode, string> = {
   "currency-mismatch": "Currencies are not comparable",
   "period-mismatch": "Periods are not comparable",
 };
+
+export function gradeEndpointText(change: import("./diff").GradeChange, side: "from" | "to"): string {
+ return change[side] ?? ((side === "from" && change.transition === "added") || (side === "to" && change.transition === "removed") ? "absent" : "not assessed");
+}

@@ -755,7 +755,7 @@ export function diffReports(
     const to = toBlock ? gradeForDisplay(toBlock) : null;
     if (from === to) continue;
     const transition =
-      from === null ? "added" : to === null ? "removed" : "changed";
+      fromBlock === undefined ? "added" : toBlock === undefined ? "removed" : from === null ? "became-available" : to === null ? "became-unavailable" : "changed";
     gradeChanges.push({
       section: descriptor.key,
       from,
