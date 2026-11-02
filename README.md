@@ -2,22 +2,20 @@
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
-Metis is a local-first equity research app with financial calculations and optional AI. Its name comes from the ancient Greek Titan goddess associated with wisdom and planning; see the [brand guide](docs/BRAND.md). Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Metis Ink and Metis Ivory, saved in this browser. Both designs offer paginated price/relative-strength tables.
+**Metis writes equity research reports on US-listed companies from primary sources (SEC filings, market data, consensus estimates and macro series), with every cited figure traced to its record.** It runs on your own machine, computes the financial analysis in deterministic TypeScript, and can have two AI analysts argue the bull and bear cases before a judge writes the report. The name comes from the Greek Titan of wisdom and planning ([brand guide](docs/BRAND.md)).
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
-## What it does
+## What a report covers
 
-- Fetches typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance,
-  FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website,
-  and validates freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
-- Computes growth, returns, capital structure, valuation, scenarios,
-  technicals, grades and forensic indicators in deterministic TypeScript, on a
-  sector route drawn from the industry label and SIC code and checked against
-  filed facts, which can refine broad financial-industry labels when corroborated.
-- Optionally runs separate bull and bear analyses and a judge pass, traces
-  cited numbers against the registry without another model call, and turns
-  missing inputs into disclosed gaps rather than fabricated values.
+Verdict and executive summary · how the company makes money, its segments, and its market and industry structure · fundamentals and quarterly trends · balance sheet and capital · valuation (a sector-appropriate intrinsic value, multiples against history and peers, sensitivity grids, reverse DCF) · quality and forensic red flags · technicals · leadership, compensation and insider activity · competitors and moat · dated catalysts and risks · outlook and weighted bull/base/bear projections · macro context · an appendix of sources, data gaps and verification results.
+
+## How it works
+
+1. **Collect.** Typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance, FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website, checked for freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
+2. **Compute.** Growth, returns, capital structure, valuation, scenarios, technicals, grades and forensic indicators on a sector route (industrial, bank, insurer, REIT and others) drawn from the industry label and SIC code and checked against filed facts. Missing inputs become disclosed gaps, never guesses.
+3. **Analyse (optional AI).** Independent bull and bear analysts research recent developments, the market and the competitors, then a judge weighs both cases and writes the report.
+4. **Verify.** Cited figures are traced to the record they cite, and the prose around them is checked for direction, period and unit, without another model call.
 
 ## Quick start
 
