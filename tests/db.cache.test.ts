@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Unit tests for the db/cache/settings module: cachedFetch fresh/stale/miss
  * paths, cache-key determinism, invalidation helpers, and settings precedence.
  * No network â€” everything runs against an in-memory better-sqlite3 database
@@ -886,7 +886,7 @@ it("P5 merged abort never resolves from an adjacent cached window", async () => 
 });
 it("P5 FMP non-JSON 503 retains the adjacent history window", async () => {
   let status = 200;
-  const client = createFmpClient({ apiKey: "offline", cachedFetch: makeFmpCachedFetch(), maxRetries: 0,
+  const client = createFmpClient({ apiKey: "offline", cachedFetch: makeFmpCachedFetch(),
     limiter: makeLimiter(1000, 1000), fetchImpl: async () => new Response(status === 200 ? JSON.stringify([{ symbol: "HST", date: "2026-10-01", close: 12 }]) : "<html>unavailable</html>", { status }) });
   expect((await client.historicalPriceEodFull("HST", "2025-10-01", "2026-10-01")).ok).toBe(true);
   status = 503;

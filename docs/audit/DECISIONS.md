@@ -3172,3 +3172,8 @@ Disclose partial prose-plan parsing, and retain terminations with unknown expira
 ### D-next (P5): B-F8 (DATA-102) review correction
 
 The SEC-fallback peer profile depends on its own submissions freshness only. Coordinator decision: subject submissions establish SIC comparison but must not mark the peer profile stale; stale peer submissions, facts, quotes and split evidence still propagate through their own envelopes. Stored report bytes are unchanged.
+
+
+### D-next (P5): Verification follow-up (Step 1) review correction
+
+Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised. The typechecker caught the test-only option; production behavior is unchanged. All A-F1 through A-F8 and B-F1 through B-F8 changes are committed; B-F9 through B-F11 are informational and require no change. Final gate receipts and the final commit mapping are retained in HANDOFF-FIXROUND.md. Stored report bytes are unchanged.

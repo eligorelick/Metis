@@ -160,3 +160,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F8 (DATA-102) | Fixed: The SEC-fallback peer profile depends on its own submissions freshness only. | This commit | fixround-b8-red / fixround-b8-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| Verification follow-up (Step 1) | Fixed: Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised. | This commit | fixround-typecheck (red) / fixround-typecheck2 (green); fixround-cleanup-focused | No persisted rewrite |
