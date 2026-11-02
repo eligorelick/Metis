@@ -619,3 +619,12 @@ is V(520M)/110M=11.879000243131742. Keep the mathematical minimum and flag
 this conflict to the coordinator. Initial green runs caught the old 950-book
 alternative-row lookup (now selected-reading book) and an over-precise new
 reverse-solve assertion; the inverse now equals the consistent control exactly.
+
+
+## Review round 2: F2
+
+Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F2 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f2-red` / `f2-green-initial` | Saved figures/bytes retained; re-run uses corrected method |

@@ -111,3 +111,47 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
     expect(v.reverseSolve.impliedCurrentRoePct).toBe(reference.reverseSolve.impliedCurrentRoePct);
   });
 });
+
+
+describe("F2: market EV and own-history count tagged preferred once", () => {
+  it.each([0, 300 * M, 500 * M, 1000 * M])("folds the claim against permanent preferred %s", permanent => {
+    const b = convertibleBundle("preferred", 500 * M, M);
+    for (const result of [b.statements.balanceAnnual, b.statements.balanceQuarterly]) {
+      if (!result.ok) throw new Error("balance");
+      for (const row of result.value.data.rows) row.preferredStock = permanent;
+    }
+    const control = structuredClone(b);
+    withIssuerFacts(control, { cik: 42, entityName: "Test", facts: {} });
+    const before = runStageB(control).valuation;
+    const after = runStageB(b).valuation;
+    expect(after.multiples.enterpriseValue.value! - before.multiples.enterpriseValue.value!).toBe(Math.max(0, 500 * M - permanent));
+    expect(after.dcf?.bridge.preferred).toBe(Math.max(permanent, 500 * M));
+  });
+  it("folds each historical quarter's own claim before computing EV ranks", () => {
+    const b = buildSyntheticRouteBundle("general", { quarterHistory: true });
+    if (!b.statements.incomeQuarterly.ok) throw new Error("income");
+    for (const row of b.statements.incomeQuarterly.value.data.rows) row.revenue = 100 * M;
+    const control = structuredClone(b);
+    withIssuerFacts(control, { cik: 42, entityName: "Test", facts: {} });
+    if (!b.statements.balanceQuarterly.ok || !b.statements.incomeQuarterly.ok) throw new Error("history");
+    const dates = b.statements.balanceQuarterly.value.data.rows.map(row => String(row.date));
+    withIssuerFacts(b, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+      ConvertiblePreferredStockNonredeemableOrRedeemableIssuerOptionValue: { units: { USD: dates.map(end => ({ end, val: end === dates[0] ? 500 * M : 50 * M, form: "10-Q", filed: "2026-04-30", accn: "test" })) } },
+    } } });
+    const before = runStageB(control).valuation.multiples;
+    const after = runStageB(b).valuation.multiples;
+    expect(after.enterpriseValue.value! - before.enterpriseValue.value!).toBe(500 * M);
+    const prior = before.multiples.find(row => row.key === "evToSales")!.ownHistory!;
+    const current = after.multiples.find(row => row.key === "evToSales")!.ownHistory!;
+    expect(current.observationDetails!.length).toBeGreaterThanOrEqual(8);
+    for (const row of current.observationDetails!) {
+      const old = prior.observationDetails!.find(x => x.periodEnd === row.periodEnd)!;
+      const revenue = b.statements.incomeQuarterly.value.data.rows.filter(x => String(x.date) <= row.periodEnd!).slice(0, 4).reduce((sum, x) => sum + Number(x.revenue), 0);
+      expect(row.value - old.value).toBeCloseTo((row.periodEnd === dates[0] ? 500 * M : 50 * M) / revenue, 10);
+    }
+    expect(prior.percentileRank).toBeNull(); // flat, equal-EV control
+    expect(current.percentileRank).toBe(100); // dated 500M current claim exceeds historical 50M claims
+    expect(current.rankedCurrent).toEqual(prior.rankedCurrent);
+    expect(after.multiples.find(row => row.key === "evToSales")!.current! - before.multiples.find(row => row.key === "evToSales")!.current!).toBeGreaterThan(0);
+  });
+});

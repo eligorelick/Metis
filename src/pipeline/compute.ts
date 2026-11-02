@@ -1,4 +1,4 @@
-import { convertibleInstrumentsAt } from "@/pipeline/stageB/convertibles";
+import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
@@ -3995,6 +3995,18 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           depreciationAndAmortization: num(ctx.cashflowAnnual[0].depreciationAndAmortization),
         }
       : null;
+  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
+  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
+    confirmedIssuerFacts(bundle.symbol, bundle.edgar),
+    { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
+    isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
+    bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
+    { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
+  // F2: market and historical EV use the same dated, overlap-aware preferred claim.
+  const preferredForEv = (row: FmpBalanceSheetRow | null | undefined) => {
+    const read = readConvertibles(row);
+    return foldConvertiblePreferred(num(row?.preferredStock), read.convertiblePreferredClaim, read.preferredSeriesDistinct).preferred;
+  };
   const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
   // FIN-103: the DCF bridge's own row, mapped the same way.
   const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
@@ -4070,8 +4082,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     reportedCurrency: ctx.modelCurrency,
     incomeTtm: multiplesIncomeTtm,
     cashFlowTtm: multiplesCashFlowTtm,
-    balance: multiplesBalance,
-    quarterlyFundamentals,
+    balance: multiplesBalance === null ? null : { ...multiplesBalance, preferredStock: preferredForEv(balPoint) },
+    quarterlyFundamentals: quarterlyFundamentals.map(row => ({ ...row, preferredStock: preferredForEv(row) })),
     enterpriseValuesHistory,
     reitSubmap: route.reitSubmap,
     ffoApprox: route.base === "reit" ? ffoApprox : null,
@@ -4132,7 +4144,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // is the per-share denominator only when the basic count from the same row
   // spans every class (`issuerEconomicDilutedShares`); it is then restated in
   // quoted-share units.
-  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
   const economicDiluted = issuerEconomicDilutedShares(
     resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
     bundle.economicShareEvidence ?? [],
@@ -4141,12 +4152,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
-  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
-    confirmedIssuerFacts(bundle.symbol, bundle.edgar),
-    { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
-    isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
-    bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
-    { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
   const bridgeConvertibles = readConvertibles(bridgePoint);
   const financialConvertibles = readConvertibles(balPoint);
   const instrumentsOnEconomicBasis = (read: typeof bridgeConvertibles) => {
