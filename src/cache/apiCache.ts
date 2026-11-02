@@ -41,9 +41,8 @@ export const TTL = {
   /** quotes / aftermarket / batch / index quotes — 15 min (FMP cycle "Real-Time"). */
   QUOTE: 900,
   /**
-   * Design intent: EOD 24 h with a 15-min current-trading-day tail. The
-   * tail is NOT implemented — the wired TTL is FMP_TTLS.historicalPriceEodFull
-   * (flat 24 h in fmp.ts); this 900 encodes the aspirational tail only.
+   * EOD history uses 24 hours for historical windows. Current-date tails
+   * use the session-aware 15-minute policy in the durable provider adapters.
    */
   EOD: 900,
   /**
@@ -129,6 +128,10 @@ export function buildCacheKey(provider: string, endpoint: string, params: CacheP
 // ---------------------------------------------------------------------------
 
 export interface CachedFetchOptions<T> {
+  expiredHit?: "serve-stale" | "refresh-first";
+  fallback?: { acceptKey:(endpoint:string)=>boolean; when:(error:unknown)=>boolean };
+
+  signal?: AbortSignal;
   /** Provider id — becomes Sourced.source. */
   provider: DataSource;
   /** Endpoint path/derivation — becomes Sourced.endpoint and keys invalidation. */
@@ -316,7 +319,7 @@ const inFlightRefreshes = new Map<string, Promise<void>>();
  * fetch every member twice and race to store the same row (audit 2026-09-06,
  * F231); the refresh path was single-flight, the miss path was not.
  */
-const inFlightMisses = new Map<string, Promise<unknown>>();
+const inFlightMisses = new Map<string, { promise: Promise<unknown>; signal?: AbortSignal }>();
 
 function startBackgroundRefresh<T>(cacheKey: string, opts: CachedFetchOptions<T>): void {
   if (inFlightRefreshes.has(cacheKey)) return; // one refresh per key at a time
@@ -383,6 +386,12 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
     const fetched = await fetcher();
     assertValidBody(cacheKey, fetched.body, opts);
     const fetchedAt = new Date().toISOString();
+    if(opts.expiredHit==="refresh-first") {
+      const old=existingRowToPreserve(db,cacheKey,fetched.body,opts);
+      if(old && (Date.now()-Date.parse(old.fetchedAt))/1000 <= ttlSeconds+(opts.maxStaleSeconds??0)) {
+        return {data:old.body,asOf:old.asOf,source:provider,endpoint,fetchedAt:old.fetchedAt,stale:true,staleReason:"empty-refresh-preserved"};
+      }
+    }
     // This path is used for misses, corrupt-row self-healing, and synchronous
     // refreshes beyond the hard stale ceiling. At the ceiling the fetched body
     // is authoritative even when it is empty: retaining the old row here could
@@ -409,13 +418,29 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
   }
 
   /** Single-flight wrapper: concurrent callers of one key share one fetch. */
-  function fetchStoreReturnOnce(): Promise<Sourced<T>> {
+  function fetchStoreReturnOnce(mayRetry = true): Promise<Sourced<T>> {
     const existing = inFlightMisses.get(cacheKey);
-    if (existing !== undefined) return existing as Promise<Sourced<T>>;
-    const pending = fetchStoreReturn().finally(() => {
-      if (inFlightMisses.get(cacheKey) === pending) inFlightMisses.delete(cacheKey);
+    if (existing !== undefined) return (existing.promise as Promise<Sourced<T>>).catch((error: unknown) => {
+      if (mayRetry && existing.signal?.aborted && !opts.signal?.aborted) return fetchStoreReturnOnce(false);
+      throw error;
     });
-    inFlightMisses.set(cacheKey, pending);
+    const pending = fetchStoreReturn().catch((error:unknown)=>{
+      if(!opts.fallback?.when(error))throw error;
+      const rows=db.select().from(apiCache).where(eq(apiCache.provider,provider)).all().sort((a,b)=>b.fetchedAt.localeCompare(a.fetchedAt));
+      for(const row of rows) {
+        const age=(Date.now()-Date.parse(row.fetchedAt))/1000;
+        if(row.endpoint===endpoint||!Number.isFinite(age)||age<0||age>7*86400||!opts.fallback.acceptKey(row.endpoint))continue;
+        try {
+          const data=JSON.parse(decodeCacheBody(row)) as T;
+          if(opts.validateBody?.(data))continue;
+          return {data,asOf:row.asOf,source:provider,endpoint,fetchedAt:row.fetchedAt,stale:true,staleReason:"window-fallback" as const,servedEndpoint:row.endpoint,staleDetail:error instanceof Error?error.message:"transient request failure"};
+        }catch {continue;}
+      }
+      throw error;
+    }).finally(() => {
+      if (inFlightMisses.get(cacheKey)?.promise === pending) inFlightMisses.delete(cacheKey);
+    });
+    inFlightMisses.set(cacheKey, { promise: pending, signal: opts.signal });
     return pending;
   }
 
@@ -457,6 +482,10 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
     };
     if (fresh) return sourced;
     if (tooStale) return fetchStoreReturnOnce();
+    if(opts.expiredHit==="refresh-first") {
+      try {return await fetchStoreReturnOnce();}
+      catch {return {...sourced,stale:true,staleReason:"refresh-failed"};}
+    }
     startBackgroundRefresh(cacheKey, opts);
     return {
       ...sourced,

@@ -1,3 +1,6 @@
+import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
+import {isTableOfContentsStub} from "@/edgar/currentReports";
+import {latestResultsRelease} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
@@ -46,7 +49,7 @@ import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
-import { buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
+import { statementFiscalPeriods, buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
@@ -74,7 +77,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { admittedGeography, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
 import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
@@ -2267,57 +2270,9 @@ const FISCAL_DAY_MS = 86_400_000;
 const fiscalDayMs = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
 /** The tolerance between a release's quarter end and a statement row's period end (fiscalLabelOf, releaseFiscalLabelContradicted). */
 const sameFiscalPeriodEnd = (a: string, b: string): boolean => Math.abs(fiscalDayMs(a) - fiscalDayMs(b)) <= 3 * FISCAL_DAY_MS;
-/** "Q1 FY2025" -> "Q2 FY2025"; "Q4 FY2025" -> "Q1 FY2026"; null for any other label. */
-function successorQuarterLabel(label: string): string | null {
-  const m = /^Q([1-4]) FY(\d{4})$/.exec(label);
-  if (m === null) return null;
-  return m[1] === "4" ? `Q1 FY${Number(m[2]) + 1}` : `Q${Number(m[1]) + 1} FY${m[2]}`;
-}
-
-/**
- * AI-512: a release label the run's own statement rows do not support.
- * (1) An annual or quarterly income-statement row ending within three days of
- * `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
- * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
- * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025" and
- * contradicts a "Q1" to "Q3" label, because an annual period that ends at the
- * quarter end makes that quarter the fiscal fourth.
- * (2) No labelled row lies within three days, but labelled quarterly rows
- * exist (the release is newer than every statement row, or older): the label
- * is supported only when the quarter end falls 80 to 100 days after the newest
- * labelled quarterly row's end and the label is that row's successor quarter.
- * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the label's fiscal year is the
- * newest labelled annual row's fiscal year + 1 and the quarter end falls 91n-11 to 91n+9 days (at most 366) after that row's
- * end, n being the label's quarter number.
- * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
- */
+/** AI-512-V1: titles and tables share the same statement comparison. */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
-  const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
-  let near = false;
-  let newest: { end: string; own: string } | null = null;
-  let newestAnnual: { end: string; own: string } | null = null;
-  const annual = rowsOf(bundle.statements.incomeAnnual);
-  const quarterly = rowsOf(bundle.statements.incomeQuarterly);
-  for (const row of [...annual, ...quarterly]) {
-    const end = isoDay(row.date);
-    const own = issuerFiscalLabel(row);
-    if (end === null || !isIsoDate(end) || own === null) continue;
-    if (quarterly.includes(row) && own.startsWith("Q") && (newest === null || end > newest.end)) newest = { end, own };
-    if (!quarterly.includes(row) && /^FY\d{4}$/.test(own) && (newestAnnual === null || end > newestAnnual.end)) newestAnnual = { end, own };
-    if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
-    near = true;
-    if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
-    if (!quarterly.includes(row) && /^Q[1-3]/.test(label)) return true;   // an annual period ending here makes this quarter the fiscal fourth
-  }
-  if (near) return false;
-  if (newest === null) {
-    if (newestAnnual === null) return false;
-    const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
-    const n = Number(/^Q([1-4])/.exec(label)?.[1] ?? 0);   // the quarter number fixes the days after a fiscal year end: Q1 80-100, Q2 171-191, Q3 262-282, Q4 353-366
-    return !(n >= 1 && days >= 91 * n - 11 && days <= Math.min(91 * n + 9, 366) && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
-  }
-  const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
-  return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);
+ return fiscalLabelContradicted(statementFiscalPeriods(bundle), label, periodEnd);
 }
 
 /**
@@ -2493,7 +2448,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   const res = bundle.edgar?.currentReports;
   if (!res?.ok) return [];
   const out: TextExcerpt[] = [];
-  const latest = res.value.data.releases[0];
+  const latest = latestResultsRelease(res.value.data.releases);
   const narrative = (text: string | null, title: string, source: string, budget: number): void => {
     if (latest === undefined || text === null || text.trim() === "" || !isIsoDate(latest.filingDate)) return;
     const cut = selectMaterialEvidence(text, budget);
@@ -2519,8 +2474,10 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     if (!isIsoDate(event.filingDate) || event.sections.length === 0) continue;
     if (used >= PAYLOAD_BUDGETS.eightKEventsTotalChars) break;
     const body = event.sections
+      .filter(s=>!isTableOfContentsStub(s.text))
       .map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`)
       .join("\n\n");
+    if(!body.trim())continue;
     // D-63: the operative paragraph's dated lead, named parties and amounts
     // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
     const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;
@@ -2528,7 +2485,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
     out.push({
-      title: `8-K current report — Items ${event.items.join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+      title: `8-K current report — Items ${[...new Set(event.sections.map(s=>s.item))].join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
       text: cut.text,
       source: `edgar:8-K ${event.accession}`,
       asOf: event.filingDate,
@@ -2655,9 +2612,9 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
         label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
     }
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
-    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
+    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: cr.dividendFrequency === null ? "cash dividend per share (frequency not stated)" : `${cr.dividendFrequency ?? "quarterly"} cash dividend per share`, value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
-    if (cr.dividendPayDate !== null) notes.push(`Next quarterly dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
+    if (cr.dividendPayDate !== null) notes.push(`Next ${cr.dividendFrequency ? `${cr.dividendFrequency} ` : ""}dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
   }
   for (const check of disclosures.guidanceChecks) {
     notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
@@ -2807,21 +2764,23 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
       for (const i of columns) {
         const q = axis.quarters[i]!;
         const value = row.values[i] ?? null;
-        if (value === null) continue;
+        if (value === null || row.earlierPresentationAt?.includes(i)) continue;
+        const cross = row.crossFilingAt?.includes(i) === true;
         // D-63: a cell filled as the total less the other rows says so.
         const residual = row.residualAt?.includes(i) === true;
         figures.push({
-          label: `${axis.axisLabel}: ${row.label} revenue${residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
+          label: `${axis.axisLabel}: ${row.label} revenue${cross ? " (derived across two filings)" : residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
           value,
           unit: "currency",
           currency: axis.currency,
           period: q.end,
           periodContext: { kind: "duration", start: q.start, end: q.end, basis: "fiscal-quarter" },
-          source: residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
+          source: cross ? "computed:xbrl segment cross-filing difference" : residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
           asOf,
         });
       }
     }
+    notes.push(crossFilingClause(axis.quarters.filter((_,i)=>axis.totalCrossFilingAt?.includes(i)||axis.rows.some(r=>r.crossFilingAt?.includes(i))).map(q=>q.end)));
     const children = axis.rows.filter((r) => r.childOf !== null);
     if (children.length > 0) notes.push(`${axis.axisLabel}: ${children.map((c) => c.label).join(" and ")} are components of ${axis.rows.find((r) => r.member === children[0]!.childOf)?.label ?? "another row"} (they sum to it in the latest quarter).`);
     if (axis.priorPresentation.length > 0) notes.push(`${axis.axisLabel}: members tagged only in earlier quarters (a prior presentation) are not shown: ${axis.priorPresentation.join(", ")}.`);
@@ -2867,19 +2826,20 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
       const latestEnd = ends[0]!;
       for (const row of axis.rows) {
         const latest = row.values[0];
-        if (latest === null || latest === undefined) continue;
+        if (latest === null || latest === undefined || row.earlierPresentationAt?.includes(0)) continue;
         const growth = (i: number | undefined): number | null => {
-          const prior = i === undefined ? null : row.values[i] ?? null;
+          const prior = i === undefined || !sameSegmentBasis(row.earlierPresentationAt,0,i) ? null : row.values[i] ?? null;
           return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
+        const sourceFor = (i: number | null, share = false) => row.crossFilingAt?.includes(0) || (i !== null && row.crossFilingAt?.includes(i)) || (share && axis.totalCrossFilingAt?.includes(0)) ? "computed:xbrl segment cross-filing difference" : base.source;
         // AI-406: a rate is computed only against the quarter its label names.
         const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
         const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
-        if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
-        if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
+        if (qoq !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, QOQ_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
+        if (yoy !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, YOY_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
         const total = axis.total[0];
-        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
+        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, source: sourceFor(null, true), label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
       }
     }
   }

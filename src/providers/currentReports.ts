@@ -1,3 +1,4 @@
+import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
 /**
  * Bounded EDGAR reads behind the 8-K and quarterly-segment ingestion (NVDA
  * report #34 audit, work package 3 and the data-depth part of 9).
@@ -374,6 +375,10 @@ export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[
  * covers a year of results. An update fills a slot only when fewer results
  * releases were read. Records stored before `reportsResults` count as results.
  */
+export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):EarningsReleaseRecord|undefined {
+ return ordered.find(r=>r.reportsResults!==false);
+}
+
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
@@ -501,14 +506,18 @@ export async function collectCurrentReports(
     releases.push(record);
   }
   const ordered = retainedEarningsReleases(releases);
-  releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const holder=latestResultsRelease(ordered);
+  releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const newer=holder ? ordered.slice(0,ordered.indexOf(holder)) : ordered;
+  if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}`);
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)
     .sort((a, b) => b.filingDate.localeCompare(a.filingDate))[0];
   const eventWindow = annual === undefined ? EVENT_WINDOW_DAYS : daysBetween(annual.filingDate, today);
-  const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items));
-  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS);
+  const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items)).sort((a,b)=>Number(itemsOf(b.items).some(i=>PRIORITY_EVENT_ITEMS.has(i)))-Number(itemsOf(a.items).some(i=>PRIORITY_EVENT_ITEMS.has(i))) || b.filingDate.localeCompare(a.filingDate));
+  for(const f of recentEightKs(filings,today,eventWindow,f=>!hasMaterialEventItem(f.items) && itemsOf(f.items).some(i=>!NON_EVENT_ITEMS.has(i)))) notes.push(`8-K ${f.accessionNumber} (${f.filingDate}; Items ${f.items}) is outside the material-event item filter and was not read.`);
+  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS).sort((a,b)=>b.filingDate.localeCompare(a.filingDate) || a.accessionNumber.localeCompare(b.accessionNumber));
   if (eventCandidates.length > eventFilings.length) notes.unshift(`Material-event reads limited to ${MAX_EVENT_FILINGS} of ${eventCandidates.length} filings since ${annual?.filingDate ?? `${EVENT_WINDOW_DAYS} days before ${today}`}; omitted unread evidence: ${eventCandidates.slice(MAX_EVENT_FILINGS).map((f) => `${f.accessionNumber} (${f.filingDate}; Items ${f.items ?? "unknown"})`).join("; ")}.`);
   for (const filing of eventFilings) {
     attempted += 1;

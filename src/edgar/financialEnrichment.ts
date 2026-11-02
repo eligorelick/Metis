@@ -5,7 +5,7 @@ import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
-import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -863,6 +863,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
   const gaps: ManifestEntry[] = [];
   // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
   const admissions: BalanceAdmission[] = [];
+  const filedTemporaryEnds = temporaryEquityFiledEnds(facts);
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
@@ -928,7 +929,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {
-          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik);
+          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik, filedTemporaryEnds);
           out = temporary.row;
           gaps.push(...temporary.gaps);
         }

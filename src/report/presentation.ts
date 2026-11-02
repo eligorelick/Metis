@@ -1,6 +1,7 @@
 import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
+import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
@@ -835,7 +836,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
   // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
-  const newer = report.filingDisclosures?.newerResults;
+  const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
   if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
     rows.push({
       label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,
@@ -850,10 +851,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
     const dividendCurrency = report.filingDisclosures?.currency;
     const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
-    rows.push(yieldCurrency.comparable ? {
+    const f=capitalReturn.dividendFrequency;
+    const multiplier=f===undefined?4:f==="quarterly"?4:f==="monthly"?12:f==="semi-annual"?2:f==="annual"?1:null;
+    const amount=money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true);
+    rows.push(yieldCurrency.comparable ? multiplier===null ? {
+      label:"Dividend yield",value:"withheld",note:f===null?"the release does not state the dividend's frequency":`a ${f} dividend is not annualized`,
+    } : {
       label: "Dividend yield",
-      value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
-      note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+      value: formatPct(((capitalReturn.dividendPerShare * multiplier) / price) * 100, 2),
+      note: f===undefined ? `${amount} annualized x4 as a quarterly dividend; this report did not record the release's stated frequency` : `${amount} ${f}${capitalReturn.dividendFrequencyBasis==="xbrl"?" (from the issuer's XBRL dividend facts)":""}${multiplier===1?"":", annualized"}`,
     } : {
       label: "Dividend yield", value: "withheld",
       note: yieldCurrency.mismatch

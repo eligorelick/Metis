@@ -1,7 +1,7 @@
 /**
  * Unit tests for the db/cache/settings module: cachedFetch fresh/stale/miss
  * paths, cache-key determinism, invalidation helpers, and settings precedence.
- * No network — everything runs against an in-memory better-sqlite3 database
+ * No network â€” everything runs against an in-memory better-sqlite3 database
  * injected via setDbForTests().
  */
 
@@ -186,7 +186,7 @@ describe("default database path", () => {
   });
 });
 
-describe("cachedFetch — miss path", () => {
+describe("cachedFetch â€” miss path", () => {
   it("fetches, stores, and returns a fresh Sourced<T>", async () => {
     const fetcher = vi.fn(async () => ({ body: { price: 123.45 }, asOf: "2026-07-06" }));
     const result = await cachedFetch({
@@ -250,7 +250,7 @@ describe("cachedFetch — miss path", () => {
   });
 });
 
-describe("cachedFetch — fresh hit path", () => {
+describe("cachedFetch â€” fresh hit path", () => {
   it("serves from cache without calling the fetcher", async () => {
     const first = vi.fn(async () => ({ body: [1, 2, 3], asOf: "2026-07-05" }));
     const opts = {
@@ -276,7 +276,7 @@ describe("cachedFetch — fresh hit path", () => {
   });
 });
 
-describe("cachedFetch — stale (serve-stale-while-revalidate) path", () => {
+describe("cachedFetch â€” stale (serve-stale-while-revalidate) path", () => {
   const opts = {
     provider: "fmp" as const,
     endpoint: "income-statement",
@@ -384,7 +384,7 @@ describe("cachedFetch — stale (serve-stale-while-revalidate) path", () => {
   });
 });
 
-describe("cachedFetch — empty body never clobbers good cached data (M6)", () => {
+describe("cachedFetch â€” empty body never clobbers good cached data (M6)", () => {
   // FMP wraps responses as { body, status, fetchedAt }; a transient 200-[] means
   // body === []. isEmptyBody detects that so an empty refresh cannot wipe a
   // previously-good non-empty statement/price body for the whole TTL.
@@ -411,7 +411,7 @@ describe("cachedFetch — empty body never clobbers good cached data (M6)", () =
     await flushPendingRefreshes();
     expect(emptyRefresh).toHaveBeenCalledTimes(1);
 
-    // The good row SURVIVED the empty refresh — it was not clobbered.
+    // The good row SURVIVED the empty refresh â€” it was not clobbered.
     const row = readRow(key);
     expect(JSON.parse(row!.bodyJson)).toEqual({ body: [{ revenue: 1 }], status: 200 });
     expect(row?.asOf).toBe("2026-04-01");
@@ -425,7 +425,7 @@ describe("cachedFetch — empty body never clobbers good cached data (M6)", () =
 
   it("stops preserving an empty refresh once the absolute stale ceiling is exceeded", async () => {
     await cachedFetch({ ...opts, fetcher: async () => ({ body: { body: [{ revenue: 1 }], status: 200 }, asOf: "2026-04-01" }) });
-    // Beyond ttl + maxStaleSeconds → the synchronous fetchStoreReturn path.
+    // Beyond ttl + maxStaleSeconds â†’ the synchronous fetchStoreReturn path.
     backdate(key, TTL.FUNDAMENTALS + 8 * 86_400);
 
     const refreshed = await cachedFetch({
@@ -606,10 +606,10 @@ describe("cachedFetch semantic validation", () => {
   });
 });
 
-describe("cachedFetch — corrupt row self-heals instead of crash-looping (L6)", () => {
+describe("cachedFetch â€” corrupt row self-heals instead of crash-looping (L6)", () => {
   it("deletes an undecodable (bad gzip) row and refetches", async () => {
     const key = buildCacheKey("fmp", "quote", { symbol: "AAPL" });
-    // Seed a FRESH row whose bodyGz is not valid gzip → decodeCacheBody throws.
+    // Seed a FRESH row whose bodyGz is not valid gzip â†’ decodeCacheBody throws.
     handle.db
       .insert(apiCache)
       .values({
@@ -781,4 +781,134 @@ describe("settings", () => {
       expect(getAnalysisEffortSetting()).toBe(level);
     }
   });
+});
+
+import {makeYahooCachedFetch,makeFmpCachedFetch} from "@/pipeline/dataBundle";
+it.each(["yahoo","fmp"])("DATA-114 %s retains a prior window after transient midnight failure",async(provider)=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-09-01T23:50:00Z"));
+ const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+ const key=(day:string)=>provider==="yahoo"?`yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-${day}&period2=2026-09-${day}`:`fmp:/stable/historical-price-eod/full?from=2025-09-${day}&symbol=TST&to=2026-09-${day}`;
+ await fetch(key("01"),86400000,async()=>({rows:[1]}));
+ vi.setSystemTime(new Date("2026-09-02T00:10:00Z"));
+ const result=await fetch(key("02"),86400000,async()=>{throw Object.assign(new Error("throttled"),{status:429});});
+ expect(result).toMatchObject({value:{rows:[1]},stale:true,staleReason:"window-fallback",fetchedAt:"2026-09-01T23:50:00.000Z"});
+ await expect(fetch(key("03"),86400000,async()=>{throw Object.assign(new Error("refused"),{status:403});})).rejects.toThrow("refused");
+ vi.useRealTimers();
+});
+
+import {historyWindowFallback} from "@/providers/historyCache";
+import {isTransientProviderError} from "@/providers/http";
+it("DATA-114 limits fallback to compatible windows and explicitly transient errors",()=>{
+ const f=historyWindowFallback("yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-02&period2=2026-09-02")!;
+ expect(f.acceptKey("yahoo:/v8/finance/chart/TST?interval=1d&period1=2025-09-01&period2=2026-09-01")).toBe(false);
+ expect(f.acceptKey("yahoo:/v8/finance/chart/OTHER?interval=1d&period1=2021-09-01&period2=2026-09-01")).toBe(false);
+ expect(f.acceptKey("yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-08-20&period2=2026-08-20")).toBe(false);
+ for(const status of [429,500,502,503,504])expect(isTransientProviderError({status})).toBe(true);
+ for(const status of [null,402,403,404,501,505])expect(isTransientProviderError({status})).toBe(false);
+ expect(isTransientProviderError(new Error("schema drift"))).toBe(false);
+});
+it("DATA-114 does not replace fresh success and refuses an eight-day cached window",async()=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-09-01T23:50:00Z"));
+ const fetch=makeYahooCachedFetch();
+ const key=(day:string)=>`yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-09-${day}&period2=2026-09-${day}`;
+ await fetch(key("01"),86400000,async()=>({rows:[1]}));
+ vi.setSystemTime(new Date("2026-09-02T00:10:00Z"));
+ expect(await fetch(key("02"),86400000,async()=>({rows:[2]}))).toMatchObject({value:{rows:[2]}});
+ vi.setSystemTime(new Date("2026-09-10T00:10:00Z"));
+ await expect(fetch(key("10"),86400000,async()=>{throw Object.assign(new Error("throttled"),{status:429});})).rejects.toThrow("throttled");
+ vi.useRealTimers();
+});
+
+it.each(["yahoo","fmp"])("DATA-112 %s refreshes today's tail before serving the post-close answer",async(provider)=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-27T18:00:00Z"));
+ const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+ const key=provider==="yahoo"?"yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-10-27&period2=2026-10-27":"fmp:/stable/historical-price-eod/full?from=2026-10-27&symbol=TST&to=2026-10-27";
+ await fetch(key,86400000,async()=>({close:104.5}));
+ vi.setSystemTime(new Date("2026-10-27T21:30:00Z"));
+ expect(await fetch(key,86400000,async()=>({close:110}))).toMatchObject({value:{close:110}});
+ vi.setSystemTime(new Date("2026-10-28T18:00:00Z"));
+ vi.useRealTimers();
+});
+
+it("DATA-112 tail refresh failure is explicit and empty refresh preserves last good",async()=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-27T18:00:00Z"));
+ const fetch=makeFmpCachedFetch();const key="fmp:/stable/historical-price-eod/full?from=2026-10-27&symbol=TST&to=2026-10-27";
+ await fetch(key,86400000,async()=>({body:[{close:104.5}]}));
+ vi.setSystemTime(new Date("2026-10-27T21:30:00Z"));
+ expect(await fetch(key,86400000,async()=>{throw new Error("offline");})).toMatchObject({value:{body:[{close:104.5}]},stale:true,staleReason:"refresh-failed"});
+ expect(await fetch(key,86400000,async()=>({body:[]}))).toMatchObject({value:{body:[{close:104.5}]},stale:true,staleReason:"empty-refresh-preserved"});
+ expect(await fetch(key,86400000,async()=>({body:[{close:110}]}))).toMatchObject({value:{body:[{close:110}]}});
+ expect(await fetch(key,86400000,async()=>{throw new Error("must remain fresh");})).toMatchObject({value:{body:[{close:110}]}});
+ vi.useRealTimers();
+});
+
+describe("DATA-115 caller cancellation", () => {
+  it.each([false, true])("surviving joiner retries leader cancellation: joiner aborted=%s", async (abortJoiner) => {
+    const leaderControl = new AbortController(), joinerControl = new AbortController();
+    const opts = { provider: "fmp" as const, endpoint: "cancel-test", params: {}, ttlSeconds: 60 };
+    const leader = cachedFetch({ ...opts, ...{ signal: leaderControl.signal }, fetcher: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      leaderControl.abort(new Error("peer deadline"));
+      if (abortJoiner) joinerControl.abort();
+      throw leaderControl.signal.reason;
+    } });
+    const fetcher = vi.fn(async () => ({ body: { v: 1 }, asOf: "2026-11-02" }));
+    const joiner = cachedFetch({ ...opts, ...{ signal: joinerControl.signal }, fetcher });
+    const results = await Promise.allSettled([leader, joiner]);
+    expect(results[0].status).toBe("rejected");
+    expect(results[1].status).toBe(abortJoiner ? "rejected" : "fulfilled");
+    expect(fetcher).toHaveBeenCalledTimes(abortJoiner ? 0 : 1);
+  });
+});
+
+import { HttpRequestAbortedError, makeLimiter } from "@/providers/http";
+import { createFmpClient } from "@/providers/fmp";
+it("P5 merged abort never resolves from an adjacent cached window", async () => {
+  const fetch = makeFmpCachedFetch();
+  const oldKey = "fmp:/stable/historical-price-eod/full?from=2025-10-01&symbol=ABT&to=2026-10-01";
+  const key = oldKey.replaceAll("10-01", "10-02");
+  await fetch(oldKey, 86400000, async () => ({ body: [1] }));
+  const leaderSignal = new AbortController();
+  let rejectLeader!: (e: unknown) => void;
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const leader = fetch(key, 86400000, () => { started(); return new Promise((_, reject) => { rejectLeader = reject; }); }, { signal: leaderSignal.signal });
+  const observedLeader = leader.catch(e => e);
+  await ready;
+  const joiner = fetch(key, 86400000, async () => ({ body: [2] }), { signal: new AbortController().signal });
+  leaderSignal.abort();
+  const error = new HttpRequestAbortedError("cancelled leader", { url: "offline", provider: "fmp", attempts: 1 });
+  expect(isTransientProviderError(error)).toBe(false);
+  rejectLeader(error);
+  expect(await observedLeader).toBe(error);
+  expect(await joiner).toMatchObject({ value: { body: [2] } });
+  expect(await joiner).not.toHaveProperty("staleReason");
+});
+it("P5 FMP non-JSON 503 retains the adjacent history window", async () => {
+  let status = 200;
+  const client = createFmpClient({ apiKey: "offline", cachedFetch: makeFmpCachedFetch(),
+    limiter: makeLimiter(1000, 1000), fetchImpl: async () => new Response(status === 200 ? JSON.stringify([{ symbol: "HST", date: "2026-10-01", close: 12 }]) : "<html>unavailable</html>", { status }) });
+  expect((await client.historicalPriceEodFull("HST", "2025-10-01", "2026-10-01")).ok).toBe(true);
+  status = 503;
+  const result = await client.historicalPriceEodFull("HST", "2025-10-02", "2026-10-02");
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.value).toMatchObject({ stale: true, staleReason: "window-fallback", data: { rows: [{ date: "2026-10-01", close: 12 }] } });
+});
+it.each(["yahoo","fmp"])("DATA-112 %s weekend/DST refresh and after-settle reuse", async provider=>{
+ const previous=process.env.TZ;
+ try {
+  for(const zone of ["Asia/Tokyo","America/Los_Angeles"]) for(const [index,now] of ["2026-11-01T15:00:00Z","2026-11-02T14:00:00Z"].entries()) for(const settled of [false,true]) {
+   process.env.TZ=zone;vi.useFakeTimers({toFake:["Date"]});
+   vi.setSystemTime(new Date(settled?"2026-10-30T21:00:00Z":"2026-10-30T19:00:00Z"));
+   const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+   const symbol=`T${index}${settled}${zone.replaceAll("/","")}`;
+   const key=provider==="yahoo"?`yahoo:/v8/finance/chart/${symbol}?interval=1d&period1=2026-10-01&period2=${now.slice(0,10)}`:`fmp:/stable/historical-price-eod/full?from=2026-10-01&symbol=${symbol}&to=${now.slice(0,10)}`;
+   await fetch(key,86400000,async()=>({body:[{close:100}]}));
+   vi.setSystemTime(new Date(now));
+   const loader=vi.fn(async()=>({body:[{close:110}]}));
+   const r=await fetch(key,86400000,loader);
+   expect(r.value.body[0]!.close).toBe(settled?100:110);
+   expect(loader).toHaveBeenCalledTimes(settled?0:1);
+  }
+ }finally{vi.useRealTimers();if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });

@@ -2164,6 +2164,7 @@ const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
 
 export const GuidanceRowSchema = z
   .object({
+    /** Issuer fiscal label, or fiscal quarter/year when contradicted (AI-512-V1). */
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
@@ -2222,7 +2223,7 @@ export const CommitmentPaymentTimingSchema = z.object({
 }).strict();
 
 /** Controlled scope codes, independent of today's collector membership. Legacy absence stays unknown. */
-export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"])).min(1).max(10);
+export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "1.03", "1.05", "2.01", "2.03", "2.04", "2.05", "2.06", "3.01", "3.02", "3.03", "5.01", "5.02", "5.07", "8.01"])).min(1).max(16);
 
 export const FilingDisclosuresSchema = z
   .object({
@@ -2262,6 +2263,8 @@ export const FilingDisclosuresSchema = z
         authorizationRemainingSource: FilingRefSchema.optional(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
+        dividendFrequency: z.enum(["quarterly","monthly","semi-annual","annual","special","supplemental","variable"]).nullable().optional(),
+        dividendFrequencyBasis: z.enum(["release","xbrl"]).optional(),
         dividendPayDate: IsoDaySchema.nullable(),
         dividendRecordDate: IsoDaySchema.nullable(),
         dividendChangeFrom: z.number().nullable(),
@@ -2303,11 +2306,13 @@ export const FilingDisclosuresSchema = z
           quarters: z.array(IsoDaySchema),
           rows: z.array(
             z
-              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()) })
+              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()), earlierPresentationAt: z.array(z.number().int().nonnegative()).optional(), crossFilingAt: z.array(z.number().int().nonnegative()).optional() })
               .strict(),
           ),
           total: z.array(z.number().nullable()),
           priorPresentation: z.array(z.string()),
+          totalEarlierPresentationAt: z.array(z.number().int().nonnegative()).optional(),
+          totalCrossFilingAt: z.array(z.number().int().nonnegative()).optional(),
           derivedCells: z.number().int().nonnegative(),
           /** D-63: cells filled as the quarter's total less the other top-level rows. Optional on older reports. */
           residualCells: z.number().int().nonnegative().optional(),

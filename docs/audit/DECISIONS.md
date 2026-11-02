@@ -3378,3 +3378,193 @@ P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RP
 P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.
 
 P7 full-suite verification: the prior P3 records test pinned P3 as the first changelog heading. On integration that test is position-independent: it requires the P3 heading anywhere in the changelog, so later batches can head it; the methodology uniqueness and encoding assertions remain unchanged.
+
+### D-next (P5): Bank classification uses issuer SIC routing
+
+DATA-103: carry the existing bank revenue routing into income classification and SEC peer statement construction. Compare total net revenue on its own definition; retain vendor disagreement refusals and industrial ASC-606 routing. Stored reports retain their bytes.
+
+### D-next (P5): Presentation currency precedes statement resolution
+
+DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period unit, break ties by total anchor points, USD, then alphabetical. Withhold other-unit-only history and disclose unused convenience amounts. No currency conversion is inferred. Mixed-currency valuation remains withheld.
+
+### D-next (P5): Segment presentation continuity
+
+AI-508 implements B9 OD-11: detect member changes on shared stated/implied windows beyond 1% and 2 million; retain earlier levels only in the classic table, exclude them from analysts, and withhold cross-basis arithmetic. Unproven cross-filing quarters remain computed estimates with a disclosure that a change first shown in a 10-K cannot yet be ruled out. Saved report bytes are unchanged.
+
+### D-next (P5): Guided amounts retain their sign
+
+AI-202-V1 retains adjacent minus signs and directly stated expense/loss polarity for signed guidance metrics; conflicting signs and ambiguous touching dashes are withheld. Percentage metrics retain their existing negative-value conventions. No stored report rewrite.
+
+### D-next (P5): Dividend annualization requires a frequency
+
+RPT-201 implements OD-5: prefer regular over special amounts, annualize only regular established frequencies, and establish an unstated quarterly rate only from three positive quarterly XBRL facts whose newest amount agrees. Legacy missing metadata keeps x4 with an assumption note. No saved bytes change.
+
+### D-next (P5): Transient price-history window fallback
+
+DATA-114 applies OD-4 at the durable-cache adapter boundary, only to canonical FMP and Yahoo history keys. It requires the same provider, symbol and window family, both endpoints within seven days, and a seven-day absolute acquisition ceiling. Only transport failure, 429, 500, 502, 503 and 504 qualify; returned metadata names the cached key and original fetch time.
+
+### D-next (P5): History-tail freshness follows the US session
+
+DATA-112 implements OD-3 in the common durable adapters using canonical history keys, so both clients share one freshness rule. Expired current-date tails refresh before return with last-good empty-body preservation and explicit refresh-failed disclosure. Older windows retain their TTL.
+
+### D-next (P5): One keyless price observation
+
+DATA-113 derives quote from the successful meta result already used for profile, retaining stale flags and acquisition time for both. Failed meta preserves the prior quote retry and failure disclosure.
+
+### D-next (P5): Prose dates are calendar dates
+
+DATA-111 uses calendar arithmetic for month-name dates in repurchase authorization and company announcement datelines. Explicit UTC, Denver, Berlin and Tokyo tests cover both acceptance and one-day mismatch refusal.
+
+### D-next (P5): Results own the earnings-release narrative
+
+AI-506 implements OD-10: newest retained results release owns narrative, capital return and issuer FCF; newer operating updates remain records with a leading note. Legacy records without reportsResults retain historical admission.
+
+### D-next (P5): Material 8-K eligibility
+
+DATA-107 adopts OD-2 additions and priority reads for bankruptcy, cyber, acceleration and delisting. Existing materialEventItems saved scope is reused instead of introducing duplicate eventItemScope metadata. Legacy missing scope remains explicitly unestablished.
+
+### D-next (P5): Abbreviated officer-event headings
+
+DATA-108 recognizes semicolon-separated official-title clauses and optional subsection letters without relaxing standalone-heading/cross-reference guards.
+
+### D-next (P5): Contents entries do not establish event evidence
+
+DATA-109 removes bounded page-number-only sections at parsing and replay, and strips legacy summary fragments on display. Real operative sections are retained. Saved bytes remain unchanged.
+
+
+### D-next (P5): AI-508 presentation detail
+
+OD-11 retains moved-together current operands, withholds unproven mixed operands and uses the latest stable presentation after repeated changes. Notes name filing accession/date, stated windows and affected ends. No stored report is rewritten.
+
+
+### D-next (P5): AI-512-V1 fiscal labels
+
+Apply OD-12 withhold-never-replace to guidance, paired checks, commentary and newer notices. Preserve the stricter existing excerpt-title policy unchanged. Retained AMZN #43: issued-with Q2 FY2025 -> null, outlook Q3 FY2025 -> fiscal quarter, 197-202 billion unchanged; two checks -> zero. Stored displays use their own trend.
+
+
+### D-next (P5): DATA-101 absent temporary equity
+
+OD-8: no manifest entry when that instant period has no filed temporary-equity fact, including issuers with only a historic zero. Filed but refused values, mismatched operands and vendor conflicts still warn. Only the exact legacy absent-or-refused warning folds across dates (D-67). MU #46: absent warnings 31 -> 0; grouped data issues 30 -> 6; stored warning metadata stays untouched.
+
+
+### D-next (P5): AI-508 repeated older presentations
+
+Earlier-presentation flags do not identify which of several old bases a cell uses. Conservatively withhold growth involving any flagged cell; keep reported levels and all proven-current comparisons. ai508-repeat-red reproduces the former true/true comparison. This never asserts comparability between different historical recasts.
+
+
+### D-next (P5): AI-512-V1 newer-results manifest
+
+The common newer-results selector owns its shown fiscal label. Both Stage B manifest and report notice use it, avoiding a stale label in completeness prose beside a corrected banner. No new configuration read or prompt edit.
+
+### D-next (P5-lows): DATA-106 contact header admission
+
+Follow B9-OD-9: printable ASCII and Latin-1 remain valid; higher code points and control characters are refused locally with an actionable message. No network test is attempted for an invalid header.
+
+### D-next (P5-lows): DATA-116 fixed provider diagnostics
+
+B9-OD-7: parameter-value subscription refusals are expected but never learned as endpoint restrictions. Outages remain unexpected. Existing stored manifest text is unchanged.
+
+
+### D-next (P5-lows): PERF-101 inconclusive discovery
+
+Only the existing waiting wave bypasses inconclusive endpoint discovery, with per-symbol coordination retained. No access observation or durable capability is invented. Explicit restrictions and quota are rechecked.
+
+
+### D-next (P5-lows): DATA-115 caller-owned retry
+
+Use leader signal state rather than error wording. A surviving joiner retries once, rejoining an existing replacement flight. Ordinary vendor failures and aborted joiners retain shared rejection.
+
+
+### D-next (P5-lows): DATA-102 uniform stale peer admission
+
+Follow B9-OD-6: preserve stale and staleReason from submissions, companyfacts, quote and split evidence. Derived market cap also depends on companyfacts shares. Retain the existing stale exclusion gate; do not resolve postponed F-14.
+
+
+### D-next (P5-lows): DATA-110 conservative prose arrangements
+
+Require a dated named-person action with role and expiry. Missing share counts remain null; company repurchase narratives do not become insider plans. Table treatment of future grants stays unchanged. Unparsed plan mentions receive a limitation note.
+
+
+### D-next (P5): Step 1 (DATA-114/115/116) review correction
+
+Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. Coordinator decision: status-bearing parse errors close the non-JSON outage gap without making caller aborts eligible for stale fallback. Dividend-frequency and history-window modules join the unchanged per-file risk floors. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F1 (RPT-201) review correction
+
+Use schema-valid null guidance in the dividend-yield display fixture. The four existing assertions exercise the frequency display again; no production behavior changed. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F2 (AI-202-V1) review correction
+
+Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. The two reviewed loss/expense pairs now retain -0.10/-0.12 and -30M/-40M on their printed bases; existing range controls stay unchanged. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F3 (AI-508) review correction
+
+Refuse residual fills from a filing outside the missing member current presentation. The old-basis 63 is withheld along with its false +3.17% QoQ; the classic table and payload agree. This does not invent the unreported same-basis 51. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F4 (DATA-103) review correction
+
+Keep industrial revenue tags separate from the bank-extended revenue comparison list. Bank total net revenue still reconciles; it cannot validate a vendor industrial gross-profit subtotal without independently compatible operands. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F5 (DATA-114) review correction
+
+Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. Coordinator decision: later successful chunks must not create a mid-series hole that corrupts return or drawdown calculations. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F6 (RPT-201) review correction
+
+Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. Monthly, annual and special distributions no longer receive quarterly wording in analyst context. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F7 (AI-508/DATA-112) review correction
+
+Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F8 (AI-508) review correction
+
+Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. The note says because not both operands are proven current; the duplicated methodology paragraph is removed. Notes no longer list every window of the change filing. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F1/B-F5 (AI-506) review correction
+
+Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. Coordinator decision: an unread earnings amount is not proof that none was stated. With no results release retained, release FCF, capital return and reconciliation rows are withheld too. D-112 retention now prioritizes non-dollar results classified by the expanded token; the four-record cap and final period order stay unchanged. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F2/B-F3 (DATA-108) review correction
+
+Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. A prose cross-reference no longer invents Item 5.02 or takes the buyback out of Item 8.01. Combined title text no longer leaks into event summaries. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F4 (AI-512-V1) review correction
+
+Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date. Sparse quarterly labels now withhold stale issued-with and outlook labels using annual or quarterly evidence. Existing successor-quarter and annual-window safeguards are retained, and no replacement label is guessed. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F6 (DATA-107) review correction
+
+Priority selects the capped filing set only; read and output the chosen set by filing date, newest first. Coordinator decision: urgent older items remain included when the cap binds, while newest events lead tables, filingDisclosures.events and the payload budget. The previous priority-first read assertion is re-pinned from a10 to a0 with inclusion of a10 still required. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F7 (DATA-110) review correction
+
+Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. Count dated action paragraphs independently of successful person/role reads so one parsed row cannot imply the section was fully read. Unread paragraphs remain in the analyst excerpt; the table renders unknown expiry as Not recorded. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F8 (DATA-102) review correction
+
+The SEC-fallback peer profile depends on its own submissions freshness only. Coordinator decision: subject submissions establish SIC comparison but must not mark the peer profile stale; stale peer submissions, facts, quotes and split evidence still propagate through their own envelopes. Stored report bytes are unchanged.
+
+
+### D-next (P5): Verification follow-up (Step 1) review correction
+
+Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised. The typechecker caught the test-only option; production behavior is unchanged. All A-F1 through A-F8 and B-F1 through B-F8 changes are committed; B-F9 through B-F11 are informational and require no change. Final gate receipts and the final commit mapping are retained in HANDOFF-FIXROUND.md. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F4 consumer fixtures (AI-512-V1) review correction
+
+Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions. The full product suite exposed two synthetic fixtures whose real NVIDIA labels contradicted their unrelated calendar-year statement metadata. The shared contradiction rule is retained; source labels now agree for these must-not-move currency and whole-row controls. Stored report bytes are unchanged.

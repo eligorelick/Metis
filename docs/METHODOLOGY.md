@@ -6090,6 +6090,105 @@ P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-boun
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
 
+### P5 primary-source data and freshness
+
+The income-classification check rebuilds filed statements with the issuer's SIC routing. A bank's total net revenue is compared with the bank revenue chain; an SEC-served peer bank uses the same chain.
+
+Statements built from SEC companyfacts use the presentation currency covering the most anchor periods in the newest annual filing (ties: total anchor points, then USD, then alphabetical). Convenience translations never replace the presentation history; other-currency-only years are withheld with a mixed_unit note. Existing mixed-currency valuation guards still apply.
+
+Segment presentation continuity (AI-508): shared stated or implied windows differing by more than 1% and 2 million establish a member recast. Earlier filed levels remain in classic tables with a note, are excluded from analyst context, and cannot feed growth across the change. Cross-filing differences require both operands on the current presentation after a proven change. Without proof of a change they remain computed estimates, disclosed with the 10-K-to-next-10-Q blind spot (B9 OD-11).
+
+Guided other income (expense), operating income and EPS preserve an explicit minus touching the currency symbol or directly introducing expense/loss wording. Conflicting or ambiguous signs, and negative revenue, expense or capex guides, remain unread sentences (AI-202-V1).
+
+Dividend yields (RPT-201, B9 OD-5) annualize stated regular frequencies: monthly x12, quarterly x4, semi-annual x2, annual x1. Special, supplemental, variable and unestablished frequencies withhold yield. Three positive quarterly XBRL dividend facts within 400 days, with the newest matching the release amount within half a cent, may establish quarterly frequency. An annual amount paid in four installments stays annual. Older stored reports retain x4 with an explicit assumption note.
+
+Price history may retain a prior compatible window after a transient failure (DATA-114, OD-4). Both endpoints must be within seven days of the requested window, for the same provider and symbol, and acquisition age cannot exceed seven days. It stays stale with the last bar's date and a manifest disclosure. Provider refusals and unknown symbols are never covered.
+
+Current-date price history (DATA-112, OD-3) uses the D-113 session clock at the durable adapter: 15 minutes during the session, with the same post-close settling rule as quotes. Expired tails refresh before return; failed refreshes serve stale with a manifest warning, and empty refreshes preserve last-good data inside the stale ceiling. Historical windows retain 24 hours.
+
+A keyless run prices its profile and quote from the same successful Yahoo five-day chart observation. Both preserve that observation's stale flags and acquisition time. If meta failed, quote retains its independent retry and disclosure (DATA-113).
+
+A date printed in filing prose is read as that calendar day in every time zone, without local-midnight conversion. The same rule governs issuer announcement datelines (DATA-111).
+
+Earnings-release narrative and release-derived capital return/FCF follow the newest retained record stating results. Newer operating updates remain typed records with a leading note; they cannot occupy the earnings-release narrative slot (AI-506, OD-10).
+
+Material 8-K events include bankruptcy (1.03), cyber incidents (1.05), acceleration (2.04), delisting (3.01), dilution (3.02), holders' rights (3.03) and control changes (5.01). The first four receive priority under the ten-filing cap. Unsupported non-event item filings are named; excerpt titles name only retained sections. Saved scope metadata remains authoritative (DATA-107, OD-2).
+
+Item 5.02 headings may use any clause of the official title and an optional subsection letter; bounded-title and cross-reference rejection rules still apply (DATA-108).
+
+Page-number-only table-of-contents bodies are excluded from 8-K sections, analyst excerpts and event summaries. Legacy event summaries drop those fragments at display time without rewriting saved reports (DATA-109).
+
+
+Segment presentation-change notes identify the change filing, its stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
+
+
+
+
+AI-512-V1: guidance uses the run income rows to withhold a disputed fiscal label, never replace it. A completed label disagrees at its date or belongs to a quarter more than 45 days earlier. An outlook label already ended when filed becomes "fiscal quarter" or "fiscal year" with its amounts retained. Paired guidance checks with contradicted labels are excluded from the track record. Commentary uses the quarter end when the fiscal label is contradicted. Saved displays apply the same comparison to their own quarterly trend without rewriting bytes.
+
+
+DATA-101: no temporary-equity warning is emitted for a balance period without any filed instant temporary-equity tag (any unit; zero counts). Filed amounts refused by cutoff, unit or conflict checks still warn, as do operand and vendor conflicts. Only legacy warnings with the exact absent-or-refused reason are grouped across dates; genuine new refusals stay separate.
+
+AI-508 repeated-change limit: earlier-presentation levels remain visible, but growth involving any earlier-presentation cell is withheld because two older cells may themselves span different recasts.
+
+
+AI-512-V1: the newer-results completeness warning uses the same withheld fiscal label as the report notice; a contradicted release is named by its quarter end only.
+
+A request-parameter subscription refusal is an expected disclosure in fixed words, without vendor advertisements. It is not remembered, since another parameter value may be allowed. Non-JSON provider outages and rate limits are named by status without page text.
+
+Rule 10b5-1 plans are read from Item 408(a) tables or bounded dated prose with a named person, role and action; adoption and modification also require expiry, while termination may leave expiry unknown. Missing share capacity remains unknown. If arrangements are mentioned but no rows can be parsed, or fewer rows parse than dated plan paragraphs, disclosure notes say so and the original excerpt remains in the AI context.
+
+
+Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. Coordinator decision: status-bearing parse errors close the non-JSON outage gap without making caller aborts eligible for stale fallback. Dividend-frequency and history-window modules join the unchanged per-file risk floors.
+
+
+A-F1 (RPT-201): Use schema-valid null guidance in the dividend-yield display fixture. The four existing assertions exercise the frequency display again; no production behavior changed.
+
+
+A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. The two reviewed loss/expense pairs now retain -0.10/-0.12 and -30M/-40M on their printed bases; existing range controls stay unchanged.
+
+
+A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation. The old-basis 63 is withheld along with its false +3.17% QoQ; the classic table and payload agree. This does not invent the unreported same-basis 51.
+
+
+A-F4 (DATA-103): Keep industrial revenue tags separate from the bank-extended revenue comparison list. Bank total net revenue still reconciles; it cannot validate a vendor industrial gross-profit subtotal without independently compatible operands.
+
+
+A-F5 (DATA-114): Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. Coordinator decision: later successful chunks must not create a mid-series hole that corrupts return or drawdown calculations.
+
+
+A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. Monthly, annual and special distributions no longer receive quarterly wording in analyst context.
+
+
+A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim.
+
+
+A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. The note says because not both operands are proven current; the duplicated methodology paragraph is removed. Notes no longer list every window of the change filing.
+
+
+B-F1/B-F5 (AI-506): Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. Coordinator decision: an unread earnings amount is not proof that none was stated. With no results release retained, release FCF, capital return and reconciliation rows are withheld too. D-112 retention now prioritizes non-dollar results classified by the expanded token; the four-record cap and final period order stay unchanged.
+
+
+B-F2/B-F3 (DATA-108): Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. A prose cross-reference no longer invents Item 5.02 or takes the buyback out of Item 8.01. Combined title text no longer leaks into event summaries.
+
+
+B-F4 (AI-512-V1): Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date. Sparse quarterly labels now withhold stale issued-with and outlook labels using annual or quarterly evidence. Existing successor-quarter and annual-window safeguards are retained, and no replacement label is guessed.
+
+
+B-F6 (DATA-107): Priority selects the capped filing set only; read and output the chosen set by filing date, newest first. Coordinator decision: urgent older items remain included when the cap binds, while newest events lead tables, filingDisclosures.events and the payload budget. The previous priority-first read assertion is re-pinned from a10 to a0 with inclusion of a10 still required.
+
+
+B-F7 (DATA-110): Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null. Count dated action paragraphs independently of successful person/role reads so one parsed row cannot imply the section was fully read. Unread paragraphs remain in the analyst excerpt; the table renders unknown expiry as Not recorded.
+
+
+B-F8 (DATA-102): The SEC-fallback peer profile depends on its own submissions freshness only. Coordinator decision: subject submissions establish SIC comparison but must not mark the peer profile stale; stale peer submissions, facts, quotes and split evidence still propagate through their own envelopes.
+
+
+Verification follow-up (Step 1): Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised. The typechecker caught the test-only option; production behavior is unchanged. All A-F1 through A-F8 and B-F1 through B-F8 changes are committed; B-F9 through B-F11 are informational and require no change. Final gate receipts and the final commit mapping are retained in HANDOFF-FIXROUND.md.
+
+
+B-F4 consumer fixtures (AI-512-V1): Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions. The full product suite exposed two synthetic fixtures whose real NVIDIA labels contradicted their unrelated calendar-year statement metadata. The shared contradiction rule is retained; source labels now agree for these must-not-move currency and whole-row controls.
+
 ## P1 equity bridge review corrections (2026-11-02)
 
 ### P1 review correction F1/F7 (2026-11-02)

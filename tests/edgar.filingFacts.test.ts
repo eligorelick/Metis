@@ -10,7 +10,7 @@ import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
 import { buildEarningsReleaseRecord, buildMaterialEventFiling, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
 import type { ExtractedSection } from "@/pipeline/types";
 import { FilingDisclosuresSchema } from "@/report/schema";
-import { filingFactTables } from "@/report/filingSupplementPresentation";
+import { filingFactTables, filingGovernanceTables } from "@/report/filingSupplementPresentation";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
@@ -211,4 +211,57 @@ describe("D-66 recovered filing facts", () => {
     expect(parseTradingArrangements(other.replaceAll("5/22/2026", "2/30/2026").replaceAll("6/16/2026", "2/30/2026"))).toEqual([]);
     expect(parseWorkingCapital("Accounts receivable was not disclosed.")).toBeNull();
   });
+});
+
+
+// DATA-110: public SEC Item 5 text retained with report 43; no vendor rows.
+const prosePlans = "Item 5. Other Information On May 4, 2026 , Matthew S. Garman , CEO Amazon Web Services , adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 63,743 shares of Amazon.com, Inc. common stock over a period ending on May 28, 2027 , subject to certain conditions. On May 4, 2026 , Daniel P. Huttenlocher , a member of our Board of Directors , adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 783 shares of Amazon.com, Inc. common stock over a period ending on November 23, 2026 , subject to certain conditions. On May 12, 2026 , Jonathan J. Rubinstein , a member of our Board of Directors , adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 13,361 shares of Amazon.com, Inc. common stock over a period ending on May 9, 2028 , subject to certain conditions. On May 14, 2026 , Brian T. Olsavsky , Senior Vice President and Chief Financial Officer , adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 6,172 shares of Amazon.com, Inc. common stock over a period ending on August 31, 2026 , subject to certain conditions. 50";
+
+describe("DATA-110 prose arrangements", () => {
+  it("reads four retained prose plans and their capacity", () => {
+    const rows = parseTradingArrangements(prosePlans);
+    expect(rows.map(r => r.shares)).toEqual([63743, 783, 13361, 6172]);
+    expect(rows.map(r => r.date)).toEqual(["2026-05-04", "2026-05-04", "2026-05-12", "2026-05-14"]);
+    expect(rows.map(r => r.expires)).toEqual(["2027-05-28", "2026-11-23", "2028-05-09", "2026-08-31"]);
+    expect(rows[1]?.role).toBe("Director");
+    expect(rows.every(r => !r.includesFutureAwards)).toBe(true);
+  });
+  it("allows termination without established shares", () => {
+    expect(parseTradingArrangements("On June 1, 2026, Jane Roe, Chief Operating Officer, terminated a Rule 10b5-1 trading arrangement intended to satisfy Rule 10b5-1(c), which had a period ending on December 31, 2026.")).toEqual([
+      { person: "Jane Roe", role: "Chief Operating Officer", action: "termination", date: "2026-06-01", shares: null, includesFutureAwards: false, expires: "2026-12-31" }
+    ]);
+  });
+  it("rejects a company repurchase narrative", () => {
+    expect(parseTradingArrangements("On May 4, 2026, our Board approved a Rule 10b5-1 repurchase plan for company shares.")).toEqual([]);
+  });
+});
+
+
+it("DATA-110 prose capacity reaches disclosures, presentation and provenance", () => {
+  const bundle = completeCurrencyBundle({});
+  bundle.edgar.tenQOther = section("tenQItem5", prosePlans);
+  const disclosure = buildFilingDisclosures(bundle);
+  expect(disclosure?.tradingArrangements).toHaveLength(4);
+  expect(JSON.stringify(filingGovernanceTables(disclosure!))).toContain("63,743");
+  const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+  const capacities = (payload.provenanceRegistry ?? []).filter(r => /plan share capacity/.test(r.label ?? ""));
+  expect(capacities.map(r => r.value)).toEqual([63743, 783, 13361, 6172]);
+});
+
+it("DATA-110 termination may omit expiration",()=>{
+ const rows=parseTradingArrangements("On June 1, 2026, Jane Roe, Chief Operating Officer, terminated a Rule 10b5-1 trading arrangement.");
+ expect(rows).toEqual([{person:"Jane Roe",role:"Chief Operating Officer",action:"termination",date:"2026-06-01",shares:null,includesFutureAwards:false,expires:null}]);
+});
+it.each([
+ "On June 1, 2026, Jane Roe, Senior Vice President, Worldwide Operations, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares ending on December 31, 2026.",
+ "On June 1, 2026, Jos\u00e9 M\u00fcller, Chief Operating Officer, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares ending on December 31, 2026.",
+ "On June 1, 2026, Jane Roe, Chief Operating Officer, adopted a trading plan intended to satisfy Rule 10b5-1(c) to sell up to 100 shares; the plan expires on December 31, 2026.",
+])("DATA-110 discloses a partially unread plan section: %s",unread=>{
+ const first=prosePlans.slice(0,prosePlans.indexOf("On May 4, 2026 , Daniel"));
+ const b=completeCurrencyBundle({});b.edgar.tenQOther=section("tenQItem5",first+" "+unread);
+ const d=buildFilingDisclosures(b)!;
+ expect(d.tradingArrangements).toHaveLength(1);
+ expect(d.notes.join(" ")).toContain("arrangements that could not be read as rows");
+ const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
+ expect(p.filings.some(e=>e.text.includes(unread))).toBe(true);
 });

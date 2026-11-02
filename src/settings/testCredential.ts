@@ -1,4 +1,5 @@
 import "server-only";
+import { edgarIdentityProblem } from "@/providers/edgar";
 import type { ProviderCredentialKey } from "./credentialContracts";
 
 export interface CredentialTestResult { ok: boolean; message: string }
@@ -32,10 +33,13 @@ export async function testProviderCredential(key: ProviderCredentialKey, value: 
       headers["x-api-key"] = value;
       headers["anthropic-version"] = "2023-06-01";
       break;
-    case "EDGAR_CONTACT":
+    case "EDGAR_CONTACT": {
+      const problem = edgarIdentityProblem(value);
+      if (problem) return { ok: false, message: problem };
       url = new URL("https://data.sec.gov/submissions/CIK0000320193.json");
       headers["User-Agent"] = value;
       break;
+    }
   }
   try {
     const response = await fetch(url, {

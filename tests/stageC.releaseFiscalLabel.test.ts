@@ -21,7 +21,9 @@ const section = (form: "10-K" | "10-Q", sectionName: string, [reportDate, filing
   ({ ok: true, value: { data: { sectionName, text, method: "toc", chars: text.length, accession, form, filingDate, reportDate, documentUrl: URL },
     asOf: reportDate, source: "edgar", endpoint: URL, fetchedAt: BUILT_AT } });
 
+// AI-506/OD-10: a release that states no earnings amount is an operating update.
 const RELEASE = "Example Corp Reports First Quarter Results. Example Corp today announced financial results for its first quarter ended March 31, 2026. " +
+  "Net income was $10.0 million, or $0.10 per diluted share. " +
   "• Northern segment sales increased 16% year-over-year to $116.0 million. • Cloud segment sales increased 37% year-over-year to $42.0 million.";
 const fiscal = (label: string) => { const [, q, y] = /^Q([1-4]) FY(\d{4})$/.exec(label)!; return { label, fiscalYear: Number(y), fiscalQuarter: Number(q) as 1 | 2 | 3 | 4 }; };
 function withRelease(label: string, periodEnd = "2026-03-31", rowLabelled = true): DataBundle {

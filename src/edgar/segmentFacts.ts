@@ -14,9 +14,11 @@
  * days). A quarter a filing does not state directly is derived only as the
  * difference of two windows that share a boundary (six months less the
  * second quarter is the first quarter; a fiscal year less nine months is the
- * fourth) — and always within one filing, so a recast later filing never
- * mixes with the presentation it replaced. Across filings, the latest
- * filing's figure for a member and quarter wins.
+ * fourth). Pooled differences carry both operand accessions. Proven member
+ * recasts exclude earlier-presentation cells from analyst context and growth;
+ * cross-filing differences require both operands on the current presentation.
+ * Without a proven recast they remain disclosed estimates (OD-11).
+ * Across filings, the latest figure for a member and quarter wins.
  *
  * Pure: no network, no clock.
  */
@@ -216,6 +218,7 @@ export interface QuarterValue {
   derived: boolean;
   /** Pooled duration subtraction used operands from different filings. */
   crossFilingDerived?: boolean;
+  operands?: readonly [string, string];
 }
 
 type DatedFact = RevenueFact & { accession: string; filingDate: string };
@@ -225,8 +228,8 @@ type DatedFact = RevenueFact & { accession: string; filingDate: string };
  * shorter one with the same start is its tail, with the same end its head.
  * Only quarter-length results are kept.
  */
-function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean }[] {
-  const out: { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean }[] = [];
+function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean; operands: readonly [string, string] }[] {
+  const out: { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean; operands: readonly [string, string] }[] = [];
   for (const long of facts) {
     for (const short of facts) {
       if (long === short || long.currency !== short.currency) continue;
@@ -237,7 +240,7 @@ function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start:
       if (start === null || end === null || !isQuarterLength(start, end)) continue;
       // The derived cell carries the later of its two filings.
       const newer = long.filingDate >= short.filingDate ? long : short;
-      out.push({ fact: newer, start, end, value: long.value - short.value, crossFilingDerived: long.accession !== short.accession });
+      out.push({ fact: newer, start, end, value: long.value - short.value, crossFilingDerived: long.accession !== short.accession, operands: [long.accession, short.accession] });
     }
   }
   return out;
@@ -245,6 +248,62 @@ function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start:
 
 function seriesKey(f: Pick<RevenueFact, "axis" | "member">): string {
   return `${f.axis ?? ""}|${f.member ?? ""}`;
+}
+
+export const SEGMENT_RECAST_THRESHOLD_PCT = 1;
+export const SEGMENT_ROUNDING_FLOOR = 2_000_000;
+export function sameSegmentBasis(at: readonly number[] | undefined, i: number, j: number): boolean {
+  // Earlier cells may span several recasts; their mutual comparability is unproven.
+  return at?.includes(i) !== true && at?.includes(j) !== true;
+}
+export function crossFilingClause(ends: readonly string[]): string {
+  return ends.length === 0 ? "" : ` Cells in quarters ended ${ends.join(", ")} combine windows from two filings (a fiscal year in one less nine months in another); a segment change first presented in a 10-K would not show in them until the next 10-Q restates a quarter.`;
+}
+interface SegmentPresentationChange {
+ filing: FilingRevenue;
+ earlierFiling: FilingRevenue;
+ window: { start: string; end: string; currency: string };
+ current: ReadonlySet<string>;
+}
+/** Compare each filing's stated and implied windows without pooling presentations. */
+export function segmentPresentationChanges(filings: readonly FilingRevenue[]): Map<string, SegmentPresentationChange> {
+ const ordered = [...filings].sort((a,b)=>a.filingDate.localeCompare(b.filingDate)||a.accession.localeCompare(b.accession));
+ const out = new Map<string, SegmentPresentationChange>();
+ const keys = new Set(filings.flatMap(f=>f.facts.map(seriesKey)));
+ for (const key of keys) {
+  const own = (f: FilingRevenue) => {
+   const facts=f.facts.filter(x=>seriesKey(x)===key);
+   const windows=new Map(facts.map(x=>[`${x.start}|${x.end}|${x.currency}`,x.value]));
+   for(const a of facts) for(const b of facts) {
+    let start: string, end: string;
+    if(a.currency!==b.currency) continue;
+    if(a.start===b.start && a.end>b.end) {start=shiftDay(b.end,1);end=a.end;}
+    else if(a.end===b.end && a.start<b.start) {start=a.start;end=shiftDay(b.start,-1);}
+    else continue;
+    const k=`${start}|${end}|${a.currency}`;
+    if(!windows.has(k)) windows.set(k,a.value-b.value);
+   }
+   return windows;
+  };
+  const windows=new Map(ordered.map(f=>[f.accession,own(f)]));
+  const relation=(a:FilingRevenue,b:FilingRevenue) => {
+   let shared=false, clash=false;
+   let disagreement: string | undefined;
+   for(const [k,v] of windows.get(a.accession)!) {const old=windows.get(b.accession)!.get(k);if(old===undefined)continue;shared=true;
+    if(Math.abs(v-old)>Math.max(Math.abs(old)*SEGMENT_RECAST_THRESHOLD_PCT/100,SEGMENT_ROUNDING_FLOOR)){clash=true;disagreement ??= k;}
+   }
+   return {shared,clash,disagreement};
+  };
+  const index=ordered.findIndex((f,i)=>ordered.slice(0,i).some(e=>relation(f,e).clash)&&!ordered.slice(i+1).some(g=>relation(g,f).clash));
+  if(index<0) continue;
+  const later=ordered.slice(index);
+  const current=new Set([...later,...ordered.slice(0,index).filter(e=>later.some(g=>relation(g,e).shared)&&!later.some(g=>relation(g,e).clash))].map(f=>f.accession));
+  const filing = ordered[index]!;
+  const earlierFiling = ordered.slice(0,index).find(e=>relation(filing,e).clash)!;
+  const [start,end,currency] = relation(filing,earlierFiling).disagreement!.split("|") as [string,string,string];
+  out.set(key,{filing,earlierFiling,window:{start,end,currency},current});
+ }
+ return out;
 }
 
 /** The quarters one filing states or implies, keyed axis|member|start|end. */
@@ -273,6 +332,8 @@ export interface SegmentRow {
   childOf: string | null;
   /** D-63: quarter indexes filled as the total less the other top-level rows (see `residualCells`). */
   residualAt?: number[];
+  earlierPresentationAt?: number[];
+  crossFilingAt?: number[];
 }
 
 export interface SegmentSeries {
@@ -286,6 +347,8 @@ export interface SegmentSeries {
   total: (number | null)[];
   /** Members tagged only in earlier quarters (a prior presentation), left out of the table. */
   priorPresentation: string[];
+  totalEarlierPresentationAt?: number[];
+  totalCrossFilingAt?: number[];
   /** Quarter cells derived as differences of two windows, as "member end-date". */
   derivedCells: number;
   /**
@@ -407,7 +470,7 @@ export function buildQuarterlySegments(
       const key = factKey({ ...d.fact, start: d.start, end: d.end });
       if (merged.has(key)) continue;
       merged.set(key, { value: d.value, currency: d.fact.currency, start: d.start, end: d.end, accession: d.fact.accession, filingDate: d.fact.filingDate,
-        derived: true, crossFilingDerived: d.crossFilingDerived });
+        derived: true, crossFilingDerived: d.crossFilingDerived, operands: d.operands });
     }
   }
   const totals = [...merged.entries()].filter(([key]) => key.startsWith("||")).map(([, q]) => q);
@@ -421,7 +484,23 @@ export function buildQuarterlySegments(
   if (quarters.length === 0) return null;
   const at = (axis: string | null, member: string | null, col: { start: string; end: string }): QuarterValue | undefined =>
     merged.get(factKey({ axis, member, start: col.start, end: col.end }));
-  const totalCells = quarters.map((col) => at(null, null, col)?.value ?? null);
+  const changes = segmentPresentationChanges(ordered);
+  const annotations = (axis: string | null, member: string | null) => {
+    const earlierPresentationAt: number[] = [], crossFilingAt: number[] = [];
+    const boundary = changes.get(seriesKey({axis,member}));
+    const values=quarters.map((col,i)=>{
+      const cell=at(axis,member,col);
+      if(!cell) return null;
+      if(cell.crossFilingDerived) {
+        if(boundary && (!cell.operands || !cell.operands.every(a=>boundary.current.has(a)))) return null;
+        crossFilingAt.push(i);
+      } else if(boundary && !boundary.current.has(cell.accession)) earlierPresentationAt.push(i);
+      return cell.value;
+    });
+    return {values,...(earlierPresentationAt.length?{earlierPresentationAt}:{}),...(crossFilingAt.length?{crossFilingAt}:{})};
+  };
+  const totalAnnotations=annotations(null,null);
+  const totalCells = totalAnnotations.values;
   const currency = totals[0]?.currency ?? null;
   const axes: SegmentSeries[] = [];
   const notes: string[] = [];
@@ -434,21 +513,28 @@ export function buildQuarterlySegments(
       continue;
     }
     let derivedCells = 0;
-    const rows: SegmentRow[] = current.map((member) => ({
-      member,
-      label: labels[member] ?? fallbackMemberLabel(member),
-      values: quarters.map((col) => {
-        const q = at(axis, member, col);
-        if (q?.derived) derivedCells += 1;
-        return q?.value ?? null;
-      }),
-      childOf: null,
-    }));
+    const rows: SegmentRow[] = current.map((member) => {
+      const cells=annotations(axis,member);
+      derivedCells+=quarters.filter((col,i)=>cells.values[i]!==null && at(axis,member,col)?.derived).length;
+      return {member,label:labels[member] ?? fallbackMemberLabel(member),...cells,childOf:null};
+    });
+    const changed=current.filter(member=>changes.has(seriesKey({axis,member})));
+    for (const member of changed) {
+      const boundary = changes.get(seriesKey({axis,member}))!;
+      const f = boundary.filing;
+      const e = boundary.earlierFiling;
+      const w = boundary.window;
+      const earlier = quarters.filter((_,i) => annotations(axis,member).earlierPresentationAt?.includes(i)).map(q=>q.end);
+      const withheld = quarters.filter(q => { const c=at(axis,member,q); return c?.crossFilingDerived && !c.operands?.every(a=>boundary.current.has(a)); }).map(q=>q.end);
+      notes.push(`${SEGMENT_AXES[axis]}: presentation changed for ${labels[member]??member} in ${f.form} ${f.accession} filed ${f.filingDate}; disagrees with earlier ${e.form} ${e.accession} filed ${e.filingDate} on shared stated/implied window: ${w.start} to ${w.end} (${w.currency}). Earlier-presentation quarter ends: ${earlier.join(", ") || "none"}; these remain as reported and are not compared with later quarters. Cross-filing quarter ends withheld because not both operands are proven current: ${withheld.join(", ") || "none"}.`);
+    }
     markSubtotals(rows);
     const residualCells = fillResiduals(rows, totalCells, (i, missing) => {
       const col = quarters[i]!;
       const total = at(null, null, col);
       if (total === undefined || total.crossFilingDerived) return false;
+      const boundary = changes.get(seriesKey({ axis, member: missing.member }));
+      if (boundary && !boundary.current.has(total.accession)) return false;
       // Never relabel an old presentation's C as the current B. Missing
       // historical tags establish no mapping, even when today's rows exhaust revenue.
       if (members.some((member) => !current.includes(member) && at(axis, member, col) !== undefined)) return false;
@@ -472,7 +558,7 @@ export function buildQuarterlySegments(
     });
     const prior = members.filter((member) => !current.includes(member)).map((member) => labels[member] ?? fallbackMemberLabel(member)).sort();
     const axisCurrency = at(axis, current[0]!, quarters[0]!)!.currency;
-    axes.push({ axis, axisLabel: SEGMENT_AXES[axis]!, currency: axisCurrency, quarters, rows, total: totalCells, priorPresentation: prior, derivedCells, residualCells });
+    axes.push({ axis, axisLabel: SEGMENT_AXES[axis]!, currency: axisCurrency, quarters, rows, total: totalCells, priorPresentation: prior, derivedCells, residualCells, ...(totalAnnotations.earlierPresentationAt ? {totalEarlierPresentationAt:totalAnnotations.earlierPresentationAt}:{}), ...(totalAnnotations.crossFilingAt ? {totalCrossFilingAt:totalAnnotations.crossFilingAt}:{}) });
   }
   return {
     quarters,

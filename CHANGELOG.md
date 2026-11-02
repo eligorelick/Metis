@@ -18,6 +18,70 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
+
+- PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.
+- DATA-115: surviving cache-miss joiners retry with their own loader after the leader is canceled.
+- DATA-102: preserve freshness flags on SEC fallback peer envelopes, including split/share dependencies.
+- DATA-110: read bounded prose Rule 10b5-1 arrangements and disclose unparsed plan mentions.
+- DATA-116: classify parameter subscription refusals as expected, unlearned disclosures; name non-JSON outages and rate limits without vendor body text.
+- DATA-106: refuse EDGAR contact characters outside printable ASCII and Latin-1 before saving or testing.
+
+## Unreleased - P5 primary-source data and freshness (2026-11-02)
+
+- B-F4 consumer fixtures (AI-512-V1): Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions.
+
+- Verification follow-up (Step 1): Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised.
+
+- B-F8 (DATA-102): The SEC-fallback peer profile depends on its own submissions freshness only.
+
+- B-F7 (DATA-110): Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null.
+
+- B-F6 (DATA-107): Priority selects the capped filing set only; read and output the chosen set by filing date, newest first.
+
+- B-F4 (AI-512-V1): Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date.
+
+- B-F2/B-F3 (DATA-108): Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title.
+
+- B-F1/B-F5 (AI-506): Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs.
+
+- A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing.
+
+- A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls.
+
+- A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown.
+
+- A-F5 (DATA-114): Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure.
+
+- A-F4 (DATA-103): Keep industrial revenue tags separate from the bank-extended revenue comparison list.
+
+- A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation.
+
+- A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order.
+
+- A-F1 (RPT-201): Use schema-valid null guidance in the dividend-yield display fixture.
+
+- Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data.
+
+- DATA-101: suppress absent-period temporary-equity noise and fold only legacy absent-or-refused warnings.
+- AI-512-V1: withhold contradicted guidance labels and label-based track records in fresh and stored displays.
+- AI-508: name change filings, stated windows and affected quarter ends; withhold comparisons involving older bases after repeated recasts.
+
+- DATA-109: exclude 8-K contents-page stubs from evidence and legacy summaries.
+- DATA-108: recognize clause-only and subsection Item 5.02 headings.
+- DATA-107: admit and prioritize material cyber, bankruptcy, acceleration, delisting and control events.
+- AI-506: keep earnings-release narratives and figures on the newest results release.
+- DATA-111: read filing prose dates and announcement datelines without time-zone shifts.
+- DATA-113: price keyless profile and quote from one successful chart observation.
+- DATA-112: refresh expired current-date history before serving a post-close answer.
+- DATA-114: retain and disclose compatible cached history after transient window-rollover failures.
+- RPT-201: annualize dividends by established frequency and disclose the legacy quarterly assumption.
+- AI-202-V1: preserve guided expense and EPS loss signs; leave ambiguous signs unread.
+- AI-508: guard segment growth and cross-filing subtraction across proven presentation changes; disclose retained cross-filing estimates.
+
+- DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.
+- DATA-103: preserve SIC-routed bank total net revenue in income classification and SEC peer statements.
+
 ## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
 
 - F1 coordinator correction: the retained mortgage-REIT claim reading binds
