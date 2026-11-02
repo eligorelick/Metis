@@ -12,8 +12,9 @@ margin history, with its stake added once; an inside but unmeasured result keeps
 the equity-method portion in operating capital and out of the add-back and
 sale-tax lines. Filed immaterial/zero quarters take the measured window's
 placement. Fourth-quarter operands reuse the one-presentation resolver; refused
-operands never become zero. Mixed/undetermined windows and provider rows without
-placement retain the disclosed S-X Rule 5-03 assumption.
+operands never become zero. A window with an unmeasured inside quarter is
+operating throughout; other mixed/undetermined windows retain the disclosed
+S-X Rule 5-03 assumption. The review correction below governs seed and history.
 
 The existing B13 `unlessBelow` mechanism rejects an LTI total below its
 same-date equity-method component outside max(0.5%, 2M), and the provider fill
@@ -33,10 +34,24 @@ figure and no stored byte. Convertible and financial-asset clauses wait for
 their repairs. The integrator assigns this D-next number; intended deltas cite
 the existing D-60/D-65 conventions until then.
 
-The rebuilt census moves XOM 191.7389267225 to 178.0877966043 per share and BA
+The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
+to 196.0576271333 per share and BA
 27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
 values or refusals. Evidence and the explicitly unstarted items are recorded in
 [the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+
+## D-next (P1/B4b review): one operating basis across seed and history (2026-11-02)
+
+FIN-401 review R-1/R-3/R-6: an operating-treated window governs every seed
+quarter and history year. Restore each period's measured, derivation-subtracted
+equity-method income to EBIT, retain measured inside income, and keep its
+located stake in operating capital throughout the sales-to-capital history.
+A window mixing an unmeasured inside quarter with measured below-operating
+quarters is operating throughout. Other mixed/undetermined windows retain the
+prior treatment. This supersedes the original mixed-history benchmark: XOM
+178.0877966043 -> 196.0576271333 per share in real code; BA and the controls
+are unchanged. The audit benchmark used the same mixed history and is not the
+correct target. See the review-corrections section in the B4b disposition.
 
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier

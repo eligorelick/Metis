@@ -12,7 +12,7 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
-| FIN-401 | Fixed | Family commit named above | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
+| FIN-401 | Fixed after review R-1/R-3/R-6: 191.7389267225 -> 196.0576271333/share | Family commit plus review corrections below | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
 | FIN-401-V1 | Fixed | Same family commit | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
 | FIN-302 | Not started | None | None | Earlier convertible treatment remains |
 | FIN-302-V1 | Not started | None | None | Earlier financial-route treatment remains |
@@ -40,8 +40,9 @@ pretax/component arithmetic. A nonoperating aggregate can hold equity-method
 income, so a zero residual on that path stays undetermined (C1). The tolerance
 is the project choice max(0.1% of absolute pretax, 1M source monetary units).
 Inside measured income is removed from the DCF seed and measured annual margin
-history, and the stake is added once. Inside unmeasured income leaves its stake
-in operating capital, including the sales-to-capital history; there is no
+history, and the stake is added once. Inside unmeasured income makes the whole window operating: each seed quarter
+and history year restores measured income previously subtracted from EBIT and
+keeps its stake in operating capital, including the sales-to-capital history; there is no
 separate stake add-back or sale-tax deduction. Immaterial/filed-zero quarters
 take the other quarters' measured placement; an all-immaterial window does not
 establish inclusion. Q4 operands reuse B13's one-presentation resolver, and a
@@ -50,7 +51,7 @@ refused operand is never silently zero (I4).
 The equity-method stake is the whole LTI only when its provenance consists
 solely of equity-method investments. Otherwise it is bounded by the same-date,
 same-currency filed stake and LTI; no amount is estimated. Provider rows without
-placement, mixed windows and ambiguous arithmetic retain the prior treatment
+placement, other mixed windows and ambiguous arithmetic retain the prior treatment
 and explicitly state the S-X Rule 5-03 assumption. The LTI total's component
 floor uses B13's existing `unlessBelow` rule, max(0.5%, 2M). The provider fill
 evaluates that same builder chain, with identical value/tags and its prior
@@ -76,7 +77,7 @@ retained sessions, ratios and coverage on both sides.
 
 | Census shape | Before DCF/share | After DCF/share | Delta | Finding |
 |---|---:|---:|---:|---|
-| XOM | 191.7389267225 | 178.0877966043 | -13.6511301182 | FIN-401 |
+| XOM | 191.7389267225 | 196.0576271333 | +4.3187004108 | FIN-401, including review R-1/R-3/R-6 |
 | BA | 27.7411147513 | 27.1152067083 | -0.6259080430 | FIN-401-V1 |
 | GOOGL | 215.5926213765 | 215.5926213765 | 0 | Control for this family; convertibles unstarted |
 | AMZN | 102.9741501793 | 102.9741501793 | 0 | Control for this family; VAL-14 unstarted |
@@ -87,21 +88,22 @@ retained sessions, ratios and coverage on both sides.
 | CMCSA | Withheld | Withheld | None | Existing WACC weights refusal |
 | NEE | Withheld | Withheld | None | Existing DCF domain refusal; computed equity unchanged |
 
-XOM's base and final equity values are 800.3182801397B and 743.3384630263B;
-its unchanged divisor is 4.174B. The whole 56.9798171134B reduction reconciles:
+XOM's base and corrected final equity values are 800.3182801397B and
+818.3445356544B; its unchanged divisor is 4.174B. The whole 18.0262555147B
+increase reconciles (the former 743.3384630263B used mixed margin history):
 
 | XOM equity bridge change | Amount, B | Attribution |
 |---|---:|---|
-| Operating enterprise value, 829.5562601397 to 798.9024030263 | -30.6538571134 | FIN-401: sales-to-capital 1.3938132874 to 1.2378923835 with the stake kept in operating capital |
+| Operating enterprise value, 829.5562601397 to 873.9084756544 | +44.3522155147 | FIN-401: sales-to-capital 1.3938132874 to 1.2378923835, with seed and history on the operating basis (review R-1/R-3/R-6) |
 | Remove the separately added equity-method stake | -33.3240000000 | FIN-401: no second valuation |
 | Remove the sale-tax line on that removed add-back | +6.9980400000 | FIN-401: no sale of the operating-treated stake |
-| Total equity change | -56.9798171134 | Sum of the three lines |
+| Total equity change | +18.0262555147 | Sum of the three lines |
 
 The base already deducts 7.1637200000B of successor pension/OPEB and
 9.8892200000B of predecessor asset-retirement obligations, both after tax.
 They are unchanged here. Adding those existing bridge lines back reconstructs
-817.3712201397B before those B4a deductions; subtracting them and this family's
-56.9798171134B gives 743.3384630263B with no residual (I10).
+817.3712201397B before those B4a deductions; subtracting them and adding this
+family's +18.0262555147B gives 818.3445356544B with no residual (I10).
 
 BA's TTM affiliate result is 35M: Q3 17M, derived Q4 -14M, filed-zero Q1 0M,
 and Q2 32M. Its margin seed falls from 4.9289855843% to 4.8917495611%; its
@@ -109,9 +111,36 @@ and Q2 32M. Its margin seed falls from 4.9289855843% to 4.8917495611%; its
 stays 3.0442738697. This is the measured income-removal reading, not the
 different counterfactual that keeps the whole stake in operating capital.
 
-No band moves. XOM valuation score changes 44.38/D to 40.00/D, composite
-56.43/C to 55.75/C. BA remains valuation 15/F and composite 40.27/D. GOOGL
+No band moves. XOM valuation score changes 44.38/D to 45.77/D, composite
+56.43/C to 56.56/C. BA remains valuation 15/F and composite 40.27/D. GOOGL
 and AMZN keep their scores, denominators and bands.
+
+## Review corrections (FIN-401)
+
+The independent review covers base `3b775ac7`. The audit's XOM benchmark
+($182.17 at audit time and $178.0877966043 at this base) used the same mixed
+history; the corrected figure is expected to differ from it. Only DCF inputs
+are normalized here; source statements and historical ROIC remain as filed. The
+real composite is 56.56/C, versus the reviewer emulation's 56.73/C: the emulation
+also changed source EBIT before Stage B and therefore historical ROIC. The
+valuation score and per-share value match that emulation exactly.
+Stored-report figures and bytes are unchanged under D-67.
+
+| Review finding | Change / disposition | Commit | Red / green receipts | Measured evidence |
+|---|---|---|---|---|
+| R-1 (High) | Fixed: window treatment governs every margin-history year | Basis-family commit, recorded in final handoff | `r1-r3-r6-red-confirmed` / `r1-r3-r6-green-confirmed` | XOM 178.0877966043 -> 196.0576271333/share; equity 743.3384630263B -> 818.3445356544B; valuation 40/D -> 45.77/D; composite 55.75/C -> 56.56/C |
+| R-3 (Low) | Fixed with R-1: keep each history year's located stake in capital under the operating window | Same basis-family commit | Same receipts; five-year 0.2000x capital-history regression | XOM applied sales-to-capital stays 1.2378923835; records now describe actual history |
+| R-6 (Low) | Fixed with R-1: mixed unmeasured-inside/measured-below quarters use the operating basis throughout, including the seed | Same basis-family commit | Same receipts; mixed-quarter test 18.75% -> 20% | BA, GOOGL, AMZN, KO, DUK and T/DIS/CMCSA/NEE controls unchanged in `r1-replay-after` |
+
+The first green attempt exposed a test-fixture currency omission: the bridge
+correctly selected the annual balance, so the hand-computed quarterly 0.2x
+expectation was inapplicable. Explicit USD quarterly balances now exercise the
+floor; the red receipt already independently shows the wrong 0.2162x history
+median versus 0.2000x. No existing assertion or monetary pin was weakened.
+The real-code census uses `replay-fin401.mts`, adapted from the copied original
+and reviewer harness, with all variants/emulation removed. `review-replay-before`
+and `r1-replay-after` write `replay-before.json` and `replay-basis-fixed.json`.
+Every identity was admitted without adaptation; reference inputs stay external.
 
 ## Stamps, goldens and downstream handling
 
@@ -169,7 +198,7 @@ owner decisions have not been changed. FIN-309 must still wait for Task 11.
 In particular, no OD-2 conversion-edge rule or OD-9 asset admission is claimed.
 
 OD-5's known evidence limits remain: partial inclusion and aggregate ambiguity,
-provider rows without placement, mixed windows, unavailable same-date stake
+provider rows without placement, other mixed windows, unavailable same-date stake
 breakouts and untagged income amounts. No amount is estimated to fill a gap.
 The integrator must assign D-next, merge the remaining tracks, and run the full
 release verification. This implementation does not push, open a PR or merge.
