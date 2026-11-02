@@ -4,21 +4,21 @@
 | --- | --- | --- | --- | --- |
 | DATA-103 | Fixed | b0ed6bb9 | data103-red / data103-green | None; saved bytes unchanged |
 | DATA-104 | Fixed | d0feb95f | data104-red / data104-green | None; saved bytes unchanged |
-| AI-508 | Fixed | Owning AI-508 commit | ai508-red / ai508-green-2 | Legacy arrays without metadata unchanged |
-| AI-202-V1 | Fixed | Owning AI-202-V1 commit | ai202-red / ai202-green-2 | None |
-| RPT-201 | Fixed | Owning RPT-201 commit | rpt201-red-2 / rpt201-green-3 | Yield value retained, legacy assumption note added |
-| DATA-114 | Fixed | Owning DATA-114 commit | data114-red / data114-green-2 | None |
-| DATA-112 | Fixed | Owning DATA-112 commit | data112-red / data112-green-3 | None |
-| DATA-113 | Fixed | Owning DATA-113 commit | data113-red / data113-green-2 | None |
-| DATA-111 | Fixed | Owning DATA-111 commit | data111-red / data111-green | None; recomputation corrected east of UTC |
-| AI-506 | Fixed | Owning AI-506 commit | ai506-red / ai506-green-3 | Old update-only narrative withheld at payload build |
-| DATA-107 | Fixed | Owning DATA-107 commit | data107-red / data107-green-3 | Existing saved scope semantics retained |
-| AI-512-V1 | Not started | - | - | Not assessed |
-| DATA-101 | Not started | - | - | Not assessed |
+| AI-508 | Partially fixed | 68fd3767 | ai508-red / ai508-green-2 | Legacy arrays without metadata unchanged |
+| AI-202-V1 | Fixed | 749d7a5a | ai202-red / ai202-green-2 | None |
+| RPT-201 | Fixed | 2c4c240c | rpt201-red-2 / rpt201-green-3 | Yield retained with explicit legacy assumption note |
+| DATA-114 | Fixed | e5de3480 | data114-red / data114-green-2 | None |
+| DATA-112 | Fixed | fff5f42f | data112-red / data112-green-3 | None |
+| DATA-113 | Fixed | 88f5029f | data113-red / data113-green-2 | None |
+| DATA-111 | Fixed | 096f45c9 | data111-red / data111-green | Saved bytes unchanged; recomputation corrected east of UTC |
+| AI-506 | Fixed | aa596390 | ai506-red / ai506-green-3 | Update-only legacy narrative excluded on payload rebuild |
+| DATA-107 | Fixed | 0d612e11 + 4277b837 | data107-red / data107-scope-green-2; data108-green | Existing saved scope semantics retained |
+| AI-512-V1 | Not started | - | - / - | Not assessed |
+| DATA-101 | Not started | - | - / - | Not assessed |
 | DATA-102 | Not started | - | - | Not assessed |
 | DATA-106 | Not started | - | - | Not assessed |
-| DATA-108 | Fixed | Owning DATA-108 commit | data108-red / data108-green | None |
-| DATA-109 | Fixed | Owning DATA-109 commit | data109-red / data109-green | Display removes page-only summary fragments |
+| DATA-108 | Fixed | 4bf2fc26 | data108-red / data108-green | None |
+| DATA-109 | Fixed | 88896889 | data109-red / data109-green | Display removes page-only summary fragments |
 | DATA-110 | Not started | - | - | Not assessed |
 | DATA-115 | Not started | - | - | Not assessed |
 | DATA-116 | Not started | - | - | Not assessed |
@@ -32,7 +32,7 @@ DATA-104: latest-only USD convenience data previously left one year; recurring U
 
 Offline retained-input replay (p5-retained-replay) compares both classification and complete built statements against base 007f4fcd on inputs 43, 46, 48, 49 and 50: all five unchanged, all USD. The snapshot files were read in place; no retained artifact was written.
 
-This is an incomplete batch: two findings fixed, nineteen not started. AI-508 was inspected but no regression or implementation was committed. Resume there in the requested order. No blocker or non-reproduction is claimed for unstarted findings.
+Continuation: ten requested findings fixed, AI-508 partially fixed, AI-512-V1 and DATA-101 not started. The six Low items assigned elsewhere remain untouched. Earlier DATA-103/104 records are retained.
 
 Validation: data103-green (432 tests), data103-docs-controls (119), data104-green (508), p5-controls-3 (167), p5-retained-replay (5), p5-typecheck-2 and p5-lint-1 passed. The first typecheck caught an introduced fixture typing error, corrected in d0feb95f. The first p5-controls-2 run hit the tracked-file inventory gate before the new test was staged; p5-controls-3 passes after staging. Neither is a pre-existing failure. Existing Vite CommonJS configuration warnings remain.
 
@@ -57,3 +57,5 @@ DATA-107: six newly admitted item codes; 3.02 already admitted at this HEAD. Use
 DATA-108: Election, Appointment and 5.02(e) Compensatory headings previously yielded no section; now retain the operative body. DATA-107 scope correction: expanded schema and intended ten-to-sixteen scope pins are verified by data107-scope-green-2 (230 pass); original ten-document fixture remains intact.
 
 DATA-109: synthetic sections [3, operative body] -> [operative body]. Replayed old sections are filtered before analyst excerpt budgeting and summary construction; legacy summaries strip only isolated Item/page fragments.
+
+Continuation limits: AI-508 implements the arithmetic, analyst exclusion and computed-source guards, but its presentation-change note does not yet name the exact change filing/window and affected quarter ends prescribed by OD-11. Its expanded moved-together/repeated-change tests and retained-report replay remain outstanding. Therefore its disposition is partially fixed. The other new fixes have focused synthetic/offline fixture evidence; no new whole retained-report replay was performed in this continuation. DATA-107 required a follow-up schema commit; the intermediate failed scope receipts are introduced failures, corrected by the 230-test scope gate and 380-test downstream gate. No pre-existing failing test observed. Session capacity ends this continuation; no blocker claimed for the two unstarted findings.
