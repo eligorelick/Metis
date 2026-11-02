@@ -166,6 +166,11 @@ scripts; HTTPS to remote providers does not encrypt the local database.
 
 ## Where local data is kept
 
+Plan-run recovery lives in `<data dir>/recovery/sections`, following METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` files hold completed model-written analyst/judge sections and writer evidence; `*.usage.jsonl` holds per-request usage journals. Metis never automatically deletes these files.
+
+Browser-local display storage includes `thesis-ui-design` and `metis-ui-density-v1` cookies. Local report notes use localStorage on this browser and origin; they are not sent to providers.
+
+
 **Settings → Appearance** stores only `current` or `workspace` in the browser's
 `thesis-ui-design` cookie for 180 days (`Path=/`, `SameSite=Lax`, and `Secure`
 on HTTPS). It is sent to the local Metis host, never to a provider. Cookies
@@ -298,6 +303,9 @@ was. The server prints the resolved path at every start:
 
 ## Retention
 
+Plan-run `recovery/sections` JSON text, writer evidence and usage journals have no expiry or automatic purge. They remain even after deleting the database, preserving retries and manual audit evidence.
+
+
 - Cached provider rows are deleted 30 days after their stored TTL expires
   (`src/cache/maintenance.ts`, `PURGE_EXPIRED_MARGIN_SECONDS`). The sweep runs
   when the database is opened, at most once every 24 hours, and reclaims the
@@ -316,6 +324,9 @@ was. The server prints the resolved path at every start:
   reports, downloads or remote provider records.
 
 ## Deleting local data
+
+With Metis stopped, delete `<data dir>/recovery/sections` separately to remove section text, writer evidence and usage journals. Deleting the DB alone does not remove them. A later retry must request deleted sections again and consume plan allowance. Clear browser site data to remove localStorage report notes and the `thesis-ui-design` and `metis-ui-density-v1` display cookies.
+
 
 - Reports, cache and database settings: quit Metis and delete the database file together with its
   `-wal` and `-shm` siblings. Disable `METIS_IMPORT_LEGACY_DB` first if set,

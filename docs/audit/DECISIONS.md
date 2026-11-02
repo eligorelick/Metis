@@ -3123,3 +3123,7 @@ SEC-204 adopts OD-1: preserve shell availability with environment data keys, wit
 ## D-next (P6): Visible default AI selection
 
 SEC-206 follows server selection on credential refresh only for an implicit default with no unsaved edit. Explicit saved choices and all unsaved fields remain authoritative.
+
+## D-next (P6): Recovery retention
+
+SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retries and manual audit. Document plain text, writer evidence, independent data-dir placement and stopped-app deletion. Purging would lose evidence and re-consume plan allowance.
