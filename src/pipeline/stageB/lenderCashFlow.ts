@@ -2,6 +2,8 @@ import type { DataBundle } from "@/pipeline/types";
 import type { CapitalResult } from "./capital";
 import type { CompanyRoute } from "@/types/core";
 
+export const LENDER_DEBT_PERIMETER_LABEL = "Provider debt perimeter (includes payables to third-party loan owners)";
+
 const day = (s: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;
 /** Primary-statement rule; neither sector labels nor a negative CFO establish it. */
 export function lenderCashFlowApplicability(bundle: DataBundle, route: CompanyRoute): CompanyRoute["cashFlowApplicability"] {
@@ -42,7 +44,13 @@ export function lenderCashFlowApplicability(bundle: DataBundle, route: CompanyRo
   const lease = typeof balance?.operatingLeaseLiability === "number" ? balance.operatingLeaseLiability : 0;
   const evDebtBasis = components.length > 0 && debt !== null && Math.abs(sum - (debt - lease)) <= Math.max(1000, debt * 0.0001)
     ? `EV context only: provider debt includes the filed ${components.map(c => `${c.name} ${c.value}`).join("; ")} (statement currency, ${source.reportDate}), plus the selected lease convention. This perimeter is not industrial borrowing or a lender solvency measure.` : undefined;
-  return { status: "not-applicable", evDebtBasis, asOf: source.reportDate, sourceIds: [source.documentUrl],
+  const borrowingComponents = components.filter(c => /^Debt,/i.test(c.name));
+  const payables = components.filter(c => /^Payables to third-party loan owners$/i.test(c.name));
+  const debtPerimeter = evDebtBasis && borrowingComponents.length === 3 && payables.length === 1 &&
+    new Set(borrowingComponents.map(c => c.name.toLowerCase())).size === 3 && /^[A-Z]{3}$/.test(balance?.reportedCurrency ?? "")
+    ? { label: LENDER_DEBT_PERIMETER_LABEL, borrowings: borrowingComponents.reduce((n, c) => n + c.value, 0), loanOwnerPayables: payables[0]!.value,
+      components: borrowingComponents, currency: balance!.reportedCurrency!, source: source.documentUrl } : undefined;
+  return { status: "not-applicable", evDebtBasis, ...(debtPerimeter ? { debtPerimeter } : {}), asOf: source.reportDate, sourceIds: [source.documentUrl],
     reason: `Owner FCF, P/FCF, FCF yield, FCF conversion/growth and cash runway are not applicable: SIC ${sic} and the ${source.form} cash-flow statement for ${source.reportDate} place held-for-sale loan originations and loan-sale proceeds in operating activities. Warehouse and loan-owner funding is operating inventory finance; industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA and interest coverage are not applicable. Capital adequacy is not modelled for non-bank lenders: industrial coverage and leverage do not measure solvency. Vendor gross margin is not a filed lender income-statement line. ROIC and ROIC-vs-WACC are not applicable because invested capital (debt + equity - cash) is undefined when debt funds operating inventory; ROTE is the capital-return convention. OCF less capex reflects loan inventory funding and turnover, not cash available to owners or an exhaustion clock. An FCF-based DCF (including reverse DCF and sensitivity) is not applicable. Filed OCF, capex, loan flows, earnings and book value remain source observations, subject to their own data checks. Source: ${source.documentUrl}.` };
 }
 

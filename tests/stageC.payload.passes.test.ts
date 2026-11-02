@@ -1,4 +1,5 @@
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
+import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
 /**
  * Stage C tests — payload assembly determinism + provenance, prompt rule blocks,
  * verify-pass tracing, report assembly + schema validation + retry-on-zod, and a
@@ -722,7 +723,8 @@ describe("payload determinism + provenance", () => {
   // Count the exact changed text, then preserve every earlier byte/numeric pin.
   // This helper owns no stamp transition.
   const restoreN4aGolden = <T extends ReturnType<typeof buildInputs>>(input: T): T => {
-    return { ...input, computed: restoreN4aPeerWordingGolden(input.computed, 2), payload: restoreN4aPeerWordingGolden(input.payload, 1) };
+    const r2 = restoreR2FigurePayloadGolden(input);
+    return { ...input, computed: restoreN4aPeerWordingGolden(r2.computed, 2), payload: restoreN4aPeerWordingGolden(r2.payload, 1) };
   };
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
     // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
@@ -1846,7 +1848,7 @@ describe("payload determinism + provenance", () => {
     )!;
 
     expect(fy2027.period).toBe("2027-09-30");
-    expect(fy2027.asOf).toBe("2026-07-01");
+    expect(fy2027.asOf).toBe("2026-07-06");
   });
 
   it("uses the first day of a Finnhub observation month instead of builtAt", () => {
@@ -1865,6 +1867,8 @@ describe("payload determinism + provenance", () => {
       throw new Error("fixture requires analyst estimates and price targets");
     }
     bundle.analystEstimates.value.asOf = "2026-02-30";
+    bundle.analystEstimates.value.fetchedAt = "2026-02-30T00:00:00Z";
+    delete bundle.analystEstimates.value.data.estimateTiming;
     bundle.priceTargetConsensus.value.asOf = "";
     const validation = validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") });
     const payload = assembleContextPayload(bundle, computed, validation);

@@ -19,6 +19,7 @@ import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
  * Pure: no network, no clock.
  */
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import { admittedStatementRow } from "@/providers/fmp";
@@ -605,6 +606,8 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
 
 /** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
+  bundle = withIncomeOperatingBasis(bundle);
+  notes.push(...bundle.gaps.filter(g => /\.operating(?:Income|Expenses)$/.test(g.field)).map(g => g.reason));
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
   for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {

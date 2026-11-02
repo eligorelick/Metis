@@ -34,6 +34,8 @@ export type EstimateTiming = z.infer<typeof EstimateTimingSchema>;
 
 /** Model evidence retains source-day precision; exact instants belong to report/audit metadata. */
 export interface EstimateModelTiming {
+  /** Retained envelope reference, separate from the figure's observation asOf. */
+  envelopeReferenceOn?: string | null;
   version: "1";
   precision: "day-UTC";
   asOfRole: EstimateTiming["asOfRole"];
@@ -139,5 +141,5 @@ export function estimateModelTimingText(timing: EstimateModelTiming, recordedAsO
     : loaded !== null && timing.acquisitionOrigin === "fixture-load" ? `fixture loaded UTC day ${loaded}; original acquisition not established`
       : recorded !== null && timing.acquisitionOrigin === "legacy-recorded" ? `recorded response UTC day ${recorded}; acquisition origin unestablished; original acquisition not established`
         : "original acquisition not established";
-  return `${estimateDateText(timing.asOfRole, recordedAsOf)}; ${acquisition}; publication/update vintage not established`;
+  return `${estimateDateText(timing.asOfRole, timing.envelopeReferenceOn === undefined ? recordedAsOf : timing.envelopeReferenceOn)}; ${acquisition}; publication/update vintage not established`;
 }

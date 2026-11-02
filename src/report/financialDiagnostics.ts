@@ -80,7 +80,11 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     }
     for (const [field,value] of Object.entries(current.debtBridge)) {
       if (typeof value !== "number") continue;
-      append(next.balanceSheet.debtProfile.numbers, numeric(`computed.capital.current.debtBridge.${field}`, value, "currency", current.asOf, current.currency));
+      const source = field === "totalDebtIncludingLeases" && current.debtBridge.providerDebtPerimeterLabel
+        ? "computed.current-capital.provider-debt-perimeter-includes-payables-to-third-party-loan-owners"
+        : field.startsWith("filed") || field === "loanOwnerPayables" ? `computed.current-capital.${field.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`
+          : `computed.capital.current.debtBridge.${field}`;
+      append(next.balanceSheet.debtProfile.numbers, numeric(source, value, "currency", current.asOf, current.currency));
     }
     for (const field of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf"] as const) {
       append(next.balanceSheet.coverage.numbers, numeric(`computed.capital.current.${field}`, current[field], field === "sbcPctOfFcf" ? "%" : "x", current.asOf, null, period));
