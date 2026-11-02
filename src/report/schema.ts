@@ -2214,7 +2214,7 @@ export const CommitmentPaymentTimingSchema = z.object({
 }).strict();
 
 /** Controlled scope codes, independent of today's collector membership. Legacy absence stays unknown. */
-export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"])).min(1).max(10);
+export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "1.03", "1.05", "2.01", "2.03", "2.04", "2.05", "2.06", "3.01", "3.02", "3.03", "5.01", "5.02", "5.07", "8.01"])).min(1).max(16);
 
 export const FilingDisclosuresSchema = z
   .object({

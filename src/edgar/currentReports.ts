@@ -1290,7 +1290,7 @@ export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.fre
 /** One immutable admission filter for candidate reads, retained sections and saved scope. */
 export const PRIORITY_EVENT_ITEMS: ReadonlySet<string> = new Set(["1.03","1.05","2.04","3.01"]);
 export const NON_EVENT_ITEMS: ReadonlySet<string> = new Set(["2.02","4.01","4.02","7.01","9.01"]);
-export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS));
+export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS).sort());
 
 /** Official titles, for recognising a heading as opposed to a cross-reference. */
 const ITEM_TITLES: Readonly<Record<string, string>> = {
