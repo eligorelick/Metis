@@ -1929,3 +1929,9 @@ export function factorExposureTable(scores: NonNullable<Report["scores"]>): Body
     rows: scores.factorExposure.map((x) => [sentence(segmentWords(x.family)), formatPct(x.weightPct, 1), signedPoints(x.aboveNeutralPoints)]),
   };
 }
+
+/** OD-11: data-only runs performed no citation-check pass. */
+export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appendix">, scope: "header" | "appendix"): ProvenanceCoverage | undefined {
+  if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
+  return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
+}

@@ -1,3 +1,4 @@
+import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyCheckNote } from "@/report/claimMatching";
 /**
  * reportToAuditMarkdown — the machine-checkable audit trail that accompanies a
@@ -147,12 +148,14 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
 function renderVerification(report: Report): string {
   const a = report.appendix;
   const lines: string[] = ["## Verification", ""];
-  const coverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
+  const storedCoverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
+  const coverage = displayedProvenanceCoverage(report, "appendix");
   const rows = trustRows(coverage, a.verificationLog);
   if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   const detail = factualValidationText(coverage, a.verificationLog);
   if (detail) lines.push(markdownProse(detail), "");
-  if (coverage) lines.push(provenanceCoverageTable(coverage), "");
+  if (!coverage && storedCoverage) lines.push("No citation-check pass ran on this data-only report. The counts below were stored with it and record source paths, not checked citations; the report does not show them.", "");
+  if (storedCoverage) lines.push(provenanceCoverageTable(storedCoverage), "");
   lines.push(
     `Citation coverage: **${a.verificationRate === null ? "—" : `${(a.verificationRate * 100).toFixed(1)}%`}** — share of report figures traceable to a citation or payload value; a provenance check, not a correctness check.`,
     "",

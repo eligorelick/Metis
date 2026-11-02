@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- RPT-504: suppress checked citation shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
+
 - AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
 
 - AI-104: avoid false recovery warnings on accurate fading-to-hurdle commentary.

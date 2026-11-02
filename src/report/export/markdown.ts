@@ -1,3 +1,4 @@
+import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -349,8 +350,8 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Usage", usageSummary(report)],
         ["Data completeness", dataStateText(completeness)],
         ...evidenceRow(report),
-        ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-        ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
+        ["Verification", trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+        ...(provenanceHeadline(displayedProvenanceCoverage(report, "header")) ? [["Provenance", provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog)!]] : []),
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
@@ -893,7 +894,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
   if (a.missingData.some((gap) => gap.field === "analysis.llm")) {
     lines.push("No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.", "");
   } else {
-    const rows = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
+    const rows = trustRows(displayedProvenanceCoverage(report, "appendix"), a.verificationLog);
     if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   }
   lines.push(

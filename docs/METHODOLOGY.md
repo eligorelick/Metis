@@ -5973,3 +5973,5 @@ AI-103 / OD-4: registered issuer entities may cite issuer filings, transcripts, 
 AI-104: recovery language must govern the hurdle. A later fade, convergence or decline toward cost of equity is not a recovery, even after an earlier rise; continued rising toward it still triggers the warning.
 
 AI-111 / OD-5: listed honorific periods and contextual name initials do not start rating sentences. Initial surnames require a dash, comma, parenthesis or possessive. Whole-sentence rating words and unlisted abbreviations remain refused.
+
+RPT-504 / B10-OD-11: data-only reports show no checked citation/provenance share on reader surfaces, including legacy reports carrying counts. The audit retains raw evidence-class counts under an explicit no-citation-check disclosure.

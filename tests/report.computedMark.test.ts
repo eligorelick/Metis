@@ -87,3 +87,15 @@ describe("data-only figure marks (audit 2026-10-22 F-23)", () => {
     expect(renderToStaticMarkup(createElement(ReportView, { report }))).not.toContain('aria-label="computed"');
   });
 });
+
+it("RPT-504 hides legacy data-only citation shares across reader surfaces and preserves raw audit counts", () => {
+ const report = dataOnly();
+ const before = JSON.stringify(report);
+ for (const text of [reportToMarkdown(report), reportToPrintBody(report), ...(["classic", "dossier"] as const).map(layout => renderToStaticMarkup(createElement(ReportView, { report, layout })))]) {
+   expect(text).not.toContain("48/52 (92.3%)");
+   expect(text).not.toContain("22/24 factual claims");
+ }
+ expect(reportToAuditMarkdown(report)).toContain("counts below were stored");
+ expect(reportToAuditMarkdown(report)).toContain("48/52 (92.3%)");
+ expect(JSON.stringify(report)).toBe(before);
+});

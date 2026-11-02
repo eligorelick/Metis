@@ -1,3 +1,4 @@
+import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
@@ -346,8 +347,8 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Usage", usageSummary(report)],
       ["Data completeness", dataStateText(completeness)],
       ...evidenceRow(report),
-      ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-      ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
+      ["Verification", trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+      ...(provenanceHeadline(displayedProvenanceCoverage(report, "header")) ? [["Provenance", provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog)!]] : []),
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );
@@ -739,7 +740,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   ];
   const run = `<h3>Run details</h3>${table(["Item", "Detail"], runRows.map((row) => row.map(esc)))}`;
   const dataOnly = a.missingData.some((gap) => gap.field === "analysis.llm");
-  const trust = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
+  const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), a.verificationLog);
   const checks = a.consistencyChecks;
   const checkLine = checks
     ? (() => {

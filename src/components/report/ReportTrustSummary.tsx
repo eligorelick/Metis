@@ -1,3 +1,4 @@
+import { displayedProvenanceCoverage } from "@/report/presentation";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { dataStateText, manifestReconciliationRows, trustRows } from "@/report/presentation";
@@ -5,7 +6,7 @@ import { evidencePercentText } from "@/report/assessment";
 
 /** Distinct denominators, close to the score and estimate, with the raw accounting reachable. */
 export function ReportTrustSummary({report, completeness:c}: {report:Report; completeness:ReportCompletenessPresentation}) {
-  const rows = trustRows(report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage, report.appendix.verificationLog);
+  const rows = trustRows(displayedProvenanceCoverage(report, "appendix"), report.appendix.verificationLog);
   const share = report.scores?.assessments?.evidenceCompleteness;
   return <section className="report-trust-summary" aria-label="Research evidence summary">
     <p className="trust-condition">{dataStateText(c)}</p>
@@ -20,7 +21,7 @@ export function ReportTrustSummary({report, completeness:c}: {report:Report; com
 
 /** Shared native destination: dossier headline or classic Appendix, never both. */
 export function ReportTrustDetails({report, completeness:c}: {report:Report; completeness:ReportCompletenessPresentation}) {
-  const rows = trustRows(report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage, report.appendix.verificationLog);
+  const rows = trustRows(displayedProvenanceCoverage(report, "appendix"), report.appendix.verificationLog);
   const warnings = report.appendix.missingData.filter(gap => gap.expected !== true && gap.severity === "warn").length;
   const share = report.scores?.assessments?.evidenceCompleteness;
   return <details className="trust-details" id="report-trust-details" tabIndex={-1}>
