@@ -18,7 +18,7 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## P1 / B4b: equity-method stakes (2026-11-02)
+## Unreleased - P1/B4b equity bridge (2026-11-02)
 
 - FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
   and derivation provenance. Remove measured inside income from projected EBIT;
