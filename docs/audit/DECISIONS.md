@@ -3137,3 +3137,8 @@ Dividend pay-date notes use the established frequency word, or Next dividend pay
 ### D-next (P5): A-F7 (AI-508/DATA-112) review correction
 
 Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F8 (AI-508) review correction
+
+Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. The note says because not both operands are proven current; the duplicated methodology paragraph is removed. Notes no longer list every window of the change filing. Stored report bytes are unchanged.

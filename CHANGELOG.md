@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing.
+
 - A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls.
 
 - A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown.

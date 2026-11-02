@@ -141,3 +141,11 @@ it("AI-508 NVIDIA instances do not raise a presentation change",()=>{
   for(const row of axis.rows)expect(row.earlierPresentationAt ?? []).toEqual([]);
  }
 });
+
+it("AI-508 notes identify the disagreeing implied window and earlier filing",()=>{
+ const notes=buildQuarterlySegments([q3n26,q2o26,q1o26,kOld],labels)!.notes.join(" ");
+ expect(notes).toContain(`earlier 10-Q ${q2o26.accession} filed ${q2o26.filingDate}`);
+ expect(notes).toContain("shared stated/implied window: 2026-01-01 to 2026-06-30 (USD)");
+ expect(notes).toContain("because not both operands are proven current");
+ expect(notes).not.toContain("stated comparison windows:");
+});

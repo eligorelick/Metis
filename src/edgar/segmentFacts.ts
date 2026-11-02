@@ -259,10 +259,16 @@ export function sameSegmentBasis(at: readonly number[] | undefined, i: number, j
 export function crossFilingClause(ends: readonly string[]): string {
   return ends.length === 0 ? "" : ` Cells in quarters ended ${ends.join(", ")} combine windows from two filings (a fiscal year in one less nine months in another); a segment change first presented in a 10-K would not show in them until the next 10-Q restates a quarter.`;
 }
+interface SegmentPresentationChange {
+ filing: FilingRevenue;
+ earlierFiling: FilingRevenue;
+ window: { start: string; end: string; currency: string };
+ current: ReadonlySet<string>;
+}
 /** Compare each filing's stated and implied windows without pooling presentations. */
-export function segmentPresentationChanges(filings: readonly FilingRevenue[]): Map<string, { filing: FilingRevenue; current: ReadonlySet<string> }> {
+export function segmentPresentationChanges(filings: readonly FilingRevenue[]): Map<string, SegmentPresentationChange> {
  const ordered = [...filings].sort((a,b)=>a.filingDate.localeCompare(b.filingDate)||a.accession.localeCompare(b.accession));
- const out = new Map<string, {filing: FilingRevenue; current: ReadonlySet<string>}>();
+ const out = new Map<string, SegmentPresentationChange>();
  const keys = new Set(filings.flatMap(f=>f.facts.map(seriesKey)));
  for (const key of keys) {
   const own = (f: FilingRevenue) => {
@@ -282,16 +288,20 @@ export function segmentPresentationChanges(filings: readonly FilingRevenue[]): M
   const windows=new Map(ordered.map(f=>[f.accession,own(f)]));
   const relation=(a:FilingRevenue,b:FilingRevenue) => {
    let shared=false, clash=false;
+   let disagreement: string | undefined;
    for(const [k,v] of windows.get(a.accession)!) {const old=windows.get(b.accession)!.get(k);if(old===undefined)continue;shared=true;
-    if(Math.abs(v-old)>Math.max(Math.abs(old)*SEGMENT_RECAST_THRESHOLD_PCT/100,SEGMENT_ROUNDING_FLOOR))clash=true;
+    if(Math.abs(v-old)>Math.max(Math.abs(old)*SEGMENT_RECAST_THRESHOLD_PCT/100,SEGMENT_ROUNDING_FLOOR)){clash=true;disagreement ??= k;}
    }
-   return {shared,clash};
+   return {shared,clash,disagreement};
   };
   const index=ordered.findIndex((f,i)=>ordered.slice(0,i).some(e=>relation(f,e).clash)&&!ordered.slice(i+1).some(g=>relation(g,f).clash));
   if(index<0) continue;
   const later=ordered.slice(index);
   const current=new Set([...later,...ordered.slice(0,index).filter(e=>later.some(g=>relation(g,e).shared)&&!later.some(g=>relation(g,e).clash))].map(f=>f.accession));
-  out.set(key,{filing:ordered[index]!,current});
+  const filing = ordered[index]!;
+  const earlierFiling = ordered.slice(0,index).find(e=>relation(filing,e).clash)!;
+  const [start,end,currency] = relation(filing,earlierFiling).disagreement!.split("|") as [string,string,string];
+  out.set(key,{filing,earlierFiling,window:{start,end,currency},current});
  }
  return out;
 }
@@ -512,10 +522,11 @@ export function buildQuarterlySegments(
     for (const member of changed) {
       const boundary = changes.get(seriesKey({axis,member}))!;
       const f = boundary.filing;
-      const windows = f.facts.filter(x => x.axis === axis && x.member === member).map(x => `${x.start} to ${x.end}`);
+      const e = boundary.earlierFiling;
+      const w = boundary.window;
       const earlier = quarters.filter((_,i) => annotations(axis,member).earlierPresentationAt?.includes(i)).map(q=>q.end);
       const withheld = quarters.filter(q => { const c=at(axis,member,q); return c?.crossFilingDerived && !c.operands?.every(a=>boundary.current.has(a)); }).map(q=>q.end);
-      notes.push(`${SEGMENT_AXES[axis]}: presentation changed for ${labels[member]??member} in ${f.form} ${f.accession} filed ${f.filingDate}; stated comparison windows: ${[...new Set(windows)].join(", ")}. Earlier-presentation quarter ends: ${earlier.join(", ") || "none"}; these remain as reported and are not compared with later quarters. Cross-filing quarter ends withheld because both operands are not proven current: ${withheld.join(", ") || "none"}.`);
+      notes.push(`${SEGMENT_AXES[axis]}: presentation changed for ${labels[member]??member} in ${f.form} ${f.accession} filed ${f.filingDate}; disagrees with earlier ${e.form} ${e.accession} filed ${e.filingDate} on shared stated/implied window: ${w.start} to ${w.end} (${w.currency}). Earlier-presentation quarter ends: ${earlier.join(", ") || "none"}; these remain as reported and are not compared with later quarters. Cross-filing quarter ends withheld because not both operands are proven current: ${withheld.join(", ") || "none"}.`);
     }
     markSubtotals(rows);
     const residualCells = fillResiduals(rows, totalCells, (i, missing) => {

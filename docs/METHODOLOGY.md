@@ -5984,7 +5984,6 @@ Page-number-only table-of-contents bodies are excluded from 8-K sections, analys
 Segment presentation-change notes identify the change filing, its stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
 
 
-Segment presentation-change notes identify the change filing, stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
 
 
 AI-512-V1: guidance uses the run income rows to withhold a disputed fiscal label, never replace it. A completed label disagrees at its date or belongs to a quarter more than 45 days earlier. An outlook label already ended when filed becomes "fiscal quarter" or "fiscal year" with its amounts retained. Paired guidance checks with contradicted labels are excluded from the track record. Commentary uses the quarter end when the fiscal label is contradicted. Saved displays apply the same comparison to their own quarterly trend without rewriting bytes.
@@ -6024,3 +6023,6 @@ A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or N
 
 
 A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim.
+
+
+A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. The note says because not both operands are proven current; the duplicated methodology paragraph is removed. Notes no longer list every window of the change filing.
