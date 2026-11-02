@@ -8,7 +8,7 @@ Base: ae4b656e. Replays are offline; stored reports and snapshots are immutable.
 | FIN-306 | Fixed: route-withheld Piotroski tests leave the applicable ceiling; missing supported tests still reduce evidence | See commit titled Correct Piotroski route applicability | fin306-red / fin306-green, fin306-fixtures | New computations only; historical scores remain as stored |
 | FIN-307 | Confirmed: retain D-137 OD-6 | See commit titled Confirm ADR capitalization disclosure | fin307-surfaces (6 passing; no defect reproduced) | No calculation change; stored reports retained |
 | FIN-308 | Fixed: filed majority, then common grading | See commit titled Classify REITs from filed asset majorities | fin308-red, fin308-provenance-red / fin308-consumers | New computations only; historical bytes retained |
-| FIN-510-V1 | Pending | Pending | Pending | Historical bytes retained |
+| FIN-510-V1 | Fixed: refuse ambiguous sibling value | See commit titled Withhold ambiguous deferred revenue | fin510v1-red / fin510v1-green | New statement builds only; historical bytes retained |
 | Cash-capex | Pending convention confirmation | Pending | Documentation gate | No calculation change |
 
 ## FIN-306 measurements
@@ -77,3 +77,24 @@ must not double count, property/mortgage 50/50 ambiguity, and token-property
 holdings. Boundary tests accept exactly 50%, reject 49%, gross cost without
 depreciation and different-period evidence. No census input is a mortgage
 REIT; the explicit mortgage controls remain required regression coverage.
+
+
+## FIN-510-V1 statement-producer replay
+
+45 retained census companyfacts were rebuilt with the same statement options
+before and after (producer-base / producer-fin510v1). These are the only
+field movers; each now carries the conflict gap naming both siblings. The full
+period-level amounts and gaps are retained in the two receipt JSON artifacts.
+
+| Issuer | Changed annual / quarterly rows | Most recent affected value before -> after |
+| --- | --- | --- |
+| HD | 7 / 23 | FY2025 2026-02-01: 1,500,000,000 -> withheld; sibling 2,575,000,000 |
+| DIS | 7 / 24 | FY2025 2025-09-27: 5,689,000,000 -> withheld |
+| AAPL | 1 / 0 | FY2018: 5,966,000,000 -> withheld |
+| META | 1 / 0 | FY2017: 98,000,000 -> withheld |
+| ORCL | 1 / 0 | FY2018: 8,341,000,000 -> withheld |
+
+The remaining 40 issuer producers are unchanged in these fields. JNJ FY2025
+R&D stays 14,665,000,000; JPM FY2025 interest income stays 193,341,000,000.
+There is no current deferred-revenue consumer in FCF, DCF or composite grades;
+all census and fixture financial outputs retain their prior P9 values.

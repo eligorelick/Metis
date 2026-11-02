@@ -5188,6 +5188,15 @@ Amortization alone is never taken as D&A. Within one trailing year, quarters
 can mix the two compositions (Alphabet tags amortization in some quarters
 only); each quarter's composition is disclosed.
 
+**Deferred-revenue siblings (FIN-510-V1, P9).**
+`ContractWithCustomerLiabilityCurrent` and `DeferredRevenueCurrent` have no
+established definitional containment. When both resolve for the period and
+disagree, deferred revenue is withheld with a gap naming both tags, values
+and currencies. The resolver does not choose the larger or the first tag.
+Equal siblings or a single available sibling retain their existing value;
+other periods do not create a conflict. This does not alter R&D component
+floors or a bank's operating interest-income priority (D-134 OD-4).
+
 **Market cap across share classes (B-8).** An issuer with more than one
 common class needs every class's outstanding count and its economic relation
 to the quoted class before Métis states a market cap. Covers that tag each

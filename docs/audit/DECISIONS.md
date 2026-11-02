@@ -3190,3 +3190,19 @@ Full census O, NNN and PLD have positive same-filing majorities and remain
 property REITs; AMT lacks qualifying property evidence and moves 52.77 ->
 56.18 (D -> C). Details and every census/fixture mover are in the disposition.
 Stored reports are immutable; these are new-computation rules only.
+
+
+## D-next (P9) - FIN-510-V1: ambiguous deferred-revenue siblings (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
+withhold deferred revenue when `ContractWithCustomerLiabilityCurrent` and
+`DeferredRevenueCurrent` disagree for the period, with a gap naming both tags
+and amounts. Neither first-hit order nor a larger number establishes the
+correct scope. This resolves the deferred-revenue residual in D-134 OD-4;
+JNJ R&D and JPM operating interest income remain controls. A single sibling
+or equal siblings remain available. HD FY2025 changes 1.500B -> withheld
+(the other sibling is 2.575B); no score/FCF/valuation consumer changes.
+The same evidence rule also withholds conflicting DIS periods and older
+AAPL, META and ORCL rows, listed in the disposition. Stored reports and saved
+input snapshots are immutable; re-admission of retained facts uses the new
+rule without rewriting them.
