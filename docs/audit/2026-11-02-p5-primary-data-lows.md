@@ -19,3 +19,8 @@ PERF-101: cold same-endpoint failure waves had peak concurrency 1; after the fir
 | DATA-115 | Fixed | owning commit | data115-red / data115-green | None |
 
 DATA-115: active joiner changed from rejected to fulfilled after leader cancellation; canceled joiner remains rejected. Signal forwarded by FMP/Yahoo cache adapters. No stamps changed.
+
+
+| DATA-102 | Fixed | owning commit | data102-red / data102-green | None |
+
+DATA-102: four stale input cases lost flags before repair; now each output preserves stale=true and reason. Fresh peer admission remains covered. Stamps unchanged; existing gate excludes stale fallback peers uniformly.

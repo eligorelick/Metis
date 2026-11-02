@@ -3018,3 +3018,8 @@ Only the existing waiting wave bypasses inconclusive endpoint discovery, with pe
 ### D-next (P5-lows): DATA-115 caller-owned retry
 
 Use leader signal state rather than error wording. A surviving joiner retries once, rejoining an existing replacement flight. Ordinary vendor failures and aborted joiners retain shared rejection.
+
+
+### D-next (P5-lows): DATA-102 uniform stale peer admission
+
+Follow B9-OD-6: preserve stale and staleReason from submissions, companyfacts, quote and split evidence. Derived market cap also depends on companyfacts shares. Retain the existing stale exclusion gate; do not resolve postponed F-14.
