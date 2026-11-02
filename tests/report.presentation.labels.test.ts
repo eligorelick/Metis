@@ -1,3 +1,4 @@
+import { reverseDcfValueText } from "@/report/presentation";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -86,4 +87,10 @@ describe("reader text helpers", () => {
 it("RPT-205: geographic labels add no unrecorded scope", () => {
  expect(geographyLabel("CHINA")).toBe("China");
  expect(geographyLabel("China including Hong Kong")).toBe("China including Hong Kong");
+});
+
+it("RPT-217: reverse values use the metric unit and unavailable sentinels", () => {
+ expect(reverseDcfValueText("Forward FCF/share",11)).toBe("11.0");
+ expect(reverseDcfValueText("not applicable",0)).toBe("\u2014");
+ expect(reverseDcfValueText("unavailable (data-only payload)",0)).toBe("\u2014");
 });

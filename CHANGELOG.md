@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P7 display and history (2026-11-02)
 
+- RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
 - RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
 - RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
 - RPT-205: Preserve the geographic scope actually named by the source row.

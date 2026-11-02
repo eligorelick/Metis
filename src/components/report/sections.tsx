@@ -1,3 +1,4 @@
+import { reverseDcfValueText } from "@/report/presentation";
 import { macroDisplayRows } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { displayedProvenanceCoverage } from "@/report/presentation";
@@ -1011,9 +1012,9 @@ export function ValuationSection({
               {presentation === "dossier" ? "Reverse valuation — market-implied assumptions" : "reverse DCF — market is pricing"}
             </div>
             <div className="mono mt-0.5 text-[13px] text-warn">
-              {reverseDcf.impliedValue === null
+              {reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue) === "\u2014"
                 ? "n/a"
-                : `~${reverseDcf.impliedValue.toFixed(1)}% ${reverseDcf.impliedMetric}`}
+                : `~${reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue)} ${reverseDcf.impliedMetric}`}
             </div>
             <p className="mt-1 text-[11px] leading-snug text-muted">
               {displayProse(reverseDcf.narrative)}

@@ -669,7 +669,7 @@ export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; det
 
 /** The reverse-DCF implied value with the unit its metric names. */
 export function reverseDcfValueText(metric: string, value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
+  if (value === null || !Number.isFinite(value) || /not applicable|unavailable/i.test(metric)) return "\u2014";
   return /growth|margin|rate|return|cagr/i.test(metric) ? formatPct(value) : formatNumber(value, 1);
 }
 
