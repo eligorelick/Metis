@@ -12,7 +12,7 @@ stage-c-1.6.18. Owner decisions were read from specs/, including OD-5 and OD-11.
 | FIN-402-V1 | Fixed: separate normalized terminal evidence; GAAP grades retained | 7b91d6c1 | fin-402-family-red | fin-402-family-green-03 | No numeric rewrite |
 | FIN-402-V2 | Fixed: normalized annual margins/ceiling with per-tag recurring guard | 7b91d6c1 | fin-402-family-red | fin-402-family-green-03 | No numeric rewrite |
 | FIN-502 | Fixed: bounded normalized tax seed | 7b91d6c1 | fin-402-family-red; fin-502-legacy-red | fin-402-family-docs-green-02 | Proven old mismatch receives note |
-| FIN-102 | Fixed: known operating losses with admitted positive capital remain terminal misses | 8e353992 / 04ca47f2 | fin-102-red | fin-102-green-02 | Skipped old terminal years receive note |
+| FIN-102 | Fixed: known operating losses with admitted positive capital remain terminal misses | 8e353992 / 04ca47f2 / 7538e163 | fin-102-red; fin-102-capital-refusal-red | fin-102-green-02; fin-102-capital-refusal-green | Skipped old terminal years receive note |
 | FIN-111 | Fixed: transition flows leave growth, fits and valuation history | 3d5bbeda | fin-111-red | fin-111-green | Numbers retained |
 | FIN-501 | Fixed: OD-11 base-shift margin family; actual solved path published | afc0a927 / 40786255 | fin-501-104-red-02; fin-501-od11-red; fin-501-trigger-red | fin-501-od11-green; p2-integration-green-04 | Numbers retained |
 | FIN-104 | Fixed: all reverse candidates/brackets/bounds stay in-domain | afc0a927 | fin-501-104-red-02 | fin-501-104-green-02 | Old unsupported range-end claim receives note |
@@ -147,8 +147,8 @@ Focused final consumer/docs gates: p2-integration-green-04 (23 selected checks),
 p2-stored-docs-green (149 checks), p2-typecheck-06. Exact-base reproduction:
 p2-base-probes-02 (49 checks: 38 red triggers and 11 controls) and independent
 p2-base-integration-controls. The final committed head is subjected to
-p2-product-final, p2-risk-final, p2-typecheck-final, p2-lint-final and
-p2-replay-final. Their actual outcomes, final SHA, full commit list and every
+p2-product-final-02, p2-risk-final, p2-typecheck-final-02, p2-lint-final-02 and
+p2-replay-final-02. Their actual outcomes, final SHA, full commit list and every
 failed receipt are recorded in tmp/claude-impl/HANDOFF.md and failures.md.
 No failure is labelled pre-existing without an ac4916f8 receipt.
 
@@ -168,3 +168,9 @@ fin-102-capital-refusal-red proves the prior overreach; its green consumer gate
 includes the existing capital-refusal and golden tests. The earlier candidate
 product run is superseded; p2-product-final-02 and p2-risk-final are required
 on the corrected committed head, together with renewed type/lint/replay gates.
+
+Commit-record correction: 7538e163 omitted its prepared message body and
+Co-Authored-By trailer. History was preserved as required. This follow-up
+records the red/green evidence and Codex attribution for that change; no
+history rewrite was performed. The initial FIN-102 green claim in 8e353992
+was also premature; 04ca47f2 records and corrects its raw-tax-warning failure.
