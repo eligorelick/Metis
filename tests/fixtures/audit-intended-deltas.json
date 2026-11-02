@@ -5514,11 +5514,6 @@
             "minOpexRatioPeriod": "FY 2025-12-31",
             "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)"
           }
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.3",
-          "beforeMissing": true,
-          "after": "reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"
         }
       ]
     },
@@ -5541,11 +5536,6 @@
           "path": "report.scores.aspects.valuation.drivers.0.period",
           "beforeMissing": true,
           "after": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus"
-        },
-        {
-          "path": "report.thesisTriggers",
-          "beforeMissing": true,
-          "after": []
         },
         {
           "path": "report.valuation.dcf.assumptions.9",
@@ -5680,16 +5670,6 @@
           "path": "report.valuation.dcf.sensitivityGrid.24.waccPct",
           "before": 10.255946000000002,
           "after": 11.257246428985505
-        },
-        {
-          "path": "report.valuation.reverseDcf.impliedMetric",
-          "before": "constant revenue growth (explicit horizon)",
-          "after": "n/a"
-        },
-        {
-          "path": "report.valuation.reverseDcf.impliedValue",
-          "before": -17.24609375,
-          "after": null
         },
         {
           "path": "stageB.capital.netDebtToEbitda.resolution.version",
@@ -5830,16 +5810,6 @@
           "path": "stageB.valuation.notes.4",
           "beforeMissing": true,
           "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.method",
-          "before": "growth",
-          "after": "none"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.2",
-          "beforeMissing": true,
-          "after": "no sign change of f(terminal margin) on the pre-scan grid"
         },
         {
           "path": "stageB.valuation.sensitivity.waccPcts.0",
@@ -9950,64 +9920,6 @@
           "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
         },
         {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "leaseEvidence": {
-                "operating": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "finance": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "combined": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "observedLeaseLine": "positive"
-              },
-              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            }
-          }
-        },
-        {
           "path": "stageB.capital.netDebtToEbitda.note",
           "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
           "after": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
@@ -10355,6 +10267,173 @@
           "path": "stageB.valuation.notes.7",
           "beforeMissing": true,
           "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+        }
+      ]
+    },
+    {
+      "name": "p2-dcf-inputs-fin102-fin113-fin104-fin501-20261102",
+      "decisions": [
+        "D-58",
+        "D-60",
+        "D-99",
+        "D-136"
+      ],
+      "reason": "D-next (P2): FIN-102/FIN-402-V1 add separately asserted terminal evidence; FIN-113 marks the reconstructed current-capital start as approximate. FIN-104 withholds reverse-growth candidates outside the DCF domain, and FIN-501 solves the prescribed shifted margin family with its implied path and matching trigger horizon. Only these owned leaves move. Existing capex-basis restorations and all valuation/score operands outside the reverse solve retain prior pins. The removed no-root note is replaced by the now available in-domain margin solve. Shared stamps do not move.",
+      "deltas": [
+        {
+          "path": "report.thesisTriggers",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "reverse-margin",
+              "metric": "Supported terminal operating margin",
+              "comparator": "below",
+              "threshold": {
+                "value": 2.933349609375,
+                "unit": "%",
+                "source": "computed.valuation.reverseDcf",
+                "asOf": null,
+                "verified": null
+              },
+              "horizon": "Base margin path shifted by the terminal-margin delta, with its shift ramp reaching the full delta by 5 years and held thereafter",
+              "fixedAssumptions": [
+                "Discount rate, terminal growth and reinvestment conventions remain at the model's base case.",
+                "The current quote, net debt, other senior claims and diluted share count remain fixed.",
+                "The revenue growth path remains at the base case; the operating-margin path is the reverse solver's fade."
+              ],
+              "consequence": "If revised evidence supports a terminal margin below this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target."
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedMetric",
+          "before": "constant revenue growth (explicit horizon)",
+          "after": "terminal EBIT margin"
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedValue",
+          "before": -17.24609375,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "leaseEvidence": {
+                "operating": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "finance": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "combined": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "observedLeaseLine": "positive"
+              },
+              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            },
+            "periodStartIsApproximate": true
+          }
+        },
+        {
+          "path": "stageB.returns.roic.series.0.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 36.33592017738359
+        },
+        {
+          "path": "stageB.returns.roic.series.2.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.2.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 40.06410256410257
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedMarginPathPct",
+          "beforeMissing": true,
+          "after": [
+            20,
+            15.73333740234375,
+            11.4666748046875,
+            7.20001220703125,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375
+          ]
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedTerminalMarginPct",
+          "before": null,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.marginPathFamily",
+          "beforeMissing": true,
+          "after": "base-shift-to-terminal"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.method",
+          "before": "growth",
+          "after": "margin"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.notes.2",
+          "beforeMissing": true,
+          "after": "market-implied steady-state (terminal) EBIT margin, shifting the base margin path by the terminal-margin delta times its own fade weights (current 20% unchanged); growth path frozen at base case"
         }
       ]
     }

@@ -38,6 +38,8 @@ export interface DebtBridge {
   netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
 }
 export interface CurrentCapitalSnapshot {
+  sbcConcentration?: SbcConcentration;
+  periodStartIsApproximate?: true;
   industrialMetricsApplicable?: boolean;
   basis: "ttm" | "annual"; asOf: string | null; periodStart: string | null; currency: string | null; fallbackReason: string | null;
   netDebtToEbitda: number | null; netDebt: number | null; ebitda: number | null;
@@ -122,6 +124,8 @@ function yearStart(end: string | null): string | null {
 /** Receives only already-normalized, currency-compatible complete TTM windows. */
 export function attachCurrentCapital(annual: CapitalResult, input: {
   income: CapitalIncomeRow | null; cashFlow: CapitalCashFlowRow | null; balance: CapitalBalanceRow | null;
+  periodStart?: string | null;
+  trailingCashFlow?: readonly CapitalCashFlowRow[];
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
   modelEligibilityReason?: string;
@@ -148,9 +152,12 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   const annualFcf = snapshot.fcf.series.find(row=>aligns(row.date));
   const netIncome = industrialMetricsApplicable && bridgeRow ? finite(bridgeRow.netIncome) ?? finite(annualFcf?.netIncome) : null;
   const fcf = bridge.standardizedFcf, sbc = bridge.stockBasedCompensation;
+  const startTime = periodEndTime(input.periodStart);
+  const exactStart = startTime !== null && asOf !== null && startTime <= (periodEndTime(asOf) ?? 0) ? input.periodStart! : null;
   const current: CurrentCapitalSnapshot = {
     industrialMetricsApplicable,
-    basis, asOf, periodStart: yearStart(asOf), currency: input.currency,
+    basis, asOf, periodStart: exactStart ?? yearStart(asOf),
+    ...(exactStart === null ? {periodStartIsApproximate: true as const} : {}), currency: input.currency,
     fallbackReason: usable ? null : "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
     netDebtToEbitda: bridgeBalance ? snapshot.netDebtToEbitda.value : null, netDebt: bridgeBalance ? snapshot.netDebtToEbitda.netDebt : null, ebitda: snapshot.netDebtToEbitda.ebitda,
     ebit: snapshot.interestCoverage.ebit, interestExpense: snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,
@@ -159,5 +166,33 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
     sbcPctOfFcf: fcf !== null && fcf > 0 && sbc !== null ? sbc/fcf*100 : null,
     cashBridge: bridge, debtBridge: debtBridge(industrialMetricsApplicable ? bridgeBalance : null),
   };
+  if (usable) {
+    const concentration = concentratedSbcQuarter(input.trailingCashFlow ?? [], input.currency);
+    if (concentration) current.sbcConcentration = concentration;
+  }
   return { ...annual, current };
+}
+
+export interface SbcConcentration {
+  quarterEnd: string; quarterSbc: number; otherQuarterMedianSbc: number;
+  runRateAfterSbc: number; runRateBeforeSbc: number; runRateSbc: number; basis: string;
+}
+/** N1: qualify, never replace, the house trailing after-SBC figure. */
+export function concentratedSbcQuarter(quarters: readonly CapitalCashFlowRow[], currency: string | null): SbcConcentration | null {
+  if (quarters.length !== 4) return null;
+  const sbc = quarters.map(q => finite(q.stockBasedCompensation));
+  if (!sbc.every((v): v is number => v !== null && v > 0)) return null;
+  const index = sbc.indexOf(Math.max(...sbc));
+  const others = sbc.filter((_,i) => i !== index).sort((a,b) => a-b);
+  const otherQuarterMedianSbc = others[1]!;
+  if (sbc[index]! < 3 * otherQuarterMedianSbc) return null;
+  const otherFlows = quarters.filter((_,i) => i !== index).map(q => deriveFcf(q.operatingCashFlow, q.capitalExpenditure));
+  if (!otherFlows.every((v): v is number => v !== null)) return null;
+  const runRateBeforeSbc = otherFlows.reduce((sum,v) => sum+v,0) * 4/3;
+  const runRateSbc = others.reduce((sum,v) => sum+v,0) * 4/3;
+  const runRateAfterSbc = (otherFlows.reduce((sum,v) => sum+v,0) - others.reduce((sum,v) => sum+v,0)) * 4/3;
+  const quarterEnd = quarters[index]!.date;
+  const unit = currency ?? "reporting-currency units";
+  const basis = `SBC concentration: quarter ending ${quarterEnd} carried ${unit} ${sbc[index]!.toFixed(0)}, versus ${unit} ${otherQuarterMedianSbc.toFixed(0)} median SBC in the other trailing quarters (at least 3x). After-SBC FCF run-rate companion: ${unit} ${runRateAfterSbc.toFixed(0)}, computed from the other three quarters (sum x 4/3). The house-default trailing figure and its score are unchanged.`;
+  return {quarterEnd,quarterSbc:sbc[index]!,otherQuarterMedianSbc,runRateAfterSbc,runRateBeforeSbc,runRateSbc,basis};
 }

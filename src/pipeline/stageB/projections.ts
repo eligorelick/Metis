@@ -61,8 +61,8 @@ export const PROJECTION_WEIGHTS = { bull: 0.25, base: 0.5, bear: 0.25 } as const
 /** Dispersion multiplier: bull/bear = base ± DISPERSION_K · σ. */
 export const DISPERSION_K = 1.0;
 /** Upper sanity bounds only; stable firms are no longer forced to show a band. */
-const SIGMA_GROWTH_MAX = 25; // pp
-const SIGMA_MARGIN_MAX = 12; // pp
+export const SIGMA_GROWTH_MAX = 25; // pp
+export const SIGMA_MARGIN_MAX = 12; // pp
 
 const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
@@ -101,6 +101,7 @@ function correlation(pairs: Array<{ x: number; y: number }>): number | null {
  * ------------------------------------------------------------------------ */
 
 export interface ProjectionIncomeRow {
+  fiscalYear?: string | null;
   date: string;
   revenue: number | null;
   /** EBIT (operating income), FMP names — used for the net-income/EBIT ratio. */
@@ -114,6 +115,7 @@ export interface ProjectionIncomeRow {
 }
 
 export interface ProjectionFcfRow {
+  fiscalYear?: string | null;
   date: string;
   fcf: number | null;
 }
@@ -199,9 +201,10 @@ function point(period: string, value: number, unit: string, metric: ProjectionMe
 }
 
 /** Fiscal-year label from an ISO date; falls back to the raw string. */
-function fyLabel(dateIso: string): string {
-  const y = Number.parseInt(dateIso.slice(0, 4), 10);
-  return Number.isFinite(y) ? `FY${y}` : dateIso;
+function fyLabel(row: {date:string;fiscalYear?:string|null}, history: readonly {date:string;fiscalYear?:string|null}[]): string {
+  const year = (r: typeof row) => typeof r.fiscalYear === "string" && /^\d{4}$/.test(r.fiscalYear) ? r.fiscalYear : null;
+  const y = year(row);
+  return y === null || history.some(other => other.date !== row.date && year(other) === y) ? `FY ending ${row.date}` : `FY${y}`;
 }
 
 /** Weighted blend of three same-length scenario paths. */
@@ -251,6 +254,10 @@ function annualizedGrowthPct(revenues: Array<{ date: string; value: number }>): 
  * ------------------------------------------------------------------------ */
 
 export interface ScenarioDispersion {
+  rawSigmaGrowth: number | null;
+  rawSigmaMargin: number | null;
+  growthCapped: boolean;
+  marginCapped: boolean;
   /** Revenue-growth sample σ, percentage points; null when evidence is too thin. */
   sigmaGrowth: number | null;
   /** Operating-margin sample σ, percentage points; null when evidence is too thin. */
@@ -340,6 +347,9 @@ export function scenarioDispersion(incomeHistory: ProjectionIncomeRow[]): Scenar
     }
   }
   return {
+    rawSigmaGrowth: rawSigmaG, rawSigmaMargin: rawSigmaM,
+    growthCapped: rawSigmaG !== null && rawSigmaG > SIGMA_GROWTH_MAX,
+    marginCapped: rawSigmaM !== null && rawSigmaM > SIGMA_MARGIN_MAX,
     sigmaGrowth: rawSigmaG === null ? null : clamp(rawSigmaG, 0, SIGMA_GROWTH_MAX),
     sigmaMargin: rawSigmaM === null ? null : clamp(rawSigmaM, 0, SIGMA_MARGIN_MAX),
     // `paired` now contains only annual steps, so the correlation no longer
@@ -413,6 +423,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       "At least four consecutive annual revenue observations and three margin observations are required for sample dispersion; scenario fan suppressed rather than using house defaults.",
     );
   }
+  const caps = sigmaCapPhrases(rawDisp);
   const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
     // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
@@ -509,7 +520,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth${laterText}` +
         `${revenueAnchor.source === "run-rate" || revenueAnchor.source === "ttm" ? `, carried at the near-term growth rate ${anchorText}` : ""}${consensusText}; ` +
         `then a convergent fade to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
+    `Bull/bear shift year-one growth by \u00b1${round2(dg)}pp${caps.growth} and the year-one margin by \u00b1${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; ${caps.marginLine} the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
     `Forward periods are 12-month windows ending on anniversaries of the latest statement date${anchorWindowEnd === null ? "" : ` (${anchorWindowEnd})`}, not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.`,
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
     `Weighted path = ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear, the fixed display prior.`,
@@ -529,7 +540,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
     buildSeries(
       "revenue",
       revUnit,
-      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r.date), value: r.revenue as number })),
+      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r, incomeAsc), value: r.revenue as number })),
       bullRows.slice(0, H).map((r) => r.revenue),
       baseRows.slice(0, H).map((r) => r.revenue),
       bearRows.slice(0, H).map((r) => r.revenue),
@@ -543,7 +554,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // Operating margin (percent)
   const marginHist = incomeAsc
     .filter((r) => isNum(r.ebit) && isNum(r.revenue) && (r.revenue as number) > 0)
-    .map((r) => ({ period: fyLabel(r.date), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
   series.push(
     buildSeries(
       "operatingMargin",
@@ -560,12 +571,12 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   );
 
   // Free cash flow (unlevered / FCFF)
-  const fcfAsc = inputs.fcfHistory.filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
+  const fcfAsc = inputs.fcfHistory.map(row => ({...row, fiscalYear: row.fiscalYear ?? incomeAsc.find(r => r.date === row.date)?.fiscalYear})).filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
   series.push(
     buildSeries(
       "fcf",
       revUnit,
-      histTail(fcfAsc).map((r) => ({ period: fyLabel(r.date), value: r.fcf as number })),
+      histTail(fcfAsc).map((r) => ({ period: fyLabel(r, fcfAsc), value: r.fcf as number })),
       bullRows.slice(0, H).map((r) => r.fcff),
       baseRows.slice(0, H).map((r) => r.fcff),
       bearRows.slice(0, H).map((r) => r.fcff),
@@ -683,7 +694,7 @@ function buildEpsSeries(
 ): AuditableProjectionSeries | null {
   const unit = perShareUnit(inputs.currency);
   const historical = incomeAsc.filter(r => isNum(r.epsDiluted)).slice(-4)
-    .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
+    .map(r => point(fyLabel(r, incomeAsc), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
   // Pure callers inherit the valuation's refusal too. A positive raw count
   // cannot restore a denominator that the shared valuation already rejected.
   const scopeGap = inputs.valuation.gaps.find(g => g.severity !== "info" && ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
@@ -753,7 +764,7 @@ function buildEpsSeries(
   const histEps = incomeAsc
     .filter((r) => isNum(r.epsDiluted))
     .slice(-4)
-    .map((r) => ({ period: fyLabel(r.date), value: r.epsDiluted as number }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: r.epsDiluted as number }));
 
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
@@ -806,4 +817,12 @@ function buildEpsSeries(
     ],
     disclosures: [],
   };
+}
+
+/** FIN-512: distinguish the measured sample from the bounded model shock. */
+export function sigmaCapPhrases(d: ScenarioDispersion): {growth:string;marginBasis:string;marginLine:string} {
+  const margin = d.marginCapped ? `sigma capped at the house ${SIGMA_MARGIN_MAX}pp bound (sample sigma ${round2(d.rawSigmaMargin!)}pp)` : "sample sigma";
+  return {growth:d.growthCapped ? ` (sigma capped at the house ${SIGMA_GROWTH_MAX}pp bound; sample sigma ${round2(d.rawSigmaGrowth!)}pp)` : "",
+    marginBasis:d.marginCapped ? `margin ${margin} is scaled by` : "margin sample \u03c3 is scaled by",
+    marginLine:d.marginCapped ? `the margin shift is ${margin} scaled by` : "the margin shift is sample \u03c3 scaled by"};
 }

@@ -1,3 +1,4 @@
+import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
@@ -157,6 +158,7 @@ describe("retained forensic observation context on real data-only exports", () =
     // stamps and no value, so the hash is re-pinned for them alone.
     expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39");
     expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39");
-    expect(invariantHash(computed)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
+    // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
+    expect(invariantHash(restoreP2ComputedGolden(computed))).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
 });

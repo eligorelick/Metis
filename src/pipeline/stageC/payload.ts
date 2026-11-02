@@ -1071,6 +1071,9 @@ function computedSections(
     };
     for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
     add("sbcPctOfFcf", currentCapital.sbcPctOfFcf, "%");
+    if (currentCapital.sbcConcentration) {
+      for (const key of ["quarterSbc", "otherQuarterMedianSbc", "runRateAfterSbc", "runRateBeforeSbc", "runRateSbc"] as const) add(`sbcConcentration.${key}`, currentCapital.sbcConcentration[key], "currency");
+    }
     for (const key of ["netDebt", "ebitda"] as const) add(key, currentCapital[key], "currency");
     for (const [key, value] of Object.entries(currentCapital.cashBridge)) {
       if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
@@ -1079,7 +1082,7 @@ function computedSections(
     figures.push({ label: "capital basis", value: `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`,
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
-      `Current capital basis: ${currentCapital.basis}; exact window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
+      `Current capital basis: ${currentCapital.basis}; ${currentCapital.periodStartIsApproximate ? "approximate" : "exact"} window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
       // AI-511: only the figure grading.ts graded is called graded, and its window is named.
       ...(computed.scores?.aspects.balanceSheet.signals?.some((s) => s.id === "fcfConversionBeforeSbc")
         ? [`The balance-sheet score grades "fcf conversion before sbc" from this section (${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}); ${currentCapital.basis === "annual"
@@ -1087,6 +1090,7 @@ function computedSections(
           : '"FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" is the fiscal-year ratio, reported beside it and not graded.'}`]
         : []),
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
+      ...(currentCapital.sbcConcentration ? [currentCapital.sbcConcentration.basis] : []),
       ...(currentCapital.debtBridge.compositionNote ? [currentCapital.debtBridge.compositionNote] : []),
       ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
       ...(currentCapital.debtBridge.leaseEvidenceNote ? [currentCapital.debtBridge.leaseEvidenceNote] : []),

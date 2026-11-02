@@ -267,7 +267,7 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
       `${fixedBridgeNonOperatingText(bridge, display)} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
       `${a.valuationDate === undefined ? "" : `; value stated at the quote date ${a.valuationDate.value}`}.`,
     target?.perShare != null
-      ? "Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast."
+      ? "Targets are labeled by per-share value; runs outside the DCF domain are withheld. No scenario is a future-price forecast."
       : "Operating scenarios use the recorded enterprise-value ordering. Per-share targets and qualitative narratives may be withheld independently; no operating path is a future-price forecast.",
   ];
 }

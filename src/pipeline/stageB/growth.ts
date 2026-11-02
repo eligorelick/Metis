@@ -23,6 +23,7 @@ import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/qua
 // ---------------------------------------------------------------------------
 
 export interface GrowthIncomeRow extends FiscalDatedRow {
+  fieldProvenance?: Record<string, { periodStart?: string | null } | undefined>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */
@@ -36,6 +37,7 @@ export interface GrowthIncomeRow extends FiscalDatedRow {
 }
 
 export interface GrowthCashFlowRow extends FiscalDatedRow {
+  fieldProvenance?: Record<string, { periodStart?: string | null } | undefined>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */
@@ -468,8 +470,14 @@ export function computeGrowth(
     );
   }
 
-  const inc = sortNewestFirst(incNorm.rows);
-  const cf = sortNewestFirst(cfNorm.rows);
+  const incomeFlows = withoutTransitionPeriods(sortNewestFirst(incNorm.rows));
+  const cashFlows = withoutTransitionPeriods(sortNewestFirst(cfNorm.rows));
+  const inc = incomeFlows.rows;
+  const cf = cashFlows.rows;
+  for (const [family, result] of [["incomeStatement", incomeFlows], ["cashFlow", cashFlows]] as const) {
+    for (const w of result.withheld) gaps.push({field:`growth.${family}.transitionPeriod`, severity:"warn",
+      reason:`Annual period ${w.date} covers ${w.days} days, a transition period rather than a fiscal year; withheld from annual growth, regression, projections, DCF history and ROIC.`});
+  }
 
   if (inc.length === 0) {
     gaps.push({
@@ -556,7 +564,7 @@ export function computeGrowth(
   pushHorizonNotes("Free cash flow", fcfCagrs);
 
   // --- Margin series + trend ---------------------------------------------------
-  const marginRows = inc.slice(0, MARGIN_SERIES_MAX_YEARS).reverse(); // oldest → newest
+  const marginRows = sortNewestFirst(incNorm.rows).slice(0, MARGIN_SERIES_MAX_YEARS).reverse(); // oldest → newest
   const buildMargin = (
     numerator: (r: GrowthIncomeRow) => number | null | undefined,
     label: string,
@@ -606,7 +614,7 @@ export function computeGrowth(
   const threeYearPoint = revenueCagrs.find((c) => c.windowYears === 3) ?? cagrForWindow(revenueSeries, 3);
   // Latest YoY only counts when it truly spans ~1 year of history.
   const latestYoyPct =
-    yoyPoint.cagrPct !== null && yoyPoint.actualYears !== null && yoyPoint.actualYears <= 1.5
+    yoyPoint.endDate === inc[0]?.date && yoyPoint.cagrPct !== null && yoyPoint.actualYears !== null && yoyPoint.actualYears >= 0.75 && yoyPoint.actualYears <= 1.5
       ? yoyPoint.cagrPct
       : null;
   // Preserve degraded CAGR windows above, but a differently sized window
@@ -618,6 +626,7 @@ export function computeGrowth(
     "revenue acceleration = latest YoY minus 3y CAGR (house framing)",
   ];
   if (latestYoyPct === null) accelNotes.push("latest YoY unavailable");
+  if (yoyPoint.endDate !== inc[0]?.date) accelNotes.push(`newest annual revenue ${inc[0]?.date ?? "unknown date"} unavailable; an older endpoint is not current growth`);
   if (!threeYearSpanMatches && threeYearPoint.cagrPct !== null) {
     const reason = `3y revenue acceleration benchmark withheld: actual span is ${threeYearPoint.actualYears?.toFixed(2) ?? "unknown"} years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)`;
     accelNotes.push(reason);
@@ -646,4 +655,22 @@ export function computeGrowth(
     notes,
     gaps,
   };
+}
+
+/** B5 OD-3/O-2: census gate found 0 full years below 357 days (51 weeks). */
+export const TRANSITION_PERIOD_UNDER_DAYS = 357;
+export function withoutTransitionPeriods<T extends { date?: unknown; fieldProvenance?: Record<string, { periodStart?: string | null } | undefined> }>(rowsNewestFirst: readonly T[]): { rows: T[]; withheld: {date:string;days:number}[] } {
+  const withheld: {date:string;days:number}[] = [];
+  const rows = rowsNewestFirst.filter((row, i) => {
+    const date = typeof row.date === "string" ? row.date.slice(0,10) : "";
+    const start = row.fieldProvenance?.revenue?.periodStart;
+    const older = rowsNewestFirst[i+1]?.date;
+    const days = typeof start === "string" ? (Date.parse(date) - Date.parse(start)) / 86400000 + 1
+      : typeof older === "string" ? (Date.parse(date) - Date.parse(older)) / 86400000 : NaN;
+    if (Number.isFinite(days) && days > 0 && days < TRANSITION_PERIOD_UNDER_DAYS) {
+      withheld.push({date,days}); return false;
+    }
+    return true;
+  });
+  return {rows,withheld};
 }

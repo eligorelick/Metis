@@ -100,7 +100,8 @@ describe("fair value degraded inputs (F-13)", () => {
     });
     expect(reason?.reason).toBe(
       "Degraded inputs: the risk-free rate is the U.S. Treasury daily par yield curve 10 Yr (observation 2026-10-21), not FRED DGS10; " +
-        "the annual income statement and the annual balance sheet are from SEC EDGAR, the quote is from Yahoo and the enterprise values are computed from filed facts and prices, not FMP. " +
+        // FIN-118: enterprise-value history is not consumed by headline valuation.
+        "the annual income statement and the annual balance sheet are from SEC EDGAR and the quote is from Yahoo, not FMP. " +
         "A run with these providers healthy can give a different value.",
     );
   });
@@ -187,4 +188,12 @@ describe("degraded inputs end to end: Stage B, both layouts, the exports and the
     const prompt = serializePayloadForPrompt(assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] }));
     expect(prompt).not.toContain("Degraded inputs");
   });
+});
+
+it("names price substitutions only when the selected beta consumes their regression (FIN-118)",()=>{
+  const base={riskFree:{pct:4,asOf:"2026-07-01",seriesId:"fred:DGS10"},valuationGaps:[],bundleGaps:[keyless("spy","yahoo"),keyless("eodPrices","yahoo"),keyless("marketCapHistory","computed"),keyless("enterpriseValues","computed")]};
+  expect(degradedInputsReason({...base,betaUsesRegression:false})).toBeNull();
+  const reg=degradedInputsReason({...base,betaUsesRegression:true});
+  expect(reg?.reason).toMatch(/SPY/);
+  expect(reg?.reason).not.toMatch(/enterprise values|market-cap history/);
 });

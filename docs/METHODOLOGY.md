@@ -1997,7 +1997,7 @@ the amount removed or the unproven reason.
 DuPont average the closing balance with the balance matched to the next older
 annual income period only when the two balances are 300–430 days apart, the
 same fiscal-continuity range used by the forensic layer. This accommodates
-52/53-week calendars. A missing year or a shorter transition stub uses the
+52/53-week calendars. A missing year  uses the
 existing single-period denominator and records a warning instead of silently
 averaging capital from nonconsecutive years.
 
@@ -6545,3 +6545,82 @@ row, so runway cannot use an older vendor quarter to bypass the missing
 operand. A missing canonical quarter is never synthesized from a later-filed
 prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
 quarters and do not claim a single-lineage filed SEC TTM.
+
+## P2 DCF inputs and seasonality (2026-11-02)
+
+### P2 consistent operating-income inputs (2026-11-02)
+
+Admitted tagged operating one-offs leave coverage EBIT on that leg's own TTM
+or annual window, the DCF margin seed, annual margin history and scenario
+ceiling, and separate terminal-return evidence. Reported and graded GAAP ROIC
+are unchanged. A tag family filed in at least three of the latest five fiscal
+years remains a recurring operating cost in history and terminal evidence;
+the basis names its years. A withheld amount stays in the filed row.
+
+When the margin seed removes a one-off, the tax seed is re-read on normalized
+pre-tax income. The company historical median is held between the rate with
+no tax effect on the item and the rate with a marginal-rate tax effect; without
+history the marginal reading supplies it. Negative tax expense retains the
+existing fallback. Guidance still sets year one. A display-only note qualifies
+older stored tax seeds when their stored margin basis proves this mismatch.
+
+For the FCFF terminal every-year hurdle only (FIN-102, B5 OD-2), a known
+operating loss remains a miss in the evidence window, at a zero tax rate.
+Normalized losses after admitted one-offs count; reported ROIC and moat grades
+keep their existing treatment. The terminal note names each operating loss.
+
+P2 (FIN-111): an annual flow shorter than 357 days (51 weeks), measured by
+filed revenue start or the next older end, is a transition period. Growth,
+log fits, projection and DCF history, sales-to-capital history and ROIC omit
+it; displayed margin ratios retain it. Latest YoY requires at least 0.75 year.
+The 45-snapshot backtest found no full year below 357 days. Transition periods
+of 51 weeks or more still pass; no census transition filing tests that residual.
+
+P2 reverse DCF (FIN-501/FIN-104): margin candidates shift the base path by the
+terminal-margin delta times a linear zero-to-one ramp by year min(5, n),
+held at one thereafter (B5 OD-11). This also applies to a flat path. The base terminal margin exactly reproduces the base path.
+Growth and margin candidates need nonnegative explicit-period PV and positive
+equity; withheld candidates cannot supply range bounds or bridge a bracket.
+If the full scan is not in-domain, no beyond-range growth claim is inferred.
+
+P2 (FIN-116): The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost.
+
+P2 (FIN-405): Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report.
+
+P2 (FIN-127): Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed.
+
+P2 (FIN-114): The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged.
+
+P2 (FIN-113): Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context.
+
+P2 (FIN-115): Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so.
+
+FIN-127 (OD-5): a missing or colliding four-digit fiscalYear is labelled `FY ending <date>`; its calendar year is never substituted as an issuer fiscal-year claim.
+
+P2 (FIN-118): Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution.
+
+P2 (FIN-406): A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains.
+
+P2 (FIN-512): Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds.
+
+P2 (RPT-502): Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged.
+
+P2 (N1): When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence.
+
+P2 stored DCF inputs: below the frozen 1.56.0 cutoff, a display-only view notes
+proven skipped terminal years, old all-equity/new-debt inconsistencies and
+unsupported reverse-growth bounds. It corrects current-capital date metadata
+only from one established annual context or four contiguous filed quarters;
+claim text and verification marks retain their recorded wording. Headline
+provider labels use the stored valuation dependencies. Only the exact obsolete
+scenario-method sentence is replaced. No stored value or report byte changes.
+The 51-report offline replay is immutable and idempotent, including early
+reports without score arrays. Unknown evidence receives no guessed correction.
+
+P2 FIN-102 refusal boundary: an operating loss enters terminal evidence only
+with an admitted positive invested-capital denominator. A refused, missing or
+nonpositive capital base remains missing; no loss flag supplies a zero return.
+
+P2 FIN-111/FIN-402-V2: the recurring-one-off window takes the latest five
+admitted full fiscal years. A transition stub occupies no slot in that window,
+matching the annual rows used by margin history and terminal evidence.
