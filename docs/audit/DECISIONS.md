@@ -31,6 +31,12 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 - **Reading.** Lead with the business and investment debate, judging meaningful P/E, P/B or P/TBV against growth, returns and earnings quality when intrinsic/peer anchors are missing. Omit provider peer rows when none survives the screen; stored rows remain unchanged. Put process details first in the appendix, with key data before the verdict.
 - **Scope.** No provider calls, financial calculations, rating/grade rules, catalyst/risk reasoning or historical fixture bytes change. Report-spec and pipeline stamp bumps are deferred to integration. Offline regressions cover schema/continuation, evidence marks, all renderers and front-page order; live narrative quality remains untested.
 
+## D-next (P4) - Bounded unlettered 20-F risk factors (2026-11-03)
+
+- Fall back only after existing layers find no 20-F Item 3D; require standalone Risk Factors within standalone Item 3 and Item 4 headers, retaining every existing header rejection rule and the stub detector.
+- Trimmed TSMC regressions cover cross-references, missing boundaries, stubs and a lettered control; read-only cached FY2025 extraction returns 60,948 characters without provider calls. Other unobserved markup may still refuse extraction.
+- A payload version bump is required at integration because affected filers now supply risk factors to analysts. No stamp or decision number is assigned in this repair; stored reports remain untouched.
+
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.
