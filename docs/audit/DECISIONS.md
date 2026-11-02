@@ -3014,3 +3014,5 @@ AI-116 restores every listed insider role, splitting only before recognized owne
 AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.
 
 AI-104 scopes the recovery predicate through the hurdle noun. Intervening fade predicates and completed rises followed by a new non-recovery clause end its reach. No numeric values or status marks change.
+
+AI-111 adopts the closed OD-5 abbreviation mask without changing rating patterns. Ordinary-word continuations after initials and bare rating sentences stay fail-closed. Stored report gate outcomes remain unchanged in the five assembled controls.

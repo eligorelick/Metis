@@ -5971,3 +5971,5 @@ AI-116: insider owner types are read role by role, preserving commas inside an o
 AI-103 / OD-4: registered issuer entities may cite issuer filings, transcripts, press releases and registered issuer-data records carried in the payload, or registered issuer pages. Third-party news and unregistered sources remain non-primary. The analyst source rule is unchanged.
 
 AI-104: recovery language must govern the hurdle. A later fade, convergence or decline toward cost of equity is not a recovery, even after an earlier rise; continued rising toward it still triggers the warning.
+
+AI-111 / OD-5: listed honorific periods and contextual name initials do not start rating sentences. Initial surnames require a dash, comma, parenthesis or possessive. Whole-sentence rating words and unlisted abbreviations remain refused.

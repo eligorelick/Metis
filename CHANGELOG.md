@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
+
 - AI-104: avoid false recovery warnings on accurate fading-to-hurdle commentary.
 
 - AI-103: accept payload-carried issuer disclosures as primary entity sources and explain the rule to the judge; pipeline stage-c-1.6.18.
