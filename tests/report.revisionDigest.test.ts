@@ -2,7 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RevisionDigest } from "@/components/report/RevisionDigest";
-import { diffReports } from "@/report/diff";
+import { diffReports, type GradeChange, type ReportDiff } from "@/report/diff";
+import { contentChangeCount, gradeEndpointText } from "@/report/diffPresentation";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { createDatabase, setDbForTests, type DatabaseHandle } from "@/db";
 import { reports } from "@/db/schema";
@@ -60,4 +61,31 @@ it("DB-006: distinguishes a cost-only revision",()=>{
  const html=digest(r=>{r.meta.costUsd+=1.25;});
  expect(html).toContain("No changes in comparable report fields; only the recorded API charge differs.");
  expect(html).not.toContain("Recorded research changed");
+});
+
+describe("DB-002 / DB-006 diff presentation helpers", () => {
+  const change = (from: "A" | null, to: "B" | null, transition: GradeChange["transition"]): GradeChange =>
+    ({ section: "overall", from, to, transition, comparison: "comparable", reasons: [] }) as unknown as GradeChange;
+
+  it("reads a missing endpoint as absent only on the side a section was added or removed", () => {
+    expect(gradeEndpointText(change("A", "B", "changed"), "from")).toBe("A");
+    expect(gradeEndpointText(change("A", "B", "changed"), "to")).toBe("B");
+    expect(gradeEndpointText(change(null, "B", "added"), "from")).toBe("absent");
+    expect(gradeEndpointText(change("A", null, "removed"), "to")).toBe("absent");
+    // A withheld grade inside a present section was not assessed, on either side.
+    expect(gradeEndpointText(change(null, "B", "became-available"), "from")).toBe("not assessed");
+    expect(gradeEndpointText(change("A", null, "became-unavailable"), "to")).toBe("not assessed");
+    expect(gradeEndpointText(change(null, null, "added"), "to")).toBe("not assessed");
+    expect(gradeEndpointText(change(null, null, "removed"), "from")).toBe("not assessed");
+  });
+
+  it("counts every content family and the verdict, never the cost", () => {
+    const older = loadTask28Fixture();
+    const same = diffReports(older, structuredClone(older), { fromReportVersion: older.meta.pipelineVersion, toReportVersion: older.meta.pipelineVersion,
+      fromSpecVersion: older.meta.specVersion, toSpecVersion: older.meta.specVersion });
+    expect(contentChangeCount(same)).toBe(0);
+    const filled = { ...same, gradeChanges: [{}], scoreChanges: [{}], weightChanges: [{}], driverChanges: [{}], targetChanges: [{}],
+      projectionChanges: [{}], catalystChanges: [{}], riskChanges: [{}], verdictChanged: true } as unknown as ReportDiff;
+    expect(contentChangeCount(filled)).toBe(9);
+  });
 });
