@@ -404,7 +404,7 @@ export class YahooClient {
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
-          if(!res.ok && [429,500,502,503,504].includes(res.status)) throw new YahooResponseError(`Yahoo request failed (HTTP ${res.status}) for ${displayEndpoint}`,res.status);
+          if (!res.ok) throw new YahooResponseError(`Yahoo ${res.status === 429 ? "rate limit" : res.status >= 500 ? "server error" : "refusal"} (HTTP ${res.status}) for ${displayEndpoint}; the response body was not JSON`, res.status);
           throw new YahooResponseError(
             `Yahoo returned unparseable body (HTTP ${res.status}) for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -433,7 +433,7 @@ export class YahooClient {
           throw new YahooResponseError(`Yahoo returned no chart result for ${displayEndpoint}`);
         }
         return { result, fetchedAt: this.now().toISOString() };
-      });
+      }, { signal: this.signal });
     } catch (err) {
       if (err instanceof YahooResponseError) {
         return { ok: false, reason: err.message, endpoint: displayEndpoint };

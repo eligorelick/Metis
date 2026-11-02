@@ -60,10 +60,13 @@ export interface CachedFetchResult<T> {
   fetchedAt?: string;
 }
 
+export interface CachedFetchPolicy { signal?: AbortSignal }
+
 export type CachedFetchFn = <T>(
   key: string,
   ttlMs: number,
   loader: () => Promise<T>,
+  policy?: CachedFetchPolicy,
 ) => Promise<CachedFetchResult<T>>;
 
 // ---------------------------------------------------------------------------
@@ -1662,10 +1665,12 @@ export class FmpClient {
           const restriction = parseFmpRestriction(res.bodyText);
           if (restriction !== null) throw new FmpAccessError(restriction, res.status);
         }
+        if (parameterRefusal(res.status, res.bodyText)) throw new FmpParameterRefusalError(res.status);
         let body: unknown;
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
+          if (res.status >= 500) throw new FmpBodyParseError(`FMP server error (HTTP ${res.status}) for ${endpointPath}; the response body was not JSON`);
           throw new FmpBodyParseError(
             `FMP returned unparseable body (HTTP ${res.status}) for ${endpointPath}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -1676,6 +1681,7 @@ export class FmpClient {
             const restriction = parseFmpRestriction(fmpErrorMessage(body));
             if (restriction !== null) throw new FmpAccessError(restriction, res.status);
           }
+          if (parameterRefusal(res.status, fmpErrorMessage(body))) throw new FmpParameterRefusalError(res.status);
           throw new FmpApiError(fmpErrorMessage(body), res.status);
         }
         if (!res.ok) {
@@ -1721,7 +1727,7 @@ export class FmpClient {
           fetchedAt,
           ...(expectedEntityScope === undefined ? {} : { entityScope: expectedEntityScope }),
         };
-      }));
+      }), { signal: this.signal });
     } catch (err) {
       if (err instanceof FmpPlanLimitError) {
         planLimitCaps.set(apiKey, err.cap);
@@ -1730,6 +1736,7 @@ export class FmpClient {
       if (err instanceof FmpEntityIdentityError) {
         return gap(spec.gapField, err.message, "critical", [endpointPath]);
       }
+      if (err instanceof FmpParameterRefusalError) return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       if (err instanceof FmpAccessError) {
         return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       }
@@ -2654,6 +2661,13 @@ class FmpPlanLimitError extends Error {
     this.name = "FmpPlanLimitError";
     this.cap = cap;
   }
+}
+
+class FmpParameterRefusalError extends Error {
+  constructor(status: number) { super(`FMP subscription (HTTP ${status}): a request parameter value is unavailable with this key. Use other available sources.`); }
+}
+function parameterRefusal(status: number, text: string): boolean {
+  return (status === 402 || status === 403) && /\bis not available under your current subscription\b/i.test(text) && parseFmpRestriction(text) === null;
 }
 
 class FmpBodyParseError extends Error {

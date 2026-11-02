@@ -3069,3 +3069,31 @@ Earlier-presentation flags do not identify which of several old bases a cell use
 ### D-next (P5): AI-512-V1 newer-results manifest
 
 The common newer-results selector owns its shown fiscal label. Both Stage B manifest and report notice use it, avoiding a stale label in completeness prose beside a corrected banner. No new configuration read or prompt edit.
+
+### D-next (P5-lows): DATA-106 contact header admission
+
+Follow B9-OD-9: printable ASCII and Latin-1 remain valid; higher code points and control characters are refused locally with an actionable message. No network test is attempted for an invalid header.
+
+### D-next (P5-lows): DATA-116 fixed provider diagnostics
+
+B9-OD-7: parameter-value subscription refusals are expected but never learned as endpoint restrictions. Outages remain unexpected. Existing stored manifest text is unchanged.
+
+
+### D-next (P5-lows): PERF-101 inconclusive discovery
+
+Only the existing waiting wave bypasses inconclusive endpoint discovery, with per-symbol coordination retained. No access observation or durable capability is invented. Explicit restrictions and quota are rechecked.
+
+
+### D-next (P5-lows): DATA-115 caller-owned retry
+
+Use leader signal state rather than error wording. A surviving joiner retries once, rejoining an existing replacement flight. Ordinary vendor failures and aborted joiners retain shared rejection.
+
+
+### D-next (P5-lows): DATA-102 uniform stale peer admission
+
+Follow B9-OD-6: preserve stale and staleReason from submissions, companyfacts, quote and split evidence. Derived market cap also depends on companyfacts shares. Retain the existing stale exclusion gate; do not resolve postponed F-14.
+
+
+### D-next (P5-lows): DATA-110 conservative prose arrangements
+
+Require a dated named-person action with role and expiry. Missing share counts remain null; company repurchase narratives do not become insider plans. Table treatment of future grants stays unchanged. Unparsed plan mentions receive a limitation note.

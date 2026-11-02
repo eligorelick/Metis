@@ -266,3 +266,36 @@ describe("FMP response-driven subscription access", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe("DATA-116 status diagnostics", () => {
+  const refusal = "Premium Query Parameter: This value set for 'from' is not available under your current subscription please visit our subscription page to upgrade";
+  it.each([false, true])("names parameter refusal without adverts: JSON=%s", async (asJson) => {
+    const fetchImpl = vi.fn(async () => asJson ? json({ "Error Message": refusal }, 402) : new Response(refusal, { status: 402 }));
+    const c = client(fetchImpl);
+    const r = await c.historicalMarketCap("TST", "2025-01-01", "2026-01-01");
+    expect(r).toMatchObject({ ok: false, gap: { expected: true, reason: "FMP subscription (HTTP 402): a request parameter value is unavailable with this key. Use other available sources." } });
+    await c.historicalMarketCap("TST", "2025-01-01", "2026-01-01");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+  it("names a non-JSON outage without page text", async () => {
+    const r = await client(async () => new Response("<html>vendor page</html>", { status: 503 })).quote("TST");
+    expect(r.ok ? "" : r.gap.reason).toMatch(/FMP server error \(HTTP 503\)/);
+    expect(r.ok ? "" : r.gap.reason).not.toMatch(/vendor page|unparseable/);
+  }, 20000);
+});
+
+
+describe("PERF-101 inconclusive discovery", () => {
+  it.each([408, 503])("releases waiting symbols after HTTP %s learns nothing", async (status) => {
+    resetFmpAccess();
+    let active = 0, peak = 0;
+    const request = (symbol: string) => withFmpAccess({ key: "perf-wave", endpoint: "/test", symbols: symbol, now: () => Date.now() }, async () => {
+      active++; peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active--; throw new Error(`HTTP ${status}`);
+    });
+    await Promise.allSettled([request("AAA"), request("BBB"), request("CCC")]);
+    expect(peak).toBeGreaterThan(1);
+  });
+});

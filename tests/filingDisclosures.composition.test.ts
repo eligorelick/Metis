@@ -190,3 +190,13 @@ describe("source-bound financial composition disclosures", () => {
     expect(wc.every(f => /merchant payables and deferred merchant bookings remain unresolved/i.test(f.text))).toBe(true);
   });
 });
+
+
+it("DATA-110 discloses present but unparsed arrangements", () => {
+  const { bundle } = fixture();
+  const text = "Item 5. Other Information A director adopted a Rule 10b5-1 plan as described in our proxy.";
+  const notes = bundle.edgar.tenQNotes;
+  if (!notes?.ok) throw new Error("missing test notes");
+  bundle.edgar.tenQOther = { ok: true, value: { ...notes.value, data: { ...notes.value.data, sectionName: "tenQItem5", text, chars: text.length } } };
+  expect(buildFilingDisclosures(bundle)?.notes.join(" ")).toMatch(/mentions Rule 10b5-1 arrangements that could not be read as rows/);
+});

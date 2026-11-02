@@ -87,3 +87,22 @@ describe("DATA-103 bank peer routing", () => {
     expect(peer.incomeQuarterly.ok && peer.incomeQuarterly.value.data.rows[0]!.revenue).toBe(sic === "6022" ? 5_000e6 : 700e6);
   });
 });
+
+
+describe("DATA-102 fallback freshness", () => {
+  it.each(["quote", "facts", "submissions", "splits"])("retains stale flags from %s", async (kind) => {
+    const c = clients();
+    const stale = async <T>(promise: Promise<T>): Promise<T> => {
+      const result = await promise;
+      return { ...result, value: { ...(result as { value: object }).value, stale: true, staleReason: "empty-refresh-preserved" } };
+    };
+    if (kind === "quote") { const original = c.yahoo.quote; c.yahoo.quote = (...args) => stale(original(...args)); }
+    if (kind === "splits") { const original = c.yahoo.splitHistory; c.yahoo.splitHistory = (...args) => stale(original(...args)); }
+    if (kind === "facts") { const original = c.edgar.companyFacts; c.edgar.companyFacts = (...args) => stale(original(...args)); }
+    if (kind === "submissions") { const original = c.edgar.submissions; c.edgar.submissions = (...args) => stale(original(...args)); }
+    const result = await loadPeerFromFilings("AVGO", subjectProfile, c, NOW);
+    if ("reason" in result) throw new Error(result.reason);
+    const envelope = kind === "submissions" ? result.profile : kind === "facts" ? result.balanceQuarterly : result.quote;
+    expect(envelope).toMatchObject({ ok: true, value: { stale: true, staleReason: "empty-refresh-preserved" } });
+  });
+});

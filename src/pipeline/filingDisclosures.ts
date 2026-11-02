@@ -711,7 +711,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases, notes);
   const officerChanges = officerChangeRows(reports, bundle);
   const sayOnPay = sayOnPayRow(reports);
-  const tradingArrangements = tradingArrangementRows(bundle);
+  const tradingArrangements = tradingArrangementRows(bundle, notes);
   const primaryStatements = bundle.companyIrMaterialEvents;
   const companyStatements: NonNullable<FilingDisclosures["companyStatements"]> = primaryStatements?.ok
     ? primaryStatements.value.data.events.filter((event) => event.symbol === bundle.symbol && day(event.publishedAt) !== null &&
@@ -1263,10 +1263,14 @@ function sayOnPayRow(reports: CurrentReports | null): NonNullable<FilingDisclosu
 }
 
 /** D-66: the 10-Q Part II Item 5 trading arrangements. */
-function tradingArrangementRows(bundle: DataBundle): NonNullable<FilingDisclosures["tradingArrangements"]> {
+function tradingArrangementRows(bundle: DataBundle, notes: string[]): NonNullable<FilingDisclosures["tradingArrangements"]> {
   const other = sectionRef(bundle.edgar?.tenQOther);
   if (other === null) return [];
-  return parseTradingArrangements(other.data.text).map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
+  const rows = parseTradingArrangements(other.data.text);
+  if (rows.length === 0 && /\b10b5-1\b/.test(other.data.text) && /\b(?:adopt|terminat|modif)/i.test(other.data.text)) {
+    notes.push(`Item 5 of ${other.data.form} ${other.data.accession} mentions Rule 10b5-1 arrangements that could not be read as rows; the excerpt is in the AI context.`);
+  }
+  return rows.map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
 }
 
 export function statementFiscalPeriods(bundle: DataBundle): FiscalLabelledPeriod[] {

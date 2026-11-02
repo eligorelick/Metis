@@ -405,3 +405,5 @@ P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialTe
 Price-history window fallback: transient transport failures, 429, 500, 502, 503 or 504 may use a cached window for the same provider, symbol and endpoint whose start and end precede the requested window by at most seven days. Acquisition age is capped at seven days. Endpoint and manifest disclosures mark the fallback stale and name its source window and original fetch time. Explicit refusals, schema and identity errors are not covered (DATA-114).
 
 Current-date history tails refresh in the foreground on the session-aware 15-minute policy; failed refreshes are disclosed as refresh-failed. Older history keeps the normal 24-hour TTL (DATA-112).
+
+EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses a character in a declared name, transliterate it before saving; the contact is sent as an HTTP header.

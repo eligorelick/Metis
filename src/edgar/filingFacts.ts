@@ -558,7 +558,31 @@ function usDate(text: string): string | null {
 export function parseTradingArrangements(itemText: string): TradingArrangement[] {
   const text = normalizeFilingText(itemText);
   const table = /\bExpiration Date\b/i.exec(text);
-  if (!/\b10b5-1\b/.test(text) || table === null) return [];
+  if (!/\b10b5-1\b/.test(text)) return [];
+  if (table === null) {
+    // Bound each arrangement by the next dated paragraph, not sentence dots
+    // inside names or company names. Ambiguous shapes remain unparsed.
+    const out: TradingArrangement[] = [];
+    const paragraphs = text.split(new RegExp(String.raw`(?=\bOn ${MONTH_DATE}\s*,)`));
+    const lead = new RegExp(String.raw`^On (${MONTH_DATE})\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*(adopted|modified|terminated) a (?:trading plan|(?:Rule 10b5-1 )?trading arrangement)\b`, "i");
+    for (const paragraph of paragraphs) {
+      const m = lead.exec(paragraph.trim());
+      if (!m || !/\b10b5-1\b/.test(paragraph) || !/^[A-Z][A-Za-z .'-]+\s+[A-Z][A-Za-z .'-]+$/.test(m[2]!.trim())) continue;
+      const date = isoFromMonthDate(m[1]!);
+      const expiry = new RegExp(String.raw`\b(?:ending on|until|expiring on|through) (${MONTH_DATE})`, "i").exec(paragraph);
+      if (date === null || expiry === null) continue;
+      const expires = isoFromMonthDate(expiry[1]!);
+      if (expires === null) continue;
+      const capacity = /\b(?:to sell|for the sale of) up to ([\d,]+) shares\b/i.exec(paragraph);
+      const role = m[3]!.trim();
+      if (!ROLE_START.test(role) && !/^a member of (?:our|the) Board of Directors$/i.test(role)) continue;
+      out.push({ person: m[2]!.trim(), role: /^(?:a member of (?:our|the) )?Board of Directors$/i.test(role) ? "Director" : role,
+        action: m[4]!.toLowerCase() === "adopted" ? "adoption" : m[4]!.toLowerCase() === "modified" ? "modification" : "termination",
+        date, shares: capacity ? Number(capacity[1]!.replace(/,/g, "")) : null,
+        includesFutureAwards: /\bfuture equity (?:awards|grants)\b/i.test(paragraph), expires });
+    }
+    return out;
+  }
   const body = text.slice(table.index + table[0].length);
   const out: TradingArrangement[] = [];
   const row = /(.+?)\s+(Adoption|Modification|Termination)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+([\d,]+)\s*([^/]*?)\s+(\d{1,2}\/\d{1,2}\/\d{4}|N\/A|—)(?=\s|$)/g;

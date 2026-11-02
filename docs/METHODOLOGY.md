@@ -5996,3 +5996,7 @@ AI-508 repeated-change limit: earlier-presentation levels remain visible, but gr
 
 
 AI-512-V1: the newer-results completeness warning uses the same withheld fiscal label as the report notice; a contradicted release is named by its quarter end only.
+
+A request-parameter subscription refusal is an expected disclosure in fixed words, without vendor advertisements. It is not remembered, since another parameter value may be allowed. Non-JSON provider outages and rate limits are named by status without page text.
+
+Rule 10b5-1 plans are read from Item 408(a) tables or bounded dated prose with a named person, role, action and expiry. Missing share capacity remains unknown. If arrangements are mentioned but no rows can be parsed, disclosure notes say so and the original excerpt remains in the AI context.

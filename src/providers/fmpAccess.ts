@@ -204,6 +204,7 @@ export async function withFmpAccess<T>(request: AccessRequest, loader: () => Pro
     ? undefined
     : JSON.stringify([request.key, request.endpoint, request.symbols]);
 
+  let inconclusiveDiscovery = false;
   for (;;) {
     request.signal?.throwIfAborted();
     const now = request.now();
@@ -212,10 +213,13 @@ export async function withFmpAccess<T>(request: AccessRequest, loader: () => Pro
     const refusal = endpoint?.refusal ?? (symbolKey === undefined ? undefined : read(symbolKey, now)?.refusal);
     if (refusal !== undefined) throw refusal;
 
-    const probeKey = endpoint === undefined ? endpointKey : symbolKey ?? endpointKey;
+    const probeKey = endpoint === undefined && !inconclusiveDiscovery ? endpointKey : symbolKey ?? endpointKey;
     const pending = probes.get(probeKey);
     if (pending !== undefined) {
       await waitForProbe(pending, request.signal);
+      // Only this waiting wave bypasses inconclusive endpoint discovery.
+      // Refusals and quota are still rechecked before each symbol probe.
+      if (probeKey === endpointKey && read(endpointKey, request.now()) === undefined) inconclusiveDiscovery = true;
       continue;
     }
 
