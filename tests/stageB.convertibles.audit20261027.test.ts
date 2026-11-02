@@ -5,6 +5,11 @@ import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { buildSyntheticRouteBundle } from "./helpers/researchRoutePanel";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
+function financial(v: ReturnType<typeof runStageB>["valuation"]) {
+  if (v.kind !== "excess-return") throw new Error("fixture financial route");
+  return v.excessReturn;
+}
+
 export function convertibleBundle(kind: "notes" | "preferred", claim = 50 * M, count = 10 * M, price: number | null = claim / count) {
   const b = completeCurrencyBundle({ debt: 300 });
   const instant = (val: number) => ({ end: "2026-03-31", val, accn: "test", form: "10-Q", filed: "2026-04-30" });
@@ -50,7 +55,7 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
     };
     const control = runStageB(make()).valuation;
     expect(control.kind).toBe("excess-return");
-    const original = control.excessReturn!;
+    const original = financial(control);
     for (const kind of ["notes", "preferred"] as const) {
       const b = make();
       const c = 50 * M, n = 10 * M;
@@ -66,7 +71,7 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
           else row.totalDebt = Number(row.totalDebt) + c;
         }
       }
-      const noInstrument = runStageB(structuredClone(b)).valuation.excessReturn!;
+      const noInstrument = financial(runStageB(structuredClone(b)).valuation);
       const instant = { end: "2026-03-31", val: c, form: "10-Q", filed: "2026-04-30", accn: "test" };
       withIssuerFacts(b, { cik: 42, entityName: "Test", facts: { "us-gaap": {
         [kind === "notes" ? "ConvertibleNotesPayable" : "ConvertiblePreferredStockNonredeemableOrRedeemableIssuerOptionValue"]: { units: { USD: [instant] } },
@@ -75,7 +80,7 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
       } } });
       const v = runStageB(b).valuation;
       expect(v.kind).toBe(control.kind);
-      const er = v.excessReturn!;
+      const er = financial(v);
       const bv = noInstrument.openingBookValue.value!;
       const d = noInstrument.equityValue! / noInstrument.perShare!;
       const e = noInstrument.equityValue!;
@@ -124,6 +129,7 @@ describe("F2: market EV and own-history count tagged preferred once", () => {
     withIssuerFacts(control, { cik: 42, entityName: "Test", facts: {} });
     const before = runStageB(control).valuation;
     const after = runStageB(b).valuation;
+    if (before.kind !== "dcf" || after.kind !== "dcf") throw new Error("fixture DCF");
     expect(after.multiples.enterpriseValue.value! - before.multiples.enterpriseValue.value!).toBe(Math.max(0, 500 * M - permanent));
     expect(after.dcf?.bridge.preferred).toBe(Math.max(permanent, 500 * M));
   });
@@ -140,6 +146,7 @@ describe("F2: market EV and own-history count tagged preferred once", () => {
     } } });
     const before = runStageB(control).valuation.multiples;
     const after = runStageB(b).valuation.multiples;
+    if (before === null || after === null) throw new Error("fixture multiples");
     expect(after.enterpriseValue.value! - before.enterpriseValue.value!).toBe(500 * M);
     const prior = before.multiples.find(row => row.key === "evToSales")!.ownHistory!;
     const current = after.multiples.find(row => row.key === "evToSales")!.ownHistory!;
@@ -167,7 +174,7 @@ describe("F4: fiscal-year preferred is measured at its own book date", () => {
       for (const row of result.value.data.rows) row.preferredStock = 0;
     }
     withIssuerFacts(b, { cik: 42, entityName: "Test", facts: {} });
-    const control = runStageB(structuredClone(b)).valuation.excessReturn!;
+    const control = financial(runStageB(structuredClone(b)).valuation);
     for (const prior of [null, 0, 50 * M]) {
       const copy = structuredClone(b);
       withIssuerFacts(copy, { cik: 42, entityName: "Test", facts: { "us-gaap": {
@@ -176,7 +183,7 @@ describe("F4: fiscal-year preferred is measured at its own book date", () => {
           ...(prior === null ? [] : [{ end: "2025-12-31", val: prior, form: "10-K", filed: "2026-02-10", accn: "prior" }]),
         ] } },
       } } });
-      const er = runStageB(copy).valuation.excessReturn!;
+      const er = financial(runStageB(copy).valuation);
       const book = control.startAlternative!.bookValue - (prior ?? 0);
       expect(er.startAlternative!.bookValue).toBe(book);
       expect(er.startAlternative!.perShare).toBeCloseTo(control.startAlternative!.perShare! * book / control.startAlternative!.bookValue, 9);

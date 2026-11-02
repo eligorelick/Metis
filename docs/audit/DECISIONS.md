@@ -68,8 +68,9 @@ three-other-series assertions remain unchanged. Legacy admission-withholding
 text gains the specified explanation under cutoff 1.56.0; no number changes.
 
 VAL-14 stops at OD-9 Task25 Step0. All 45 retained issuers were measured;
-AMZN's 97.9B undivided AFS fact lacks a filed current/noncurrent placement
-split, and the broad rule also admits ordinary portfolio totals. The existing
+For AMZN's 97.9B undivided AFS fact, structured facts do not establish placement;
+the filing text does, but text is not admitted as evidence under C2. The broad
+rule also admits ordinary portfolio totals. The existing
 D-98 exclusion stays; no new verified financial-asset claim is asserted. This
 is blocked before Step1, not a completed admission repair. The exact census
 and required future placement/overlap evidence are in the same B4b disposition.
@@ -3167,5 +3168,12 @@ Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 ## D-next (P1): F6 (2026-11-02)
 
 The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F8 (2026-11-02)
+
+D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
 Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).

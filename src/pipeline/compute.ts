@@ -4083,7 +4083,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     incomeTtm: multiplesIncomeTtm,
     cashFlowTtm: multiplesCashFlowTtm,
     balance: multiplesBalance === null ? null : { ...multiplesBalance, preferredStock: preferredForEv(balPoint) },
-    quarterlyFundamentals: quarterlyFundamentals.map(row => ({ ...row, preferredStock: preferredForEv(row) })),
+    quarterlyFundamentals: quarterlyFundamentals.map(row => ({ ...row, preferredStock: preferredForEv({ date: row.date, preferredStock: row.preferredStock ?? undefined, totalDebt: row.totalDebt ?? undefined }) })),
     enterpriseValuesHistory,
     reitSubmap: route.reitSubmap,
     ffoApprox: route.base === "reit" ? ffoApprox : null,
@@ -4358,6 +4358,23 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   void ratiosTtm; // reserved for future ratio cross-checks
   let result = valueCompany(route, bundleInputs);
+  // F8 / VAL-14: disclosure only. C2 does not admit filing-note text as placement evidence.
+  if (!financialRoute && ownCompanyFacts !== null && bridgePoint && ctx.modelCurrency !== null) {
+    const tag = "AvailableForSaleSecuritiesDebtSecurities";
+    const date = isoDay(bridgePoint.date);
+    const observed = bundle.edgar.companyFacts.ok
+      ? bundle.edgar.companyFacts.value.fetchedAt.slice(0, 10) : bundle.builtAt.slice(0, 10);
+    const fact = date === null ? null : instantFact(ownCompanyFacts, tag, ctx.modelCurrency, date,
+      [observed, bundle.builtAt.slice(0, 10)].sort()[0]);
+    const counted = ["cashAndShortTermInvestments", "shortTermInvestments", "longTermInvestments"] as const;
+    const alreadyCounted = counted.some(field => (num(bridgePoint[field]) ?? 0) > 0 &&
+      (bridgePoint.fieldProvenance?.[field]?.tags ?? []).includes(`us-gaap/${tag}`));
+    if (fact !== null && fact.val > 0 && !fact.dimensions && !fact.segment && !alreadyCounted) {
+      const reason = `${tag} ${millions(fact.val)} (${ctx.modelCurrency}, ${date}, filed ${fact.filed}) is left out of a separate fair-value financial-asset add-back: admitted structured facts do not establish placement outside cash and short-term investments without overlap with existing investments. Filing-note text is not admitted as placement evidence under C2. Existing cash and investment amounts remain counted; this total is not added again (VAL-14).`;
+      result.gaps.push({ field: "valuation.dcf.fairValueFinancialAssets", severity: "warn", reason });
+      result.notes.push(reason);
+    }
+  }
   result.gaps.push(...(financialRoute ? financialConvertibles.gaps : bridgeConvertibles.gaps));
   // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
   // report main published. Retain its prior withheld valuation only when the

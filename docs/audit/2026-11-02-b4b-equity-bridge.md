@@ -455,8 +455,9 @@ AMZN has 97.9B on `AvailableForSaleSecuritiesDebtSecurities`, no current or
 noncurrent AFS split, 78.213B cash, 44.775B current marketable securities and
 284.132B other noncurrent assets. The latter total is not proof the 97.9B sits
 outside cash/current investments. Maturity bands describe contractual maturity,
-not balance-sheet placement. No company name or trusted filing-note placement
-is a substitute for a class-wide structured evidence rule. The naive full-total
+not balance-sheet placement. The retained filing notes do establish placement
+in Other assets: structured facts do not establish placement; the filing text
+does, but text is not admitted as evidence under C2. The naive full-total
 rule would also admit 46.9B NVDA, 71.084B MSFT, 99.5B GOOGL, 50.285B UNH and
 92.413B PGR. NVDA already has 34.143B on `DebtSecuritiesCurrent`; that does not
 make the undivided 46.9B wholly outside cash. The current-date TSLA total is
@@ -665,3 +666,19 @@ The coordinator-delegated choice is a flat-top conversion weight: full weight fo
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | F6 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f6-red` / `f6-green` | Saved figures/bytes retained; re-run uses corrected method |
+
+
+## Review round 2: F8
+
+D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F8 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f8-red-final-fixture` / `f8-green-final` | Saved figures/bytes retained; re-run uses corrected method |
+
+The first F8 fixture tagged the later balance instead of the actual DCF bridge
+date; the corrected-date fixture fails without the disclosure in
+`f8-red-final-fixture`. Initial typecheck also found missing union narrowing in
+new route tests, an incomplete test provenance object and nullable history
+fields passed to a provider-row reader. The fixes add explicit route guards,
+complete provenance and pass only the reader's dated debt/preferred operands.
