@@ -238,7 +238,7 @@ describe("immutable saved-report scope qualifications", () => {
       { id: "recurring-discontinued-ops", severity: "warn", message: "Discontinued operations affected results in 2 of the last 5 fiscal years — recurring portfolio churn complicates run-rate earnings.", metrics: { discontinuedOpsYears: 2, lookbackYears: 5 }, rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years", heuristic: true, asOf: [] },
     ];
     const r = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Synthetic saved-input issuer", generatedAt: bundle.builtAt, model: "none", costUsd: 0, bundle, computed, validation: { checks: [], flags: [], gaps: [] }, costBreakdown: [], reason: "offline legacy-input control" });
-    expect(r.meta.specVersion).toBe("1.55.0");
+    expect(r.meta.specVersion).toBe("1.56.0"); // P0 moved the shared report stamp; the current builder stamps it
     expect(r.quality.flags[0]!.text).toContain("possible channel stuffing");
     const bytes = JSON.stringify(r);
     for (const input of [r, parseStoredReportWithSafety(bytes)!.report]) for (const read of Object.values(readers)) {
