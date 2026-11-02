@@ -183,3 +183,33 @@ describe("R7 FIGR excerpt bindings", () => {
     expect(result.status).toBe("unchecked");
   });
 });
+
+// Integration of R7 with R8 and R9 (FIGR extra-high audit round).
+describe("R7 readings after the R8 passages and the R9 SBC labels", () => {
+  const item2 = frozen.filings.find(excerpt => excerpt.source === "edgar:10-Q item2")! as TextExcerpt;
+  const ebitda = "The 10-Q reports non-GAAP Adjusted EBITDA of $119,379 thousand for the three months ended June 30, 2026.";
+  const checkExcerpt = (excerpt: TextExcerpt) => validateClaimNumericSupport({ label: "FACT", text: ebitda, source: "edgar:10-Q item2", asOf: "2026-06-30" },
+    { excerpts: [excerpt], sourceId: "edgar:10-Q item2", reportingCurrency: "USD" });
+  // R8 keeps a table and its lettered footnotes as separate passages; the row marker "(H)" is still a footnote.
+  it("reads a lettered row marker as a footnote when the footnote is its own passage", () => {
+    expect(checkExcerpt(item2).status).toBe("validated");
+    const split = { ...item2, spans: item2.spans!.flatMap(span => span.start !== 7723 ? [span]
+      : [{ ...span, end: 8640, text: span.text.slice(0, 8640 - 7723) }, { start: 8640, end: span.end, text: span.text.slice(8640 - 7723) }]) };
+    expect(split.spans.some(span => span.start === 8640 && span.text.startsWith("(A) Ecosystem Volume consists of"))).toBe(true);
+    expect(checkExcerpt(split).status).toBe("validated");
+    expect(validateClaimNumericSupport({ label: "FACT", text: ebitda.replace("119,379", "119,380"), source: "edgar:10-Q item2", asOf: "2026-06-30" },
+      { excerpts: [split], sourceId: "edgar:10-Q item2", reportingCurrency: "USD" }).status).not.toBe("validated");
+  });
+  // R9 names the SBC basis in its labels; prose naming stock-based compensation still reads the cash-flow add-back.
+  it.each([54, 86])("reads the basis-named current-capital SBC label (row %i)", id => {
+    expect(check(id, row(id).claim, { ...record(id), label: "SBC, cash-flow add-back" }).status).toBe("validated");
+  });
+  it("reads the basis-named SBC revenue ratio and statement line", () => {
+    expect(check(88, row(88).claim, { ...record(88), label: "SBC, cash-flow add-back / revenue" }).status).toBe("validated");
+    expect(check(53, row(53).claim, { ...record(53), label: "SBC, cash-flow add-back" }).status).toBe("validated");
+  });
+  it("does not read the cash-flow add-back as allocated SBC expense", () => {
+    expect(check(54, "Allocated stock-based compensation expense for the twelve months ended 2026-06-30 was USD 109.08 million.",
+      { ...record(54), label: "SBC, cash-flow add-back" }).status).not.toBe("validated");
+  });
+});

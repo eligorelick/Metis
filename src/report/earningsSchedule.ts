@@ -128,7 +128,11 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
         }
         return out;
       };
-      if (claim) qualifiedClaimPaths.add(path);
+      // Only a provider-only date holds the claim back from verification (the
+      // verify pass calls it "Provider-only event date qualified"). A date the
+      // company announced keeps its qualifier, and the claim is checked on its
+      // own citation like any other (integration of R9 with the verifier).
+      if (claim && event.status === "vendor-calendar") qualifiedClaimPaths.add(path);
       const amended = parts.map(part => {
         if (!isEvent(part)) return part;
         const { pieces, hits } = eventPieces(part, event.date, eventContext);

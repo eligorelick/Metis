@@ -278,6 +278,16 @@ export function operatingMeasuresStated(text: string): OperatingMeasure[] {
 }
 /** The share of a budget that passages restating a 10-K operating figure may take. */
 const SUPERSEDING_SHARE = 0.15;
+/**
+ * Integration of R8 (FIGR extra-high audit): R8 made flattened tables atomic,
+ * and a table never takes a family's turn, so the MD&A's results-of-operations
+ * table (FIGR: gain on sale of loans, gain on servicing asset) and its non-GAAP
+ * reconciliation left the evidence; the old 1,100-character chunks had carried
+ * them. An interim excerpt reserves a bounded share for these primary tables,
+ * read from the table's own lead, before the qualifying contexts rotate.
+ */
+const PRIMARY_TABLE = /\b(?:Results of Operations|statements? of (?:operations|income|earnings)|reconciliation of\b[^.]{0,160}\b(?:adjusted|non-GAAP))/i;
+const PRIMARY_TABLE_SHARE = 0.4;
 
 interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number; table: boolean }
 
@@ -622,6 +632,28 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
             superseded.add(superseding[index]!.name);
           }
         });
+      }
+    }
+    // Primary statement tables first (see PRIMARY_TABLE); a table split across
+    // passages keeps its directly following row passages with it.
+    if (profile === "interim") {
+      const cap = Math.floor(budget * PRIMARY_TABLE_SHARE);
+      let used = 0;
+      for (const passage of all.filter((candidate) => candidate.table && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))) {
+        const group = [passage];
+        for (let i = all.indexOf(passage) + 1; i < all.length && all[i]!.table && all[i]!.start === group.at(-1)!.end &&
+          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)); i++) group.push(all[i]!);
+        const size = group.reduce((sum, member) => sum + member.text.length, 0);
+        if (selected.includes(passage) || used + size > cap) continue;
+        const before = remaining;
+        const kept = selected.length;
+        if (!group.every((member) => add(member))) {
+          // Atomic: a primary table without its rows is not kept.
+          selected.splice(kept);
+          remaining = before;
+          continue;
+        }
+        used += before - remaining;
       }
     }
     // R8: rotate through qualifying contexts before numeric density can fill

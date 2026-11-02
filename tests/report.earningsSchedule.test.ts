@@ -19,6 +19,17 @@ describe("provider earnings-date qualification boundaries", () => {
     expect(result.report.summary.label).toBe("FACT");
     expect(guardEarningsSchedule(result.report, [figrNote], [], [], context).log).toEqual([]);
   });
+  // Integration of R9 with the verifier: only a provider-only date holds a claim back from
+  // verification; a company-announced date is qualified and the claim is checked on its citation.
+  it("holds back only claims whose date rests on the provider calendar alone", () => {
+    const claim = { summary: { text: "Results are due November 12, 2026.", label: "FACT", source: "fmp:news" } };
+    const announced = guardEarningsSchedule(claim, [figrNote], [], [], context);
+    expect(announced.report.summary.text).toContain("company-announced via newswire on 2026-10-22");
+    expect(announced.qualifiedClaimPaths.has("summary")).toBe(false);
+    const vendorOnly = guardEarningsSchedule(claim, [figrNote], [], [], { ...context, newsNotes: [] });
+    expect(vendorOnly.report.summary.text).toContain("FMP calendar estimate");
+    expect(vendorOnly.qualifiedClaimPaths.has("summary")).toBe(true);
+  });
   it("recognizes issuer authorship when the provider company name includes the quoted class", () => {
     const result = guardEarningsSchedule({ text: "Results are due 2026-11-12.", label: "FACT", source: "fmp:news" }, [figrNote], [], [], {
       ...context, issuerName: "Figure Technology Solutions Inc. Class A Common Stock",

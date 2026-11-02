@@ -763,7 +763,11 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("payables to third-party loan owners");
     if (record.origin === "computed.valuation.peerCoverage.market-cap-ttm-common-earnings.count" && label === "Market cap / TTM common earnings eligible peer count after filtering")
       forms.add("eligible peer count for market capitalization to trailing common earnings after filtering");
-    if (record.origin === "computed.capital.sbc" && label === "SBC % revenue") forms.add("stock based compensation as a share of revenue");
+    // R9 renamed these labels to name the cash-flow add-back basis; the same readings hold.
+    if (record.origin === "computed.capital.sbc" && (label === "SBC % revenue" || label === "SBC, cash-flow add-back / revenue"))
+      forms.add("stock based compensation as a share of revenue");
+    if (record.origin === "computed.capital.current.cashBridge.stockBasedCompensation" && label === "SBC, cash-flow add-back")
+      forms.add("stock based compensation");
     if (record.origin === "computed.valuation.multiples.priceToBook" && record.unit === "ratio" && label === "priceToBook (current)")
       forms.add("price to book");
     if (record.origin === "computed.capital.capexIntensity" && record.unit === "percent" && label === "capex/revenue (latest)")
@@ -797,7 +801,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.origin === "fmp:price-target-consensus" && /^price target (low|high)$/.test(label)) forms.add(`provider ${label}`);
     if (record.origin === "fmp:analyst-estimates" && /^est (revenue|EPS) \d{4}-\d{2}-\d{2}$/.test(label))
       forms.add(label.replace(/^est /, "consensus "));
-    if (label === "stock-based comp" && /^edgar:cash-flow\(/.test(record.origin)) forms.add("stock based compensation");
+    if ((label === "stock-based comp" || label === "SBC, cash-flow add-back") && /^edgar:cash-flow\(/.test(record.origin)) forms.add("stock based compensation");
     if (record.origin === "edgar:xbrl us-gaap/CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents" &&
       /^Combined cash including restrictions \(reported\), as of \d{4}-\d{2}-\d{2}$/.test(label)) forms.add(label.replace(" (reported)", ""));
     if (record.origin === "fmp:insider-statistics" && record.unit === "count") {
@@ -1280,7 +1284,8 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
         const bareLabel = column.label.replace(/\(([A-Z])\)/g, (marker) =>
-          /\b(?:class|series|tranche)\b/i.test(column.label) || !/\([A-Z]\)\s+[A-Z][a-z]/.test(body.text) ? marker : " ".repeat(marker.length));
+          // The footnote may be its own passage (R8 keeps a table and its footnotes as separate atomic units).
+          /\b(?:class|series|tranche)\b/i.test(column.label) || !/\([A-Z]\)\s+[A-Z][a-z]/.test(excerpt.text) ? marker : " ".repeat(marker.length));
         let label = column.window === null ? bareLabel : `${bareLabel} ${column.window.raw}`;
         if (column.scope) label += ` ${column.scope}`;
         if (/\breported select unaudited preliminary operating data\b/i.test(body.text)) label += " preliminary";
@@ -1395,7 +1400,7 @@ export function reportedSeriesLatest(registry: readonly NumericProvenanceRecord[
 export function filedCalendarFiscalLabel(record: NumericProvenanceRecord, excerpts: readonly TextExcerpt[]): string | undefined {
   const estimate = record.kind === "provider" && record.origin === "fmp:analyst-estimates" && /^est (?:revenue|EPS) \d{4}-12-31$/.test(record.label ?? "");
   const annual = record.kind === "computed" && record.period === null && record.periodContext === undefined &&
-    (financialPiotroskiCoverage(record) !== null || (record.origin === "computed.capital.sbc" && record.label === "SBC % revenue"));
+    (financialPiotroskiCoverage(record) !== null || (record.origin === "computed.capital.sbc" && (record.label === "SBC % revenue" || record.label === "SBC, cash-flow add-back / revenue")));
   const quarter = record.kind === "computed" && record.origin === "fmp:income-statement(quarter)" &&
     record.id.startsWith("computed.quarterly-trend.") && record.period !== null &&
     (record.label ?? "").endsWith(`, quarter ended ${record.period}`);

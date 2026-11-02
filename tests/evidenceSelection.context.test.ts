@@ -114,6 +114,24 @@ describe("qualifying filing context (R8)", () => {
     const capacity = "As of June 30, 2026, the Company repurchased no shares and has $200.0 million remaining authorized under the repurchase program.";
     expect(select(capacity, 900)).toContain(capacity);
   });
+  // Integration of R8 (FIGR extra-high audit): atomic tables never take a family's turn, so the
+  // MD&A results table (gain on sale of loans, gain on servicing asset) and the non-GAAP
+  // reconciliation fell behind the qualifying contexts; the old chunks had carried them.
+  const results = "Results of Operations Condensed Consolidated Statements of Operations The following table sets forth our results for the periods presented: Three Months Ended June 30, (In thousands) 2026 2025 Revenue: Ecosystem and technology fees $ 72,858 $ 28,140 Gain on sale of loans, net 57,572 36,312 Gain on servicing asset, net 29,093 1,844 Interest income 22,809 11,966 Net revenue 225,588 106,077 Operating income 77,935 27,632";
+  it("keeps the MD&A results-of-operations table ahead of the qualifying contexts", () => {
+    const capacity = "As of June 30, 2026, the Company repurchased no shares and has $200.0 million remaining authorized under the repurchase program.";
+    const text = select(`${results}\n${capacity} ${definition}`, 1_400);
+    expect(text).toContain(results);
+  });
+  it("keeps a primary table's continuation rows with its head", () => {
+    const head = "The following table presents a reconciliation of net income to adjusted EBITDA: Three Months Ended June 30, (In thousands) 2026 2025 Net income $ 87,436 $ 29,994 Adjusted for: Valuation changes in fair value of servicing asset (8,395) 5,848 Stock-based compensation 26,098 8,113 Total adjustments 31,943 22,872.";
+    const rows = "(30) Adjusted EBITDA $ 119,379 $ 52,866 Net income margin 38.8 % 28.3 %";
+    const text = select(`${head} ${rows}`, 2_000);
+    expect(text).toContain(`${head} ${rows}`);
+  });
+  it("leaves the results table to the filler in a notes excerpt", () => {
+    expect(selectMaterialEvidence(`${crowd}\n${results}\n${crowd}`, 1_400, "notes").text).not.toContain("Gain on sale of loans, net 57,572");
+  });
   it.each([0, 50, 210, 500, 2_000])("is deterministic and stays within a %i-character budget", (budget) => {
     const source = `${crowd} ${sensitivity} ${definition}`;
     expect(selectMaterialEvidence(source, budget, "notes")).toEqual(selectMaterialEvidence(source, budget, "notes"));
