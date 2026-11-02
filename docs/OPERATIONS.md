@@ -16,7 +16,10 @@ Both npm server commands bind to `127.0.0.1`; the usual URL is
 `http://127.0.0.1:3000`. No separate database migration command is required for
 normal startup: `src/db/index.ts` creates tables and applies guarded compatibility
 updates when it opens the database. `npm run db:push` is an explicit Drizzle
-schema-management tool, not a quick-start prerequisite.
+schema-management tool, not a quick-start prerequisite. It leaves out the
+active-job identity index (one queued or running job per share class, so
+`BRK.B` and `BRK-B` cannot both run), which Drizzle cannot express; the app
+recreates that index the next time it opens the database.
 
 Some existing Windows installations have local-only `./Start-Thesis.ps1` and
 `./Stop-Thesis.ps1` launchers; these legacy filenames are retained compatibility
