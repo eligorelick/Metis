@@ -3044,3 +3044,8 @@ DATA-108 recognizes semicolon-separated official-title clauses and optional subs
 ### D-next (P5): Contents entries do not establish event evidence
 
 DATA-109 removes bounded page-number-only sections at parsing and replay, and strips legacy summary fragments on display. Real operative sections are retained. Saved bytes remain unchanged.
+
+
+### D-next (P5): AI-508 presentation detail
+
+OD-11 retains moved-together current operands, withholds unproven mixed operands and uses the latest stable presentation after repeated changes. Notes name filing accession/date, stated windows and affected ends. No stored report is rewritten.

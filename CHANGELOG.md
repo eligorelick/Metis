@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- AI-508: name change filings, stated windows and affected quarter ends.
+
 - DATA-109: exclude 8-K contents-page stubs from evidence and legacy summaries.
 - DATA-108: recognize clause-only and subsection Item 5.02 headings.
 - DATA-107: admit and prioritize material cyber, bankruptcy, acceleration, delisting and control events.

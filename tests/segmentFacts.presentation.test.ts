@@ -62,3 +62,22 @@ it("registers retained cross-filing levels as computed and discloses the 10-K bl
  expect(payload.segmentRevenue?.figures.find(f=>/Devices revenue.*2025-12-31/.test(f.label))).toMatchObject({value:18*S,source:"computed:xbrl segment cross-filing difference"});
  expect(table.note).toContain("until the next 10-Q");
 });
+
+it("names the change filing, shared window and affected quarter ends",()=>{
+ const s=buildQuarterlySegments([q1New,kOld,q3Old,q2Old],labels)!;
+ const note=s.notes.join(" ");
+ for(const text of [q1New.accession,q1New.filingDate,"2025-01-01","2025-03-31","2025-12-31","2025-09-30"]) expect(note).toContain(text);
+});
+it("keeps a moved-together annual and nine-month pair after a recast",()=>{
+ const recast=filing("new-nine","10-Q","2025-11-01",[...trio(Q1,212,48),...trio(Q3,232,52),...trio(M9,666,150)]);
+ const s=buildQuarterlySegments([kNew,recast,q1Old],labels)!;
+ const r=s.axes[0]!.rows.find(r=>r.label==="Devices")!;
+ expect(r.values[0]).toBe(54*S);
+ expect(r.crossFilingAt).toContain(0);
+});
+it("uses the latest stable presentation after repeated changes",()=>{
+ const second=filing("second","10-Q","2026-05-01",[...trio(Q1N,260,47),...trio(Q1,222,38)]);
+ const s=buildQuarterlySegments([second,q1New,q2Old,q1Old],labels)!;
+ expect(s.notes.join(" ")).toContain("second");
+ expect(s.axes[0]!.rows.find(r=>r.label==="Devices")!.values.at(-1)).toBe(38*S);
+});

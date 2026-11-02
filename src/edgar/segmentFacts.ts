@@ -508,7 +508,14 @@ export function buildQuarterlySegments(
       return {member,label:labels[member] ?? fallbackMemberLabel(member),...cells,childOf:null};
     });
     const changed=current.filter(member=>changes.has(seriesKey({axis,member})));
-    if(changed.length) notes.push(`${SEGMENT_AXES[axis]}: presentation changed for ${changed.map(m=>labels[m]??m).join(", ")}; quarters from earlier filings remain on the earlier presentation and are not compared with later quarters. Cross-filing differences whose operands are not both proven current are withheld.`);
+    for (const member of changed) {
+      const boundary = changes.get(seriesKey({axis,member}))!;
+      const f = boundary.filing;
+      const windows = f.facts.filter(x => x.axis === axis && x.member === member).map(x => `${x.start} to ${x.end}`);
+      const earlier = quarters.filter((_,i) => annotations(axis,member).earlierPresentationAt?.includes(i)).map(q=>q.end);
+      const withheld = quarters.filter(q => { const c=at(axis,member,q); return c?.crossFilingDerived && !c.operands?.every(a=>boundary.current.has(a)); }).map(q=>q.end);
+      notes.push(`${SEGMENT_AXES[axis]}: presentation changed for ${labels[member]??member} in ${f.form} ${f.accession} filed ${f.filingDate}; stated comparison windows: ${[...new Set(windows)].join(", ")}. Earlier-presentation quarter ends: ${earlier.join(", ") || "none"}; these remain as reported and are not compared with later quarters. Cross-filing quarter ends withheld because both operands are not proven current: ${withheld.join(", ") || "none"}.`);
+    }
     markSubtotals(rows);
     const residualCells = fillResiduals(rows, totalCells, (i, missing) => {
       const col = quarters[i]!;

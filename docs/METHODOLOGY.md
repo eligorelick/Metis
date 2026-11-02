@@ -5979,3 +5979,9 @@ Material 8-K events include bankruptcy (1.03), cyber incidents (1.05), accelerat
 Item 5.02 headings may use any clause of the official title and an optional subsection letter; bounded-title and cross-reference rejection rules still apply (DATA-108).
 
 Page-number-only table-of-contents bodies are excluded from 8-K sections, analyst excerpts and event summaries. Legacy event summaries drop those fragments at display time without rewriting saved reports (DATA-109).
+
+
+Segment presentation-change notes identify the change filing, its stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
+
+
+Segment presentation-change notes identify the change filing, stated windows, earlier quarter ends and withheld cross-filing quarter ends (AI-508). Moved-together current operands remain eligible; repeated changes use the latest stable basis.
