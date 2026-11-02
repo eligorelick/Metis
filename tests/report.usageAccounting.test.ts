@@ -56,7 +56,12 @@ describe("run usage counts every recorded request (FIGR paid audit R1)", () => {
   });
 
   it("keeps the earlier wording for a report whose ledger rows carry no tokens", () => {
-    const legacy = LEDGER.map(({ inputTokens: _input, outputTokens: _output, ...rest }) => rest);
+    const legacy = LEDGER.map((entry) => {
+      const rest: Partial<typeof entry> = { ...entry };
+      delete rest.inputTokens;
+      delete rest.outputTokens;
+      return rest as typeof entry;
+    });
     const r = paidReport(legacy);
     expect(usageSummary(r)).toBe("$4.712836 recorded API cost; 134,019 input / 29,782 output tokens");
     expect(passLine(r.meta.execution![0]!, r.appendix.costBreakdown)).toBe(`bull: ${MODEL}, high effort; 6,843 input / 16,089 output tokens`);
