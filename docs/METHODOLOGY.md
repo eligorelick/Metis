@@ -5947,3 +5947,7 @@ short-term debt does not reconcile with the 10-Q's only current-debt tag,
 P0 M-1: No-split vendor/SEC per-share comparisons require a confirmed single-ticker registrant and established ordinary-share units. Multiple or unknown listed classes remain incomparable; split reconciliation is unchanged.
 
 P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.
+
+P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim.
+
+P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.

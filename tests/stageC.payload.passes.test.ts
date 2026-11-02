@@ -2763,7 +2763,7 @@ describe("verify-pass tracing", () => {
     const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
     expect(log.filter((entry) => entry.outcome === "unverified" && entry.validationStatus !== "cited").map((entry) => entry.reason))
-      .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
+      .toEqual(["earnings-date-qualified", "value-mismatch", "value-mismatch", "earnings-date-qualified"]); // M-2: two report-date clauses are qualified and remain unchecked.
   });
 
   it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
@@ -3067,7 +3067,7 @@ describe("assembleReport", () => {
       data: { symbol: "AAPL", date: "2026-11-04", confirmation: "vendor_estimate" } } };
     const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
     const output = judgeOutput();
-    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:income-statement(annual)", asOf: "2025-09-27" }];
+    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:earnings-calendar", asOf: "2026-07-06" }];
     output.disagreements = [{ topic: "Growth", bullView: "Growth accelerated", bearView: "Guidance slows", kind: "interpretation", judgeResolution: "Results on 2026-11-04 will clarify the trend." }];
     const original = JSON.stringify(output);
     const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
@@ -3076,6 +3076,7 @@ describe("assembleReport", () => {
     expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; company confirmation not established");
     const log = result.log.filter(e => e.path === "verdict.executiveSummary[0]");
     expect(log.some(e => e.reason === "earnings-date-qualified" && e.claim === output.verdict.executiveSummary![0]!.text)).toBe(true);
+    expect(log.find(e => e.outcome !== "removed")?.claimSupportStatus).toBe("cited");
     expect(log.every(e => e.validationStatus !== "validated" && e.numericSupportStatus !== "validated")).toBe(true);
     const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: result.verifiedReport,
       verify: result, costEntries: [], model: "none" }, GENERATED_AT);

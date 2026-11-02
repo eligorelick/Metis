@@ -3047,7 +3047,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   }
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
-  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? []);
+  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, payload.filings.filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
   Object.assign(verifiedReport, guardedSchedule.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
@@ -3335,7 +3335,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // the finding sitting next to it in the same appendix.
     const rejected = consistency.rejectedClaimPaths.has(path);
     const scheduleQualified = guardedSchedule.qualifiedClaimPaths.has(path);
-    const supported = match.supported && !rejected && !scheduleQualified;
+    const supported = match.supported && !rejected;
     const judgment = claim.label === "JUDGMENT";
     const registryRecord = sourceId === null
       ? undefined
@@ -3348,7 +3348,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
-    const validation = supported && sourceId !== null
+    const validation = supported && !scheduleQualified && sourceId !== null
       ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
@@ -4144,7 +4144,9 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     }
     const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
     const scheduleNote = nextEarningsNote(args.bundle);
-    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote]);
+    const schedulePayload = payloadContextReady ? assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] }) : undefined;
+    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote], schedulePayload?.citationRegistry,
+      schedulePayload?.filings.filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
     scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
     assembled = scheduleGuard.report;
   }

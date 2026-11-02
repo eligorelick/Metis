@@ -1,3 +1,5 @@
+import { citationSourceId } from "@/pipeline/stageC/citations";
+import type { CitationProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { estimateDay } from "@/report/estimateTiming";
 import type { VerificationLogEntry } from "@/report/schema";
 
@@ -7,7 +9,7 @@ const PROVIDER_NOTE = /^next scheduled earnings date per provider calendar \(a p
 const PROSE_KEYS = new Set(["synthesis", "judgeResolution", "bullView", "bearView", "narrative", "trend", "momentum", "keyLevels", "relativeStrength"]);
 
 /** Qualify a known provider-only event date; never assert that the date is false. */
-export function guardEarningsSchedule<T extends object>(input: T, notes: readonly string[]): {
+export function guardEarningsSchedule<T extends object>(input: T, notes: readonly string[], registry: readonly CitationProvenanceRecord[] = [], companySources: readonly string[] = []): {
   report: T; log: VerificationLogEntry[]; qualifiedClaimPaths: Set<string>;
 } {
   const report = structuredClone(input);
@@ -19,12 +21,15 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       ? [{ date: match[1]!, provider: match[2]!, asOf: match[3]! }] : [];
   });
   const qualify = (text: string, path: string, claim?: Record<string, unknown>): string => {
+    const source = claim ? citationSourceId(claim) : null;
+    if (source && registry.some(record => record.id === source && record.kind === "payload-text" &&
+      (/^edgar:(?:8-K|10-[KQ]|6-K|20-F|40-F)\b/i.test(record.origin) || companySources.includes(record.id)))) return text;
     let next = text;
     for (const event of events) {
-      // Bind the event to its sentence, not a different dated statement in a
+      // Bind the event to a clause bounded by punctuation, not another dated statement in a
       // composite claim. Keep whitespace and the original text for the audit.
-      const parts = next.split(/((?<=[.!?])\s+(?=[A-Z]))/u);
-      const isEvent = (part: string) => part.includes(event.date) && /\b(?:earnings|results)\b/i.test(part);
+      const parts = next.split(/([;,](?![^()]*\))|(?<=[.!?])\s+(?=[A-Z])|\s+[??]\s+)/u);
+      const isEvent = (part: string) => part.includes(event.date) && /\b(?:earnings|results|report|call)\b/i.test(part);
       if (!parts.some(isEvent)) continue;
       const qualifier = `${event.provider === "fmp" ? "FMP" : "Finnhub"} calendar estimate; company confirmation not established`;
       const dated = `${event.date} (${qualifier})`;
@@ -33,7 +38,7 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       if (amended === next) continue;
       next = amended;
       if (claim?.label === "FACT") claim.label = "ESTIMATE";
-      log.push({ claim: text, path, outcome: "unverified", reason: "earnings-date-qualified",
+      log.push({ claim: text, path, outcome: "removed", reason: "earnings-date-qualified",
         validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed",
         evidenceKind: claim?.label === "JUDGMENT" ? "judgment" : "factual-claim",
         ...(typeof claim?.source === "string" ? { source: claim.source } : {}),

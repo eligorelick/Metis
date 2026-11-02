@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
+import { isCountedClaimEntry } from "@/report/claimMatching";
 import { guardEarningsSchedule } from "@/report/earningsSchedule";
 
 const note = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-04 [finnhub:earnings-calendar · 2026-11-01]";
 
 describe("provider earnings-date qualification boundaries", () => {
+  it.each(["Earnings rose 5% year over year; the special dividend is payable 2026-11-04.", "Earnings rose 5%, the dividend is payable 2026-11-04."])("keeps coincident dividend dates: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
+  });
+  it("keeps registered SEC confirmation", () => {
+    const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }])).toMatchObject({ report: input, log: [] });
+  });
+  it("does not count qualification audit rows as another claim", () => {
+    const input = { verdict: { executiveSummary: [{ text: "Earnings are due 2026-11-04.", label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    const out = guardEarningsSchedule(input, [note]);
+    expect(out.log).toHaveLength(1);
+    expect(out.log.filter(entry => isCountedClaimEntry(entry, "factual-claim"))).toEqual([]);
+  });
   it("does not apply an earnings qualification to a date in a different sentence", () => {
     const input = { verdict: { executiveSummary: [{ text: "The results exceeded expectations. The filing was signed on 2026-11-04.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-04" }] } };
     expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
