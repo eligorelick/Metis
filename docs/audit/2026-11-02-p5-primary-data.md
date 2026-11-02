@@ -165,3 +165,10 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | Verification follow-up (Step 1) | Fixed: Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised. | This commit | fixround-typecheck (red) / fixround-typecheck2 (green); fixround-cleanup-focused | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F4 consumer fixtures (AI-512-V1) | Fixed: Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions. | This commit | fixround-product (2 introduced integrity failures) / fixround-b4-consumer-green | No persisted rewrite |
+
+Full fix-round product run fixround-product at 1e5fd0f5: 13,796 pass, 7 fail, 3 skipped. Base archive 007f4fcd reproduces the two 1.55.0 pins and three dependency CLI failures caused by missing npm_execpath (fixround-base-proof: 350 pass, 5 fail; integrity 15/15 pass). The two introduced integrity failures are corrected by coherent fiscal fixture metadata without assertion edits. fixround-b4-consumer-green passes 158 tests with the Node 24 npm CLI path declared. Final full product and risk receipts are retained in HANDOFF-FIXROUND.md.

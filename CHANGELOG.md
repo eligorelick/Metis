@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- B-F4 consumer fixtures (AI-512-V1): Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions.
+
 - Verification follow-up (Step 1): Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised.
 
 - B-F8 (DATA-102): The SEC-fallback peer profile depends on its own submissions freshness only.
