@@ -522,6 +522,8 @@ export function buildQuarterlySegments(
       const col = quarters[i]!;
       const total = at(null, null, col);
       if (total === undefined || total.crossFilingDerived) return false;
+      const boundary = changes.get(seriesKey({ axis, member: missing.member }));
+      if (boundary && !boundary.current.has(total.accession)) return false;
       // Never relabel an old presentation's C as the current B. Missing
       // historical tags establish no mapping, even when today's rows exhaust revenue.
       if (members.some((member) => !current.includes(member) && at(axis, member, col) !== undefined)) return false;

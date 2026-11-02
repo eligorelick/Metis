@@ -100,3 +100,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F2 (AI-202-V1) | Fixed: Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. | This commit | fixround-a2-red / fixround-a2-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F3 (AI-508) | Fixed: Refuse residual fills from a filing outside the missing member current presentation. | This commit | fixround-a3-red / fixround-a3-green | No persisted rewrite |

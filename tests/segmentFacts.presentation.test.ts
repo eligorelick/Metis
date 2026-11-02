@@ -86,3 +86,22 @@ it("does not assert comparability between older cells after repeated changes",()
  expect(sameSegmentBasis([1,2],1,2)).toBe(false);
  expect(sameSegmentBasis([1,2],0,3)).toBe(true);
 });
+
+const Q1_26 = { start: "2026-01-01", end: "2026-03-31" }, Q2_26 = { start: "2026-04-01", end: "2026-06-30" }, H1_26 = { start: "2026-01-01", end: "2026-06-30" };
+const Q3_26 = { start: "2026-07-01", end: "2026-09-30" }, M9_26 = { start: "2026-01-01", end: "2026-09-30" };
+const q1o26 = filing("0001111111-26-000004", "10-Q", "2026-04-28", [...trio(Q1_26, 240, 61), ...trio(Q1, 200, 60)]);
+const q2o26 = filing("0001111111-26-000005", "10-Q", "2026-07-28", [...trio(Q2_26, 245, 63), ...trio(H1_26, 485, 124), ...trio(Q2, 210, 62), ...trio(H1, 410, 122)]);
+const q3n26 = filing("0001111111-26-000006", "10-Q", "2026-10-28", [...trio(Q3_26, 270, 65), ...trio(M9_26, 779, 165), ...trio(Q3, 232, 52), ...trio(M9, 666, 150)]);
+
+it("AI-508 refuses an old-presentation residual after a Q3 reallocation", () => {
+ const missing = {...q2o26, facts:q2o26.facts.filter(f => !(f.member === "p:DevicesMember" && f.start === Q2_26.start && f.end === Q2_26.end))};
+ const filings=[q3n26,missing,q1o26,kOld];
+ const data=buildQuarterlySegments(filings,labels)!;
+ const devices=data.axes[0]!.rows.find(r => r.label === "Devices")!;
+ expect(devices.values[1]).toBeNull();
+ expect(devices.residualAt ?? []).not.toContain(1);
+ const {payload,table}=surfaces(filings);
+ expect(payload.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
+ expect(payload.segmentRevenue?.figures.some(f=>/Devices.*total less.*2026-06-30/.test(f.label))).toBe(false);
+ expect(table.rows.find(r=>r[0]==="Devices")!.at(-3)).toBe("\u2014");
+});

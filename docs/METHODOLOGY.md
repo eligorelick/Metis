@@ -6009,3 +6009,6 @@ A-F1 (RPT-201): Use schema-valid null guidance in the dividend-yield display fix
 
 
 A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. The two reviewed loss/expense pairs now retain -0.10/-0.12 and -30M/-40M on their printed bases; existing range controls stay unchanged.
+
+
+A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation. The old-basis 63 is withheld along with its false +3.17% QoQ; the classic table and payload agree. This does not invent the unreported same-basis 51.
