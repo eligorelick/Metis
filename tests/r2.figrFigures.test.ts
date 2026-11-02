@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
@@ -191,4 +191,3 @@ describe("R2 FIGR deterministic figures", () => {
     expect(buildFilingDisclosures(b)?.notes.join(" ")).toMatch(/operating expenses.*withheld.*basis/i);
   });
 });
-

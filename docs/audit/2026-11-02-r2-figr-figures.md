@@ -2,20 +2,18 @@
 
 | Finding | Fix | Commit | Test |
 | --- | --- | --- | --- |
-| F05: mixed operating-margin bases | Admit canonical filed operating income only with compatible revenue, currency, interval and filing basis; withhold unmatched quarterly, annual and TTM operating amounts. | This commit | `r2.figrFigures`: F05 filed trend/TTM, annual fundamentals, missing numerator and incompatible-evidence controls |
-| F04: missing SBC quarter treated as zero | Refuse contradicted vendor SBC, including frozen replay; reuse filed CFO FY + YTD - prior-YTD machinery for cash-flow SBC, with labelled operands. FIGR TTM is 109.079M. | This commit | `r2.figrFigures`: F04 filed TTM, contradicted zero, replay and incompatible-operand controls |
-| B-12: ambiguous debt perimeter | Label provider funding including loan-owner payables; separately register cited borrowings 962.995M and components, payables and lease observation. Context EV and lender exclusions retained. | This commit | `r2.figrFigures`: B12; `stageB.lenderCashFlow` context-EV controls |
-| B-13: lender P/TBV marked unsuitable | Add P/TBV to evidenced lender applicability, retaining tangible-common-equity, currency, ownership and positivity gates; read against ROTE. | This commit | `r2.figrFigures`: B13; `stageB.lenderCashFlow` industrial-metric controls |
-| F23: float ratio mixed observation dates | Call it derived and show float observation date beside FINRA settlement date in key data and market tables. | This commit | `r2.figrFigures`: F23; `report.presentation.d62`, `marketData.integrity` |
-| Consensus estimate as-of | Use validated observation UTC day in model figure and registry; retain the envelope fiscal reference separately and state publication vintage unestablished. | This commit | R2 estimate registry regression; `estimateTiming.integration`; `stageC.payload.passes` timing controls |
-| TTM CFO untraced | Register exact duration and the report's TTM interval plus all filed operands and identities. FIGR CFO remains -86.490M. | This commit | R2 filed TTM CFO test, including exact `matchProvenanceRecord` |
-| Inconsistent Operating expenses column | Require complete directly tagged OperatingExpenses on revenue's filed basis; withhold vendor subsets with dated notes. | This commit | R2 expense-subset test; `edgar.operatingExpenseScope` complete-total control |
+| F05: mixed operating-margin bases | Admit canonical filed operating income only with compatible revenue, currency, interval and filing basis; withhold unmatched quarterly, annual and TTM operating amounts. | bd26083d | `r2.figrFigures`: F05 filed trend/TTM, annual fundamentals, missing numerator and incompatible-evidence controls |
+| F04: missing SBC quarter treated as zero | Refuse contradicted vendor SBC, including frozen replay; reuse filed CFO FY + YTD - prior-YTD machinery for cash-flow SBC, with labelled operands. FIGR TTM is 109.079M. | bd26083d | `r2.figrFigures`: F04 filed TTM, contradicted zero, replay and incompatible-operand controls |
+| B-12: ambiguous debt perimeter | Label provider funding including loan-owner payables; separately register cited borrowings 962.995M and components, payables and lease observation. Context EV and lender exclusions retained. | bd26083d | `r2.figrFigures`: B12; `stageB.lenderCashFlow` context-EV controls |
+| B-13: lender P/TBV marked unsuitable | Add P/TBV to evidenced lender applicability, retaining tangible-common-equity, currency, ownership and positivity gates; read against ROTE. | bd26083d | `r2.figrFigures`: B13; `stageB.lenderCashFlow` industrial-metric controls |
+| F23: float ratio mixed observation dates | Call it derived and show float observation date beside FINRA settlement date in key data and market tables. | bd26083d | `r2.figrFigures`: F23; `report.presentation.d62`, `marketData.integrity` |
+| Consensus estimate as-of | Use validated observation UTC day in model figure and registry; retain the envelope fiscal reference separately and state publication vintage unestablished. | bd26083d | R2 estimate registry regression; `estimateTiming.integration`; `stageC.payload.passes` timing controls |
+| TTM CFO untraced | Register exact duration and the report's TTM interval plus all filed operands and identities. FIGR CFO remains -86.490M. | bd26083d | R2 filed TTM CFO test, including exact `matchProvenanceRecord` |
+| Inconsistent Operating expenses column | Require complete directly tagged OperatingExpenses on revenue's filed basis; withhold vendor subsets with dated notes. | bd26083d | R2 expense-subset test; `edgar.operatingExpenseScope` complete-total control |
 
 ## Evidence and residuals
 
-Started from b0f273bb, whose subject is â€œAccept the canonical derived quarter
-as a whole filed row (D-155 review)â€. Used only the supplied isolated Node
-24.11.1 wrapper. No paid provider request, application launch, owner database
+Started from b0f273bb, whose subject is "Accept the canonical derived quarter as a whole filed row (D-155 review)". Used only the supplied isolated Node 24.11.1 wrapper. No paid provider request, application launch, owner database
 or stored-report rewrite occurred. The supplied paid-input SQLite was opened
 with `readonly: true`; diagnostic output went to this checkout's ignored tmp.
 
@@ -48,6 +46,8 @@ paths affected by expense-gap insertion or disclosures. Each path belongs to
 one group; no baseline, stamp or unaffected amount is changed. Its parent
 D-138/D-155 references must be replaced by the integrator's final R2 decision
 numbers. The eight appended D-next (R2) decisions also await renumbering.
+
+The first gate on bd26083d passed dependency checks, typecheck and lint, then failed only the exact tracked release-document allowlist: product 14,379 pass, 1 fail, 3 skipped, exit 1. The follow-up explicitly registers this requested audit record in that allowlist; figure implementation is unchanged. The failed receipt is preserved as r2-verify-first.
 
 Final-commit gate: `& tmp/claude-2026-11-01/run.ps1 -Name r2-verify -NpmScript verify`.
 The exact gate result is in `r2-verify.result.json` and its UTF-16LE log and is
