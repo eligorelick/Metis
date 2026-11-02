@@ -1,5 +1,146 @@
 # Decisions
 
+## D-next (P1/B4b): equity bridge and invested capital (2026-11-02)
+
+FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on
+`eecd2703`. A filed operating subtotal is classified by pretax/component
+arithmetic; a nonoperating aggregate cannot establish inclusion from a zero
+residual. Derived EBIT records the subtraction pass's actual amounts and pretax
+base tags. Placement uses the house tolerance max(0.1% of absolute pretax, 1M).
+Measured inside income leaves the DCF seed and independently measured annual
+margin history, with its stake added once; an inside but unmeasured result keeps
+the equity-method portion in operating capital and out of the add-back and
+sale-tax lines. Filed immaterial/zero quarters take the measured window's
+placement. Fourth-quarter operands reuse the one-presentation resolver; refused
+operands never become zero. A window with an unmeasured inside quarter is
+operating throughout; other mixed/undetermined windows retain the disclosed
+S-X Rule 5-03 assumption. The review correction below governs seed and history.
+
+The existing B13 `unlessBelow` mechanism rejects an LTI total below its
+same-date equity-method component outside max(0.5%, 2M), and the provider fill
+uses the builder's chain rather than a copied tag list. Existing missing-piece
+and provenance disclosures are preserved. No income or stake amount is invented.
+
+Report/payload/Stage B stamps are the brief's reserved 1.56.0 / 1.60.0 /
+`STAGE_B_2026_11_CLAUDE_REPAIRS_39`. Fair-value/scenario-target method stamps use
+the same `2026_11_CLAUDE_REPAIRS_39` suffix because they rerun this bridge. Prompt
+rules and their pipeline version do not change. Under D-67, the separate
+equity-method legacy note uses frozen cutoff 1.56.0 and requires both the stored
+LTI component and the sales-to-capital basis's non-operating LTI treatment.
+Task 15b's proposed DCF-notes detector is adapted: those notes were payload-only,
+not a stored DcfSchema field. The actual stored basis establishes the old treatment,
+and the note's income-placement consequence remains conditional. It changes no
+figure and no stored byte. The conditional convertible clause is now implemented; the financial-asset clause
+awaits its disposition. The integrator assigns this D-next number; intended deltas cite
+the existing D-60/D-65 conventions until then.
+
+The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
+to 196.0576271333 per share. The revised R-2 placement-evidence guard restores
+BA from 27.7411147513 to the FIN-401-V1 value 27.1152067083; GOOGL, AMZN and the other required controls
+keep their values or refusals. Evidence and the explicitly unstarted items are recorded in
+[the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+
+FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
+period/end and acquisition cutoffs on both routes. Unknown settlement retains
+the conservative claim-plus-shares value and a quantified bound; cash-principal
+notes retain spread shares. Each preferred claim is deducted once, using the
+larger ambiguous overlap or the sum only when an independent filed inclusive
+carrying total proves separate series. GOOGL has no permanent preferred tag at
+its bridge date, so its new 18.023B claim is deducted directly. Restore caps use
+only deducted claims. The M6 ruling is a triangular conservative adjustment
+weight across 95%-105% (full at 100%, zero at both edges), continuously returning
+to the unchanged lower value. Incorrect settlement evidence would retain too
+much claim/dilution rather than increase value. Source conventions are the
+reviewed OD-2 citations; no fresh source/network verification is claimed.
+
+FIN-302-V2 extends that same reading to every operating EPS path and share
+alternative. Converted interest uses the issuer's blended effective debt rate
+(not the note's coupon; may overstate the add-back) times the restored claim,
+capped at total interest. With no evidenced effective rate, keep interest and
+state the conservative limitation; no coupon is inferred. This is the OD-2
+approximation, not a GAAP diluted-EPS forecast. No prompt text or stamp changes.
+
+FIN-407 uses the admitted DCF divisor for operating EPS, including B-37's
+quoted-share economic units, loss-period awards and convertible readings.
+Scope refusals match non-info entries. The prior missing-count test now removes
+both the authoritative bridge count and the fallback count; its no-EPS and
+three-other-series assertions remain unchanged. Legacy admission-withholding
+text gains the specified explanation under cutoff 1.56.0; no number changes.
+
+VAL-14 stops at OD-9 Task25 Step0. All 45 retained issuers were measured;
+For AMZN's 97.9B undivided AFS fact, structured facts do not establish placement;
+the filing text does, but text is not admitted as evidence under C2. The broad
+rule also admits ordinary portfolio totals. The existing
+D-98 exclusion stays; no new verified financial-asset claim is asserted. This
+is blocked before Step1, not a completed admission repair. The exact census
+and required future placement/overlap evidence are in the same B4b disposition.
+No external research was fetched under the offline instruction.
+
+FIN-309 completes Task11's dependent financial-date work: roll only when the
+headline is 1-200 days after opening book, at CoE and gross of distributions.
+Alternatives/grid cells use their own book dates and rates, with no separate
+200-day cutoff once the headline qualifies. Reverse valuation discounts the
+price target (market-cap fallback only if needed) by the same headline factor
+and keeps the selected convertible reading. Book diagnostics are unchanged.
+Fair-value and per-share payload dates reflect quote versus book truthfully;
+legacy figures/dates are retained with a display explanation under 1.56.0.
+No prompt text changes; pipeline version stays stage-c-1.6.17.
+
+## D-next (P1/B4b review): one operating basis across seed and history (2026-11-02)
+
+FIN-401 review R-1/R-3/R-6: an operating-treated window governs every seed
+quarter and history year. Restore each period's measured, derivation-subtracted
+equity-method income to EBIT, retain measured inside income, and keep its
+located stake in operating capital throughout the sales-to-capital history.
+A window mixing an unmeasured inside quarter with measured below-operating
+quarters is operating throughout. Other mixed/undetermined windows retain the
+prior treatment. This supersedes the original mixed-history benchmark: XOM
+178.0877966043 -> 196.0576271333 per share in real code; BA and the controls
+are unchanged in the R-1-only replay. The audit benchmark used the same mixed
+history and is not the correct target. See the review-corrections section in the B4b disposition.
+
+FIN-401-V1 review R-2 asks whether the bridge's positive added-back LTI holds
+the stake, rather than requiring a same-date amount for every income removal.
+Subtract the measured inside income if a same-date stake fact exists, or if
+the confirmed issuer's most recent stake-breakout filing has a balance date
+within 12 months before the bridge and shows LTI at least as large as the stake,
+with bridge-date LTI also at least that stake. The prior stake and LTI must be
+same-date, same-currency facts from that filing, available by the run's cutoff.
+Use only that most recent breakout; an older inside reading cannot override a
+newer outside reading. With null/zero LTI, bridge LTI smaller than the last
+stake, a stake outside LTI, or no qualifying breakout within 12 months, keep
+income in EBIT. This prevents both zero valuation on the reviewer's dropPath
+and double valuation on FIN-401-V1's BA trigger.
+
+The older breakout is placement evidence only, never a carried-forward stake
+amount. Notes cite the form, accession, filing date and balance date; every
+valuation amount remains a filed bridge-date value. Operating treatment and
+partial-composition splits still require a positive same-date located amount
+(R-4). BA's 997M stake is inside its 1.048B LTI at 2025-12-31 in 10-K
+0001628280-26-004357, filed 2026-01-30. Its 2026-06-30 LTI is 1.117B and
+exceeds that stake, so measured income 35M leaves EBIT and the existing 1.117B
+add-back and 234.57M tax remain. BA returns 27.7411147513 -> 27.1152067083;
+XOM remains 196.0576271333 and every other census issuer is unchanged. This
+methodology decision replaces the previously accepted BA deviation on its
+merits; no amount is estimated and no issuer-specific exception is introduced.
+
+## D-next (P1/B4b review): no placement evidence keeps prior wording (2026-11-02)
+
+FIN-401 review R-5: distinguish a window carrying no placement metadata from
+one with explicitly undetermined or mixed placement evidence. No placement
+on any row keeps the prior long-term-investment note, without the new
+"placement is undetermined" or Rule 5-03 assumption. Explicitly undetermined
+or other mixed windows keep the disclosed assumption. This restores the
+GOOGL/DEMO notes without changing a figure or score. The real AMZN window has
+explicit aggregate-path undetermined placements and therefore keeps the
+assumption note; the review's no-placement premise did not hold for it. Re-pin only DEMO's
+`stageB.valuation.notes.7` text in the existing intended-delta group, naming
+R-5; report/payload/method stamps stay at the shared values. The integrator's
+earlier confirmation to retain both deviations is superseded for BA by the
+R-2 methodology decision above. AMZN's explicit-ambiguity note outcome remains
+as confirmed; no prior-date amount carry-forward or ticker-specific note
+exception is authorized.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and
@@ -10,6 +151,78 @@ including revisions after implementation evidence. Each entry lists the options
 considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
+
+## D-next (P4) - 2026-11-02: preserve accepted work, paid lifecycle and spend limits
+
+B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
+alias names at startup without values. Keep explicit canonical precedence.
+
+B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
+sides. Rejected-output repair and zero-cost plan resends have independent
+allowances; a repair resend retains feedback and uses no continuation.
+Keep per-attempt checkpoint identity and pre-dispatch accounting unchanged.
+
+B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
+attachment. Defer the issuer index while existing active alias rows drain;
+never terminalize or delete their accepted work to force a migration.
+
+B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
+exceeds now plus the next beat and SQLite busy timeout. Successful complete
+beats advance the local expiry; partial beats do not. False renewals still
+abort immediately. Request identities and settlement accounting stay intact.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+B8-OD-10: use one provider-busy predicate for bounded backoff and failure
+wording. Temporary 429/5xx, overload and unavailable responses are distinguished
+from cut-off streams. Retry-After parsing remains outside this batch.
+
+Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
+the lineage root's integrity-checked snapshot. Matching snapshot versions use
+its acquired bundle and Stage B configuration and preserve its hash and capture
+time. Missing legacy or version-incompatible snapshots fall back to acquisition.
+Corrupt snapshots fail closed. Validation retains the retry's clock and the
+existing fingerprint guard remains mandatory before resumed model dispatch.
+
+This extends D-51/D-81 without changing settlement/checkpoint identity, synthesis
+allowance, accepted-section reuse, or pre-dispatch versus uncertain accounting.
+No automatic paid retry or replay is added; terminal refusals remain terminal.
+Stored reports are never rewritten. Payload, prompts, financial formulas and
+their version stamps are unchanged. The real payload/fingerprint runner tests
+prove moved quotes no longer prevent compatible frozen-input reuse, with exact
+analyst ledger rows and model-pass counts.
 
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
@@ -1136,6 +1349,8 @@ Original report bytes and production report history are preserved.
 - **Revised by D-129 (B2 OD-1, audit 2026-10-27 AI-305)**: on the second gate an excerpt figure also binds only to its own description, which narrows the same-sentence residual accepted above: a figure the sentence gives to another noun no longer verifies a number or claim that names a different metric. Figures that share every description word ("Standardized and Advanced CET1 ratios were 14.6% and 14.1%") still cannot be told apart. See the entry "Audit batch B2: an excerpt figure binds only to its own description".
 
 ## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
+
+Revised by D-next (P3, OD-2 / AI-407) below for registry description conflicts.
 
 - **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
   - "RSI" and "RSI index" (5): the bare-ISO-code branch of
@@ -2989,9 +3204,180 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
 
 
+## D-next (P1): F1/F7 (2026-11-02)
+
+Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F2 (2026-11-02)
+
+Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F3 (2026-11-02)
+
+The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F4 (2026-11-02)
+
+The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F5 (2026-11-02)
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F6 (2026-11-02)
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F8 (2026-11-02)
+
+D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+With BV0=520M and V(BV0)=1306.690026744M, the preferred holder receives
+V(BV0)-V(BV0-C)=125.64M by keeping the claim versus
+N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
+better for the holder is worse for common. Thus the minimum rule selects
+11.8104675494/share, while the converted reading is 11.8790002431. The
+coordinator corrected the original brief pin, which assumed conversion binds.
+
 ### D-next (P0): review corrections to source comparison, date qualification and recovery
 
 No-split share comparisons require a confirmed single-ticker ordinary-share scope. Cent rounding is symmetric; earlier matching exact-interval filings are described as superseded. Provider calendar qualification binds within punctuation-delimited clauses, yields to registered SEC/official issuer sources, preserves citation credit, and uses non-counted audit rows. Complete rejected responses persist as rejectedText only. Report spec 1.56.0, payload 1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39. No prompt text changed; pipeline remains stage-c-1.6.17. Stored reports are never rewritten.
+
+## D-next (P3) Verifier identity and truthful trust/completeness labels
+
+Implement the settled OD-2 conflict rule rather than silently substituting a
+record label. Compare metric rows and worded units for level, share basis,
+non-default basis and disjoint metric heads; compare segment names to their
+registered member. Other named rows name entities, not metrics. Ignore macro
+section tags when reading basis. A different printed registry source is also a
+conflict; reader URLs remain permitted. Refusals are unchecked, never contradicted.
+This revises D-44's indicator-only description guard. See METHODOLOGY.md
+"Registry figure descriptions (AI-407)". Stored reports are never rewritten.
+
+OD-3: readable column dates/fiscal labels must match the record. Fiscal agreement compares the declared fiscal label directly, including period-less typed contexts; it does not require an invented ISO period. Windows and unreadable columns retain existing matching with an explicit log note. Period-less records establish only their as-of, typed context end/instant, and fiscal label; decidable supplied conflicts are refused. Paired facade replay over 43, 46, 48, 49 and 50 found zero numeric status deltas.
+
+AI-501 follows Task 17: preserve defining direction nouns in record labels, with two claim readings only when direction attaches to the figure. Level claims against increase rows become unchecked; verb-change recall remains deliberately withheld. No payload or stored bytes change.
+
+AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differences do not establish temporal movement or a comparative standard; both stay unchecked. Temporal slopes and change-named percentage-point records retain direction checks, except labels naming differences. New unknown records default to non-change. Comparative recall is deliberately withheld.
+
+AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compare distinct stemmed heads only after metric agreement. Refuse reversed order as unchecked. Preserve symmetric absolute differences and ordinary grammatical/date uses. Five assembled facade replays retain numeric statuses.
+
+AI-116 restores every listed insider role, splitting only before recognized owner-role prefixes. The historical audit qualification is frozen at 1.56.0; it claims no historical re-verification. Paired facade numeric statuses remain unchanged.
+
+AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.
+
+AI-104 scopes the recovery predicate through the hurdle noun. Intervening fade predicates and completed rises followed by a new non-recovery clause end its reach. No numeric values or status marks change.
+
+AI-111 adopts the closed OD-5 abbreviation mask without changing rating patterns. Ordinary-word continuations after initials and bare rating sentences stay fail-closed. Stored report gate outcomes remain unchanged in the five assembled controls.
+
+RPT-504 applies the existing data-only builder rule at every reader coverage call. The helper preserves header versus appendix block precedence for analysed reports. Stored provenance is retained, not scrubbed, and remains in the audit export with a qualification.
+
+DB-004 and RPT-209 apply B10-OD-2 to the corrected CLI and entity-safety view. Confirmed pre-1.44.0 records keep the old EDGAR rule; confirmed current records recount under the current rule. Equal field/severity/expected manifests preserve identity. Absent/unconfirmable metadata is carried; the CLI only creates a count when it adds legacy audit gaps. Original database bytes are never rewritten.
+
+RPT-212 implements B10-OD-5/R-OD-4 once through RunNotices and headerNotices forwarding on the two saved routes. Headerless live/sample bodies show notices in both layouts. This revises D-111 placement without changing report bytes or export wording.
+
+RPT-206 adopts B10-OD-8. The banner and state word share classified data counts with the header; note-only manifests say no data gaps, with a separate disclosure count. Historic metadata is not rewritten.
+
+RPT-207 preserves FMP endpoint arguments when they identify different datasets. Issuer inference excludes peer/benchmark endpoints and plan-limit dataset names, with a sector-ETF subject fallback on ties. Statement and price labels name the retained scope. Raw manifest entries and persisted completeness stay unchanged.
+
+RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
+
+Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
+
+## D-next (P6): Company landing methods
+
+SEC-201: refuse all non-GET/HEAD methods on company landings only, including token-bearing requests. No Server Actions use this page. Saved reports and stamps are unchanged.
+
+## D-next (P6): LAN credential management
+
+SEC-202 adopts OD-3: refuse management in configured LAN mode including forged loopback Host. Malformed allowlists fail closed; loopback allowlists remain local. Reports/actions remain unauthenticated, subject to existing spending safeguards.
+
+## D-next (P6): Unreadable AI storage
+
+SEC-204 adopts OD-1: preserve shell availability with environment data keys, withhold both billed Anthropic keys, refuse capture and writes, retain original bytes, and retry failures after 30 seconds or immediately on changed bytes. Recovery is named in OPERATIONS.
+
+## D-next (P6): Visible default AI selection
+
+SEC-206 follows server selection on credential refresh only for an implicit default with no unsaved edit. Explicit saved choices and all unsaved fields remain authoritative.
+
+## D-next (P6): Recovery retention
+
+SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retries and manual audit. Document plain text, writer evidence, independent data-dir placement and stopped-app deletion. Purging would lose evidence and re-consume plan allowance.
+
+## D-next (P6): Protected-store snapshot
+
+PERF-201 caches successes by exact bytes/path and returns clones; unchanged callbacks skip protection and rename. Real mutations remain mutex serialized with atomic write-through. Stat fields cannot safely identify rotating tokens. Failed callbacks cannot mutate the cache.
+
+## D-next (P6): Effective legacy Fast speed
+
+SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+## D-next (P7) - Display and history (2026-11-02)
+
+AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.
+
+DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+
+RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+
+DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+
+RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+
+RPT-203: Use band-safe formatting for prose scores.
+
+RPT-205: Preserve the geographic scope actually named by the source row.
+
+RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+
+RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+
+RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+
+DB-003: Show observed API models as well as account models and name unrecorded passes.
+
+DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+
+RPT-001: Identify the symbol, company and saved report id in print page metadata.
+
+RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+
+RPT-204: Render the Beneish M score without a misleading m unit suffix.
+
+RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+
+RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+
+RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+
+RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+
+P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RPT-503 successful retries appear once as completed, individual failures stay in run details, and requested-configuration reader labels share judge attempt names. RPT-215 adds a read-time clarification to the existing legacy scope section.
+
+P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.
+
+P7 full-suite verification: the prior P3 records test pinned P3 as the first changelog heading. On integration that test is position-independent: it requires the P3 heading anywhere in the changelog, so later batches can head it; the methodology uniqueness and encoding assertions remain unchanged.
 
 ### D-next (P5): Bank classification uses issuer SIC routing
 

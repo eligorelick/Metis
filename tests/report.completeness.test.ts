@@ -269,7 +269,7 @@ describe("Task 28 completeness presentation truth table", () => {
       expectedGapCount: 1,
       informationalActionableGapCount: 1,
     });
-    expect(result.bannerText).toContain("3 additional data gaps");
+    expect(result.bannerText).toContain("1 data gap recorded") // RPT-206: only one classified data gap;
     expectNoCompletenessOverclaim(result.bannerText!);
   });
 
@@ -279,7 +279,7 @@ describe("Task 28 completeness presentation truth table", () => {
       { field: "llm.bull", reason: "one additional gap", severity: "info" },
     ]);
     expect(result.additionalActionableGapCount).toBe(1);
-    expect(result.bannerText).toContain("1 additional data gap");
+    expect(result.bannerText).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
     expect(result.bannerText).not.toContain("1 additional data gaps");
     expectNoCompletenessOverclaim(result.bannerText!);
   });
@@ -471,6 +471,33 @@ describe("Task 28 completeness presentation truth table", () => {
   });
 });
 
+it("DB-004/RPT-209 carries confirmed old conventions, absent and unconfirmable records", async () => {
+ const { carryRecordedCompleteness, recordedCompletenessRule } = await import("@/report/completeness");
+ const before = [{ field: "edgar.annualGeography", severity: "info" as const, reason: "No unique matched annual geography revenue table" }];
+ const old = { state: "degraded" as const, criticalCount: 0, warningCount: 0, edgar: "missing" as const, xbrl: "checked" as const, forensicValidation: "provisional" as const };
+ expect(recordedCompletenessRule(old, before)).toBe("pre-1.44.0");
+ const after = [...before, { field: "legacy.entityValidation", severity: "critical" as const, reason: "withheld" }];
+ expect(carryRecordedCompleteness(old, before, after)).toEqual({ ...old, state: "blocked", criticalCount: 1 });
+ expect(carryRecordedCompleteness(undefined, before, after)).toBeUndefined();
+ const unconfirmed = { ...old, warningCount: 99 };
+ expect(carryRecordedCompleteness(unconfirmed, before, after)).toBe(unconfirmed);
+ expect(carryRecordedCompleteness(old, before, structuredClone(before))).toBe(old);
+ const current = buildDataCompleteness(before);
+ expect(carryRecordedCompleteness(current, before, after)).toEqual(buildDataCompleteness(after));
+});
+
+it("RPT-206 banner counts classified data issues separately from process and notes", () => {
+ const gaps = [
+ { field: "analysis.llm", reason: "AI unavailable", severity: "critical" as const },
+ { field: "fundamentals.revenue", reason: "missing", severity: "warn" as const },
+ { field: "llm.bull", reason: "failed", severity: "warn" as const },
+ { field: "forensics.piotroski", reason: "not evaluable", severity: "info" as const },
+ ];
+ const c = deriveReportCompletenessPresentation(buildDataCompleteness(gaps), gaps);
+ expect(c.bannerText).toBe("No completed multi-pass analysis. AI unavailable 1 data gap recorded.");
+ const notes = gaps.filter(g => g.field !== "fundamentals.revenue");
+ expect(deriveReportCompletenessPresentation(buildDataCompleteness(notes), notes).bannerText).toBe("No completed multi-pass analysis. AI unavailable No data gaps recorded; 2 notes or analysis-process disclosures are listed in the appendix.");
+});
 it("DATA-101: folds only legacy absent-or-refused warnings across periods",()=>{
  const reason="temporary-equity SEC enrichment withheld: temporary carrying amounts are absent or explicitly refused for this SEC period";
  const gaps=["2024-12-31","2023-12-31"].map(date=>({field:`statements.balance.${date}.temporaryEquity`,reason,severity:"warn" as const}));

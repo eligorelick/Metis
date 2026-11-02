@@ -1,6 +1,6 @@
 "use client";
 import { PROVIDER_CREDENTIALS_CHANGED } from "@/settings/credentialContracts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel } from "@/components/ui";
 import type { AnalysisRoute } from "@/ai/analysisRoute";
 import { CHATGPT_EFFORTS, CHATGPT_MANAGE_USAGE_URL, chatGptFastOffered, type ChatGptEffort, type ChatGptModelChoice, type AiConnectionsView } from "@/ai/contracts";
@@ -21,11 +21,19 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [catalogState, setCatalogState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [catalogError, setCatalogError] = useState("");
+  const dirty = useRef(false);
+  const applySelection = useCallback((selected: AiConnectionsView["selection"]) => {
+    setChosen("connectionId" in selected ? selected.connectionId : selected.provider);
+    setModel("model" in selected ? selected.model : "");
+    setEffort("effort" in selected ? selected.effort ?? "" : "");
+    setServiceTier("serviceTier" in selected ? selected.serviceTier ?? "default" : "default");
+  }, []);
   const refresh = useCallback(async () => {
     const r = await fetch("/api/ai/connections", { cache: "no-store" });
     const data = await r.json(); if (!r.ok) throw new Error(data.error);
     setView(data as AiConnectionsView);
-  }, []);
+    if (!dirty.current && data.selectionIsDefault) applySelection(data.selection);
+  }, [applySelection]);
   useEffect(() => {
     const changed = () => { void refresh().catch(() => setMessage("Could not refresh provider access. Reload Settings to retry.")); };
     window.addEventListener(PROVIDER_CREDENTIALS_CHANGED, changed);
@@ -76,7 +84,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
       const r = await fetch("/api/ai/connections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await r.json(); if (!r.ok) throw new Error(data.error);
       setView(data);
-      if (body.action === "select") setMessage("Report connection saved. New reports will use these settings.");
+      if (body.action === "select") { dirty.current = false; applySelection(data.selection); setMessage("Report connection saved. New reports will use these settings."); }
       if (data.message) setMessage(data.message);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Connection action failed"); }
     finally { setBusy(false); }
@@ -112,7 +120,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
           </div>
         </div>)}
         <label className="block">Use for new reports
-          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setServiceTier("default"); setModel(view.connections.find((c) => c.id === e.target.value)?.provider === "gemini" ? "auto" : ""); }}>
+          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { dirty.current = true; setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setServiceTier("default"); setModel(view.connections.find((c) => c.id === e.target.value)?.provider === "gemini" ? "auto" : ""); }}>
             <option value="none">AI off — data-only reports</option>
             {chosenUnavailable && <option value={chosen} disabled>Saved connection unavailable — select a connected account</option>}
             {view.connections.filter((c) => c.connected && c.planEnabled).map((c) => <option key={c.id} value={c.id}>{c.provider === "chatgpt" ? "ChatGPT plan" : "Gemini CLI allowance"} · {c.label}</option>)}
@@ -121,7 +129,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
         </label>
         {connection?.provider === "chatgpt" && <div className="space-y-2">
           <button className={button} disabled={busy || catalogState === "loading" || chosenUnavailable} onClick={() => setCatalogRevision((n) => n + 1)}>{catalogState === "loading" ? "Refreshing account models…" : "Refresh account models"}</button>
-          <label className="block">Model<select className="mt-1 w-full border border-edge bg-bg p-2" value={model} disabled={busy} onChange={(e) => { setModel(e.target.value); setEffort(""); }}>
+          <label className="block">Model<select className="mt-1 w-full border border-edge bg-bg p-2" value={model} disabled={busy} onChange={(e) => { dirty.current = true; setModel(e.target.value); setEffort(""); }}>
             <option value="">Choose a model</option>
             {models.map((m) => <option key={m.id} value={m.id}>{m.name} · {m.id}</option>)}
             {!models.some((m) => m.id === knownSol) && <option value={knownSol}>GPT-6.1 Sol · access not confirmed by account catalog</option>}
@@ -129,19 +137,19 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
           </select></label>
           {catalogError && <p role="status">{catalogError} Saved settings have not changed.</p>}
           {model && !listedModel && catalogState !== "loading" && <p className="text-xs text-warn">This model is not in the account’s returned list. You can request it explicitly, but OpenAI may reject it based on account access or rollout. Metis will not substitute another model or paid API.</p>}
-          <label className="block">ChatGPT reasoning effort<select className="mt-1 w-full border border-edge bg-bg p-2" value={effort} disabled={busy} onChange={(e) => setEffort(e.target.value as ChatGptEffort | "")}>
+          <label className="block">ChatGPT reasoning effort<select className="mt-1 w-full border border-edge bg-bg p-2" value={effort} disabled={busy} onChange={(e) => { dirty.current = true; setEffort(e.target.value as ChatGptEffort | ""); }}>
             <option value="">Provider default</option>
             {efforts.map((level) => <option key={level} value={level}>{level}</option>)}
             {effort && !efforts.includes(effort) && <option value={effort}>{effort} · saved setting</option>}
           </select></label>
-          <label className="block">ChatGPT speed<select className="mt-1 w-full border border-edge bg-bg p-2" value={speed} disabled={busy || !fastOffered} onChange={(e) => setServiceTier(e.target.value as "default" | "fast")}>
+          <label className="block">ChatGPT speed<select className="mt-1 w-full border border-edge bg-bg p-2" value={speed} disabled={busy || !fastOffered} onChange={(e) => { dirty.current = true; setServiceTier(e.target.value as "default" | "fast"); }}>
             <option value="default">Standard</option>{fastOffered && <option value="fast">Fast — uses your plan or credits faster</option>}
           </select></label>
           <p className="text-xs text-faint">{fastOffered
             ? "Fast is subject to account availability. OpenAI currently documents 2.5× included usage consumption and 2× purchased-credit or Enterprise pay-as-you-go rates. The provider may serve Standard instead; the saved report records the returned tier."
             : "OpenAI offers Fast only for GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna, so this model runs at Standard speed."}{" "}<a className="underline" href="https://learn.chatgpt.com/docs/agent-configuration/speed" target="_blank" rel="noreferrer">Speed and usage details</a>.</p>
         </div>}
-        {connection?.provider === "gemini" && <label className="block">Gemini model<input className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} onChange={(e) => setModel(e.target.value)} /><span className="text-xs text-faint">“auto” uses Google’s CLI selection; you can enter an available Gemini model ID.</span></label>}
+        {connection?.provider === "gemini" && <label className="block">Gemini model<input className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} onChange={(e) => { dirty.current = true; setModel(e.target.value); }} /><span className="text-xs text-faint">“auto” uses Google’s CLI selection; you can enter an available Gemini model ID.</span></label>}
         <button className={button} disabled={busy || chosenUnavailable || (!!connection && !model)} onClick={() => void act({ action: "select", selection: connection ? { provider: connection.provider, connectionId: connection.id, model,
           ...(connection.provider === "chatgpt" ? { serviceTier: speed, ...(effort ? { effort } : {}) } : {}),
         } : { provider: chosen } })}>Save report connection</button>

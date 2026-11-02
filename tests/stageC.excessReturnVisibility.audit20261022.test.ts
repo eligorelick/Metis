@@ -57,6 +57,20 @@ const bank = (over: Partial<ExcessReturnInputs> = {}): ExcessReturnInputs => ({
 });
 
 describe("C-11: the start-return × cost-of-equity grid", () => {
+  it("FIN-309: headline, alternative and grid citations use their rolled value date", () => {
+    const bundle = buildSyntheticRouteBundle("bank");
+    if (!bundle.quote.ok) throw new Error("fixture quote");
+    bundle.quote.value.data.rows[0].timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind !== "excess-return") throw new Error("fixture route");
+    expect(computed.valuation.excessReturn.valuationDate?.value).toBe("2026-07-05");
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date(bundle.builtAt) }));
+    const figures = payload.computed.find(s => s.title === "Valuation (computed)")!.figures;
+    const perShare = figures.filter(f => f.source === "computed.valuation.excessReturn" || f.source.startsWith("computed.valuation.excessReturn.startCoeGrid.") || f.source === "computed.valuation.excessReturn.startAlternative");
+    expect(perShare).toHaveLength(11);
+    expect(perShare.every(f => f.asOf === "2026-07-05")).toBe(true);
+    expect(figures.find(f => f.source === "computed.valuation.excessReturn.openingBookValue")?.asOf).toBe("2026-03-31");
+  });
   it("shows the trailing and fiscal-year starts against the cost of equity ±1pp, centred on the headline", () => {
     const er = excessReturnModel(bank());
     const grid = er.startCoeGrid!;
@@ -301,4 +315,17 @@ describe("C-10: the trailing start uses only a currency-compatible window", () =
     if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
     expect(computed.valuation.excessReturn.roePathPct.basis).not.toMatch(/TTM/);
   });
+});
+
+it.each([
+ "Trailing ROTE improved to 16.5% and the base path fades from there toward the cost of equity.",
+ "ROE rose to 16.5% over the trailing four quarters and is modelled to converge to the cost of equity by year ten.",
+ "ROTE improved to 16.5%, and the base case has it decline toward the cost of equity over the explicit period.",
+ "ROTE improved to 16.5% and the base path moves toward the cost of equity.",
+])("AI-104 accepts an accurate fade: %s", text => {
+ expect(returnPathLanguageFindings({ texts: [{ path: "verdict.synthesis", text }], trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM" }, terminalTargetPct: 10.4 })).toEqual([]);
+});
+
+it("AI-104 still flags continued recovery toward the hurdle", () => {
+ expect(returnPathLanguageFindings({ texts: [{ path: "verdict.synthesis", text: "ROE improved to 16.5% and keeps rising toward the cost of equity." }], trailing: { returnPct: 16.5, asOf: null, label: "TTM" }, terminalTargetPct: 10.4 })).toHaveLength(1);
 });

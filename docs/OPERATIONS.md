@@ -16,7 +16,10 @@ Both npm server commands bind to `127.0.0.1`; the usual URL is
 `http://127.0.0.1:3000`. No separate database migration command is required for
 normal startup: `src/db/index.ts` creates tables and applies guarded compatibility
 updates when it opens the database. `npm run db:push` is an explicit Drizzle
-schema-management tool, not a quick-start prerequisite.
+schema-management tool, not a quick-start prerequisite. It leaves out the
+active-job identity index (one queued or running job per share class, so
+`BRK.B` and `BRK-B` cannot both run), which Drizzle cannot express; the app
+recreates that index the next time it opens the database.
 
 Some existing Windows installations have local-only `./Start-Thesis.ps1` and
 `./Stop-Thesis.ps1` launchers; these legacy filenames are retained compatibility
@@ -119,6 +122,11 @@ Appearance is a per-browser `thesis-ui-design` cookie (`current` or `workspace`)
 with a 180-day maximum age and `SameSite=Lax`; HTTPS adds `Secure`. It changes
 presentation independently of stored research/model settings.
 
+The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
+legacy shell and launcher values. Uncomment only intentional overrides: even a
+blank canonical assignment wins. Startup warns about conflicting aliases using
+key names only, never their values.
+
 ## Report lifecycle and recovery
 
 Generation runs fetch → validate → compute → bull → bear → synthesize → verify.
@@ -149,7 +157,12 @@ late settlements may still arrive. It is not a refund mechanism.
 Retry uses the same job ID and validates durable artifacts, generation lineage,
 payload/model compatibility and paid settlement evidence before reusing work.
 It may reuse a verified result, reuse synthesis and rerun verification, or reuse
-compatible analyst sides and run the missing tail. New requests remain billable;
+compatible analyst sides and run the missing tail. Analyst or synthesis reuse
+uses the lineage's frozen acquired inputs and Stage B configuration when their
+versions match, retaining the original capture time. Legacy or version-mismatched
+snapshots require a fetch; the payload fingerprint must still match before any
+resumed model request. Validation uses the current run clock, so changed
+staleness checks can still refuse reuse. New requests remain billable;
 earlier spend remains in the ledger. Retry rejects queued/running, canceled and
 unsupported jobs, active same-issuer conflicts and incompatible/unresumable
 terminal work. Start a new report when no compatible tail can be resumed.
@@ -169,6 +182,49 @@ could not record is no longer renewed and is counted at its reserved maximum
 when its lease expires, until `npm run costs:reconcile` lowers it. See
 [usage controls](CLAUDE-USAGE.md) before sizing caps.
 
+A transient SQLite writer lock during job or paid-request lease renewal waits
+for the next renewal beat only while the known lease expiry leaves room for
+that beat and the connection busy timeout. Lost authority, insufficient slack
+or another error still aborts; this never replays the provider request.
+
+Active-job admission and Retry treat dot/hyphen share-class aliases as one
+issuer. Existing duplicate active aliases are preserved; the stronger unique
+issuer index is installed at a later startup after those jobs drain.
+
+A resumed missing analyst side receives the same recovery as a fresh side:
+one rejected-output repair and, on plan connections, up to three zero-cost
+dropped-request resends. Repair feedback is preserved across a dropped repair;
+a newly rejected output starts a whole-case repair without continuation.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen after 1, 2, 5, 10 and 30 seconds. After those attempts fail, the client
+stops reopening, reads job status once with GET and shows Live connection lost.
+Observation never posts work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion observed after a running frame or an explicit start/Retry updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+Attaching to a job already done on load does not navigate or refresh.
+
+Temporary provider rate limits, 5xx, overload and unavailable responses share
+the bounded backoff classification and are described as busy or unavailable.
+Cut-off streams keep their own wording. Retry-After parsing remains deferred.
+
+Generate starts a new run that runs every pass again, at full cost on a paid connection. The classic saved view points to Live analysis when reusable analyst work is available.
+
 ## Local HTTP API
 
 All paths below pass the request-wide direct-Host allowlist. Mutations also
@@ -177,7 +233,11 @@ require accepted browser metadata/matching Origin or the startup
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
-and strict local access even when an optional LAN authority is allowed.
+and loopback access. Configured non-loopback LAN mode disables credential and
+AI connection management regardless of the supplied Host; stop LAN mode and
+restart on loopback to manage keys, while saved credentials still work for runs.
+Company landing pages accept only GET and HEAD; other methods return 405 with
+`Allow: GET, HEAD`.
 
 | Method and path | Request / successful response | Material error behavior |
 | --- | --- | --- |
@@ -216,6 +276,10 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/report' -Method Post `
   -Body '{"symbol":"AAPL"}'
 ```
 
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
 ## Persistence, exports and maintenance
 
 Fresh installations use `<data directory>/metis.db`. Windows uses
@@ -239,6 +303,13 @@ Stop every Metis server before upgrading or downgrading this protocol; migrate
 only an incompatible lock when instructed, preserving credentials and Gemini
 directories. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
 and the [native process verification record](audit/2026-10-04-recommendations.md).
+
+Plan-run recovery files live in `<data dir>/recovery/sections` (they follow
+`METIS_DATA_DIR`, not `METIS_DB_PATH`). `*.json` files keep completed analyst
+and judge sections with writer evidence; `*.usage.jsonl` files keep per-request
+usage. Nothing purges them and deleting the database does not remove them:
+delete the directory with Metis stopped. A later retry then requests those
+sections again and uses plan allowance.
 
 Back up a stopped database with any remaining `-wal`/`-shm` sidecars, or use a
 SQLite-aware backup while running. A copied DB without its uncheckpointed WAL
@@ -317,6 +388,12 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | Corrected export refuses a path | Choose new HTML and JSON destinations; existing files are never overwritten. |
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
 | AI store is held by another server | A plan-connection job stops at the start of its fetch step, in one attempt and before any data is fetched, with "AI connections are active in another Metis server"; a pass refused mid-run says the same and is not retried. Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
+| AI connection storage cannot be read | Saved reports stay readable and data keys from the environment still work, but the Claude API and admin keys the store holds are withheld, new jobs do not start and nothing is written to the store. An unchanged file is retried after 30 seconds and a changed one at once. For a timeout, retry shortly; after a downgrade, return to the newer build. Otherwise stop Metis, move `connections.v1.json` aside as a backup and reconnect. Metis never resets or overwrites the unreadable file. |
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
 
 Implementation anchors: `src/app/api/`, `src/app/requestSecurity.ts`,
 `src/pipeline/jobRunner.ts`, `jobStore.ts`, `jobScheduler.ts`, `events.ts`,
@@ -401,6 +478,14 @@ the public report endpoint continues to use the user's selected connection.
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.
 
 P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
+
+Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
+
+History comparisons distinguish a withheld grade (became unavailable or available) from an added or removed section (DB-002).
+
+History names recorded effective API and account models and identifies passes with unknown actual models (DB-003).
+
+Printable saved-report browser titles identify the symbol, company and report id (RPT-001).
 
 Price-history window fallback: transient transport failures, 429, 500, 502, 503 or 504 may use a cached window for the same provider, symbol and endpoint whose start and end precede the requested window by at most seven days. Acquisition age is capped at seven days. Endpoint and manifest disclosures mark the fallback stale and name its source window and original fetch time. Explicit refusals, schema and identity errors are not covered (DATA-114).
 

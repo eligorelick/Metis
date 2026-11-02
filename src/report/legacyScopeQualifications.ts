@@ -31,6 +31,7 @@ export function legacyScopeQualifications(report: Pick<Report, "meta"> & Partial
       ? `Built before report spec ${LEGACY_SCOPE_SINCE_SPEC}.`
       : `Historical scope evidence is not recorded; this read-time convention was introduced in ${LEGACY_SCOPE_SINCE_SPEC}.`) +
       " These are display qualifications, not newly recorded run evidence. Stored figures, grades and recorded evidence are unchanged.",
+    "Legacy pipeline zero valuation placeholders are displayed as unavailable; recorded bytes are unchanged.",
     "Retained receivables scope comparability is unverified. Historical growth comparisons, DSRI values and adverse flags remain as saved; check the selected receivables definitions before drawing an accounting conclusion. Published ratios alone cannot reconstruct a comparable pair.",
     "Saved debt, net debt, EV, WACC, ROIC and DCF operands retain their saved basis. Without complete period-specific lease coverage, a zero or a verified numeric citation does not establish zero leases or whether unseparated leases are included or excluded. Latest-balance evidence does not establish historical bridge or average-debt coverage; saved partial-scope limitations still apply.",
     "A saved Altman score does not establish its market-cap observation date. Missing date evidence does not prove a missing market-cap value; a genuine missing-value refusal remains valid. No quote, filing, report or acquisition date is substituted.",
@@ -45,6 +46,7 @@ const DISCONTINUED = /^Discontinued operations affected results in (\d+) of the 
 
 /** Apply after the existing safety chain, especially the bridge's EXCLUDES reader. */
 export function withLegacyScopeQualifications(report: Report): Report {
+  report = withLegacyPlaceholderSafety(report);
   if (!specVersionBefore(version(report), LEGACY_SCOPE_SINCE_SPEC)) return report;
   const flags = report.quality.flags.map(flag => {
     let text = flag.text;
@@ -56,4 +58,18 @@ export function withLegacyScopeQualifications(report: Report): Report {
     return text === flag.text ? flag : { ...flag, text };
   });
   return flags.every((flag, i) => flag === report.quality.flags[i]) ? report : { ...report, quality: { ...report.quality, flags } };
+}
+
+/** RPT-215: frozen display boundary, never tied to the current writer stamp. */
+export const LEGACY_PLACEHOLDER_DISPLAY_CUTOFF = "1.56.0";
+export function withLegacyPlaceholderSafety(report: Report): Report {
+ if (!specVersionBefore(version(report), LEGACY_PLACEHOLDER_DISPLAY_CUTOFF) || report.fairValue !== undefined) return report;
+ const placeholder = (n: Report["valuation"]["dcf"]["perShare"]) => n?.value === 0 && n.source === "pipeline" && n.asOf === null;
+ const ps = report.valuation.dcf.perShare;
+ const suppress = ps?.value === 0 && (/suppress/i.test(ps.unit) || placeholder(ps));
+ const targets = report.valuation.scenarios.map(s => placeholder(s.priceTarget) ? {...s,priceTarget:null} : s);
+ const all = targets.length > 0 && targets.every(s => s.priceTarget === null) && report.valuation.scenarios.every(s => placeholder(s.priceTarget));
+ const dataOnly = report.appendix.missingData.some(e => e.field === "analysis.llm");
+ if (!suppress && !targets.some((s,i) => s !== report.valuation.scenarios[i])) return report;
+ return {...report,valuation:{...report.valuation,dcf:suppress ? {...report.valuation.dcf,perShare:null,upsidePct:null} : report.valuation.dcf,scenarios: all && dataOnly ? targets.map(s=>({...s,probability:null})) : targets}};
 }

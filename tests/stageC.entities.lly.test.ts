@@ -142,3 +142,18 @@ describe("canonical entity validation", () => {
     ).toEqual([]);
   });
 });
+
+it("AI-103 admits issuer evidence only through the supplied predicate", () => {
+ const admitted = (id: string) => id === "edgar:10-K item1";
+ expect(validateEntityText("Orforglipron is a candidate.", LLY_ENTITY_REGISTRY, "edgar:10-K item1", admitted).issues).toEqual([]);
+ expect(validateEntityText("Orforglipron is a candidate.", LLY_ENTITY_REGISTRY, "edgar:10-K item1").issues.some(i => i.code === "primary-source-required")).toBe(true);
+ expect(validateEntityText("Orforglipron is a candidate.", LLY_ENTITY_REGISTRY, "fmp:news", admitted).issues.some(i => i.code === "primary-source-required")).toBe(true);
+});
+
+it("AI-103 primary admission fails closed on third-party and absent records", async () => {
+ const { issuerPrimarySource } = await import("@/pipeline/stageC/passes");
+ const payload = { citationRegistry: [{ id: "fmp:press-release" }], filings: [{ source: "edgar:10-K item1" }], transcript: {}, provenanceRegistry: [{ id: "payload.statements.revenue" }, { id: "payload.estimates.revenue" }] } as unknown as import("@/pipeline/stageC/payload").ContextPayload;
+ const primary = issuerPrimarySource(payload);
+ for (const id of ["fmp:press-release", "edgar:10-K item1", "fmp:earning-call-transcript", "payload.statements.revenue"]) expect(primary(id)).toBe(true);
+ for (const id of ["fmp:news", "payload.estimates.revenue", "edgar:absent", "computed.absent", "web:https://example.com"]) expect(primary(id)).toBe(false);
+});

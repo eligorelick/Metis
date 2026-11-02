@@ -1,3 +1,4 @@
+import { generateMetadata as printMetadata } from "@/app/company/[symbol]/report/[reportId]/print/page";
 import { readFileSync } from "node:fs";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import path from "node:path";
@@ -19,11 +20,12 @@ const harness = vi.hoisted(() => ({
   getReportByIdForSymbol: vi.fn(),
   runStageB: vi.fn(),
   activeJob: vi.fn(),
+  resumableJob: vi.fn(),
   instrumentSupport: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob }));
+vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob, getLatestResumableJobForSymbol: harness.resumableJob }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: harness.buildDataBundle,
 }));
@@ -220,6 +222,7 @@ describe("persisted report presentation", () => {
     harness.runStageB.mockReturnValue(computed);
     harness.instrumentSupport.mockReset().mockReturnValue({ supported: true, kind: "company" });
     harness.activeJob.mockReset().mockReturnValue(null);
+    harness.resumableJob.mockReset().mockReturnValue(null);
     harness.getLatestDoneReport.mockReset();
     harness.getLatestDoneReport.mockReturnValue({
       reportId: 42,
@@ -240,6 +243,12 @@ describe("persisted report presentation", () => {
     });
   });
 
+  it("P4-2 classic saved research discloses reusable analyst work", async () => {
+    harness.resumableJob.mockReturnValue("finished-job");
+    const html = renderToStaticMarkup(await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) }));
+    expect(html).toContain("A previous run stopped with reusable analyst work. Open Live analysis to resume it.");
+    expect(harness.buildDataBundle).not.toHaveBeenCalled();
+  });
   it("opens an existing ticker report without starting live data or calculations", async () => {
     const before = JSON.stringify(report);
     const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
@@ -345,7 +354,7 @@ describe("persisted report presentation", () => {
   it("delegates both persisted routes to one exact report-only boundary", async () => {
     expectTypeOf<PersistedReportViewExport>()
       .parameter(0)
-      .toEqualTypeOf<{ report: Report; selectedReportId?: number }>();
+      .toEqualTypeOf<{ report: Report; selectedReportId?: number; headerNotices?: boolean }>(); // RPT-212: explicit notice ownership
 
     const companyTree = await CompanyBody({ symbol: "DEMO" });
     const tabs = elementsWithin(companyTree).find((element) => element.type === ReportTabs);
@@ -365,7 +374,7 @@ describe("persisted report presentation", () => {
     expect(harness.runStageB).toHaveBeenCalledTimes(1);
 
     expect(companyPersisted.props).toEqual({report,selectedReportId:42});
-    expect(savedPersisted!.props).toEqual({report,selectedReportId:42});
+    expect(savedPersisted!.props).toEqual({report,selectedReportId:42,headerNotices:true}); // RPT-212: the saved route mounts the notice header
     expect(companyPersisted.type).toBe(savedPersisted!.type);
     // Identical report bytes in different saved rows must not retain a previous
     // row's interactive selection. React's key is outside the report-only props.
@@ -569,4 +578,9 @@ describe("persisted report presentation", () => {
     ]) expect(audit).toContain(sentinel);
     expect(JSON.stringify(rich)).toBe(before);
   });
+});
+
+it("RPT-001: print metadata identifies the saved report",async()=>{
+ harness.getReportByIdForSymbol.mockReturnValue({row:{id:7},report:{meta:{symbol:"DEMO",companyName:"Example"}}});
+ expect(await printMetadata({params:Promise.resolve({symbol:"demo",reportId:"7"})})).toEqual({title:"DEMO \u2014 Example \u2014 report #7"});
 });

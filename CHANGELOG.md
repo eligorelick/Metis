@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.56.0** and
-payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes). The
+payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes and the P1/B4b equity-method repair). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -81,6 +81,183 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.
 - DATA-103: preserve SIC-routed bank total net revenue in income classification and SEC peer statements.
+
+## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
+
+- F1 coordinator correction: the retained mortgage-REIT claim reading binds
+  at 11.8104675494/share; the holder prefers 125.64M to 118.79M on conversion.
+
+- Review F8: D-next (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+
+- Review F6: The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+
+- Review F5: Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+- Review F4: The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+- Review F3: The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+
+- Review F2: Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+
+- Review F1/F7: Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
+- FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
+  and derivation provenance. Remove measured inside income from projected EBIT;
+  keep an unmeasured inside stake in operating capital. Preserve aggregate-path
+  ambiguity, filed-zero quarters and one-presentation fourth-quarter derivations.
+- Share the long-term-investments component floor between SEC statements and
+  provider stakes fill. Explain affected stored valuations at display time under
+  the frozen 1.56.0 cutoff, without rewriting figures or bytes.
+- FIN-302 / FIN-302-V1: choose one convertible reading across the DCF and
+  financial routes, with exact-period filing evidence, preferred overlap guards,
+  conservative settlement refusals and continuous conversion-count edges.
+  Every re-run and stored-report disclosure retains the chosen basis.
+- FIN-302-V2: forecast EPS follows the selected convertible divisor and removes
+  converted-note interest only at an evidenced effective rate.
+- FIN-407: admitted multi-class EPS uses the valuation's quoted-share divisor;
+  scope refusals still withhold. Explain older admission-withholding text.
+- VAL-14: record the OD-9 admission gate as blocked. Retained undivided AFS
+  facts do not establish outside-cash placement; no asset or value is added.
+- FIN-309: roll financial excess-return values to the observed quote date within
+  200 days, with matching alternative/grid/reverse arithmetic and citation dates.
+  Retain book dates beyond the limit and qualify earlier stored date labels.
+- Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
+  scenario-target stamps move with the bridge. No prompt rule text changes.
+  Seven findings are fixed; VAL-14 is blocked by the binding admission guard.
+  See the B4b disposition for measurements, receipts and remaining evidence.
+
+## Unreleased - P7 display and history (2026-11-02)
+
+- RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+- RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+- RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+- RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+- RPT-204: Render the Beneish M score without a misleading m unit suffix.
+- RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+- RPT-001: Identify the symbol, company and saved report id in print page metadata.
+- DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+- DB-003: Show observed API models as well as account models and name unrecorded passes.
+- RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+- RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+- RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+- RPT-205: Preserve the geographic scope actually named by the source row.
+- RPT-203: Use band-safe formatting for prose scores.
+- RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+- DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+- RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+- DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+- AI-201: merge repeated macro series and preserve transform labels.
+
+## Unreleased - P6 local security (2026-11-02)
+
+- SEC-205: capture unsupported legacy Fast as Standard without rewriting saved selections.
+- PERF-201: reuse exact-byte AI snapshots and skip unchanged protected writes.
+- SEC-207: disclose independent indefinite section recovery, usage journals and separate deletion.
+- SEC-206: synchronize the default dropdown after credential changes while preserving unsaved edits.
+- SEC-204: keep saved research reachable when AI storage is unreadable; block jobs and billed keys.
+- SEC-202: disable credential and connection management in configured LAN mode.
+- SEC-201: refuse company-page mutations before live acquisition.
+- Review fixes: the connection-choice error names the recovery guide; a store state this build could not read back is refused before writing; credential reads reuse one frozen copy while the file is unchanged; owner docs keep each note once in its own section.
+
+## Unreleased - P3 verifier and trust labels (2026-11-02)
+
+- RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.
+
+- RPT-207: count and label FMP failures by symbol and statement period, retaining matching keyless merges.
+
+- RPT-206: align banner/state wording with classified data gaps, keeping process disclosures apart.
+
+- RPT-212: show synthetic/provider-fallback notices once across saved, live and sample report layouts.
+
+- DB-004, RPT-209: preserve recorded completeness conventions and absent metadata through corrected exports and entity safety.
+
+- RPT-504: hide stored citation/provenance shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
+
+- AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
+
+- AI-104: avoid false recovery warnings on accurate fading-to-hurdle commentary.
+
+- AI-103: accept payload-carried issuer disclosures as primary entity sources and explain the rule to the judge; pipeline stage-c-1.6.18.
+
+- AI-116: read combined insider roles and qualify historical title refusals in audit notes.
+
+- AI-504: refuse claims that reverse the operands of a recorded ratio or difference.
+
+- AI-502: classify percentage-point differences as levels, leaving unsupported movement unchecked.
+
+- AI-501: retain defining direction nouns in record metrics; refuse balance-level claims citing increases.
+
+- AI-408: check readable MetricRow column periods and refuse unestablished supplied dates/fiscal labels; disclose unchecked column spellings.
+
+- AI-407: registry figures printed under conflicting metric or segment descriptions
+  lose their verification mark and count as unchecked. Different printed registry
+  sources also fail closed. Stored reports are unchanged.
+
+## Unreleased - P4 paid-work lifecycle (2026-11-02)
+
+Independent review follow-up: keep already-finished resumable jobs reachable on
+Live analysis, disclose Generate's full rerun cost, label resumed sides honestly,
+retain provider attribution, name damaged runtime.lock correctly, avoid rebuilding
+the obsolete symbol index, and stop failed stream reconnects after five delays
+with one read-only status request. Reorganize lifecycle records and operating notes.
+
+DOC-203: The example leaves canonical settings commented so legacy startup
+holds and USD caps survive copying it. Startup warns about conflicting alias
+key names without disclosing values; explicit canonical settings still win.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-205: Busy or unavailable provider failures share the backoff classification
+and receive their own wording. Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-510 / JOB-201: Fresh and resumed analyst recovery share one settlement
+path, with one rejected-output repair and three zero-cost plan resends counted
+separately. A dropped repair retains identical feedback; a rejection clears
+continuation. Accepted siblings are reused.
+
+JOB-213: Active job admission and Retry fold share-class spellings. The client
+accepts attached alias snapshots. Existing duplicate active aliases drain
+without discarding work before the stronger database index is installed.
+
+JOB-206: A transient SQLite renewal lock waits for the next beat only when the
+known lease has room for that beat and the connection busy timeout. Authority
+loss, exhausted slack and other errors still abort; no request is replayed.
+
+JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
+reusing accepted analyst or synthesis work. The snapshot hash and capture time
+stay unchanged; current-clock validation and the payload fingerprint still
+guard reuse. No automatic paid replay, ledger rewrite or stored-report rewrite.
+See the [disposition](docs/audit/2026-11-02-paid-work-lifecycle.md).
 
 ## Unreleased - P0 review fixes (2026-11-02)
 

@@ -24,9 +24,11 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-02-p7-display.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
   "docs/audit/2026-11-02-p5-primary-data.md",
   "docs/audit/2026-11-02-p5-primary-data-lows.md",
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   ".github/workflows/ci.yml",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
@@ -59,9 +61,14 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-02-b4b-equity-bridge.md",
+  "docs/audit/2026-11-02-p7-display.md",
+  "docs/audit/2026-11-02-p6-local-security.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
   "docs/audit/2026-11-02-p5-primary-data.md",
   "docs/audit/2026-11-02-p5-primary-data-lows.md",
+  "docs/audit/2026-11-02-paid-work-lifecycle.md",
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   "docs/audit/2026-11-01-current-main-integration.md",
   "README.md",
   "CHANGELOG.md",
@@ -790,4 +797,24 @@ describe("public release contract", () => {
 
     expect(reportFixtures).toEqual(["fixtures/report/DEMO-sample.json"]);
   });
+});
+
+it("P4-8 keeps lifecycle decisions and operating notes under their owning headings", () => {
+  const read = (file: string) => readFileSync(path.join(ROOT, file), "utf8");
+  const blockBetween = (text: string, start: string, end: string) => text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)));
+  const decisions = read("docs/audit/DECISIONS.md");
+  expect(decisions.indexOf("Entries are dated design history")).toBeLessThan(decisions.indexOf("## D-next (P4)"));
+  expect(decisions).toMatch(/## D-next \(P4\).*2026-11-02/);
+  const ops = read("docs/OPERATIONS.md");
+  expect(blockBetween(ops, "## Report lifecycle and recovery", "## Local HTTP API")).toContain("JOB-301:");
+  expect(blockBetween(ops, "## Verification and troubleshooting", "## Immutable run inputs")).toContain("runtime.lock");
+  const privacy = read("docs/PRIVACY.md");
+  expect(privacy.indexOf("AI-115:")).toBeLessThan(privacy.indexOf("## Limited FMP access"));
+  const methodology = read("docs/METHODOLOGY.md");
+  expect(blockBetween(methodology, "## Stage A checks and report verification", "## Disclaimer scope")).toContain("AI-110:");
+  const scheduler = read("src/pipeline/jobScheduler.ts");
+  expect(scheduler).toMatch(/transient[^]*?\*\/\s*export function isTransientWriterLock/);
+  const frozenLine = read("src/pipeline/jobRunner.ts").split("\n").find(line => line.includes("frozenInputDetail = `reused frozen inputs"));
+  expect(frozenLine).not.toContain("\u2014");
+  expect(frozenLine).toContain("\\u2014");
 });

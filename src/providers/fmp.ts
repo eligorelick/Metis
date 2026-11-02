@@ -193,6 +193,13 @@ export interface FmpStatementRow extends FmpRawRow {
   fieldConflicts?: Record<string, StatementFieldConflict>;
 }
 
+/** FIN-401: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
+export interface EquityMethodIncomePlacement {
+  placement: "in-operating-income" | "below-operating-income" | "undetermined" | "immaterial";
+  income: number | null;
+  basis: string;
+}
+
 export interface FmpIncomeStatementRow extends FmpStatementRow {
   revenue?: number;
   costOfRevenue?: number;
@@ -211,6 +218,7 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   incomeTaxExpense?: number;
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
+  equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
   netIncomeConsolidated?: number;

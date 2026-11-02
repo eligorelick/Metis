@@ -152,9 +152,13 @@ export const jobs = sqliteTable(
   (t) => [
     index("idx_jobs_symbol").on(t.symbol),
     index("idx_jobs_status").on(t.status),
-    uniqueIndex("idx_jobs_active_symbol")
-      .on(t.symbol)
-      .where(sql`${t.status} IN ('queued', 'running')`),
+    // The active-job identity index (idx_jobs_active_entity, JOB-213:
+    // upper(replace(symbol, '-', '.')) over queued and running jobs) is created
+    // by bootstrapSchema in src/db/index.ts on every database open, not here:
+    // drizzle-kit 0.31 splits an index expression at its commas and quotes each
+    // piece as a column, which breaks `npm run db:push`. A push drops the index
+    // and the next database open restores it; admission also folds aliases
+    // under BEGIN IMMEDIATE.
     index("idx_jobs_queue_claim").on(t.status, t.notBefore, t.queuedAt),
     index("idx_jobs_lease_expiry").on(t.status, t.leaseExpiresAt),
   ],

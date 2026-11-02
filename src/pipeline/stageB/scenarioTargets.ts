@@ -49,7 +49,8 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
 // D-102 (audit 2026-10-22 B-29, E-5): a run outside the DCF's domain withholds the fan; the bridge applies the NCI earnings key.
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D135" as const;
+// FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;

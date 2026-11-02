@@ -4,7 +4,7 @@ import path from "node:path";
 import { fork, type ChildProcess } from "node:child_process";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { withAiMutex } from "@/ai/mutex";
+import { withAiMutex, holdProcessLifetimeLock, releaseProcessLifetimeLocksForTests } from "@/ai/mutex";
 
 type Message = { type: string; index?: number; message?: string; code?: string; published?: boolean };
 type Worker = { child: ChildProcess; messages: Message[]; errors: string[] };
@@ -23,6 +23,7 @@ async function exited(worker: Worker): Promise<void> {
 afterEach(async () => {
   vi.restoreAllMocks();
   await Promise.all(workers.map(async (worker) => { if (worker.child.exitCode === null && worker.child.signalCode === null) worker.child.kill("SIGKILL"); await exited(worker); }));
+  releaseProcessLifetimeLocksForTests();
   fs.rmSync(directory, { recursive: true, force: true });
 });
 function spawn(mode: string, identity = "worker", iterations = 1): Worker {
@@ -186,4 +187,15 @@ describe("permanent native credential mutex", () => {
     await expect(withAiMutex(lock, () => "success")).rejects.toThrow("rollback failed");
     vi.restoreAllMocks(); await expect(withAiMutex(lock, () => "retry", 200)).resolves.toBe("retry");
   });
+});
+
+it("AI-115 lifetime lock is reentrant and rejects incompatible marker databases", () => {
+  const runtime = path.join(directory, "runtime.lock");
+  expect(holdProcessLifetimeLock(runtime)).toBe(true);
+  expect(holdProcessLifetimeLock(runtime)).toBe(true);
+  const invalid = path.join(directory, "invalid.lock");
+  const db = new Database(invalid); db.pragma("application_id = 1"); db.close();
+  expect(() => holdProcessLifetimeLock(invalid)).toThrow(/(?:incompatible|damaged).*runtime\.lock/);
+  const corrupt = path.join(directory, "corrupt.lock"); fs.writeFileSync(corrupt, "not a sqlite database");
+  expect(() => holdProcessLifetimeLock(corrupt)).toThrow(/(?:incompatible|damaged).*runtime\.lock/);
 });

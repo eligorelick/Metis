@@ -78,7 +78,8 @@ describe("saved report model evidence", () => {
     report.meta.model = "unavailable";
     report.meta.execution = ["bull attempt 1", "bull attempt 2", "bear"].map(step => entry(step, { note: failedPassNote(step) }));
     const text = runSummary(report);
-    expect(text).toContain("bull attempt 1");
+    // RPT-503: header groups attempts; run details retain each attempt.
+    expect(text).toContain("bull failed after 2 attempts");
     expect(text).toContain("claude-sonnet-5-5");
     expect(text).toContain("no usable analysis was completed");
     expect(text).not.toContain("bull attempt 1, bull attempt 2 and bear on");

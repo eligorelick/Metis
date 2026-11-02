@@ -2,6 +2,8 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
+  const { warnMetisAliasConflicts } = await import("@/config/namespace");
+  warnMetisAliasConflicts();
   // Mint the per-process X-Metis-Token before any route is served so a
   // non-browser client can read it from the data directory (docs/PRIVACY.md).
   // The token itself is never logged.

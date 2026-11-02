@@ -1,6 +1,7 @@
+import { assertLocalOnlyRoute } from "@/app/requestSecurity";
 import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
-import { getProviderCredential, readProviderCredentials, withAiStore } from "@/ai/store";
+import { getProviderCredential, providerCredentialSnapshot, withAiStore } from "@/ai/store";
 import { edgarIdentityProblem, hasConfiguredEdgarIdentity } from "@/providers/edgar";
 import { isProviderCredentialKey, PROVIDER_CREDENTIAL_KEYS, type ProviderCredentialStatuses } from "@/settings/credentialContracts";
 import { testProviderCredential } from "@/settings/testCredential";
@@ -11,14 +12,12 @@ const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosnif
 function response(body: unknown, status = 200) { return NextResponse.json(body, { status, headers }); }
 
 function guard(request: Request) {
-  const denied = assertSameOrigin(request);
-  if (denied) return denied;
-  return /^(?:localhost|127\.0\.0\.1|\[::1\])(?::[1-9]\d{0,4})?$/.test(request.headers.get("host") ?? "")
-    ? null : response({ error: "Provider credentials require local access on this computer." }, 403);
+  return assertSameOrigin(request) ?? assertLocalOnlyRoute(request);
 }
 
 function statuses(): ProviderCredentialStatuses {
-  const saved = readProviderCredentials();
+  const { values: saved, unreadable } = providerCredentialSnapshot();
+  if (unreadable) throw new Error(unreadable);
   return Object.fromEntries(PROVIDER_CREDENTIAL_KEYS.map((key) => {
     const value = getProviderCredential(key);
     const configured = key === "EDGAR_CONTACT" ? hasConfiguredEdgarIdentity(value ?? "") : !!value;
@@ -29,7 +28,7 @@ function statuses(): ProviderCredentialStatuses {
 export async function GET(request: Request) {
   const denied = guard(request); if (denied) return denied;
   try { return response({ credentials: statuses() }); }
-  catch { return response({ error: "Credential storage is unavailable. Existing keys were not replaced." }, 500); }
+  catch { return response({ error: "Credential storage is unavailable. Existing keys were not replaced. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500); }
 }
 
 export async function POST(request: Request) {
@@ -58,6 +57,6 @@ export async function POST(request: Request) {
     await withAiStore((store) => { store.providerCredentials = { ...store.providerCredentials, [key]: secret }; });
     return response({ ok: true, credentials: statuses(), message: "Saved. Test the connection to verify access." });
   } catch {
-    return response({ error: "Credential storage is unavailable. The action could not be completed." }, 500);
+    return response({ error: "Credential storage is unavailable. The action could not be completed. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500);
   }
 }

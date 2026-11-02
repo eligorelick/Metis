@@ -529,6 +529,7 @@ export function buildJudgeFraming(
     "  payload), INTERPRETATION disputes (same facts, different meaning), and ENTITY disputes",
     "  (names or drug/trial/acquisition relationships conflict). Every supplied deterministic entity",
     "  conflict must appear as kind=entity with a primary-source-grounded resolution.",
+    "  Registered entities may cite issuer filings, call transcript or press releases in the payload, registered issuer-data records, or a registered issuer page; third-party news is not primary.",
     "  Omit disagreements that only restate labeling or methodology rules without a material thesis difference.",
     "",
     "DETERMINISTIC SCORES & PROJECTIONS (provided in the payload — use them):",

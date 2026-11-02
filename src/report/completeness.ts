@@ -1,3 +1,4 @@
+import { SPY_BENCHMARK, SECTOR_ETF_MAP } from "@/pipeline/stageB/sectorRouting";
 import type { ManifestEntry } from "@/types/core";
 import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
@@ -138,12 +139,39 @@ const DATASET_ALIAS: Record<string, string> = {
  * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap
  * history. A field-level backfill entry keeps its own key.
  */
-export function gapDatasetKey(field: string): string {
-  const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
-  if (fmp) return DATASET_ALIAS[fmp[1]!] ?? fmp[1]!;
-  const keyless = /^keyless\.([A-Za-z]+)(?:\.[A-Za-z]+)*$/.exec(field);
-  if (keyless && !field.includes(".backfill.")) return DATASET_ALIAS[keyless[1]!] ?? keyless[1]!;
-  return field;
+/** Infer the subject only from endpoints not also fetched for peers/benchmarks. */
+export function manifestIssuer(gaps: readonly ManifestEntry[]): string | null {
+ const counts = new Map<string, number>();
+ const excluded = new Set(["profile", "quote", "batchQuote", "incomeStatement", "balanceSheet", "historicalPriceEodFull", "planLimit"]);
+ for (const gap of gaps) {
+  const m = /^fmp\.([A-Za-z]+)\(([A-Z0-9][A-Z0-9.^-]{0,19})(?:,|\))/.exec(gap.field);
+  if (m && !excluded.has(m[1])) counts.set(m[2], (counts.get(m[2]) ?? 0) + 1);
+ }
+ const ranked = [...counts].sort((a,b) => b[1] - a[1]);
+ if (ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1])) return ranked[0][0];
+ const routed = gaps.map(g => /^benchmarkPrices\.sectorEtf\(([^)]+)\)$/.exec(g.field)?.[1]).find(Boolean);
+ if (routed) return routed;
+ // When unique issuer endpoints are absent, exclude the shared benchmarks.
+ const benchmarks = new Set([SPY_BENCHMARK, ...Object.values(SECTOR_ETF_MAP).map(row => row.etf)]);
+ const symbols = new Set(gaps.flatMap(g => {
+  const symbol = /^fmp\.historicalPriceEodFull\(([^)]+)\)$/.exec(g.field)?.[1];
+  return symbol && !benchmarks.has(symbol) ? [symbol] : [];
+ }));
+ return symbols.size === 1 ? [...symbols][0] : null;
+}
+export function gapDatasetKey(field: string, issuer?: string | null): string {
+ const fmp = /^fmp\.([A-Za-z]+)\(([^,)]+)(?:,([^)]*))?\)/.exec(field);
+ if (fmp) {
+  const [, endpoint, symbol, period] = fmp;
+  if (endpoint === "historicalPriceEodFull") return symbol === SPY_BENCHMARK ? "spy" : issuer ? symbol === issuer ? "eodPrices" : "sectorEtf" : `${endpoint}(${symbol})`;
+  const statement = ({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint];
+  if (statement && (period === "annual" || period === "quarter")) return symbol === issuer ? `${statement}${period === "annual" ? "Annual" : "Quarterly"}` : `${endpoint}(${symbol},${period})`;
+  if (issuer && symbol !== issuer && endpoint !== "planLimit") return `${endpoint}(${symbol})`;
+  return DATASET_ALIAS[endpoint] ?? endpoint;
+ }
+ const keyless = /^keyless\.([A-Za-z]+)(?:\.[A-Za-z]+)*$/.exec(field);
+ if (keyless && !field.includes(".backfill.")) return DATASET_ALIAS[keyless[1]!] ?? keyless[1]!;
+ return field;
 }
 
 /** Analysis-process disclosures: how the passes ran and what verification found. */
@@ -179,6 +207,7 @@ function downgradeReason(gap: ManifestEntry, edgarAvailable: boolean): string | 
  * persisted counts are unchanged, so stored reports still confirm.
  */
 export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassification {
+  const issuer = manifestIssuer(gaps);
   const actionable = gaps.filter((gap) => gap.expected !== true);
   const edgarAvailable = buildDataCompleteness(gaps).edgar === "available";
   const groups = new Map<string, { kind: "data" | "process" | "downgraded"; entries: ManifestEntry[]; downgrade?: string }>();
@@ -186,7 +215,7 @@ export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassi
     if (gap.severity === "info") continue;
     const downgrade = isProcessDisclosure(gap.field) ? null : downgradeReason(gap, edgarAvailable);
     const kind = isProcessDisclosure(gap.field) ? "process" : downgrade !== null ? "downgraded" : "data";
-    const key = `${kind}|${kind === "process" ? gap.field : gapGroupKey(gap)}`;
+    const key = `${kind}|${kind === "process" ? gap.field : gapGroupKey(gap, issuer)}`;
     const group = groups.get(key) ?? { kind, entries: [], ...(downgrade !== null ? { downgrade } : {}) };
     group.entries.push(gap);
     groups.set(key, group);
@@ -307,19 +336,21 @@ export function deriveReportCompletenessPresentation(
   }
   if (metadataStatus !== "confirmed") manifestParts.push(statusText);
 
+  const classification = classifyManifest(gaps);
+  const dataCount = classification.dataGaps.length;
+  const otherCount = additionalActionable.length - classification.dataGaps.reduce((n, g) => n + g.fields.length, 0);
   let bannerText: string | null = null;
   if (analysisReason !== null) {
     const prefix = `No completed multi-pass analysis. ${analysisReason}`;
-    if (metadataStatus === "confirmed" && additionalActionable.length === 0) {
+    if (metadataStatus === "confirmed" && dataCount === 0 && otherCount === 0) {
       bannerText = `${prefix} Deterministic data is complete.`;
     } else if (metadataStatus === "confirmed") {
-      bannerText = `${prefix} ${countLabel(additionalActionable.length, "additional data gap", "additional data gaps")} recorded.`;
+      bannerText = dataCount > 0 ? `${prefix} ${countLabel(dataCount, "data gap", "data gaps")} recorded.` : `${prefix} No data gaps recorded; ${countLabel(otherCount, "note or analysis-process disclosure is", "notes or analysis-process disclosures are")} listed in the appendix.`;
     } else {
       bannerText = `${prefix} ${statusText}`;
     }
   }
 
-  const classification = classifyManifest(gaps);
   return {
     classification,
     dataCriticalCount: classification.dataGaps.filter((gap) => gap.severity === "critical").length,
@@ -346,7 +377,24 @@ export function deriveReportCompletenessPresentation(
   };
 }
 
+/** B10-OD-2: confirm the recorded convention before carrying added gaps. */
+export function recordedCompletenessRule(persisted: PersistedDataCompleteness | undefined, gaps: readonly ManifestEntry[]): "current" | "pre-1.44.0" | null {
+ if (!persisted) return null;
+ if (completenessMatches(persisted, buildDataCompleteness(gaps))) return "current";
+ return completenessMatches(persisted, classifyCompleteness(gaps, true)) ? "pre-1.44.0" : null;
+}
+export function carryRecordedCompleteness(persisted: PersistedDataCompleteness | undefined, before: readonly ManifestEntry[], after: readonly ManifestEntry[]): PersistedDataCompleteness | undefined {
+ if (before.length === after.length && before.every((row, i) => row.field === after[i].field && row.severity === after[i].severity && row.expected === after[i].expected)) return persisted;
+ const rule = recordedCompletenessRule(persisted, before);
+ return rule === "current" ? buildDataCompleteness(after) : rule === "pre-1.44.0" ? classifyCompleteness(after, true) : persisted;
+}
+
+/** Reader state follows classified data counts; recorded state stays untouched. */
+export function shownDataState(c: Pick<ReportCompletenessPresentation, "metadataStatus" | "state" | "dataCriticalCount" | "dataWarningCount">): ReportCompletenessPresentation["state"] {
+ return c.metadataStatus !== "confirmed" ? c.state : c.dataCriticalCount > 0 ? "blocked" : c.dataWarningCount > 0 ? "degraded" : "complete";
+}
+
 export const LEGACY_TEMPORARY_EQUITY_ABSENT_REASON = "temporary-equity SEC enrichment withheld: temporary carrying amounts are absent or explicitly refused for this SEC period";
-export function gapGroupKey(gap: ManifestEntry): string {
- return gap.reason===LEGACY_TEMPORARY_EQUITY_ABSENT_REASON && /^statements\.balance\.\d{4}-\d{2}-\d{2}\.temporaryEquity$/.test(gap.field) ? "statements.balance.temporaryEquity" : gapDatasetKey(gap.field);
+export function gapGroupKey(gap: ManifestEntry, issuer?: string | null): string {
+ return gap.reason===LEGACY_TEMPORARY_EQUITY_ABSENT_REASON && /^statements\.balance\.\d{4}-\d{2}-\d{2}\.temporaryEquity$/.test(gap.field) ? "statements.balance.temporaryEquity" : gapDatasetKey(gap.field, issuer);
 }

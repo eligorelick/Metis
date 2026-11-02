@@ -1,3 +1,7 @@
+import { reverseDcfValueText } from "@/report/presentation";
+import { macroDisplayRows } from "@/report/presentation";
+import { shownDataState } from "@/report/completeness";
+import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
  * consistent, and provenance-first: figures render as {@link TracedFigure}s
@@ -748,7 +752,8 @@ export function BalanceSheetSection({
 }) {
   // One identity map per section: the capital bridge registers each figure twice.
   const seen = new Map<string, FigureRow>();
-  for (const row of figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept)) seen.set(`${row.trace.value}|${row.trace.unit}`, row);
+  // RPT-216: register the same metric/basis identities the subsequent rows use.
+  figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept, seen);
   const blocks: Array<{
     label: string;
     data: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] };
@@ -955,7 +960,7 @@ export function ValuationSection({
   presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
-  const modelLabel = presentation === "classic" ? "DCF · intrinsic value / share"
+  const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
     : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
       : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
   return (
@@ -995,7 +1000,7 @@ export function ValuationSection({
           {dcf.perShare && fairValueDegradedText(fairValue) && (
             <p className="text-[11px] leading-snug text-warn">{displayProse(fairValueDegradedText(fairValue)!)}</p>
           )}
-          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" ? "Model value provenance" : "DCF provenance"} />}
+          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance"} />}
           {fairValue ? (
             <p className="text-[10px] leading-snug text-faint">
               {fairValue.status === "available"
@@ -1008,9 +1013,9 @@ export function ValuationSection({
               {presentation === "dossier" ? "Reverse valuation — market-implied assumptions" : "reverse DCF — market is pricing"}
             </div>
             <div className="mono mt-0.5 text-[13px] text-warn">
-              {reverseDcf.impliedValue === null
+              {reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue) === "\u2014"
                 ? "n/a"
-                : `~${reverseDcf.impliedValue.toFixed(1)}% ${reverseDcf.impliedMetric}`}
+                : `~${reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue)} ${reverseDcf.impliedMetric}`}
             </div>
             <p className="mt-1 text-[11px] leading-snug text-muted">
               {displayProse(reverseDcf.narrative)}
@@ -1018,7 +1023,7 @@ export function ValuationSection({
           </div>
         </div>
 
-        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : "DCF assumptions"}>
+        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : fairValue?.method === "excess-return" ? "Valuation assumptions" : "DCF assumptions"}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
@@ -1056,7 +1061,7 @@ export function ValuationSection({
       </div>
 
       {presentation === "dossier" && <CapitalBridge dcf={dcf} />}
-      <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
+      <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
         {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} />}
         {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} /> : <ExtraAuditTables tables={valuationAuditTables(dcf)} />}
       </SubBlock>
@@ -1890,8 +1895,8 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
       <SubBlock label="relevant FRED series">
         <DataTable
           columns={cols}
-          rows={macro.relevantSeries}
-          rowKey={(s) => s.seriesId}
+          rows={macroDisplayRows(macro)}
+          rowKey={(s) => `${s.seriesId}|${s.latest.unit}|${s.latest.asOf}|${s.latest.value}`}
           empty="no macro series mapped"
         />
       </SubBlock>
@@ -2005,7 +2010,7 @@ export function AppendixSection({
   const rate = appendix.verificationRate;
   const dataOnly = appendix.missingData.some((gap) => gap.field === "analysis.llm");
   const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
-  const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage, appendix.verificationLog);
+  const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const checks = appendix.consistencyChecks; // WS7 (D-20)
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
@@ -2126,8 +2131,8 @@ export function ReportMetaStrip({
     report.appendix.missingData,
     report.appendix.sources,
   );
-  const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
-  const provenance = provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog);
+  const verification = trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
+  const provenance = provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const identityNote = reportIdentityNote(report,{selectedReportId});
   return (
@@ -2159,9 +2164,9 @@ export function ReportMetaStrip({
         </span>
         <span className="mono">spec {m.specVersion}</span>
         <span
-          className={presentation.state === "blocked"
+          className={shownDataState(presentation) === "blocked"
             ? "font-semibold text-red-500"
-            : presentation.state === "degraded" || presentation.state === "unknown"
+            : shownDataState(presentation) === "degraded" || shownDataState(presentation) === "unknown"
               ? "font-semibold text-amber-500"
               : "text-muted"}
           title="Data state; metadata agreement is a separate reconciliation check."

@@ -1,3 +1,5 @@
+import { macroDisplayRows } from "@/report/presentation";
+import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -349,8 +351,8 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Usage", usageSummary(report)],
         ["Data completeness", dataStateText(completeness)],
         ...evidenceRow(report),
-        ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-        ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
+        ["Verification", trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+        ...(provenanceHeadline(displayedProvenanceCoverage(report, "header")) ? [["Provenance", provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog)!]] : []),
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
@@ -535,11 +537,11 @@ function renderValuation(
   // "unavailable", never a fabricated number.
   const dcfPs = v.dcf.perShare;
   lines.push(
-    "### DCF",
+    fairValue?.method === "excess-return" ? "### Excess-return value" : "### DCF",
     "",
     dcfPs
-      ? `Intrinsic value per share: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
-      : "Intrinsic value per share: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).",
+      ? `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
+      : `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).`,
     // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
     ...(dcfPs && fairValueDegradedText(fairValue) ? ["", `**${prose(fairValueDegradedText(fairValue)!)}**`] : []),
     ...(fairValue
@@ -855,7 +857,7 @@ function renderMacro(m: Macro): string {
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
-      m.relevantSeries.map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
+      macroDisplayRows(m).map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
     ),
     "",
   );
@@ -893,7 +895,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
   if (a.missingData.some((gap) => gap.field === "analysis.llm")) {
     lines.push("No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.", "");
   } else {
-    const rows = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
+    const rows = trustRows(displayedProvenanceCoverage(report, "appendix"), a.verificationLog);
     if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   }
   lines.push(
