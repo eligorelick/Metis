@@ -2,7 +2,7 @@
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
 import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE_WORDS, isDeltaRecord, labelOperands, type LabelOperands, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
-import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
+import { isIsoDate, periodsAgree, recordEstablishesInterval, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { isNeutralScore } from "@/report/assessment";
@@ -79,7 +79,7 @@ function quantities(text: string): Quantity[] {
   // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
   // distinct from a claim that simply copies "$56,586" out of a scaled table.
   const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
-  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?<![A-Za-z])(?:${CURRENCIES})(?![A-Za-z]))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?:(?<scale>thousands?|millions?|billions?|trillions?|bn|bln|mm|mn|mln|mil|mio|k|m|b)(?![A-Za-z]))?\s*(?:(?<unit>p\.p\.|%|(?:(?:percentage[\s-]points?|percent|bps?|basis[\s-]points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|per share|score)(?![A-Za-z]|-[A-Za-z])|x(?![A-Za-z]))))?`, "gi");
+  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?<![A-Za-z])(?:${CURRENCIES})(?![A-Za-z]))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?:(?<scale>thousands?|millions?|billions?|trillions?|bn|bln|mm|mn|mln|mil|mio|k|m|b)(?![A-Za-z]))?\s*(?:(?<unit>p\.p\.|%|(?:(?:percentage[\s-]points?(?:\s+per\s+year)?|percent|bps?|basis[\s-]points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|per share|score)(?![A-Za-z]|-[A-Za-z])|x(?![A-Za-z]))))?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -111,6 +111,7 @@ function quantities(text: string): Quantity[] {
     const token = (groups.unit ?? "").toLowerCase();
     const prefix = (groups.prefix ?? "").trim();
     let unit: CanonicalUnit | null = /^(?:%|percent)$/.test(token) ? "percent"
+      : /^percentage[\s-]points?\s+per\s+year$/.test(token) ? "percentage-points-per-year"
       : /^(?:p\.p\.|pp|pps|percentage[\s-]points?|bp|bps|basis[\s-]points?)$/.test(token) ? "percentage-points"
         : /^(?:x|times)$/.test(token) ? "ratio"
           : /^shares?$/.test(token) ? "shares"
@@ -272,6 +273,7 @@ function periodLabels(text: string, options: { loose?: boolean; yearEnd?: boolea
   take(/\b(?:three|3)[\s‐‑–—-]+months?[\s‐‑–—-]+end(?:ed|ing)\b/gi, () => ({ kind: "window", key: "quarter", label: "quarter" }));
   take(/\b(?:(?:six|6)[\s‐‑–—-]+months?[\s‐‑–—-]+end(?:ed|ing)|first[\s‐‑–—-]+half)\b/gi, () => ({ kind: "window", key: "6M", label: "six months" }));
   take(/\b(?:nine|9)[\s‐‑–—-]+months?[\s‐‑–—-]+end(?:ed|ing)\b/gi, () => ({ kind: "window", key: "9M", label: "nine months" }));
+  take(/\b(?:twelve|12)[\s-]+months?[\s-]+end(?:ed|ing)\b/gi, () => ({ kind: "window", key: "TTM", label: "TTM" }));
   take(/\b\d{4}-\d{2}-\d{2}\b/g, (m) => ({ key: isIsoDate(m[0]) ? m[0] : `unestablished-date:${m[0]}`, label: m[0], kind: "date" }));
   take(/\b(\d{4})-(0[1-9]|1[0-2])\b/g, (m) => ({ key: `month:${m[1]}-${m[2]}`, label: m[0], kind: "month" }));
   take(/\bfour calendar quarters ended\b/gi, () => ({ key: "TTM", label: "TTM", kind: "window" }));
@@ -425,7 +427,8 @@ function claimContext(text: string, quantity: Quantity, all: Quantity[]): Contex
     if (FORWARD_LOOKING.test(text.slice(from, boundary.index))) forward.push([from, boundary.index]);
     from = boundary.index + boundary[0].length;
   }
-  const lent = (period: PeriodReference): boolean => !forward.some(([a, b]) => period.start >= a && period.start < b);
+  const lent = (period: PeriodReference): boolean => (period.start >= own.start && period.end <= own.end) ||
+    !forward.some(([a, b]) => period.start >= a && period.start < b);
   return { ...own, periods: whole.periods.filter(lent), bases: whole.bases.filter(lent) };
 }
 /**
@@ -444,6 +447,9 @@ function ownBeforeStart(text: string, clauseStart: number, quantityStart: number
 function ownAfterEnd(text: string, clauseEnd: number, quantityEnd: number, following: Quantity | undefined): number {
   const limit = Math.min(clauseEnd, following?.start ?? clauseEnd);
   const tail = text.slice(quantityEnd, limit).replace(HEADER_DATE, (date) => date.replace(/,/g, " "));
+  // A relative clause introducing the next amount describes that amount,
+  // e.g. "$2.9B for which ... repurchase obligations totaling $19.2M".
+  if (following !== undefined && following.start < clauseEnd && /^\s+for which\b/i.test(tail)) return quantityEnd;
   const cut = tail.search(/[,;:()\u2014\u2013]/);
   return cut >= 0 ? quantityEnd + cut : limit;
 }
@@ -490,7 +496,7 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   // before the figure is read, not the clause: a clause can start at a "versus" connector and leave the figure nothing before it.
   const base = COMPARISON_BASE_LEAD.test(text.slice(Math.max(0, quantity.start - 24), quantity.start));
   return { start, end, text: ownText, label, own, ownAfter, periods, bases, held, base,
-    direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
+    direction: quantityDirection(directionText.replace(/\bgains?(?=\s+(?:on|from)\b)/gi, match => " ".repeat(match.length)), quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
       (other.unit === quantity.unit || other.unit === null)).length > 1 ||
@@ -514,7 +520,7 @@ const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "
   "year", "fiscal", "quarter-end", "year-end", "period-end"]);
 // Registry labels abbreviate what prose spells out.
 const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
-  fcf: ["free", "cash", "flow"], sbc: ["stock-based", "compensation"], capex: ["capital", "expenditure"],
+  fcf: ["free", "cash", "flow"], sbc: ["stock", "based", "compensation"], capex: ["capital", "expenditure"],
   // D-63: an executive-compensation row ("comp Jen-Hsun Huang President and CEO
   // FY2026") is the summary table's total, which prose calls total compensation.
   comp: ["total", "compensation"],
@@ -591,6 +597,9 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bForm\s+4\s+code\s+([A-Z])\b/gi, "form4code$1")
+    .replace(/\bgains?(?=\s+(?:on|from)\b)/gi, "metricgain")
+    .replace(/\bnon[ -]GAAP\s+Adjusted\s+EBITDA\b/gi, "Adjusted EBITDA")
     .replace(/\bP\s*\/\s*E\b/gi, "pe")
     .replace(/\block[‐‑–—-]up\b/gi, "lockup")
     .replace(/\byear[\s‐‑–—-]+over[\s‐‑–—-]+year\b|\byoy\b/gi, " yoy ")
@@ -598,6 +607,7 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
     // "Management's guidance" attributes the figure; it does not define it.
     .replace(/\b(?:management|the company)['’]s\b/gi, " ")
     .replace(LABEL_WINDOW, (_match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
+  if (/\bcagr\b/i.test(metric)) metric = metric.replace(/\b(?:over\s+)?(?:one[ -]+year|1y)\b/gi, " horizon1y ");
   for (const period of periodLabels(metric, options)) metric = metric.replace(period.raw, period.kind === "window" ? ` window${period.key} ` : " ");
   // Preserve the explicit horizon, including its number, when prose spells
   // out the technical-series label "6-month" as "over six months".
@@ -741,7 +751,15 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
+      forms.add("market capitalization to trailing common earnings");
     }
+    if (record.origin === "computed.valuation.multiples.priceToTbv" && record.unit === "ratio" && label === "priceToTbv (current)")
+      forms.add("price to tangible book value");
+    if (record.origin === "computed.capital.current.debtBridge.loanOwnerPayables" && label === "loan owner payables")
+      forms.add("payables to third-party loan owners");
+    if (record.origin === "computed.valuation.peerCoverage.market-cap-ttm-common-earnings.count" && label === "Market cap / TTM common earnings eligible peer count after filtering")
+      forms.add("eligible peer count for market capitalization to trailing common earnings after filtering");
+    if (record.origin === "computed.capital.sbc" && label === "SBC % revenue") forms.add("stock based compensation as a share of revenue");
     if (record.origin === "computed.valuation.multiples.priceToBook" && record.unit === "ratio" && label === "priceToBook (current)")
       forms.add("price to book");
     if (record.origin === "computed.capital.capexIntensity" && record.unit === "percent" && label === "capex/revenue (latest)")
@@ -772,6 +790,10 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   }
   if (record.kind === "provider") {
     if (record.origin === "fmp:price-target-consensus" && label === "price target consensus") forms.add("provider consensus price target");
+    if (record.origin === "fmp:price-target-consensus" && /^price target (low|high)$/.test(label)) forms.add(`provider ${label}`);
+    if (record.origin === "fmp:analyst-estimates" && /^est (revenue|EPS) \d{4}-\d{2}-\d{2}$/.test(label))
+      forms.add(label.replace(/^est /, "consensus "));
+    if (label === "stock-based comp" && /^edgar:cash-flow\(/.test(record.origin)) forms.add("stock based compensation");
     if (record.origin === "edgar:xbrl us-gaap/CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents" &&
       /^Combined cash including restrictions \(reported\), as of \d{4}-\d{2}-\d{2}$/.test(label)) forms.add(label.replace(" (reported)", ""));
     if (record.origin === "fmp:insider-statistics" && record.unit === "count") {
@@ -781,9 +803,13 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.origin === "fmp:insider-statistics" && record.unit === "shares") {
       const disposed = /^insider shares disposed, all reported dispositions incl\. open-market sales, tax withholding and gifts, (four calendar quarters ended \d{4}-\d{2}-\d{2})$/.exec(label);
       if (disposed) forms.add(`Insiders disposed ${disposed[1]}, a total that includes open-market sales tax withholding and gifts`);
+      const total = /^insider shares (acquired|disposed), all reported (?:acquisitions|dispositions) incl\. (.+), (four calendar quarters ended \d{4}-\d{2}-\d{2})$/.exec(label);
+      if (total) forms.add(`insider shares ${total[1]}, including ${total[2]}, totalled ${total[3]}`);
     }
     if (record.origin === "finnhub:insider-sentiment" && record.unit === "index" && /^MSPR \d{4}-(?:0[1-9]|1[0-2])$/.test(label))
-      forms.add(label.replace("MSPR", "monthly insider sentiment index"));
+      { forms.add(label.replace("MSPR", "monthly insider sentiment index")); forms.add(label.replace("MSPR", "insider sentiment index (MSPR)")); }
+    if (record.origin === "fred:BAMLH0A0HYM2" && label === "BAMLH0A0HYM2 (core)" && record.unit === "percent")
+      forms.add("high-yield option-adjusted spread");
   }
   return [...forms];
 }
@@ -797,6 +823,10 @@ function financialPiotroskiCoverage(record: NumericProvenanceRecord): { evaluate
 /** Explicit typed-source metadata/formula readings; replacements preserve quantity offsets. */
 function typedClaimContext(text: string, record: NumericProvenanceRecord): string | null {
   const blank = (match: string): string => " ".repeat(match.length);
+  // A signed distance from a high is a level, not an inequality or a temporal
+  // fall. Only this producer and this complete grammatical relation establish it.
+  if (record.origin === "computed.technicals.range52w" && record.label === "% from 52w high" && record.unit === "percent")
+    text = text.replace(/^(?:The )?share price was (\d+(?:\.\d+)?)% below its 52-week high\b/i, "% from 52w high was -$1%");
   if (record.unit === "score" && record.id.startsWith("computed.deterministic-aspect-scores.") &&
     /^computed\.scores\.[a-z]+$/i.test(record.origin)) {
     let conflict = false;
@@ -810,12 +840,21 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   const coverage = financialPiotroskiCoverage(record);
   if (coverage !== null) {
     let conflict = false;
-    text = text.replace(/, measured on the (\d+) of (\d+) signals that can be evaluated for this lender/gi, (match, evaluated: string, total: string) => {
+    text = text.replace(/, measured on (?:(?:the )?(\d+) of (\d+) signals that can be evaluated for this lender|(\d+) of the (\d+) signals)/gi, (match, a: string | undefined, b: string | undefined, c: string | undefined, d: string | undefined) => {
+      const evaluated = a ?? c!, total = b ?? d!;
       if (Number(evaluated) !== coverage.evaluated || Number(total) !== coverage.total) conflict = true;
       return blank(match);
     });
     if (conflict) return null;
+    text = text.replace(/\bF-score\b/gi, "  score");
   }
+  if (record.unitScale === "fraction" && record.unit === "ratio") text = text.replace(/\bas a fraction\b/gi, blank);
+  // These verbs describe the attachment of the number, never its metric.
+  text = text.replace(/\bnumbered\b/gi, blank);
+  text = text.replace(/\bbetween (\d{4}-\d{2}-\d{2}) and (\d{4}-\d{2}-\d{2})\b/gi,
+    (match, start: string, end: string) => recordEstablishesInterval(`${start} to ${end}`, record) ? `${start} to ${end}` : match);
+  if (record.asOf) text = text.replace(new RegExp(String.raw`\bat (?:the )?${record.asOf} quote\b`, "gi"), match => match.replace(/quote/i, "     "));
+  if (record.origin === "computed.technicals.relativeStrength.6mo") text = text.replace(/\bover the six months\b/gi, "over six months    ");
   if (record.unit === "currency" && record.value < 0 && record.label === "income tax expense")
     text = text.replace(/, a benefit(?=\.)/gi, blank);
   if (record.unit === "currency" && record.value < 0 && /^payload\.statements\.cash-flow-(?:annual|quarterly)\./.test(record.id) &&
@@ -827,7 +866,7 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   // The producer's disposition categories form one total's description.
   // Keep every category while avoiding an "and" clause break after the amount.
   if (record.kind === "provider" && record.origin === "fmp:insider-statistics" && record.unit === "shares")
-    text = text.replace(/\b(open-market sales, tax withholding) and gifts\b/gi, (_match, categories: string) => `${categories},    gifts`);
+    text = text.replace(/\b(open-market sales, tax withholding|awards, option exercises) and gifts\b/gi, (_match, categories: string) => `${categories},    gifts`);
   if (record.kind === "provider" && record.id.startsWith("payload.filing-facts.") && /^edgar:8-K\s/.test(record.origin) &&
     record.unit === "percent" && record.label === "say-on-pay support (votes for / for + against + abstentions)") {
     // Read complete formulas before unordered metric tokens: numerator,
@@ -845,11 +884,19 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
 }
 /** A typed record's "<basis>: <start> to <end>" window. */
 function recordWindow(record: NumericProvenanceRecord): { key: string; start: string; end: string } | null {
+  const bridge = /^TTM to (\d{4}-\d{2}-\d{2}) \((\d{4}-\d{2}-\d{2}) to \1\)$/.exec(record.period ?? "");
+  if (bridge && record.periodContext?.kind === "duration" && record.periodContext.basis === "rolling-12-month" &&
+    record.periodContext.start === bridge[2] && record.periodContext.end === bridge[1]) return { key: "TTM", start: bridge[2]!, end: bridge[1]! };
   const match = /^\s*(ttm|ltm|ytd)\s*:\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.period ?? "");
   return match ? { key: match[1].toLowerCase() === "ytd" ? "YTD" : "TTM", start: match[2], end: match[3] } : null;
 }
 /** A pipeline-owned terminal duration label can establish its start, never an arbitrary second date. */
 function explicitLabelSpan(text: string, record: NumericProvenanceRecord): { start: string; end: string } | null {
+  const interval = /\b(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})\b/.exec(text);
+  const contextFiscal = record.periodContext?.fiscalLabel;
+  const fiscalAgrees = !contextFiscal || !record.fiscalPeriod || contextFiscal.toUpperCase().replace(/\s/g, "") === record.fiscalPeriod.toUpperCase().replace(/\s/g, "");
+  if (interval && fiscalAgrees && recordEstablishesInterval(interval[0], record) && periodLabels(text).length === 2)
+    return { start: interval[1]!, end: interval[2]! };
   const span = /,\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.label ?? "");
   // The record's period is the span's end, or the whole span as the payload
   // registers a filing-fact duration (filingFactPeriod); either way it must be this span.
@@ -884,7 +931,7 @@ function operandsInOrder(claimWords: readonly string[], operands: LabelOperands,
 
 function namesMetric(claim: string[], source: string[]): boolean {
   if (claim.length === 0 || source.length === 0) return false;
-  const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
+  const stem = (word: string): string => word.length > 3 ? word.replace(/ies$/, "y").replace(/s$/, "") : word;
   // Definition support is symmetric. A source-side modifier/negation cannot
   // disappear just because the shorter claim is a subset of its words.
   return claim.every((word) => source.some((other) => stem(word) === stem(other))) &&
@@ -959,7 +1006,17 @@ function excerptPeriods(excerpt: TextExcerpt): PeriodReference[] {
   const title = excerpt.title
     .replace(/\bfiled \d{4}-\d{2}-\d{2}\b/gi, " ")
     .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ");
-  return periodLabels(title).filter((period) => period.kind === "date" || period.kind === "period");
+  const periods = periodLabels(title).filter((period) => period.kind === "date" || period.kind === "period");
+  const reporting = new RegExp(String.raw`financial results for the three and six months ended (${MONTH_NAMES})\s+(\d{1,2}),\s+(\d{4})`, "i").exec(excerpt.text);
+  if (reporting) {
+    const month = MONTHS[reporting[1]!.toLowerCase()]!;
+    const quarter = month / 3;
+    const date = `${reporting[3]}-${String(month).padStart(2, "0")}-${reporting[2]}`;
+    if (Number.isInteger(quarter) && reporting[2] === (month === 3 || month === 12 ? "31" : "30") &&
+      periods.some(period => period.key === `Q${quarter}FY${reporting[3]}`))
+      periods.push(...periodLabels(`${date} Q${quarter} ${reporting[3]}`));
+  }
+  return periods;
 }
 /** AI-303 / C-6: the windows the excerpt's title states ("quarter ended …", a Q<n> FY label is a quarter, an FY label the year). */
 function excerptWindows(excerpt: TextExcerpt): Set<string> {
@@ -981,7 +1038,7 @@ function excerptWindows(excerpt: TextExcerpt): Set<string> {
 
 const HEADER_DATE = new RegExp(String.raw`\b(?:${MONTH_NAMES})\.?\s+\d{1,2},?\s+(?:19|20)\d{2}\b|\b\d{4}-\d{2}-\d{2}\b`, "gi");
 
-interface TableColumn { label: string; period: PeriodReference; window: PeriodReference | null; scale: number | null; exceptPerShare: boolean; dollars: boolean; rowStart: number }
+interface TableColumn { label: string; scope?: string; period: PeriodReference; window: PeriodReference | null; scale: number | null; exceptPerShare: boolean; dollars: boolean; rowStart: number }
 /** A table header's change column ("$ Change", "% Change"), which binds no period. */
 const CHANGE_COLUMN = /^[\s,|]*(?:[$%]\s*)?Change\b/i;
 const MONTHS_ENDED = /\b(Three|Six|Nine)\s+Months\s+Ended\b/gi;
@@ -1045,7 +1102,7 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
   // the change columns bind nothing, and the n-th "… Months Ended" names the
   // n-th run's window.
   const headers: { start: number; end: number; columns: ({ date: string; run: number } | null)[]; runs: number;
-    windows?: (PeriodReference | null)[]; scale?: number; exceptPerShare?: boolean; dollars?: boolean }[] = [];
+    windows?: (PeriodReference | null)[]; scale?: number; exceptPerShare?: boolean; dollars?: boolean; scope?: string }[] = [];
   for (let i = 0; i < dates.length;) {
     let j = i;
     const columns: ({ date: string; run: number } | null)[] = [{ date: dates[i]!.raw, run: 0 }];
@@ -1058,9 +1115,15 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       if (change !== null && /^[\s,|]*$/.test(gap.slice(change[0].length))) { j++; run++; columns.push(null, { date: dates[j]!.raw, run }); end = dates[j]!.end; continue; }
       break;
     }
+    const moneyPercent = /^\s*\$\s+Change\s+%\s+Change\b/i.exec(text.slice(end, end + 40));
     const trailing = CHANGE_COLUMN.exec(text.slice(end, end + 24));
-    if (trailing !== null && columns.length > 1) { columns.push(null); end += trailing[0].length; }
-    if (columns.filter((c) => c !== null).length > 1) headers.push({ start: dates[i]!.start, end, columns, runs: run + 1 });
+    if (moneyPercent !== null && columns.length > 1) { columns.push(null, null); end += moneyPercent[0].length; }
+    else if (trailing !== null && columns.length > 1) { columns.push(null); end += trailing[0].length; }
+    if (columns.filter((c) => c !== null).length > 1) {
+      const declaration = /\$ in (thousands|millions|billions) unless noted As of \(Unaudited\)\s*$/i.exec(text.slice(Math.max(0, dates[i]!.start - 100), dates[i]!.start));
+      headers.push({ start: dates[i]!.start, end, columns, runs: run + 1,
+        ...(moneyPercent ? { dollars: true } : {}), ...(declaration ? { dollars: true, scale: SCALES[declaration[1]!.toLowerCase()] } : {}) });
+    }
     i = j + 1;
   }
   // A flattened quarter/year header has four levels and two YoY columns.
@@ -1076,6 +1139,38 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       windows: [periodLabels("quarterly")[0]!, periodLabels(`${match[2]} months ended`)[0] ?? null],
       scale: declaration ? SCALES[declaration[1]!.toLowerCase()] : 1,
       exceptPerShare: declaration?.[2]?.includes("per share") ?? false, dollars: declaration !== null });
+  }
+  // An operating update states each quarter explicitly, interleaving two
+  // percentage-change columns. Read the complete five-cell layout only.
+  const operating = /\bDollars in (Thousands|Millions|Billions)\s+(Q[1-4] \d{4})\s+(Q[1-4] \d{4})\s+Q\/Q Change\s+(Q[1-4] \d{4})\s+Y\/Y Change\b/gi;
+  for (const match of text.matchAll(operating)) {
+    if (new Set([match[2], match[3], match[4]]).size !== 3) continue;
+    headers.push({ start: match.index, end: match.index + match[0].length,
+      columns: [{ date: match[2]!, run: 0 }, { date: match[3]!, run: 0 }, null, { date: match[4]!, run: 0 }, null],
+      runs: 1, windows: [null], scale: SCALES[match[1]!.toLowerCase()], dollars: true });
+  }
+  // SEC tables may print the month/day once per window and the year in a
+  // separate run. Both windows, repeated years and optional change columns
+  // must be complete before a cell gets a date.
+  const splitYear = new RegExp(String.raw`\bThree Months Ended (${MONTH_NAMES})\s+(\d{1,2}),\s+(Change\s+)?Six Months Ended \1\s+\2,\s+(?:Change\s+)?\(In (thousands|millions|billions)(?:, except percentages)?\)\s+(\d{4})\s+(\d{4})\s+(\$\s+%\s+)?\5\s+\6(?:\s+\$\s+%)?`, "gi");
+  for (const match of text.matchAll(splitYear)) {
+    if (match[5] === match[6] || Boolean(match[3]) !== Boolean(match[7])) continue;
+    const dates = [match[5], match[6]].map(year => `${match[1]} ${match[2]}, ${year}`);
+    const changes = Boolean(match[7]);
+    if ((match[0].match(/\bChange\b/g) ?? []).length !== (changes ? 2 : 0) || (changes && !/\$\s+%$/.test(match[0]))) continue;
+    headers.push({ start: match.index, end: match.index + match[0].length,
+      columns: [{ date: dates[0]!, run: 0 }, { date: dates[1]!, run: 0 }, ...(changes ? [null, null] : []),
+        { date: dates[0]!, run: 1 }, { date: dates[1]!, run: 1 }, ...(changes ? [null, null] : [])],
+      runs: 2, windows: [periodLabels("three months ended")[0]!, periodLabels("six months ended")[0]!],
+      ...(/Gain on servicing asset, net\s*$/i.test(text.slice(Math.max(0, match.index - 80), match.index)) ? { scope: "servicing asset" } : {}),
+      scale: SCALES[match[4]!.toLowerCase()], dollars: /^\s*[A-Za-z ():]+\$\s*[\d(]/.test(text.slice(match.index + match[0].length, match.index + match[0].length + 140)) });
+  }
+  for (const match of text.matchAll(/\bDollars in (?:Thousands|Millions|Billions)\s+Q[1-4] \d{4}/gi)) {
+    if (!headers.some(header => header.start === match.index)) headers.push({ start: match.index, end: match.index + match[0].length, columns: [], runs: 0, windows: [] });
+  }
+  const splitStart = new RegExp(String.raw`\bThree Months Ended (?:${MONTH_NAMES})\s+\d{1,2},\s+(?:Change\s+)?Six Months Ended`, "gi");
+  for (const match of text.matchAll(splitStart)) {
+    if (!headers.some(header => header.start === match.index)) headers.push({ start: match.index, end: match.index + match[0].length, columns: [], runs: 0, windows: [] });
   }
   // A recognizable but invalid later header ends the preceding table's scope.
   for (const match of text.matchAll(/\bQ[1-4]\s+Q[1-4]\s+(?:3|6|9|12)M YTD\b/gi)) {
@@ -1122,7 +1217,7 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       const scaleWord = declarations.at(-1)?.[1]?.toLowerCase();
       // This new preceding-header contract admits only the plain scale; an
       // extra currency/unit qualifier cannot disappear into reportingCurrency.
-      const plainPrefix = adjacent.every((match) => /^\(\s*(?:\$\s*)?in\s+(?:thousands|millions|billions)\s*\)$/i.test(match[0]));
+      const plainPrefix = adjacent.every((match) => /^\(\s*(?:\$\s*)?in\s+(?:thousands|millions|billions)(?:, except percentages)?\s*\)$/i.test(match[0]));
       const scaleConflict = header.scale !== undefined && declarations.some(match => SCALES[match[1]!.toLowerCase()] !== header.scale);
       const scale = !plainPrefix || scaleWords.size > 1 || scaleConflict ? null : header.scale ?? (scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1);
       const exceptPerShare = Boolean(header.exceptPerShare || declarations.some((match) => /except\s+per[\s-]+share/i.test(match[0])));
@@ -1132,7 +1227,7 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
         const column = header.columns[c];
         const period = column ? periodLabels(column.date)[0] : undefined;
         if (column && period !== undefined) {
-          out.set(found[q + c]!, { label: lead, period, window: windows[repeatedRuns ? Math.floor(c / runWidth) : column.run] ?? null, scale, exceptPerShare, dollars, rowStart: Math.max(prevEnd, header.end) });
+          out.set(found[q + c]!, { label: lead, scope: header.scope, period, window: windows[repeatedRuns ? Math.floor(c / runWidth) : column.run] ?? null, scale, exceptPerShare, dollars, rowStart: Math.max(prevEnd, header.end) });
         } else if (header.windows !== undefined) out.set(found[q + c]!, null);
       }
     }
@@ -1149,8 +1244,14 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   return bodies.flatMap((body) => {
     // D-66: a footnote marker after a row label ("Unrealized gains (1) 4,900")
     // is not the row's first figure.
-    const found = quantities(body.text).filter((quantity) => !(/^\(\d\)$/.test(body.text.slice(quantity.start - 1, quantity.end + 1)) &&
-      /[A-Za-z]\s*$/.test(body.text.slice(Math.max(0, quantity.start - 3), quantity.start - 1)) && /^\s*[$(\d]/.test(body.text.slice(quantity.end + 1))));
+    const found = quantities(body.text).filter((quantity) => {
+      const parenthesized = /^\(\d\)$/.test(body.text.slice(quantity.start - 1, quantity.end + 1)) &&
+        /[A-Za-z]\s*$/.test(body.text.slice(Math.max(0, quantity.start - 3), quantity.start - 1)) && /^\s*[$(\d]/.test(body.text.slice(quantity.end + 1));
+      const footnote = quantity.unit === null && /^[1-9]$/.test(body.text.slice(quantity.start, quantity.end)) &&
+        /[A-Za-z]\s+$/.test(body.text.slice(0, quantity.start)) && /^\s*\$/.test(body.text.slice(quantity.end)) &&
+        new RegExp(String.raw`\b${quantity.value} Excludes volume originated on the [A-Za-z]+ platform following the`).test(body.text);
+      return !parenthesized && !footnote;
+    });
     const columns = tableColumns(body.text, found);
     const dividendPairs = new Map<Quantity, NonNullable<SourceBinding["unitPair"]>>();
     for (let i = 0; i + 1 < found.length; i++) {
@@ -1174,8 +1275,14 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         // its header names), no list reading.
         const periods = column.window === null ? [column.period] : [column.period, column.window];
         // The header's window is part of the cell's description, as a prose window is of its clause's.
-        const label = column.window === null ? column.label : `${column.label} ${column.window.raw}`;
-        const own = { ...context(body.text, quantity, found), label, own: rowLead(column.label).split(":").at(-1)!, ownAfter: "", periods, bases: [], held: false, ambiguous: false, direction: null, base: false };
+        const bareLabel = column.label.replace(/\(([A-Z])\)/g, (marker) =>
+          /\b(?:class|series|tranche)\b/i.test(column.label) || !/\([A-Z]\)\s+[A-Z][a-z]/.test(body.text) ? marker : " ".repeat(marker.length));
+        let label = column.window === null ? bareLabel : `${bareLabel} ${column.window.raw}`;
+        if (column.scope) label += ` ${column.scope}`;
+        if (/\breported select unaudited preliminary operating data\b/i.test(body.text)) label += " preliminary";
+        const note = /\b([1-9]) Excludes volume originated on the ([A-Za-z]+) platform following the/.exec(body.text);
+        if (note && new RegExp(String.raw`\b${note[1]}\s*$`).test(column.label)) label += ` excluding ${note[2]}`;
+        const own = { ...context(body.text, quantity, found), label, own: rowLead(bareLabel).split(":").at(-1)!, ownAfter: "", periods, bases: [], held: false, ambiguous: false, direction: null, base: false };
         const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
         // D-66: the excerpt's own fiscal label names the column of its own
         // reporting date ("Q2 FY2027" for the three months ended 2026-07-26).
@@ -1262,6 +1369,33 @@ export function reportedSeriesLatest(registry: readonly NumericProvenanceRecord[
   return latest;
 }
 
+/** A forecast date alone never supplies a fiscal label. A retained annual filing
+ * must explicitly establish a December-31 fiscal year, with no conflicting
+ * annual basis. Scope this reading to annual producers, never arbitrary records. */
+export function filedCalendarFiscalLabel(record: NumericProvenanceRecord, excerpts: readonly TextExcerpt[]): string | undefined {
+  const estimate = record.kind === "provider" && record.origin === "fmp:analyst-estimates" && /^est (?:revenue|EPS) \d{4}-12-31$/.test(record.label ?? "");
+  const annual = record.kind === "computed" && record.period === null && record.periodContext === undefined &&
+    (financialPiotroskiCoverage(record) !== null || (record.origin === "computed.capital.sbc" && record.label === "SBC % revenue"));
+  const quarter = record.kind === "computed" && record.origin === "fmp:income-statement(quarter)" &&
+    record.id.startsWith("computed.quarterly-trend.") && record.period !== null &&
+    (record.label ?? "").endsWith(`, quarter ended ${record.period}`);
+  if (!estimate && !annual && !quarter) return undefined;
+  const date = estimate || quarter ? record.period : record.asOf;
+  if (!date || !isIsoDate(date) || (!quarter && !/^\d{4}-12-31$/.test(date))) return undefined;
+  const bases = excerpts.filter(excerpt => /^edgar:10-K\b/.test(excerpt.source)).flatMap(excerpt =>
+    [...excerpt.title.matchAll(/reporting period ended (\d{4}-\d{2}-\d{2}) \(FY(\d{4})\)/g)].map(match => ({ date: match[1]!, year: match[2]! })));
+  if (!bases.length || bases.some(basis => basis.date !== `${basis.year}-12-31`)) return undefined;
+  if (quarter) {
+    const month = Number(date.slice(5, 7)), day = date.slice(8);
+    if (month % 3 || day !== (month === 3 || month === 12 ? "31" : "30") ||
+      !bases.some(basis => Number(date.slice(0, 4)) - Number(basis.year) >= 0 && Number(date.slice(0, 4)) - Number(basis.year) <= 1)) return undefined;
+    return `Q${month / 3} FY${date.slice(0, 4)}`;
+  }
+  // Historical annual observations need their own filed year; the estimate
+  // producer's future period may use the established calendar fiscal basis.
+  return estimate || bases.some(basis => basis.date === date) ? `FY${date.slice(0, 4)}` : undefined;
+}
+
 export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   record?: NumericProvenanceRecord;
   excerpts: readonly TextExcerpt[];
@@ -1272,6 +1406,19 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   seriesLatest?: ReadonlyMap<string, string>;
 }): ClaimNumericSupport {
   const record = options.record;
+  if (record === undefined) {
+    // Attribution identifies the cited document, not the figure's definition.
+    // Keep all negation, basis words, dates and quantities, and require the
+    // named form to agree with the citation. Blanking preserves claim offsets.
+    const blank = (match: string): string => " ".repeat(match.length);
+    let text = claim.text;
+    const form = /^edgar:(10-K|10-Q)\b/.exec(options.sourceId)?.[1];
+    if (form) text = text.replace(new RegExp(String.raw`\bThe ${form}(?: notes)? (?:states?|reports?) (?:that )?`, "g"), blank);
+    if (/^edgar:8-K\b/.test(options.sourceId))
+      text = text.replace(/\bThe (?:(Q[1-4] \d{4}) release|company) (?:states|reports|reported) (?:that )?/g,
+        (match, period: string | undefined) => period ? period.padEnd(match.length) : blank(match));
+    if (text !== claim.text) return validateClaimNumericSupport({ ...claim, text }, options);
+  }
   const typedText = record === undefined ? claim.text : typedClaimContext(claim.text, record);
   if (typedText === null) return support("unchecked", "text-context-mismatch", "prose metadata or formula is not established by the cited numeric record");
   const stated = quantities(typedText);
@@ -1285,7 +1432,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
     // Final re-review (AI-303-V3): no record label or basis establishes a prior fiscal year-end.
-    const established = new Set([...basisWindows(record), ...labelLooseWindows(record)].filter((key) => key !== PRIOR_FISCAL_YEAR_END));
+    const filedFiscal = filedCalendarFiscalLabel(record, options.excerpts);
+    const established = new Set([...basisWindows(record), ...labelLooseWindows(record), ...(filedFiscal ? basisWindows({ ...record, fiscalPeriod: filedFiscal }) : [])].filter((key) => key !== PRIOR_FISCAL_YEAR_END));
     const ignore = options.ignoreWords ?? [];
     // D-66: a per-share record's "per share" is its unit, which the prose
     // states with the figure ("USD 0.25 per share"), not in its metric words;
@@ -1328,13 +1476,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // A named window must be the record's own; a date against a window record
     // names one of its endpoints ("the trailing period ended 2026-07-26").
     const window = recordWindow(record);
-    const explicitSpan = explicitLabelSpan(claim.text, record);
-    if (window === null && /\b\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\b/i.test(claim.text) && explicitSpan === null) {
+    const explicitSpan = explicitLabelSpan(typedText, record);
+    if (window === null && /\b\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\b/i.test(typedText) && explicitSpan === null) {
       return support("unchecked", "period-mismatch",
         "the cited numeric record does not establish the complete ordered prose date interval");
     }
     const labelled = labelWindows(record);
-    const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
+    const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? filedFiscal ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
     // Audit 2026-10-27 AI-106 / OD-1: a record with no period establishes only
     // what it carries: its as-of date, a date its period context declares, and
     // a fiscal label it declares (matched only against an FY-style prose label).
@@ -1391,7 +1539,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // reading; generic forensic scores still need an explicit unit suffix.
     const explicitUnit = quantity.unit === null && record.unitScale === "fraction" && record.unit === "ratio" ? "ratio"
       : quantity.unit === null && /\bscore\b/i.test(own.label) && financialPiotroskiCoverage(record) !== null ? "score"
-        : quantity.unit === null && /\b(?:count|transactions?)\b/i.test(own.label) && record.unit === "count" ? "count"
+        : quantity.unit === null && /\b(?:count|transactions?|rows)\b/i.test(own.label) && record.unit === "count" ? "count"
           : quantity.unit === null && /\bindex\b/i.test(own.label) && record.unit === "index" ? "index" : quantity.unit;
     if (explicitUnit === null) return support("unchecked", "text-ambiguous", "prose quantity has no established unit");
     if (record.unitScale === "fraction" && quantity.unit === "ratio") return support("unchecked", "unit-mismatch", "a multiple is not a dimensionless fraction");
@@ -1422,11 +1570,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   // and comparisons assembled from unrelated passages keep the old refusal.
   if (stated.length === 2 && stated[0]!.unit !== null && stated[0]!.unit === stated[1]!.unit) {
     const [level, base] = stated as [Quantity, Quantity];
-    const head = /^(.+?)\s+(fell|declined|decreased|rose|increased)\s+to\s*$/i.exec(claim.text.slice(0, level.start));
+    const head = /^(.+?)\s+(?:(fell|declined|decreased|rose|increased)\s+to|was)\s*$/i.exec(claim.text.slice(0, level.start));
     const periodPattern = String.raw`(?:Q[1-4]\s+(?:FY\s*)?(?:19|20)\d{2}|FY\s*(?:19|20)\d{2}|\d{4}-\d{2}-\d{2})`;
-    const middle = new RegExp(String.raw`^\s+in\s+(${periodPattern})\s+from\s*$`, "i").exec(claim.text.slice(level.end, base.start));
+    const middle = new RegExp(String.raw`^\s+in\s+(${periodPattern})(?:\s+from|,\s+(down|up)\s+from)\s*$`, "i").exec(claim.text.slice(level.end, base.start));
     const tail = new RegExp(String.raw`^\s+in\s+(${periodPattern})(?:[.!?]|,\s+so\b|$)`, "i").exec(claim.text.slice(base.end));
-    if (head && middle && tail) {
+    if (head && middle && tail && Boolean(head[2]) !== Boolean(middle[2])) {
       const index = options.index ?? new Map<TextExcerpt, SourceBinding[]>();
       const levels = [level, base].map((quantity, i) => validateClaimNumericSupport({ ...claim,
         text: `${head[1]} was ${claim.text.slice(quantity.start, quantity.end)} in ${i === 0 ? middle[1] : tail[1]}.` }, { ...options, index }));
@@ -1434,7 +1582,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (levels.every(result => result.status === "validated") && spans.length === 2 &&
         spans[0]!.source === spans[1]!.source && spans[0]!.asOf === spans[1]!.asOf && spans[0]!.start === spans[1]!.start &&
         spans.every(span => excerpts.some(excerpt => index.get(excerpt)?.some(binding => binding.column !== undefined && binding.span.start === span.start && binding.span.end === span.end)))) {
-        const decline = /^(?:fell|declined|decreased)$/i.test(head[2]!);
+        const decline = /^(?:fell|declined|decreased|down)$/i.test(head[2] ?? middle[2]!);
         const established = decline ? level.value + level.step / 2 < base.value - base.step / 2 : level.value - level.step / 2 > base.value + base.step / 2;
         if (established) return support("validated", "supported", "ordered levels matched the same cited table row and their separate period columns; qualitative assertions remain unchecked", spans);
       }
@@ -1520,7 +1668,28 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
           ? clauseMatches(candidate)
           : own.periods.every((period) => period.kind === "window" ? candidate.inheritedWindows.has(period.key)
             : candidate.inherited.some((source) => source.key === period.key))));
-      let matchingPeriods = periodFilter(pool);
+      // A dated table level and a narrative dollar change are different
+      // relations. A level claim may select the explicit dated level by its
+      // relation, never by preferring whichever value happens to agree.
+      const relationPool = own.direction === null && pool.some(candidate => candidate.column !== undefined)
+        ? pool.filter(candidate => candidate.context.direction === null || candidate.levelBeforeComparison) : pool;
+      let matchingPeriods = periodFilter(relationPool);
+      const calendarColumn = matchingPeriods.some(candidate => candidate.column !== undefined && candidate.inherited.some(period =>
+        /^Q[1-4]FY\d{4}$/.test(period.key) && candidate.inherited.some(alias => alias.key === period.key.replace("FY", ""))));
+      if (calendarColumn && matchingPeriods.some(candidate => candidate.column !== undefined && candidate.quantity.unit === quantity.unit))
+        matchingPeriods = matchingPeriods.filter(candidate => candidate.quantity.unit === quantity.unit);
+      const dated = matchingPeriods.filter(candidate => candidate.column !== undefined);
+      // A coarse narrative restatement inheriting its date from the release
+      // cannot reduce the precision of an explicit dated cell. Discard it
+      // only when it independently rounds to every bound cell; a conflicting
+      // restatement keeps the reading ambiguous.
+      if (calendarColumn && dated.length && matchingPeriods.every(candidate => candidate.column !== undefined ||
+        (candidate.context.periods.length === 0 && dated.every(cell => {
+          const scale = tableScaleFor(cell.quantity, cell.column);
+          return candidate.quantity.unit === cell.quantity.unit && candidate.quantity.step >= cell.quantity.step * scale &&
+            resolvedCurrency(candidate.quantity, options.reportingCurrency) === resolvedCurrency(cell.quantity, options.reportingCurrency) &&
+            equalValue(candidate.quantity, cell.quantity.value * scale);
+        })))) matchingPeriods = dated;
       if (matchingPeriods.length === 0) {
         // Final review (AI-303-V3): a prior fiscal year-end that no bound figure's own clause states is a period gap.
         if (pool.length > 0 && own.periods.some((period) => period.key === PRIOR_FISCAL_YEAR_END)) {
