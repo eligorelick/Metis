@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Company and market analysis (2026-11-03)
+
+- Add optional sourced market-structure and competitor claims across generation, verification and all report views. Historical reports remain readable without added fields.
+- Lead the analyst summary with the business debate and assess meaningful multiples even without an intrinsic-value or peer anchor. Replace wholly excluded provider peer lists with one explanation.
+- Move process, usage and provenance details to “About this report” first in the appendix; keep key data before the verdict. No version stamps changed; integration must advance the report-spec and pipeline stamps.
+
 ## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
 
 - The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and

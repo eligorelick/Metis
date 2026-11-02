@@ -11,6 +11,12 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-next (P3) - Company and market analysis (2026-11-03)
+
+- **Choice.** Add optional `business.marketStructure` and `competitive.competitors` sourced-claim arrays. Request them in fresh judge output; preserve absent fields in stored reports. Existing recursive evidence checks and claim marks apply to both. Market figures require cited evidence; interpretation remains JUDGMENT.
+- **Reading.** Lead with the business and investment debate, judging meaningful P/E, P/B or P/TBV against growth, returns and earnings quality when intrinsic/peer anchors are missing. Omit provider peer rows when none survives the screen; stored rows remain unchanged. Put process details first in the appendix, with key data before the verdict.
+- **Scope.** No provider calls, financial calculations, rating/grade rules, catalyst/risk reasoning or historical fixture bytes change. Report-spec and pipeline stamp bumps are deferred to integration. Offline regressions cover schema/continuation, evidence marks, all renderers and front-page order; live narrative quality remains untested.
+
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.

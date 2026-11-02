@@ -2378,7 +2378,7 @@ describe("prompts embed the five non-negotiable rules verbatim", () => {
   // the USD 328.90 consensus target against the USD 72 DCF value.
   it("judge framing asks the verdict for a stance against the price and a consensus-target reconciliation", () => {
     const judge = buildJudgeFraming();
-    expect(judge).toContain("Its first claim takes a stance");
+    expect(judge).toContain("Its opening connects that business debate to a stance");
     expect(judge).toMatch(/undemanding, about right or demanding/);
     expect(judge).toMatch(/not a rating\s+or an allocation directive/);
     expect(judge).toContain("\"Consensus target vs our value\"");

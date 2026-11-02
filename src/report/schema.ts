@@ -969,6 +969,8 @@ export type SegmentRow = z.infer<typeof SegmentRowSchema>;
 export const BusinessSchema = z
   .object({
     whatTheySell: z.array(SourcedClaimSchema),
+    /** Market economics and sourced size/growth/share; absent on historical reports. */
+    marketStructure: z.array(SourcedClaimSchema).optional().describe("Served-market size, growth and company share only where cited evidence states them; industry structure, value accrual and company position. FACT with a source; JUDGMENT for interpretation; never invent market sizes."),
     segments: z
       .object({
         product: z.array(SegmentRowSchema),
@@ -1417,6 +1419,8 @@ export const CompetitiveSchema = z
   .object({
     moatGraded: GradeBlockSchema,
     peerTable: z.array(PeerRowSchema),
+    /** Named competitors and the basis of competition; absent on historical reports. */
+    competitors: z.array(SourcedClaimSchema).optional().describe("Main competitors named in the 10-K business excerpt or analysts' cited sources; how each competes and where the company wins or loses. FACT with a source; JUDGMENT for interpretation."),
     moatAssessment: z.array(MoatAssessmentSchema),
     marketShareDirection: ratingSafeString(),
   })
@@ -3128,6 +3132,8 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "insiderActivity",
   "compensation",
   "tam",
+  "marketStructure",
+  "competitors",
   // Fresh model output carries the canonical source identity separately from
   // the legacy display field. The Zod field stays optional so old persisted
   // reports remain readable; a blank or null value from a model that had no

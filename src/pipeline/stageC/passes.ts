@@ -2429,6 +2429,13 @@ function invalidJudgeGenerationSections(sections: Record<string, unknown>): stri
   if (isPlainObject(sections.verdict) && typeof sections.verdict.synthesis === "string" && !sections.verdict.synthesis.trim()) invalid.push("verdict");
   if (isPlainObject(sections.business) && Array.isArray(sections.business.whatTheySell) &&
       (sections.business.whatTheySell.length === 0 || sections.business.whatTheySell.some(claim => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()))) invalid.push("business");
+  // The arrays may be empty or absent (historical output), but a carried blank
+  // claim must be regenerated just as it would be in a complete response.
+  for (const [section, field] of [["business", "marketStructure"], ["competitive", "competitors"]] as const) {
+    const value = sections[section];
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(claim =>
+      isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()) && !invalid.includes(section)) invalid.push(section);
+  }
   return invalid;
 }
 
@@ -2920,7 +2927,7 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
   return out;
 }
 
-/** A sourced claim plus its exact report path for citation-coverage accounting. */
+/** A sourced claim plus its exact report path, including optional market/competitor claims. */
 interface SourcedClaimRef {
   claim: SourcedClaim;
   path: string;

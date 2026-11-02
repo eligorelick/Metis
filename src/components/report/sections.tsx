@@ -19,7 +19,8 @@ import { displayedProvenanceCoverage } from "@/report/presentation";
  */
 
 import type { ReactNode } from "react";
-import { ReportTrustDetails } from "./ReportTrustSummary";
+import { ReportTrustDetails, ReportTrustSummary } from "./ReportTrustSummary";
+import { ReportSnapshotDetails } from "./ReportSnapshotHeader";
 import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
@@ -615,6 +616,9 @@ export function BusinessSegments({
       <SubBlock label="what they sell">
         <ClaimList claims={business.whatTheySell} />
       </SubBlock>
+      {business.marketStructure && business.marketStructure.length > 0 && <SubBlock label="Market & industry structure">
+        <ClaimList claims={business.marketStructure} />
+      </SubBlock>}
       <ExtraAuditTables tables={extraTables} />
       {/* D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export. */}
       {(showAnnualSegments(extraTables.length > 0) || geographicBasisNote(business.segments.geographic)) && <div className="grid gap-4 lg:grid-cols-2">
@@ -1627,6 +1631,9 @@ export function CompetitiveSection({
         report={report}
         {...grading}
       />
+      {competitive.competitors && competitive.competitors.length > 0 && <SubBlock label="Competitors">
+        <ClaimList claims={competitive.competitors} />
+      </SubBlock>}
       <SubBlock label="moat sources">
         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {competitive.moatAssessment.map((m, i) => (
@@ -1648,7 +1655,7 @@ export function CompetitiveSection({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SubBlock label={peerList.heading}>
           {peerList.note && <p className="text-[11px] leading-snug text-muted">{peerList.note}</p>}
-          <PeerTable peers={competitive.peerTable} />
+          {!peerList.hideTable && <PeerTable peers={competitive.peerTable} />}
         </SubBlock>
         <SubBlock label="market-share direction">
           <p className="text-[11px] leading-snug text-fg">
@@ -2042,12 +2049,14 @@ export function KeyDataBox({ report }: { report: Report }) {
 export function AppendixSection({
   report,
   selectedReportId,
+  selectedReportStatus,
   completeness,
   showTrustDetails = false,
   index,
 }: {
   report: Report;
   selectedReportId?: number;
+  selectedReportStatus?: string;
   completeness?: ReportCompletenessPresentation;
   showTrustDetails?: boolean;
   index: number;
@@ -2082,7 +2091,11 @@ export function AppendixSection({
         </span>
       }
     >
-      {showTrustDetails && <ReportTrustDetails report={report} completeness={presentation} />}
+      <SubBlock label="About this report">
+        <ReportSnapshotDetails report={report} reportId={selectedReportId} status={selectedReportStatus} />
+        <ReportMetaStrip report={report} selectedReportId={selectedReportId} completeness={presentation} />
+      </SubBlock>
+      {showTrustDetails ? <ReportTrustDetails report={report} completeness={presentation} /> : <ReportTrustSummary report={report} completeness={presentation} />}
       {/* D-62: the standard limitations, stated once. */}
       <SubBlock label="methodology and limitations">
         <ul className="flex flex-col gap-1">
@@ -2225,9 +2238,6 @@ export function ReportMetaStrip({
       {verification && <p className="mt-2 basis-full text-[11px] text-muted">Verification · {verification}</p>}
       {provenance && <p className="basis-full text-[11px] text-faint">Provenance · {provenance}</p>}
       {identityNote && <p className="basis-full text-[12px] text-warn">{identityNote}</p>}
-      {/* WS6 (D-19): the stored disclaimer, verbatim, on the page that shows
-          seven letter grades and three price targets. */}
-      <p className="basis-full text-[10px] leading-snug text-faint">{m.disclaimer}</p>
     </div>
   );
 }

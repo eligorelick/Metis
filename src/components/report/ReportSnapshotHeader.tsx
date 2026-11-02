@@ -24,24 +24,31 @@ export function generatedTimeText(value: string): string {
 }
 
 /** Shared selected-snapshot identity. No live data or latest-run lookup. */
-export function ReportSnapshotHeader({ snapshot: report, reportId, status, actions, navigation, controls }: {
+export function ReportSnapshotHeader({ snapshot: report, actions, navigation, controls }: {
   snapshot: Report; reportId: number; status: string; actions: ReactNode; navigation?: ReactNode; controls?: ReactNode;
 }) {
-  const c = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
-  const quoteDate = report.meta.evidenceTiming?.quote.observedAt ?? report.marketData?.quote?.asOf ?? report.meta.asOfMap.quote ?? report.meta.asOfMap["quote.price"];
-  const time = generatedTimeText(report.meta.generatedAt);
   return <header className="report-snapshot-header">
     <div className="snapshot-heading-row">
       <div className="min-w-0">
         <h1 className="dossier-company-title">{report.meta.companyName} <span className="snapshot-ticker">{report.meta.symbol}</span></h1>
-        <p className="snapshot-identity">Saved report <strong>#{reportId}</strong> · <time dateTime={report.meta.generatedAt}>{time}</time></p>
+        <p className="snapshot-identity">Equity Research Report · <time dateTime={report.meta.generatedAt}>{report.meta.generatedAt.slice(0, 10)}</time></p>
       </div>
       <div className="company-actions">{actions}</div>
     </div>
-    <p className="snapshot-status"><span>Process: {status?.toUpperCase() ?? "UNKNOWN"}</span><span>Research: {c.dataOnly ? "data-only" : c.state}</span><span>{c.dataOnly ? "No completed analyst analysis" : "Recorded analysis"}</span><span>Saved snapshot</span></p>
-    {report.meta.analysisOutcome && <p>{analysisOutcomeText(report.meta.analysisOutcome)}</p>}
-    {quoteDate && <p className="snapshot-observation">Quote observed <time dateTime={quoteDate}>{observationText(quoteDate)}</time>{report.meta.evidenceTiming?.quote.stale ? " · stale" : ""}. Other inputs retain their individual observation dates.</p>}
+    <p className="text-[10px] text-faint">{report.meta.disclaimer}</p>
     <RunNotices report={report} notices="header" />
     <div className="snapshot-workspace-tools">{navigation}{controls}</div>
   </header>;
+}
+
+/** Saved process and observation identity belongs with the appendix disclosures. */
+export function ReportSnapshotDetails({ report, reportId, status }: { report: Report; reportId?: number; status?: string }) {
+  const c = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
+  const quoteDate = report.meta.evidenceTiming?.quote.observedAt ?? report.marketData?.quote?.asOf ?? report.meta.asOfMap.quote ?? report.meta.asOfMap["quote.price"];
+  return <div className="text-[11px] text-muted">
+    <p>Saved report {reportId === undefined ? "ID not recorded" : <strong>#{reportId}</strong>} · <time dateTime={report.meta.generatedAt}>{generatedTimeText(report.meta.generatedAt)}</time></p>
+    <p className="snapshot-status"><span>Process: {status?.toUpperCase() ?? "UNKNOWN"}</span><span>Research: {c.dataOnly ? "data-only" : c.state}</span><span>{c.dataOnly ? "No completed analyst analysis" : "Recorded analysis"}</span><span>Saved snapshot</span></p>
+    {report.meta.analysisOutcome && <p>{analysisOutcomeText(report.meta.analysisOutcome)}</p>}
+    {quoteDate && <p className="snapshot-observation">Quote observed <time dateTime={quoteDate}>{observationText(quoteDate)}</time>{report.meta.evidenceTiming?.quote.stale ? " · stale" : ""}. Other inputs retain their individual observation dates.</p>}
+  </div>;
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
+import { ReportSnapshotDetails } from "@/components/report/ReportSnapshotHeader";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
@@ -36,7 +36,7 @@ describe("saved completion UI/export parity", () => {
     const stored = JSON.stringify(snapshot);
     const report = ReportSchema.parse(JSON.parse(stored));
     const text = analysisOutcomeText(outcome);
-    const ui = renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 59, status: "done", actions: null }));
+    const ui = renderToStaticMarkup(createElement(ReportSnapshotDetails, { report, reportId: 59, status: "done" }));
     expect(ui).toContain("#59");
     expect(ui).toContain("Process: ");
     expect(ui).toContain("DONE");
@@ -50,7 +50,7 @@ describe("saved completion UI/export parity", () => {
     const report = loadTask28Fixture();
     delete report.meta.analysisOutcome;
     expect(analysisOutcomeText(undefined)).toContain("not recorded");
-    const ui = renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 58, status: "done", actions: null }));
+    const ui = renderToStaticMarkup(createElement(ReportSnapshotDetails, { report, reportId: 58, status: "done" }));
     for (const rendered of [ui, reportToMarkdown(report), reportToPrintHtml(report), reportToAuditMarkdown(report)]) expect(rendered).not.toContain("Mandatory stages completed");
   });
 });

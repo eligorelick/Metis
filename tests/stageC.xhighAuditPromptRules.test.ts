@@ -58,6 +58,12 @@ describe("FIGR extra-high audit rules reach every analysis role", () => {
 
 // The judge explains the deterministic scores; the analysts do not receive that block.
 const JUDGE_RULES: Array<[string, RegExp]> = [
+  ["lead with the business and investment debate", /summary leads with the business and the investment debate[^.]*what drives value[^.]*market is weighing/],
+  ["interpret available multiples without an intrinsic or peer anchor", /no intrinsic value or peer median[^.]*P\/E, P\/B or P\/TBV[^.]*growth, returns and earnings quality/],
+  ["reserve an unjudgeable price for meaningless multiples", /price cannot be judged[^.]*only when no multiple is meaningful/],
+  ["request market economics and sourced size, growth and share", /business\.marketStructure[^.]*size and growth[^.]*industry is structured[^.]*value accrues[^.]*position and share/],
+  ["request named competitors and the basis of competition", /competitive\.competitors[^.]*10-K business excerpt[^.]*cited sources[^.]*how each competes[^.]*wins or loses/],
+  ["do not invent market sizes", /FACT only with a source[^.]*JUDGMENT for interpretation[^.]*never invent market sizes/],
   // A2-27: "the four aspects with no score are pulled toward the midpoint".
   ["route-excluded aspects do not move the composite", /no signal that applies on the route are left out of the composite and do not move it/],
   ["missing applicable evidence shrinks the composite, not the aspects", /distance from 50 is scaled by the\s+evidence-completeness share\. Unscored aspects are not themselves pulled toward any value/],
