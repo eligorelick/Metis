@@ -189,6 +189,45 @@ function buildTwentyFDoc(): string {
 }
 
 describe("Form 20-F annual sections", () => {
+  it("extracts TSMC's unlettered sub-heading within Item 3, ending before Item 4", () => {
+    const risk = extractSection(sample("tsm-20f-unlettered-risk.html"), { form: "20-F", item: "3D" }, { stubMinChars: 500 });
+    expect(risk.ok).toBe(true);
+    if (!risk.ok) return;
+    expect(risk.text.startsWith("Risk Factors We wish to caution readers")).toBe(true);
+    expect(risk.text.endsWith("results of operations, and financial condition.")).toBe(true);
+    expect(risk.text).not.toContain("Not applicable");
+    expect(risk.text).not.toContain("Item 3. Key Information");
+    expect(risk.text).not.toContain("INFORMATION ON THE COMPANY");
+  });
+
+  it("keeps explicit lettered 20-F risk factors on the existing header path", () => {
+    const html = sample("tsm-20f-unlettered-risk.html")
+      .replace("Risk Factors </span>", "Item 3.D. Risk Factors </span>")
+      .replace(/<p>Additional information[^<]*<\/p>/, "");
+    const risk = extractSection(html, { form: "20-F", item: "3D" }, { stubMinChars: 500 });
+    expect(risk.ok).toBe(true);
+    if (!risk.ok) return;
+    expect(risk.method).toBe("header-regex");
+    expect(risk.text.startsWith("Item 3.D. Risk Factors We wish")).toBe(true);
+    expect(risk.text.endsWith("results of operations, and financial condition.")).toBe(true);
+  });
+
+  it.each(["heading", "item3", "item4"])("refuses an unlettered section without its %s", (missing) => {
+    let html = sample("tsm-20f-unlettered-risk.html");
+    if (missing === "heading") html = html.replace("Risk Factors </span>", "Other Information </span>");
+    if (missing === "item3") html = html.replace(/ITEM(?:&#8201;| )3\. KEY INFORMATION/g, "KEY INFORMATION");
+    if (missing === "item4") html = html.replace(/ITEM(?:&#8201;| )4\. INFORMATION ON THE COMPANY/g, "COMPANY");
+    const risk = extractSection(html, { form: "20-F", item: "3D" }, { stubMinChars: 500 });
+    expect(risk.ok).toBe(false);
+    if (!risk.ok) expect(risk.error.kind).toBe("no_section_found");
+  });
+
+  it("applies the existing stub detector to unlettered risk factors", () => {
+    const risk = extractSection(sample("tsm-20f-unlettered-risk.html"), { form: "20-F", item: "3D" });
+    expect(risk.ok).toBe(false);
+    if (!risk.ok) expect(risk.error.kind).toBe("stub_detected");
+  });
+
   it("extracts Item 3.D risk factors and Item 5 operating/financial review", () => {
     const html = buildTwentyFDoc();
     const risk = extractSection(html, { form: "20-F", item: "3D" });

@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - 20-F risk factors under an unlettered sub-heading (2026-11-03)
+
+- Recover an unlettered Risk Factors heading within standalone 20-F Item 3 / Item 4 boundaries when the existing extraction layers find no section. Preserve cross-reference rejection, stub detection and existing lettered/10-K paths.
+- Offline regressions include a trimmed TSMC fixture and a lettered control. The read-only cached FY2025 TSMC filing yields 60,948 characters. A payload version bump is required when integrating this changed analyst input for affected filers; no stamps are bumped here.
+
 ## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
 
 - The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and
