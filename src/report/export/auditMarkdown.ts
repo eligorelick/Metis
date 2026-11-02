@@ -255,6 +255,9 @@ function renderScores(scores: Scoring): string {
 function renderFigureRegistry(report: Report): string {
   const groups: Array<[string, readonly TracedNumber[]]> = [
     ["Fundamentals", report.fundamentals.graded.keyNumbers],
+    ["Fundamentals tables", [...report.fundamentals.growthTable, ...report.fundamentals.marginTrend, ...report.fundamentals.returns, ...report.fundamentals.fcf].flatMap(row => row.values.map(cell => cell.value))],
+    ["Valuation model", [...(report.valuation.dcf.perShare ? [report.valuation.dcf.perShare] : []), ...report.valuation.scenarios.flatMap(scenario => scenario.priceTarget ? [scenario.priceTarget] : [])]],
+    ["Macro", report.macro.relevantSeries.map(series => series.latest)],
     ["Balance sheet", [
       ...(report.balanceSheet.graded?.keyNumbers ?? []),
       ...report.balanceSheet.debtProfile.numbers,
@@ -272,7 +275,7 @@ function renderFigureRegistry(report: Report): string {
   return [
     "## Figure registry",
     "",
-    "Every traced figure in the report body, with its registry id and stored value. The body shows these under reader labels, rounded, with exact duplicates removed.",
+    `Traced figures the report body shows under ${groups.map(([name]) => name).join(", ")}, with registry id, period and stored value. The body shows them under reader labels, rounded, with exact duplicates removed.`,
     "",
     table(["Section", ...TRACED_NUMBER_FIELDS.map((field) => field.label)], rows),
   ].join("\n");
