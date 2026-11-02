@@ -752,7 +752,8 @@ export function BalanceSheetSection({
 }) {
   // One identity map per section: the capital bridge registers each figure twice.
   const seen = new Map<string, FigureRow>();
-  for (const row of figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept)) seen.set(`${row.trace.value}|${row.trace.unit}`, row);
+  // RPT-216: register the same metric/basis identities the subsequent rows use.
+  figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept, seen);
   const blocks: Array<{
     label: string;
     data: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] };

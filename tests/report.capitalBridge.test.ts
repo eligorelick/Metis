@@ -1,3 +1,4 @@
+import { BalanceSheetSection } from "@/components/report/sections";
 import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -116,4 +117,14 @@ it("RPT-215: legacy pipeline zeros read unavailable without rewriting the record
  expect(JSON.stringify(r)).toBe(before);
  const current=structuredClone(r); current.meta.specVersion="1.56.0";
  expect(withLegacyScopeQualifications(current).valuation.dcf.perShare?.value).toBe(0);
+});
+
+it("RPT-216: balance section deduplicates grade figures using metric identities",()=>{
+ const r=loadTask28Fixture();
+ const n={value:120,unit:"USD",currency:"USD",source:"computed.fixture.netDebt",sourceId:"computed.fixture.netDebt",asOf:"2025-12-31",verified:null};
+ r.balanceSheet.graded.keyNumbers=[n]; r.balanceSheet.debtProfile.numbers=[];
+ const render=()=>renderToStaticMarkup(createElement(BalanceSheetSection,{balanceSheet:r.balanceSheet,index:3,report:r}));
+ const count=(s:string)=>(s.match(/120\.00/g)??[]).length;
+ const baseline=count(render()); expect(baseline).toBeGreaterThan(0); r.balanceSheet.debtProfile.numbers=[{...n}];
+ expect(count(render())).toBe(baseline);
 });
