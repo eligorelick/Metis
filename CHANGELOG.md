@@ -24,6 +24,10 @@ DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.
 
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
 JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
 successful verification artifact, including its original capture time. It does
 not substitute lineage-root inputs when that artifact has no snapshot.

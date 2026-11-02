@@ -3384,6 +3384,9 @@ export async function runJob<TPayload = unknown>(
       let repairRejectedComplete = false;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
+      let judgeAttemptsInTransit = 0;
+      let lastJudgeInTransit = false;
+      let judgeAttemptsSeen = 0;
       // AI-112: the issue key of the previous attempt's assembly failure. The same
       // failure twice means the judge cannot repair it, so it is not bought again.
       let previousAssemblyIssueKey: string | null = null;
@@ -3391,6 +3394,7 @@ export async function runJob<TPayload = unknown>(
       let pendingReusableJudge = reusableJudge;
 
       for (let attempt = 0; attempt <= maxJudgeRetries; attempt++) {
+        judgeAttemptsSeen = attempt + 1;
         // 1) Judge pass. A throw here is a synthesis failure (schema-invalid
         //    structured output in the real facade, or a mock rejection). It is
         //    retryable — feed the error back by re-invoking the judge,
@@ -3473,6 +3477,8 @@ export async function runJob<TPayload = unknown>(
             if (err instanceof PassSettlementHookError) throw err;
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
+            lastJudgeInTransit = isTransportFailure(err);
+            if (lastJudgeInTransit) judgeAttemptsInTransit++;
             lastValidationDetail = errMessage(err);
             repairRejectedComplete = false;
             if (err !== null && typeof err === "object") {
@@ -3698,6 +3704,7 @@ export async function runJob<TPayload = unknown>(
           // was spent (it used to read "after 3 attempt(s)" for a single
           // provider-free attempt).
           const reusedArtifact = bull === null || bear === null;
+          lastJudgeInTransit = false;
           lastValidationDetail = reusedArtifact
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
@@ -3749,7 +3756,9 @@ export async function runJob<TPayload = unknown>(
       // "skipped" — same convention as the bull/bear-failure path.
       if (assembled === null) {
         const plainDetail = withPlainIssueList(lastValidationDetail);
-        const detail = lastJudgeFailureRetryable
+        const detail = lastJudgeInTransit
+          ? `judge request was cut off ${judgeAttemptsInTransit === judgeAttemptsSeen ? "on all" : "after"} ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeFailureRetryable
           ? `report failed schema validation after ${maxJudgeRetries + 1} attempt(s): ${plainDetail}`
           : `synthesize failed: ${plainDetail}`;
         finishStep(state, "synthesize", "error", detail);

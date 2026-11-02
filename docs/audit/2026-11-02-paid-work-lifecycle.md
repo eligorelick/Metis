@@ -14,7 +14,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | AI-110 | Fixed: rechecked deterministic fallback then fixed shell | Owning AI-110 commit | AI-110-red / AI-110-green | None |
 | AI-115 | Fixed: lifetime native OS runtime ownership | Owning AI-115 commit | AI-115-red / AI-115-green | None |
 | JOB-207 | Fixed: effective verification-generation provenance | Owning JOB-207 commit | JOB-207-red / JOB-207-green | Newly resumed reports only; no rewrite |
-| JOB-205 | Not started | — | — | None |
+| JOB-205 | Fixed: distinguish transport exhaustion from schema rejection | Owning JOB-205 commit | JOB-205-red / JOB-205-green | Newly persisted wording only |
 | JOB-214 | Not started | — | — | None |
 | JOB-215 | Not started | — | — | None |
 | PERF-202 | Not started | — | — | None |

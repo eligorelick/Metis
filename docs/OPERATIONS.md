@@ -436,3 +436,7 @@ before upgrading: older binaries use only the saved PID protocol.
 JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
 successful verification artifact, including its original capture time. It does
 not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.

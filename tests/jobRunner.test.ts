@@ -1956,6 +1956,17 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it("JOB-205 names exhausted dropped judge streams rather than schema validation", async () => {
+    const { jobId } = createJob("AAPL"); const { passes } = mockPasses();
+    let requests = 0;
+    passes.runJudgePass = async () => { requests++; throw Object.assign(new Error("stream cut off"), { kind: "transport", retryable: true }); };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 0 });
+    expect(requests).toBe(3);
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find(gap => gap.field === "llm.judge")?.reason).toMatch(/cut off.*3 attempt/);
+    expect(handle.db.select().from(costLog).all().map(row => row.costUsd)).toEqual([0.9, 0.47]);
+  });
+
   it("AI-110 persists a safe shell when enriched provider text fails the safety schema", async () => {
     const { jobId } = createJob("AAPL");
     const bundle = fakeBundle();
