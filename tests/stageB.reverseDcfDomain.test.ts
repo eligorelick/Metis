@@ -34,3 +34,11 @@ it("never publishes a growth-range bound from a negative-explicit-PV run (FIN-10
   }
   expect(result.notes.join(" ")).toMatch(/domain/);
 });
+
+it("publishes the OD-11 shifted margin family with the five-year ramp",()=>{
+  const a=assumptions();a.ebitMarginPath.value=[10,11,14,19,20,20,20,20,20,20];
+  const r=reverseDcf(runDcf(a,opts).perShare!*.97,a,opts);
+  expect(r.marginPathFamily).toBe("base-shift-to-terminal");
+  expect(r.impliedMarginPathPct?.[1]).toBeCloseTo(11+(r.impliedTerminalMarginPct!-20)*.25,8);
+  expect(r.impliedMarginPathPct?.[4]).toBeCloseTo(r.impliedTerminalMarginPct!,8);
+});

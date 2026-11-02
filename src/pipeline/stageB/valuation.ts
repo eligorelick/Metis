@@ -3375,6 +3375,8 @@ export function isStartingGrowthFamily(family: GrowthPathFamily | undefined): bo
 }
 
 export interface ReverseDcfResult {
+  marginPathFamily?: "base-shift-to-terminal";
+  impliedMarginPathPct?: number[] | null;
   method: "growth" | "margin" | "none";
   /** First-year growth (pct) on `growthPathFamily`, reaching the forward model's final rate. */
   impliedRevenueGrowthPct: number | null;
@@ -3613,7 +3615,7 @@ function reverseDcfCore(
     const [lo, hi] = REVERSE_MARGIN_RANGE_PCT;
     const m0 = assumptions.ebitMarginPath.value[0];
     const terminal = assumptions.ebitMarginPath.value[n - 1];
-    const weights = assumptions.ebitMarginPath.value.map((base, i) => terminal === m0 ? i / (n - 1) : (base - m0) / (terminal - m0));
+    const weights = assumptions.ebitMarginPath.value.map((_, i) => Math.min(1, i / Math.max(1, Math.min(MARGIN_FADE_YEARS, n) - 1)));
     const xs = [...new Set([...prescanGrid(lo, hi), ...(terminal >= lo && terminal <= hi ? [terminal] : [])])].sort((a,b) => a-b);
     const fM = (m: number): number | null => {
       const v = perShareAt({ ebitMarginPathPct: assumptions.ebitMarginPath.value.map((base, i) => base + (m - terminal) * weights[i]) });
@@ -3646,6 +3648,8 @@ function reverseDcfCore(
       `market-implied steady-state (terminal) EBIT margin, shifting the base margin path by the terminal-margin delta times its own fade weights (current ${fmtNum(m0)}% unchanged); growth path frozen at base case`,
     );
     return { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: root,
+      marginPathFamily: "base-shift-to-terminal",
+      impliedMarginPathPct: assumptions.ebitMarginPath.value.map((base, i) => base + (root - terminal) * weights[i]),
       growthPathFamily: "convergent-shift-to-terminal", baseRevenueGrowthPct: baseG1,
       impliedGrowthPathPct: null, notes, gaps };
   };
