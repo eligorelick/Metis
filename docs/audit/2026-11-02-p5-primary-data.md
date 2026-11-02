@@ -135,3 +135,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F1/B-F5 (AI-506) | Fixed: Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. | This commit | fixround-b1-b5-red / fixround-b1-b5-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F2/B-F3 (DATA-108) | Fixed: Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. | This commit | fixround-b2-b3-red / fixround-b2-b3-green | No persisted rewrite |

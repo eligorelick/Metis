@@ -33,3 +33,14 @@ import {withoutTocStubs} from "@/report/filingDisclosurePresentation";
 it("DATA-109 cleans legacy summary stubs while retaining real terms",()=>{
  expect(withoutTocStubs("Item 1.01: 3 Item 1.01: On February 26 the issuer signed. Item 8.01: 4")).toBe("Item 1.01: On February 26 the issuer signed.");
 });
+
+it("DATA-108 prose clause cross-reference cannot split the enclosing event",()=>{
+ const body="The Company previously disclosed Item 5.02 Appointment of Certain Officers matters, and on May 1, 2026 announced a $500 million buyback program.";
+ expect(splitEightKItems(`Item 8.01 Other Events. ${body}`)).toMatchObject([{item:"8.01",text:body}]);
+ expect(splitEightKItems(`Item 8.01 Other Events. ${body}`)).toHaveLength(1);
+});
+it("DATA-108 consumes consecutive same-title clauses before the operative body",()=>{
+ const body="On May 1, 2026, the Board appointed a new officer.";
+ expect(splitEightKItems(`Item 5.02 Election of Directors; Appointment of Certain Officers. ${body}`)).toMatchObject([{item:"5.02",text:body}]);
+ expect(splitEightKItems("Item 5.02 Appointment of Certain Officers\nOn May 1, 2026, the Board appointed a new officer.")).toMatchObject([{item:"5.02",text:body}]);
+});

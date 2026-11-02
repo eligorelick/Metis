@@ -3147,3 +3147,8 @@ Presentation-change notes name the actual disagreeing shared stated/implied wind
 ### D-next (P5): B-F1/B-F5 (AI-506) review correction
 
 Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. Coordinator decision: an unread earnings amount is not proof that none was stated. With no results release retained, release FCF, capital return and reconciliation rows are withheld too. D-112 retention now prioritizes non-dollar results classified by the expanded token; the four-record cap and final period order stay unchanged. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F2/B-F3 (DATA-108) review correction
+
+Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title. A prose cross-reference no longer invents Item 5.02 or takes the buyback out of Item 8.01. Combined title text no longer leaks into event summaries. Stored report bytes are unchanged.

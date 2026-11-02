@@ -1349,7 +1349,19 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     // Skip the official title as printed, up to its end or the first sentence start.
     let bodyStart = m.index + m[0].length;
     const printed = text.slice(bodyStart, bodyStart + title.length + 40);
-    const titleEnd = matchTitleEnd(printed, title);
+    let titleEnd = matchTitleEnd(printed, title);
+    // A clause-only heading may print several applicable official-title clauses.
+    if (title !== officialTitle && item !== "3.02") {
+      for (;;) {
+        const tail = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 240);
+        const separator = /^\s*;\s*/.exec(tail);
+        if (!separator) break;
+        const next = tail.slice(separator[0].length);
+        const clause = officialTitle.split(";").map(c=>c.trim()).find(c=>new RegExp(`^${c.split(/\s+/).slice(0,2).join("\\s+")}\\b`,"i").test(next));
+        if (!clause) break;
+        titleEnd += separator[0].length + matchTitleEnd(next,clause);
+      }
+    }
     const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
     const separator = /^\s*[.:–—-]+/.exec(following)?.[0].length ?? 0;
     const titleAt = bodyStart + titleEnd;
@@ -1357,6 +1369,7 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     // fallback would admit it. These spans exist only for an exact projection.
     if (tagText.some(([start, end]) => m.index < end && titleAt > start)) continue;
     const standaloneHeading = boundaries.has(m.index) && (boundaries.has(titleAt) || boundaries.has(titleAt + separator));
+    if (title !== officialTitle && item !== "3.02" && !standaloneHeading && !/^\s*(?:[.:]|$)/.test(following)) continue;
     if (!standaloneHeading) {
       const before = text.slice(Math.max(0, m.index - 120), m.index);
       if (/["“‘]\s*$/.test(before)) continue;

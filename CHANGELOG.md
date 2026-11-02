@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- B-F2/B-F3 (DATA-108): Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title.
+
 - B-F1/B-F5 (AI-506): Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs.
 
 - A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing.
