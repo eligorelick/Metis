@@ -3787,3 +3787,10 @@ standalone quarter under the existing house lineage rule. An incomplete or
 contradicted TTM CFO sum may use FY + current YTD - prior-year YTD, provided
 both YTD operands belong to the same current 10-Q. Disclose all operands and
 filings; infer no capex or standalone quarter.
+
+## D-next (N4b) - Lender display consistency (L5)
+
+Use the evidenced held-for-sale lender applicability decision for quarterly
+vendor gross margin and market-data provider EV. Omit gross margin and label
+provider EV not applicable with the lender reason. Preserve filed operating
+margins and the independent internal context-EV policy.

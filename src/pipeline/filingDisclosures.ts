@@ -730,7 +730,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   const trendFlags = { presentationChecked: false };
   const trend = quarterlyTrend(bundle, releases, currency, notes, trendFlags);
   if (cashFlowApplicability) {
-    for (const row of trend) row.freeCashFlow = null;
+    for (const row of trend) { row.freeCashFlow = null; row.grossMarginPct = null; }
     notes.push(cashFlowApplicability.reason);
   }
   const interim = segmentPrimarySection(bundle);

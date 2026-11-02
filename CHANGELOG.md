@@ -24,7 +24,8 @@ Quarterly income comparatives can establish a whole filed row without a
 comparative balance sheet. Conflicting vendor revenue is refused when a
 reconciled one-filing row is unavailable. Quarterly growth uses matched filed
 operands or discloses its refusal. Refuted quarterly CFO and dependent FCF
-are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Shared stamps and stored reports are unchanged.
+are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Evidenced
+lenders omit quarterly gross margin and mark provider EV not applicable. Shared stamps and stored reports are unchanged.
 
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 

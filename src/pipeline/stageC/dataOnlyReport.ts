@@ -948,7 +948,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
-  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps });
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps, cashFlowApplicability: computed.route?.cashFlowApplicability });
   if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild

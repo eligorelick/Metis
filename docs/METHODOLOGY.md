@@ -6435,6 +6435,11 @@ stated as Class X common shares or shares also block 1:1 admission.
 
 ## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
 
+N4b L5 applies the same evidenced-lender refusal to quarterly vendor gross
+margin and to the provider enterprise value in market data. The quarterly
+column is omitted and provider EV is marked not applicable with the filed
+lender reason; filed operating margins remain available.
+
 The general route has a narrow owner-FCF applicability exception. It requires
 SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
 retained primary 10-Q/10-K statement of cash flows explicitly reporting nonzero
