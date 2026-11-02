@@ -2816,6 +2816,11 @@ P/FFO and P/AFFO are computed from these figures. When the REIT sub-map is
 
 ### Forensic batteries by route
 
+N4b L8: The receivables-versus-revenue growth flag uses the same financial-
+forensics applicability predicate as Beneish M (including DSRI). When that
+predicate suppresses Beneish, the standalone receivables flag is also withheld
+with the same reason. Non-financial issuers retain the flag and thresholds.
+
 Piotroski (2000) built the F-score on non-financial firms; Altman excluded
 financial institutions from every Z-model estimation sample; Beneish (1999)
 excluded them from the M-score sample (p. 5). The routing layer honours those

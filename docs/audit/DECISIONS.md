@@ -3794,3 +3794,9 @@ Use the evidenced held-for-sale lender applicability decision for quarterly
 vendor gross margin and market-data provider EV. Omit gross margin and label
 provider EV not applicable with the lender reason. Preserve filed operating
 margins and the independent internal context-EV policy.
+
+## D-next (N4b) - Receivables forensic applicability (L8)
+
+Apply the exact financial-forensics predicate that withholds Beneish to the
+standalone receivables-versus-revenue flag, whose relation is also DSRI.
+Disclose the refusal reason; retain non-financial flags and thresholds.
