@@ -151,7 +151,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
 // D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
 // FIN-401 / FIN-401-V1 (B4b): equity-method income and its stake are valued once; older reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.56.0" as const;
+// 1.57.0 (D-156 to D-161, FIGR paid-run audit): deal terms, the newest operating update, outlook and governance
+// passages in evidence; filed operating-income, SBC, CFO and debt bases; usage over every recorded request; named
+// earnings-date confirmers; verifier readings of producer-declared names, intervals and release tables. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.57.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

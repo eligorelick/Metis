@@ -54,8 +54,9 @@ objects before every pre-existing byte/hash assertion. The intended-deltas
 fixture adds one R2 group: six newly added manifest slots and 21 reclassified
 paths affected by expense-gap insertion or disclosures. Each path belongs to
 one group; no baseline, stamp or unaffected amount is changed. Its parent
-D-138/D-155 references must be replaced by the integrator's final R2 decision
-numbers. The eight appended D-next (R2) decisions also await renumbering.
+D-138/D-155 references were replaced at integration by D-72 (withhold
+unsupported financial history) and D-159 (this batch). The eight appended R2
+decisions are numbered D-159.
 
 The first gate on bd26083d passed dependency checks, typecheck and lint, then failed only the exact tracked release-document allowlist: product 14,379 pass, 1 fail, 3 skipped, exit 1. The follow-up explicitly registers this requested audit record in that allowlist; figure implementation is unchanged. The failed receipt is preserved as r2-verify-first.
 

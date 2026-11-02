@@ -10082,12 +10082,12 @@
         "D-140",
         "D-141"
       ],
-      "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
+      "reason": "D-140 established workflow/source-scope conventions. the FIGR paid-run fixes advance the report to 1.57.0 (D-156 to D-161), after P0 M-1/M-2/L-2 moved it to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.56.0"
+          "after": "1.57.0"
         },
         {
           "path": "report.technicals.read.trend",
@@ -10121,27 +10121,27 @@
         "D-60",
         "D-65"
       ],
-      "reason": "FIN-401 / FIN-401-V1: the fair-value/scenario method stamps move with the corrected equity-method reading; the report 1.56.0 stamp delta is owned by the D-140/D-141 group, where P0 moved it first on integration. Review R-5: DEMO has no placement evidence, so its long-term-investment note keeps the prior wording without an undetermined-placement claim; every numeric valuation and score remains pinned. Only these five owned leaves are re-pinned. The raw audit:deltas command already differs at report.balanceSheet.coverage.commentary.1 and stageB.capital.current at eecd2703; the exact fixture test restores those two reviewed capex descriptions, so their pins remain unchanged; see docs/audit/2026-11-02-b4b-equity-bridge.md.",
+      "reason": "FIN-401 / FIN-401-V1: the fair-value/scenario method stamps move with the corrected equity-method reading, and again with the FIGR paid-run operating-income and SBC bases (D-159); the report 1.56.0 stamp delta is owned by the D-140/D-141 group, where P0 moved it first on integration. Review R-5: DEMO has no placement evidence, so its long-term-investment note keeps the prior wording without an undetermined-placement claim; every numeric valuation and score remains pinned. Only these five owned leaves are re-pinned. The raw audit:deltas command already differs at report.balanceSheet.coverage.commentary.1 and stageB.capital.current at eecd2703; the exact fixture test restores those two reviewed capex descriptions, so their pins remain unchanged; see docs/audit/2026-11-02-b4b-equity-bridge.md.",
       "deltas": [
         {
           "path": "report.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39"
+          "after": "FAIR_VALUE_2026_11_FIGR_PAID_AUDIT_40"
         },
         {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39"
+          "after": "SCENARIO_TARGETS_2026_11_FIGR_PAID_AUDIT_40"
         },
         {
           "path": "stageB.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39"
+          "after": "FAIR_VALUE_2026_11_FIGR_PAID_AUDIT_40"
         },
         {
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39"
+          "after": "SCENARIO_TARGETS_2026_11_FIGR_PAID_AUDIT_40"
         },
         {
           "path": "stageB.valuation.notes.7",
@@ -10383,7 +10383,7 @@
       "name": "R2 FIGR figure bases and timing",
       "decisions": [
         "D-72",
-        "D-155"
+        "D-159"
       ],
       "reason": "R2 (FIGR paid audit, trend operating expenses) as reviewed at integration. On this fixture every provider operating-expense amount bridges its row's gross profit to its operating income, so the amounts stay and the quarterly trend states their basis once: \"Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total.\" The delegate's first rule withheld every provider amount without a filed OperatingExpenses total (three annual subtotals here, 21 shifted manifest entries; 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots). The reviewed rule withholds only an amount that does not bridge (FIGR Q1 2026 once the filed operating income replaces the provider's pre-interest numerator) or a provider cell beside rows built from SEC filings in the trend. The path is the whole filing-disclosures block D-72 introduced (absent from the audited baseline; it was blessed under nvda-review-evidence-2026-10-16, which this regrouping retires); its only change here is that one basis note. No financial amount changes. The integrator replaces D-155 with the final R2 decision number.",
       "deltas": [

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.56.0** and
-payload **1.60.0** (including the FIG source-reconciliation and disclosure fixes and the P1/B4b equity-method repair). The
+Current source declares application **0.1.0**, report spec **1.57.0** and
+payload **1.61.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run audit fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are

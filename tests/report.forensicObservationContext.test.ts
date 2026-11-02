@@ -157,9 +157,14 @@ describe("retained forensic observation context on real data-only exports", () =
     // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
     // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
     // stamps and no value, so the hash is re-pinned for them alone.
-    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39");
-    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39");
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_FIGR_PAID_AUDIT_40");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_FIGR_PAID_AUDIT_40");
+    // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
+    // them so the pin keeps checking every value byte.
+    const restored = restoreP2ComputedGolden(computed);
+    restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
+    restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
-    expect(invariantHash(restoreP2ComputedGolden(computed))).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
+    expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
 });

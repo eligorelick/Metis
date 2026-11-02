@@ -461,7 +461,9 @@ export interface ContextPayload {
 // FIG report review: primary EPS/share refusals, dated guidance, estimate-period
 // and Form 4 venue scope. Accepted model work from earlier payloads is incompatible.
 // FIN-401 / FIN-401-V1 (B4b): corrected DCF operands and placement notes invalidate prior payload checkpoints.
-export const PAYLOAD_VERSION = "1.60.0" as const;
+// 1.61.0 (D-156, D-158, D-159, FIGR paid-run audit): transaction terms, the newest operating update, outlook statements,
+// governance passages, insider coverage, the aggregate P/E construction and filed figure bases alter admitted context.
+export const PAYLOAD_VERSION = "1.61.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

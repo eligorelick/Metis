@@ -132,8 +132,8 @@ $r5VerifyProcess.ProcessorAffinity = [IntPtr]15
 The final handback reports that full gate's exact result; targeted results alone
 are not the full verification gate. No push or PR is part of this task.
 
-The integrator renumbers the appended `D-next (R5)` decisions and applies the
-single shared batch stamp bump. No payload/report/prompt/Stage B version changed.
+At integration the appended R5 decisions were numbered D-160 and the single
+shared batch stamp bump was applied. No payload/report/prompt/Stage B version changed.
 Payload labels and registry ids are unchanged, so no intended-deltas fixture
 group or golden was edited. Display-label work can integrate separately.
 

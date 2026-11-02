@@ -3965,7 +3965,9 @@ year-to-date was filed no later than the total, with the operating statement
 reconciling as before (N3, D-151). A quarter built only from later comparatives
 (FIGR's Q4 2024) stays refused. Stored reports and shared stamps are unchanged.
 
-## D-next (R1) - 8-K transaction excerpts keep the deal's terms (2026-11-02)
+## D-156 - R1: FIGR paid-run evidence, dates and run accounting (2026-11-02)
+
+### D-156: 8-K transaction excerpts keep the deal's terms (2026-11-02)
 
 The paid FIGR report said the Kiavi acquisition's consideration was "not
 established". The completion 8-K stated "approximately $590 million" in cash,
@@ -3993,7 +3995,7 @@ agreement, keep 1,800 characters, as credit-support agreements do. The default
 is 1,200; the shared 8,600-character total still binds. Coverage version:
 `section-evidence-6/event`. Stored reports are unchanged.
 
-## D-next (R1) - The newest operating update has its own slot and excerpt (2026-11-02)
+### D-156: The newest operating update has its own slot and excerpt (2026-11-02)
 
 OD-10 and AI-506 kept results releases ahead of operating updates for the four
 retained slots. With four results releases on file, FIGR's October 7
@@ -4022,7 +4024,7 @@ sorted after the August 13 release ("Q2 FY2026", no date) and was dropped
 again. The retained slot, the kept text and the payload excerpt now share one
 rule (`updatesFiledAfterResults`). Release order itself is unchanged.
 
-## D-next (R1) - Unparsed issuer outlook statements reach the passes (2026-11-02)
+### D-156: Unparsed issuer outlook statements reach the passes (2026-11-02)
 
 An outlook statement the guidance parser cannot read is still the issuer's
 guidance. FIGR's releases print volume guidance as a table ("Q2 2026 Guidance
@@ -4034,7 +4036,7 @@ Each retained release's unparsed outlook statements now go to the passes, each
 with its accession, filing date and release period, outside the diagnostic
 cap. The old diagnostic form of these notes is no longer repeated.
 
-## D-next (R1) - A blank claim or number date is no date (2026-11-02)
+### D-156: A blank claim or number date is no date (2026-11-02)
 
 `asOf` on a claim or number is nullable, and null means no date. In the paid
 FIGR run, two claims sent `""`, and that rejected a whole bear case: 15,653
@@ -4042,7 +4044,7 @@ output tokens, $0.37. A blank date on a claim or number is now read as null. A
 malformed, non-blank date still fails. This follows the blank-`sourceId` rule
 (D-114).
 
-## D-next (R1) - The earnings-date qualifier names its confirming sources (2026-11-02)
+### D-156: The earnings-date qualifier names its confirming sources (2026-11-02)
 
 The qualifier "company confirmation not established" sat beside the model's own
 "a company newswire release … gives the same date". Under the
@@ -4051,7 +4053,7 @@ filing or a release hosted by the company does. That rule is unchanged. The
 qualifier now names those sources: "(FMP calendar estimate; not confirmed by an
 SEC filing or a company-hosted release)".
 
-## D-next (R1) - Usage counts every recorded request (2026-11-02)
+### D-156: Usage counts every recorded request (2026-11-02)
 
 The paid FIGR report showed "$4.712836 recorded API cost; 134,019 input /
 29,782 output tokens". The dollars covered all eight requests. The tokens
@@ -4067,7 +4069,7 @@ each pass's run-details line total those rows, with the number of requests and
 how many were discarded. Reports whose rows carry no tokens keep the earlier
 wording.
 
-## D-next (R4) - Analysis rules from the FIGR paid-run audit (2026-11-02)
+## D-157 - R4: analysis rules from the FIGR paid-run audit (2026-11-02)
 
 Two independent reviews of the paid FIGR report found reasoning slips that
 instructions can prevent. The analysts' and the judge's reconciliation rules
@@ -4105,7 +4107,9 @@ citation.
 PIPELINE_VERSION moves to stage-c-1.6.19. These rules change what the model is
 asked to do; only a later paid run can show their effect.
 
-## D-next (R6) - Preserve filed voting control independently of economic rights
+## D-158 - R6: FIGR voting control, P/E earnings construction and insider coverage (2026-11-02)
+
+### D-158: Preserve filed voting control independently of economic rights
 
 B-05: financial materiality selection omitted the paid snapshot's explicit
 votes-per-share, named control and controlled-company risk-factor passages.
@@ -4120,7 +4124,7 @@ regulatory ownership threshold in a licensing change-of-control rule brought
 unrelated licensing passages into FIGR's excerpt (integration review). Fictional long-section
 and missing-rights cases cover admission. Shared versions remain for integration.
 
-## D-next (R6) - Show the selected aggregate P/E earnings construction
+### D-158: Show the selected aggregate P/E earnings construction
 
 B-09: the selected denominator was correct but did not accompany the displayed
 multiple. Carry the admitted TTM common-income quarters out of the same
@@ -4133,7 +4137,7 @@ convention, its participating-security limitation and no second preferred/NCI
 deduction. An annual fallback is identified as annual, with no fabricated
 quarter trail. Fictional route tests inspect payload and all three report surfaces.
 
-## D-next (R6) - Bound insider coverage and distinguish proposed from executed sales
+### D-158: Bound insider coverage and distinguish proposed from executed sales
 
 B-21: completed-quarter statistics and later individual rows were not joined
 by an explicit coverage statement. The statement is one citable figure ("Insider
@@ -4148,7 +4152,9 @@ unreviewed. Trading-plan capacity and proposed sales are not executed sales.
 Fictional tests cover filing versus transaction dates, non-Form-4 exclusion,
 post-window counts, missing dates and citable coverage.
 
-## D-next (R2) - Paired operating-income and revenue bases
+## D-159 - R2: FIGR figure bases and timing (2026-11-02)
+
+### D-159: Paired operating-income and revenue bases
 
 The margin bug retained a provider pre-interest numerator after canonical
 revenue admission. Before trend, annual fundamentals and TTM calculations,
@@ -4158,7 +4164,7 @@ income and margins with a dated explanation; preserve the frozen/raw input.
 Provider-only pairs retain their provider basis. Tests: F05 in
 `tests/r2.figrFigures.test.ts`, including annual, TTM and incompatible evidence.
 
-## D-next (R2) - Filed cash-flow SBC and contradicted zero quarters
+### D-159: Filed cash-flow SBC and contradicted zero quarters
 
 A zero provider SBC quarter is an observation, not proof of zero compensation.
 Refuse it when compatible ShareBasedCompensation operands contradict it,
@@ -4169,7 +4175,7 @@ Label this cash-flow add-back basis, separate from allocated GAAP SBC expense.
 No standalone quarter or capex is inferred from a trailing identity.
 Tests: F04 in `tests/r2.figrFigures.test.ts`.
 
-## D-next (R2) - Provider debt perimeter and filed borrowings
+### D-159: Provider debt perimeter and filed borrowings
 
 Keep the lender context-EV arithmetic. Where filed same-date balance-sheet
 components reconcile to the retained provider total, label the perimeter as
@@ -4180,7 +4186,7 @@ filing. Do not present inventory funding as all corporate borrowing, and do
 not reinstate industrial leverage/coverage measures. Test: B12 in
 `tests/r2.figrFigures.test.ts`.
 
-## D-next (R2) - Lender P/TBV applicability
+### D-159: Lender P/TBV applicability
 
 P/TBV is applicable for the evidenced held-for-sale lender route because the
 methodology reads tangible common equity against ROTE. Keep the existing
@@ -4189,7 +4195,7 @@ Unavailable/negative tangible equity withholds the value, not route
 applicability. No treatment of servicing financial assets changes. Test: B13
 in `tests/r2.figrFigures.test.ts`.
 
-## D-next (R2) - Dated short-interest float denominator
+### D-159: Dated short-interest float denominator
 
 A ratio of FINRA settled short shares to vendor float is derived. Key-data
 and market-table displays state both settlement and float observation dates,
@@ -4197,7 +4203,7 @@ including a later float date, and never imply FINRA published the percentage.
 Existing comparability/unknown-measurement refusals remain. Test: F23 in
 `tests/r2.figrFigures.test.ts`.
 
-## D-next (R2) - Estimate observation as-of
+### D-159: Estimate observation as-of
 
 Estimate figure and numeric registry asOf use the retained validated
 observation UTC day, using the existing estimate timing roles. Preserve the
@@ -4209,7 +4215,7 @@ figure date (including the malformed-reference control); underlying rows,
 amounts and saved market-data metadata remain unchanged. Tests:
 `tests/estimateTiming.integration.test.ts` and the R2 estimate regression.
 
-## D-next (R2) - Filed trailing CFO duration and operands
+### D-159: Filed trailing CFO duration and operands
 
 The CFO amount was correct but its registry period did not match the report's
 explicit trailing duration. Register the exact rolling-12-month context and
@@ -4218,7 +4224,7 @@ filing identity. A duration spelling gap must not make this known calculation
 untraced; provenance matching remains exact. Test: the R2 filed TTM CFO
 regression exercises matchProvenanceRecord with the report's interval.
 
-## D-next (R2) - Complete operating-expense subtotal
+### D-159: Complete operating-expense subtotal
 
 The quarterly trend may show Operating expenses only with a complete direct
 OperatingExpenses tag on the revenue's filed basis. Unproved provider expense
@@ -4241,8 +4247,9 @@ built from SEC filings are withheld with one note, and otherwise one note
 states the provider basis. The trend notes only the quarterly rows it shows.
 Tests: `tests/r2.operatingExpenseReview.test.ts`.
 
+## D-160 - R5: FIGR verifier false negatives (2026-11-02)
 
-## D-next (R5) - Producer-bound numeric prose readings
+### D-160: Producer-bound numeric prose readings
 
 The frozen paid FIGR report contained correct scores, completeness fractions,
 negative tax expense, signed cash flows and the financial Piotroski variant
@@ -4258,7 +4265,7 @@ These are numeric-only matches; no surrounding proposition is certified.
 Record ids and payload labels stay unchanged, so no golden/intended-deltas or
 shared stamp change is needed. Tests: stageC.claimEvidence.figr.test.ts.
 
-## D-next (R5) - Complete registered intervals on traced figures
+### D-160: Complete registered intervals on traced figures
 
 A printed start-to-end interval is the registered interval only when both
 ordered, calendar-valid endpoints agree with the explicit period string or a
@@ -4269,7 +4276,7 @@ FIGR's TTM CFO and four-calendar-quarter insider count figures. It does not
 infer a fiscal label or duration from an end date. Tests: R5 FIGR sweep,
 accepts only the complete ordered registered interval on a traced figure.
 
-## D-next (R5) - Same-row excerpt comparisons and explicit support scope
+### D-160: Same-row excerpt comparisons and explicit support scope
 
 FIGR's release prints Q2/Q2/6M-YTD/6M-YTD headers, repeated years, then two YoY
 columns. Admit only the complete layout and exact row width, keep the header's
@@ -4287,8 +4294,7 @@ unchecked control, including reversed figures. Other unresolved excerpt
 paraphrases remain disclosed in the R5 sweep. Tests:
 stageC.claimEvidence.figrExcerpt.test.ts and the existing verifier refusal suite.
 
-
-## D-next (R5) - Quarter-header scale conflict safeguard
+### D-160: Quarter-header scale conflict safeguard
 
 Final review found the new quarter header's declared scale could override a
 conflicting later parenthetical scale, making 4,259 look like 4.259 billion
@@ -4299,8 +4305,7 @@ of a conflicting header. This closes an introduced acceptance before handback;
 the paid FIGR replay counts are unchanged. Evidence: r5-scale-conflict-red /
 r5-scale-conflict-green (15 files, 2,464 tests).
 
-
-## D-next (R5) - Preserve generic forensic score unit refusals
+### D-160: Preserve generic forensic score unit refusals
 
 The complete product gate caught one over-broad score-unit reading introduced
 by R5: a bare Beneish score became numerically validated despite the existing
@@ -4310,7 +4315,9 @@ House score claims still state their 0-100 scale. The existing Beneish refusal
 is unchanged. Expanded targeted evidence: r5-score-scope-green (16 files, 2,469
 tests); r5-score-scope-replay keeps the paid before/after counts unchanged.
 
-## D-next (R3) - Reader conventions and portable audit companions
+## D-161 - R3: FIGR report readability (2026-11-02)
+
+### D-161: Reader conventions and portable audit companions
 
 Render the recorded lender explanation once in Fundamentals under Lender
 conventions, with metric-specific short references elsewhere. Preserve full
@@ -4319,7 +4326,7 @@ Downloadable report exports name the companion using the export route's
 basename; app controls keep API links. Read-time display only: retain stored
 rows, claims, verification status, numeric values and all shared stamps.
 
-## D-next (R3) - Route-aware captions, labels and notes
+### D-161: Route-aware captions, labels and notes
 
 Define only visible metrics. Label the latest eight available quarters and
 name interior missing quarters without filling refused rows. Replace empty
@@ -4344,7 +4351,7 @@ quarter is shown; only the remaining notes are management guidance notes.
 Tests: `tests/report.noModelScenarioConditions.test.ts`,
 `tests/report.trendNotePlacement.test.ts`.
 
-## D-next (R3) - Print table integrity
+### D-161: Print table integrity
 
 Wrap descriptions at spaces and prevent breaks within dates, amounts/units and
 percentages. Split tables wider than six columns with repeated identifiers;
