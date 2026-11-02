@@ -1,5 +1,5 @@
 import { reverseDcfValueText } from "@/report/presentation";
-import { macroDisplayRows } from "@/report/presentation";
+import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { displayedProvenanceCoverage } from "@/report/presentation";
@@ -45,13 +45,16 @@ import {
   gapSummary,
   geographyLabel,
   geographicBasisNote,
+  cashFlowGroupHeading,
   indicatorLabel,
   keyDataRows,
+  technicalsFigureLabel,
   methodologyNotes,
   metricRowsWithoutTabled,
   moatSourceLabel,
   passLine,
-  priceTiming,
+  provisionalBarNote,
+  provisionalSessionBar,
   pruneTable,
   qualityAccrualClarifications,
   reportIdentityNote,
@@ -144,6 +147,7 @@ import { CapitalBridge } from "./CapitalBridge";
 import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
 
 import {
   ClaimList,
@@ -692,6 +696,9 @@ function MetricRowsTable({ rows }: { rows: readonly MetricRow[] }) {
   );
 }
 
+/** Sub-block labels are lower-case; acronyms after the first word keep their case. */
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
+
 export function FundamentalsSection({
   fundamentals,
   sourceFactSummary,
@@ -731,7 +738,7 @@ export function FundamentalsSection({
           { label: "growth", split: metricRowsWithoutTabled(report, fundamentals.growthTable) },
           { label: "margin trend", split: metricRowsWithoutTabled(report, fundamentals.marginTrend) },
           { label: "returns", split: metricRowsWithoutTabled(report, fundamentals.returns) },
-          { label: "free cash flow", split: metricRowsWithoutTabled(report, fundamentals.fcf) },
+          { label: lowerFirst(cashFlowGroupHeading(fundamentals.fcf)), split: metricRowsWithoutTabled(report, fundamentals.fcf) },
         ];
         const homes = [...new Set(groups.flatMap((group) => group.split.homes))];
         const also = seeAlsoText(homes);
@@ -1353,6 +1360,7 @@ export function TechnicalsSection({
   chart?: ReactNode;
 }) {
   const read = technicals.read;
+  const bar = report ? provisionalSessionBar(report) : null;
   const readRows: Array<{ label: string; value: string }> = [
     { label: "trend", value: read.trend },
     { label: "momentum", value: read.momentum },
@@ -1366,8 +1374,10 @@ export function TechnicalsSection({
         block={technicals.graded}
         defaultOpen={openReasoning}
         report={report ?? {}}
+        labelFor={(n) => technicalsFigureLabel(n, bar)}
         {...grading}
       />
+      {bar && <p className="text-[11px] text-muted">{provisionalBarNote(bar)}</p>}
 
       {chart !== undefined && (
         <div className="border border-edge bg-bg">{chart}</div>
@@ -1393,7 +1403,7 @@ export function TechnicalsSection({
             {figureRows(technicals.indicators).map((row, i) => (
               <TracedStat
                 key={i}
-                label={indicatorLabel(row.trace, report ? priceTiming(report) : { intraday: false, detail: null })}
+                label={indicatorLabel(row.trace, bar)}
                 n={row.trace}
               />
             ))}
@@ -1457,7 +1467,7 @@ function ExecutiveCard({ exec }: { exec: Executive }) {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
-        {exec.assessmentReason && <p className="text-[11px] text-muted">{displayProse(exec.assessmentReason)}</p>}
+        {executiveAssessmentNote(exec) && <p className="text-[11px] text-muted">{displayProse(executiveAssessmentNote(exec)!)}</p>}
         <ClaimList claims={exec.reasoning} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
           descriptor,
@@ -1897,7 +1907,7 @@ export function OutlookSection({
  * ======================================================================== */
 
 export function MacroSection({ macro, index }: { macro: Macro; index: number }) {
-  const cols: Column<Macro["relevantSeries"][number]>[] = [
+  const cols: Column<MacroDisplayRow>[] = [
     {
       key: "id",
       header: "series",
@@ -1913,6 +1923,11 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
       header: "latest",
       align: "right",
       render: (s) => <TracedFigure n={s.latest} className="text-[11px]" />,
+    },
+    {
+      key: "observation",
+      header: "observation",
+      render: (s) => <span className="mono text-[10px] text-muted">{s.observation}</span>,
     },
     {
       key: "rel",

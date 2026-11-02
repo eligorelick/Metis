@@ -107,12 +107,15 @@ import {
   gapSummary,
   geographyLabel,
   geographicBasisNote,
+  cashFlowGroupHeading,
   indicatorLabel,
   keyDataRows,
+  technicalsFigureLabel,
   methodologyNotes,
   moatHeading,
   passLine,
-  priceTiming,
+  provisionalBarNote,
+  provisionalSessionBar,
   pruneTable,
   reverseDcfValueText,
   runSummary,
@@ -154,8 +157,9 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
@@ -262,6 +266,8 @@ function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): strin
 interface GradeContext {
   aspect?: AspectEvidence | null;
   completeness?: ReportCompletenessPresentation;
+  /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
+  labelFor?: (n: TracedNumber) => string | undefined;
 }
 
 function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"], completeness: ReportCompletenessPresentation): GradeContext {
@@ -277,11 +283,11 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `_${prose(block.oneLineWhy)}_`,
   ];
   if (block.interpretation) lines.push("", prose(block.interpretation));
-  const contractText = gradeContractText(block);
+  const contractText = readerGradeContractText(block);
   if (contractText) lines.push("", prose(contractText));
   if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
-  const numbers = figureTable(figureRows(kept, seen));
+  const numbers = figureTable(figureRows(kept, seen).map((row) => ({ ...row, label: ctx.labelFor?.(row.trace) ?? row.label })));
   if (numbers) lines.push("", "Key numbers:", "", numbers);
   const also = seeAlsoText(homes);
   if (also) lines.push("", `_${markdownProse(also)}_`);
@@ -473,7 +479,7 @@ function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra:
   metricGroup("### Growth", f.growthTable);
   metricGroup("### Margin trend", f.marginTrend);
   metricGroup("### Returns", f.returns);
-  metricGroup("### Free cash flow", f.fcf);
+  metricGroup(`### ${cashFlowGroupHeading(f.fcf)}`, f.fcf);
   const also = seeAlsoText(homes);
   if (also) lines.push(`_${markdownProse(also)}_`, "");
   lines.push(...auditTableBlocks(extra));
@@ -716,10 +722,11 @@ function renderQuality(q: Quality, ctx: GradeContext = {}): string {
 
 function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   const t: Technicals = report.technicals;
-  const timing = priceTiming(report);
+  const bar = provisionalSessionBar(report);
   const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("technicals"), ""];
-  lines.push(gradeBlock("Technicals", t.graded, seen, {}, ctx), "");
+  lines.push(gradeBlock("Technicals", t.graded, seen, {}, { ...ctx, labelFor: (n) => technicalsFigureLabel(n, bar) }), "");
+  if (bar) lines.push(`_${markdownProse(provisionalBarNote(bar))}_`, "");
   lines.push(
     "### Structured read",
     "",
@@ -729,7 +736,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
     `- **Relative strength:** ${item(t.read.relativeStrength)}`,
     "",
   );
-  const indicators = figureTable(figureRows(t.indicators.map((n) => n), seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
+  const indicators = figureTable(figureRows(t.indicators.map((n) => n), seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, bar) })), "Indicator");
   lines.push(...subsection("### Indicators", indicators));
   if (t.flags.length > 0) {
     lines.push("### Flags", "", table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])));
@@ -751,7 +758,8 @@ function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures
       "",
     );
     if (e.reasoning.length > 0) lines.push(claimList(e.reasoning), "");
-    if (e.assessmentReason) lines.push(prose(e.assessmentReason), "");
+    const reason = executiveAssessmentNote(e);
+    if (reason) lines.push(prose(reason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
       const claims = e.evidence[descriptor.key];
       if (!claims || claims.length === 0) continue;
@@ -884,7 +892,7 @@ function renderMacro(m: Macro): string {
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
-      macroDisplayRows(m).map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
+      macroDisplayRows(m).map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.observation, displayProse(s.relevance)]),
     ),
     "",
   );

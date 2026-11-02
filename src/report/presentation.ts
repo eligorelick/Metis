@@ -6,7 +6,7 @@ import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTimin
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
-import { readerBaseUnits, readerConventionText } from "@/report/readerConventions";
+import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -40,6 +40,8 @@ export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
 import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import { inProgressUsSessionDate } from "@/providers/usSession";
 import {
   decimalRound,
   formatCostUsd,
@@ -58,6 +60,7 @@ import {
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import type {
+  MetricRow,
   MoatAssessment,
   ProvenanceCoverage,
   Report,
@@ -238,7 +241,8 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.capital-cash.capex-d-a-latest": "Capex / D&A (latest fiscal year)",
   "computed.capital-cash.capex-revenue-latest": "Capex as % of revenue (latest fiscal year)",
   "computed.capital-cash.capex-revenue-slope": "Capex-to-revenue slope",
-  "computed.capital-cash.sbc-revenue": "SBC as % of revenue",
+  // FIGR extra-high audit A2-02: the ratio divides the cash-flow add-back, not allocated SBC expense.
+  "computed.capital-cash.sbc-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
   "computed.returns.roe-latest-dupont": "ROE (DuPont, latest fiscal year)",
   "computed.valuation.p-e-common-income-denominator": "P/E common-income denominator (TTM)",
   "computed.comparable-peers.market-cap-ttm-common-earnings-eligible-peer-count-after-filtering": "Eligible peers for market cap / TTM common earnings (after screening)",
@@ -728,7 +732,7 @@ export function executiveGroups(executives: readonly ExecutiveRecord[]): Executi
   const assessed = executives.filter((e) => !notAssessed.includes(e));
   const byReason = new Map<string, ExecutiveRecord[]>();
   for (const e of notAssessed) {
-    const reason = e.assessmentReason?.trim() ?? "";
+    const reason = executiveAssessmentNote(e) ?? "";
     byReason.set(reason, [...(byReason.get(reason) ?? []), e]);
   }
   const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
@@ -771,10 +775,69 @@ export function geographicBasisNote(rows: readonly { revenue: TracedNumber }[]):
     rows.every(row => row.revenue.source === first.source && row.revenue.verificationNote === note) ? note : null;
 }
 
-/** A technical indicator's label, naming an intraday quote "latest price" rather than "last close". */
-export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; detail: string | null }): string {
-  if (n.source === "computed.technicals.last-close" && timing.intraday) return `Latest price (${timing.detail})`;
-  return metricLabel(n.source, n.unit);
+/** A daily bar from a US session that was still open when the subject's price history was fetched. */
+export interface ProvisionalSessionBar { date: string; fetchedAt: string; clock: string }
+
+/** Is this appendix source the subject's own daily price history (FMP end-of-day or Yahoo chart)? */
+function isDailyHistoryFor(source: Report["appendix"]["sources"][number], symbol: string): boolean {
+  const same = (value: string) => {
+    let decoded = value;
+    try { decoded = decodeURIComponent(value); } catch { /* keep the raw text */ }
+    return decoded.toUpperCase().replace(/-/g, ".") === symbol.replace(/-/g, ".");
+  };
+  if (source.provider === "fmp" && /^\/(?:stable\/historical-price-eod\/|api\/v3\/historical-price-full\/)/.test(source.endpoint)) {
+    const query = /[?&]symbol=([^&\s]+)/.exec(source.endpoint)?.[1] ?? /historical-price-full\/([^?\s/]+)/.exec(source.endpoint)?.[1];
+    return query !== undefined && same(query);
+  }
+  if (source.provider === "yahoo") {
+    const path = /^\/v8\/finance\/chart\/([^?\s/]+)/.exec(source.endpoint)?.[1];
+    return path !== undefined && same(path);
+  }
+  return false;
+}
+
+/**
+ * FIGR extra-high audit B2-17 (2026-11-02): a daily price history fetched while
+ * a session is open can end in that session's still-forming bar, and reports
+ * built before Stage B began excluding it call that bar's latest trade the
+ * "last close". The bar is provisional when the technicals' last close is
+ * dated on the session in progress when the subject's daily history was
+ * fetched (or, when no history fetch is recorded, when the quote was taken).
+ */
+export function provisionalSessionBar(report: Pick<Report, "meta" | "technicals"> & { appendix?: Pick<Report["appendix"], "sources"> }): ProvisionalSessionBar | null {
+  const lastClose = [...report.technicals.graded.keyNumbers, ...report.technicals.indicators].find((n) => n.source === "computed.technicals.last-close");
+  if (!lastClose?.asOf) return null;
+  const symbol = report.meta.symbol.toUpperCase();
+  const history = (report.appendix?.sources ?? []).filter((s) => isDailyHistoryFor(s, symbol)).map((s) => s.fetchedAt);
+  const quote = report.meta.evidenceTiming?.quote;
+  const candidates = history.length > 0 ? history : [quote?.acquiredAt ?? quote?.observedAt ?? null];
+  const fetchedAt = candidates.find((at): at is string => typeof at === "string" && inProgressUsSessionDate(at) === lastClose.asOf);
+  const clock = fetchedAt === undefined ? null : newYorkClock(fetchedAt);
+  return fetchedAt === undefined || clock === null ? null : { date: lastClose.asOf, fetchedAt, clock: clock.hhmm };
+}
+
+/** The reader label for a last close that is really a still-forming session bar. */
+export function provisionalBarLabel(bar: ProvisionalSessionBar): string {
+  return `Price in the unfinished ${bar.date} session (fetched ${bar.clock} ET)`;
+}
+
+/** The technicals note that keeps the session status beside every level read from that bar. */
+export function provisionalBarNote(bar: ProvisionalSessionBar): string {
+  return `Price-history timing: the daily price history was fetched at ${bar.clock} ET on ${bar.date}, while that session was still open, so its ${bar.date} bar is unfinished. The price this section calls the last close is the latest trade at fetch time, not a settled closing price, and the moving averages, RSI, 52-week range and drawdown include that partial session.`;
+}
+
+/** A technicals figure's label: the last close of an unfinished session is named as such. */
+export function technicalsFigureLabel(n: TracedNumber, bar: ProvisionalSessionBar | null): string | undefined {
+  return bar !== null && n.source === "computed.technicals.last-close" && n.asOf === bar.date ? provisionalBarLabel(bar) : undefined;
+}
+
+/**
+ * A technical indicator's label. The last close comes from the daily bars, not
+ * from the quote: an intraday quote time says nothing about whether that bar
+ * was settled (after the admission fix it is the previous session's close).
+ */
+export function indicatorLabel(n: TracedNumber, bar: ProvisionalSessionBar | null): string {
+  return technicalsFigureLabel(n, bar) ?? metricLabel(n.source, n.unit);
 }
 
 /** The reverse-DCF implied value with the unit its metric names. */
@@ -905,8 +968,14 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const timing = priceTiming(report);
   const price = md?.quote?.price ?? priceTrace?.value ?? null;
   const priceAsOf = md?.quote ? md.quote.asOf : priceTrace?.asOf ?? null;
+  // The quote's observation time names a quote. Without one the box falls back to
+  // the technicals' last close, which is named by its own daily bar (B2-17).
+  const fromLastClose = md?.quote?.price == null && priceTrace?.source === "computed.technicals.last-close";
+  const priceLabel = fromLastClose
+    ? technicalsFigureLabel(priceTrace!, provisionalSessionBar(report)) ?? "Last close"
+    : `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`;
   if (price !== null) {
-    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
+    rows.push({ label: priceLabel, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
   }
   const quoteRange = md?.quote?.yearHigh != null && md.quote.yearLow != null;
   const high = quoteRange ? md!.quote!.yearHigh : firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
@@ -1905,10 +1974,13 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
  * every table: what the grades, targets, weights, projections, citations and
  * forensic screens are and are not.
  */
-export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix">>): string[] {
+export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix" | "fairValue">>): string[] {
   const notes = [
     "Grades and the composite score are deterministic house rules (bands, weights and signal transforms published in docs/METHODOLOGY.md). They have not been backtested against outcomes; a grade is a summary of the evidence shown, not a forecast.",
-    "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
+    // FIGR extra-high audit B2-19: do not describe model outputs a route does not produce.
+    unavailableCashFlowModel(report)
+      ? "This report models no intrinsic value, scenario value or projection (see Valuation). Its scenarios are qualitative conditions, not price targets, guidance, predictions or probabilities."
+      : "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
     "FACT, ESTIMATE and JUDGMENT labels mark what a statement is. A citation shows where a figure came from; it is a provenance check, not proof that a sentence's interpretation is correct.",
     "Forensic screens (Altman, Beneish, Piotroski, accruals) flag items to investigate. A flag is not a finding of misstatement, and a clean screen is not an audit.",
     "Peer, own-history and consensus comparisons are shown only where enough comparable observations exist; a dash means the comparison was withheld, not that it is neutral.",
@@ -1927,6 +1999,19 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
 export function auditExportPath(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
   const id = presentationReportId(report,context);
   return typeof id === "number" && Number.isSafeInteger(id) ? `/api/export/${id}?format=audit` : null;
+}
+
+/**
+ * FIGR extra-high audit B2-19: the fundamentals cash-flow group is headed
+ * "Free cash flow" only when it holds a free-cash-flow measure. A lender's
+ * group holds operating cash flow and SBC observations, which are not FCF.
+ */
+export function cashFlowGroupHeading(rows: readonly MetricRow[]): string {
+  const sources = (row: MetricRow) => row.values.map((v) => v.value.sourceId ?? v.value.source);
+  if (rows.length === 0 || rows.some((row) => /free cash flow|\bfcf\b/i.test(row.label) || sources(row).some((s) => /(?:^|[.-])fcf(?:$|[.-])|free-cash-flow/i.test(s)))) return "Free cash flow";
+  const ocf = rows.some((row) => /operating cash flow/i.test(row.label));
+  const sbc = rows.some((row) => /stock-based compensation|\bSBC\b/i.test(row.label));
+  return ocf && sbc ? "Operating cash flow and SBC observations" : "Cash flow observations";
 }
 
 /** Same basename as the download route, usable after the report leaves the app. */
@@ -2125,12 +2210,43 @@ export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appen
 }
 
 /** AI-201: merge identical stored macro rows without altering the record. */
-export function macroDisplayRows(macro: Report["macro"]): Report["macro"]["relevantSeries"] {
-  const rows: Report["macro"]["relevantSeries"] = [];
+/**
+ * FIGR extra-high audit A2-26 (2026-11-02): the pipeline fetches these FRED
+ * series as transforms (CPI as year-over-year %, payrolls as a monthly change),
+ * but the model names the row, and "Core consumer price index ... 2.6%" read as
+ * an index level. Transformed rows take a fixed name for what is measured.
+ */
+const MACRO_TRANSFORM_NAMES: Readonly<Record<string, { unit: RegExp; name: string }>> = {
+  CPIAUCSL: { unit: /^%$|percent/i, name: "CPI inflation (all items), year over year" },
+  CPILFESL: { unit: /^%$|percent/i, name: "Core CPI inflation (excluding food and energy), year over year" },
+  PAYEMS: { unit: /thousand/i, name: "Nonfarm payrolls, monthly change" },
+};
+
+/** FRED keys monthly and quarterly observations to the period's first day; that date is not a release date. */
+const MONTHLY_MACRO_SERIES = new Set(["CPIAUCSL", "CPILFESL", "UNRATE", "PAYEMS", "FEDFUNDS", "CPIMEDSL", "CES6562000001", "INDPRO", "IPUTIL",
+  "PPIACO", "WPU101", "PCOPPUSDM", "RSAFS", "UMCSENT", "TOTALSA", "PCEDG", "PCE", "PCEND", "HOUST", "CSUSHPINSA", "CUSR0000SEHA",
+  "APU000072610", "DGORDER", "TSIFRGHT"]);
+const QUARTERLY_MACRO_SERIES = new Set(["DRTSCILM"]);
+const MONTH_ABBREVIATIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The observation period a macro row's date stands for: "Sep 2026", "Q3 2026" or the date itself. */
+export function macroObservationLabel(seriesId: string, asOf: string | null): string {
+  if (asOf === null) return "—";
+  const m = /^(\d{4})-(\d{2})-01$/.exec(asOf);
+  if (m && MONTHLY_MACRO_SERIES.has(seriesId)) return `${MONTH_ABBREVIATIONS[Number(m[2]) - 1]} ${m[1]}`;
+  if (m && QUARTERLY_MACRO_SERIES.has(seriesId) && ["01", "04", "07", "10"].includes(m[2]!)) return `Q${(Number(m[2]) + 2) / 3} ${m[1]}`;
+  return asOf;
+}
+
+export type MacroDisplayRow = Report["macro"]["relevantSeries"][number] & { observation: string };
+
+export function macroDisplayRows(macro: Report["macro"]): MacroDisplayRow[] {
+  const rows: MacroDisplayRow[] = [];
   for (const row of macro.relevantSeries) {
     const existing = rows.find(r => r.seriesId === row.seriesId && r.latest.unit === row.latest.unit && r.latest.value === row.latest.value && r.latest.asOf === row.latest.asOf);
-    if (existing) { if (!existing.relevance.includes(row.relevance)) existing.relevance += ` ${row.relevance}`; }
-    else rows.push({ ...row });
+    if (existing) { if (!existing.relevance.includes(row.relevance)) existing.relevance += ` ${row.relevance}`; continue; }
+    const transform = MACRO_TRANSFORM_NAMES[row.seriesId];
+    rows.push({ ...row, name: transform && transform.unit.test(row.latest.unit) ? transform.name : row.name, observation: macroObservationLabel(row.seriesId, row.latest.asOf) });
   }
   return rows;
 }

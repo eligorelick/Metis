@@ -147,11 +147,12 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       missingQuarterNote(trendRows.map(r => r.periodEnd)),
       trendRows.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
-      ...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])),
-      ...builderNotes,
+      ...readerTrendNotes([...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])), ...builderNotes]),
     ].filter((n) => n !== "");
     tables.push({
-      heading: "Quarterly trend (latest eight available quarters)",
+      // FIGR extra-high audit B2-20: the caption counts the quarters shown
+      // (seven when two quarters inside the window are missing).
+      heading: `Quarterly trend (latest ${countWord(trendRows.length)} available ${trendRows.length === 1 ? "quarter" : "quarters"})`,
       headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
       rows: trendRows.map((r) => [
         r.periodEnd,
@@ -203,6 +204,50 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   }
   tables.push(...issuerReconciliationTables(d));
   return tables;
+}
+
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+function countWord(n: number): string {
+  return COUNT_WORDS[n] ?? String(n);
+}
+
+/* FIGR extra-high audit B2-18: one row's derivation per growth cell and per
+ * derived cash-flow quarter made the trend note run to hundreds of words. The
+ * reader gets one sentence for each kind; the audit export keeps every one. */
+const GROWTH_DERIVATION = /^(?:YoY|QoQ) at \d{4}-\d{2}-\d{2} uses filed revenue [^;]+; no vendor operand enters the rate\.$/;
+const CASH_FLOW_DERIVATION = /^Quarterly operating cash flow for (\d{4}-\d{2}-\d{2}) is derived \([^)]*\) from cumulative filed operands across filings: ([\s\S]*?)\. The canonical filing-lineage rule admits this derivation; it is not a directly filed standalone quarter\.$/;
+
+function dateList(dates: readonly string[]): string {
+  return dates.length <= 1 ? dates.join("") : `${dates.slice(0, -1).join(", ")} and ${dates.at(-1)}`;
+}
+
+/** Trend notes for readers: per-cell derivations summarized, every other note kept in order. */
+function readerTrendNotes(notes: readonly string[]): string[] {
+  const derived = notes.flatMap((note) => {
+    const m = CASH_FLOW_DERIVATION.exec(note);
+    // N4b: each derived quarter keeps the filings it comes from (filing dates stay in the audit export).
+    return m ? [{ quarter: m[1]!, filings: m[2]!.split(/;\s*/).map((f) => f.replace(/, filed \d{4}-\d{2}-\d{2}$/, "")).join(" and ") }] : [];
+  });
+  let growthSummarized = false;
+  let cashFlowSummarized = false;
+  return notes.flatMap((note) => {
+    if (GROWTH_DERIVATION.test(note)) {
+      if (growthSummarized) return [];
+      growthSummarized = true;
+      return ["Each growth rate shown divides filed revenue on one presentation; no vendor figure enters a rate."];
+    }
+    if (CASH_FLOW_DERIVATION.test(note)) {
+      if (cashFlowSummarized) return [];
+      cashFlowSummarized = true;
+      return [`Quarterly operating cash flow for ${dateList(derived.map((d) => d.quarter))} is derived as a difference of cumulative filed amounts across filings, not filed as ${derived.length > 1 ? "standalone quarters" : "a standalone quarter"} (${derived.map((d) => `${d.quarter} from ${d.filings}`).join("; ")}).`];
+    }
+    return [note];
+  });
+}
+
+/** Every growth-cell derivation recorded on the trend rows, for the audit export. */
+export function quarterlyTrendGrowthNotes(d: Pick<FilingDisclosures, "quarterlyTrend"> | undefined): string[] {
+  return [...new Set((d?.quarterlyTrend ?? []).flatMap((r) => r.revenueGrowthNotes ?? []))];
 }
 
 /** Identify holes inside the retained window; never manufacture a refused statement row. */
@@ -428,9 +473,11 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))]
-        .flatMap(readerGuidanceNote);
-      if (tables.length === 0 && notes.length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
+      const guidanceNotes = d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""));
+      // FIGR extra-high audit B2-18: the currency-reading convention and parser
+      // diagnostics are audit material (its diagnostics section lists them).
+      const notes = guidanceNotes.filter((n) => !isParserDiagnostic(n)).flatMap(readerGuidanceNote);
+      if (tables.length === 0 && [d.currencyBasis, ...guidanceNotes].flatMap(readerGuidanceNote).length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
       if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
       return tables;
     }
@@ -438,9 +485,17 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
   }
 }
 
+/** Notes about what a parser could not read, which tell a reader nothing about the company. */
+function isParserDiagnostic(note: string): boolean {
+  return /could not be read as rows/i.test(note) || /^no earnings, EPS or operating-income amount was read in /i.test(note) ||
+    /^Earnings inspection limited to /i.test(note);
+}
+
 function readerGuidanceNote(note: string): string[] {
   const quoted = /^(.*?): outlook sentence not read as guidance: "([\s\S]+)"\.?$/i.exec(note);
   if (quoted) return [`Issuer outlook statement (${quoted[1]}): “${quoted[2]}”`];
+  const statement = /^Issuer outlook statement not read as structured guidance \(([^)]*)\): "([\s\S]+)"\.?$/i.exec(note);
+  if (statement) return [`Issuer outlook statement (${statement[1]}): “${statement[2]}”`];
   if (/no structured .*guidance.*(?:extract|read)|no structured guidance could be extracted|none of its sentences could be read as guidance|outlook sentence not read as guidance/i.test(note)) return [];
   const text = readerBaseUnits(note.trim());
   return text ? [/[.!?]$/.test(text) ? text : `${text}.`] : [];

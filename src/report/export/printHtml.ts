@@ -41,7 +41,7 @@ import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVer
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
@@ -124,13 +124,16 @@ import {
   gapSummary,
   geographyLabel,
   geographicBasisNote,
+  cashFlowGroupHeading,
   indicatorLabel,
   keyDataRows,
+  technicalsFigureLabel,
   methodologyNotes,
   metricRowsWithoutTabled,
   moatHeading,
   passLine,
-  priceTiming,
+  provisionalBarNote,
+  provisionalSessionBar,
   pruneTable,
   reverseDcfValueText,
   runSummary,
@@ -156,6 +159,7 @@ import {
 import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -310,6 +314,8 @@ function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], le
 interface GradeContext {
   aspect?: AspectEvidence | null;
   completeness?: ReportCompletenessPresentation;
+  /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
+  labelFor?: (n: TracedNumber) => string | undefined;
 }
 
 function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"]): GradeContext {
@@ -323,11 +329,11 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `<p class="why">${prose(block.oneLineWhy)}</p>`,
   ];
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
-  const contractText = gradeContractText(block);
+  const contractText = readerGradeContractText(block);
   if (contractText) parts.push(`<p class="faint">${prose(contractText)}</p>`);
   if (block.reasoning.length > 0) parts.push(claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
-  parts.push(figureTable(figureRows(kept, seen)));
+  parts.push(figureTable(figureRows(kept, seen).map((row) => ({ ...row, label: ctx.labelFor?.(row.trace) ?? row.label }))));
   const also = seeAlsoText(homes);
   if (also) parts.push(`<p class="faint">${esc(also)}</p>`);
   return `<div class="gradeblock">${parts.join("")}</div>`;
@@ -461,7 +467,7 @@ function sectionFundamentals(f: Fundamentals, summary: SourceFactSummary | undef
     for (const home of split.homes) if (!homes.includes(home)) homes.push(home);
     return subsection(heading, metricRowsTable(split.kept));
   };
-  const groups = [group("Growth", f.growthTable), group("Margin trend", f.marginTrend), group("Returns", f.returns), group("Free cash flow", f.fcf)].join("");
+  const groups = [group("Growth", f.growthTable), group("Margin trend", f.marginTrend), group("Returns", f.returns), group(cashFlowGroupHeading(f.fcf), f.fcf)].join("");
   const also = seeAlsoText(homes);
   return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock("Fundamentals", f.graded, seen, report, gradeContext(report, "fundamentals"))}
     ${groups}${also ? `<p class="faint">${esc(also)}</p>` : ""}${bodyTables(extra)}
@@ -648,17 +654,18 @@ function sectionQuality(q: Quality, report: Report): string {
 
 function sectionTechnicals(report: Report): string {
   const t = report.technicals;
-  const timing = priceTiming(report);
+  const bar = provisionalSessionBar(report);
   const seen = new Map<string, FigureRow>();
   const read = `<ul class="read">
     <li><strong>Trend:</strong> ${prose(t.read.trend)}</li>
     <li><strong>Momentum:</strong> ${prose(t.read.momentum)}</li>
     <li><strong>Key levels:</strong> ${prose(t.read.keyLevels)}</li>
     <li><strong>Relative strength:</strong> ${prose(t.read.relativeStrength)}</li></ul>`;
-  const grade = gradeBlock("Technicals", t.graded, seen, report, gradeContext(report, "technicals"));
-  const indicators = figureTable(figureRows(t.indicators, seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
+  const grade = gradeBlock("Technicals", t.graded, seen, report, { ...gradeContext(report, "technicals"), labelFor: (n) => technicalsFigureLabel(n, bar) });
+  const timingNote = bar ? `<p class="faint">${esc(provisionalBarNote(bar))}</p>` : "";
+  const indicators = figureTable(figureRows(t.indicators, seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, bar) })), "Indicator");
   const flags = t.flags.length > 0 ? table(["Severity", "Flag", "Source"], t.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))])) : "";
-  return `<section class="block">${sectionHeading("technicals")}${grade}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags)}</section>`;
+  return `<section class="block">${sectionHeading("technicals")}${grade}${timingNote}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags)}</section>`;
 }
 
 function sectionLeadership(l: Leadership, report: Report): string {
@@ -672,7 +679,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${e.assessmentReason ? `<p>${prose(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${executiveAssessmentNote(e) ? `<p>${prose(executiveAssessmentNote(e)!)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
     })
     .join("");
   const others = groups.notAssessed.length > 0
@@ -764,7 +771,7 @@ function sectionProjections(p: Projections): string {
 function sectionMacro(m: Macro): string {
   const series = table(
     ["Series", "Name", "Latest", "As of", "Relevance"],
-    macroDisplayRows(m).map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
+    macroDisplayRows(m).map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.observation), prose(s.relevance)]),
   );
   return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }

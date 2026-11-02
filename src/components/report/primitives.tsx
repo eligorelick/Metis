@@ -23,7 +23,7 @@
 import type { ReactNode } from "react";
 
 import { Badge, GradeChip, type Tone } from "@/components/ui";
-import { gradeContractText, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { gradeDisplayLabel, readerGradeContractText, gradeForDisplay, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import type {
@@ -296,9 +296,12 @@ export function GradeReasoning({
   report = {},
   aspect,
   completeness,
+  labelFor,
 }: {
   title: ReactNode;
   block: GradeBlock;
+  /** A key number's reader label when its registry label would mislead (an unfinished session's "last close"). */
+  labelFor?: (n: TracedNumber) => string | undefined;
   defaultOpen?: boolean;
   /** D-62: figures a deterministic filing table shows are left to that table. */
   report?: Pick<Report, "filingDisclosures">;
@@ -308,7 +311,7 @@ export function GradeReasoning({
   completeness?: Pick<ReportCompletenessPresentation, "metadataStatus" | "dataCriticalCount" | "dataWarningCount">;
 }) {
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
-  const rows = figureRows(kept);
+  const rows = figureRows(kept).map((row) => ({ ...row, label: labelFor?.(row.trace) ?? row.label }));
   const also = seeAlsoText(homes);
   const confidence = completeness ? displayConfidence(block.confidence, completeness) : { level: block.confidence, cap: null };
   return (
@@ -329,7 +332,7 @@ export function GradeReasoning({
       </div>
       <div className="px-2.5 py-2">
         <p className="text-[12px] leading-snug text-fg">{displayProse(block.oneLineWhy)}</p>
-          {gradeContractText(block) && <details className="grade-admission-details"><summary>Grade admission details</summary><p className="mono mt-1 text-[12px] text-faint">{displayProse(gradeContractText(block)!)}</p></details>}
+          {readerGradeContractText(block) && <details className="grade-admission-details"><summary>Grade admission details</summary><p className="mono mt-1 text-[12px] text-faint">{displayProse(readerGradeContractText(block)!)}</p></details>}
         {block.confidenceCap && (
           <p className="mono mt-1 text-[10px] text-faint">
             Confidence capped at {block.confidenceCap.to}: {block.confidenceCap.reason}

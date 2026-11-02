@@ -87,7 +87,7 @@ describe("FIGR extra-high readability", () => {
     ["computed.capital-cash.capex-d-a-latest", "Capex / D&A (latest fiscal year)"],
     ["computed.capital-cash.capex-revenue-latest", "Capex as % of revenue (latest fiscal year)"],
     ["computed.capital-cash.capex-revenue-slope", "Capex-to-revenue slope"],
-    ["computed.capital-cash.sbc-revenue", "SBC as % of revenue"],
+    ["computed.capital-cash.sbc-revenue", "SBC (cash-flow add-back) as % of revenue (latest fiscal year)"],
     ["computed.returns.roe-latest-dupont", "ROE (DuPont, latest fiscal year)"],
     ["computed.valuation.p-e-common-income-denominator", "P/E common-income denominator (TTM)"],
     ["computed.comparable-peers.market-cap-ttm-common-earnings-eligible-peer-count-after-filtering", "Eligible peers for market cap / TTM common earnings (after screening)"],

@@ -3,6 +3,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "@/report/schema";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
+import { executiveAssessmentReason } from "@/report/executiveAssessment";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -47,8 +48,11 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
       ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
     const credibility = kinds.includes("guidance-track-record");
     const execution = credibility || kinds.includes("execution");
-    return {...executive, grade:execution ? executive.grade : "not-assessed", credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
-      ...(!execution || !credibility ? {assessmentReason:"Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."} : {}),
+    const grade = execution ? executive.grade : "not-assessed";
+    // FIGR extra-high audit B2-09: name which assessment is missing.
+    const reason = executiveAssessmentReason({ execution, credibility }, grade);
+    return {...executive, grade, credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
+      ...(reason ? {assessmentReason:reason} : {}),
     };
   })};
 }

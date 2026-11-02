@@ -4385,3 +4385,62 @@ the new report are fixed:
 
 Tests: `tests/edgar.outlookWebcastStop.test.ts` (real FIGR release text),
 `tests/report.earningsSchedule.test.ts`, `tests/report.prerunReadability.test.ts`.
+
+## D-163 - FIGR extra-high run audit: presentation, session bars and executive reasons (2026-11-02)
+
+The owner's one extra-high FIGR run (report #1, $12.27) was audited by a fact
+review (AUDIT-A2) and a reasoning and presentation review (AUDIT-B2). Stored
+AI prose and its verification marks are immutable (D-67), so this round fixes
+what a re-render corrects now and what generation changes for future runs.
+
+### D-163: Read-time presentation of the stored report
+
+- Peer tables head their columns with reader labels, and the excluded-provider
+  caption survives when the model lists the subject itself as a row (B2-16).
+- Pipeline-owned citations and registry ids print reader labels; a scenario's
+  first bullet no longer repeats its own "Qualitative commentary" heading.
+- An executive card names the missing assessment: "Credibility is not assessed
+  ..." beside an admitted execution grade, a no-record reason when nothing is
+  graded. The stored generic sentence is mapped at read time; the evidence
+  gate writes the specific reason from now on (B2-09).
+- Composition tables state a qualification every row shares once, in the
+  table note; XBRL tags, guidance-parser diagnostics, the currency-reading
+  convention and per-cell trend derivations leave the reader exports and are
+  listed in the audit companion, which also gains a grade-contract table. The
+  reader prints a grade contract only when it changed the outcome (a refused or
+  admitted override). The quarterly-trend caption counts the quarters shown
+  (B2-18, B2-20).
+- Templates no longer describe absent model outputs: the methodology note says
+  no intrinsic value, scenario value or projection is modeled when none is,
+  and a lender's operating-cash-flow and SBC rows are not headed "Free cash
+  flow" (B2-19).
+- Transformed FRED rows take a fixed name for what is measured ("Core CPI
+  inflation ..., year over year") and monthly or quarterly observations are
+  dated by period ("Sep 2026"), not by FRED's first-of-period key (A2-26).
+- The SBC-to-revenue ratio names its cash-flow add-back basis (A2-02).
+
+### D-163: A still-forming session bar is not a close
+
+The run fetched its daily history at 11:04 New York time, so its 2026-11-02
+bar was an unfinished session that technicals called the "last close"
+($21.93, beside the $22.10 intraday quote). Market-bar admission now drops the
+bar of a US session that has not settled (16:00 New York plus 30 minutes, as
+quote caching treats it); observed history ends at the last settled close and
+a note records the exclusion. For stored reports, a last close dated on the
+session in progress at the subject's history fetch (or, without a recorded
+fetch, at the quote) is labelled "Price in the unfinished <date> session
+(fetched <time> ET)" with a note that its levels include that partial session.
+The quote's timing no longer renames the last close, which after this fix is
+the previous settled session (B2-17).
+
+### D-163: One claim object in each catalyst and risk `reasoning`
+
+Both FIGR judges wrote every catalyst's and risk's `reasoning` as a list of
+claims (the shape of the sections written before it), so the section failed
+its schema check and a repair rewrote it ($1.71 in this run). The shared rules
+and the catalystsRisks section request now say that this field holds one
+claim object, labelled JUDGMENT when it joins a sourced fact with the model's
+interpretation.
+
+Tests: `tests/report.xhighReadability.test.ts`, `tests/report.xhighAuditRender.test.ts`,
+`tests/marketAdmission.inProgressSession.test.ts`, `tests/stageC.singleClaimReasoning.test.ts`.

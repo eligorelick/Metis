@@ -232,6 +232,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageC/evidenceSelection.ts",
   "src/report/auditTables.ts",
   "src/report/financialDiagnostics.ts",
+  "src/report/executiveAssessment.ts",
   "src/evaluation/evaluationContract.ts",
   "src/evaluation/evaluation.ts",
   "src/evaluation/targetDefinition.ts",

@@ -138,6 +138,18 @@ export function gradeContractText(block: GradeBlock): string | null {
   return `Grade contract: ${audit.status} (${audit.reason}).`;
 }
 
+/**
+ * The contract line a reader export prints: only when the contract changed
+ * the outcome (a refused or an admitted override). FIGR extra-high audit B2-18:
+ * "unchanged (matches-deterministic-band)" and "unavailable
+ * (no-deterministic-band)" repeated on every section and told a reader
+ * nothing; the audit export lists every contract.
+ */
+export function readerGradeContractText(block: GradeBlock): string | null {
+  const status = block.gradeContract?.status;
+  return status === "rejected" || status === "accepted" ? gradeContractText(block) : null;
+}
+
 /** The deterministic score fields a limited-evidence label reads. */
 export type AspectEvidence = Pick<AspectScore, "score" | "band" | "dataCompleteness"> & Partial<Pick<AspectScore, "signals">>;
 
