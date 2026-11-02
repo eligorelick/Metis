@@ -1684,6 +1684,39 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
+/** N2: classify a proved fair-value servicing financial asset, never infer an absent intangible. */
+function withTangibleBookClassification(row: FmpBalanceSheetRow, bundle: DataBundle, facts: CompanyFacts | null): FmpBalanceSheetRow {
+  const date = isoDay(row.date), currency = str(row.reportedCurrency), vendor = num(row.intangibleAssets);
+  const registrant = bundle.edgar.registrant;
+  if (!date || !currency || vendor === null || vendor <= 0 || num(row.goodwill) !== 0 || !registrant || !/^\d{10}$/.test(registrant.cik10) ||
+    Number(firstRow(bundle.profile)?.cik) !== Number(registrant.cik10) ||
+    (row.cik != null && Number(row.cik) !== Number(registrant.cik10))) return row;
+  const intangibleTags = [...tagsFor("goodwill"), ...tagsFor("intangibleAssets"), ...tagsFor("intangibleAssetsParts"), "GoodwillAndIntangibleAssetsNet"];
+  if (facts && intangibleTags.some(tag => tagPoints(facts, tag, currency)?.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10)))) return row;
+  if (["goodwill", "intangibleAssets"].some(field => row.fieldProvenance?.[field]?.source === "edgar" || row.fieldConflicts?.[field]?.usable === false)) return row;
+  const source = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(s => s?.ok ? [s.value.data] : []).find(d =>
+    d.reportDate === date && /^(?:10-Q|10-K)(?:\/A)?$/.test(d.form) && /^\d{4}-\d{2}-\d{2}$/.test(d.filingDate) &&
+    d.reportDate <= d.filingDate && d.filingDate <= bundle.builtAt.slice(0, 10) && /^\d{10}-\d{2}-\d{6}$/.test(d.accession));
+  if (!source) return row;
+  try {
+    const url = new URL(source.documentUrl);
+    if (url.protocol !== "https:" || !["www.sec.gov", "sec.gov"].includes(url.hostname) || url.port || url.username || url.password || url.search || url.hash ||
+      !new RegExp(`^/Archives/edgar/data/${Number(registrant.cik10)}/${source.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(url.pathname)) return row;
+  } catch { return row; }
+  const sheet = (source.statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  if (/\b(?:goodwill|intangible assets?)\b/i.test(sheet)) return row;
+  const scale = /\bin thousands\b/i.test(sheet) ? 1000 : /\bin millions\b/i.test(sheet) ? 1_000_000 : null;
+  const servicing = /\b(?:loan |mortgage )?servicing assets?, at fair value\s*\$?\s*([\d,]+(?:\.\d+)?)/i.exec(sheet);
+  if (!scale || !servicing) return row;
+  const amount = Number(servicing[1]!.replaceAll(",", "")) * scale;
+  const filedServicing = facts ? tagPoints(facts, "ServicingAssetAtFairValueAmount", currency) : null;
+  const filedCurrency = filedServicing?.unit === currency && filedServicing.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10) && Math.abs(p.val - amount) <= scale / 2);
+  const explicitCurrency = currency === "USD" && /\b(?:U\.S\.|US) dollars\b/i.test(sheet);
+  if ((!filedCurrency && !explicitCurrency) || /\b(?:euros|pounds sterling|Canadian dollars)\b/i.test(sheet) || Math.abs(vendor - amount) > scale / 2) return row;
+  return { ...row, intangibleAssets: 0,
+    tangibleBookDeductionBasis: `Filed servicing asset ${amount} ${currency} at fair value (${date}), not deducted: it is a financial asset, not goodwill or other intangible assets. No goodwill or intangible-asset fact is carried on this filed balance sheet; vendor intangibleAssets ${vendor} ties to that servicing asset. Source: ${source.documentUrl}.` };
+}
+
 /** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
 function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
   return rows.flatMap((row) => {
@@ -2112,6 +2145,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+    row = withTangibleBookClassification(row, bundle, companyFacts);
     if (companyFacts === null) return row;
     const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
     const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
@@ -3453,6 +3487,7 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     totalEquity: num(row.totalEquity),
     goodwill: num(row.goodwill),
     intangibleAssets: num(row.intangibleAssets),
+    tangibleBookDeductionBasis: str(row.tangibleBookDeductionBasis) ?? undefined,
     minorityInterest: num(row.minorityInterest),
     preferredStock: num(row.preferredStock),
     // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.

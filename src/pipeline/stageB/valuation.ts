@@ -3747,6 +3747,7 @@ export interface MultiplesBalance {
   totalEquity?: number | null;
   goodwill: number | null;
   intangibleAssets: number | null;
+  tangibleBookDeductionBasis?: string;
   minorityInterest: number | null;
   preferredStock: number | null;
   /**
@@ -5013,7 +5014,7 @@ export function multiplesFramework(
       "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)",
 
     priceToBook: `marketCap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
-    priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets) (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
+    priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangibleAssets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,
     priceToFfo: "marketCap / FFO (approx., caller-provided)",
     priceToAffo: "marketCap / AFFO (rough, caller-provided)",
   };

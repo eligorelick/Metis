@@ -6138,3 +6138,15 @@ RPT-207 review: when unique issuer endpoints cannot establish the subject, one p
 Review fix F9 distinguishes discovered candidates from populated peer data. With
 zero populated candidates, the refusal describes what the collection would retain,
 not profiles or statements supposedly present. Beta and history gates do not change.
+
+
+N2 P/TBV review: the basis names goodwill and intangibleAssets amounts actually
+deducted. A positive provider intangible amount is retained as a financial asset
+only when it ties, within filing rounding, to a same-date filed servicing asset
+at fair value in the same currency, and neither the filed balance sheet nor
+same-date goodwill/intangible facts carry an intangible deduction. Primary
+issuer/accession/URL, filing availability, units and date must agree. The
+provider row is not rewritten: a derived calculation copy excludes the proved
+servicing asset from the tangible-book deduction. Unproven cases retain the
+existing deduction. This also keeps tangible common-return denominators on the
+same classified balance basis when they use that date.

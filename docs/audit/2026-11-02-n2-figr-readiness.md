@@ -284,3 +284,15 @@ applies to all resolved-scope issuers, prompt only. The review F3 optional
 multiClass marker and F7 approximation wording can additionally change scope
 metadata/basis without changing financial numbers. These are disclosed in the
 review census, rather than misreported as byte-identical computations.
+
+
+| Review item | Disposition | Commit | Red / green receipts | Stored reports |
+| --- | --- | --- | --- | --- |
+| P/TBV | Fixed named deductions and narrowly proved servicing-asset classification | This tangible-book commit | n2-ptbv-red-confirmed / n2-ptbv-green | Immutable; derived rows only |
+
+The initial P/TBV red fixture fell back to annual balances because its quarterly
+currency was unlabelled. n2-ptbv-red-confirmed labels the trigger's currency and
+reproduces both wrong deduction and absent deduction detail on the current
+quarterly anchor. Amount/date/currency/issuer/primary-source and filed-intangible
+controls retain the deduction. The F1 context fixture also gains explicit
+quarterly currency so it exercises the same-date context bridge.

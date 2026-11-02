@@ -3170,3 +3170,8 @@ Owner delegated to the coordinator on 2026-11-01. New multi-class resolved repor
 ## D-next (N2): peer refusal and review dispositions (F4, F9, F10, F11)
 
 Owner delegated to the coordinator on 2026-11-01. F9: say no peer candidate was populated, with discovered count and exclusions; describe what such a collection would retain. No beta gate changes. F4: lender EV/Sales is removed by F1; the general open annual-revenue eligibility rule belongs to N3. F10: the original prompt scope includes all resolved-scope issuers, prompt only; EXPE is the observed prompt-only mover and its raw provider-cap registry ID changes. The F3 review marker additionally carries new-report multi-class presentation metadata. F11: no change to the narrow originations/sale-proceeds wording; mortgage-banker variants remain a safe coverage limitation until separately tested.
+
+
+## D-next (N2): tangible-book servicing financial assets (P/TBV review)
+
+Owner delegated to the coordinator on 2026-11-01. Name actual goodwill/intangible deductions in the basis. A vendor intangible amount tied to a same-date filed servicing asset at fair value is a financial asset and is not deducted, provided the issuer, source URL/accession, filing availability, currency and scale agree and no same-date goodwill/intangible fact or filed balance-sheet line establishes a deduction. Derived rows only; raw bundles and stored reports remain immutable. Controls preserve deductions when amount, date, currency, issuer or primary evidence disagrees. Report every census numeric and basis/prompt mover.

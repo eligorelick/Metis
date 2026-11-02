@@ -20,7 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - N2 lender and share-class readiness (2026-11-02)
 
-- Review fixes: F1/F2/F12 apply lender valuation and capital-return conventions, remove industrial solvency grading, and disclose the debt perimeter of context EV. F3/F5/F6/F7/F8 qualify quoted-class rows, disclose count differences and treasury shares without netting, and block contrary share-worded economics. F9 distinguishes empty peer collections from discovered candidates.
+- Review fixes: F1/F2/F12 apply lender valuation and capital-return conventions, remove industrial solvency grading, and disclose the debt perimeter of context EV. F3/F5/F6/F7/F8 qualify quoted-class rows, disclose count differences and treasury shares without netting, and block contrary share-worded economics. F9 distinguishes empty peer collections from discovered candidates. P/TBV names its deductions and excludes a proved same-date fair-value servicing financial asset.
 
 - R-FIGR-2: keep recent-IPO discount-rate refusals and explain the measured monthly-history shortfall, absent peer price histories/unlever-relever evidence and lack of a sourced industry asset-beta fallback. No invented beta, discount rate or sensitivity; existing numerical gates stay unchanged.
 
