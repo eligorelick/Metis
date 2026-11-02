@@ -3131,3 +3131,5 @@ RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and cur
 RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
 
 DB-003: Show observed API models as well as account models and name unrecorded passes.
+
+DB-006: Distinguish cost-only revisions from research changes without changing diff status.

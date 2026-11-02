@@ -30,3 +30,7 @@ export const DIFF_REASON_LABELS: Record<DiffReasonCode, string> = {
 export function gradeEndpointText(change: import("./diff").GradeChange, side: "from" | "to"): string {
  return change[side] ?? ((side === "from" && change.transition === "added") || (side === "to" && change.transition === "removed") ? "absent" : "not assessed");
 }
+
+export function contentChangeCount(diff: import("./diff").ReportDiff): number {
+ return diff.gradeChanges.length + diff.scoreChanges.length + diff.weightChanges.length + diff.driverChanges.length + diff.targetChanges.length + diff.projectionChanges.length + diff.catalystChanges.length + diff.riskChanges.length + Number(diff.verdictChanged);
+}
