@@ -161,7 +161,8 @@ routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
 reports and invoke actions. Credential and AI connection GET/POST require the
 same-origin/token guard and loopback access; configured non-loopback LAN mode
-disables these management routes regardless of the supplied Host. Local browser traffic uses HTTP under the default
+disables these management routes regardless of the supplied Host. Company landing pages accept only GET and HEAD.
+Local browser traffic uses HTTP under the default
 scripts; HTTPS to remote providers does not encrypt the local database.
 
 ## Where local data is kept
@@ -169,7 +170,6 @@ scripts; HTTPS to remote providers does not encrypt the local database.
 Plan-run recovery lives in `<data dir>/recovery/sections`, following METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` files hold completed model-written analyst/judge sections and writer evidence; `*.usage.jsonl` holds per-request usage journals. Metis never automatically deletes these files.
 
 Browser-local display storage includes `thesis-ui-design` and `metis-ui-density-v1` cookies. Local report notes use localStorage on this browser and origin; they are not sent to providers.
-
 
 **Settings → Appearance** stores only `current` or `workspace` in the browser's
 `thesis-ui-design` cookie for 180 days (`Path=/`, `SameSite=Lax`, and `Secure`
@@ -247,6 +247,10 @@ The v1 credential reader validates the fields connection code consumes before
 allowing a mutation. Malformed records produce a storage error and are left
 unchanged; they are never silently reset. Expired/signed-out registrations,
 historical valid model identifiers and unknown metadata remain compatible.
+While the store cannot be read, Metis withholds the Claude API and admin keys it
+holds, starts no new jobs and writes nothing to it; see "AI connection storage
+cannot be read" in [OPERATIONS](OPERATIONS.md). A new state that this build
+could not read back is refused before it is written.
 Credential mutations use a separate, permanent `connections.lock` SQLite file
 containing only a format marker. A native write reservation covers the read,
 awaited mutation and JSON save; waiting yields to other async work. Process exit
@@ -305,7 +309,6 @@ was. The server prints the resolved path at every start:
 
 Plan-run `recovery/sections` JSON text, writer evidence and usage journals have no expiry or automatic purge. They remain even after deleting the database, preserving retries and manual audit evidence.
 
-
 - Cached provider rows are deleted 30 days after their stored TTL expires
   (`src/cache/maintenance.ts`, `PURGE_EXPIRED_MARGIN_SECONDS`). The sweep runs
   when the database is opened, at most once every 24 hours, and reclaims the
@@ -326,7 +329,6 @@ Plan-run `recovery/sections` JSON text, writer evidence and usage journals have 
 ## Deleting local data
 
 With Metis stopped, delete `<data dir>/recovery/sections` separately to remove section text, writer evidence and usage journals. Deleting the DB alone does not remove them. A later retry must request deleted sections again and consume plan allowance. Clear browser site data to remove localStorage report notes and the `thesis-ui-design` and `metis-ui-density-v1` display cookies.
-
 
 - Reports, cache and database settings: quit Metis and delete the database file together with its
   `-wal` and `-shm` siblings. Disable `METIS_IMPORT_LEGACY_DB` first if set,
@@ -430,7 +432,8 @@ choice is marked as access unconfirmed and can still be rejected by OpenAI.
 ChatGPT reasoning and Standard/Fast speed are saved with the connection.
 Fast is opt-in and offered only for the models OpenAI lists for it (GPT-6.1
 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna); any other model
-runs at Standard. Fast uses your plan or credits faster; check its current
+runs at Standard, including a Fast choice saved earlier for a model no longer
+on that list (stored reports are unchanged). Fast uses your plan or credits faster; check its current
 allowance/credit effects in
 [OpenAI's speed rules](https://learn.chatgpt.com/docs/agent-configuration/speed).
 Plan-usage errors follow OpenAI's documented recovery: a usage limit names
@@ -454,17 +457,3 @@ keeps its original freshness labels. The first request is still necessary to
 discover access, and source outages or unavailable endpoints remain disclosed
 gaps. Configure a real `EDGAR_CONTACT` even with a free FMP key so SEC statement
 fallbacks can run. Restrictions are held in memory and reset on server restart.
-
-Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
-
-Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
-
-SEC-202: Credential and AI connection GET/POST management is refused whenever METIS_ALLOWED_HOST (or its legacy alias) is nonblank and non-loopback or malformed, regardless of Host. Stop LAN mode and restart on loopback to manage keys. Saved credentials still work for runs. A loopback-valued allowlist remains supported.
-
-AI connection storage cannot be read: configuration and the shell use environment data keys, withholding billed Anthropic API/admin keys. New jobs and all store writes stop with a storage error. Unchanged decode failures retry after 30 seconds; changed bytes retry immediately. For a timeout retry shortly; after a downgrade return to the newer build. Otherwise stop Metis and move connections.v1.json aside for recovery, keeping a backup. The app never resets or overwrites unreadable bytes.
-
-SEC-206: Settings follows the implicit report selection when a saved Claude key changes. Unsaved connection/model/effort/speed edits remain visible until saved; an explicit saved selection remains authoritative.
-
-PERF-201: The process keeps a decrypted AI-store snapshot keyed by path and exact file bytes. Reads return isolated copies. Unchanged mutations do not rewrite/protect the file; real token or setting changes remain serialized and atomic. Changed bytes from another process invalidate the snapshot immediately.
-
-SEC-205: A legacy Fast selection on a model outside the supported Fast list is captured as Standard for Settings and new jobs. Stored selections/reports are not rewritten. A resumed job whose captured-input fingerprint differs is refused by the existing guard rather than silently changing its run options. Supported Fast choices remain Fast; new unsupported Fast saves remain refused.

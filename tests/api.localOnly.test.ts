@@ -1,4 +1,4 @@
-﻿import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { GET as credentialsGET, POST as credentialsPOST } from "@/app/api/settings/credentials/route";
 import { GET as connectionsGET, POST as connectionsPOST } from "@/app/api/ai/connections/route";
 afterEach(() => vi.unstubAllEnvs());

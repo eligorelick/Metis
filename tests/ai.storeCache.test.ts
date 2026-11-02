@@ -1,11 +1,11 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const fake = vi.hoisted(() => ({ protect: vi.fn() }));
 vi.mock("node:child_process", () => ({ execFileSync: (...args: unknown[]) => fake.protect(...args) }));
 vi.mock("@/ai/mutex", () => ({ withAiMutex: async (_file: string, fn: () => unknown) => fn(), holdProcessLifetimeLock: () => true }));
-import { withAiStore, readAiStore, aiDirectory } from "@/ai/store";
+import { withAiStore, readAiStore, aiDirectory, providerCredentialSnapshot } from "@/ai/store";
 import { chatGptAccess, chatGptConnected } from "@/ai/chatgpt";
 import { getConfig, resetConfigCache } from "@/config/env";
 const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
@@ -37,4 +37,20 @@ it("sees another process replacing same-length bytes immediately", async () => {
   const bytes = JSON.stringify({ protection: "windows-dpapi", data: Buffer.from(JSON.stringify(saved)).toString("base64") });
   fs.writeFileSync(file + ".other", bytes); fs.renameSync(file + ".other", file); fake.protect.mockClear();
   expect(readAiStore()?.profiles[0].tokens?.access).toBe("rotated-token!"); expect(fake.protect).toHaveBeenCalledTimes(1);
+});
+
+it("refuses to persist a store this build could not read back, leaving the file unchanged (P6 review L-2)", async () => {
+  await seed(); const file = path.join(aiDirectory(), "connections.v1.json"); const before = fs.readFileSync(file, "utf8");
+  await expect(withAiStore((s) => { s.profiles[0]!.tokens!.access = ""; })).rejects.toThrow(/AI connection storage was not updated/);
+  expect(fs.readFileSync(file, "utf8")).toBe(before);
+  expect(readAiStore()?.profiles[0]?.tokens?.access).toBe("example-access");
+});
+it("returns one frozen credential object while the store bytes are unchanged (P6 review L-3)", async () => {
+  await withAiStore((s) => { s.providerCredentials = { FMP_API_KEY: "example-one" }; });
+  const first = providerCredentialSnapshot().values;
+  const clone = vi.spyOn(globalThis, "structuredClone");
+  expect(providerCredentialSnapshot().values).toBe(first); expect(Object.isFrozen(first)).toBe(true); expect(clone).not.toHaveBeenCalled();
+  clone.mockRestore();
+  await withAiStore((s) => { s.providerCredentials = { FMP_API_KEY: "example-two" }; });
+  expect(providerCredentialSnapshot().values.FMP_API_KEY).toBe("example-two");
 });

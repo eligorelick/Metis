@@ -234,7 +234,10 @@ with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
 and loopback access. Configured non-loopback LAN mode disables credential and
-AI connection management regardless of the supplied Host.
+AI connection management regardless of the supplied Host; stop LAN mode and
+restart on loopback to manage keys, while saved credentials still work for runs.
+Company landing pages accept only GET and HEAD; other methods return 405 with
+`Allow: GET, HEAD`.
 
 | Method and path | Request / successful response | Material error behavior |
 | --- | --- | --- |
@@ -300,6 +303,13 @@ Stop every Metis server before upgrading or downgrading this protocol; migrate
 only an incompatible lock when instructed, preserving credentials and Gemini
 directories. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
 and the [native process verification record](audit/2026-10-04-recommendations.md).
+
+Plan-run recovery files live in `<data dir>/recovery/sections` (they follow
+`METIS_DATA_DIR`, not `METIS_DB_PATH`). `*.json` files keep completed analyst
+and judge sections with writer evidence; `*.usage.jsonl` files keep per-request
+usage. Nothing purges them and deleting the database does not remove them:
+delete the directory with Metis stopped. A later retry then requests those
+sections again and uses plan allowance.
 
 Back up a stopped database with any remaining `-wal`/`-shm` sidecars, or use a
 SQLite-aware backup while running. A copied DB without its uncheckpointed WAL
@@ -378,6 +388,7 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | Corrected export refuses a path | Choose new HTML and JSON destinations; existing files are never overwritten. |
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
 | AI store is held by another server | A plan-connection job stops at the start of its fetch step, in one attempt and before any data is fetched, with "AI connections are active in another Metis server"; a pass refused mid-run says the same and is not retried. Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
+| AI connection storage cannot be read | Saved reports stay readable and data keys from the environment still work, but the Claude API and admin keys the store holds are withheld, new jobs do not start and nothing is written to the store. An unchanged file is retried after 30 seconds and a changed one at once. For a timeout, retry shortly; after a downgrade, return to the newer build. Otherwise stop Metis, move `connections.v1.json` aside as a backup and reconnect. Metis never resets or overwrites the unreadable file. |
 
 AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
 ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
@@ -469,19 +480,3 @@ This contract reproduces Stage B calculations and preserves the evidence acquire
 P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
 
 Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
-
-Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
-
-Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
-
-SEC-202: Credential and AI connection GET/POST management is refused whenever METIS_ALLOWED_HOST (or its legacy alias) is nonblank and non-loopback or malformed, regardless of Host. Stop LAN mode and restart on loopback to manage keys. Saved credentials still work for runs. A loopback-valued allowlist remains supported.
-
-AI connection storage cannot be read: configuration and the shell use environment data keys, withholding billed Anthropic API/admin keys. New jobs and all store writes stop with a storage error. Unchanged decode failures retry after 30 seconds; changed bytes retry immediately. For a timeout retry shortly; after a downgrade return to the newer build. Otherwise stop Metis and move connections.v1.json aside for recovery, keeping a backup. The app never resets or overwrites unreadable bytes.
-
-SEC-206: Settings follows the implicit report selection when a saved Claude key changes. Unsaved connection/model/effort/speed edits remain visible until saved; an explicit saved selection remains authoritative.
-
-Plan-run persistence: `<data dir>/recovery/sections` follows METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` retains completed analyst/judge text and writer evidence; `*.usage.jsonl` retains per-request usage journals indefinitely. No automatic purge runs. With Metis stopped delete this directory separately; database deletion does not remove it. Retrying then requests the deleted sections again, consuming plan allowance.
-
-PERF-201: The process keeps a decrypted AI-store snapshot keyed by path and exact file bytes. Reads return isolated copies. Unchanged mutations do not rewrite/protect the file; real token or setting changes remain serialized and atomic. Changed bytes from another process invalidate the snapshot immediately.
-
-SEC-205: A legacy Fast selection on a model outside the supported Fast list is captured as Standard for Settings and new jobs. Stored selections/reports are not rewritten. A resumed job whose captured-input fingerprint differs is refused by the existing guard rather than silently changing its run options. Supported Fast choices remain Fast; new unsupported Fast saves remain refused.

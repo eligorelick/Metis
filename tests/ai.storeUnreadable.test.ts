@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ vi.mock("node:child_process", () => ({ execFileSync: (...args: unknown[]) => fak
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/watchlist/watchlist", () => ({ getWatchlistView: async () => [] }));
 import { POST as credentialsPOST } from "@/app/api/settings/credentials/route";
+import { POST as connectionsPOST } from "@/app/api/ai/connections/route";
 import RootLayout from "@/app/layout";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -66,4 +67,16 @@ it("does not cache a transient file-read error (SEC-204 control)", async () => {
   }) as typeof fs.readFileSync);
   expect(getConfig().hasAnthropicKey).toBe(false);
   read.mockRestore(); expect(getConfig().hasAnthropicKey).toBe(true);
+});
+
+it("names the recovery guide when a connection choice meets an unreadable store (P6 review L-1)", async () => {
+  store.ensurePrivateDirectory(store.aiDirectory());
+  const file = path.join(store.aiDirectory(), "connections.v1.json");
+  const bytes = envelope("future"); fs.writeFileSync(file, bytes);
+  const request = new Request("http://127.0.0.1:3000/api/ai/connections", { method: "POST", headers: { "content-type": "application/json", origin: "http://127.0.0.1:3000", host: "127.0.0.1:3000", "sec-fetch-site": "same-origin" }, body: JSON.stringify({ action: "select", selection: { provider: "none" } }) });
+  const response = await connectionsPOST(request);
+  const body = await response.json();
+  expect(response.status).toBe(400);
+  expect(body.error).toContain("docs/OPERATIONS.md");
+  expect(fs.readFileSync(file, "utf8")).toBe(bytes);
 });
