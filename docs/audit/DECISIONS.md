@@ -4462,6 +4462,9 @@ retained guidance period is compared; a defined KPI's movement is not its
 cause; specialist terms are defined on first use. The judge also reads that
 aspects with no route-applicable signal are left out of the composite, while
 missing applicable evidence scales the composite's distance from 50 (A2-27).
+A change between two balance dates and a later event are written as separate
+dated sentences (A2-14); the prior round's rule to cite both of two
+conflicting passages stands (A2-15 shows it was not followed).
 Whether a model follows them can only be confirmed in a future paid run.
 
 ### D-163: How a rejected answer ended is recorded

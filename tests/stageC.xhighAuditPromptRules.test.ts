@@ -41,6 +41,10 @@ const RULES: Array<[string, RegExp]> = [
   ["KPI movement is not its cause", /possible explanations[^.]*unless the source states the cause/],
   // B2-18: DSCR, UPB and VIE were left unexplained.
   ["define specialist terms", /Define a specialist term[^.]*on first use/],
+  // A2-14: a first-half commitment increase blended with later financing events as "since then".
+  ["balance-date changes and later events apart", /change between balance dates and a later event[^.]*in separate sentences, each dated/],
+  // A2-15: two annual purchaser-concentration disclosures disagreed; the report chose one (rule from the prior round).
+  ["conflicting passages are both cited", /two retained passages give different figures for one measure, say so and cite both/],
 ];
 
 describe("FIGR extra-high audit rules reach every analysis role", () => {

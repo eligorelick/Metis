@@ -391,6 +391,9 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Before calling a group of lines 'most' of revenue, or stating their share, add them up from the cited rows.",
   "- A derivative's notional amount is not a recorded balance: state the fair value when saying what is recorded.",
   "- Keep each change in its own period: a change between two balance dates happened by the later date, not after it.",
+  // FIGR extra-high audit A2-14: the rule above held, yet one paragraph blended the first-half
+  // commitment increase with a July notes issue and a September acquisition as "since then".
+  "  Put a change between balance dates and a later event (a debt issue, an acquisition) in separate sentences, each dated.",
   "- Before treating a facility, subsidiary or agreement as a current obligation or catalyst, check the retained notes",
   "  for a later deconsolidation, merger, repayment or termination; the later statement governs.",
   "- In liquidity, separate cash the filings say is held for third parties or restricted from cash the company can use.",
