@@ -4483,7 +4483,7 @@ Tests: `tests/report.xhighReadability.test.ts`, `tests/report.xhighAuditRender.t
 `tests/stageC.xhighAuditPromptRules.test.ts`, `tests/stageC.payload.passes.test.ts`,
 `tests/stageC.sectionCheckpoint.test.ts`.
 
-## D-next (R9) - FIGR deterministic source, period and accounting bases (2026-11-02)
+## D-164 - R9: FIGR deterministic source, period and accounting bases (2026-11-02)
 
 The paid FIGR extra-high report faithfully repeated four deterministic errors
 (A2-02, A2-10, A2-18, A2-21; B2-06 and B2-08). A company-issued newswire
@@ -4513,9 +4513,7 @@ SBC label/id leaves before historical byte pins; no shared stamp is changed.
 Read-only frozen-input replay and check receipts:
 `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
 
-## D-next (R8)
-
-### Qualifying source context within existing payload caps (2026-11-02)
+## D-165 - R8: qualifying source context within existing payload caps (2026-11-02)
 
 The paid FIGR audit found complete facts in the frozen filings whose selected
 excerpts omitted definitions, later financing status, component tables or
@@ -4551,7 +4549,9 @@ Offline frozen replay: 342,155 → 341,152 characters (−1,003), fingerprint
 real database, prompts, report/export code or verifier was changed. See
 [R8 audit and replay lines](2026-11-02-r8-figr-evidence-selection.md).
 
-## D-next (R7) - Conservative metric readings for FIGR extra-high claims
+## D-166 - R7: FIGR extra-high verifier false negatives (2026-11-02)
+
+### D-166: Conservative metric readings for FIGR extra-high claims
 
 Keep numeric support separate from whole-proposition truth. Match the cited
 record's own label symmetrically, with simple inflection and reviewed
@@ -4575,7 +4575,7 @@ excerpts; paired value/period/unit/metric/operand/qualifier controls), plus the
 existing provenance, fiscal-period, own-description, latest-period and
 multi-quantity refusal suites. Implementation: `1eb7e4dd`.
 
-## D-next (R7) - Explicit excerpt bindings and retained recall limits
+### D-166: Explicit excerpt bindings and retained recall limits
 
 Read complete split-year SEC headers and explicit quarter/change layouts,
 checking row width, units, scales, precision and period roles. A row's exclusion
@@ -4604,3 +4604,39 @@ period, exclusion, metric and value controls pass with the same complete column
 proof. The final full-report replay recovers 73 validations (62 prose and 11
 figures); one additional row changes only its refusal reason. All prior
 validations and validated table/figure statuses remain.
+
+## D-167 - Integrating R7, R8 and R9 (2026-11-02)
+
+The three packages were built separately; their interactions were checked on
+the frozen FIGR inputs with the stored prose (no model, no network).
+
+- Earnings dates: R9 held every qualified claim back from verification, so a
+  correctly cited company-announced date became unchecked under a
+  "Provider-only event date" note. Only a provider-only date holds a claim
+  back; a company-announced date is qualified and the claim is checked on its
+  own citation.
+- Evidence selection: R8 made flattened tables atomic, and a table never takes
+  a family's turn, so the MD&A results-of-operations table (FIGR: gain on sale
+  of loans, gain on servicing asset) and the non-GAAP reconciliation left the
+  evidence; the old 1,100-character chunks had carried them. An interim (10-Q
+  MD&A) excerpt reserves up to 40% of its budget for these primary tables,
+  read from the table's own lead, before the qualifying contexts rotate; a
+  table's directly following row passages travel with it or not at all. On
+  24 must-keep FIGR items the excerpts retained 16 before this round, 15 with
+  R8 alone and 17 now, at unchanged budgets. Still outside the budgets: the
+  10-Q notes' receivable-concentration sentence, VIE and investment tables,
+  and the MD&A servicing-asset rollforward; larger budgets alone did not
+  restore them (tables never take family turns), so they are left for a
+  measured budget decision rather than raised here.
+- Verifier: with footnotes as their own passages, a row label kept its "(H)"
+  marker and no longer named its metric; a lettered marker is read as a
+  footnote when the excerpt defines lettered footnotes anywhere. R7's
+  stock-based compensation readings also cover R9's basis-named labels; the
+  add-back is still not read as allocated expense.
+
+Replays: on the paid payload the stored claims validate 233 (160 stored), none
+lost; on the integrated payload, with R9's renamed ids, 203: the difference is
+the technicals and score claims that quote the unfinished session (D-163) plus
+the servicing rollforward and one restricted-cash line. Tests:
+`tests/report.earningsSchedule.test.ts`, `tests/evidenceSelection.context.test.ts`,
+`tests/stageC.claimEvidence.r7.test.ts`.

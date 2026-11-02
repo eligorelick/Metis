@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.57.0 / payload 1.61.0, Stage B `STAGE_B_2026_11_FIGR_PAID_AUDIT_40` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.58.0 / payload 1.62.0, Stage B `STAGE_B_2026_11_FIGR_XHIGH_AUDIT_41` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -3491,8 +3491,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FIGR_PAID_AUDIT_40 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FIGR_PAID_AUDIT_40. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FIGR_XHIGH_AUDIT_41 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FIGR_XHIGH_AUDIT_41. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -5697,9 +5697,14 @@ material expense causes, third-party cash and dated remaining repurchase
 authorization receive priority over repeated numeric discussion. Oversized
 groups are omitted together, with source offsets and omission coverage.
 
-After critical disclosures and superseding operating measures, qualifying
-contexts rotate by kind within 75% of the source cap; existing priorities and
-financial families then use the remaining space. For cut notes and quarterly
+After critical disclosures and superseding operating measures, a quarterly
+MD&A excerpt first reserves up to 40% of its cap for its primary statement
+tables (the results-of-operations table and the non-GAAP reconciliation, read
+from the table's own lead), each with its directly following row passages or
+not at all; atomic tables never take a family's turn, and the old
+1,100-character chunks had carried these (D-167). Qualifying contexts then
+rotate by kind within 75% of the source cap; existing priorities and
+financial families use the remaining space. For cut notes and quarterly
 MD&A, the serialized category-coverage estimate (capped at 10% of the source
 cap) is reserved in addition to the existing truncation-marker allowance.
 Lower-ranked text pays for those disclosures. All payload caps stay fixed.
@@ -6443,8 +6448,10 @@ This corrects the earlier rule's misleading treatment of company newswire
 copies. Qualification covers ISO and natural-language dates, catalyst Expected
 cells, scenario strings and other visible report prose, retaining unrelated
 dated clauses and metadata. Already-parenthesized dates use a comma rather than
-nested parentheses. Qualifications keep citation credit while leaving other
-factual content unchecked; audit rows do not add a second counted claim.
+nested parentheses. A vendor-only date holds its claim back from numeric validation ("Provider-only
+event date qualified"); a company-announced date keeps its qualifier and the
+claim is checked on its own citation (D-167). Audit rows do not add a second
+counted claim.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
 

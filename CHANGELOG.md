@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.57.0** and
-payload **1.61.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run audit fixes). The
+Current source declares application **0.1.0**, report spec **1.58.0** and
+payload **1.62.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run and extra-high audit fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -22,7 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and
   presentation review; stored prose and verification marks stay as written (D-67), and the fixes below apply to the
-  stored report when it is re-rendered or to future runs. See D-163.
+  stored report when it is re-rendered or to future runs. See D-163 to D-167.
 - Read-time: reader labels for peer-table columns, pipeline citations and registry ids; the excluded-provider caption
   survives a subject row; scenario bullets drop a repeated heading; executive cards name the missing assessment;
   shared table qualifications are stated once, with XBRL tags, parser diagnostics, per-cell trend derivations and
@@ -56,6 +56,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Verifier (R7): Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
 - Verifier (R7): Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
 - Verifier (R7): The frozen full-report replay recovers 73 numeric validations (62 prose and 11 figures); every prior validation remains. The complete 189-row sweep and retained limitations are recorded in `docs/audit/2026-11-02-r7-figr-xhigh-verifier.md`.
+- Integration (D-167): only a provider-only earnings date holds a claim back from verification; the 10-Q MD&A excerpt
+  keeps a bounded slot for its results-of-operations and non-GAAP reconciliation tables (FIGR must-keep evidence 17 of
+  24, against 16 before the round and 15 with R8 alone); a lettered table footnote kept as its own passage still reads
+  as a footnote; R7's stock-based compensation readings cover R9's basis-named labels.
+- Stamps: report spec 1.58.0, payload 1.62.0, pipeline stage-c-1.6.20, Stage B, fair value and scenario targets
+  FIGR_XHIGH_AUDIT_41 (D-163 to D-167). Stored reports keep their bytes and stamps.
 
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 

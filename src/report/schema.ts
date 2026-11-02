@@ -154,7 +154,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.57.0 (D-156 to D-161, FIGR paid-run audit): deal terms, the newest operating update, outlook and governance
 // passages in evidence; filed operating-income, SBC, CFO and debt bases; usage over every recorded request; named
 // earnings-date confirmers; verifier readings of producer-declared names, intervals and release tables. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.57.0" as const;
+// 1.58.0 (D-163 to D-167, FIGR extra-high audit): read-time labels for an unfinished session bar, executive assessment
+// reasons, shared table qualifications stated once, parser diagnostics in the audit companion, and the evidence and
+// deterministic bases that round added. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.58.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

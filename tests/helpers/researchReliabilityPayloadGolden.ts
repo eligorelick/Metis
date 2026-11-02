@@ -23,8 +23,9 @@ export function restoreResearchReliabilityGolden(input: { computed: ComputedMetr
   restoreFigInsiderLabels(payload);
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.
-  // P0 M-1/L-2 and AI-407: 1.59.0 -> 1.60.0, and the FIGR paid-run round 1.60.0 -> 1.61.0, are stamp-only here.
-  expect(payload.payloadVersion).toBe("1.61.0");
+  // P0 M-1/L-2 and AI-407: 1.59.0 -> 1.60.0, the FIGR paid-run round 1.60.0 -> 1.61.0 and the extra-high audit
+  // round 1.61.0 -> 1.62.0 are stamp-only here.
+  expect(payload.payloadVersion).toBe("1.62.0");
   payload.payloadVersion = "1.56.0";
   // D-140: retain every older pin.
   expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");

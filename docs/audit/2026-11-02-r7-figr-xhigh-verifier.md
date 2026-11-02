@@ -101,7 +101,7 @@ approach used for R5). No runtime worker environment override is used. The full
 gate covers dependency shape, typecheck, lint, product/integration tests, both
 coverage gates, build and security audit. The final handback reports its exact
 counts and exit code. Version stamps are unchanged; the integrator applies
-one batch bump and renumbers the appended D-next decisions. No push or PR.
+one batch bump and renumbers the appended decisions (D-166). No push or PR.
 
 ## Rejected acceptance proposals
 
