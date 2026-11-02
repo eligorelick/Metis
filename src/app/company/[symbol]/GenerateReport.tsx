@@ -717,7 +717,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
   }, [closeCurrentStream, symbol]);
 
   const openStream = useCallback(
-    (jobId: string): void => {
+    function openJobStream(jobId: string): void {
       closeCurrentStream();
       const es = new EventSource(`/api/report/${jobId}/stream`);
       esRef.current = es;
@@ -797,7 +797,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
           const delay = delays[Math.min(reopenAttemptRef.current++, delays.length - 1)]!;
           reopenTimerRef.current = setTimeout(() => {
             reopenTimerRef.current = null;
-            if (esRef.current === es) openStream(jobId);
+            if (esRef.current === es) openJobStream(jobId);
           }, delay);
         }
       });

@@ -34,9 +34,9 @@ beforeEach(() => {
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { vi.useRealTimers(); await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
-async function render(symbol = "DEMO", initialJobId: string | null = "job-A", liveView = false) {
+async function render(symbol = "DEMO", initialJobId: string | null = "job-A", liveView = false, layout: "classic" | "dossier" = "dossier") {
   await act(async () => root.render(createElement(StrictMode, null,
-    createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" },
+    createElement(UiDesignProvider, { initialDesign: "current", layout },
       createElement(GenerateReport, { key: symbol, symbol, initialJobId, liveView })))));
 }
 describe("saved-page attachment to an authoritative active run", () => {
@@ -57,8 +57,8 @@ describe("saved-page attachment to an authoritative active run", () => {
     await act(async () => stream.emit("open"));
     expect(container.textContent).not.toMatch(/reconnecting/i);
   });
-  it("JOB-214 reopens a CLOSED stream without posting work", async () => {
-    vi.useFakeTimers(); await render(); const stream = Stream.opened.at(-1)!;
+  it.each(["classic", "dossier"] as const)("JOB-214 reopens CLOSED streams without posting work (%s)", async (layout) => {
+    vi.useFakeTimers(); await render("DEMO", "job-A", false, layout); const stream = Stream.opened.at(-1)!;
     const count = Stream.opened.length;
     stream.readyState = 2;
     await act(async () => stream.emit("error"));
