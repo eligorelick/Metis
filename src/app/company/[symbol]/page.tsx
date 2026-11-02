@@ -1081,7 +1081,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </div>
         </div>
 
-        <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} />
+        <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} liveView={liveRequested} />
 
         <QuoteHeader bundle={bundle} computed={computed} />
 

@@ -7,7 +7,7 @@ import { UiDesignProvider } from "@/appearance/UiDesignProvider";
 import { GenerateReport } from "@/app/company/[symbol]/GenerateReport";
 import { PIPELINE_STEPS } from "@/types/core";
 
-const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+const router = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 class Stream {
   static opened: Stream[] = [];
@@ -30,16 +30,25 @@ function snapshot(overrides: Record<string, unknown> = {}) {
 }
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); vi.stubGlobal("EventSource", Stream); vi.stubGlobal("fetch", fetcher);
-  Stream.opened = []; fetcher.mockReset(); router.refresh.mockReset();
+  Stream.opened = []; fetcher.mockReset(); router.refresh.mockReset(); router.replace.mockReset();
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { vi.useRealTimers(); await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
-async function render(symbol = "DEMO", initialJobId: string | null = "job-A") {
+async function render(symbol = "DEMO", initialJobId: string | null = "job-A", liveView = false) {
   await act(async () => root.render(createElement(StrictMode, null,
     createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" },
-      createElement(GenerateReport, { key: symbol, symbol, initialJobId })))));
+      createElement(GenerateReport, { key: symbol, symbol, initialJobId, liveView })))));
 }
 describe("saved-page attachment to an authoritative active run", () => {
+  it.each([false, true])("JOB-215 updates saved research once per completed job (live=%s)", async (live) => {
+    await render("DEMO", "job-A", live); const stream = Stream.opened.at(-1)!;
+    await act(async () => stream.emit("snapshot", snapshot({ revision: 1, status: "done", settlementsPending: true })));
+    await act(async () => stream.emit("snapshot", snapshot({ revision: 2, status: "done", settlementsPending: false })));
+    expect(router.refresh).toHaveBeenCalledTimes(live ? 0 : 1);
+    expect(router.replace).toHaveBeenCalledTimes(live ? 1 : 0);
+    if (live) expect(router.replace).toHaveBeenCalledWith("/company/DEMO", { scroll: false });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("JOB-214 clears reconnect warning on open with an unchanged revision", async () => {
     await render(); const stream = Stream.opened.at(-1)!;
     await act(async () => stream.emit("snapshot", snapshot({ status: "running" })));

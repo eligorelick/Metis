@@ -671,12 +671,12 @@ export function RunsOn({ route }: { route?: RunRoute | null }) {
   );
 }
 
-export function GenerateReport({ symbol, initialJobId = null, route = null }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null }) {
+export function GenerateReport({ symbol, initialJobId = null, route = null, liveView = false }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null; liveView?: boolean }) {
   const initial = decodeAcceptedJobId({ jobId: initialJobId });
-  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} />;
+  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} liveView={liveView} />;
 }
 
-function GenerateReportController({ symbol, initialJobId, route }: { symbol: string; initialJobId: string | null; route: RunRoute | null }) {
+function GenerateReportController({ symbol, initialJobId, route, liveView }: { symbol: string; initialJobId: string | null; route: RunRoute | null; liveView: boolean }) {
   const router = useRouter();
   const dossier = useUiDesign().layout === "dossier";
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
@@ -695,6 +695,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
 
+  const refreshedJobsRef = useRef(new Set<string>());
   const esRef = useRef<EventSource | null>(null);
   const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenAttemptRef = useRef(0);
@@ -755,12 +756,11 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
           } else if (terminal === "done") {
             setPhase("done");
             setError(null);
-            // The server tree around this panel (the "full report" tab, its
-            // "#id · date" label, the sidebar grades) was rendered from the
-            // PREVIOUS report; re-run it so the page shows the one just
-            // persisted (audit 2026-09-06, F213). The company-load coordinator
-            // caches the pipeline, so the refresh is cheap.
-            startTransition(() => router.refresh());
+            if (!refreshedJobsRef.current.has(jobId)) {
+              refreshedJobsRef.current.add(jobId);
+              if (liveView) router.replace(`/company/${encodeURIComponent(symbol)}`, { scroll: false });
+              else startTransition(() => router.refresh());
+            }
             if (snap.reportId !== null) {
               const token = streamFenceRef.current.token(es, jobId);
               if (token !== null) {
@@ -802,7 +802,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
         }
       });
     },
-    [closeCurrentStream, router, symbol],
+    [closeCurrentStream, router, symbol, liveView],
   );
 
   // The server supplies a read-only active-job identity using its existing

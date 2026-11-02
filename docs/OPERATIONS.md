@@ -444,3 +444,7 @@ Received-invalid-output controls retain schema wording and unchanged costs.
 JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
 reopen with capped backoff, without posting work. Replacement streams retain
 monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.

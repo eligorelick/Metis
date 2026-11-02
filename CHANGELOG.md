@@ -24,6 +24,10 @@ DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.
 
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
 JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
 reopen with capped backoff, without posting work. Replacement streams retain
 monotonic revision checks; cancellation and unmount clear pending timers.

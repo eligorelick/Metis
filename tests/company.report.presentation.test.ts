@@ -23,7 +23,7 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob }));
+vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob, getLatestResumableJobForSymbol: () => null }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: harness.buildDataBundle,
 }));

@@ -16,7 +16,7 @@ This batch preserves accepted work and safe in-flight renewals.
 | JOB-207 | Fixed: effective verification-generation provenance | Owning JOB-207 commit | JOB-207-red / JOB-207-green | Newly resumed reports only; no rewrite |
 | JOB-205 | Fixed: distinguish transport exhaustion from schema rejection | Owning JOB-205 commit | JOB-205-red / JOB-205-green | Newly persisted wording only |
 | JOB-214 | Fixed: open recovery and fenced CLOSED stream reopening | Owning JOB-214 commit | JOB-214-red / JOB-214-green2 | None |
-| JOB-215 | Not started | — | — | None |
+| JOB-215 | Fixed: once-per-job refresh; live completion opens saved route | Owning JOB-215 commit | JOB-215-red / JOB-215-green2 | None |
 | PERF-202 | Not started | — | — | None |
 
 The regression uses the repository runner harness, real Stage C payload assembly
