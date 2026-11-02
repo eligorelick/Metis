@@ -270,6 +270,19 @@ describe("repurchase executions from companyfacts", () => {
     notes: [],
   };
 
+  it.each(["10-K/A","10-K"])("TEST-201 chooses the later same-day %s accession",form=>{
+    const p=(val:number,accn:string,amended=false)=>({...point("2024-01-01","2024-12-31",val,"2025-02-15",accn),form:amended?form:"10-K"});
+    const companyFacts: CompanyFacts={cik:1,entityName:"Synthetic",facts:{"us-gaap":{
+      StockRepurchasedAndRetiredDuringPeriodShares:{units:{shares:[p(11,"a"),p(10,"b",true)]}},
+      StockRepurchasedAndRetiredDuringPeriodValue:{units:{USD:[p(1100,"a"),p(1000,"b",true)]}},
+    }}};
+    const result=repurchaseExecutionsFromFacts({companyFacts,shareBasis:{splits,basisDay:"2026-10-15"},fiscalYearEnds:["2024-12-31"],reportedCurrency:"USD"});
+    expect(result.rows[0]).toMatchObject({accn:"b",shares:10});
+    const mismatch=structuredClone(companyFacts);
+    mismatch.facts["us-gaap"].StockRepurchasedAndRetiredDuringPeriodValue={units:{USD:[p(1000,"other")]}};
+    expect(repurchaseExecutionsFromFacts({companyFacts:mismatch,shareBasis:{splits,basisDay:"2026-10-15"},fiscalYearEnds:["2024-12-31"],reportedCurrency:"USD"}).notes.join(" ")).toContain("never tagged together");
+    expect(repurchaseExecutionsFromFacts({companyFacts,shareBasis:{splits,basisDay:"2025-01-31"},fiscalYearEnds:["2024-12-31"],reportedCurrency:"USD"}).notes.join(" ")).toContain("after the session");
+  });
   it("puts each fiscal year's repurchased shares on the current share basis", () => {
     const r = repurchaseExecutionsFromFacts({
       companyFacts: facts,

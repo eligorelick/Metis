@@ -240,6 +240,72 @@ const EXPECTED_RISK_SOURCES = [
  * so a new module has to be placed on purpose (audit 2026-09-06, F200).
  */
 const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
+  "src/app/company/[symbol]/GenerateReport.tsx": "Measured 79.24/84.44/96.25/83.68 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/api.routes.export.test.ts, tests/company.generateReport.persistence.test.ts, tests/company.generateReport.resume.test.ts, tests/company.generateReport.route.test.ts, tests/company.generateReport.stream.test.ts, tests/company.generateReport.unsupported.test.ts, tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts, tests/report.dossier.test.ts, tests/report.surface.client.test.ts",
+  "src/app/company/[symbol]/history/diff/diff-body.tsx": "UI behavior exercised by tests/report.history.export.test.ts",
+  "src/app/company/[symbol]/history/diff/page.tsx": "UI behavior exercised by tests/company.routes.symbol.test.ts, tests/report.history.export.test.ts, tests/report.revisionDigest.test.ts",
+  "src/app/company/[symbol]/history/HistoryCompare.tsx": "history selection navigation exercised by tests/report.history.export.test.ts",
+  "src/app/company/[symbol]/history/page.tsx": "UI behavior exercised by tests/company.routes.symbol.test.ts, tests/report.history.export.test.ts, tests/report.revisionDigest.test.ts",
+  "src/app/company/[symbol]/page.tsx": "Measured 79.71/66.84/60.29/80.42 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts",
+  "src/app/company/[symbol]/report/[reportId]/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
+  "src/app/company/[symbol]/report/[reportId]/print/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
+  "src/app/company/[symbol]/ReportTabs.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts",
+  "src/app/company/[symbol]/skeletons.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/app/layout.tsx": "UI behavior exercised by tests/ai.storeUnreadable.test.ts, tests/appearance.surfaces.test.ts, tests/ui.redesign.test.ts",
+  "src/app/page.tsx": "UI behavior exercised by tests/home.aiRoute.test.ts, tests/report.surface.watchlist.test.ts",
+  "src/app/report/sample/page.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/app/settings/AiConnections.tsx": "connection controls; requests use audited src/app/api/ai/connections/route.ts; exercised by tests/ai.connections.test.ts",
+  "src/app/settings/AppearanceSettings.tsx": "UI behavior exercised by tests/appearance.surfaces.test.ts",
+  "src/app/settings/page.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/app/settings/ProviderCredentials.tsx": "UI behavior exercised by tests/settings.credentials.ui.test.ts",
+  "src/app/settings/ResumeQueueControl.tsx": "Measured 95/70.58/80/94.73 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/settings.resumeQueue.test.ts",
+  "src/app/settings/SettingsPageView.tsx": "UI behavior exercised by tests/settings.page.test.ts, tests/settings.resumeQueue.test.ts",
+  "src/appearance/UiDesignProvider.tsx": "UI behavior exercised by tests/appearance.density.test.ts, tests/appearance.surfaces.test.ts, tests/charts.evidenceSurfaces.test.ts, tests/charts.evidenceTable.test.ts, tests/commandPalette.test.ts, tests/company.generateReport.persistence.test.ts, tests/report.evidenceDrilldown.test.ts, tests/report.exportMenu.test.ts, tests/report.provenanceDetails.test.ts, tests/report.publicReadiness.test.ts",
+  "src/brand/MetisLogo.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/charts/ChartDataDisclosure.tsx": "UI behavior exercised by tests/charts.evidenceTable.test.ts",
+  "src/components/charts/FundamentalsCharts.tsx": "UI behavior exercised by tests/charts.fundamentals.currency.test.ts, tests/charts.missingObservations.test.ts",
+  "src/components/charts/lazy.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts",
+  "src/components/charts/PriceChart.tsx": "UI behavior exercised by tests/appearance.surfaces.test.ts, tests/charts.evidenceBoundary.test.ts, tests/charts.evidenceSurfaces.test.ts, tests/charts.map.test.ts",
+  "src/components/charts/ProjectionFanChart.tsx": "UI behavior exercised by tests/charts.missingObservations.test.ts, tests/charts.projectionAxes.test.ts, tests/report.format.shared.test.ts",
+  "src/components/charts/RelativeStrengthChart.tsx": "UI behavior exercised by tests/appearance.surfaces.test.ts, tests/charts.evidenceBoundary.test.ts, tests/charts.evidenceSurfaces.test.ts, tests/charts.relativeStrengthRebase.test.ts",
+  "src/components/charts/SensitivityHeatmap.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/charts/TechnicalsChartPanel.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/CommandLauncher.tsx": "UI behavior exercised by tests/commandPalette.test.ts",
+  "src/components/CommandPalette.tsx": "search and keyboard navigation exercised by tests/commandPalette.test.ts",
+  "src/components/report/AutoPrint.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/CapitalBridge.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/ClaimText.tsx": "UI behavior exercised by tests/report.evidenceDrilldown.test.ts, tests/report.inspector.test.ts",
+  "src/components/report/DossierCover.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/EvidenceInspector.tsx": "UI behavior exercised by tests/commandPalette.test.ts, tests/report.inspector.test.ts",
+  "src/components/report/ExportButtons.tsx": "UI behavior exercised by tests/report.exportMenu.test.ts",
+  "src/components/report/FactorAttribution.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/PersistedReportView.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts",
+  "src/components/report/primitives.tsx": "UI behavior exercised by tests/commandPalette.test.ts, tests/report.assessment.test.ts, tests/report.claimMetricPresentation.test.ts, tests/report.evidenceDrilldown.test.ts, tests/report.fixture.test.ts, tests/report.inspector.test.ts, tests/report.legacyEntitySafety.test.ts, tests/report.periodStatusPresentation.test.ts, tests/report.presentation.d67.test.ts, tests/report.provenanceDetails.test.ts, tests/stageC.confidenceCeiling.test.ts, tests/stageC.gradeContract.test.ts",
+  "src/components/report/RecordedAuditTable.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/RecordedSensitivity.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/RecordedSensitivityMatrix.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/ReportContents.tsx": "UI behavior exercised by tests/report.contents.test.ts",
+  "src/components/report/ReportEvidenceRail.tsx": "UI behavior exercised by tests/report.dossier.test.ts, tests/report.refinement.view.test.ts",
+  "src/components/report/ReportNotes.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/report.notes.test.ts",
+  "src/components/report/ReportSnapshotHeader.tsx": "UI behavior exercised by tests/analysisCompletion.test.ts, tests/report.providerFallback.test.ts, tests/report.refinement.view.test.ts, tests/report.snapshotResearch.test.ts",
+  "src/components/report/ReportTrustSummary.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/ReportView.tsx": "UI behavior exercised by tests/appearance.surfaces.test.ts, tests/audit.scoringSensitivity.test.ts, tests/company.report.presentation.test.ts, tests/currency.dataOnlyCashFlow.test.ts, tests/currency.report.test.ts, tests/currentReports.materialEventScope.test.ts, tests/currentReports.newerResults.test.ts, tests/currentReports.principalAggregation.test.ts, tests/currentReports.retention.test.ts, tests/estimateTiming.integration.test.ts, tests/fairValue.degradedInputs.test.ts, tests/filingDisclosures.composition.test.ts, tests/filingDisclosures.newerFiling.test.ts, tests/lease.legacyScope.test.ts, tests/multiples.basisLabel.audit20261022.test.ts, tests/phaseOne.consumerRefusals.test.ts, tests/phaseOne.finalReview.test.ts, tests/projection.ownershipScope.test.ts, tests/report.amznPresentationNits.test.ts, tests/report.assessment.test.ts, tests/report.auditSurfaces.test.ts, tests/report.batchIntegration.test.ts, tests/report.capitalBridge.test.ts, tests/report.claimStatusMarks.test.ts, tests/report.claimSupport.test.ts, tests/report.commitmentPaymentTiming.test.ts, tests/report.companyStatements.test.ts, tests/report.computedMark.test.ts, tests/report.dossier.test.ts, tests/report.evaluationSurfaces.test.ts, tests/report.evidenceDrilldown.test.ts, tests/report.evidenceTiming.test.ts, tests/report.filingSupplements.presentation.test.ts, tests/report.format.shared.test.ts, tests/report.legacyBridgeMethod.test.ts, tests/report.legacyEdgarDerivedLines.test.ts, tests/report.legacyImpliedReturnShareBasis.test.ts, tests/report.legacyPayloadRecords.test.ts, tests/report.legacyScopeQualifications.test.ts, tests/report.markdown.integration.test.ts, tests/report.multipleBasis.test.ts, tests/report.officerDateSemantics.test.ts, tests/report.outputAudit.test.ts, tests/report.ownHistoryPercentileCell.test.ts, tests/report.periodStatusPresentation.test.ts, tests/report.presentation.d62.test.ts, tests/report.presentation.d67.test.ts, tests/report.providerFallback.test.ts, tests/report.publicReadiness.test.ts, tests/report.reconciliationScope.test.ts, tests/report.recordedSensitivity.test.ts, tests/report.refinement.view.test.ts, tests/report.researchReview.test.ts, tests/report.runDisclosure.test.ts, tests/report.scaledCurrencyPresentation.test.ts, tests/report.surface.completeness.test.ts, tests/report.surface.detail.test.ts, tests/report.templateAvailability.test.ts, tests/report.trustPresentation.test.ts, tests/report.uiParity.test.ts, tests/report.verificationHeadlineOrder.test.ts, tests/report.versionStamps.test.ts, tests/stageB.economicShareScope.test.ts, tests/stageB.lenderCashFlow.test.ts, tests/stageB.ptbvCurrency.audit20261027.test.ts, tests/stageB.recentIpoCostOfEquity.test.ts, tests/stageC.dataOnlyMacro.test.ts",
+  "src/components/report/ResearchNavigation.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/RevisionDigest.tsx": "UI behavior exercised by tests/report.revisionDigest.test.ts",
+  "src/components/report/RunNotices.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/sections.tsx": "UI behavior exercised by tests/audit.scoringSensitivity.test.ts, tests/dataBundle.annualGeography.test.ts, tests/report.assessment.test.ts, tests/report.capitalBridge.test.ts, tests/report.evidenceDrilldown.test.ts, tests/report.format.shared.test.ts, tests/report.gradeReliability.test.ts, tests/report.history.export.test.ts, tests/report.projectionAvailability.test.ts, tests/report.provenanceDetails.test.ts, tests/report.qualityAccrualClarification.test.ts, tests/report.reconciliationScope.reader.test.ts, tests/report.refinement.view.test.ts, tests/report.riskProbability.test.ts, tests/report.sourceFactPresentation.test.ts, tests/report.surface.completeness.test.ts, tests/report.trustPresentation.test.ts",
+  "src/components/report/SourceEvidenceCatalog.tsx": "UI behavior exercised by tests/report.inspector.test.ts",
+  "src/components/report/ThesisCheckpoints.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/ValuationReview.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/report/ValuationSensitivityTables.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/shell.tsx": "render only: React presentation; no research calculation or persisted report mutation",
+  "src/components/SidebarNavigation.tsx": "UI behavior exercised by tests/sidebarNavigation.test.ts",
+  "src/components/ui.tsx": "UI behavior exercised by tests/report.compositeEvidenceFloor.test.ts, tests/report.format.shared.test.ts",
+  "src/components/watchlist/AddTicker.tsx": "UI behavior exercised by tests/home.aiRoute.test.ts, tests/report.surface.watchlist.test.ts",
+  "src/components/watchlist/CoverageDesk.tsx": "UI behavior exercised by tests/ui.redesign.test.ts",
+  "src/components/watchlist/RemoveButton.tsx": "UI behavior exercised by tests/home.aiRoute.test.ts, tests/report.surface.watchlist.test.ts, tests/watchlist.removeButton.test.ts",
+  "src/components/watchlist/RunsDisclosure.tsx": "UI behavior exercised by tests/home.aiRoute.test.ts, tests/report.surface.watchlist.test.ts",
+  "src/components/watchlist/Sidebar.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts, tests/report.refinement.view.test.ts, tests/report.revisionDigest.test.ts, tests/report.surface.watchlist.test.ts",
+  "src/components/WorkspaceToolbar.tsx": "UI behavior exercised by tests/appearance.density.test.ts, tests/appearance.surfaces.test.ts",
   "src/appearance/preference.ts": "nonsecret browser display cookie only; parsing/write-failure tests in appearance.preference.test.ts; never controls research, spend or DB state",
   "src/appearance/density.ts": "nonsecret spacing cookie only; parsing/write-failure and server/client alignment tests in appearance.density.test.ts and appearance.surfaces.test.ts; never changes research, spend or DB state",
   "src/components/charts/palette.ts": "display colors for optional workspace; never changes chart values, research, spend or persistence",
@@ -258,7 +324,7 @@ function walkSources(dir: string): string[] {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...walkSources(full));
-    } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+    } else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith(".d.ts")) {
       out.push(path.relative(ROOT, full).split(path.sep).join("/"));
     }
   }
@@ -290,6 +356,7 @@ function runCoverageMutation(options: {
   testBody: string;
   thresholds: { statements: number; branches: number; functions: number; lines: number };
   perFile?: boolean;
+  extraThresholds?: Record<string, {statements:number;branches:number;functions:number;lines:number}>;
 }): { status: number | null; output: string } {
   const tempRoot = path.join(ROOT, "tmp");
   mkdirSync(tempRoot, { recursive: true });
@@ -316,6 +383,7 @@ function runCoverageMutation(options: {
             reportsDirectory: `${relativeTempDir}/coverage`,
             thresholds: {
               ...options.thresholds,
+              ...options.extraThresholds,
               perFile: options.perFile ?? true,
               autoUpdate: false,
             },
@@ -326,7 +394,7 @@ function runCoverageMutation(options: {
     );
     const result = spawnSync(
       process.execPath,
-      [VITEST_CLI, "run", "--config", configFile, "--coverage", "--reporter=dot"],
+      [VITEST_CLI, "run", "--maxWorkers=2", "--config", configFile, "--coverage", "--reporter=dot"],
       { cwd: ROOT, encoding: "utf8" },
     );
     return {
@@ -438,4 +506,43 @@ describe("risk coverage contract", () => {
     expect(perFile.status).not.toBe(0);
     expect(perFile.output).toMatch(/coverage.*execution|execution.*coverage/i);
   }, 30_000);
+});
+
+it("TEST-201 walks TSX sources as well as TS and refuses declarations",()=>{
+ const sources=walkSources(path.join(ROOT,"src"));
+ expect(sources).toContain("src/app/company/[symbol]/page.tsx");
+ expect(sources.filter(f=>f.endsWith(".d.ts"))).toEqual([]);
+});
+it("TEST-201 applies a single-file floor to every core source",async()=>{
+ const config=await import("../vitest.config");
+ const thresholds=config.default.test!.coverage!.thresholds as Record<string,unknown>;
+ expect(thresholds).toMatchObject({statements:90,branches:84,functions:95,lines:93});
+ for(const f of [...walkSources(path.join(ROOT,"src/pipeline/stageB")),"src/report/schema.ts"])
+  expect(thresholds[f],f).toEqual({statements:85,branches:75,functions:85,lines:85});
+});
+
+it("TEST-201 exemption test references exist",()=>{
+ for(const reason of Object.values(COVERAGE_EXEMPT_SOURCES))
+  for(const [f] of reason.matchAll(/tests\/[\w.-]+\.test\.ts/g)) expect(existsSync(path.join(ROOT,f)),f).toBe(true);
+});
+
+it("TEST-201 single-file glob fails while aggregate-only passes",()=>{
+ const options={source:["src/symbol.ts","src/report/execution.ts"],testBody:'import { normalizeSymbol } from "../../src/symbol"; test("covers symbol",()=>expect(normalizeSymbol("demo")).toBe("DEMO"));',thresholds:{statements:1,branches:1,functions:1,lines:1},perFile:false};
+ const base=runCoverageMutation(options);
+ const guarded=runCoverageMutation({...options,extraThresholds:{"src/report/execution.ts":{statements:85,branches:75,functions:85,lines:85}}});
+ expect(base.status,base.output).toBe(0);
+ expect(guarded.status,guarded.output).not.toBe(0);
+ expect(guarded.output).toContain('"src/report/execution.ts" threshold');
+},30000);
+
+it("TEST-201 refuses glob-unsafe core paths",async()=>{
+ const {perFileFloorThresholds}=await import("../vitest.shared");
+ const dir=mkdtempSync(path.join(ROOT,"tmp/floor-probe-"));
+ try {
+  mkdirSync(path.join(dir,"stageB"));
+  writeFileSync(path.join(dir,"stageB/a.ts"),"export const a=1;");
+  expect(Object.keys(perFileFloorThresholds(dir,["stageB"]))).toEqual(["stageB/a.ts"]);
+  writeFileSync(path.join(dir,"stageB/[x].ts"),"export const b=1;");
+  expect(()=>perFileFloorThresholds(dir,["stageB"])).toThrow(/glob-free path/);
+ } finally {rmSync(dir,{recursive:true,force:true});}
 });

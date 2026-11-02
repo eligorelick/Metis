@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P8 methodology docs and test guards (2026-11-02)
+
+- Align methodology, research, operations and privacy with current source behavior; pin declarations and preserve stored reports.
+
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 
 Auto mode replaces a conflicting vendor income row with a whole internally

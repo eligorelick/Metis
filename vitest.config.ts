@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import {
+  perFileFloorThresholds,
   PRODUCT_TEST_EXCLUDE,
   PRODUCT_TEST_INCLUDE,
   SHARED_RESOLVE_ALIAS,
@@ -31,6 +32,7 @@ export default defineConfig({
         branches: 84,
         functions: 95,
         lines: 93,
+        ...perFileFloorThresholds(__dirname),
       },
     },
   },

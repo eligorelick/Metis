@@ -3774,3 +3774,11 @@ ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no 
 ### D-next (N2) P/TBV full-suite golden follow-up
 
 The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.
+
+## D-next (P8): Documentation follows deliberate behavior and current constants
+
+B12-OD-4/5/7: cancellation writes error and Retry may reuse compatible durable work; component-only bank provision totals stay withheld. Signed accrual display bands, conditional disclaimer, EPS currency admission, excess-return continuing value and all filing/issuer-website egress are described as implemented. Current methodology declarations are pinned to source constants, intentionally changing methodArtifactHash when future stamp changes update the prose. Stored reports remain immutable.
+
+## D-next (P8): Hermetic checks and per-file coverage
+
+B12-OD-2/3/6: TSX sources receive named coverage placements; every core source has a single-file 85/75/85/85 glob floor alongside the 90/84/95/93 aggregate. Compiler and lint gates use declared roots, preserving tracked inputs. Shared test setup guards HTTP/HTTPS request/get and DNS lookup, synchronizes builtin ESM exports, and isolates XDG_DATA_HOME and APPDATA. No company-IR production seam is added. Recorded reading measurements must refuse main/document overflow and no-op jumps, with 48px landing slack. Live confirmation is skipped under section 4.3. DOC-301 remains deferred to B5.

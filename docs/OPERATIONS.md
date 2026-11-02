@@ -143,7 +143,7 @@ job therefore means a saved result, not necessarily completed AI analysis.
 SQLite owns job claims, generations, paid permits, pass artifacts and cost
 settlements. Starting the same issuer while compatible queued/running work
 exists returns the existing job. Terminal statuses include `done`, `error`,
-`unsupported` and `canceled`. A stopped process is reconciled through lease
+`unsupported`. Canceling writes `error` with `job canceled by user`; Retry may resume compatible durable work. A stopped process is reconciled through lease
 expiry by scheduling/write surfaces; status polling and SSE do not reconcile
 expired claims or start model work. Reading a company page can fetch provider
 data and update caches even though status reads do not mutate job state.
@@ -163,7 +163,7 @@ versions match, retaining the original capture time. Legacy or version-mismatche
 snapshots require a fetch; the payload fingerprint must still match before any
 resumed model request. Validation uses the current run clock, so changed
 staleness checks can still refuse reuse. New requests remain billable;
-earlier spend remains in the ledger. Retry rejects queued/running, canceled and
+earlier spend remains in the ledger. Retry rejects queued/running and
 unsupported jobs, active same-issuer conflicts and incompatible/unresumable
 terminal work. Start a new report when no compatible tail can be resumed.
 
@@ -250,7 +250,7 @@ Company landing pages accept only GET and HEAD; other methods return 405 with
 | `GET /api/report/[jobId]/stream` | SSE `snapshot` events; event ID is snapshot revision. | `404` unknown job. Reconnect reads current state, not an event history. |
 | `HEAD /api/report/[jobId]/stream` | Same existence/status/stream headers with no body/subscription. | `404` unknown job. |
 | `POST /api/report/[jobId]/cancel` | No body needed; `202 { jobId, canceled: true }`. | `404` unknown; `409` terminal job or changed execution state. |
-| `POST /api/report/[jobId]/retry` | No body needed; `202 { jobId, resumed: true }`. | `404` unknown; `409` active/unsupported/canceled/conflicting/incompatible work. |
+| `POST /api/report/[jobId]/retry` | No body needed; `202 { jobId, resumed: true }`. | `404` unknown; `409` active/unsupported/conflicting/incompatible work. |
 | `POST /api/jobs/resume` | No body needed; `202 { resumed: true, queued }`. | Guard runs before scheduler; queued count is read before resuming. |
 | `GET /api/report/view/[reportId]` | Compact persisted synthesis/grades/verification/cost/completeness summary, not full report JSON. | `400` malformed ID; `404` absent row; unreadable content yields a friendly `200` summary with unknown content fields. |
 | `GET /api/export/[reportId]?format=md` | Markdown attachment; default format is `md`. | `400` malformed ID/format; `404` absent; `422` unreadable saved content. |
@@ -383,7 +383,7 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | Queued work waits after launch | Windows launcher holds startup; resume explicitly. Budget/concurrency gates can also defer admission. |
 | Mutation returns `403` | Use the direct allowed authority and matching browser Origin/metadata or current startup token. Restart replaces the token. |
 | Settings save returns `412` | Refresh current authority/ETag and reconcile intended edits before saving. |
-| Retry returns `409` | Reload durable state; active/conflicting/unsupported/canceled or incompatible work needs a different action or new run. |
+| Retry returns `409` | Reload durable state; active/conflicting/unsupported or incompatible work needs a different action or new run. |
 | PDF download is HTML | Open the print view and use browser Print → Save as PDF. |
 | Corrected export refuses a path | Choose new HTML and JSON destinations; existing files are never overwritten. |
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
@@ -494,3 +494,5 @@ Current-date history tails refresh in the foreground on the session-aware 15-min
 EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses a character in a declared name, transliterate it before saving; the contact is sent as an HTTP header.
 
 DATA-114: when a merged FMP history uses a window fallback, the series ends at the earliest last bar of its accepted fallback chunks. Later successful bars are withheld to avoid a gap; endpoint text and stale metadata disclose the truncation.
+
+Core coverage holds every Stage B and report-schema file to 85/75/85/85 (statements/branches/functions/lines), alongside the unchanged 90/84/95/93 aggregate. Risk coverage retains its 85/75/85/85 per-file gate. Every TS and TSX source has a named placement.
