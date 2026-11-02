@@ -1,3 +1,4 @@
+import { macroDisplayRows } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
@@ -719,7 +720,7 @@ function sectionProjections(p: Projections): string {
 function sectionMacro(m: Macro): string {
   const series = table(
     ["Series", "Name", "Latest", "As of", "Relevance"],
-    m.relevantSeries.map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
+    macroDisplayRows(m).map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
   );
   return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }

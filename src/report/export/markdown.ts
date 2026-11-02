@@ -1,3 +1,4 @@
+import { macroDisplayRows } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
@@ -856,7 +857,7 @@ function renderMacro(m: Macro): string {
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
-      m.relevantSeries.map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
+      macroDisplayRows(m).map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
     ),
     "",
   );

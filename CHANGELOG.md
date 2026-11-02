@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P7 display and history (2026-11-02)
+
+- AI-201: merge repeated macro series and preserve transform labels.
+
 ## Unreleased - P3 verifier and trust labels (2026-11-02)
 
 - RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.

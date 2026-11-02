@@ -1,3 +1,4 @@
+import { macroDisplayRows } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
@@ -1892,8 +1893,8 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
       <SubBlock label="relevant FRED series">
         <DataTable
           columns={cols}
-          rows={macro.relevantSeries}
-          rowKey={(s) => s.seriesId}
+          rows={macroDisplayRows(macro)}
+          rowKey={(s) => `${s.seriesId}|${s.latest.unit}|${s.latest.asOf}|${s.latest.value}`}
           empty="no macro series mapped"
         />
       </SubBlock>

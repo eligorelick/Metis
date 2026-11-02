@@ -1950,3 +1950,14 @@ export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appen
   if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
   return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
 }
+
+/** AI-201: merge identical stored macro rows without altering the record. */
+export function macroDisplayRows(macro: Report["macro"]): Report["macro"]["relevantSeries"] {
+  const rows: Report["macro"]["relevantSeries"] = [];
+  for (const row of macro.relevantSeries) {
+    const existing = rows.find(r => r.seriesId === row.seriesId && r.latest.unit === row.latest.unit && r.latest.value === row.latest.value && r.latest.asOf === row.latest.asOf);
+    if (existing) { if (!existing.relevance.includes(row.relevance)) existing.relevance += ` ${row.relevance}`; }
+    else rows.push({ ...row });
+  }
+  return rows;
+}

@@ -3107,3 +3107,7 @@ RPT-207 preserves FMP endpoint arguments when they identify different datasets. 
 RPT-211 completes the D-62 figure registry for fundamentals tables, model value, scenario targets and macro values. The heading enumerates the listed groups. Raw values, registry IDs and periods use the existing audit-cell serializer; reader body figures do not change.
 
 Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
+
+## D-next (P7) - Display and history (2026-11-02)
+
+AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.
