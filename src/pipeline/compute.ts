@@ -150,7 +150,7 @@ import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stage
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
-import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
+import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
@@ -2073,6 +2073,30 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     "income",
     ttmGaps,
   );
+  // L2: a vendor quarter can omit a filed common numerator while retaining
+  // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
+  // never infer a common allocation from total income or rebuild IPO EPS.
+  let commonEarningsSupplemented = false;
+  const commonTagNames = tagsFor("netIncomeAvailableToCommon");
+  if (companyFacts && admittedFacts?.ok && incomeQuarterSet.rows.slice(0, 4).some(r => num(r.netIncomeAvailableToCommon) === null) &&
+    commonTagNames.some(tag => companyFacts.facts["us-gaap"]?.[tag] !== undefined) &&
+    Number.isFinite(Date.parse(admittedFacts.value.fetchedAt)) && Date.parse(admittedFacts.value.fetchedAt) <= Date.parse(bundle.builtAt)) {
+    const filed = buildStatementsFromCompanyFacts(companyFacts, { symbol: bundle.symbol, cik: String(companyFacts.cik), annualPeriods: 2, quarterlyPeriods: 5,
+      asOf: bundle.builtAt.slice(0, 10), factsObservedAt: admittedFacts.value.fetchedAt,
+      vendorSplits: { status: "unavailable", source: "retained-common-earnings", reason: "only additive common-income amounts are used; no share or EPS inference" } });
+    incomeQuarterSet.rows = incomeQuarterSet.rows.map((row, index) => {
+      if (index >= 4 || num(row.netIncomeAvailableToCommon) !== null || row.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || Number(row.cik) !== companyFacts.cik) return row;
+      const sec = filed.incomeQuarterly.rows.find(r => r.date === row.date && r.period === row.period && r.reportedCurrency === row.reportedCurrency);
+      const evidence = sec?.fieldProvenance?.netIncomeAvailableToCommon;
+      if (!sec || num(sec.netIncomeAvailableToCommon) === null || sec.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || !evidence ||
+        !evidence.tags.some(tag => commonTagNames.some(name => tag === `us-gaap/${name}`))) return row;
+      commonEarningsSupplemented = true;
+      notes.push(`Aggregate common earnings: ${row.date} uses filed net income available to common ${sec.netIncomeAvailableToCommon} ${evidence.unit}` +
+        ` (${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). No per-share EPS is inferred.`);
+      return { ...row, netIncomeAvailableToCommon: sec.netIncomeAvailableToCommon,
+        fieldProvenance: { ...row.fieldProvenance, netIncomeAvailableToCommon: evidence } };
+    });
+  }
   const balanceQuarterSet = normalizeStatementQuarters(
     withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
     "balance",
@@ -2107,6 +2131,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
   ], bundle.builtAt);
+  if (commonEarningsSupplemented && num(ttmInc?.netIncomeAvailableToCommon) !== null) {
+    const components = incomeQuarterSet.rows.slice(0, 4);
+    const reason = `Aggregate TTM common earnings ${ttmInc!.netIncomeAvailableToCommon}: ` + components.map(row => {
+      const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
+      return `${row.date} ${row.netIncomeAvailableToCommon} (${evidence?.derivation ?? "direct filed flow"}; ${evidence?.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ") ?? "source unavailable"})`;
+    }).join(" + ") + ". Four contiguous common-income quarters; a derived Q4 is fiscal year less nine months, both operands filed. No per-share EPS is inferred and no FY-plus-YTD substitution is used.";
+    notes.push(reason);
+    ttmGaps.push({ field: "compute.ttmCommonEarnings.construction", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
+  }
   const routingIncomeTtm: RoutingIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
@@ -3346,6 +3379,15 @@ function computeReturns(
     }
   }
 
+  // L9: the evidenced non-bank lender has neither an applicable FCFF DCF
+  // nor an excess-return model. A refused, unconsumed rate is disclosure.
+  if (route.base === "general" && route.cashFlowApplicability?.status === "not-applicable") {
+    for (const gap of wacc.gaps) if (gap.severity === "critical") {
+      gap.severity = "info";
+      gap.reason += ". Disclosure only: no applicable model consumes this discount rate; the evidenced lender's FCFF DCF is not applicable and no excess-return model is used.";
+    }
+  }
+
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of
   // its numerator because its denominator already excludes preferred.
   const preferredByDate = new Map<string, FmpCashFlowRow>(
@@ -4226,8 +4268,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
   Object.assign(multiples, comparePeerFundamentals({
     symbol: bundle.symbol, profile: bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined, quote: bundle.quote, route: route.base,
+    subjectCashFlowApplicability: route.cashFlowApplicability,
     subject: multiples, now: new Date(bundle.peerFundamentals?.collectedAt ?? bundle.builtAt), collection: bundle.peerFundamentals,
-    subjectIncomeQuarterly: bundle.statements.incomeQuarterly,
+    subjectIncomeQuarterly: bundle.statements.incomeQuarterly.ok
+      ? { ...bundle.statements.incomeQuarterly, value: { ...bundle.statements.incomeQuarterly.value, data: { ...bundle.statements.incomeQuarterly.value.data, rows: ctx.incomeQuarterly } } }
+      : bundle.statements.incomeQuarterly,
     subjectBalanceQuarterly: bundle.statements.balanceQuarterly,
   }));
 

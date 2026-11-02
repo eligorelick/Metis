@@ -85,7 +85,7 @@ describe("frozen runtime build replay CLI", () => {
     mkdirSync(join(root, "scripts"));
     for (const file of ["stageb-runtime-replay-entry.ts", "runtime-artifact-manifest.mjs"]) cpSync(join(project, "scripts", file), join(root, "scripts", file));
     const computeFile = join(root, "src", "pipeline", "compute.ts");
-    writeFileSync(computeFile, readFileSync(computeFile, "utf8").replace("symbol: bundle.symbol,", 'symbol: "FROZEN",'));
+    writeFileSync(computeFile, readFileSync(computeFile, "utf8").replace(/symbol: bundle\.symbol,(?=\r?\n\s+builtAt:)/, 'symbol: "FROZEN",'));
     const versionsFile = join(root, "src", "pipeline", "runInputSnapshot.ts");
     writeFileSync(versionsFile, readFileSync(versionsFile, "utf8").replace(/export const STAGE_B_IMPLEMENTATION_VERSION = "[^"]+"/, 'export const STAGE_B_IMPLEMENTATION_VERSION = "FROZEN_STAGE_B"'));
     const frozenVersions = { ...CURRENT_SNAPSHOT_VERSIONS, stageB: "FROZEN_STAGE_B" };

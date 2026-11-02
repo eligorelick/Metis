@@ -112,3 +112,51 @@ describe("R-FIGR-3 filed common-class economics", () => {
     expect(c.valuation.multiples!.enterpriseValue.equityScope!.economicShares).toBe(125_000_000);
   });
 });
+
+function coverFixture() {
+  const b = fixture();
+  if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+  const d = b.edgar.tenQNotes.value.data;
+  b.edgar.economicShareInventory = [{ source: { form: d.form, accession: d.accession, filingDate: d.filingDate, documentUrl: d.documentUrl, hash: "retained-inline-hash" },
+    classes: [], evidence: null, reason: "No eligible complete inline cover-share inventory", passages: { inventory: "", rights: null },
+    observations: [
+      { classId: "us-gaap:CommonClassAMember", shares: 101_000_000, asOf: "2026-04-30", contextId: "a", sourceId: d.documentUrl + "#a" },
+      { classId: "us-gaap:CommonClassBMember", shares: 21_000_000, asOf: "2026-04-30", contextId: "b", sourceId: d.documentUrl + "#b" },
+      { classId: "issuer:AlternateCommonStockMember", shares: 6_000_000, asOf: "2026-04-30", contextId: "c", sourceId: d.documentUrl + "#c" },
+    ] }];
+  return b;
+}
+
+describe("L1 retained cover counts with same-filing class rights", () => {
+  it("admits the one-to-one cover class set at its own date, with provider quote binding", () => {
+    const b = coverFixture(), before = JSON.stringify(b);
+    const scope = runStageB(b).valuation.multiples!.enterpriseValue.equityScope!;
+    expect(scope).toMatchObject({ status: "resolved", economicShares: 128_000_000, marketCap: 12_800_000_000, shareCountAsOf: "2026-04-30", approximate: true });
+    expect(scope.basis).toContain("cover");
+    expect(scope.basis).toContain("Quote class bound by provider title");
+    expect(scope.basis).toContain("same-price approximation");
+    expect(scope.sourceIds).toContain(b.edgar.economicShareInventory![0]!.observations![2]!.sourceId);
+    expect(JSON.stringify(b)).toBe(before);
+  });
+  it.each(["missing", "mismatch", "duplicate", "mixed-date", "future-date", "contrary", "other-filing"])("refuses %s cover evidence", mode => {
+    const b = coverFixture(), row = b.edgar.economicShareInventory![0]!;
+    if (mode === "missing") row.observations!.pop();
+    if (mode === "mismatch") row.observations![2]!.classId = "issuer:OtherCommonStockMember";
+    if (mode === "duplicate") row.observations!.push({ ...row.observations![0]! });
+    if (mode === "mixed-date") row.observations![2]!.asOf = "2026-04-29";
+    if (mode === "future-date") row.observations![2]!.asOf = "2026-08-01";
+    if (mode === "contrary" && b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.text += " Alternate common stock has preferential dividend rights.";
+    if (mode === "other-filing") row.source.accession = "0000000042-26-000002";
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+  });
+});
+
+it("L1 keeps blocking an unparsed newer class count in the same filing", () => {
+  const b = fixture();
+  if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+  const d = b.edgar.tenQNotes.value.data;
+  b.edgar.economicShareInventory = [{ source: { form: d.form, accession: d.accession, filingDate: d.filingDate, documentUrl: d.documentUrl, hash: "hash" },
+    classes: [{ classId: "unknown", label: "unknown common stock", shares: 1, asOf: "2026-04-30", sourceId: d.documentUrl + "#unknown" }],
+    observations: [], evidence: null, passages: { inventory: "unknown", rights: null }, reason: "unresolved" }];
+  expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+});

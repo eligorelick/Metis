@@ -1240,6 +1240,16 @@ A loss period's count is replaced as "Share basis (D-65)" describes.
 
 ---
 
+L7 (N4a): do not attribute the annual diluted/basic count gap to outstanding
+awards when that fiscal year spans filed conversion evidence, or filed IPO
+proceeds with a same-filing participating-security allocation. The conversion
+reader is shared with the N3 annual share-trend rule and honors the retained
+filing cutoff, form, unit and period. Retain both observed counts and disclose
+the filing and reason; the award overhang is unavailable, never zero. An older
+conversion outside the fiscal year, ordinary issuance or IPO proceeds alone
+does not trigger this withholding. A missing prior annual row does not extend
+the award window over intervening years. Stored reports are unchanged.
+
 ## Stock splits and the share basis
 
 A share count or per-share figure is used only on the share basis of the price
@@ -2159,6 +2169,20 @@ evidence was not fetched is excluded as unconfirmed. Existing earlier industry
 and sector screens still apply, and no additional SEC request is made.
 
 ---
+
+L2 (N4a): per-share P/E remains first choice. If quarterly common earnings are
+missing from a retained provider row, issuer-admitted companyfacts acquired
+by the run cutoff may supply the exact same period and currency's filed Basic
+common-stockholder numerator. Explicit refusals and supplied values are never
+replaced. The existing SEC flow resolver derives Q4 as FY less nine months
+when its filed lineage/presentation checks admit both operands. Four contiguous
+quarters are summed; annual plus current YTD less prior YTD is not substituted
+across changing participating-security allocations. EPS is never subtracted or
+invented across an IPO. Capitalization divided by those common earnings is
+labelled aggregate basis, with the Basic allocation convention disclosed.
+The manifest records the four dated common-income components and the filed
+accessions behind a derived Q4. This repairs a missing common-income input
+while retaining the ownership admission gate.
 
 ## Financial-company routes
 
@@ -6420,6 +6444,17 @@ capitalization and multiples; per-share intrinsic value still requires its
 separate diluted-divisor and model-input gates. D-67: derivation is in memory
 for a new computation only; stored source bundles and reports are never rewritten.
 
+L1 (N4a): retained cover XBRL observations may instead supply the count date
+when there is exactly one valid count per common class at one date after the
+balance date and no later than filing. The member set must map one-to-one to
+that same filing's enumerated balance-sheet classes: us-gaap CommonClassXMember
+to Class X common stock, or a custom NameCommonStockMember to Name common stock.
+The shared whole-sentence identical dividend/liquidation-rights matcher also
+serves the cover parser. Contrary economics still block admission. Provider
+quote-title binding and the same-price approximation remain explicit. Cover
+observation source IDs and hashes enter provenance; balance-date treasury
+percentages are not presented as cover-date observations.
+
 Review fixes F3/F5/F6/F7/F8: new resolved multi-class reports label raw
 provider capitalization and shares as quoted-class observations. A same-filing
 provider quoted-class discrepancy above 3% discloses both counts and dates;
@@ -6477,6 +6512,13 @@ availability and allocation gates still apply. EV is context only, with named
 filed debt components tied to the same-date provider perimeter; without that
 composition the context value is withheld. Stored reports are immutable.
 
+L6 (N4a): the same-evidence rule for SEC-refined peer routes also applies to
+held-for-sale lender cash-flow applicability. A same-industry profile alone
+cannot confirm the filed loan-origination and loan-sale OCF evidence, so those
+peers are excluded as unconfirmed. The bounded peer dataset does not collect
+this evidence, and adds no SEC request to manufacture comparability. Ordinary
+general-route peers and the existing bank/insurer route rules retain their gates.
+
 ## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
 
 No new bottom-up or sector-beta fallback is implemented. The existing peer
@@ -6511,6 +6553,13 @@ financial leverage also requires an explicit economic justification. Those
 requirements are not established by the current retained inputs; no numerical
 fallback is represented as implemented or validated (see RESEARCH section 8.4
 on bottom-up beta as a research direction).
+
+L9 (N4a): when the SEC-evidenced non-bank lender rule suppresses the FCFF DCF
+and no excess-return model applies, a refused beta/WACC input is retained as
+an informational disclosure. It supplies no rate or fallback estimate and
+cannot alone make the header Blocked. The numerical refusal is unchanged.
+Banks, insurers and ordinary general-route issuers retain the existing severity
+because an applicable model consumes their discount rate.
 
 ## SEC-built rows on a filed-total conflict (N3)
 

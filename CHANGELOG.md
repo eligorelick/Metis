@@ -18,6 +18,18 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
+
+- L1: admit a complete retained cover class inventory using same-filing class
+  enumeration and identical economic rights; disclose quote binding and proxy prices.
+- L2: supplement missing same-period filed common earnings, retain four-quarter
+  additive flow and per-share-first P/E, and label aggregate capitalization P/E.
+- L6: exclude profile-only peers as unconfirmed for an SEC-evidenced lender.
+- L7: withhold award-overhang attribution for a fiscal year spanning filed
+  conversion or IPO/participating-security evidence; retain raw counts.
+- L9: classify refused discount-rate inputs as disclosure when no applicable
+  model consumes them on the evidenced non-bank lender route.
+
 ## Unreleased - DOC-301 consensus calendarization wording (2026-11-02)
 
 - DOC-301 (B12-OD-8): METHODOLOGY now states that the next fiscal year's part of forecast window one follows the issuer's quarterly shape, with the tested synthetic example (570, where an even spread gives 627.53). No figure or stored report changes.
