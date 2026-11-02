@@ -11,7 +11,7 @@ AI-407 is implemented under OD-2. All other requested findings are not started.
 | AI-504 | Fixed | Owning AI-504 commit | AI-504-red / AI-504-green; AI-504-controls; AI-504-replay | No stored writes; zero numeric replay deltas |
 | AI-116 | Fixed | Owning AI-116 commit | AI-116-red; AI-116-legacy-red / AI-116-green; AI-116-controls; AI-116-replay | Display-only note before frozen 1.56.0; no stored writes |
 | AI-103 | Fixed | Owning AI-103 commit | AI-103-red; AI-103-judge-red / AI-103-green; AI-103-controls; AI-103-replay | No stored writes; verify replay unchanged |
-| AI-104 | Not started | - | - | None |
+| AI-104 | Fixed | Owning AI-104 commit | AI-104-red / AI-104-green; AI-104-controls; AI-104-replay | No stored writes or replay manifest deltas |
 | AI-111 | Not started | - | - | None |
 | RPT-504 | Not started | - | - | None |
 | DB-004 | Not started | - | - | None |

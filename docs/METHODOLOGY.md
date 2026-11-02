@@ -5969,3 +5969,5 @@ AI-504: a difference or ratio record is named only when its operands occur in re
 AI-116: insider owner types are read role by role, preserving commas inside an officer title. Historical audit logs before 1.56.0 that rejected a potentially dropped role say the title was not rechecked; recorded outcomes and raw report bytes remain unchanged.
 
 AI-103 / OD-4: registered issuer entities may cite issuer filings, transcripts, press releases and registered issuer-data records carried in the payload, or registered issuer pages. Third-party news and unregistered sources remain non-primary. The analyst source rule is unchanged.
+
+AI-104: recovery language must govern the hurdle. A later fade, convergence or decline toward cost of equity is not a recovery, even after an earlier rise; continued rising toward it still triggers the warning.

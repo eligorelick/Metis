@@ -302,3 +302,16 @@ describe("C-10: the trailing start uses only a currency-compatible window", () =
     expect(computed.valuation.excessReturn.roePathPct.basis).not.toMatch(/TTM/);
   });
 });
+
+it.each([
+ "Trailing ROTE improved to 16.5% and the base path fades from there toward the cost of equity.",
+ "ROE rose to 16.5% over the trailing four quarters and is modelled to converge to the cost of equity by year ten.",
+ "ROTE improved to 16.5%, and the base case has it decline toward the cost of equity over the explicit period.",
+ "ROTE improved to 16.5% and the base path moves toward the cost of equity.",
+])("AI-104 accepts an accurate fade: %s", text => {
+ expect(returnPathLanguageFindings({ texts: [{ path: "verdict.synthesis", text }], trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM" }, terminalTargetPct: 10.4 })).toEqual([]);
+});
+
+it("AI-104 still flags continued recovery toward the hurdle", () => {
+ expect(returnPathLanguageFindings({ texts: [{ path: "verdict.synthesis", text: "ROE improved to 16.5% and keeps rising toward the cost of equity." }], trailing: { returnPct: 16.5, asOf: null, label: "TTM" }, terminalTargetPct: 10.4 })).toHaveLength(1);
+});

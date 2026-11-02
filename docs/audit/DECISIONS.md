@@ -3012,3 +3012,5 @@ AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compa
 AI-116 restores every listed insider role, splitting only before recognized owner-role prefixes. The historical audit qualification is frozen at 1.56.0; it claims no historical re-verification. Paired facade numeric statuses remain unchanged.
 
 AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.
+
+AI-104 scopes the recovery predicate through the hurdle noun. Intervening fade predicates and completed rises followed by a new non-recovery clause end its reach. No numeric values or status marks change.
