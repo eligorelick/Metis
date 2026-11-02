@@ -1198,9 +1198,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const labels = labelReadings(record);
     // AI-501: label direction nouns define the metric; a claim's attached
     // direction can instead describe the relation to its own figure.
-    const claimKept = perShare(unestablished(metricTokens(own.label, ignore, { keepDirectionWords: true })).filter((word) => !(word === "yoy" && established.has("annual")) && word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
+    const claimKept = perShare(unestablished(metricTokens(own.label, ignore, { loose: true, keepDirectionWords: true })).filter((word) => !(word === "yoy" && established.has("annual")) && word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
     const matchingLabels = labels.flatMap((label) => {
       const words = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore, { keepDirectionWords: true })));
+      const plain = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)));
+      // A label without direction nouns reads as before AI-501: the claim's own
+      // direction words ("74%, up from Q2 2019") state a relation, not the metric.
+      if (words.every((word) => plain.includes(word))) return namesMetric(claimTokens, plain) ? [{ label, words: claimTokens }] : [];
       return namesMetric(claimKept, words) ? [{ label, words: claimKept }] : own.direction !== null && namesMetric(claimTokens, words) ? [{ label, words: claimTokens }] : [];
     });
     if (matchingLabels.length === 0) {

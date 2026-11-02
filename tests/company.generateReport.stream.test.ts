@@ -508,7 +508,9 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
       }) }));
     }
     expect(installed).toHaveLength(1);
-    expect(markup.match(/>n\/a<\/span>/g)).toHaveLength(7);
+    // Seven grade cells, plus the citation rate: this data-only summary completed
+    // no citation check, so its recorded rate is not shown (RPT-504).
+    expect(markup.match(/>n\/a<\/span>/g)).toHaveLength(8);
     expect(markup).not.toMatch(/var\(--grade-[abcdf]\)/);
     expect(markup).toContain("Not assessed");
   });

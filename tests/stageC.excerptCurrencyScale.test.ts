@@ -146,9 +146,10 @@ describe("scaled excerpt numbers retain the source-span binding", () => {
 });
 
 describe("explicit currency scale against numeric registry records", () => {
-  async function registryNumber(value: number, unit: string, currency: string | null = "USD", recordValue = 197e9) {
+  async function registryNumber(value: number, unit: string, currency: string | null = "USD", recordValue = 197e9,
+    cited: { id: string; label: string } = { id: "payload.statements.income.revenue", label: "Net sales" }) {
     const record: NumericProvenanceRecord = {
-      id: "payload.statements.income.revenue", label: "Net sales", kind: "provider", value: recordValue,
+      id: cited.id, label: cited.label, kind: "provider", value: recordValue,
       unit: "currency", currency: "USD", period: asOf, asOf, origin: "edgar", formulaVersion: null, displayPrecision: 0,
     };
     const payload = { provenanceRegistry: [record], citationRegistry: [] } as unknown as ContextPayload;
@@ -184,7 +185,10 @@ describe("explicit currency scale against numeric registry records", () => {
   });
 
   it("retains signed scaled values without changing the stored mantissa", async () => {
-    const result = await registryNumber(-7_604, "USD millions: Free cash flow", "USD", -7.604e9);
+    // The cited record names the printed metric; AI-407 rejects a "Free cash flow"
+    // figure printed against a "Net sales" record, which this check does not test.
+    const result = await registryNumber(-7_604, "USD millions: Free cash flow", "USD", -7.604e9,
+      { id: "payload.statements.cash-flow.free-cash-flow", label: "Free cash flow" });
     expect(result.entry).toMatchObject({ outcome: "verified", traceKind: "payload-match" });
     expect(result.number).toMatchObject({ value: -7_604, verified: true });
   });

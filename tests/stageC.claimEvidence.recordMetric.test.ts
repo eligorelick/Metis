@@ -91,3 +91,13 @@ it("AI-502 pins every percentage-point record in the synthetic helper payload", 
   "computed.scores.quality.roicVsWaccSpread": false
 });
 });
+
+it("AI-501 leaves a claim's own direction words out of a level label's metric", () => {
+  // Integration fix: only a label that is itself a change keeps direction nouns;
+  // "up from Q2 2019" states a comparison base, checked as a period.
+  const level = { ...inc, id: "computed.test.gross-margin-level", label: "gross margin", value: 74, unit: "percent" as const, currency: null, period: "2026-06-30", asOf: "2026-06-30" };
+  const result = validateClaimNumericSupport({ label: "FACT", text: "Gross margin was 74%, up from Q2 2019.", source: level.id, asOf: level.asOf },
+    { record: level, excerpts: [], sourceId: level.id, reportingCurrency: "USD" });
+  expect(result).toMatchObject({ status: "unchecked", reason: "period-mismatch" });
+  expect(check("Gross margin as of 2026-06-30 was 74%.", level)).toBe("validated");
+});
