@@ -24,6 +24,10 @@ DOC-203: The example leaves canonical settings commented so legacy startup
 holds and USD caps survive copying it. Startup warns about conflicting alias
 key names without disclosing values; explicit canonical settings still win.
 
+JOB-301: Fresh pages in either layout observe the newest eligible terminal
+job when there is no active run. Discovery is read-only; Retry remains explicit
+and uses the existing durable reuse and spend fences.
+
 AI-510 / JOB-201: Fresh and resumed analyst recovery share one settlement
 path, with one rejected-output repair and three zero-cost plan resends counted
 separately. A dropped repair retains identical feedback; a rejection clears

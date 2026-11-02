@@ -221,7 +221,7 @@ export function createJobStreamSnapshotFence(): JobStreamSnapshotFence {
         decoded === null ||
         candidateSource !== source ||
         decoded.jobId !== jobId ||
-        !sameEntitySymbol(symbol, decoded.symbol) ||
+        (symbol === null || !sameEntitySymbol(symbol, decoded.symbol)) ||
         decoded.revision <= revision
       ) return null;
       revision = decoded.revision;
@@ -235,7 +235,7 @@ export function createJobStreamSnapshotFence(): JobStreamSnapshotFence {
     acceptsToken(token) {
       return token.source === source &&
         token.jobId === jobId &&
-        sameEntitySymbol(symbol, token.symbol) &&
+        symbol !== null && sameEntitySymbol(symbol, token.symbol) &&
         token.revision === revision &&
         token.sequence === sequence;
     },
@@ -385,7 +385,7 @@ function decodeReportSummary(
 ): ReportSummary | null {
   if (value === null || typeof value !== "object") return null;
   const summary = value as Partial<ReportSummary>;
-  if (summary.reportId !== reportId || !sameEntitySymbol(symbol, summary.symbol)) return null;
+  if (summary.reportId !== reportId || (typeof summary.symbol !== "string" || !sameEntitySymbol(symbol, summary.symbol))) return null;
   if (
     typeof summary.companyName !== "string" ||
     typeof summary.model !== "string" ||

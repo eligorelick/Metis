@@ -423,3 +423,7 @@ A resumed missing analyst side receives the same recovery as a fresh side:
 one rejected-output repair and, on plan connections, up to three zero-cost
 dropped-request resends. Repair feedback is preserved across a dropped repair;
 a newly rejected output starts a whole-case repair without continuation.
+
+JOB-301: Fresh pages in either layout observe the newest eligible terminal
+job when there is no active run. Discovery is read-only; Retry remains explicit
+and uses the existing durable reuse and spend fences.

@@ -60,17 +60,10 @@ import { GenerateReport } from "./GenerateReport";
 import { describeAnalysisRoute } from "@/ai/connections";
 import { ReportTabs } from "./ReportTabs";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
+import { activeRunIdentity } from "@/pipeline/companyJobIdentity";
 import { normalizeRouteSymbol } from "@/symbol";
 import { notFound } from "next/navigation";
 import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
-
-async function activeRunIdentity(symbol: string): Promise<string | null> {
-  if (!getConfig().uiRedesign) return null;
-  try {
-    const { getReusableActiveJobForSymbol } = await import("@/pipeline/jobRunner");
-    return getReusableActiveJobForSymbol(symbol)?.jobId ?? null;
-  } catch { return null; }
-}
 
 // The bundle reads keys from process.env at request time and hits the network
 // (live EDGAR/FINRA/FRED even keyless) — never statically render this route.
@@ -1088,7 +1081,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </div>
         </div>
 
-        {getConfig().uiRedesign ? <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} /> : <GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />}
+        <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} />
 
         <QuoteHeader bundle={bundle} computed={computed} />
 

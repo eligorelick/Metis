@@ -1956,6 +1956,16 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it("JOB-301 fresh-page discovery exposes a terminal job with accepted analyst work", async () => {
+    const { jobId } = createJob("AAPL");
+    seedResumableLegacyJob(jobId);
+    const { activeRunIdentity } = await import("@/pipeline/companyJobIdentity");
+    const before = handle.db.select().from(jobs).all();
+    expect(await activeRunIdentity("AAPL")).toBe(jobId);
+    expect(handle.db.select().from(jobs).all()).toEqual(before);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+  });
+
   it.each([[false, false], [true, false], [false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s)", async (resume, mirror) => {
     vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
     const { jobId } = createJob("AAPL");
