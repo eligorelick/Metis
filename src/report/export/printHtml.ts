@@ -142,6 +142,8 @@ import {
   splitCommonLines,
   qualitativeScenarioConditions,
   QUALITATIVE_SCENARIO_HEADING,
+  peerTableColumns,
+  scenarioListItem,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -610,8 +612,8 @@ function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeig
   const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
   const blocks = [
     assumptions.length > 0 ? `<div><em>Assumptions</em>${list(assumptions)}</div>` : "",
-    sc.whatWouldHaveToBeTrue.length > 0 ? `<div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue)}</div>` : "",
-    sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary)}</div>` : "",
+    sc.whatWouldHaveToBeTrue.length > 0 ? `<div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue.map(scenarioListItem))}</div>` : "",
+    sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary.map(scenarioListItem))}</div>` : "",
   ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
@@ -682,11 +684,8 @@ function sectionLeadership(l: Leadership, report: Report): string {
 function sectionCompetitive(c: Competitive, report: Report): string {
   let peers = `<p class="faint">No peer data.</p>`;
   if (c.peerTable.length > 0) {
-    // Columns keyed by the metric, not by position — see peerMetricKey.
-    const metricKeys: string[] = [];
-    for (const p of c.peerTable) {
-      for (const key of peerColumnKeys(p.metrics)) if (!metricKeys.includes(key)) metricKeys.push(key);
-    }
+    // Columns keyed by the metric, not by position — see peerMetricKey — headed by reader labels.
+    const { keys: metricKeys, headings } = peerTableColumns(c.peerTable);
     const rows = c.peerTable.map((p) => {
       const rowKeys = peerColumnKeys(p.metrics);
       const byKey = new Map(p.metrics.map((metric, i) => [rowKeys[i], metric]));
@@ -699,7 +698,7 @@ function sectionCompetitive(c: Competitive, report: Report): string {
         }),
       ];
     });
-    peers = table(["Peer", "Symbol", ...metricKeys], rows);
+    peers = table(["Peer", "Symbol", ...headings], rows);
   }
   // D-62: "Scale — narrow", not the raw enums.
   const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");

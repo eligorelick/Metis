@@ -63,6 +63,8 @@ import {
   splitCommonLines,
   qualitativeScenarioConditions,
   QUALITATIVE_SCENARIO_HEADING,
+  peerTableColumns,
+  scenarioListItem,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -1143,9 +1145,9 @@ export function ValuationSection({
                 priceTarget={s.priceTarget}
                 horizon={s.horizon}
                 assumptions={specific}
-                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue}
+                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
                 weightLabel={scenarioPresentation ? "Display weight" : "p"}
-                qualitativeCommentary={s.qualitativeCommentary}
+                qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
               />
             );
           })}
@@ -1540,13 +1542,8 @@ function PeerTable({ peers }: { peers: Competitive["peerTable"] }) {
   if (peers.length === 0) {
     return <div className="text-[11px] text-faint">no peers resolved</div>;
   }
-  // Columns keyed by the metric (peerMetricKey), never one column per peer.
-  const metricKeys: string[] = [];
-  for (const p of peers) {
-    for (const key of peerColumnKeys(p.metrics)) {
-      if (!metricKeys.includes(key)) metricKeys.push(key);
-    }
-  }
+  // Columns keyed by the metric (peerMetricKey), never one column per peer; reader headings.
+  const { keys: metricKeys, headings } = peerTableColumns(peers);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[11px]">
@@ -1555,9 +1552,9 @@ function PeerTable({ peers }: { peers: Competitive["peerTable"] }) {
             <th className="px-2 py-1 text-left text-[9px] uppercase tracking-[0.1em] text-faint">
               peer
             </th>
-            {metricKeys.map((k) => (
+            {metricKeys.map((k, i) => (
               <th key={k} className="px-2 py-1 text-right text-[9px] text-faint">
-                {k}
+                {headings[i]}
               </th>
             ))}
           </tr>
@@ -1604,13 +1601,13 @@ export function CompetitiveSection({
   report = {},
   grading = {},
 }: {
-  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation">>;
+  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation" | "meta">>;
   grading?: SectionGrading;
   competitive: Competitive;
   index: number;
   openReasoning?: boolean;
 }) {
-  const peerList = providerPeerListPresentation({ competitive, valuation: report.valuation });
+  const peerList = providerPeerListPresentation({ competitive, valuation: report.valuation, meta: report.meta });
   return (
     <SectionFrame id="competitive" index={index} title="Competitive · Moat">
       <GradeReasoning

@@ -76,6 +76,7 @@ import {
   establishedCurrency,
   peerColumnKeys,
 } from "@/report/format";
+import { peerTableColumns, scenarioListItem } from "@/report/presentation";
 import {
   annualSegmentHeading,
   assessmentLine,
@@ -677,10 +678,10 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
     lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
   }
   if (sc.whatWouldHaveToBeTrue.length > 0) {
-    lines.push("", "What would have to be true:", "", sc.whatWouldHaveToBeTrue.map((condition) => `- ${item(condition)}`).join("\n"));
+    lines.push("", "What would have to be true:", "", sc.whatWouldHaveToBeTrue.map((condition) => `- ${item(scenarioListItem(condition))}`).join("\n"));
   }
   if (sc.qualitativeCommentary?.length) {
-    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${item(text)}`));
+    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${item(scenarioListItem(text))}`));
   }
   return lines.join("\n");
 }
@@ -774,13 +775,8 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
   lines.push(`### ${peerList.heading}`, "");
   if (peerList.note) lines.push(markdownProse(peerList.note), "");
   if (c.peerTable.length > 0) {
-    // Columns keyed by the metric, not by position (peerMetricKey).
-    const metricKeys: string[] = [];
-    for (const p of c.peerTable) {
-      for (const key of peerColumnKeys(p.metrics)) {
-        if (!metricKeys.includes(key)) metricKeys.push(key);
-      }
-    }
+    // Columns keyed by the metric, not by position (peerMetricKey), headed by reader labels.
+    const { keys: metricKeys, headings } = peerTableColumns(c.peerTable);
     const rows = c.peerTable.map((p) => {
       const rowKeys = peerColumnKeys(p.metrics);
       const byKey = new Map(p.metrics.map((metric, i) => [rowKeys[i], metric]));
@@ -793,7 +789,7 @@ function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Repo
         }),
       ];
     });
-    lines.push(table(["Peer", "Symbol", ...metricKeys], rows), "");
+    lines.push(table(["Peer", "Symbol", ...headings], rows), "");
   } else {
     lines.push("_No peer data._", "");
   }

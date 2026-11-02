@@ -51,6 +51,7 @@ import {
   formatNumber,
   formatPct,
   numericCitationTraceLabel,
+  peerColumnKeys,
   tracedPeriodLabel,
   unitLabel,
   establishedCurrency,
@@ -100,6 +101,9 @@ const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(short|long) term\b/gi, "$1-term"],
   [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
   [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
+  // FIGR extra-high audit: statement-row ids ("capex-negative") read as the outflow they record.
+  [/\bcapex negative\b/gi, "capital expenditure (cash outflow)"],
+  [/\bbuybacks negative\b/gi, "share repurchases (cash outflow)"],
   [/\b(operating cash flow) issuer reconciliation\b/gi, "$1, issuer reconciliation,"],
   [/,? ((?:quarter|year|three months|six months|nine months|\d+ months) ended \d{4}-\d{2}-\d{2}|as of \d{4}-\d{2}-\d{2})$/, " ($1)"],
   [/,$/, ""],
@@ -229,7 +233,33 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.piotroski-f-9-signals": "Piotroski F-score (nine signals)",
   "computed.forensics.accrual-operand-operating-investing-cash-flow-cfi-without-financial-asset-flows": "Operating investing cash flow (excluding financial-asset flows)",
   "manifest.valuation.multiples.ownHistory": "Data-gap record: own-history multiple ranks",
+  // FIGR extra-high audit (2026-11-02): ids the report printed as run-together words.
+  "computed.suppressed": "Route-suppressed metrics",
+  "computed.capital-cash.capex-d-a-latest": "Capex / D&A (latest fiscal year)",
+  "computed.capital-cash.capex-revenue-latest": "Capex as % of revenue (latest fiscal year)",
+  "computed.capital-cash.capex-revenue-slope": "Capex-to-revenue slope",
+  "computed.capital-cash.sbc-revenue": "SBC as % of revenue",
+  "computed.returns.roe-latest-dupont": "ROE (DuPont, latest fiscal year)",
+  "computed.valuation.p-e-common-income-denominator": "P/E common-income denominator (TTM)",
+  "computed.comparable-peers.market-cap-ttm-common-earnings-eligible-peer-count-after-filtering": "Eligible peers for market cap / TTM common earnings (after screening)",
+  "payload.quote.issuer-common-capitalization-economic-price-approximation": "Issuer-common capitalization",
+  "payload.insiders.post-window-form-4-code-f-reported-transaction-rows": "Form 4 code F transactions reported after the window",
+  "payload.insiders.post-window-form-4-code-f-reported-shares-selected-rows-may-overlap": "Form 4 code F shares reported after the window (selected rows; may overlap)",
 };
+
+/** FIGR extra-high audit: the filed operands behind a TTM identity (`<metric>-filed-<window>-operand-<xbrl tag>`). */
+const FILED_OPERAND_METRIC: Readonly<Record<string, string>> = {
+  stockbasedcompensation: "Stock-based compensation",
+  operatingcashflow: "Operating cash flow",
+  capitalexpenditure: "Capital expenditure",
+};
+const FILED_OPERAND_WINDOW: Readonly<Record<string, string>> = {
+  "prior-year-ytd": "prior-year year-to-date",
+  "current-ytd": "current year-to-date",
+  "fiscal-year": "fiscal-year",
+};
+/** Piotroski signal ids whose words alone name the wrong thing ("Turnover up"). */
+const PIOTROSKI_SIGNAL: Readonly<Record<string, string>> = { turnoverUp: "asset turnover up" };
 
 /** AI-117: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
 const INSIDER_STAT_LABEL: Readonly<Record<string, string>> = {
@@ -263,6 +293,10 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
   [/^payload\.insiders\.insider-((?:open-market-)?purchase-transactions|(?:open-market-)?sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
+  [/^computed\.current-capital\.([a-z]+)-filed-(prior-year-ytd|current-ytd|fiscal-year)-operand-[a-z]+$/, (m) =>
+    `${FILED_OPERAND_METRIC[m[1]!] ?? sentence(segmentWords(m[1]!))} (filed ${FILED_OPERAND_WINDOW[m[2]!]} operand)`],
+  [/^computed\.forensics\.piotroski\.signals\.([A-Za-z]+)$/, (m) =>
+    `Piotroski signal: ${PIOTROSKI_SIGNAL[m[1]!] ?? segmentWords(m[1]!).join(" ").toLowerCase()}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
   // D-67: "Pricetobook current", "Beneish index aqi", "Product market platform data center share of revenue …".
   [/^computed\.valuation\.([a-z]+)-(current|peer-median)$/, (m) => `${multipleName(m[1]!)}${m[2] === "peer-median" ? " peer median" : ""}`],
@@ -382,6 +416,9 @@ export function sourceLabel(source: string): string {
   const riskFree = RISK_FREE_CITATION.exec(source);
   if (riskFree) return `Risk-free rate (${riskFreeSourceLabel(riskFree[1]!)})`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
+  // FIGR extra-high audit: pipeline-owned notes printed their raw ids.
+  const pipeline = /^pipeline:([a-z-]+)$/.exec(source);
+  if (pipeline) return ({ "insider-coverage": "Insider-filing coverage", "report-reference": "Report cross-reference" } as Record<string, string>)[pipeline[1]!] ?? sentence(segmentWords(pipeline[1]!));
   return source;
 }
 
@@ -575,6 +612,38 @@ export function splitCommonLines(lists: readonly (readonly string[])[]): { commo
 export const QUALITATIVE_SCENARIO_HEADING = "Scenario conditions (qualitative)";
 
 /**
+ * FIGR extra-high audit (2026-11-02): the model opened each case's first
+ * commentary bullet with "Qualitative commentary:", under a heading that already
+ * says so. A list item states its list's heading once; stored text is unchanged.
+ */
+export function scenarioListItem(text: string): string {
+  const stripped = text.replace(/^\s*(?:qualitative commentary|what would have to be true)\s*:\s*/i, "");
+  return stripped === text || stripped.length === 0 ? text : stripped[0]!.toUpperCase() + stripped.slice(1);
+}
+
+/**
+ * Peer-table columns keyed by metric (peerColumnKeys) with reader headings:
+ * the key of a registry figure is its id's last segment ("pettm-current"),
+ * which the FIGR extra-high report printed as a column heading.
+ */
+export function peerTableColumns(peers: readonly { metrics: readonly TracedNumber[] }[]): { keys: string[]; headings: string[] } {
+  const keys: string[] = [];
+  const headings: string[] = [];
+  for (const peer of peers) {
+    const rowKeys = peerColumnKeys(peer.metrics);
+    rowKeys.forEach((key, i) => {
+      if (keys.includes(key)) return;
+      const source = peer.metrics[i]!.source;
+      const occurrence = / \((\d+)\)$/.exec(key)?.[1];
+      const base = /^(computed|payload)\.[^\s]+$/.test(source) && !/^payload\.peers\.[^.]+$/.test(source) ? metricLabel(source) : key.replace(/ \(\d+\)$/, "");
+      keys.push(key);
+      headings.push(occurrence === undefined ? base : `${base} (${occurrence})`);
+    });
+  }
+  return { keys, headings };
+}
+
+/**
  * Integration review of R3 (FIGR paid audit): with no cash-flow model the
  * target, probability and deterministic-assumption scaffolding is withheld,
  * but each case's stated conditions and qualitative commentary are still the
@@ -585,8 +654,8 @@ export function qualitativeScenarioConditions(scenarios: readonly Pick<Scenario,
   commonConditions: string[]; commonCommentary: string[];
   cases: { name: Scenario["name"]; conditions: string[]; commentary: string[] }[];
 } | null {
-  const conditions = splitCommonLines(scenarios.map((sc) => sc.whatWouldHaveToBeTrue));
-  const commentary = splitCommonLines(scenarios.map((sc) => sc.qualitativeCommentary ?? []));
+  const conditions = splitCommonLines(scenarios.map((sc) => sc.whatWouldHaveToBeTrue.map(scenarioListItem)));
+  const commentary = splitCommonLines(scenarios.map((sc) => (sc.qualitativeCommentary ?? []).map(scenarioListItem)));
   const cases = scenarios.map((sc, i) => ({ name: sc.name, conditions: conditions.specific[i] ?? [], commentary: commentary.specific[i] ?? [] }))
     .filter((c) => c.conditions.length > 0 || c.commentary.length > 0);
   return conditions.common.length === 0 && commentary.common.length === 0 && cases.length === 0
