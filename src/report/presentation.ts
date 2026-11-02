@@ -4,6 +4,7 @@ import { shownDataState } from "@/report/completeness";
 import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
+import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
@@ -319,6 +320,7 @@ function genericRegistryLabel(source: string): string {
  * unchanged, so a label the pipeline already wrote is never rewritten.
  */
 export function metricLabel(source: string, unit = ""): string {
+  if (source === "computed.current-capital.provider-debt-perimeter-includes-payables-to-third-party-loan-owners") return LENDER_DEBT_PERIMETER_LABEL;
   const fromUnit = unitLabel(unit);
   if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
   // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
@@ -788,6 +790,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const traces = collectTraces(report);
   const md = report.marketData;
   const rows: KeyDataRow[] = [];
+  const perimeter = firstTrace(traces, /^computed\.current-capital\.provider-debt-perimeter-includes-payables-to-third-party-loan-owners$/);
+  if (perimeter) rows.push({ label: LENDER_DEBT_PERIMETER_LABEL, value: money(perimeter.value, perimeter.currency ?? null), note: `at ${perimeter.asOf}; filed borrowings and loan-owner payables are shown separately in the debt profile` });
   const bridge = report.valuation.dcf.bridge;
   const dcf = report.valuation.dcf.perShare;
   const modelCurrency = dcf ? establishedCurrency(dcf.unit, dcf.currency) : bridge?.currency ?? null;
@@ -942,7 +946,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const si = md?.shortInterest;
   if (si) {
     const float = comparableFloatShares(md?.shares);
-    const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null;
+    const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float (derived using float observed ${md?.shares?.floatAsOf ?? md?.shares?.asOf ?? "date unestablished"})` : null;
     rows.push({
       label: "Short interest",
       value: `${formatLargeNumber(si.shares)} shares${ofFloat ? ` (${ofFloat})` : ""}`,
@@ -1037,7 +1041,7 @@ export function consensusTables(report: Report): BodyTable[] {
     const float = comparableFloatShares(md.shares);
     rows.push(["Short interest", [
       `${formatLargeNumber(si.shares)} shares at settlement ${si.settlementDate}`,
-      float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null,
+      float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float (derived using float observed ${md.shares?.floatAsOf ?? md.shares?.asOf ?? "date unestablished"}; not a FINRA-reported percentage)` : null,
       si.daysToCover !== null ? `${formatNumber(si.daysToCover, 1)} days to cover` : null,
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);

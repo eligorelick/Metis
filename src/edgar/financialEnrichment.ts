@@ -163,8 +163,8 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
 }
 
 /** Refutation only: a later comparative cannot create a canonical standalone quarter. */
-function crossFilingCfoQuarter(facts: CompanyFacts, unit: string, end: string, observedAt: string): Resolved | null {
-  const ps = points(facts, OPERATING_CASH_FLOW_TAG, unit, observedAt);
+function crossFilingCfoQuarter(facts: CompanyFacts, unit: string, end: string, observedAt: string, tag = OPERATING_CASH_FLOW_TAG): Resolved | null {
+  const ps = points(facts, tag, unit, observedAt);
   const total = unambiguousNewest(ps.filter(p => p.end === end && span(p) !== null && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
   if (!total) return null;
   const prior = unambiguousNewest(ps.filter(p => p.start === total.start && p.end < end &&
@@ -172,12 +172,16 @@ function crossFilingCfoQuarter(facts: CompanyFacts, unit: string, end: string, o
     (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
   if (!prior || prior.filed <= total.filed) return null;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  return { ...resolved(total.val - prior.val, [OPERATING_CASH_FLOW_TAG], [total, prior], unit, observedAt, start, end), operands: [total, prior] };
+  return { ...resolved(total.val - prior.val, [tag], [total, prior], unit, observedAt, start, end), operands: [total, prior] };
 }
 
+export interface FiledCashFlowTtm {
+  value: number; operands: number[]; reason: string; start: string; end: string;
+  tag: string; points: FactPoint[];
+}
 /** FY + current YTD - prior YTD; both YTD values must be in the same current 10-Q. */
-export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): { value: number; operands: number[]; reason: string } | null {
-  const ps = points(facts, OPERATING_CASH_FLOW_TAG, unit, observedAt);
+export function filedCashFlowTtm(facts: CompanyFacts, tag: "NetCashProvidedByUsedInOperatingActivities" | "ShareBasedCompensation", unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  const ps = points(facts, tag, unit, observedAt);
   const current = unambiguousNewest(ps.filter(p => p.end === end && p.form.replace(/\/A$/, "") === "10-Q" && span(p) !== null && span(p)! >= 70 && span(p)! <= 300));
   if (!current?.start) return null;
   const annualEnd = new Date(Date.parse(current.start) - DAY).toISOString().slice(0, 10);
@@ -188,7 +192,13 @@ export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, obse
     (Date.parse(end) - Date.parse(p.end)) / DAY >= 350 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 380));
   if (!prior) return null;
   const value = annual.val + current.val - prior.val;
-  return { value, operands: [annual.val, current.val, prior.val], reason: `TTM operating cash flow = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity replaces the quarterly vendor CFO sum; it does not establish standalone quarters or cash-capex.` };
+  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
+  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow" : "stock-based compensation cash-flow add-back (ShareBasedCompensation)";
+  return { value, operands: [annual.val, current.val, prior.val], start, end, tag, points: [annual, current, prior],
+    reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity replaces the quarterly vendor ${tag === OPERATING_CASH_FLOW_TAG ? "CFO" : "SBC"} sum; it does not establish standalone quarters or cash-capex.` };
+}
+export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
 }
 
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
@@ -246,11 +256,12 @@ function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatement
 }
 
 /** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
-function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow", ctx: DerivationContext): { row: T; gaps: ManifestEntry[] } {
-  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt, ctx) : {};
+function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow", ctx: DerivationContext, onlySbc = false): { row: T; gaps: ManifestEntry[] } {
+  const cashAmounts = kind === "cashflow" && !onlySbc ? filedCashAmounts(facts, unit, row, scope, observedAt, ctx) : {};
   const specifications: [string, string, boolean, number][] = kind === "balance"
     ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
     : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
+      ["stockBasedCompensation", "ShareBasedCompensation", true, 1],
       ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
       ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
       ["cashAtBeginningOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
@@ -258,7 +269,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       ["netChangeInCash", "CashAndCashEquivalentsAtCarryingValue", true, 1]];
   let out = row;
   const gaps: ManifestEntry[] = [];
-  if (kind === "cashflow") {
+  if (kind === "cashflow" && !onlySbc) {
     const unavailable: Record<string, null> = {};
     const fieldConflicts = { ...out.fieldConflicts };
     for (const field of ["cashAtBeginningOfPeriod", "cashAtEndOfPeriod", "netChangeInCash"]) {
@@ -273,10 +284,12 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     out = { ...out, ...unavailable, fieldConflicts };
   }
   for (const [field, tag, signed, sign] of specifications) {
+    if (onlySbc && field !== "stockBasedCompensation") continue;
     const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
-        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx);
+        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
+          (field === "stockBasedCompensation" && scope === "quarter" ? crossFilingCfoQuarter(facts, unit, row.date!, observedAt, tag) : null);
     // A prior-quarter filing is a calculation dependency, not authority for
     // comparing the current vendor row. All three cash fields share the
     // ending/current-flow filing anchor; retain every dependency in secEvidence.
@@ -311,6 +324,14 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn", attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`, `fmp:${kind}-statement`] });
   }
   return { row: out, gaps };
+}
+
+/** Same field admission at replay boundaries; never re-open other cash-flow scopes. */
+export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
+    (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
+    { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */

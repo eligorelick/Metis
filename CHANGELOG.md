@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R2 FIGR figure fixes (2026-11-02)
+
+- Reconcile operating-income/revenue bases before quarterly, annual and TTM calculations; withhold unmatched margins and unproved operating-expense subtotals with dated explanations.
+- Refuse SBC quarters contradicted by filed cash-flow operands, and construct trailing SBC using filed fiscal year plus current YTD less prior-year YTD. Register the filed CFO/SBC operands and exact trailing windows.
+- Name the provider debt perimeter that includes loan-owner payables and separately register filed borrowings; retain context-EV arithmetic and lender exclusions. Mark P/TBV applicable for evidenced lenders on its existing tangible-common-equity basis.
+- Date the vendor float operand beside derived short-interest percentages. Estimate figure/registry as-of dates now identify the retained observation, keeping forecast-period references separate and publication vintage unestablished.
+- Shared payload, report, prompt and Stage B stamps are unchanged; stored report/input bytes are not rewritten.
+
 ## Unreleased - R6 FIGR paid-run audit: governance control, P/E denominator and insider coverage (2026-11-02)
 
 - B-05: a separate, bounded filing reading admits voting rights, dated controllers

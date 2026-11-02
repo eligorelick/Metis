@@ -6650,6 +6650,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     const reason = cashFlowApplicability.reason;
     multiples.multiples = multiples.multiples.map(row => ["priceToFcf", "evToEbitda", "evToSales"].includes(row.key) ? { key: row.key, current: null, basis: reason, ownHistory: null, peers: null } : row);
     multiples.sectorAppropriate = multiples.sectorAppropriate.filter(key => !["priceToFcf", "evToEbitda", "evToSales"].includes(key));
+    if (!multiples.sectorAppropriate.includes("priceToTbv")) multiples.sectorAppropriate.push("priceToTbv");
+    multiples.multiples = multiples.multiples.map(row => row.key === "priceToTbv" ? { ...row,
+      basis: `${row.basis}. Applicable lender equity multiple, read against ROTE; the dated tangible common equity deducts goodwill and identified intangible assets. Missing or nonpositive tangible common equity withholds the value, not the route's applicability.` } : row);
     multiples.notes.push(reason);
     const bridge = multiples.enterpriseValue;
     const contextBasis = inputs.multiples.balance?.date === cashFlowApplicability.asOf ? cashFlowApplicability.evDebtBasis : undefined;

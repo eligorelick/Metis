@@ -455,3 +455,9 @@ keeps its original freshness labels. The first request is still necessary to
 discover access, and source outages or unavailable endpoints remain disclosed
 gaps. Configure a real `EDGAR_CONTACT` even with a free FMP key so SEC statement
 fallbacks can run. Restrictions are held in memory and reset on server restart.
+
+R2 figure context also includes filed cash-flow operands for trailing CFO and
+SBC: the fiscal-year, current-YTD and prior-year-YTD amounts, tag names,
+intervals and filing identities already retained in SEC companyfacts. These
+are structured numeric records, not additional document excerpts or network
+requests, and carry no separate excerpt budget.

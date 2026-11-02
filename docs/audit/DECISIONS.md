@@ -4147,3 +4147,84 @@ not Form 144 proposed-sale notices; disclose those notices as uncollected and
 unreviewed. Trading-plan capacity and proposed sales are not executed sales.
 Fictional tests cover filing versus transaction dates, non-Form-4 exclusion,
 post-window counts, missing dates and citable coverage.
+
+## D-next (R2) - Paired operating-income and revenue bases
+
+The margin bug retained a provider pre-interest numerator after canonical
+revenue admission. Before trend, annual fundamentals and TTM calculations,
+use the confirmed issuer's canonical OperatingIncomeLoss on a matching filed
+revenue/currency/interval/filing basis. Withhold unmatched mixed-basis operating
+income and margins with a dated explanation; preserve the frozen/raw input.
+Provider-only pairs retain their provider basis. Tests: F05 in
+`tests/r2.figrFigures.test.ts`, including annual, TTM and incompatible evidence.
+
+## D-next (R2) - Filed cash-flow SBC and contradicted zero quarters
+
+A zero provider SBC quarter is an observation, not proof of zero compensation.
+Refuse it when compatible ShareBasedCompensation operands contradict it,
+including during frozen-input replay. Generalize the filed CFO FY + current
+YTD - prior-year YTD resolver to cash-flow SBC. Both YTD operands must be in
+the same current 10-Q; retain period, currency, filing and ambiguity guards.
+Label this cash-flow add-back basis, separate from allocated GAAP SBC expense.
+No standalone quarter or capex is inferred from a trailing identity.
+Tests: F04 in `tests/r2.figrFigures.test.ts`.
+
+## D-next (R2) - Provider debt perimeter and filed borrowings
+
+Keep the lender context-EV arithmetic. Where filed same-date balance-sheet
+components reconcile to the retained provider total, label the perimeter as
+including payables to third-party loan owners. Register filed borrowings
+(current debt + current related-party debt + noncurrent debt) separately from
+loan-owner payables and the operating-lease observation, citing the component
+filing. Do not present inventory funding as all corporate borrowing, and do
+not reinstate industrial leverage/coverage measures. Test: B12 in
+`tests/r2.figrFigures.test.ts`.
+
+## D-next (R2) - Lender P/TBV applicability
+
+P/TBV is applicable for the evidenced held-for-sale lender route because the
+methodology reads tangible common equity against ROTE. Keep the existing
+common-equity, goodwill/intangible, ownership, currency and positivity gates.
+Unavailable/negative tangible equity withholds the value, not route
+applicability. No treatment of servicing financial assets changes. Test: B13
+in `tests/r2.figrFigures.test.ts`.
+
+## D-next (R2) - Dated short-interest float denominator
+
+A ratio of FINRA settled short shares to vendor float is derived. Key-data
+and market-table displays state both settlement and float observation dates,
+including a later float date, and never imply FINRA published the percentage.
+Existing comparability/unknown-measurement refusals remain. Test: F23 in
+`tests/r2.figrFigures.test.ts`.
+
+## D-next (R2) - Estimate observation as-of
+
+Estimate figure and numeric registry asOf use the retained validated
+observation UTC day, using the existing estimate timing roles. Preserve the
+envelope's fiscal-period/fallback reference separately in
+estimateTiming.envelopeReferenceOn. Publication/update vintage remains
+unestablished, and missing observation is not inferred from a fiscal end.
+Update the old test pins that required the fiscal-period reference as the
+figure date (including the malformed-reference control); underlying rows,
+amounts and saved market-data metadata remain unchanged. Tests:
+`tests/estimateTiming.integration.test.ts` and the R2 estimate regression.
+
+## D-next (R2) - Filed trailing CFO duration and operands
+
+The CFO amount was correct but its registry period did not match the report's
+explicit trailing duration. Register the exact rolling-12-month context and
+TTM-to-end interval, plus each filed FY/current-YTD/prior-YTD operand and
+filing identity. A duration spelling gap must not make this known calculation
+untraced; provenance matching remains exact. Test: the R2 filed TTM CFO
+regression exercises matchProvenanceRecord with the report's interval.
+
+## D-next (R2) - Complete operating-expense subtotal
+
+The quarterly trend may show Operating expenses only with a complete direct
+OperatingExpenses tag on the revenue's filed basis. Unproved provider expense
+buckets and partial SG&A/R&D components are withheld with a dated note; do
+not substitute revenue less operating income as though it were this subtotal.
+Update the old vendor-total test because changing an envelope provider cannot
+turn an unproved subset into a total. Tests: `tests/edgar.operatingExpenseScope.test.ts`
+and the R2 expense-subset regression. Shared stamps and stored bytes remain
+unchanged across all R2 decisions; the integration owner applies the batch bump.

@@ -21,6 +21,8 @@ import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextP
 import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -149,7 +151,7 @@ import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipel
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
-import { filedCfoTtm } from "@/edgar/financialEnrichment";
+import { filedCfoTtm, filedCashFlowTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
@@ -2049,6 +2051,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
   // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
   // D-67: source bundles and stored reports stay byte-for-byte unchanged.
   bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
@@ -2161,6 +2164,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
     ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
   const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));
+  const filedSbc = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCashFlowTtm(companyFacts, "ShareBasedCompensation", latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
   if (useFiledCfo && latestCash?.date) {
     ttmCf = { date: latestCash.date, reportedCurrency: latestCash.reportedCurrency ?? null,
       capitalExpenditure: ttmCf?.capitalExpenditure ?? null, depreciationAndAmortization: ttmCf?.depreciationAndAmortization ?? null,
@@ -2418,7 +2423,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, ebit: ttmInc.operatingIncome } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
-      stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),
+      stockBasedCompensation: filedSbc?.value ?? sumCurrentFlow("stockBasedCompensation"),
       financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
     } : null,
     balance: currentBalance ? toCapitalBalance(currentBalance, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
@@ -2428,7 +2433,25 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   });
 
   if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
-  if (useFiledCfo && capital.current) capital.current.cashBridge.definition += ` ${filedCfo.reason}`;
+  if (lendingCashFlow?.debtPerimeter && capital.current?.asOf === lendingCashFlow.asOf) {
+    const p = lendingCashFlow.debtPerimeter;
+    Object.assign(capital.current.debtBridge, { providerDebtPerimeterLabel: p.label, filedBorrowings: p.borrowings, loanOwnerPayables: p.loanOwnerPayables });
+    Object.assign(capital.current.debtBridge, {
+      filedCurrentDebt: p.components.find(c => /^Debt, current$/i.test(c.name))?.value,
+      filedCurrentRelatedPartyDebt: p.components.find(c => /^Debt, current to related parties$/i.test(c.name))?.value,
+      filedNoncurrentDebt: p.components.find(c => /^Debt, non-current$/i.test(c.name))?.value,
+    });
+    capital.current.debtBridge.compositionNote += ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`;
+  }
+  if (capital.current?.basis === "ttm") {
+    const cfo = filedCfo?.end === capital.current.asOf && filedCfo?.value === capital.current.cashBridge.operatingCashFlow ? filedCfo : null;
+    const sbc = filedSbc?.end === capital.current.asOf && filedSbc?.value === capital.current.cashBridge.stockBasedCompensation ? filedSbc : null;
+    if (cfo) capital.current.cashBridge.definition += ` ${cfo.reason}`;
+    if (sbc) capital.current.cashBridge.definition += ` ${sbc.reason}`;
+    if (cfo || sbc) capital.current.filedCashFlows = {
+      ...(cfo ? { operatingCashFlow: cfo } : {}), ...(sbc ? { stockBasedCompensation: sbc } : {}),
+    };
+  }
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a

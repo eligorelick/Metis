@@ -30,11 +30,13 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
  * touches provider clients.
  */
 
-import type { ManifestEntry } from "@/types/core";
+import type { ManifestEntry, CompanyRoute } from "@/types/core";
 import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
@@ -1072,14 +1074,20 @@ function computedSections(
   if (currentCapital) {
     const figures: PayloadFigureInput[] = [];
     const add = (key: string, value: number | null, unit: string): void => {
-      const period = key.startsWith("debtBridge.") ? currentCapital.asOf
+      const construction = key === "cashBridge.operatingCashFlow" ? currentCapital.filedCashFlows?.operatingCashFlow
+        : key === "cashBridge.stockBasedCompensation" ? currentCapital.filedCashFlows?.stockBasedCompensation : undefined;
+      const period = construction ? `TTM to ${construction.end} (${construction.start} to ${construction.end})` : key.startsWith("debtBridge.") ? currentCapital.asOf
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
       // The bridge group is structure, not the metric: "total debt including
       // leases", never "debt Bridge total Debt Including Leases", which no
       // prose naming the metric could match (NVDA report 34).
-      const label = (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      const label = (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
-        source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
+        source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
+        ...(construction ? {
+          periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
+        } : {}),
+      });
     };
     for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
     add("sbcPctOfFcf", currentCapital.sbcPctOfFcf, "%");
@@ -1091,6 +1099,15 @@ function computedSections(
       if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
     }
     for (const [key, value] of Object.entries(currentCapital.debtBridge)) if (typeof value === "number" || value === null) add(`debtBridge.${key}`, value, "currency");
+    for (const [field, construction] of Object.entries(currentCapital.filedCashFlows ?? {})) {
+      for (const [i, operand] of construction.points.entries()) figures.push({
+        label: `${field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
+        value: operand.val, unit: "currency", currency: currentCapital.currency, period: `${operand.start} to ${operand.end}`,
+        periodContext: { kind: "duration", start: operand.start!, end: operand.end },
+        source: `edgar:companyfacts/us-gaap/${construction.tag}; ${operand.form} ${operand.accn}, filed ${operand.filed}`,
+        asOf: operand.filed,
+      });
+    }
     figures.push({ label: "capital basis", value: `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`,
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
@@ -1677,7 +1694,7 @@ function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: numbe
   };
 }
 
-function statementExtracts(bundle: DataBundle, cashFlowApplicability?: { reason: string }): StatementExtractBlock[] {
+function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRoute["cashFlowApplicability"]): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
@@ -1711,6 +1728,12 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: { reason:
   push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
   push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
+  if (cashFlowApplicability?.debtPerimeter) {
+    for (const block of blocks.filter(b => b.title.startsWith("Balance sheet"))) {
+      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = cashFlowApplicability.debtPerimeter.label;
+      block.notes.push(`${cashFlowApplicability.debtPerimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
+    }
+  }
   return blocks;
 }
 
@@ -1777,8 +1800,9 @@ function targetReconciliationNote(bundle: DataBundle, computed: ComputedMetrics,
 function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, computed: ComputedMetrics): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
-  const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
-  const estimateTiming = estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined));
+  const estimateTiming = { ...estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined)),
+    envelopeReferenceOn: estimateDay(bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null) };
+  const estAsOf = estimateTiming.acquiredOn ?? estimateTiming.fixtureLoadedOn ?? estimateTiming.recordedOn;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
@@ -3243,7 +3267,7 @@ function attachProvenanceRegistry(
 
     // Display-only lease captions must not rename existing numeric citations.
     const leaseField = /^computed\.capital\.current\.debtBridge\.(\w+)$/.exec(figure.source)?.[1];
-    const registryLabel = leaseField && LEASE_DEBT_LABELS[leaseField] ? leaseField.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : figure.label;
+    const registryLabel = leaseField && LEASE_DEBT_LABELS[leaseField] && !figure.label.startsWith("Provider debt perimeter") ? leaseField.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : figure.label;
     const id = uniqueId(`${prefix}.${semanticSlug(registryLabel)}`);
     figure.provenanceId = id;
     figure.currency = resolvedCurrency;
@@ -3542,6 +3566,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.

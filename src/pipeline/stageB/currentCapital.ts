@@ -3,6 +3,7 @@ import { deriveFcf } from "./financialValues";
 import { completedTotalOmission, leaseDebtConflict, millions, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, classifyLeaseEvidence, leaseEvidenceNote, type LeaseEvidenceClassification } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
+import type { FiledCashFlowTtm } from "@/edgar/financialEnrichment";
 
 export interface CashFlowBridge {
   operatingCashFlow: number | null; cashCapitalExpenditure: number | null; standardizedFcf: number | null;
@@ -10,6 +11,12 @@ export interface CashFlowBridge {
   afterSbcStandardizedFcf: number | null; afterSbcIssuerFcf: number | null; definition: string;
 }
 export interface DebtBridge {
+  providerDebtPerimeterLabel?: string;
+  filedBorrowings?: number;
+  filedCurrentDebt?: number;
+  filedCurrentRelatedPartyDebt?: number;
+  filedNoncurrentDebt?: number;
+  loanOwnerPayables?: number;
   leaseEvidence?: LeaseEvidenceClassification;
   leaseEvidenceNote?: string;
   leaseScopeNote?: string;
@@ -38,6 +45,7 @@ export interface DebtBridge {
   netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
 }
 export interface CurrentCapitalSnapshot {
+  filedCashFlows?: Partial<Record<"operatingCashFlow" | "stockBasedCompensation", FiledCashFlowTtm>>;
   sbcConcentration?: SbcConcentration;
   periodStartIsApproximate?: true;
   industrialMetricsApplicable?: boolean;

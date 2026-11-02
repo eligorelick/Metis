@@ -125,6 +125,12 @@ clock fallback. Passthrough `publishedDate` supplies no publication contract.
 Saved market data and audit timing retain exact validated source timestamps.
 Model figures and numeric registry records carry the same roles with explicitly
 labelled UTC-day precision, without runtime timestamps in the model prompt.
+R2 figure and registry `asOf` now use that validated acquisition UTC day (or
+the explicitly identified legacy recorded/fixture-load day). The old envelope
+reference is preserved as `estimateTiming.envelopeReferenceOn`, with its
+forecast-period/fallback/unclassified role. A missing observation remains
+unestablished; a fiscal-period reference never supplies observation or
+publication vintage. No publication/update date is inferred.
 Generic envelope dates, raw rows, amounts, forecast-calendar selection, source
 admission, grades and state are unchanged. For legacy reports lacking role
 metadata, a unique exact FMP annual analyst-estimates endpoint for the report
@@ -440,6 +446,25 @@ return with the current cost of equity, as it did before.
 ---
 
 ## Growth, annual returns and capital diagnostics
+
+R2 operating margins use paired statement bases in quarterly trends, annual
+fundamentals and trailing calculations. A confirmed issuer's canonical filed
+`OperatingIncomeLoss` supplies the numerator when its revenue agrees with the
+retained denominator and its currency, interval and filing basis agree.
+Otherwise a mixed-source or differently presented numerator is withheld,
+including from the TTM sum, with a dated explanation. A provider-only row
+remains a provider-basis pair. Raw vendor inputs are preserved.
+The quarterly **Operating expenses** column requires a complete, directly
+tagged `OperatingExpenses` total on the same filed basis as revenue. Unproved
+vendor subsets and partial R&D/SG&A totals are withheld with notes. Revenue
+minus operating income is not silently substituted: for a lender that residual
+may include funding interest and other costs outside that subtotal.
+
+Short interest as a percentage of float is a derived ratio, not a FINRA-reported
+percentage. Both the FINRA settlement date and the vendor float observation
+date are stated next to the ratio in key data and market tables. A later float
+measurement is not relabelled as the settlement-date float; unavailable float
+measurement/comparability continues to withhold the ratio.
 
 N4b L10 display: Requested CAGR windows that produce the identical measured
 window, rate, end date and source appear once, named for their actual measured
@@ -1168,6 +1193,22 @@ not earn a phantom point of excess return and the g-axis reads the same way in
 every row; the grid note states the excess it held.
 
 ## FCF and SBC
+
+**Filed trailing cash-flow construction (R2).** Cash-flow SBC uses
+`ShareBasedCompensation`, not the separate allocated GAAP expense tag. When
+available, TTM SBC is filed FY + current YTD - prior-year YTD, reusing the CFO
+resolver: both YTD operands must occur in the same current 10-Q, in the same
+currency, with matching year-relative windows and a compatible prior fiscal
+year. Each operand must have been filed by the cutoff. Register all three
+amounts with their filing identities and exact intervals, and label the basis.
+A vendor zero contradicted by directly filed or compatible cumulative quarter
+operands is refused, including on frozen-input replay. Later comparative
+operands can refute a zero without admitting a standalone quarter. Without a
+filed TTM construction, only a complete admitted four-quarter sum is used.
+The CFO result is also registered with its exact rolling-12-month context and
+the report's `TTM to end (start to end)` period, so the correct filed value
+does not fail tracing merely because its duration was absent or spelled
+differently. Neither construction establishes standalone quarters or capex.
 
 **Cash-capex convention (P9, confirmed 2026-11-02).** Standardized FCF keeps
 the retained statement/vendor cash-capex field. That field is not established
@@ -6530,6 +6571,21 @@ N4b L5 applies the same evidenced-lender refusal to quarterly vendor gross
 margin and to the provider enterprise value in market data. The quarterly
 column is omitted and provider EV is marked not applicable with the filed
 lender reason; filed operating margins remain available.
+
+R2 P/TBV is an applicable equity multiple for this evidenced lender route,
+read against ROTE. It retains the existing dated common equity less goodwill
+and identified intangible-assets denominator and currency/ownership gates.
+Missing or nonpositive tangible common equity withholds the multiple's value;
+it does not make tangible book categorically unsuitable for lending.
+Servicing financial assets are not reclassified as deductible intangibles.
+
+Where the same-date filed balance-sheet components tie to the retained
+provider total, R2 names it **Provider debt perimeter (includes payables to
+third-party loan owners)**. Filed borrowings (current debt, current debt to
+related parties, and noncurrent debt) and loan-owner payables are separately
+registered and cited; operating leases remain a separate observation. The
+provider funding perimeter is not all corporate borrowing. The existing
+context-EV arithmetic and industrial-metric exclusions are unchanged.
 
 The general route has a narrow owner-FCF applicability exception. It requires
 SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
