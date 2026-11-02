@@ -138,6 +138,8 @@ describe("manifest-driven GenerateReport report-ready panel", () => {
     expect(html).not.toContain(">analyzed<");
     expect(html).toContain("No completed multi-pass analysis");
     expect(html).toContain("TASK28:persisted:analysis-reason");
+    expect(html).not.toContain("80.0%"); // RPT-504: data-only summary did not complete citation checking
+    expect(html).toContain("completeness confirmed \u00b7 complete \u00b7 0 critical \u00b7 0 warning"); // RPT-206: process-only failure does not block data
     expect(html).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
     expect(html).not.toMatch(/did not run|no reasoning/i);
     expect(html).not.toContain("computed metrics are still complete");

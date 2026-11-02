@@ -1061,7 +1061,7 @@ export function ReportReadyPanel({
     { totalCostUsd: totalCost, dataOnly },
     summary,
   );
-  const rate = summary?.verificationRate ?? null;
+  const rate = summary?.missingData?.some(gap => gap.field === "analysis.llm") ? null : summary?.verificationRate ?? null;
   const missingData = summary?.missingData ?? [];
   const completeness = deriveReportCompletenessPresentation(
     summary?.dataCompleteness ?? undefined,
@@ -1069,7 +1069,7 @@ export function ReportReadyPanel({
     summary?.retainedSources ?? [],
   );
   const completenessText = completeness.metadataStatus === "confirmed"
-    ? `completeness confirmed · ${completeness.state} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
+    ? `completeness confirmed · ${shownDataState(completeness)} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
     : completeness.statusText.replace(/^Completeness/, "completeness");
   const persistedDataOnlyText = summary !== null ? completeness.bannerText : null;
 
