@@ -26,6 +26,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
 - Integration review: when no cash-flow model exists, keep each case's "What would have to be true" and qualitative commentary under "Scenario conditions (qualitative)" on every reader surface (R3 had dropped the scenario cards with the scaffolding; on the paid FIGR report they are the analysis's own bull/base/bear conditions); lines every case shares are stated once.
 - Integration review: print the quarterly trend's own notes (rejected or currency-cut rows, derived cash flow, withheld operating amounts and R2's operating-expense basis) beside the trend, with a status row when no quarter is shown, instead of under management guidance.
+- Integration review (final data-only FIGR run): a quarter whose every shown value is withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating expenses) is named as a missing quarter instead of printed as a row of dashes.
 
 ## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
 

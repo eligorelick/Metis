@@ -6685,6 +6685,8 @@ without a cash-flow model they appear under **Scenario conditions
 (qualitative)**, with lines every case shares stated once. Notes about the
 quarterly trend's own rows (rejected or currency-cut rows, derived cash flow,
 withheld operating amounts, the operating-expense basis) sit beside the trend.
+A quarter whose every shown value is withheld is named as a missing quarter
+rather than printed as an empty row.
 
 Use a supplied metric label where retained, shortening Piotroski signal
 diagnostics for tables; legacy traces without that label use a compact named

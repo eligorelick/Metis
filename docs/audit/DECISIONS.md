@@ -4348,6 +4348,8 @@ Notes the quarterly-trend builder adds about its own rows and columns (rejected
 or currency-cut rows, derived cash flow, withheld operating amounts and the
 operating-expense basis) are read beside the trend, with a status row when no
 quarter is shown; only the remaining notes are management guidance notes.
+A quarter whose every shown value is withheld is a missing quarter in the
+caption note, not a row of dashes (final data-only FIGR run: Q4 FY2024).
 Tests: `tests/report.noModelScenarioConditions.test.ts`,
 `tests/report.trendNotePlacement.test.ts`.
 

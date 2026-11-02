@@ -129,26 +129,31 @@ export function isQuarterlyTrendNote(note: string): boolean {
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   const builderNotes = d.notes.filter(isQuarterlyTrendNote);
-  if (d.quarterlyTrend.length === 0 && builderNotes.length > 0) {
+  const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
+  // Final data-only FIGR run (2026-11-02): a quarter whose every shown value is
+  // withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating
+  // expenses) is named as a missing quarter, not printed as a row of dashes.
+  const trendRows = d.quarterlyTrend.filter((r) => [r.revenue, r.revenueYoyPct, r.revenueQoqPct, ...(showGrossMargin ? [r.grossMarginPct] : []),
+    r.operatingExpenses, r.operatingMarginPct, r.epsDiluted, r.nonGaapEpsDiluted, r.equitySecuritiesGains, r.operatingCashFlow, r.freeCashFlow].some((v) => v != null));
+  if (trendRows.length === 0 && builderNotes.length > 0) {
     tables.push({ heading: "Quarterly trend", headers: ["Status"], rows: [["No quarterly rows are shown; see the note."]], note: readerBaseUnits(builderNotes.join(" ")) });
   }
-  if (d.quarterlyTrend.length > 0) {
-    const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
+  if (trendRows.length > 0) {
     // D-63 fields, rendered where present: the quarter's equity-securities
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).
     const trendNotes = [
-      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}.${d.quarterlyTrend.some(r => r.freeCashFlow !== null) ? " FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it." : ""}`,
-      missingQuarterNote(d.quarterlyTrend.map(r => r.periodEnd)),
-      d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
+      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}.${trendRows.some(r => r.freeCashFlow !== null) ? " FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it." : ""}`,
+      missingQuarterNote(trendRows.map(r => r.periodEnd)),
+      trendRows.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
-      ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
+      ...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])),
       ...builderNotes,
     ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (latest eight available quarters)",
       headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
-      rows: d.quarterlyTrend.map((r) => [
+      rows: trendRows.map((r) => [
         r.periodEnd,
         r.fiscalLabel ?? DASH,
         money(r.revenue, d.currency),

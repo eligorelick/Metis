@@ -120,5 +120,9 @@ Two findings, fixed at integration test-first (RED, then GREEN):
   basis and mixed-basis notes) became "Management guidance notes" rows. They are
   now printed beside the trend, with a status row when no quarter is shown.
   `tests/report.trendNotePlacement.test.ts`.
+- **An all-dash quarter (final data-only FIGR run).** Q4 FY2024's revenue stays
+  refused (N4b) and R2 now withholds its operating expenses, so the paid
+  report's one-value row became a row of dashes. A quarter with no shown value
+  is named in the missing-quarter note instead. Same test file.
 
 The R3 decisions were numbered D-161 at integration.

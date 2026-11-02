@@ -66,6 +66,24 @@ describe("R2/R3 review: quarterly-trend notes sit with the trend", () => {
     expect(tableText(d, "outlook")).not.toContain("Operating expenses not shown for ");
   });
 
+  // Final data-only FIGR run (2026-11-02): Q4 FY2024's revenue stays refused (N4b) and
+  // R2 withholds its operating expenses, so the row printed a dash in every column.
+  it("names a quarter with no shown value as missing instead of printing an empty row", () => {
+    const d = buildFilingDisclosures(providerBundle())!;
+    expect(d.quarterlyTrend.length).toBeGreaterThan(3);
+    const empty = d.quarterlyTrend[2]!;
+    Object.assign(empty, { revenue: null, revenueYoyPct: null, revenueQoqPct: null, grossMarginPct: null, operatingExpenses: null,
+      operatingMarginPct: null, epsDiluted: null, operatingCashFlow: null, freeCashFlow: null, equitySecuritiesGains: null, nonGaapEpsDiluted: null });
+    const trend = filingDisclosureTables(d, "fundamentals").find(t => t.heading.startsWith("Quarterly trend"))!;
+    expect(trend.rows.map(r => r[0])).not.toContain(empty.periodEnd);
+    expect(trend.rows).toHaveLength(d.quarterlyTrend.length - 1);
+    expect(trend.note).toMatch(new RegExp(`Missing quarters? within the displayed window: [^.]*${empty.periodEnd}`));
+    // A quarter with any shown value keeps its row.
+    const partial = d.quarterlyTrend[1]!;
+    Object.assign(partial, { revenue: null, revenueYoyPct: null, revenueQoqPct: null, operatingExpenses: null, epsDiluted: null });
+    expect(filingDisclosureTables(d, "fundamentals").find(t => t.heading.startsWith("Quarterly trend"))!.rows.map(r => r[0])).toContain(partial.periodEnd);
+  });
+
   it("keeps a trend note visible in its own section when no quarterly row is shown", () => {
     const d = buildFilingDisclosures(providerBundle())!;
     const empty: FilingDisclosures = { ...d, quarterlyTrend: [],
