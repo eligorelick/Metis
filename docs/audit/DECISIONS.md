@@ -57,6 +57,13 @@ capped at total interest. With no evidenced effective rate, keep interest and
 state the conservative limitation; no coupon is inferred. This is the OD-2
 approximation, not a GAAP diluted-EPS forecast. No prompt text or stamp changes.
 
+FIN-407 uses the admitted DCF divisor for operating EPS, including B-37's
+quoted-share economic units, loss-period awards and convertible readings.
+Scope refusals match non-info entries. The prior missing-count test now removes
+both the authoritative bridge count and the fallback count; its no-EPS and
+three-other-series assertions remain unchanged. Legacy admission-withholding
+text gains the specified explanation under cutoff 1.56.0; no number changes.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

@@ -22,6 +22,19 @@ import { ReportSchema, type Report } from "@/report/schema";
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
 const NOTE = /Valued under the equity-bridge method before report spec .*Re-run the report for the current method/;
+it("FIN-407 explains the earlier admission withholding without changing stored EPS", () => {
+  const report = base("1.55.0");
+  const series = report.projections!.series.find(s => s.metric === "epsDiluted")!;
+  series.disclosures.push({ field: "projections.eps.ownershipScope", severity: "warn",
+    reason: "Forecast operating EPS withheld: Diluted shares on the issuer-economic basis admitted" });
+  const bytes = JSON.stringify(report);
+  const view = withLegacyBridgeMethod(report);
+  const after = view.projections!.series.find(s => s.metric === "epsDiluted")!;
+  expect(after.disclosures.at(-1)!.reason).toMatch(/sentence admits the diluted count; it was not a refusal/);
+  expect(after.base).toEqual(series.base);
+  expect(withLegacyBridgeMethod(view)).toEqual(view);
+  expect(JSON.stringify(report)).toBe(bytes);
+});
 it("FIN-302 legacy convertibles are conditional, idempotent and keep every stored figure", () => {
   for (const method of ["fcff-dcf", "excess-return"] as const) {
     const report = base("1.55.0", method);

@@ -17,7 +17,7 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 | FIN-302 | Fixed | FIN-302 family commit (handoff) | `fin302-red-confirmed` / `fin302-green-final` | Conditional pre-1.56.0 note; saved figures retained |
 | FIN-302-V1 | Fixed | Same family commit | Same receipts | Same note for excess-return values |
 | FIN-302-V2 | Fixed | EPS commit (handoff) | `fin302v2-red-confirmed` / `fin302v2-green` | Earlier figures stay; conditional convertible note applies |
-| FIN-407 | Not started | None | None | Earlier multi-class EPS withholding remains |
+| FIN-407 | Fixed | Multi-class EPS commit (handoff) | `fin407-red`, `fin407-stored-red` / `fin407-green-final` | Explain old admission sentence; saved EPS unchanged |
 | VAL-14 | Not started | None | None | No new fair-value financial-asset admission |
 | FIN-309 | Not started | None | None | Task 11 has not landed; book-date treatment remains |
 
@@ -261,3 +261,26 @@ valuation 87.35 and composite 80.13/A stay. Unmodified NVDA EPS
 [11.12,16.61,22.87,29.37,35.57] and AMZN
 [6.69,7.38,8.04,8.68,9.29] stay. Preferred GOOGL and injected preferred
 EPS remain withheld. All census/injected valuation figures and grades stay.
+
+## FIN-407 continuation
+
+`fin407-red`: three defect assertions fail and two setup/refusal controls pass.
+`fin407-stored-red` reproduces the missing legacy explanation. Equal-economics
+and 1,500-to-1 class-unit fixtures both now publish EPS
+[1.91,2.05,2.17,2.28,2.37] instead of []; their admitted 100M quoted-share
+DCF divisor and per-share value remain identical to the single-class control.
+An actual warn-level class refusal retains empty forward EPS. Non-info scope
+entries alone are refusals. `fin407-green-final` passes 116 tests in six files.
+The existing missing-count test now removes both authoritative bridge count
+and fallback count, preserving its assertions; before it removed only fallback
+while leaving a valid 100-share bridge. No assertion or threshold is weakened.
+The legacy sentence suffix is idempotent, optional-projections safe and changes
+no numeric leaf or stored byte. All report surfaces use the existing adapter.
+No prompt text, stamp or golden changes.
+
+`fin407-replay-after` compared with `fin302v2-replay-after` changes no census
+per-share, EPS, grade or injected control. META stays withheld (DCF and EPS),
+valuation unavailable, composite 63.67/C. EXPE stays 271.56684754798755/share,
+EPS withheld for ownership, valuation 50.47, composite 65.85/C. The benefit is
+the synthetic admitted-class pair; neither refused census issuer gains EPS.
+`fin407-typecheck` passes. Shared versions and goldens remain unchanged.

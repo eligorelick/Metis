@@ -1754,6 +1754,12 @@ the reduction is capped at total interest. Without that rate interest remains
 and the assumption says so. All EPS scenarios and share-count alternatives use
 the same reading (FIN-302-V2); a preferred claim still withholds unallocated
 future common earnings.
+Forecast EPS uses the DCF's admitted positive divisor, including economic
+quoted-share units for multiple common classes (FIN-407). An informational
+class admission is not a refusal; warn/critical scope refusals still withhold
+EPS. Legacy pre-1.56.0 admission-withholding sentences receive an explanation,
+with their saved EPS paths and all other figures retained.
+
 
 A note needs a same-currency conversion price K within 366 days. Across the
 95%-105% conversion-count band, a conservative triangular blend weights the

@@ -686,7 +686,7 @@ function buildEpsSeries(
     .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
   // Pure callers inherit the valuation's refusal too. A positive raw count
   // cannot restore a denominator that the shared valuation already rejected.
-  const scopeGap = inputs.valuation.gaps.find(g => ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
+  const scopeGap = inputs.valuation.gaps.find(g => g.severity !== "info" && ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
     "valuation.dcf.noncontrollingOwnership", "valuation.multiples.peTtm.commonIncome"].includes(g.field));
   const nci = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.minorityInterest : null;
   const preferred = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.preferred : null;
@@ -701,7 +701,7 @@ function buildEpsSeries(
   const bridge = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge : undefined;
   const readings = bridge?.convertibles ?? [];
   // FIN-302-V2: the reading's actual divisor also anchors every EPS alternative.
-  const shares0 = readings.length ? bridge!.dilutedShares : inputs.dilutedShares;
+  const shares0 = isNum(bridge?.dilutedShares) && bridge.dilutedShares > 0 ? bridge.dilutedShares : inputs.dilutedShares;
   // EPS requires a positive share anchor.
   if (!isNum(shares0) || shares0 <= 0) {
     return null;

@@ -170,6 +170,19 @@ function addEquityMethodReadingNote(report: Report): Report {
     `${prefix}: its long-term investments were assumed to sit below operating income; if its income was inside operating income, that stake was valued twice. Re-run the report for the current method.`] } };
 }
 
+function explainLegacyClassEps(report: Report): Report {
+  const projections = report.projections;
+  if (projections === undefined) return report;
+  const suffix = `(withheld under the rule before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION}: that sentence admits the diluted count; it was not a refusal)`;
+  let changed = false;
+  const series = projections.series.map(row => ({ ...row, disclosures: row.disclosures.map(entry => {
+    if (!entry.reason.startsWith("Forecast operating EPS withheld: Diluted shares on the issuer-economic basis") || entry.reason.includes(suffix)) return entry;
+    changed = true;
+    return { ...entry, reason: `${entry.reason} ${suffix}` };
+  }) }));
+  return changed ? { ...report, projections: { ...projections, series } } : report;
+}
+
 function addConvertibleReadingNote(report: Report): Report {
   const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier convertible reading`;
   const fv = report.fairValue;
@@ -189,6 +202,7 @@ export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Repor
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: correctFinanceLeaseSentence },
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addEquityMethodReadingNote },
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addConvertibleReadingNote },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: explainLegacyClassEps },
 ];
 
 export function withLegacyBridgeMethod(report: Report): Report {

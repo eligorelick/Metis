@@ -405,7 +405,11 @@ describe("projections — EPS derivation", () => {
   });
 
   it("skips EPS (no crash) when diluted shares are missing", () => {
-    const p = computeProjections(makeInputs({ dilutedShares: null }));
+    // FIN-407: the admitted bridge is now authoritative. This missing-count control
+    // must remove both the bridge count and the non-DCF fallback (previously only the latter).
+    const inputs = makeInputs({ dilutedShares: null });
+    if (inputs.valuation.kind === "dcf" && inputs.valuation.dcf) inputs.valuation.dcf.bridge.dilutedShares = null;
+    const p = computeProjections(inputs);
     expect(p.series.some((s) => s.metric === "epsDiluted")).toBe(false);
     // The other three series still project.
     expect(p.series.length).toBe(3);

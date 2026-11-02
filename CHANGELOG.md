@@ -33,6 +33,8 @@ original versions and bytes; source merge does not deploy or publish a release.
   Every re-run and stored-report disclosure retains the chosen basis.
 - FIN-302-V2: forecast EPS follows the selected convertible divisor and removes
   converted-note interest only at an evidenced effective rate.
+- FIN-407: admitted multi-class EPS uses the valuation's quoted-share divisor;
+  scope refusals still withhold. Explain older admission-withholding text.
 - Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
   scenario-target stamps move with the bridge. No prompt rule text changes.
   Remaining EPS, multi-class, fair-value-asset and book-date items continue in
