@@ -917,7 +917,20 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   for (const axis of segments?.axes ?? []) {
     if (axis.residualCells > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
   }
-  if (reports) notes.push(...reports.notes.slice(0, 6));
+  if (reports) {
+    // R1 (FIGR paid audit): an outlook statement the parser could not read as
+    // structured guidance is still the issuer's guidance. Each retained
+    // release's statements reach the passes with their filing and period,
+    // outside the diagnostic-note cap: the May release's "Q2 2026 Guidance ...
+    // $3.8 - $4.1" was the seventh note and the first six were kept.
+    for (const release of releases) {
+      const period = release.reported.fiscal?.label ?? (release.reported.periodEnd !== null ? `the period ended ${release.reported.periodEnd}` : null);
+      for (const sentence of release.guidance?.unparsed ?? []) {
+        notes.push(`Issuer outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
+      }
+    }
+    notes.push(...reports.notes.filter((note) => !/: outlook sentence not read as guidance: /.test(note)).slice(0, 6));
+  }
 
   // D-63: the latest release's reconciliation rows and the commitments and
   // guarantees tables, in the statements' currency only.

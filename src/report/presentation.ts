@@ -1511,6 +1511,32 @@ function total(values: readonly (number | undefined)[]): number | null {
   return present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
 }
 
+type LedgerRow = Report["appendix"]["costBreakdown"][number];
+interface LedgerUsage { requests: number; discarded: number; input: number; output: number }
+
+/**
+ * R1 (FIGR paid audit): token totals over the same ledger rows the cost is
+ * summed from, when every row carries its settled tokens. Earlier reports'
+ * rows carry none, and keep the per-pass execution totals.
+ */
+function ledgerUsage(rows: readonly LedgerRow[]): LedgerUsage | null {
+  if (rows.length === 0 || rows.some((row) => typeof row.inputTokens !== "number" || typeof row.outputTokens !== "number")) return null;
+  return {
+    requests: rows.length,
+    discarded: rows.filter((row) => row.discarded === true).length,
+    input: rows.reduce((sum, row) => sum + row.inputTokens!, 0),
+    output: rows.reduce((sum, row) => sum + row.outputTokens!, 0),
+  };
+}
+
+function requestCountText(usage: LedgerUsage): string {
+  return `${usage.requests} ${usage.requests === 1 ? "request" : "requests"}${usage.discarded > 0 ? ` (${usage.discarded} discarded)` : ""}`;
+}
+
+function tokenText(input: number | null, output: number | null): string {
+  return `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
+}
+
 /**
  * Tokens for plan-allowance runs, dollars for API runs (audit P3: "Cost
  * $0.000000" on a ChatGPT-plan run read as a free run).
@@ -1531,6 +1557,8 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
     return `${tokens ?? "token usage not reported"} on the ${provider} allowance (no API charge recorded)${usageLimit}`;
   }
   const dollars = `${formatCostUsd(cost)} recorded API cost`;
+  const ledger = ledgerUsage(report.appendix.costBreakdown);
+  if (ledger !== null) return `${dollars} across ${requestCountText(ledger)}; ${tokenText(ledger.input, ledger.output)}`;
   return `${tokens ? `${dollars}; ${tokens}` : dollars}${usageLimit}`;
 }
 
@@ -1912,12 +1940,19 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   ].join(" · ");
 }
 
-/** A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export). */
-export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]): string {
+/**
+ * A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export).
+ * R1: given the cost ledger, the tokens are every request the pass made (with how many there were and
+ * were discarded) when its rows carry tokens, not only the accepted attempt's.
+ */
+export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number], costLedger?: readonly LedgerRow[]): string {
   const step = passAttemptName(entry.step);
   const effort = entry.effectiveEffort ? `, ${entry.effectiveEffort} effort` : "";
-  const tokens = entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
-    : `; ${entry.inputTokens === undefined ? "unknown" : formatNumber(entry.inputTokens, 0)} input / ${entry.outputTokens === undefined ? "unknown" : formatNumber(entry.outputTokens, 0)} output tokens`;
+  const ledger = costLedger === undefined ? null : ledgerUsage(costLedger.filter((row) => row.step === entry.step));
+  const tokens = ledger !== null
+    ? `; ${ledger.requests > 1 ? `${requestCountText(ledger)}; ` : ""}${tokenText(ledger.input, ledger.output)}`
+    : entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
+      : `; ${tokenText(entry.inputTokens ?? null, entry.outputTokens ?? null)}`;
   const requested = entry.requestedModel !== entry.effectiveModel ? ` (requested ${entry.requestedModel})` : "";
   const adjusted = entry.adjustments.length > 0 ? `; ${entry.adjustments.join(", ")}` : "";
   return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}${(entry.note ?? "").includes(FAILED_PASS_NOTE) ? `; failed: ${FAILED_PASS_NOTE}` : ""}`;

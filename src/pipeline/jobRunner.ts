@@ -534,8 +534,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). */
-export const PIPELINE_VERSION = "stage-c-1.6.18" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). 1.6.19 (R1/R4, FIGR paid audit 2026-11-02): blank claim and number dates are read as no date, a FACT keeps only its sourced statement (an embedded "In our judgment" sentence becomes its own JUDGMENT), and the analysts and judge get the evidence-reading, valuation-stance, unassessed-grade, business-model, insider-motive and voting-control rules. */
+export const PIPELINE_VERSION = "stage-c-1.6.19" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -4634,6 +4634,7 @@ function reconcilePersistedCostBreakdown(
         ...previous,
         // cost_log is the durable per-attempt fallback source of truth.
         fallbackUsed: entry.fallbackUsed,
+        ...ledgerTokens(entry),
       };
     }
     matchingPrefix = false;
@@ -4642,6 +4643,7 @@ function reconcilePersistedCostBreakdown(
       model: entry.model,
       costUsd: entry.costUsd,
       fallbackUsed: entry.fallbackUsed,
+      ...ledgerTokens(entry),
     };
   });
 }
@@ -4921,6 +4923,7 @@ function costBreakdownRows(
       // This is the only execution option cost_log persists per attempt.
       ...(options.keepFallbackUsed ? { fallbackUsed: row.fallbackUsed } : {}),
       ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
+      ...ledgerTokens(row),
     };
   });
   return [...entries, ...readPlanCostBreakdown(jobId)];
@@ -4994,6 +4997,20 @@ interface CostLedgerRow {
   costUsd: number;
   fallbackUsed: boolean;
   attemptId: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  settlementKind: string;
+}
+
+/**
+ * R1 (FIGR paid audit): a settled request's own token counts. A presumed charge
+ * reports none, and a row whose counts are both the column default of zero was
+ * written without usage (no real request reports zero tokens both ways).
+ */
+function ledgerTokens(row: CostLedgerRow): Pick<CostBreakdownEntry, "inputTokens" | "outputTokens"> {
+  const counted = (value: number) => Number.isInteger(value) && value >= 0;
+  return row.settlementKind === "actual" && counted(row.inputTokens) && counted(row.outputTokens) && row.inputTokens + row.outputTokens > 0
+    ? { inputTokens: row.inputTokens, outputTokens: row.outputTokens } : {};
 }
 
 /** Ordered immutable accounting rows used to rebuild persisted report metadata. */
@@ -5005,6 +5022,9 @@ function readCostLedger(jobId: string): CostLedgerRow[] {
       costUsd: costLog.costUsd,
       fallbackUsed: costLog.fallbackUsed,
       attemptId: costLog.attemptId,
+      inputTokens: costLog.inputTokens,
+      outputTokens: costLog.outputTokens,
+      settlementKind: costLog.settlementKind,
     })
     .from(costLog)
     .where(eq(costLog.jobId, jobId))

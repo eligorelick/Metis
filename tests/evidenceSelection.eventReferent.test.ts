@@ -24,7 +24,7 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
     expect(cut.text).toContain("Jane Testcase, an employee of the Company, is the sister-in-law of Mr. Testcase.");
     if (cut.text.includes("annual salary")) expect(cut.text).toContain(REFERENT_AND_SALARY);
     for (const orphan of ["omitted…]\nMs. Testcase", "omitted…]\nIn 2026, she", "omitted…]\nHer compensation"]) expect(cut.text).not.toContain(orphan);
-    expect(cut.coverage.version).toBe("section-evidence-5/event");
+    expect(cut.coverage.version).toBe("section-evidence-6/event");
   });
   it("keeps the related-person amount with its referent when there is room", () => {
     expect(selectMaterialEvidence(BODY, 1_700, "event").text).toContain(REFERENT_AND_SALARY);

@@ -14,8 +14,13 @@ export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
  * together with the sentence that introduces that person, and an award of
  * shares ranks like a dollar amount. Not -3: that numeral was the notes/risk
  * selector until D-99, and a version string must not change its method.
+ * section-evidence-6 (FIGR paid audit R1): the operative passages are kept in
+ * tiers, the dated lead first, then the amounts, then the passages that only
+ * define a party; a dated lead may follow an item sub-heading ("Merger
+ * Agreement On June 10, 2026"), a defined term may be printed with spaces inside
+ * its quotes, and an amount may be written out in digits ("$532,426,000").
  */
-export const EVENT_SELECTION_VERSION = "section-evidence-5";
+export const EVENT_SELECTION_VERSION = "section-evidence-6";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
@@ -124,6 +129,11 @@ interface ProfileSpec {
   critical?: (passage: string) => boolean;
   /** Passages that are always kept first, within the budget (in source order). */
   priority?: (passage: string) => boolean;
+  /**
+   * R1: the priority passages' tiers, lower first (source order within a
+   * tier); null is not a priority passage. Overrides `priority` when present.
+   */
+  priorityTier?: (passage: string) => number | null;
   /** D-66: the share of the budget priority passages may take (all of it when absent). */
   priorityShare?: number;
   /**
@@ -142,9 +152,28 @@ interface ProfileSpec {
  * (each a “Trigger Event”)" and "guaranties (collectively, the “Agreements”)" —
  * defined terms that are not parties — are not kept for that alone.
  */
-const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"][A-Z][^“”"]{0,40}[”"]\)/;
-/** An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …"). */
-const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
+// R1: some filings print the defined term with spaces inside its quotes ("(the “ Company ”)").
+const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"]\s?[A-Z][^“”"]{0,40}[”"]\)/;
+/**
+ * An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …").
+ * R1: a short title-case sub-heading may sit between the item title and the
+ * date ("Item 1.01 (…): Merger Agreement On June 10, 2026, …").
+ */
+const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:(?:[A-Z][A-Za-z&'’-]*|and|of|the|for|to)\s+){0,5}?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
+/** R1: a dollar amount with a scale word, or one written out in digits to the millions ("$532,426,000"). */
+const EVENT_AMOUNT = /(?:US)?\$\s?(?:\d[\d,.]*\s*(?:billion|million|trillion)\b|\d{1,3}(?:,\d{3}){2,}(?:\.\d+)?(?![\d,]))/;
+/**
+ * R1 (FIGR paid audit): the event profile's priority tiers. The dated lead says
+ * who did what and when; the amounts are the deal's terms; a passage that only
+ * defines a party ("Northwind (the “Merger”)") comes last. In source order,
+ * that defined-term passage used the room and the completion 8-K's
+ * consideration ("approximately $590 million") was cut.
+ */
+function eventPriorityTier(passage: string): number | null {
+  if (DATED_LEAD.test(passage)) return 0;
+  if (materialCreditSupportClauses(passage).length > 0 || EVENT_AMOUNT.test(passage)) return 1;
+  return DEFINES_PARTY.test(passage) ? 2 : null;
+}
 const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:previously\s+)?identified material weaknesses?|material weaknesses? identified pertained|material weaknesses? (?:continued|continue) to exist|(?:deficiencies|material weaknesses?)\b[^.]{0,160}\b(?:did not|have not|has not)\b[^.]{0,100}\bmaterial misstatement|insufficient segregation of duties|lack of (?:a )?sufficient\b[^.]{0,120}\b(?:qualified|expertise))\b/i;
 const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
 const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
@@ -217,7 +246,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // names and the amounts it commits (a cap, a purchase price).
   event: {
     categories: MATERIAL_CATEGORIES,
-    priority: (passage) => DATED_LEAD.test(passage) || DEFINES_PARTY.test(passage) || materialCreditSupportClauses(passage).length > 0 || /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)\b/.test(passage),
+    priorityTier: eventPriorityTier,
     abbreviations: true,
   },
 };
@@ -422,11 +451,17 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         });
       }
     }
-    // Priority passages (a named party in an 8-K's operative paragraph) first.
-    if (spec.priority !== undefined) {
+    // Priority passages (a named party in an 8-K's operative paragraph) first:
+    // by tier where the profile ranks them (R1), else in source order.
+    const tier = spec.priorityTier ?? (spec.priority === undefined ? undefined : (passage: string) => spec.priority!(passage) ? 0 : null);
+    if (tier !== undefined) {
       const cap = spec.priorityShare === undefined ? Number.POSITIVE_INFINITY : Math.floor(budget * spec.priorityShare);
       let used = 0;
-      for (const passage of all.filter((candidate) => !candidate.table && spec.priority!(candidate.text))) {
+      const tiered = all.flatMap((candidate) => {
+        const rank = candidate.table ? null : tier(candidate.text);
+        return rank === null ? [] : [{ candidate, rank }];
+      }).sort((a, b) => a.rank - b.rank || a.candidate.start - b.candidate.start).map(({ candidate }) => candidate);
+      for (const passage of tiered) {
         if (spec.priorityShare !== undefined && used + passage.text.length > cap) continue;
         const before = remaining;
         if (add(passage)) used += before - remaining;

@@ -3083,8 +3083,8 @@ describe("assembleReport", () => {
     const original = JSON.stringify(output);
     const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
     expect(result.verifiedReport.verdict.executiveSummary![0]).toMatchObject({ label: "ESTIMATE" });
-    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toContain("FMP calendar estimate; company confirmation not established");
-    expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; company confirmation not established");
+    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toContain("FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release");
+    expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release");
     const log = result.log.filter(e => e.path === "verdict.executiveSummary[0]");
     expect(log.some(e => e.reason === "earnings-date-qualified" && e.claim === output.verdict.executiveSummary![0]!.text)).toBe(true);
     expect(log.find(e => e.outcome !== "removed")?.claimSupportStatus).toBe("cited");
@@ -5778,6 +5778,44 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
 
     expect(run.ok).toBe(false);
     if (!run.ok) expect(run.validationError).toContain('"source"');
+  });
+
+  /**
+   * FIGR paid run (2026-11-02): the bear's first attempt (15,653 output tokens,
+   * $0.37) was rejected because two claims sent `asOf: ""`. The field is
+   * nullable and null is the schema's "no date": a blank date is no date.
+   */
+  it("treats a blank asOf on a claim or number as no date instead of failing the case", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", {
+      ...bear,
+      keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "" }, ...bear.keyDrivers.slice(1)],
+      evidence: [{ ...bear.evidence[0]!, asOf: "  " }, ...bear.evidence.slice(1)],
+    });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.keyDrivers[0]).toEqual({ ...bear.keyDrivers[0]!, asOf: null });
+      expect(run.result.output.evidence[0]?.asOf).toBeNull();
+    }
+  });
+
+  it("still rejects a claim whose asOf is a malformed, non-blank date", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", { ...bear, keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "Q3 2026" }, ...bear.keyDrivers.slice(1)] });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(false);
+    if (!run.ok) expect(run.validationError).toContain("Invalid ISO date");
   });
 
   /**

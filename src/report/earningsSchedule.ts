@@ -59,7 +59,10 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       const parts = next.split(HARD_CLAUSE);
       const isEvent = (part: string) => part.includes(event.date) && eventPieces(part, event.date).hits.size > 0;
       if (!parts.some(isEvent)) continue;
-      const qualifier = `${event.provider === "fmp" ? "FMP" : "Finnhub"} calendar estimate; company confirmation not established`;
+      // FIGR paid audit (2026-11-02): name the sources that would confirm the
+      // date. "Company confirmation not established" read as a contradiction
+      // beside a newswire copy of the company's release, which confirms nothing here.
+      const qualifier = `${event.provider === "fmp" ? "FMP" : "Finnhub"} calendar estimate; not confirmed by an SEC filing or a company-hosted release`;
       const dated = `${event.date} (${qualifier})`;
       if (claim) qualifiedClaimPaths.add(path);
       const amended = parts.map(part => {

@@ -382,6 +382,12 @@ export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):E
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
+  // R1 (FIGR paid audit): the newest operating update reported after the
+  // latest results release has its own slot. FIGR's four results releases
+  // filled the four slots, so its October preliminary Q3 data was dropped.
+  const latestResults = ordered.findIndex((r) => r.reportsResults !== false);
+  const newestUpdate = ordered.findIndex((r) => r.reportsResults === false);
+  if (newestUpdate >= 0 && (latestResults < 0 || newestUpdate < latestResults)) kept.add(ordered[newestUpdate]!);
   return ordered.filter((r) => kept.has(r));
 }
 
@@ -507,9 +513,16 @@ export async function collectCurrentReports(
   }
   const ordered = retainedEarningsReleases(releases);
   const holder=latestResultsRelease(ordered);
-  releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   const newer=holder ? ordered.slice(0,ordered.indexOf(holder)) : ordered;
-  if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}`);
+  // R1 (FIGR paid audit): the newest operating update newer than the results
+  // release keeps its own release text (preliminary quarterly operating data,
+  // monthly sales). It never takes the results narrative slot or supplies
+  // release figures (AI-506); the payload prints it as its own excerpt.
+  const update = newer.find(r => r.reportsResults === false && r.releaseNarrative !== null && r.releaseNarrative.trim() !== "");
+  releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record
+    : record === update ? { ...record, commentaryNarrative: null } : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const updateNote = update ? ` The newest operating update's release text (8-K ${update.accession}, ${update.filingDate}) is kept as its own excerpt; it is not an earnings release and supplies no release figures.` : "";
+  if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}${updateNote}`);
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)

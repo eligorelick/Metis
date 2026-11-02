@@ -730,7 +730,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   const m = report.meta;
   const methodology = `<div class="methodology"><h3>Methodology and limitations</h3><ul>${methodologyNotes(report).map((note) => `<li>${esc(note)}</li>`).join("")}</ul></div>`;
   const runRows: string[][] = [
-    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
+    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry, report.appendix.costBreakdown)]),
     ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],

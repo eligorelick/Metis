@@ -1359,6 +1359,10 @@ function normalizeCitationFields(raw: unknown): unknown {
   // still require verification. Preserve any nonblank legacy source verbatim.
   const carrier = (typeof next.text === "string" && typeof next.label === "string") ||
     (typeof next.value === "number" && typeof next.unit === "string");
+  // FIGR paid run (2026-11-02): a claim or number's `asOf` is nullable and
+  // null is its "no date"; a blank string rejected a whole $0.37 bear case.
+  // Only a blank is read as no date: a malformed date still fails.
+  if (carrier && typeof next.asOf === "string" && next.asOf.trim() === "") next.asOf = null;
   if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
       typeof next.sourceId === "string") {
     const id = citationSourceId({ sourceId: next.sourceId });
@@ -2297,8 +2301,42 @@ function cleanRatingSafeArray(value: unknown): unknown {
     : value;
 }
 
+/** A sentence that opens as the analyst's own interpretation. */
+const JUDGMENT_OPENER = /^(?:In our (?:judgment|view)|We (?:judge|think|believe|read|consider))\b/;
+const EMBEDDED_JUDGMENT = /(?<=[.!?])\s+(?=(?:In our (?:judgment|view)|We (?:judge|think|believe|read|consider))\b)/;
+
+function isClaimCarrier(value: unknown): value is Record<string, unknown> & { text: string; label: string } {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).text === "string" && typeof (value as Record<string, unknown>).label === "string" &&
+    typeof (value as Record<string, unknown>).source === "string";
+}
+
+/**
+ * FIGR paid audit (2026-11-02, AUDIT-B B-17): a FACT holds only its sourced
+ * statement. In a list of claims, a FACT's sentences from the first one that
+ * opens as an interpretation ("In our judgment …") on become a JUDGMENT claim
+ * with the same citation, and a FACT that opens that way is a JUDGMENT. A claim
+ * outside a list is left whole: its slot holds one claim.
+ */
+function splitEmbeddedJudgments(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (!isClaimCarrier(item) || item.label !== "FACT") return [splitEmbeddedJudgments(item)];
+      const text = item.text.trim();
+      if (JUDGMENT_OPENER.test(text)) return [{ ...item, label: "JUDGMENT" }];
+      const at = EMBEDDED_JUDGMENT.exec(text);
+      if (at === null) return [item];
+      const factText = text.slice(0, at.index).trim();
+      const judgmentText = text.slice(at.index + at[0].length).trim();
+      return factText === "" || judgmentText === "" ? [item] : [{ ...item, text: factText }, { ...item, label: "JUDGMENT", text: judgmentText }];
+    });
+  }
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, splitEmbeddedJudgments(child)]));
+}
+
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
+  const enumNormalized = splitEmbeddedJudgments(normalizeKnownEnumCasing(normalizeCitationFields(raw)));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }
