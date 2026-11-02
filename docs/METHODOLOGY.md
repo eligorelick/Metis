@@ -1804,9 +1804,9 @@ with their saved EPS paths and all other figures retained.
 
 
 A note needs a same-currency conversion price K within 366 days. Across the
-95%-105% conversion-count band, a conservative triangular blend weights the
-consistent adjustments by max(0, 1 - abs(N/(C/K) - 1)/0.05): full at 100%, zero
-at either edge. This continuously meets the conservative unchanged value;
+95%-105% conversion-count band, a flat-top blend weights the consistent
+adjustments: full for abs(N/(C/K) - 1) <= 0.03, then linearly down to zero
+at 0.05 (weight = max(0, min(1, (0.05 - abs(r - 1))/0.02))). This continuously meets the conservative unchanged value;
 preferred uses full weight. Conversion-option time value is not modelled.
 Offline measurement on 2026-11-02 found no recent K among 45 census issuers
 (three before 2020; one IFRS issuer lacks the US-GAAP Assets anchor). Thus notes
@@ -6094,3 +6094,8 @@ The fiscal-year alternative reads convertible preferred through the same exact-d
 ### P1 review correction F5 (2026-11-02)
 
 Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+
+### P1 review correction F6 (2026-11-02)
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.

@@ -83,11 +83,11 @@ export function convertibleVariants(instruments: readonly ConvertibleInstrument[
   for (const instrument of instruments) {
     const { kind, claim, conversionShares: n } = instrument;
     const eligible = claim !== null && claim > 0 && claim <= deducted[kind] && instrument.settlement === "full-shares";
-    // OD-2 M6: triangular confidence blend. At C/K the full two-reading rule applies;
+    // OD-2 M6 / F6: full weight within 3% of C/K, then a linear taper;
     // at either 5% boundary it continuously meets the conservative claim-plus-shares value.
     const ratio = kind === "notes" && claim && instrument.conversionPrice ? n / (claim / instrument.conversionPrice) : 1;
-    const weight = kind === "notes" ? Math.max(0, Math.min(1, 1 - Math.abs(ratio - 1) / 0.05)) : 1;
-    const basis = `${instrument.basis}${eligible && weight < 1 ? `; conservative continuous conversion-count blend ${weight * 100}% (zero at 95%/105%, full at 100%)` : ""}`;
+    const weight = kind === "notes" ? Math.max(0, Math.min(1, (0.05 - Math.abs(ratio - 1)) / 0.02)) : 1;
+    const basis = `${instrument.basis}${eligible && weight < 1 ? `; conservative continuous conversion-count blend ${weight * 100}% (zero at 95%/105%, full at 97%-103%)` : ""}`;
     const choices: ConvertibleReading[] = eligible ? [
       { kind, claim, conversionShares: n, reading: "claim", restored: 0, sharesRemoved: n * weight, basis },
       { kind, claim, conversionShares: n, reading: "converted", restored: Math.min(claim, deducted[kind]) * weight, sharesRemoved: 0, basis },

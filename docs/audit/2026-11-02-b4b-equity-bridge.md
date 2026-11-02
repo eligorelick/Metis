@@ -350,7 +350,8 @@ carrying tag at 2026-06-30. There is no evidence for two preferred series there.
 W-rare wording therefore applies. Reviewed OD-2 sources are retained as owner
 instructions, not re-fetched under the offline restriction.
 
-The continuous M6 rule uses triangular adjustment weight across the band;
+The original continuous M6 rule used triangular adjustment weight across the band
+(superseded by round-2 F6 below);
 full two-reading comparison at N=C/K, zero adjustment at 95%/105%, unchanged
 conservative value outside. Tests verify both edges, unknown claims, cash
 principal, wrong currency, future filings, old K, YTD rejection, inclusive debt,
@@ -655,3 +656,12 @@ Converted-note EPS uses the issuer's blended effective debt rate (not the note's
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | F5 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f5-red` / `f5-green` | Saved figures/bytes retained; re-run uses corrected method |
+
+
+## Review round 2: F6
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F6 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f6-red` / `f6-green` | Saved figures/bytes retained; re-run uses corrected method |

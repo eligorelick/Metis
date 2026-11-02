@@ -52,3 +52,16 @@ describe("FIN-302 exact-period reader and conservative controls", () => {
     expect(value(1.051)).toBe(1000 / 110);
   });
 });
+
+
+describe("F6: flat-top conversion weight", () => {
+  it.each([[.949, 0], [.95, 0], [.96, .5], [.97, 1], [.98, 1], [1, 1], [1.02, 1], [1.03, 1], [1.04, .5], [1.05, 0], [1.051, 0]])("ratio %s applies weight %s", (ratio, weight) => {
+    const variants = convertibleVariants([note(ratio)], { notes: 50, preferred: 0 });
+    expect((variants.find(v => v.readings[0].reading === "converted")?.restored.notes ?? 0) / 50).toBeCloseTo(weight, 12);
+    expect((variants.find(v => v.readings[0].reading === "claim")?.sharesRemoved ?? 0) / (10 * ratio)).toBeCloseTo(weight, 12);
+  });
+  it("is continuous at both flat-top edges and both outer edges", () => {
+    const adjusted = (ratio: number) => Math.min(...convertibleVariants([note(ratio)], { notes: 50, preferred: 0 }).map(v => (1000 + v.restored.notes) / (110 - v.sharesRemoved)));
+    for (const edge of [.95, .97, 1.03, 1.05]) expect(Math.abs(adjusted(edge - 1e-8) - adjusted(edge + 1e-8))).toBeLessThan(1e-5);
+  });
+});

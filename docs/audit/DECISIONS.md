@@ -3162,3 +3162,10 @@ Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
 Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F6 (2026-11-02)
+
+The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
