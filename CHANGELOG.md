@@ -30,6 +30,18 @@ original versions and bytes; source merge does not deploy or publish a release.
 - L1: admit a complete retained cover class inventory using same-filing class
   enumeration and identical economic rights; disclose quote binding and proxy prices.
 
+## Unreleased - P2 DCF inputs and seasonality (2026-11-02)
+
+- FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502: consistent operating one-offs across coverage, separate terminal evidence, margin history/ceiling and bounded tax seed. Recurring families remain historical costs. Reported ROIC and stored figures are unchanged.
+- FIN-102/FIN-111/FIN-405: terminal losses, transition-flow exclusions and current-growth refusals; FIN-501/FIN-104: consistent reverse families inside the DCF domain.
+- FIN-116/FIN-406: current debt admission and one loss tax shield; FIN-127/FIN-114/FIN-113/FIN-115/FIN-118/FIN-512/RPT-502: fiscal labels, source/window precision and truthful scenario disclosures.
+- N1: qualify concentrated trailing SBC and show an other-three-quarter run-rate companion without changing the house figure or score.
+- Shared report, payload, Stage B and pipeline stamps retain their integration values.
+
+## Unreleased - P8 methodology docs and test guards (2026-11-02)
+
+- Align methodology, research, operations and privacy with current source behavior; pin declarations and preserve stored reports.
+
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 
 Auto mode replaces a conflicting vendor income row with a whole internally

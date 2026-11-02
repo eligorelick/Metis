@@ -535,8 +535,9 @@ describe("reverseDcf", () => {
     const a = explicitAssumptions({ years: 10, growthPath: Array.from({ length: 10 }, () => 8), salesToCapital: 0.5 });
     const opts = { waccPct: 10, netDebt: 0, dilutedShares: 100 };
     const rev = reverseDcf(5 * runDcf(a, opts).perShare!, a, opts);
-    expect(rev.growthOutsideRange).toMatchObject({ side: "above", rising: false });
-    expect(rev.growthOutsideRange!.basis).toMatch(/no outside-range growth is inferred/);
+    // FIN-104: the old non-monotone bound used negative-explicit-PV candidates.
+    expect(rev.growthOutsideRange).toBeUndefined();
+    expect(rev.notes.join(" ")).toMatch(/outside the DCF domain/);
   });
 });
 

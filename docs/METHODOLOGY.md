@@ -3,12 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.56.0 / payload 1.60.0 and Stage B
-STAGE_B_2026_11_CLAUDE_REPAIRS_39 (shared by the 2026-11-02 repair tracks: P0 review fixes, P1/B4b, P3 / AI-407 and the others merged with them; final merged release verification pending). Its bounded evidence fixes
-extend the growth-anchor, scenario-horizon, research-reliability and prior audit
-rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
-research rationale; a passing test validates implementation behavior, not the
-predictive validity of a model or a live provider's contract.
+The current source declares report 1.56.0 / payload 1.60.0, Stage B `STAGE_B_2026_11_CLAUDE_REPAIRS_39` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -1322,7 +1317,7 @@ here calls a live provider: every tested behaviour is on synthetic responses.
 | FMP `shares-float` `outstandingShares`, `enterprise-values` `numberOfShares` | "historical prices and shares outstanding are adjusted for splits" | by the FAQ's wording, which names no endpoint or field | not tested |
 | FMP `income-statement` `eps`, `epsDiluted`, `weightedAverageShsOut`, `weightedAverageShsOutDil` | not stated by the FAQ | **no** | for a row for a period before a known split, each field is kept only when it matches the filer's same field on the same basis (±3% relative to the filer's magnitude; zero must match exactly); no absolute EPS allowance can approve a large proportional difference in a small amount. A field that does not match, or that the filer does not state, is withheld on its own, and EPS is never rebuilt from net income (`guardVendorShareFields`) |
 | FMP `key-metrics`, `ratios` (own-history multiples) | ratios of price to per-share figures; basis-invariant only if both sides share one | not stated | not tested |
-| FMP `analyst-estimates` `epsAvg` | not stated | **no** | not tested; shown as "currency unknown" and not registered (D-28) |
+| FMP `analyst-estimates` `epsAvg` | not stated | **no** | split basis not tested. Currency (D-57): explicit row currency when present; otherwise inherited only for a non-ADR issuer with matching model and listing currencies, registered with `currencyBasis: "inherited"`; otherwise currency remains unknown. Currency and split-basis admission are separate |
 | Yahoo chart `close` | adjusted for the splits the same answer lists | no published contract (unofficial endpoint) | synthetic responses only |
 | Yahoo chart `adjclose` | splits and dividends | no published contract | synthetic responses only (beta) |
 | Yahoo chart `events.splits` | dated by the first split-adjusted session; `numerator`/`denominator` post:pre | no published contract | synthetic responses only (`tests/yahoo.client.test.ts`) |
@@ -2012,7 +2007,7 @@ the amount removed or the unproven reason.
 DuPont average the closing balance with the balance matched to the next older
 annual income period only when the two balances are 300–430 days apart, the
 same fiscal-continuity range used by the forensic layer. This accommodates
-52/53-week calendars. A missing year or a shorter transition stub uses the
+52/53-week calendars. A missing year  uses the
 existing single-period denominator and records a warning instead of silently
 averaging capital from nonconsecutive years.
 
@@ -2599,8 +2594,8 @@ g = min(ROTE × retention, terminal-growth cap 2.5%, risk-free rate)
 Two things it is **not**:
 
 - It is **not the forward model read as a multiple.** *The excess-return equity
-  model* fades ROE linearly to the cost of equity over ten years and adds no
-  continuing value; this identity
+  model* fades ROE to cost of equity plus evidenced persistent excess, and
+  adds a continuing value only when that excess is carried; this identity
   assumes ROTE persists in perpetuity. They rest on different assumptions and
   can legitimately disagree — the difference is the value of persistence, and
   the basis string says so. (An earlier version of this section, and of the
@@ -2652,6 +2647,9 @@ independently selected share-count input retains its existing admission rule.
 | Tangible leverage | (equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles) | computed whenever equity and assets are on file, CET1 or not (D-46); marked a stand-in only when CET1 is untagged. Its numerator and denominator differ from regulatory CET1, so it is not comparable and has no guaranteed ordering relative to it. [Basel risk weights](https://www.bis.org/committees/bcbs/basel-framework/standard/cre/20/inforce/2023-01-01/published/2022-12-08) can exceed 100%. |
 | Net charge-offs / average loans | the fiscal year's charge-offs net of recoveries / average of the same loan element at the two year ends (the FDIC Quarterly Banking Profile net charge-off rate) | when no fiscal-year after-recovery element or write-off/recovery pair from one family is tagged, a pair's periods differ, or the prior year-end loan balance is not tagged under the same element (D-46) |
 | Loans / deposits | total loans / `Deposits` at one balance-sheet date | when either is untagged or the two dates differ (D-46) |
+| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
+| Provisions / loans | provision for credit losses / total loans | when none of `ProvisionForLoanLeaseAndOtherLosses`, `ProvisionForLoanLossesExpensed`, `ProvisionForCreditLossExpenseReversal` or `ProvisionForLoanAndLeaseLosses` is tagged for the fiscal year, or total loans are unavailable or not positive. For component-only filers the components are not summed: financing-receivable and off-balance-sheet expenses need not establish the whole provision |
+| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 "Total loans" in these ratios is gross of the allowance first
 (`FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss`, then
@@ -2691,9 +2689,6 @@ funded by selling the securities (a sticky deposit base offsets them), loan
 growth to be said to include acquisitions, a count of signs never to be
 presented as a probability, and the figures to be called public-filing
 proxies with no supervisory rating.
-| NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
-| Provisions / loans | provision for credit losses / total loans | when neither the provision element nor its component sum resolves |
-| Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
 
 #### Insurers
 
@@ -3516,8 +3511,7 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_NVDA_AUDIT`, stamped
-when D-61 changed the durability and buyback-timing bands). Each metric is mapped to 0–100 by piecewise-linear
+(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`, reflecting the current financial-route evidence conventions). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
 These bands have not been outcome-backtested.
@@ -4341,12 +4335,9 @@ settled costs remain intact and saved reports are never rewritten.
 New reports carry this text verbatim; historical reports retain the disclaimer
 saved when they were generated:
 
-> Informational only — not investment advice. This report contains A-F letter
-> grades and scenario price targets; both are model outputs derived from the
-> data and assumptions disclosed here, and neither is a recommendation to buy,
-> sell, or hold any security.
+> Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.
 
-The disclaimer names the report's output families. Seven aspects have
+The disclaimer names the report's output families only where present (D-79). Seven aspects have
 deterministic numeric scores and A–F bands when applicable evidence supports
 them; AI reports additionally carry model-authored qualitative grades. Data-only
 reports do not invent narrative assessments, and unsupported aspects can remain
@@ -6603,3 +6594,82 @@ row, so runway cannot use an older vendor quarter to bypass the missing
 operand. A missing canonical quarter is never synthesized from a later-filed
 prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
 quarters and do not claim a single-lineage filed SEC TTM.
+
+## P2 DCF inputs and seasonality (2026-11-02)
+
+### P2 consistent operating-income inputs (2026-11-02)
+
+Admitted tagged operating one-offs leave coverage EBIT on that leg's own TTM
+or annual window, the DCF margin seed, annual margin history and scenario
+ceiling, and separate terminal-return evidence. Reported and graded GAAP ROIC
+are unchanged. A tag family filed in at least three of the latest five fiscal
+years remains a recurring operating cost in history and terminal evidence;
+the basis names its years. A withheld amount stays in the filed row.
+
+When the margin seed removes a one-off, the tax seed is re-read on normalized
+pre-tax income. The company historical median is held between the rate with
+no tax effect on the item and the rate with a marginal-rate tax effect; without
+history the marginal reading supplies it. Negative tax expense retains the
+existing fallback. Guidance still sets year one. A display-only note qualifies
+older stored tax seeds when their stored margin basis proves this mismatch.
+
+For the FCFF terminal every-year hurdle only (FIN-102, B5 OD-2), a known
+operating loss remains a miss in the evidence window, at a zero tax rate.
+Normalized losses after admitted one-offs count; reported ROIC and moat grades
+keep their existing treatment. The terminal note names each operating loss.
+
+P2 (FIN-111): an annual flow shorter than 357 days (51 weeks), measured by
+filed revenue start or the next older end, is a transition period. Growth,
+log fits, projection and DCF history, sales-to-capital history and ROIC omit
+it; displayed margin ratios retain it. Latest YoY requires at least 0.75 year.
+The 45-snapshot backtest found no full year below 357 days. Transition periods
+of 51 weeks or more still pass; no census transition filing tests that residual.
+
+P2 reverse DCF (FIN-501/FIN-104): margin candidates shift the base path by the
+terminal-margin delta times a linear zero-to-one ramp by year min(5, n),
+held at one thereafter (B5 OD-11). This also applies to a flat path. The base terminal margin exactly reproduces the base path.
+Growth and margin candidates need nonnegative explicit-period PV and positive
+equity; withheld candidates cannot supply range bounds or bridge a bracket.
+If the full scan is not in-domain, no beyond-range growth claim is inferred.
+
+P2 (FIN-116): The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost.
+
+P2 (FIN-405): Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report.
+
+P2 (FIN-127): Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed.
+
+P2 (FIN-114): The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged.
+
+P2 (FIN-113): Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context.
+
+P2 (FIN-115): Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so.
+
+FIN-127 (OD-5): a missing or colliding four-digit fiscalYear is labelled `FY ending <date>`; its calendar year is never substituted as an issuer fiscal-year claim.
+
+P2 (FIN-118): Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution.
+
+P2 (FIN-406): A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains.
+
+P2 (FIN-512): Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds.
+
+P2 (RPT-502): Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged.
+
+P2 (N1): When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence.
+
+P2 stored DCF inputs: below the frozen 1.56.0 cutoff, a display-only view notes
+proven skipped terminal years, old all-equity/new-debt inconsistencies and
+unsupported reverse-growth bounds. It corrects current-capital date metadata
+only from one established annual context or four contiguous filed quarters;
+claim text and verification marks retain their recorded wording. Headline
+provider labels use the stored valuation dependencies. Only the exact obsolete
+scenario-method sentence is replaced. No stored value or report byte changes.
+The 51-report offline replay is immutable and idempotent, including early
+reports without score arrays. Unknown evidence receives no guessed correction.
+
+P2 FIN-102 refusal boundary: an operating loss enters terminal evidence only
+with an admitted positive invested-capital denominator. A refused, missing or
+nonpositive capital base remains missing; no loss flag supplies a zero return.
+
+P2 FIN-111/FIN-402-V2: the recurring-one-off window takes the latest five
+admitted full fiscal years. A transition stub occupies no slot in that window,
+matching the annual rows used by margin history and terminal evidence.

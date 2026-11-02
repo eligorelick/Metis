@@ -92,6 +92,7 @@ function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
 }
 
 export interface DegradedInputs {
+  betaUsesRegression?: boolean;
   /** `riskFreePct(bundle)`: the rate and the series it came from. */
   riskFree: { pct: number | null; asOf: string | null; seriesId: string | null };
   /**
@@ -116,7 +117,7 @@ export interface DegradedInputs {
  * not a degradation and is not named. Null when nothing was substituted.
  */
 /** Keyless members no fair-value model reads: the sector ETF feeds technicals only, the float nothing in Stage B. */
-const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat"]);
+const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat", "keyless.marketCapHistory", "keyless.enterpriseValues"]);
 
 export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | null {
   const parts: string[] = [];
@@ -126,7 +127,7 @@ export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | nu
   if (inputs.waccHistoryCurrentOnly === true) {
     parts.push("the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates");
   }
-  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field)));
+  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field) && (inputs.betaUsesRegression === true || !["keyless.spy", "keyless.eodPrices"].includes(g.field))));
   if (keyless !== null) parts.push(`${keyless}, not FMP`);
   if (inputs.valuationGaps.some((g) => g.field === "valuation.dcf.analystGrowth" && g.severity === "warn")) {
     parts.push("the analyst-consensus growth method was left out because the provider refused the analyst estimates");

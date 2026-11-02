@@ -1,3 +1,9 @@
+import http from "node:http";
+import https from "node:https";
+import dns from "node:dns";
+import dnsPromises from "node:dns/promises";
+import { syncBuiltinESMExports } from "node:module";
+
 /**
  * Global test guard: no test may reach the live network.
  *
@@ -95,11 +101,54 @@ export function createNoLiveNetworkFetch(realFetch: FetchFn): FetchFn {
   return guarded;
 }
 
+function requireAllowedDestination(url: string): void {
+  if (isLoopbackUrl(url) || (process.env.EDGAR_LIVE_SMOKE === "1" && isLiveSmokeUrl(url))) return;
+  throw new Error(`live network is disabled in the test suite: ${url}`);
+}
+
 /** Idempotent: a second call leaves the already-installed guard in place. */
 export function installNoLiveNetworkGuard(): void {
   const current = globalThis.fetch as (FetchFn & { [GUARD_MARKER]?: boolean }) | undefined;
-  if (typeof current !== "function" || current[GUARD_MARKER] === true) return;
-  globalThis.fetch = createNoLiveNetworkFetch(current);
+  if (typeof current === "function" && current[GUARD_MARKER] !== true)
+    globalThis.fetch = createNoLiveNetworkFetch(current);
+  for (const transport of [http, https]) {
+    for (const key of ["request", "get"] as const) {
+      const original = transport[key];
+      if (Reflect.get(original, GUARD_MARKER)) continue;
+      const guarded = new Proxy(original, { apply(target, receiver, args) {
+        const input = args[0];
+        const options = typeof input === "object" && !(input instanceof URL) ? input : args[1];
+        const host = options?.hostname ?? options?.host;
+        // Options override a URL in Node's request overloads. Refuse sockets
+        // without an established loopback/SEC destination (including socketPath).
+        const destination = options?.socketPath ? "invalid:" : host !== undefined
+          ? `${options?.protocol ?? "http:"}//${host}/`
+          : typeof input === "string" || input instanceof URL ? String(input) : "http://localhost/";
+        requireAllowedDestination(destination);
+        return Reflect.apply(target, receiver, args);
+      }});
+      Object.defineProperty(guarded, GUARD_MARKER, { value: true });
+      transport[key] = guarded;
+    }
+  }
+  for (const resolver of [dns, dnsPromises]) {
+    const original = resolver.lookup;
+    if (Reflect.get(original, GUARD_MARKER)) continue;
+    const guarded = new Proxy(original, { apply(target, receiver, args) {
+      const host = String(args[0]);
+      const bare = host.replace(/^\[|\]$/g, "");
+      const destination = `http://${bare.includes(":") ? `[${bare}]` : bare}/`;
+      try { requireAllowedDestination(destination); }
+      catch (error) {
+        if (resolver === dnsPromises) return Promise.reject(error);
+        throw error;
+      }
+      return Reflect.apply(target, receiver, args);
+    }});
+    Object.defineProperty(guarded, GUARD_MARKER, { value: true });
+    Object.defineProperty(resolver, "lookup", { value: guarded, writable: true, configurable: true });
+  }
+  syncBuiltinESMExports();
 }
 
 installNoLiveNetworkGuard();

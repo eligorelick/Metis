@@ -179,6 +179,7 @@ export interface WaccInputs {
   riskFreePct: number | null;
   /** Equity risk premium in percent (FMP US market-risk-premium totalEquityRiskPremium). */
   erpPct: number | null;
+  erpCountry?: string;
   /** TTM interest expense (currency units). FMP zero-for-undisclosed handled here. */
   interestExpenseTtm: number | null;
   /**
@@ -305,6 +306,7 @@ export type CostOfDebtMethod = "effective" | "historical" | "synthetic" | "none"
  * fiscal year before the latest annual row.
  */
 export interface PriorYearCostOfDebt {
+  coverageBasis?: string;
   pct: number;
   fiscalYearEnd: string;
   yearsBack: number;
@@ -341,6 +343,7 @@ export interface WaccResult {
   riskFreePct: number | null;
   /** ERP actually used (input or current fallback), percent. */
   erpPct: number | null;
+  erpCountry?: string;
   /** Observed effective tax rate used for the debt tax shield (clamped fraction). */
   taxRateUsed: number | null;
   weightEquity: number | null;
@@ -520,6 +523,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     asOf: inputs.asOf,
     riskFreeSeriesId: inputs.riskFreeSeriesId ?? null,
     erpSource,
+    ...(inputs.erpCountry ? { erpCountry: inputs.erpCountry } : {}),
     erpAsOf,
     taxRateBasis: taxRateUsed === null ? null : (inputs.effectiveTaxRateBasis ?? null),
     debtBasis: inputs.totalDebtBasis ?? null,
@@ -613,7 +617,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     isFiniteNumber(inputs.negativeTotalDebtObservation) && inputs.negativeTotalDebtObservation < 0
       ? inputs.negativeTotalDebtObservation
       : null;
-  const hasDebt = debtAvg !== null && debtAvg > 0;
+  const weightedDebt = isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 ? inputs.totalDebtLatest : debtAvg;
+  const hasDebt = weightedDebt !== null && weightedDebt > 0;
   if (negativeDebtObservation !== null) {
     notes.push("negative totalDebt observation — invalid capital-structure data; WACC unavailable");
     gaps.push({
@@ -667,8 +672,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       weightEquity: null,
       weightDebt: null,
     };
-  } else if (debtAvg === 0) {
-    notes.push("no debt (totalDebtAvg = 0) — WACC = cost of equity");
+  } else if (!hasDebt) {
+    notes.push("no debt on the weighted latest balance — WACC = cost of equity");
   }
 
   // Every financial route — bank, insurer and mortgage REIT — is valued on the
@@ -721,16 +726,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       prior.pct > 0 &&
       prior.yearsBack >= 1 &&
       prior.yearsBack <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK;
-    if (priorUsable) {
-      notes.push(
-        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%`,
-      );
-      gaps.push({
-        field: "returns.wacc.interestExpense",
-        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured`,
-        severity: "warn",
-      });
-    } else if (intExpRaw === null || intExpRaw <= 0) {
+    if (!priorUsable && (intExpRaw === null || intExpRaw <= 0)) {
       const intExpNegative = intExpRaw !== null && intExpRaw < 0;
       // Basis-neutral wording: the caller may have passed the TTM figure OR the
       // annual fallback (compute.ts discloses which) — don't claim "Ttm" here.
@@ -776,7 +772,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     };
 
     const rdEffective =
-      intExp !== null && intExp > 0
+      intExp !== null && intExp > 0 && debtAvg > 0
         ? (intExp / debtAvg) * 100
         : priorUsable
           ? prior.pct
@@ -785,13 +781,23 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     if (rdEffective !== null && !deMinimis && rdEffective >= rdBand[0] && rdEffective <= rdBand[1]) {
       costOfDebtPct = rdEffective;
       costOfDebtMethod = priorUsable ? "historical" : "effective";
+      if (priorUsable) {
+      notes.push(
+        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%`,
+      );
+      gaps.push({
+        field: "returns.wacc.interestExpense",
+        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured`,
+        severity: "warn",
+      });
+      }
       notes.push(
         `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% accepted (band [rf − ${RD_BAND_BELOW_RF_PCT}, rf + ${RD_BAND_ABOVE_RF_PCT}] = [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]%)`,
       );
     } else {
       if (rdEffective !== null && !deMinimis) {
         notes.push(
-          `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% outside acceptance band [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]% — synthetic rating used`,
+          `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% outside acceptance band [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]%; synthetic rating is attempted`,
         );
       }
       // Synthetic rating requires a positive observed interest expense. Missing
@@ -811,7 +817,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
         intExp !== null && intExp > 0
           ? { interest: intExp, ebit: inputs.ebitTtm, label: currentBasis }
           : priorUsable && isFiniteNumber(prior.ebit) && prior.interestExpense > 0
-            ? { interest: prior.interestExpense, ebit: prior.ebit, label: `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
+            ? { interest: prior.interestExpense, ebit: prior.ebit, label: prior.coverageBasis ?? `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
             : null;
       if (coverageBasis === null) {
         costOfDebtMethod = "unavailable";
@@ -849,6 +855,12 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
   }
 
   // --- Weights + final WACC -------------------------------------------------------
+  if (hasDebt && inputs.priorYearCostOfDebt && (!isFiniteNumber(inputs.interestExpenseTtm) || inputs.interestExpenseTtm <= 0) && costOfDebtMethod !== "historical") {
+    const prior = inputs.priorYearCostOfDebt;
+    gaps.push({field:"returns.wacc.interestExpense", severity: costOfDebtMethod === "unavailable" ? waccGapSeverity : "warn",
+      reason: `Interest expense undisclosed; historical FY ${prior.fiscalYearEnd} rate ${fmt(prior.pct)}% was not used. ` +
+        (costOfDebtMethod === "synthetic" ? `The synthetic cost of debt ${fmt(costOfDebtPct!)}% is used (${syntheticRating}).` : "No synthetic cost of debt is computable; WACC is unavailable.")});
+  }
   const mcap = isFiniteNumber(inputs.marketCap) && inputs.marketCap > 0 ? inputs.marketCap : null;
   let weightCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
   const minorQuote = minorUnitQuote(inputs.quoteCurrency);
@@ -1048,7 +1060,7 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
   const rfAsOf = result.asOf?.riskFreeRate ?? null;
   const erpSourceLabel =
     result.erpSource === "vendor"
-      ? "FMP market-risk-premium (US totalEquityRiskPremium)"
+      ? `FMP market-risk-premium (${result.erpCountry ?? "US"} totalEquityRiskPremium)`
       : result.erpSource === "damodaran-fallback"
         ? `${ERP_FALLBACK.source} (static fallback)`
         : null;
@@ -1328,6 +1340,9 @@ export interface ReturnsBalanceRow {
 }
 
 export interface RoicYear {
+  /** Separate DCF terminal evidence; reported/graded ROIC stays unchanged. */
+  terminalEvidenceRoicPct?: number | null;
+  operatingLoss?: boolean;
   date: string;
   /** NOPAT / avg invested capital, percent, full precision. Null when uncomputable. */
   roicPct: number | null;
@@ -1583,6 +1598,7 @@ function normalizeAnnualRows<T extends { date: string }>(
 }
 
 export interface RoicOptions {
+  unusualByYear?: ReadonlyMap<string, number>;
   /**
    * Keep the operating-lease liability inside invested capital
    * (THESIS_EV_INCLUDE_LEASES=1), so ROIC and the EV bridge share one lease
@@ -1828,13 +1844,18 @@ export function computeRoic(
     const pretax = row.incomeBeforeTax;
     const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
     const t = lossYearFloor !== null ? lossYearFloor.pct / 100 : yearTaxRate(row, yearNotes);
+    const normalizedEbit = ebit - (options.unusualByYear?.get(row.date) ?? 0);
+    // A loss is terminal evidence only after its capital denominator is admitted.
+    entry.operatingLoss = false;
+    const terminalTax = normalizedEbit > 0
+      ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null) {
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,
         severity: "warn",
       });
-      continue;
+      if (terminalTax === null) continue;
     }
     if (lossYearFloor !== null) {
       const basis = "pre-tax income is not positive while operating income is, so no effective tax rate exists: " +
@@ -1843,7 +1864,7 @@ export function computeRoic(
       yearNotes.push(basis);
       gaps.push({ field: "returns.roic.taxRate", reason: `${row.date}: ${basis}`, severity: "info" });
     }
-    const nopat = ebit * (1 - t);
+    const nopat = t === null ? null : ebit * (1 - t);
     entry.taxRateUsed = t;
     entry.nopat = nopat;
 
@@ -1896,7 +1917,9 @@ export function computeRoic(
       continue;
     }
     entry.investedCapitalAvg = icAvg;
-    entry.roicPct = (nopat / icAvg) * 100;
+    entry.operatingLoss = normalizedEbit <= 0;
+    entry.roicPct = nopat === null ? null : (nopat / icAvg) * 100;
+    entry.terminalEvidenceRoicPct = terminalTax === null ? null : normalizedEbit * (1 - terminalTax) / icAvg * 100;
   }
 
   for (const date of [...new Set(options.temporaryEquityUnknownDates ?? [])].sort().reverse()) {

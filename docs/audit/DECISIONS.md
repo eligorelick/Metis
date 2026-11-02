@@ -3775,6 +3775,120 @@ ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no 
 
 The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.
 
+## D-next (P8): Documentation follows deliberate behavior and current constants
+
+B12-OD-4/5/7: cancellation writes error and Retry may reuse compatible durable work; component-only bank provision totals stay withheld. Signed accrual display bands, conditional disclaimer, EPS currency admission, excess-return continuing value and all filing/issuer-website egress are described as implemented. Current methodology declarations are pinned to source constants, intentionally changing methodArtifactHash when future stamp changes update the prose. Stored reports remain immutable.
+
+## D-next (P8): Hermetic checks and per-file coverage
+
+B12-OD-2/3/6: TSX sources receive named coverage placements; every core source has a single-file 85/75/85/85 glob floor alongside the 90/84/95/93 aggregate. Compiler and lint gates use declared roots, preserving tracked inputs. Shared test setup guards HTTP/HTTPS request/get and DNS lookup, synchronizes builtin ESM exports, and isolates XDG_DATA_HOME and APPDATA. No company-IR production seam is added. Recorded reading measurements must refuse main/document overflow and no-op jumps, with 48px landing slack. Live confirmation is skipped under section 4.3. DOC-301 remains deferred to B5.
+
+## D-next (P2) - Consistent DCF operating income (2026-11-02)
+
+FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502 follow B5 OD-7/OD-12: use admitted
+one-offs consistently in coverage, terminal evidence, margin history/ceiling
+and the bounded tax reread. Historical families recurring in at least three of
+five years remain costs. Reported ROIC remains GAAP. Unknown deductibility is
+bounded rather than guessed. Stored reports are immutable; proven mismatched
+tax seeds receive a display note below the frozen 1.56.0 cutoff.
+
+## D-next (P2) - Retain terminal operating losses (2026-11-02)
+
+FIN-102 implements B5 OD-2, revising D-99 only for FCFF terminal evidence:
+a known operating loss counts against the every-year hurdle at zero tax.
+Reported ROIC, moat grades and excess-return financial routes retain their
+conventions. A normalized profitable year remains profitable evidence.
+
+## D-next (P2) - Transition annual flows (2026-11-02)
+
+FIN-111 takes B5 OD-3/O-2's conditional 357-day line. The offline gate found
+434 filed-start income years, two gap-measured income years, 393 cash-flow
+periods and 779 deduplicated annual companyfacts periods, all 364-371 days.
+No full year was withheld. The oldest unknown-duration row stays; margins
+remain displayed. Transition flows leave annual growth and valuation history.
+The census has no transition filing, so periods of 357 days or more remain an
+explicit residual. No threshold was retuned.
+
+## D-next (P2) - Reverse DCF families and domain (2026-11-02)
+
+FIN-501 follows OD-11: terminal-margin candidates preserve the base fade shape;
+flat paths use a linear ramp. FIN-104 extends the existing DCF domain to every
+reverse candidate, bracket and bound (FIN-104). A domain break withholds the
+outside-range inference rather than implying a price-supported growth rate.
+
+## D-next (P2) - FIN-116 (2026-11-02)
+
+The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost. Stored reports remain immutable.
+
+## D-next (P2) - FIN-405 (2026-11-02)
+
+Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report. Stored reports remain immutable.
+
+## D-next (P2) - FIN-127 (2026-11-02)
+
+Historical projection rows carry the filed fiscalYear, including start-year retailer labels. When labels collide, both actuals receive distinct ended-date labels across revenue, operating margin, FCF and EPS; no actual is collapsed. Stored reports remain immutable.
+
+## D-next (P2) - FIN-114 (2026-11-02)
+
+The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged. Stored reports remain immutable.
+
+## D-next (P2) - FIN-113 (2026-11-02)
+
+Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context. Stored reports remain immutable.
+
+## D-next (P2) - FIN-115 (2026-11-02)
+
+Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so. Stored reports remain immutable.
+
+## D-next (P2) - FIN-118 (2026-11-02)
+
+Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution. Stored reports remain immutable.
+
+## D-next (P2) - FIN-406 (2026-11-02)
+
+A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains. Stored reports remain immutable.
+
+## D-next (P2) - FIN-512 (2026-11-02)
+
+Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds. Stored reports remain immutable.
+
+## D-next (P2) - RPT-502 (2026-11-02)
+
+Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged. Stored reports remain immutable.
+
+## D-next (P2) - N1 (2026-11-02)
+
+When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence. Stored reports remain immutable.
+
+
+## D-next (P2) - Stored input-convention display (2026-11-02)
+
+FIN-102/104/113/116/118 and RPT-502 apply the frozen 1.56.0 display cutoff.
+Only established stored evidence permits a correction or qualification. Old
+terminal years, debt-leg and range claims receive notes. Current-capital
+metadata can take an unambiguous filed start; commentary text with verification
+marks stays recorded. Degradation labels follow actual stored dependencies;
+the exact obsolete scenario-method sentence takes the domain convention.
+All source bytes and numeric figures remain immutable. The 51-report replay
+also covers missing early score arrays and repeated view application.
+
+
+## D-next (P2) - FIN-102 capital refusal boundary (2026-11-02)
+
+The B5b Task 6 controller ruling preserves B4a refusals: an operating-loss year
+with unknown or nonpositive invested capital remains missing. The loss flag
+is attached only after a positive denominator is admitted. The terminal rule
+requires an established numeric return and never substitutes zero for it.
+
+
+## D-next (P2) - Full-year recurrence window (2026-11-02)
+
+FIN-111's transition admission also applies to FIN-402-V2's three-of-five
+recurrence window. A stub cannot displace the oldest full fiscal year and
+turn a recurring tagged cost into an add-back. Coverage retains its own-window
+normalization convention. The five-year terminal/margin evidence reads the
+same admitted annual periods; the guard does not change on a no-stub input.
+
 ## D-next (N4a) - Cover counts and same-filing class rights (L1)
 
 Admit dated primary-cover class observations only when the member set maps
