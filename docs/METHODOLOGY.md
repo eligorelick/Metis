@@ -6562,5 +6562,11 @@ derived operands retain their existing rounding allowance. Missing canonical
 SEC cash-capex is an explicit investment-scope refusal on the replacement
 row, so runway cannot use an older vendor quarter to bypass the missing
 operand. A missing canonical quarter is never synthesized from a later-filed
-prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
+prior YTD operand. N4b L4 nevertheless refuses a vendor quarter contradicted
+by those retained YTD operands, naming both filings and the implied difference;
+the standalone quarter stays withheld under the existing filing-lineage rule.
+When the quarterly CFO sum is incomplete or contradicted, TTM CFO may use
+filed fiscal year + current YTD - prior-year YTD, with both YTD values
+from the same current 10-Q. The exact operands, currency and filings are
+disclosed. This identity supplies no cash-capex or standalone quarter. Mixed whole-row cash-flow windows disclose remaining vendor
 quarters and do not claim a single-lineage filed SEC TTM.

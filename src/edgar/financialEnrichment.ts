@@ -162,6 +162,35 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
   return filedFlow(facts, OPERATING_CASH_FLOW_TAG, unit, end, scope, observedAt, true, ctx);
 }
 
+/** Refutation only: a later comparative cannot create a canonical standalone quarter. */
+function crossFilingCfoQuarter(facts: CompanyFacts, unit: string, end: string, observedAt: string): Resolved | null {
+  const ps = points(facts, OPERATING_CASH_FLOW_TAG, unit, observedAt);
+  const total = unambiguousNewest(ps.filter(p => p.end === end && span(p) !== null && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
+  if (!total) return null;
+  const prior = unambiguousNewest(ps.filter(p => p.start === total.start && p.end < end &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
+  if (!prior || prior.filed <= total.filed) return null;
+  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
+  return { ...resolved(total.val - prior.val, [OPERATING_CASH_FLOW_TAG], [total, prior], unit, observedAt, start, end), operands: [total, prior] };
+}
+
+/** FY + current YTD - prior YTD; both YTD values must be in the same current 10-Q. */
+export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): { value: number; operands: number[]; reason: string } | null {
+  const ps = points(facts, OPERATING_CASH_FLOW_TAG, unit, observedAt);
+  const current = unambiguousNewest(ps.filter(p => p.end === end && p.form.replace(/\/A$/, "") === "10-Q" && span(p) !== null && span(p)! >= 70 && span(p)! <= 300));
+  if (!current?.start) return null;
+  const annualEnd = new Date(Date.parse(current.start) - DAY).toISOString().slice(0, 10);
+  const annual = unambiguousNewest(ps.filter(p => p.end === annualEnd && p.filed <= current.filed && span(p) !== null && span(p)! >= 350 && span(p)! <= 380));
+  if (!annual?.start) return null;
+  const prior = unambiguousNewest(ps.filter(p => p.accn === current.accn && p.filed === current.filed && p.form === current.form &&
+    p.start === annual.start && p.end < annualEnd && span(p) !== null && Math.abs(span(p)! - span(current)!) <= 7 &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY >= 350 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 380));
+  if (!prior) return null;
+  const value = annual.val + current.val - prior.val;
+  return { value, operands: [annual.val, current.val, prior.val], reason: `TTM operating cash flow = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity replaces the quarterly vendor CFO sum; it does not establish standalone quarters or cash-capex.` };
+}
+
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
  * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
  * compatible instants. The interval comes from the filing, not an invented
@@ -289,7 +318,8 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
   const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt, ctx);
+  const canonical = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt, ctx);
+  const sec = canonical ?? (scope === "quarter" ? crossFilingCfoQuarter(facts, currency, row.date!, observedAt) : null);
   if (!sec && fields.some((field) => finite(row[field]))) keptUnverified(ctx, "operatingCashFlow", row.date!, [OPERATING_CASH_FLOW_TAG]);
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
@@ -298,7 +328,9 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
     : `filed ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
-  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
+  const reason = canonical === null
+    ? `Vendor operating cash flow at ${row.date} is refuted by YTD operands ${sec.operands![0]!.val} - ${sec.operands![1]!.val} = ${sec.value} ${currency} across two filings (${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). Standalone quarter withheld under the canonical filing-lineage rule; both vendor CFO aliases and dependent FCF withheld; vendor observations retained.`
+    : `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
   for (const field of [...fields, "freeCashFlow"]) {
     if (fieldConflicts[field]?.usable === false) continue;

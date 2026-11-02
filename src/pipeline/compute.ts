@@ -148,6 +148,8 @@ import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipel
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
+import { filedCfoTtm } from "@/edgar/financialEnrichment";
+import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
@@ -2116,10 +2118,20 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const routingCashflowAnnual: RoutingCashflowRow | null = cf0
     ? { date: isoDay(cf0.date), operatingCashFlow: num(cf0.operatingCashFlow) }
     : null;
-  const ttmCf = ttmCashFlowFromNormalized(cashflowQuarterSet, ttmGaps, [
+  let ttmCf = ttmCashFlowFromNormalized(cashflowQuarterSet, ttmGaps, [
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
+  const latestCash = cashflowQuarterSet.rows[0];
+  const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));
+  if (useFiledCfo && latestCash?.date) {
+    ttmCf = { date: latestCash.date, reportedCurrency: latestCash.reportedCurrency ?? null,
+      capitalExpenditure: ttmCf?.capitalExpenditure ?? null, depreciationAndAmortization: ttmCf?.depreciationAndAmortization ?? null,
+      operatingCashFlow: filedCfo.value };
+    ttmGaps.push({ field: "compute.ttmCashFlow.filedYtd", reason: filedCfo.reason, severity: "info" });
+  }
   const currencies = resolveStatementCurrencies(
     profile?.currency, inc0, ttmInc, ttmCf, incomeQuarterSet.rows[0],
     [...incomeQuarterSet.rows, ...balanceQuarterSet.rows, ...cashflowQuarterSet.rows], ttmGaps,
@@ -2379,6 +2391,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   });
 
   if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
+  if (useFiledCfo && capital.current) capital.current.cashBridge.definition += ` ${filedCfo.reason}`;
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a

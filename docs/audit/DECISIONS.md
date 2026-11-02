@@ -3779,3 +3779,11 @@ The first exact-head full suite found one forensic-context complete-output hash 
 
 Later core-form comparatives qualify as filed quarter values. Switch a conflicting vendor quarterly income row only as a whole, reconciled row from one filing; otherwise refuse its revenue with both observations. Growth uses two filed operands on one presentation (preferring current-filing YoY comparatives), or one vendor basis, never mixed sources. Matched filed FY-minus-nine-month presentations may establish Q4 growth while a conflicting vendor Q4 row remains refused. Stored reports and shared stamps remain unchanged.
 
+## D-next (N4b) - Filed operating cash-flow operands (L4)
+
+A vendor CFO refuted by retained filed YTD operands is refused even when a
+later-filed prior YTD cannot establish a canonical quarter. Withhold that
+standalone quarter under the existing house lineage rule. An incomplete or
+contradicted TTM CFO sum may use FY + current YTD - prior-year YTD, provided
+both YTD operands belong to the same current 10-Q. Disclose all operands and
+filings; infer no capex or standalone quarter.
