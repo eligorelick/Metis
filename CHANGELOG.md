@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
+
+Auto mode replaces a conflicting vendor income row with a whole internally
+reconciled SEC-built row, including its EPS. Quarterly cash-flow conflicts use
+the whole canonical SEC quarter. Manifest notes retain both observations,
+filing identities and mixed-source TTM windows. Original vendor responses and
+stored reports remain immutable. Shared version stamps are unchanged.
+
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 
 - PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.

@@ -1,5 +1,28 @@
 # Decisions
 
+## D-next (N3) - whole filed income rows
+
+The owner delegated this decision to the coordinator on 2026-11-01. In auto
+mode a directly filed revenue-total conflict replaces the whole vendor row
+only when the SEC operating statement reconciles on matching scope. This
+recovers usable filed revenue without combining incompatible revenue and cost
+bases. Bank routing remains authoritative; failed reconciliation retains refusal.
+
+## D-next (N3) - quarterly CFO rows
+
+The owner delegated this decision to the coordinator on 2026-11-01. A vendor
+quarterly CFO conflict uses the whole canonical SEC-derived quarter when its
+filing lineage is established. This restores cash-flow consumers without
+combining a filed CFO with vendor capex or other fields. Mixed TTM row sources
+are disclosed and existing TTM gates remain binding.
+
+## D-next (N3) - EPS follows the income row
+
+The owner delegated this decision to the coordinator on 2026-11-01. Switched
+income rows carry their own filed EPS and shares. Missing or refused SEC EPS
+cannot fall back to vendor EPS. This prevents a contradicted quarterly EPS
+from entering TTM P/E; P0's independent vendor EPS conflict guard remains.
+
 ## D-next (P1/B4b): equity bridge and invested capital (2026-11-02)
 
 FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on

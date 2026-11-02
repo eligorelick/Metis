@@ -1,5 +1,18 @@
 # Valuation methodology
 
+N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
+with a directly tagged filed total permits a whole SEC-built income row only
+when the filed operating statement reconciles on matching periods, currency
+and filing scope. Revenue less CostsAndExpenses, or the issuer's filed gross
+profit less operating expenses, must equal operating income within the existing
+filed arithmetic tolerance. Bank revenue routing remains authoritative. A
+quarterly CFO conflict similarly permits the whole canonical SEC quarter with
+its filed lineage. EPS and weighted shares come from the replacement row;
+missing SEC EPS stays missing. No vendor field fills holes in that row.
+Manifests name both values, filings and mixed whole-row sources in TTM windows;
+existing TTM completeness and currency gates continue to apply. Vendor raw
+responses and stored reports are unchanged.
+
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
