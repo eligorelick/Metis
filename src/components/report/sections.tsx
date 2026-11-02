@@ -61,6 +61,8 @@ import {
   gradeReliabilityTable,
   seeAlsoText,
   splitCommonLines,
+  qualitativeScenarioConditions,
+  QUALITATIVE_SCENARIO_HEADING,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -109,6 +111,7 @@ import type {
   Scoring,
   SourcedClaim,
   FairValue,
+  Scenario,
   ScenarioTargets,
   Technicals,
   TracedNumber,
@@ -225,6 +228,33 @@ function SubBlock({
       </div>
       {children}
     </div>
+  );
+}
+
+/** No cash-flow model: each case's stated conditions, without target or probability scaffolding. */
+function QualitativeScenarios({ scenarios }: { scenarios: readonly Scenario[] }) {
+  const view = qualitativeScenarioConditions(scenarios);
+  if (view === null) return null;
+  const list = (title: string, items: readonly string[]) => items.length === 0 ? null : (
+    <div>
+      <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">{title}</div>
+      <ul className="flex flex-col gap-0.5">{items.map((text, i) => <li key={i} className="text-[11px] leading-snug text-fg">→ {displayProse(text)}</li>)}</ul>
+    </div>
+  );
+  return (
+    <SubBlock label={QUALITATIVE_SCENARIO_HEADING}>
+      {list("what would have to be true in every case", view.commonConditions)}
+      {list("qualitative commentary common to every case (not valuation inputs)", view.commonCommentary)}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {view.cases.map((c) => (
+          <div key={c.name} className="flex flex-col gap-2 border border-edge bg-panel px-2.5 py-2">
+            <div className="text-[11px] font-semibold">{c.name.charAt(0).toUpperCase() + c.name.slice(1)}</div>
+            {list("what would have to be true", c.conditions)}
+            {list("qualitative commentary (not valuation inputs)", c.commentary)}
+          </div>
+        ))}
+      </div>
+    </SubBlock>
   );
 }
 
@@ -1121,6 +1151,7 @@ export function ValuationSection({
           })}
         </div>
       </SubBlock>}
+      {noModel && <QualitativeScenarios scenarios={valuation.scenarios} />}
 
       {routeMetrics ? (
         <SubBlock

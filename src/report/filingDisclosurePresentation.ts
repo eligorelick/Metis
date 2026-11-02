@@ -113,8 +113,25 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
   return tables;
 }
 
+/**
+ * Integration review of R2 + R3 (FIGR paid audit): the notes the quarterly-trend
+ * builder adds about its own rows and columns (rejected or currency-cut rows,
+ * derived cash flow, withheld operating amounts and the operating-expense
+ * basis). They are read beside the trend, never under management guidance.
+ */
+export function isQuarterlyTrendNote(note: string): boolean {
+  return /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
+    /^Operating (?:income and operating margin|expenses) for \d{4}-\d{2}-\d{2} withheld: /.test(note) ||
+    note.startsWith("Operating expenses not shown for ") ||
+    note.startsWith("Operating expenses are the provider's subtotal");
+}
+
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
+  const builderNotes = d.notes.filter(isQuarterlyTrendNote);
+  if (d.quarterlyTrend.length === 0 && builderNotes.length > 0) {
+    tables.push({ heading: "Quarterly trend", headers: ["Status"], rows: [["No quarterly rows are shown; see the note."]], note: readerBaseUnits(builderNotes.join(" ")) });
+  }
   if (d.quarterlyTrend.length > 0) {
     const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
     // D-63 fields, rendered where present: the quarter's equity-securities
@@ -126,7 +143,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
       ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
-      ...d.notes.filter(note => note.startsWith("Quarterly operating cash flow")),
+      ...builderNotes,
     ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (latest eight available quarters)",
@@ -406,7 +423,7 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !n.startsWith("Quarterly operating cash flow") && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))]
+      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))]
         .flatMap(readerGuidanceNote);
       if (tables.length === 0 && notes.length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
       if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });

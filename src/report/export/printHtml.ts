@@ -140,6 +140,8 @@ import {
   seeAlsoText,
   sourceLabel,
   splitCommonLines,
+  qualitativeScenarioConditions,
+  QUALITATIVE_SCENARIO_HEADING,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -583,9 +585,24 @@ function sectionValuation(
     const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
     if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
     v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
+  } else {
+    parts.push(qualitativeScenarioBlock(v.scenarios));
   }
   if (routeMetrics) parts.push(routeMetricsBlock(routeMetrics));
   return `<section class="block">${sectionHeading("valuation")}${parts.join("")}</section>`;
+}
+
+/** No cash-flow model: each case's stated conditions, without target or probability scaffolding. */
+function qualitativeScenarioBlock(scenarios: readonly Scenario[]): string {
+  const view = qualitativeScenarioConditions(scenarios);
+  if (view === null) return "";
+  const list = (title: string, items: readonly string[]): string =>
+    items.length === 0 ? "" : `<div><em>${esc(title)}</em><ul>${items.map((i) => `<li>${prose(i)}</li>`).join("")}</ul></div>`;
+  return `<h3>${esc(QUALITATIVE_SCENARIO_HEADING)}</h3>` +
+    list("What would have to be true in every case", view.commonConditions) +
+    list("Qualitative commentary common to every case (not valuation inputs)", view.commonCommentary) +
+    view.cases.map((c) => `<div class="scenario ${esc(c.name)}"><div class="scenariohead"><strong>${esc(c.name.toUpperCase())}</strong></div>` +
+      `<div class="scenariobody">${list("What would have to be true", c.conditions)}${list("Qualitative commentary (not valuation inputs)", c.commentary)}</div></div>`).join("");
 }
 
 function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {

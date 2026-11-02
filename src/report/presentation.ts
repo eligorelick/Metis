@@ -61,6 +61,7 @@ import type {
   ProvenanceCoverage,
   Report,
   RouteMetrics,
+  Scenario,
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
@@ -568,6 +569,28 @@ export function splitCommonLines(lists: readonly (readonly string[])[]): { commo
   const common = first!.filter((line) => rest.every((list) => list.includes(line)));
   const commonSet = new Set(common);
   return { common, specific: lists.map((list) => list.filter((line) => !commonSet.has(line))) };
+}
+
+/** Heading of the qualitative scenario block shown when no cash-flow model exists. */
+export const QUALITATIVE_SCENARIO_HEADING = "Scenario conditions (qualitative)";
+
+/**
+ * Integration review of R3 (FIGR paid audit): with no cash-flow model the
+ * target, probability and deterministic-assumption scaffolding is withheld,
+ * but each case's stated conditions and qualitative commentary are still the
+ * analysis. Lines every case shares are stated once (D-62); null when no case
+ * states anything.
+ */
+export function qualitativeScenarioConditions(scenarios: readonly Pick<Scenario, "name" | "whatWouldHaveToBeTrue" | "qualitativeCommentary">[]): {
+  commonConditions: string[]; commonCommentary: string[];
+  cases: { name: Scenario["name"]; conditions: string[]; commentary: string[] }[];
+} | null {
+  const conditions = splitCommonLines(scenarios.map((sc) => sc.whatWouldHaveToBeTrue));
+  const commentary = splitCommonLines(scenarios.map((sc) => sc.qualitativeCommentary ?? []));
+  const cases = scenarios.map((sc, i) => ({ name: sc.name, conditions: conditions.specific[i] ?? [], commentary: commentary.specific[i] ?? [] }))
+    .filter((c) => c.conditions.length > 0 || c.commentary.length > 0);
+  return conditions.common.length === 0 && commentary.common.length === 0 && cases.length === 0
+    ? null : { commonConditions: conditions.common, commonCommentary: commentary.common, cases };
 }
 
 /** Display name for a geographic segment ("TAIWAN, PROVINCE OF CHINA" → "Taiwan"). */

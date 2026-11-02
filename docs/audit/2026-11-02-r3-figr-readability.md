@@ -100,3 +100,25 @@ $env:VITEST_MAX_WORKERS = '1'
 
 The final handback reports that receipt's exact counts and exit code. No push
 or PR is part of this repair.
+
+## Integration review (coordinator)
+
+Two findings, fixed at integration test-first (RED, then GREEN):
+
+- **Scenario conditions were hidden with the scaffolding.** The no-model branch
+  skipped every scenario card on the Markdown, print and in-app surfaces, so the
+  paid FIGR report's bull/base/bear "What would have to be true" conditions and
+  qualitative commentary (fee-revenue share, Kiavi funding, tax normalisation,
+  take-rate compression, purchaser liquidity) would disappear when re-rendered.
+  Targets, probabilities and shared deterministic assumptions stay withheld; the
+  stated conditions now appear under "Scenario conditions (qualitative)", with
+  lines every case shares stated once (a data-only report shows its single
+  placeholder once). `tests/report.noModelScenarioConditions.test.ts`.
+- **Quarterly-trend notes still read as guidance.** Only the derived cash-flow
+  notes moved to the trend; the builder's other trend notes (rejected or
+  currency-cut rows, withheld operating amounts, and R2's operating-expense
+  basis and mixed-basis notes) became "Management guidance notes" rows. They are
+  now printed beside the trend, with a status row when no quarter is shown.
+  `tests/report.trendNotePlacement.test.ts`.
+
+The R3 decisions were numbered D-161 at integration.

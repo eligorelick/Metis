@@ -120,6 +120,8 @@ import {
   gradeReliabilityTable,
   sourceLabel,
   splitCommonLines,
+  qualitativeScenarioConditions,
+  QUALITATIVE_SCENARIO_HEADING,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -636,9 +638,26 @@ function renderValuation(
     v.scenarios.forEach((sc, index) => {
       lines.push(renderScenario(sc, specific[index] ?? [], review.scenarioPresentation !== undefined), "");
     });
+  } else {
+    lines.push(...renderQualitativeScenarios(v.scenarios));
   }
   if (routeMetrics) lines.push(renderRouteMetrics(routeMetrics), "");
   return lines.join("\n").trimEnd();
+}
+
+/** No cash-flow model: each case's stated conditions, without target or probability scaffolding. */
+function renderQualitativeScenarios(scenarios: readonly Scenario[]): string[] {
+  const view = qualitativeScenarioConditions(scenarios);
+  if (view === null) return [];
+  const list = (title: string, items: readonly string[]) => items.length === 0 ? [] : [title, "", items.map((text) => `- ${item(text)}`).join("\n"), ""];
+  return [
+    `### ${QUALITATIVE_SCENARIO_HEADING}`, "",
+    ...list("What would have to be true in every case:", view.commonConditions),
+    ...list("Qualitative commentary common to every case (not valuation inputs):", view.commonCommentary),
+    ...view.cases.flatMap((c) => [`#### ${capitalize(c.name)}`, "",
+      ...list("What would have to be true:", c.conditions),
+      ...list("Qualitative commentary (not valuation inputs):", c.commentary)]),
+  ];
 }
 
 function renderScenario(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {

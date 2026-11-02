@@ -4331,6 +4331,19 @@ truncate gap reasons only at word boundaries. Legacy traces lacking original
 record labels use the compact variant encoded in their stable id. A provider
 list excluded by the comparable screen is scale context, not comparables.
 
+Integration review (coordinator): the scaffolding removed when no cash-flow
+model exists is the target, probability, sensitivity and shared deterministic
+assumptions, not the analysis. Each case's stated conditions and qualitative
+commentary stay visible under "Scenario conditions (qualitative)", with lines
+every case shares stated once; on the paid FIGR report these were the model's
+bull/base/bear conditions and the first R3 branch hid them on every surface.
+Notes the quarterly-trend builder adds about its own rows and columns (rejected
+or currency-cut rows, derived cash flow, withheld operating amounts and the
+operating-expense basis) are read beside the trend, with a status row when no
+quarter is shown; only the remaining notes are management guidance notes.
+Tests: `tests/report.noModelScenarioConditions.test.ts`,
+`tests/report.trendNotePlacement.test.ts`.
+
 ## D-next (R3) - Print table integrity
 
 Wrap descriptions at spaces and prevent breaks within dates, amounts/units and

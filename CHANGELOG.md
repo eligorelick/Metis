@@ -24,6 +24,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
 - Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
 - Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+- Integration review: when no cash-flow model exists, keep each case's "What would have to be true" and qualitative commentary under "Scenario conditions (qualitative)" on every reader surface (R3 had dropped the scenario cards with the scaffolding; on the paid FIGR report they are the analysis's own bull/base/bear conditions); lines every case shares are stated once.
+- Integration review: print the quarterly trend's own notes (rejected or currency-cut rows, derived cash flow, withheld operating amounts and R2's operating-expense basis) beside the trend, with a status row when no quarter is shown, instead of under management guidance.
 
 ## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
 

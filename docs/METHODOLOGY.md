@@ -6679,7 +6679,12 @@ FCF only if a retained row supplies an FCF cell. When no cash-flow model or
 entity forecast is available, one route-specific explanation replaces empty
 DCF/reverse-DCF, sensitivity, common-assumption, target and weighted-projection
 scaffolding. Available entity forecasts remain visible when only a per-share
-divisor is withheld. Internal route ids are not reader labels.
+divisor is withheld. Internal route ids are not reader labels. Each scenario's
+stated conditions and qualitative commentary are analysis, not scaffolding:
+without a cash-flow model they appear under **Scenario conditions
+(qualitative)**, with lines every case shares stated once. Notes about the
+quarterly trend's own rows (rejected or currency-cut rows, derived cash flow,
+withheld operating amounts, the operating-expense basis) sit beside the trend.
 
 Use a supplied metric label where retained, shortening Piotroski signal
 diagnostics for tables; legacy traces without that label use a compact named
