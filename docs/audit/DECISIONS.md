@@ -3064,3 +3064,8 @@ OD-8: no manifest entry when that instant period has no filed temporary-equity f
 ### D-next (P5): AI-508 repeated older presentations
 
 Earlier-presentation flags do not identify which of several old bases a cell uses. Conservatively withhold growth involving any flagged cell; keep reported levels and all proven-current comparisons. ai508-repeat-red reproduces the former true/true comparison. This never asserts comparability between different historical recasts.
+
+
+### D-next (P5): AI-512-V1 newer-results manifest
+
+The common newer-results selector owns its shown fiscal label. Both Stage B manifest and report notice use it, avoiding a stale label in completeness prose beside a corrected banner. No new configuration read or prompt edit.

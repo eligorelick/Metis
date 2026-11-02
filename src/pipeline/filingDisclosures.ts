@@ -204,7 +204,7 @@ export function newerPeriodicFiling(bundle: DataBundle): { filing: EdgarFiling; 
  * the label decides and the notice names no end. A release that states no results
  * (a deliveries or operational update) never counts.
  */
-export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null } | null {
+export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null; reportedPeriod: string | null } | null {
   const reports = currentReportsOf(bundle);
   if (reports === null) return null;
   const newest = newestStatementRow(bundle);
@@ -224,7 +224,11 @@ export function newerResultsRelease(bundle: DataBundle): { release: EarningsRele
     const periodEnd = yearAgo ? null : release.reported.periodEnd;
     const later = periodEnd !== null ? periodEnd > statementsEnd && daysApart(periodEnd, statementsEnd) > LATER_PERIOD_DAYS
       : fiscalAhead !== null && fiscalAhead > 0;
-    if (later) return { release, statementsEnd, reportedPeriodEnd: periodEnd };
+    if (later) {
+      const label=release.reported.fiscal?.label ?? null;
+      const withheld=label!==null && (periodEnd!==null ? fiscalLabelContradicted(statementFiscalPeriods(bundle),label,periodEnd) : fiscalLabelEndedBy(statementFiscalPeriods(bundle),label,statementsEnd));
+      return { release, statementsEnd, reportedPeriodEnd: periodEnd, reportedPeriod: withheld ? null : label };
+    }
   }
   return null;
 }
@@ -244,7 +248,7 @@ function newerResultsNotice(bundle: DataBundle, currency: string | null): Filing
   const shown = headline?.revenue && headline.epsDiluted && usd(headline.revenue.symbol) && usd(headline.epsDiluted.symbol) ? headline : null;
   return {
     source: releaseRef(release, release.resultsExhibit ?? (release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1")),
-    reportedPeriod: release.reported.fiscal?.label && !(found.reportedPeriodEnd ? fiscalLabelContradicted(statementFiscalPeriods(bundle),release.reported.fiscal.label,found.reportedPeriodEnd) : fiscalLabelEndedBy(statementFiscalPeriods(bundle),release.reported.fiscal.label,found.statementsEnd)) ? release.reported.fiscal.label : null,
+    reportedPeriod: found.reportedPeriod,
     reportedPeriodEnd: found.reportedPeriodEnd,
     statementsEnd,
     revenue: shown?.revenue?.value ?? null,

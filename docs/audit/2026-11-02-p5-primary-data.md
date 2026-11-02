@@ -71,3 +71,6 @@ DATA-101 fixed: data101-final-red-2 reproduces the historical-zero and legacy-gr
 
 
 AI-508 repeated-change completion: ai508-repeat-red fails on comparing two flagged older cells; p5-final-consumers passes 241 tests after conservatively withholding growth involving either older cell. p5-final-retained-4 verifies business tables against starting-HEAD presentation code on stored reports 43, 46, 48, 49 and 50; all unchanged. Its AMZN payload claim checks reject Q3 FY2025 guidance and keep the period-free 199.5 billion claim.
+
+
+AI-512-V1 direct-consumer completion: ai512-notice-red proves the Stage B newer-results manifest still reused the raw label after the display fix. The shared newer-results selector now supplies the withheld label to both consumers.

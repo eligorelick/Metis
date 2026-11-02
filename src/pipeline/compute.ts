@@ -2813,7 +2813,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const newer = newerResultsRelease(bundle);
   const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
-    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
+    reportedPeriod: newer.reportedPeriod, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
   // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.

@@ -5993,3 +5993,6 @@ AI-512-V1: guidance uses the run income rows to withhold a disputed fiscal label
 DATA-101: no temporary-equity warning is emitted for a balance period without any filed instant temporary-equity tag (any unit; zero counts). Filed amounts refused by cutoff, unit or conflict checks still warn, as do operand and vendor conflicts. Only legacy warnings with the exact absent-or-refused reason are grouped across dates; genuine new refusals stay separate.
 
 AI-508 repeated-change limit: earlier-presentation levels remain visible, but growth involving any earlier-presentation cell is withheld because two older cells may themselves span different recasts.
+
+
+AI-512-V1: the newer-results completeness warning uses the same withheld fiscal label as the report notice; a contradicted release is named by its quarter end only.
