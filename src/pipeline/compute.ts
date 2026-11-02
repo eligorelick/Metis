@@ -420,7 +420,6 @@ function fiscalIdentity(r: FmpStatementRow) {
 
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   return {
-    fieldProvenance: r.fieldProvenance,
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     // Restatement recency: without these, a duplicated fiscal period is

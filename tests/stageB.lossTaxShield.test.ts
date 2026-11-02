@@ -11,5 +11,7 @@ it("uses one zero tax shield for identical keyed/keyless loss statements (FIN-40
   };
   expect(build(true).returns.wacc.taxRateUsed).toBe(0);
   expect(build(true).returns.wacc.waccPct).toBe(build(false).returns.wacc.waccPct);
-  expect(build(true).valuation.dcf?.perShare).toBe(build(false).valuation.dcf?.perShare);
+  const keyed=build(true).valuation, keyless=build(false).valuation;
+  if(keyed.kind!=="dcf" || keyless.kind!=="dcf")throw Error("fixture requires DCF");
+  expect(keyed.dcf?.perShare).toBe(keyless.dcf?.perShare);
 });

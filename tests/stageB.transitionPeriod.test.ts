@@ -27,7 +27,7 @@ it("uses filed duration first and preserves the 356/357-day boundary and full-ye
 it("keeps transition rows out of ROIC and projection histories through the orchestrator",()=>{
   const b=completeCurrencyBundle({});
   if (!b.statements.incomeAnnual.ok) throw Error("fixture");
-  b.statements.incomeAnnual.value.data.rows[0]!.fieldProvenance={revenue:{source:"edgar",periodStart:"2025-07-01",periodEnd:"2025-12-31",unit:"USD",tags:[],filings:[]}};
+  b.statements.incomeAnnual.value.data.rows[0]!.fieldProvenance={revenue:{source:"edgar",observedAt:b.builtAt,periodStart:"2025-07-01",periodEnd:"2025-12-31",unit:"USD",tags:[],filings:[]}};
   const c=runStageB(b);
   expect(c.returns.roic.series.some(y=>y.date==="2025-12-31")).toBe(false);
   expect(JSON.stringify(c.projections)).not.toContain('"period":"FY2025"');

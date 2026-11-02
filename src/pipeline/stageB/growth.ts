@@ -23,7 +23,7 @@ import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/qua
 // ---------------------------------------------------------------------------
 
 export interface GrowthIncomeRow extends FiscalDatedRow {
-  fieldProvenance?: Record<string, { periodStart?: string } | undefined>;
+  fieldProvenance?: Record<string, { periodStart?: string | null } | undefined>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */
@@ -37,7 +37,7 @@ export interface GrowthIncomeRow extends FiscalDatedRow {
 }
 
 export interface GrowthCashFlowRow extends FiscalDatedRow {
-  fieldProvenance?: Record<string, { periodStart?: string } | undefined>;
+  fieldProvenance?: Record<string, { periodStart?: string | null } | undefined>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Filing recency, used ONLY to pick the surviving row of a restated period. */
@@ -659,7 +659,7 @@ export function computeGrowth(
 
 /** B5 OD-3/O-2: census gate found 0 full years below 357 days (51 weeks). */
 export const TRANSITION_PERIOD_UNDER_DAYS = 357;
-export function withoutTransitionPeriods<T extends { date?: unknown; fieldProvenance?: Record<string, { periodStart?: string } | undefined> }>(rowsNewestFirst: readonly T[]): { rows: T[]; withheld: {date:string;days:number}[] } {
+export function withoutTransitionPeriods<T extends { date?: unknown; fieldProvenance?: Record<string, { periodStart?: string | null } | undefined> }>(rowsNewestFirst: readonly T[]): { rows: T[]; withheld: {date:string;days:number}[] } {
   const withheld: {date:string;days:number}[] = [];
   const rows = rowsNewestFirst.filter((row, i) => {
     const date = typeof row.date === "string" ? row.date.slice(0,10) : "";
