@@ -32,15 +32,15 @@ import type {
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { displayConfidence, displayProse, figureRows, figureValueText, seeAlsoText, withoutTabled } from "@/report/presentation";
+import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, seeAlsoText, withoutTabled } from "@/report/presentation";
 import {
   formatNumber,
   unitLabel,
   numericCitationTraceLabel,
   tracedPeriodLabel,
 } from "@/report/format";
-import { ClaimText } from "./ClaimText";
-import { figureCitationStatus, isComputedFigure } from "@/report/verificationMarks";
+import { ClaimLabelChip, ClaimText } from "./ClaimText";
+import { claimStatusMarkText, figureCitationStatus, isComputedFigure } from "@/report/verificationMarks";
 import { GRADE_SURFACE_BY_KEY } from "@/report/surfaceManifest";
 import { evidenceAttributes } from "./evidenceIdentity";
 
@@ -109,6 +109,23 @@ export function ClaimList({
         <ClaimText key={i} claim={c} numbers={numbers} />
       ))}
     </div>
+  );
+}
+
+/** New rationale lists read as a paragraph; saved single claims keep their UI. */
+export function ClaimReasoning({ reasoning }: { reasoning: SourcedClaim | SourcedClaim[] }) {
+  if (!Array.isArray(reasoning)) return <ClaimList claims={[reasoning]} />;
+  return (
+    <p className="claim-paragraph text-[12px] leading-relaxed text-fg">
+      {reasoning.map((claim, index) => (
+        <span key={index} {...evidenceAttributes("claim", claim)}>
+          {index > 0 && " "}
+          <ClaimLabelChip label={claim.label} />{" "}{displayClaimText(claim)}{" "}
+          <span className="claim-source mono text-[10px] text-faint" title={claim.source}>({claimCitation(claim)})</span>
+          {claimStatusMarkText(claim) && <span className="claim-status mono ml-1 text-[10px] text-muted">{claimStatusMarkText(claim)}</span>}
+        </span>
+      ))}
+    </p>
   );
 }
 

@@ -2,6 +2,7 @@ import { concentratedSbcQuarter } from "@/pipeline/stageB/currentCapital";
 import { expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
+import { reasoningClaims } from "@/report/presentation";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -24,10 +25,10 @@ it("qualifies a concentrated SBC quarter and publishes the other-three-quarter c
   if(c.valuation.kind!=="dcf-suppressed")throw Error("suppression fixture");
   expect(c.valuation.suppressionReason).toContain(concentration!.basis);
   const stored=cloneTask28(loadTask28Fixture());
-  stored.catalystsRisks.risks[0]!.reasoning.text="Free cash flow after SBC is negative.";
+  reasoningClaims(stored.catalystsRisks.risks[0]!.reasoning)[0]!.text="Free cash flow after SBC is negative.";
   const before=JSON.stringify(stored),scores=JSON.stringify(c.scores);
   const report=applyFinancialDiagnostics(stored,c,b);
-  expect(report.catalystsRisks.risks[0]!.reasoning.text).toContain(concentration!.basis);
+  expect(reasoningClaims(report.catalystsRisks.risks[0]!.reasoning)[0]!.text).toContain(concentration!.basis);
   expect(report.fundamentals.fcf.some(row=>/run-rate companion/.test(row.label)&&row.values[0]?.value.value===-469324000)).toBe(true);
   expect(JSON.stringify(stored)).toBe(before);expect(JSON.stringify(c.scores)).toBe(scores);
   const payload=assembleContextPayload(b,c,validateBundle(b,{now:new Date(b.builtAt)}));
@@ -39,6 +40,16 @@ it("does not trigger for steady SBC or non-positive comparison quarters",()=>{
   const {b}=fixture();if(!b.statements.cashflowQuarterly.ok)throw Error("fixture");
   b.statements.cashflowQuarterly.value.data.rows[0]!.stockBasedCompensation=0;
   expect(runStageB(b).capital.current?.sbcConcentration).toBeUndefined();
+});
+it("creates list-shaped concentration reasoning and does not duplicate it on a second diagnostic pass",()=>{
+  const {b,c}=fixture();
+  const stored=loadTask28Fixture();
+  stored.catalystsRisks.risks=[];
+  const once=applyFinancialDiagnostics(stored,c,b);
+  expect(once.catalystsRisks.risks).toHaveLength(1);
+  expect(Array.isArray(once.catalystsRisks.risks[0]!.reasoning)).toBe(true);
+  expect(reasoningClaims(once.catalystsRisks.risks[0]!.reasoning)[0]!.text).toBe(c.capital.current!.sbcConcentration!.basis);
+  expect(applyFinancialDiagnostics(once,c,b).catalystsRisks.risks).toHaveLength(1);
 });
 
 it("includes the exact 3x boundary and requires three complete companion flows",()=>{

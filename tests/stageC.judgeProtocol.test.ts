@@ -70,6 +70,7 @@ import {
 } from "@/pipeline/stageC/prompts";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
+import paidCatalystsRisks from "./fixtures/p2-figr-xhigh-catalysts-risks.json";
 import {
   assembleReport,
   buildAnalystRunPassArgs,
@@ -294,6 +295,23 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
     ...over,
   };
 }
+
+it("accepts the retained paid catalyst/risk response on its first section request without a repair", async () => {
+  const { payload } = buildInputs();
+  const completed = Object.fromEntries(Object.entries(fakeJudgeOutput()).filter(([key]) => key !== "catalystsRisks"));
+  const mock = new MockRunPass();
+  mock.onJson("llm.judge", { catalystsRisks: paidCatalystsRisks });
+  const run = await runJudgePass(makeDeps(mock, { sectionedOutput: true }), payload,
+    analystCase("bull"), analystCase("bear"), undefined, undefined, undefined, { completed });
+  expect(run.ok).toBe(true);
+  expect(mock.calls).toHaveLength(1);
+  if (!run.ok) return;
+  expect(run.result.output.catalystsRisks.catalysts).toHaveLength(7);
+  expect(run.result.output.catalystsRisks.risks).toHaveLength(12);
+  expect(run.result.output.catalystsRisks.risks[9]!.reasoning).toEqual(
+    paidCatalystsRisks.risks[9]!.reasoning.map(claim => ({ ...claim, asOf: claim.asOf ?? null })),
+  );
+});
 
 /** The character index at which each case's serialized JSON appears. */
 function caseOffsets(messages: unknown): { bull: number; bear: number } {

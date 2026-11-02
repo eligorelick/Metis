@@ -15,6 +15,7 @@ import { reportToPrintBody } from "@/report/export/printHtml";
 import { provenanceHeadline, trustHeadline, trustRows } from "@/report/presentation";
 import { ReportSchema, type Report, type VerificationLogEntry } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
+import { reasoningClaims } from "@/report/presentation";
 
 type Status = NonNullable<VerificationLogEntry["validationStatus"]>;
 
@@ -30,7 +31,7 @@ function entry(report: Report, path: string, status: Status, kind: "factual-clai
 function markedReport(): Report {
   const r = loadTask28Fixture();
   r.fundamentals.commentary[0].label = "FACT";
-  r.catalystsRisks.catalysts[0].reasoning.label = "FACT";
+  reasoningClaims(r.catalystsRisks.catalysts[0].reasoning)[0]!.label = "FACT";
   r.fundamentals.graded.reasoning[0].label = "FACT";
   r.appendix.verificationLog = [
     entry(r, "verdict.executiveSummary[1]", "validated"),
