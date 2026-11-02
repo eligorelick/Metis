@@ -4669,16 +4669,9 @@ function persistReport(
         runSnapshot = persistRunInputSnapshot(state.jobId, state.runGeneration, source, sourceRef.capturedAt, db);
       }
     }
-    const ledger = db.select({
-      step: costLog.step,
-      model: costLog.model,
-      costUsd: costLog.costUsd,
-      fallbackUsed: costLog.fallbackUsed,
-      attemptId: costLog.attemptId,
-    }).from(costLog)
-      .where(eq(costLog.jobId, state.jobId))
-      .orderBy(costLog.id)
-      .all();
+    // R1: the same reader as every other ledger join, inside this authority
+    // transaction, so a row reconciled here keeps its settled token counts.
+    const ledger = readCostLedger(state.jobId, db);
     const authoritativeCostUsd = ledger.reduce((total, entry) => total + entry.costUsd, 0);
     const parsed = ReportSchema.safeParse(report);
     const reportForPersistence: Report | unknown = parsed.success
@@ -5014,8 +5007,8 @@ function ledgerTokens(row: CostLedgerRow): Pick<CostBreakdownEntry, "inputTokens
 }
 
 /** Ordered immutable accounting rows used to rebuild persisted report metadata. */
-function readCostLedger(jobId: string): CostLedgerRow[] {
-  return getDb()
+function readCostLedger(jobId: string, db: ThesisDb = getDb()): CostLedgerRow[] {
+  return db
     .select({
       step: costLog.step,
       model: costLog.model,
