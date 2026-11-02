@@ -424,9 +424,9 @@ one rejected-output repair and, on plan connections, up to three zero-cost
 dropped-request resends. Repair feedback is preserved across a dropped repair;
 a newly rejected output starts a whole-case repair without continuation.
 
-JOB-301: Fresh pages in either layout observe the newest eligible terminal
-job when there is no active run. Discovery is read-only; Retry remains explicit
-and uses the existing durable reuse and spend fences.
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
 
 AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
 ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
@@ -452,3 +452,7 @@ subsequent settlement revisions still update progress without another refresh.
 PERF-202: SSE polls read the canonical revision before building a full snapshot.
 Unchanged revisions skip artifact and report work; nonterminal snapshots omit
 resume-plan folding. Settlement revisions still emit through the same fences.
+
+Temporary provider rate limits, 5xx, overload and unavailable responses share
+the bounded backoff classification and are described as busy or unavailable.
+Cut-off streams keep their own wording. Retry-After parsing remains deferred.

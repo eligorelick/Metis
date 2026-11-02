@@ -1,6 +1,6 @@
 # Decisions
 
-## D-next (P4): preserve accepted and in-flight work (JOB-202, JOB-206, JOB-213)
+## D-next (P4): preserve accepted work, paid lifecycle and spend limits
 
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
@@ -18,6 +18,44 @@ B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
 exceeds now plus the next beat and SQLite busy timeout. Successful complete
 beats advance the local expiry; partial beats do not. False renewals still
 abort immediately. Request identities and settlement accounting stay intact.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+B8-OD-10: use one provider-busy predicate for bounded backoff and failure
+wording. Temporary 429/5xx, overload and unavailable responses are distinguished
+from cut-off streams. Retry-After parsing remains outside this batch.
 
 Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
 the lineage root's integrity-checked snapshot. Matching snapshot versions use
@@ -3021,37 +3059,3 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Compatibility boundary and cost.** Legacy patterns retain trimming, literal parent segments (optimization level zero) and native Windows separator handling; callers' explicit options remain effective. The project already requires Node >=24. The facade uses Node's documented [synchronous ESM/CommonJS interoperability export](https://nodejs.org/api/modules.html#loading-ecmascript-modules-using-require) plus an ESM default export, retaining existing lint rules without a suppression. Cost: this is a scoped adapter for the installed consumer APIs, not full minimatch 3 compatibility; future consumer upgrades require the same real rule/selection regressions. Upstream 11's matching semantics apply outside the explicitly adapted legacy options.
 - **Enforcement and invariants.** The dependency-shape gate checks real package identities through npm `--long` metadata and lock link targets, including nested and aliased upstream copies. The genuine upstream version set is exactly 11.0.1, while the own facade is separately identified as 1.0.0; brace-expansion is exactly 5.0.12 after removal of the old engine. Unrelated lock entries, optional cross-platform dependencies, ESLint 9.39.5, Next 16.4.2, lint configuration and the include-dev/low/failure audit script remain intact. No report source, financial arithmetic, schema, stamp, payload, golden or intended delta changes; methodology therefore requires no financial revision. Focused execution receipts and remaining final-head acceptance are recorded separately in the private Task 12 report.
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
-
-JOB-301: Fresh pages in either layout observe the newest eligible terminal
-job when there is no active run. Discovery is read-only; Retry remains explicit
-and uses the existing durable reuse and spend fences.
-
-AI-110: A safety-rejected data-only report first withholds provider metadata
-and rechecks deterministic content. If enrichment still fails, it persists a
-fixed-text shell. Completeness and gap counts describe the retained manifest;
-settled costs remain intact and saved reports are never rewritten.
-
-AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
-ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
-the lock automatically; never delete it while servers run. Stop all servers
-before upgrading: older binaries use only the saved PID protocol.
-
-JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
-successful verification artifact, including its original capture time. It does
-not substitute lineage-root inputs when that artifact has no snapshot.
-
-JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
-with the actual attempt count, rather than report-schema validation failures.
-Received-invalid-output controls retain schema wording and unchanged costs.
-
-JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
-reopen with capped backoff, without posting work. Replacement streams retain
-monotonic revision checks; cancellation and unmount clear pending timers.
-
-JOB-215: Completion updates surrounding research once per job. A live-view
-completion navigates to saved research instead of rebuilding live inputs;
-subsequent settlement revisions still update progress without another refresh.
-
-PERF-202: SSE polls read the canonical revision before building a full snapshot.
-Unchanged revisions skip artifact and report work; nonterminal snapshots omit
-resume-plan folding. Settlement revisions still emit through the same fences.

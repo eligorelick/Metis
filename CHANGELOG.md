@@ -36,7 +36,8 @@ JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
 reopen with capped backoff, without posting work. Replacement streams retain
 monotonic revision checks; cancellation and unmount clear pending timers.
 
-JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+JOB-205: Busy or unavailable provider failures share the backoff classification
+and receive their own wording. Exhausted judge transport attempts are disclosed as cut-off requests,
 with the actual attempt count, rather than report-schema validation failures.
 Received-invalid-output controls retain schema wording and unchanged costs.
 
@@ -54,9 +55,9 @@ and rechecks deterministic content. If enrichment still fails, it persists a
 fixed-text shell. Completeness and gap counts describe the retained manifest;
 settled costs remain intact and saved reports are never rewritten.
 
-JOB-301: Fresh pages in either layout observe the newest eligible terminal
-job when there is no active run. Discovery is read-only; Retry remains explicit
-and uses the existing durable reuse and spend fences.
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
 
 AI-510 / JOB-201: Fresh and resumed analyst recovery share one settlement
 path, with one rejected-output repair and three zero-cost plan resends counted
