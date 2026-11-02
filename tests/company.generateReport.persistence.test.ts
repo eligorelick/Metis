@@ -56,6 +56,7 @@ describe("saved-page attachment to an authoritative active run", () => {
     expect(router.replace).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
     expect(container.textContent).toMatch(/Retry/i);
+    expect(container.textContent).toContain("Generate starts a new run that runs every pass again, at full cost on a paid connection.");
   });
   it("P4-1 saved-page terminal attachment does not refresh on load", async () => {
     await render();

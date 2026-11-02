@@ -890,7 +890,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
 
   const canResume = shouldShowServerRetry({ busy, jobId, phase, resumable });
   const resumeHint =
-    "durable prior work is available — retry continues from server-validated artifacts without re-billing reusable passes.";
+    "durable prior work is available — retry continues from server-validated artifacts without re-billing reusable passes. Generate starts a new run that runs every pass again, at full cost on a paid connection.";
 
   const retrySynthesis = useCallback(async () => {
     if (jobId === null) return;

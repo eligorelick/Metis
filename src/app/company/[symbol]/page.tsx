@@ -943,6 +943,7 @@ export default async function CompanyPage({ params, searchParams }: {
   if (saved?.report) {
     const dossier = getConfig().uiRedesign;
     const initialJobId = await activeRunIdentity(symbol);
+    const resumableJobId = !dossier ? (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol) : null;
     return (
       <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={saved.reportId} />}>
         <div className="saved-research-workspace flex flex-col gap-3 p-4">
@@ -951,6 +952,7 @@ export default async function CompanyPage({ params, searchParams }: {
             navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
             controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
+          {!dossier && resumableJobId !== null && <p className="text-[12px] text-muted">A previous run stopped with reusable analyst work. Open Live analysis to resume it.</p>}
           <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
         </div>
       </AppShell>
