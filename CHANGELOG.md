@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- AI-502: classify percentage-point differences as levels, leaving unsupported movement unchecked.
+
 - AI-501: retain defining direction nouns in record metrics; refuse balance-level claims citing increases.
 
 - AI-408: check readable MetricRow column periods and refuse unestablished supplied dates/fiscal labels; disclose unchecked column spellings.

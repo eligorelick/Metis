@@ -5961,3 +5961,5 @@ MetricRow columns (AI-408): a date or explicit fiscal label must be established 
 MetricRow columns (AI-408): a date or explicit fiscal label must be established by the cited record. Other columns and window spellings are logged as not period-checked. On a period-less record, an established as-of decoration is erased; a decidable conflicting supplied period stays unverified.
 
 AI-501: a direction word in a registry record's own label is part of its metric. The claim must name it. An attached direction on a claim is also read as the claim's relation; this does not change excerpt matching or make increase-named rows signed-change records.
+
+AI-502 / OD-6: percentage points alone never establish movement. Slopes are changes; other percentage-point records need a change-named final slug and no difference operator in their label. Movement/comparative prose against spreads, divergence and yield-curve levels stays unchecked; numeric sign conflicts still compare values.

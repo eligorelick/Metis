@@ -1,3 +1,4 @@
+import { isDeltaRecord, labelOperands } from "@/pipeline/stageC/consistency";
 import { expect, it } from "vitest";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
@@ -19,4 +20,33 @@ it("AI-501 refuses share-of-level and omitted gains", () => {
   const gains = { ...inc, id: "payload.quarterly-trend.net-gains-from-equity-securities-quarter-ended-2026-07-26", label: "net gains from equity securities, quarter ended 2026-07-26", period: "2026-07-26", asOf: "2026-07-26", value: 2100000000 };
   expect(check("Net equity securities for the quarter ended 2026-07-26 were USD 2.1 billion.", gains)).toBe("unchecked");
   expect(check("Net gains from equity securities for the quarter ended 2026-07-26 were USD 2.1 billion.", gains)).toBe("validated");
+});
+
+const spread = { ...inc, id: "computed.returns.roic-wacc-spread", label: "ROIC \u2212 WACC spread", value: 136.76, unit: "percentage-points" as const, currency: null, period: null };
+it.each(["rose", "fell"])("AI-502 leaves a spread movement %s unchecked", verb => {
+ expect(check(`The ROIC \u2212 WACC spread ${verb} 136.76 percentage points.`, spread)).toBe("unchecked");
+});
+it("AI-502 retains level and signed-change controls", () => {
+ expect(check("The ROIC \u2212 WACC spread was 136.76 percentage points.", spread)).toBe("validated");
+ const change = { ...spread, id: "computed.margins.operating-margin-change", label: "operating margin change", value: -1.2 };
+ expect(check("Operating margin fell 1.2 percentage points.", change)).not.toBe("validated");
+});
+
+it.each([
+ ["computed.returns.roic-wacc-spread", "ROIC \u2212 WACC spread", false],
+ ["computed.forensics.accruals.divergence", "absolute cash-flow versus balance-sheet accrual divergence", false],
+ ["payload.macro.t10y2y-core", "T10Y2Y (core)", false],
+ ["computed.growth-margins.revenue-accel-yoy-3y-cagr", "revenue accel (YoY \u2212 3y CAGR)", false],
+ ["computed.margins.operating-margin-change", "operating margin change", true],
+ ["computed.margins.operating-margin-change.2", "operating margin change", true],
+ ["computed.unknown", "unknown", false],
+])("AI-502 classifies %s", (id, label, expected) => {
+ expect(isDeltaRecord({ ...spread, id, label })).toBe(expected);
+});
+it("AI-502 always reads slopes as changes", () => {
+ expect(isDeltaRecord({ ...spread, unit: "percentage-points-per-year" })).toBe(true);
+});
+it("AI-502 distinguishes temporal basis from difference operators", () => {
+ expect(labelOperands("revenue growth year over year")).toBeNull();
+ expect(labelOperands("revenue accel (YoY \u2212 3y CAGR)")?.kind).toBe("difference");
 });

@@ -7,7 +7,7 @@ AI-407 is implemented under OD-2. All other requested findings are not started.
 | AI-407 | Fixed | Owning AI-407 commit | AI-407-red / AI-407-final-green; AI-407-empty-red | None: stored reports are never rewritten |
 | AI-408 | Fixed | Owning AI-408 commit | AI-408-red / AI-408-final-green; AI-408-replay | No stored writes; zero replay numeric status deltas |
 | AI-501 | Fixed | Owning AI-501 commit | AI-501-red / AI-501-green; AI-501-controls; AI-501-replay-final | No stored writes; zero numeric replay status deltas |
-| AI-502 | Not started | - | - | None |
+| AI-502 | Fixed | Owning AI-502 commit | AI-502-red / AI-502-green; AI-502-controls; AI-502-replay | No stored writes; zero numeric replay deltas |
 | AI-504 | Not started | - | - | None |
 | AI-116 | Not started | - | - | None |
 | AI-103 | Not started | - | - | None |

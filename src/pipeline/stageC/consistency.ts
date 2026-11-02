@@ -695,7 +695,8 @@ export function quantityDirection(
 }
 
 /**
- * A registry record is a SIGNED DELTA when its unit is a change in a percentage,
+ * A registry record is a SIGNED DELTA when its unit is percentage-points-per-year,
+ * or its final slug names a change (percentage-point differences excluded),
  * or when its own NAME names a change series. Level records (a revenue, a
  * margin, an ROIC) are excluded on purpose: "margin rose to 30%" says nothing
  * about the sign of 30, so there is no delta to disagree with.
@@ -712,19 +713,29 @@ export function quantityDirection(
  * negative: `computed.returns.*` in this pipeline is ROIC/ROE (levels), and
  * misreading those as deltas would fail correct sentences.
  */
+export interface LabelOperands { left: string; right: string; kind: "difference" | "ratio" }
+/** D-66 / AI-504: operand order is part of a formula's identity. */
+export function labelOperands(label: string): LabelOperands | null {
+  const text = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bP\s*\/\s*E\b/gi, "pe")
+    .replace(/\byear[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+year\b/gi, "yoy")
+    .replace(/\bquarter[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+quarter\b/gi, "qoq")
+    .replace(/[\u2010\u2011]/g, "-");
+  if (/^absolute\s/i.test(text)) return null;
+  const difference = /\s+[\u2212\u2013]\s+|(?<=[A-Za-z)])\s+-\s+(?=[A-Za-z(])|(?<=[A-Za-z)])\s+(?:minus|vs\.?|versus|over)\s+(?=[A-Za-z(])/i.exec(text);
+  const ratio = /(?<=[A-Za-z&)])\s*\/\s*(?=[A-Za-z(])|(?<=[A-Za-z)])(?<!\b(?:attributable|related|relating|due|prior|subject|up|according))\s+to\s+(?=[A-Za-z(])/i.exec(text);
+  const match = !difference ? ratio : !ratio || difference.index <= ratio.index ? difference : ratio;
+  return match ? { left: text.slice(0, match.index).trim(), right: text.slice(match.index + match[0].length).trim(), kind: match === difference ? "difference" : "ratio" } : null;
+}
+
 export function isDeltaRecord(record: NumericProvenanceRecord): boolean {
-  if (
-    record.unit === "percentage-points" ||
-    record.unit === "percentage-points-per-year"
-  ) {
-    return true;
-  }
+  if (record.unit === "percentage-points-per-year") return true;
   const segments = record.id.toLowerCase().split(".");
   while (segments.length > 1 && /^\d+$/.test(segments[segments.length - 1])) segments.pop();
   const name = segments[segments.length - 1] ?? "";
-  return /(?:^|-)(growth|cagr|change|delta|chg|yoy|qoq|expansion|contraction|revision)(?:-|$)/.test(
-    name,
-  );
+  const change = /(?:^|-)(growth|cagr|change|delta|chg|yoy|qoq|expansion|contraction|revision)(?:-|$)/.test(name);
+  // OD-6 / AI-502: pp alone does not establish a temporal change.
+  return change && (record.unit !== "percentage-points" || labelOperands(record.label ?? "")?.kind !== "difference");
 }
 
 /* ------------------------------------------------------------------------ *

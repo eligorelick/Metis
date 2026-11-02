@@ -3004,3 +3004,5 @@ This revises D-44's indicator-only description guard. See METHODOLOGY.md
 OD-3: readable column dates/fiscal labels must match the record. Windows and unreadable columns retain existing matching with an explicit log note. Period-less records establish only their as-of, typed context end/instant, and fiscal label; decidable supplied conflicts are refused. Paired facade replay over 43, 46, 48, 49 and 50 found zero numeric status deltas.
 
 AI-501 follows Task 17: preserve defining direction nouns in record labels, with two claim readings only when direction attaches to the figure. Level claims against increase rows become unchecked; verb-change recall remains deliberately withheld. No payload or stored bytes change.
+
+AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differences do not establish temporal movement or a comparative standard; both stay unchecked. Temporal slopes and change-named percentage-point records retain direction checks, except labels naming differences. New unknown records default to non-change. Comparative recall is deliberately withheld.
