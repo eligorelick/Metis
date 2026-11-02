@@ -61,8 +61,13 @@ isolated data paths. Logs are UTF-16LE.
   Markdown release allowlist; the release test caught the omission, and the
   final follow-up registers it as required and allowed. A tooling consumer also
   exceeded its five-second timeout during the default parallel run. The final
-  gate uses Vitest's supported `VITEST_MAX_WORKERS=2` environment override,
+  gate uses Vitest's supported `VITEST_MAX_WORKERS=1` environment override,
   without changing repository runner settings, test selection or thresholds.
+- The two-worker gate completed its product suite with 14,372 passed, three
+  skipped and four five-second timeouts (three files), exit 1. Those files
+  (`minimatch.tooling`, `report.recordedSensitivity`, `runtimeArtifactIdentity`)
+  pass serially: `r3-timeout-controls`, 34 tests, exit 0. The complete final
+  gate is therefore retried with one worker and the original timeout settings.
 
 Existing wording pins were updated because captions now describe retained
 available rows, no FCF definition appears without an FCF cell, extraction
@@ -74,6 +79,7 @@ tests assert the actual spans, CSS and wide-table structure.
 Final gate command (run after this record is committed):
 
 ```powershell
+$env:VITEST_MAX_WORKERS = '1'
 & tmp/claude-2026-11-01/run.ps1 -Name r3-verify -NpmScript verify
 ```
 
