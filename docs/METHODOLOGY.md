@@ -3741,6 +3741,16 @@ prices are dropped and rows are sorted ascending. Unavailable volume becomes
 null and preserves valid price observations; a volume average requires the
 entire recent window rather than treating missing volume as zero.
 
+Observed history ends at the last settled session (D-163). A daily bar for a
+US session that has not settled at the analysis time (16:00 New York plus 30
+minutes, the settle time quote caching uses; exchange holidays and early
+closes are not modelled) is a running trade, not a close, and is left out
+with a note; the live quote is reported separately as the intraday price. The
+FIGR extra-high run fetched its history at 11:04 New York time, and its
+"last close" was that unfinished session's latest trade. Stored reports with
+such a bar label it "Price in the unfinished <date> session" with the fetch
+time, and note that the averages, RSI, range and drawdown include it.
+
 SMA uses 50/200 trading rows. RSI-14 and ATR-14 use Wilder smoothing, seeded
 by the simple mean of their first 14 changes/true ranges; a flat RSI is 50.
 ATR true range is `max(high−low, |high−prior close|, |low−prior close|)` from
