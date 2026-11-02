@@ -2750,7 +2750,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." }
       : projectionTemporaryClaim ? { forecastEpsWithheldReason: "Temporary equity (redeemable preferred or redeemable noncontrolling interests) is filed, or refused, at the operating forecast anchor, but a future common-earnings allocation is unestablished. Its carrying amount is not a dividend or earnings forecast and is not subtracted from forecast operating earnings." } : {}),
     incomeHistory: projectionIncomeHistory,
-    fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf, fiscalYear: str(cashflowAnnual.find(row => isoDay(row.date) === r.date)?.fiscalYear) ?? str(incomeAnnual.find(row => isoDay(row.date) === r.date)?.fiscalYear) })),
+    fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf, fiscalYear: str(normalizeQuarterRows(cashflowAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) ?? str(normalizeQuarterRows(incomeAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
     currency: projectionCurrency,
     asOf: asOfDay,

@@ -461,7 +461,7 @@
         {
           "path": "report.appendix.missingData.12.reason",
           "before": "no API key + no fixture",
-          "after": "FMP↔XBRL cross-check skipped — companyfacts unavailable (DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent)"
+          "after": "FMP\u2194XBRL cross-check skipped \u2014 companyfacts unavailable (DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent)"
         },
         {
           "path": "report.appendix.missingData.14.attemptedSources.1",
@@ -506,7 +506,7 @@
         {
           "path": "report.appendix.missingData.15.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.15.severity",
@@ -536,7 +536,7 @@
         {
           "path": "report.appendix.missingData.16.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.16.severity",
@@ -571,7 +571,7 @@
         {
           "path": "report.appendix.missingData.17.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.17.severity",
@@ -606,7 +606,7 @@
         {
           "path": "report.appendix.missingData.18.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.18.severity",
@@ -626,7 +626,7 @@
         {
           "path": "report.appendix.missingData.19.reason",
           "before": "Finnhub key missing",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.19.severity",
@@ -646,7 +646,7 @@
         {
           "path": "report.appendix.missingData.20.reason",
           "before": "latest FINRA short interest unavailable because trend fetch failed: short interest unavailable (FINRA access failed): HTTP 503 on GET /partitions/group/otcMarket/name/consolidatedShortInterest",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.20.severity",
@@ -666,7 +666,7 @@
         {
           "path": "report.appendix.missingData.21.reason",
           "before": "short interest unavailable (FINRA access failed): HTTP 503 on GET /partitions/group/otcMarket/name/consolidatedShortInterest",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.21.severity",
@@ -688,7 +688,7 @@
         {
           "path": "report.appendix.missingData.22.reason",
           "before": "no SPY benchmark history supplied",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.22.severity",
@@ -713,7 +713,7 @@
         {
           "path": "report.appendix.missingData.27.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.28.attemptedSources.0",
@@ -728,7 +728,7 @@
         {
           "path": "report.appendix.missingData.28.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.29.attemptedSources.0",
@@ -743,7 +743,7 @@
         {
           "path": "report.appendix.missingData.29.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.30.attemptedSources.0",
@@ -758,7 +758,7 @@
         {
           "path": "report.appendix.missingData.30.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.31.attemptedSources.0",
@@ -773,7 +773,7 @@
         {
           "path": "report.appendix.missingData.31.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.32.attemptedSources.0",
@@ -788,7 +788,7 @@
         {
           "path": "report.appendix.missingData.32.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.33.attemptedSources.0",
@@ -803,7 +803,7 @@
         {
           "path": "report.appendix.missingData.33.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.34.attemptedSources.0",
@@ -818,7 +818,7 @@
         {
           "path": "report.appendix.missingData.34.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.35.attemptedSources.0",
@@ -833,7 +833,7 @@
         {
           "path": "report.appendix.missingData.35.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.36.attemptedSources.0",
@@ -848,7 +848,7 @@
         {
           "path": "report.appendix.missingData.36.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.37.attemptedSources.0",
@@ -863,7 +863,7 @@
         {
           "path": "report.appendix.missingData.37.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.38.attemptedSources.0",
@@ -878,7 +878,7 @@
         {
           "path": "report.appendix.missingData.38.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.39.attemptedSources.0",
@@ -893,7 +893,7 @@
         {
           "path": "report.appendix.missingData.39.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.meta.asOfMap.edgar\\.cik",
@@ -1220,7 +1220,7 @@
         {
           "path": "stageB.gaps.14.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.14.severity",
@@ -1255,7 +1255,7 @@
         {
           "path": "stageB.gaps.15.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.15.severity",
@@ -1285,7 +1285,7 @@
         {
           "path": "stageB.gaps.16.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.16.severity",
@@ -1320,7 +1320,7 @@
         {
           "path": "stageB.gaps.17.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.17.severity",
@@ -1355,7 +1355,7 @@
         {
           "path": "stageB.gaps.18.reason",
           "before": "no API key + no fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.18.severity",
@@ -1375,7 +1375,7 @@
         {
           "path": "stageB.gaps.19.reason",
           "before": "Finnhub key missing",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.19.severity",
@@ -1395,7 +1395,7 @@
         {
           "path": "stageB.gaps.20.reason",
           "before": "latest FINRA short interest unavailable because trend fetch failed: short interest unavailable (FINRA access failed): HTTP 503 on GET /partitions/group/otcMarket/name/consolidatedShortInterest",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.20.severity",
@@ -1415,7 +1415,7 @@
         {
           "path": "stageB.gaps.21.reason",
           "before": "short interest unavailable (FINRA access failed): HTTP 503 on GET /partitions/group/otcMarket/name/consolidatedShortInterest",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.21.severity",
@@ -1440,7 +1440,7 @@
         {
           "path": "stageB.gaps.26.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.27.attemptedSources.0",
@@ -1455,7 +1455,7 @@
         {
           "path": "stageB.gaps.27.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.28.attemptedSources.0",
@@ -1470,7 +1470,7 @@
         {
           "path": "stageB.gaps.28.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.29.attemptedSources.0",
@@ -1485,7 +1485,7 @@
         {
           "path": "stageB.gaps.29.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.30.attemptedSources.0",
@@ -1500,7 +1500,7 @@
         {
           "path": "stageB.gaps.30.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.31.attemptedSources.0",
@@ -1515,7 +1515,7 @@
         {
           "path": "stageB.gaps.31.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.32.attemptedSources.0",
@@ -1530,7 +1530,7 @@
         {
           "path": "stageB.gaps.32.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.33.attemptedSources.0",
@@ -1545,7 +1545,7 @@
         {
           "path": "stageB.gaps.33.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.34.attemptedSources.0",
@@ -1560,7 +1560,7 @@
         {
           "path": "stageB.gaps.34.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.35.attemptedSources.0",
@@ -1575,7 +1575,7 @@
         {
           "path": "stageB.gaps.35.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.36.attemptedSources.0",
@@ -1590,7 +1590,7 @@
         {
           "path": "stageB.gaps.36.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.37.attemptedSources.0",
@@ -1605,7 +1605,7 @@
         {
           "path": "stageB.gaps.37.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.38.attemptedSources.0",
@@ -1620,7 +1620,7 @@
         {
           "path": "stageB.gaps.38.reason",
           "before": "offline fixture",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         }
       ]
     },
@@ -1640,7 +1640,7 @@
             "dilutedShares": 205000000,
             "overhangPct": 2.5,
             "asOf": "2025-12-31",
-            "note": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 — a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
+            "note": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 \u2014 a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
           }
         },
         {
@@ -1683,7 +1683,7 @@
           "before": {
             "$auditUndefined": true
           },
-          "after": "SBC 220000000 subtracted from FCF (house default): 1550000000 → 1330000000"
+          "after": "SBC 220000000 subtracted from FCF (house default): 1550000000 \u2192 1330000000"
         },
         {
           "path": "stageB.capital.fcf.series.0.stockBasedCompensation",
@@ -1710,7 +1710,7 @@
           "before": {
             "$auditUndefined": true
           },
-          "after": "SBC 250000000 subtracted from FCF (house default): 1800000000 → 1550000000"
+          "after": "SBC 250000000 subtracted from FCF (house default): 1800000000 \u2192 1550000000"
         },
         {
           "path": "stageB.capital.fcf.series.1.stockBasedCompensation",
@@ -1720,7 +1720,7 @@
         {
           "path": "stageB.capital.notes.1",
           "beforeMissing": true,
-          "after": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 — a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
+          "after": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 \u2014 a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
         },
         {
           "path": "stageB.capital.sbc.note",
@@ -1795,7 +1795,7 @@
             "gaps": [
               {
                 "field": "returns.wacc.history",
-                "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
+                "reason": "no fred:DGS10 observations supplied \u2014 ROIC-vs-WACC history compares every fiscal year to the current WACC",
                 "severity": "info",
                 "attemptedSources": [
                   "fred:DGS10"
@@ -1809,7 +1809,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "reason": "insufficient history (need \u22658 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
             "severity": "info"
           }
         }
@@ -1866,67 +1866,67 @@
         {
           "path": "stageB.growth.notes.0",
           "beforeMissing": true,
-          "after": "Revenue 3y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Revenue 3y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.1",
           "beforeMissing": true,
-          "after": "Revenue 5y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Revenue 5y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.2",
           "beforeMissing": true,
-          "after": "Revenue 10y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Revenue 10y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.3",
           "beforeMissing": true,
-          "after": "Diluted EPS 3y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Diluted EPS 3y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.4",
           "beforeMissing": true,
-          "after": "Diluted EPS 5y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Diluted EPS 5y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.5",
           "beforeMissing": true,
-          "after": "Diluted EPS 10y CAGR is computed over 2.0 years (2023-12-31 → 2025-12-31) — the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Diluted EPS 10y CAGR is computed over 2.0 years (2023-12-31 \u2192 2025-12-31) \u2014 the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.6",
           "beforeMissing": true,
-          "after": "Free cash flow 3y CAGR is computed over 1.0 years (2024-12-31 → 2025-12-31) — the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Free cash flow 3y CAGR is computed over 1.0 years (2024-12-31 \u2192 2025-12-31) \u2014 the full 3-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.7",
           "beforeMissing": true,
-          "after": "Free cash flow 5y CAGR is computed over 1.0 years (2024-12-31 → 2025-12-31) — the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Free cash flow 5y CAGR is computed over 1.0 years (2024-12-31 \u2192 2025-12-31) \u2014 the full 5-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.growth.notes.8",
           "beforeMissing": true,
-          "after": "Free cash flow 10y CAGR is computed over 1.0 years (2024-12-31 → 2025-12-31) — the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
+          "after": "Free cash flow 10y CAGR is computed over 1.0 years (2024-12-31 \u2192 2025-12-31) \u2014 the full 10-year history is unavailable; read it as that span, not as the labelled horizon."
         },
         {
           "path": "stageB.notes.0",
-          "before": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months — treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags.",
-          "after": "TTM net income unavailable — unprofitable overlay evaluated on the latest annual net income (as of 2025-12-31)."
+          "before": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months \u2014 treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags.",
+          "after": "TTM net income unavailable \u2014 unprofitable overlay evaluated on the latest annual net income (as of 2025-12-31)."
         },
         {
           "path": "stageB.notes.1",
           "beforeMissing": true,
-          "after": "TTM operating cash flow unavailable — unprofitable overlay evaluated on the latest annual OCF (as of 2025-12-31)."
+          "after": "TTM operating cash flow unavailable \u2014 unprofitable overlay evaluated on the latest annual OCF (as of 2025-12-31)."
         },
         {
           "path": "stageB.notes.2",
           "beforeMissing": true,
-          "after": "TTM revenue unavailable — latest annual revenue selected as the pre-revenue fallback observation."
+          "after": "TTM revenue unavailable \u2014 latest annual revenue selected as the pre-revenue fallback observation."
         },
         {
           "path": "stageB.notes.3",
           "beforeMissing": true,
-          "after": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months — treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags."
+          "after": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months \u2014 treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags."
         },
         {
           "path": "stageB.returns.roic.latestRoicPct",
@@ -1965,23 +1965,23 @@
         },
         {
           "path": "stageB.route.notes.0",
-          "before": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months — treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags.",
-          "after": "TTM net income unavailable — unprofitable overlay evaluated on the latest annual net income (as of 2025-12-31)."
+          "before": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months \u2014 treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags.",
+          "after": "TTM net income unavailable \u2014 unprofitable overlay evaluated on the latest annual net income (as of 2025-12-31)."
         },
         {
           "path": "stageB.route.notes.1",
           "beforeMissing": true,
-          "after": "TTM operating cash flow unavailable — unprofitable overlay evaluated on the latest annual OCF (as of 2025-12-31)."
+          "after": "TTM operating cash flow unavailable \u2014 unprofitable overlay evaluated on the latest annual OCF (as of 2025-12-31)."
         },
         {
           "path": "stageB.route.notes.2",
           "beforeMissing": true,
-          "after": "TTM revenue unavailable — latest annual revenue selected as the pre-revenue fallback observation."
+          "after": "TTM revenue unavailable \u2014 latest annual revenue selected as the pre-revenue fallback observation."
         },
         {
           "path": "stageB.route.notes.3",
           "beforeMissing": true,
-          "after": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months — treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags."
+          "after": "insufficient historical coverage: only 3 quarterly statement(s) available (< 8), but verified ipoDate 2015-01-02 is older than 24 months \u2014 treated as incomplete data coverage, NOT a recent-IPO overlay (audit 2026-07-11 finding #4). Long-window CAGRs/technicals degrade via their own insufficiency flags."
         },
         {
           "path": "stageB.scores.aspects.fundamentals.score",
@@ -2153,7 +2153,7 @@
           "beforeMissing": true,
           "after": {
             "field": "returns.wacc.history",
-            "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
+            "reason": "no fred:DGS10 observations supplied \u2014 ROIC-vs-WACC history compares every fiscal year to the current WACC",
             "severity": "info",
             "attemptedSources": [
               "fred:DGS10"
@@ -2172,22 +2172,22 @@
         },
         {
           "path": "stageB.valuation.assumptions.terminal.gTermPct.basis",
-          "before": "min(2.5%, risk-free 4%) — house rule: nothing grows faster than rf forever",
-          "after": "min(2.5%, risk-free 4%) — HOUSE CONVENTION: nothing grows faster than rf forever"
+          "before": "min(2.5%, risk-free 4%) \u2014 house rule: nothing grows faster than rf forever",
+          "after": "min(2.5%, risk-free 4%) \u2014 HOUSE CONVENTION: nothing grows faster than rf forever"
         },
         {
           "path": "stageB.valuation.multiples.gaps.2",
           "beforeMissing": true,
           "after": {
             "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "reason": "insufficient history (need \u22658 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
             "severity": "info"
           }
         },
         {
           "path": "stageB.valuation.multiples.multiples.3.basis",
-          "before": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative)",
-          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
+          "before": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 \u2014 TTM suppressed; FMP capex negative)",
+          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 \u2014 TTM suppressed; FMP capex negative) \u2014 free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
         }
       ]
     },
@@ -2215,7 +2215,7 @@
       "decisions": [
         "D-25"
       ],
-      "reason": "The 2026-09-06 audit of the returns and capital modules (D-25). The WACC now uses the single Blume constant pair betaEstimate.ts owns (2/3 and 1/3 instead of the rounded 0.67 and 0.33), so this fixture's adjusted beta moves from 1.067 to 1.0667, the cost of equity from 9.335 to 9.3333 and the WACC from 9.2559 to 9.2545, and with it the terminal ROIC, the terminal reinvestment rate, every DCF discount factor and every column of the WACC sensitivity grid. The WACC result carries a debtBasis string and its notes print the Blume formula to three decimals and the debt basis actually averaged (this fixture discloses no operating-lease split and no quarter-end balance four quarters back, so the fiscal-year-end pair is used unadjusted). The ROIC notes state the basis that ran — cash plus short-term investments, NET_DEBT_V1, the lease rule — and add that no balance sheet discloses an operating-lease liability, replacing a note that described a cash-only definition and cited a methodology section that does not exist.",
+      "reason": "The 2026-09-06 audit of the returns and capital modules (D-25). The WACC now uses the single Blume constant pair betaEstimate.ts owns (2/3 and 1/3 instead of the rounded 0.67 and 0.33), so this fixture's adjusted beta moves from 1.067 to 1.0667, the cost of equity from 9.335 to 9.3333 and the WACC from 9.2559 to 9.2545, and with it the terminal ROIC, the terminal reinvestment rate, every DCF discount factor and every column of the WACC sensitivity grid. The WACC result carries a debtBasis string and its notes print the Blume formula to three decimals and the debt basis actually averaged (this fixture discloses no operating-lease split and no quarter-end balance four quarters back, so the fiscal-year-end pair is used unadjusted). The ROIC notes state the basis that ran \u2014 cash plus short-term investments, NET_DEBT_V1, the lease rule \u2014 and add that no balance sheet discloses an operating-lease liability, replacing a note that described a cash-only definition and cited a methodology section that does not exist.",
       "deltas": [
         {
           "path": "stageB.returns.wacc.betaAdjusted",
@@ -2234,8 +2234,8 @@
         },
         {
           "path": "stageB.returns.wacc.notes.0",
-          "before": "Blume adjustment: beta_adj = 0.67·raw + 0.33",
-          "after": "Blume adjustment: beta_adj = 0.667·raw + 0.333 (the Bloomberg 2/3–1/3 weighting, research §7.1)"
+          "before": "Blume adjustment: beta_adj = 0.67\u00b7raw + 0.33",
+          "after": "Blume adjustment: beta_adj = 0.667\u00b7raw + 0.333 (the Bloomberg 2/3\u20131/3 weighting, research \u00a77.1)"
         }
       ]
     },
@@ -2258,8 +2258,8 @@
         },
         {
           "path": "report.appendix.missingData.40.reason",
-          "before": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months — insufficient historical coverage, not a recent IPO",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "before": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months \u2014 insufficient historical coverage, not a recent IPO",
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.39.attemptedSources.0",
@@ -2273,15 +2273,15 @@
         },
         {
           "path": "stageB.gaps.39.reason",
-          "before": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months — insufficient historical coverage, not a recent IPO",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "before": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months \u2014 insufficient historical coverage, not a recent IPO",
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.growth.gaps.0",
           "beforeMissing": true,
           "after": {
             "field": "growth.revenueAcceleration.threeYearCagr",
-            "reason": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)",
+            "reason": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (\u00b10.05y fiscal-calendar tolerance)",
             "severity": "info"
           }
         },
@@ -2297,8 +2297,8 @@
         },
         {
           "path": "stageB.growth.revenueAcceleration.note",
-          "before": "revenue acceleration = latest YoY minus 3y CAGR (house framing per the application contract §4)",
-          "after": "revenue acceleration = latest YoY minus 3y CAGR (house framing); 3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance); 3y revenue CAGR unavailable"
+          "before": "revenue acceleration = latest YoY minus 3y CAGR (house framing per the application contract \u00a74)",
+          "after": "revenue acceleration = latest YoY minus 3y CAGR (house framing); 3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (\u00b10.05y fiscal-calendar tolerance); 3y revenue CAGR unavailable"
         },
         {
           "path": "stageB.growth.revenueAcceleration.threeYearCagrPct",
@@ -2336,17 +2336,17 @@
       "decisions": [
         "D-41"
       ],
-      "reason": "Under D-41 the quality aspect fills its ROIC − WACC slot with return on equity against the cost of equity on excess-return (financial) valuations, so the aspect note now says which value-creation measure each route uses. The fixtures carry no multi-year return history and their routes score no new driver, so only the two note strings move; no number, score, band or composite changes.",
+      "reason": "Under D-41 the quality aspect fills its ROIC \u2212 WACC slot with return on equity against the cost of equity on excess-return (financial) valuations, so the aspect note now says which value-creation measure each route uses. The fixtures carry no multi-year return history and their routes score no new driver, so only the two note strings move; no number, score, band or composite changes.",
       "deltas": [
         {
           "path": "report.scores.aspects.quality.note",
-          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
-          "after": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+          "before": "Value creation (ROIC\u2212WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
+          "after": "Value creation (ROIC\u2212WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman \u2014 banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries \u2014 accruals and Beneish where the route computes them \u2014 all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
         },
         {
           "path": "stageB.scores.aspects.quality.note",
-          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
-          "after": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+          "before": "Value creation (ROIC\u2212WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
+          "after": "Value creation (ROIC\u2212WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman \u2014 banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries \u2014 accruals and Beneish where the route computes them \u2014 all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
         }
       ]
     },
@@ -2595,8 +2595,8 @@
         },
         {
           "path": "report.appendix.missingData.23.reason",
-          "before": "FMP↔XBRL cross-check skipped — companyfacts unavailable (companyfacts HTTP 404)",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "before": "FMP\u2194XBRL cross-check skipped \u2014 companyfacts unavailable (companyfacts HTTP 404)",
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.24.attemptedSources.0",
@@ -2633,7 +2633,7 @@
         {
           "path": "report.appendix.missingData.26.reason",
           "before": "offline fixture",
-          "after": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)"
+          "after": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (\u00b10.05y fiscal-calendar tolerance)"
         },
         {
           "path": "report.appendix.missingData.27.attemptedSources.0",
@@ -2729,8 +2729,8 @@
         },
         {
           "path": "report.appendix.missingData.41.reason",
-          "before": "history does not span the full 3-year window — drawdown computed over available rows only",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "before": "history does not span the full 3-year window \u2014 drawdown computed over available rows only",
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "report.appendix.missingData.42.attemptedSources",
@@ -2746,8 +2746,8 @@
         },
         {
           "path": "report.appendix.missingData.42.reason",
-          "before": "history does not span the full 5-year window — drawdown computed over available rows only",
-          "after": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC"
+          "before": "history does not span the full 5-year window \u2014 drawdown computed over available rows only",
+          "after": "no fred:DGS10 observations supplied \u2014 ROIC-vs-WACC history compares every fiscal year to the current WACC"
         },
         {
           "path": "report.appendix.missingData.43.attemptedSources",
@@ -2765,14 +2765,14 @@
         {
           "path": "report.appendix.missingData.43.reason",
           "before": "no XLK history supplied",
-          "after": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months — insufficient historical coverage, not a recent IPO"
+          "after": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months \u2014 insufficient historical coverage, not a recent IPO"
         },
         {
           "path": "report.appendix.missingData.44",
           "beforeMissing": true,
           "after": {
             "field": "shortInterest.DEMO",
-            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": [
               "finra"
@@ -2784,7 +2784,7 @@
           "beforeMissing": true,
           "after": {
             "field": "shortInterest.trend.DEMO",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": [
               "finra"
@@ -3533,7 +3533,7 @@
         {
           "path": "stageB.gaps.22.reason",
           "before": "no SPY benchmark history supplied",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.23.attemptedSources.0",
@@ -3570,7 +3570,7 @@
         {
           "path": "stageB.gaps.25.reason",
           "before": "offline fixture",
-          "after": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)"
+          "after": "3y revenue acceleration benchmark withheld: actual span is 2.00 years, outside the 3y horizon (\u00b10.05y fiscal-calendar tolerance)"
         },
         {
           "path": "stageB.gaps.26.attemptedSources.0",
@@ -3666,8 +3666,8 @@
         },
         {
           "path": "stageB.gaps.40.reason",
-          "before": "history does not span the full 3-year window — drawdown computed over available rows only",
-          "after": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
+          "before": "history does not span the full 3-year window \u2014 drawdown computed over available rows only",
+          "after": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent"
         },
         {
           "path": "stageB.gaps.41.attemptedSources",
@@ -3683,8 +3683,8 @@
         },
         {
           "path": "stageB.gaps.41.reason",
-          "before": "history does not span the full 5-year window — drawdown computed over available rows only",
-          "after": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC"
+          "before": "history does not span the full 5-year window \u2014 drawdown computed over available rows only",
+          "after": "no fred:DGS10 observations supplied \u2014 ROIC-vs-WACC history compares every fiscal year to the current WACC"
         },
         {
           "path": "stageB.gaps.42.attemptedSources",
@@ -3702,14 +3702,14 @@
         {
           "path": "stageB.gaps.42.reason",
           "before": "no XLK history supplied",
-          "after": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months — insufficient historical coverage, not a recent IPO"
+          "after": "only 3 quarterly statement(s) available (< 8); verified ipoDate 2015-01-02 is older than 24 months \u2014 insufficient historical coverage, not a recent IPO"
         },
         {
           "path": "stageB.gaps.43",
           "beforeMissing": true,
           "after": {
             "field": "shortInterest.DEMO",
-            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "latest FINRA short interest unavailable because trend fetch failed: DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "attemptedSources": [
               "finra"
@@ -3721,7 +3721,7 @@
           "beforeMissing": true,
           "after": {
             "field": "shortInterest.trend.DEMO",
-            "reason": "DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
+            "reason": "DEMO is a reserved fixture symbol \u2014 no provider request was made (D-11); this member has no fixture, so it is disclosed absent",
             "severity": "info",
             "expected": true,
             "attemptedSources": [
@@ -4229,7 +4229,7 @@
         {
           "path": "stageB.valuation.reverseDcf.notes.1",
           "beforeMissing": true,
-          "after": "growth inversion found no bracket — attempting terminal-margin fallback (fallback A)"
+          "after": "growth inversion found no bracket \u2014 attempting terminal-margin fallback (fallback A)"
         }
       ]
     },
@@ -4394,12 +4394,12 @@
         {
           "path": "stageB.valuation.multiples.notes.8",
           "beforeMissing": true,
-          "after": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
+          "after": "income-derived multiples use the latest ANNUAL statement \u2014 TTM was suppressed (incomplete quarterly data)"
         },
         {
           "path": "stageB.valuation.multiples.notes.9",
           "beforeMissing": true,
-          "after": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
+          "after": "cash-flow-derived multiples use the latest ANNUAL statement \u2014 TTM was suppressed (incomplete quarterly data)"
         }
       ]
     },
@@ -4639,23 +4639,23 @@
       "deltas": [
         {
           "path": "report.valuation.dcf.assumptions.1.name",
-          "before": "revenue growth (yr1 → yrN)",
+          "before": "revenue growth (yr1 \u2192 yrN)",
           "after": "year-one revenue anchor"
         },
         {
           "path": "report.valuation.dcf.assumptions.1.value",
-          "before": "7.9% → 2.5%",
+          "before": "7.9% \u2192 2.5%",
           "after": "13.50B (consensus)"
         },
         {
           "path": "report.valuation.dcf.assumptions.4.name",
           "before": "terminal growth",
-          "after": "revenue growth (yr1 → yrN)"
+          "after": "revenue growth (yr1 \u2192 yrN)"
         },
         {
           "path": "report.valuation.dcf.assumptions.4.value",
           "before": "2.5%",
-          "after": "8.0% → 2.5%"
+          "after": "8.0% \u2192 2.5%"
         },
         {
           "path": "report.valuation.dcf.assumptions.5.basis",
@@ -4665,20 +4665,20 @@
         {
           "path": "report.valuation.dcf.assumptions.5.name",
           "before": "terminal ROIC",
-          "after": "EBIT margin (yr1 → yrN)"
+          "after": "EBIT margin (yr1 \u2192 yrN)"
         },
         {
           "path": "report.valuation.dcf.assumptions.5.value",
           "before": "9.3%",
-          "after": "20.0% → 20.0%"
+          "after": "20.0% \u2192 20.0%"
         },
         {
           "path": "report.valuation.dcf.assumptions.6",
           "beforeMissing": true,
           "after": {
-            "name": "forecast tax rate (yr1 → yrN)",
-            "value": "27.1% → 26.8%",
-            "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two); actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
+            "name": "forecast tax rate (yr1 \u2192 yrN)",
+            "value": "27.1% \u2192 26.8%",
+            "basis": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% \u2014 US federal corporate rate, 26 U.S.C. \u00a711(b); state taxes excluded \u2014 and the 15% global minimum tax, OECD Pillar Two); actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path."
           }
         },
         {
@@ -4687,7 +4687,7 @@
           "after": {
             "name": "terminal growth",
             "value": "2.5%",
-            "basis": "min(2.5%, risk-free 4%) — HOUSE CONVENTION: nothing grows faster than rf forever"
+            "basis": "min(2.5%, risk-free 4%) \u2014 HOUSE CONVENTION: nothing grows faster than rf forever"
           }
         },
         {
@@ -4718,12 +4718,12 @@
         {
           "path": "stageB.valuation.assumptions.notes.5",
           "beforeMissing": true,
-          "after": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+          "after": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC \u2192 1550000000 after subtracting SBC of 250000000."
         },
         {
           "path": "stageB.valuation.assumptions.taxRatePath.basis",
           "before": "latest annual FY 2025-12-31 effective rate 27.08% fading to company historical median 26.83% by year 10",
-          "after": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two)"
+          "after": "latest annual FY 2025-12-31 effective rate 27.08% fading to 26.83% by year 10: the company historical median 26.83%, at or above the 21% floor = max(statutory 21% \u2014 US federal corporate rate, 26 U.S.C. \u00a711(b); state taxes excluded \u2014 and the 15% global minimum tax, OECD Pillar Two)"
         },
         {
           "path": "stageB.valuation.dcf.yearRows.0.ebit",
@@ -4770,7 +4770,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR \u2014 the point estimate is the median of the 2 that were computable",
             "severity": "info"
           }
         },
@@ -4808,7 +4808,7 @@
         {
           "path": "stageB.valuation.notes.5",
           "beforeMissing": true,
-          "after": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+          "after": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC \u2192 1550000000 after subtracting SBC of 250000000."
         },
         {
           "path": "stageB.valuation.reverseDcf.baseRevenueGrowthPct",
@@ -5189,8 +5189,8 @@
         },
         {
           "path": "stageB.capital.buybackPriceAnalysis.note",
-          "before": "HEURISTIC: assumes shares were repurchased at each fiscal year's average price proxy (average daily market cap ÷ weighted-average diluted shares); actual execution prices are not disclosed",
-          "after": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
+          "before": "HEURISTIC: assumes shares were repurchased at each fiscal year's average price proxy (average daily market cap \u00f7 weighted-average diluted shares); actual execution prices are not disclosed",
+          "after": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap \u00f7 basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid \u2014 the filer's tagged repurchase cost \u00f7 tagged shares, on the current share basis \u2014 with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
         },
         {
           "path": "stageB.capital.buybackPriceAnalysis.timingCoveragePct",
@@ -5469,8 +5469,8 @@
           "beforeMissing": true,
           "after": {
             "name": "discounting convention",
-            "value": "mid-year (terminal value at N − 0.5)",
-            "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+            "value": "mid-year (terminal value at N \u2212 0.5)",
+            "basis": "mid-year convention: explicit-year FCFF is discounted at t \u2212 0.5 years, and the Gordon terminal value is discounted at N \u2212 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
           }
         },
         {
@@ -5478,8 +5478,8 @@
           "beforeMissing": true,
           "after": {
             "name": "free cash flow, SBC treatment",
-            "value": "1.80B → 1.55B",
-            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+            "value": "1.80B \u2192 1.55B",
+            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC \u2192 1550000000 after subtracting SBC of 250000000."
           }
         },
         {
@@ -5510,7 +5510,7 @@
         {
           "path": "stageB.valuation.assumptions.midYear.basis",
           "before": "mid-year discounting convention ON by default (cash flows arrive through the year)",
-          "after": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+          "after": "mid-year convention: explicit-year FCFF is discounted at t \u2212 0.5 years, and the Gordon terminal value is discounted at N \u2212 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
         },
         {
           "path": "stageB.valuation.assumptions.salesToCapital.value",
@@ -5528,11 +5528,6 @@
             "minOpexRatioPeriod": "FY 2025-12-31",
             "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)"
           }
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.3",
-          "beforeMissing": true,
-          "after": "reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"
         }
       ]
     },
@@ -5557,17 +5552,12 @@
           "after": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus"
         },
         {
-          "path": "report.thesisTriggers",
-          "beforeMissing": true,
-          "after": []
-        },
-        {
           "path": "report.valuation.dcf.assumptions.9",
           "beforeMissing": true,
           "after": {
             "name": "terminal ROIC",
             "value": "9.3%",
-            "basis": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
+            "basis": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default \u2014 see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% \u2014 no per-year risk-free observation was available to recompute a year-specific WACC"
           }
         },
         {
@@ -5696,24 +5686,14 @@
           "after": 11.257246428985505
         },
         {
-          "path": "report.valuation.reverseDcf.impliedMetric",
-          "before": "constant revenue growth (explicit horizon)",
-          "after": "n/a"
-        },
-        {
-          "path": "report.valuation.reverseDcf.impliedValue",
-          "before": -17.24609375,
-          "after": null
-        },
-        {
           "path": "stageB.capital.netDebtToEbitda.resolution.version",
           "before": "NET_DEBT_V1",
           "after": "NET_DEBT_V3"
         },
         {
           "path": "stageB.returns.roicVsWacc.note",
-          "before": "spread = ROIC 36.4583% − WACC 9.2559% (positive = returns above cost of capital)",
-          "after": "spread = ROIC 40.0641% − WACC 9.2572% (positive = returns above cost of capital)"
+          "before": "spread = ROIC 36.4583% \u2212 WACC 9.2559% (positive = returns above cost of capital)",
+          "after": "spread = ROIC 40.0641% \u2212 WACC 9.2572% (positive = returns above cost of capital)"
         },
         {
           "path": "stageB.returns.roicVsWacc.spreadPctPts",
@@ -5743,7 +5723,7 @@
         {
           "path": "stageB.valuation.assumptions.notes.4",
           "beforeMissing": true,
-          "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
+          "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% \u2014 no per-year risk-free observation was available to recompute a year-specific WACC"
         },
         {
           "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.value",
@@ -5753,7 +5733,7 @@
         {
           "path": "stageB.valuation.assumptions.terminal.roicTermPct.basis",
           "before": "terminal ROIC = WACC (zero excess returns in perpetuity, house-rule default)",
-          "after": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
+          "after": "terminal ROIC = WACC (zero excess returns in perpetuity, HOUSE CONVENTION default \u2014 see docs/METHODOLOGY.md, \"Terminal value house convention\"); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% \u2014 no per-year risk-free observation was available to recompute a year-specific WACC"
         },
         {
           "path": "stageB.valuation.assumptions.terminal.roicTermPct.value",
@@ -5843,17 +5823,7 @@
         {
           "path": "stageB.valuation.notes.4",
           "beforeMissing": true,
-          "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.method",
-          "before": "growth",
-          "after": "none"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.2",
-          "beforeMissing": true,
-          "after": "no sign change of f(terminal margin) on the pre-scan grid"
+          "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% \u2014 no per-year risk-free observation was available to recompute a year-specific WACC"
         },
         {
           "path": "stageB.valuation.sensitivity.waccPcts.0",
@@ -5916,8 +5886,8 @@
         },
         {
           "path": "stageB.forensics.accruals.notes.0",
-          "before": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+          "before": "House-rule bands: |ratio| < 10% unremarkable, 10\u201320% elevated, > 20% red flag (heuristic \u2014 Sloan 1996 is a decile-ranking result with no canonical bright line).",
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments \u2014 buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
         },
         {
           "path": "stageB.forensics.accruals.notes.1",
@@ -5971,17 +5941,17 @@
         {
           "path": "report.valuation.dcf.assumptions.2.basis",
           "before": "held flat at current 20% under improving dated-margin regime (5y median 19%, slope 1pp/year)",
-          "after": "years 1–5 take their revenue from calendarized analyst consensus; years 6–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window"
+          "after": "years 1\u20135 take their revenue from calendarized analyst consensus; years 6\u201310 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high \u2212 low) \u00f7 (d2(n) \u00d7 mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window"
         },
         {
           "path": "report.valuation.dcf.assumptions.2.name",
-          "before": "EBIT margin (yr1 → yrN)",
+          "before": "EBIT margin (yr1 \u2192 yrN)",
           "after": "consensus-anchored years"
         },
         {
           "path": "report.valuation.dcf.assumptions.2.value",
-          "before": "20.0% → 20.0%",
-          "after": "years 1–5 of 10"
+          "before": "20.0% \u2192 20.0%",
+          "after": "years 1\u20135 of 10"
         },
         {
           "path": "report.valuation.dcf.assumptions.3.name",
@@ -5995,8 +5965,8 @@
         },
         {
           "path": "report.valuation.dcf.assumptions.4.basis",
-          "before": "min(2.5%, risk-free 4%) — house rule: nothing grows faster than rf forever",
-          "after": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+          "before": "min(2.5%, risk-free 4%) \u2014 house rule: nothing grows faster than rf forever",
+          "after": "year one 8% from the revenue anchor (analyst consensus), years 2\u20135 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1\u20135; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
         },
         {
           "path": "report.valuation.dcf.assumptions.10",
@@ -6241,12 +6211,12 @@
               {
                 "name": "3y revenue CAGR",
                 "valuePct": null,
-                "detail": "unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance)"
+                "detail": "unavailable: measured span 2.00 years, not the 3-year window (\u00b10.25-year tolerance)"
               },
               {
                 "name": "5y revenue CAGR",
                 "valuePct": null,
-                "detail": "unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance)"
+                "detail": "unavailable: measured span 2.00 years, not the 5-year window (\u00b10.25-year tolerance)"
               },
               {
                 "name": "analyst-consensus case",
@@ -6258,13 +6228,13 @@
               "3y revenue CAGR",
               "5y revenue CAGR"
             ],
-            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% \u2014 methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (\u00b10.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (\u00b10.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
           }
         },
         {
           "path": "stageB.valuation.assumptions.growthPath.basis",
           "before": "linear fade from 7.89% (analyst consensus revenue, avg implied growth over next 2 fiscal years (through 2027-12-31)) to terminal 2.5% by year 10",
-          "after": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
+          "after": "year one 8% from the revenue anchor (analyst consensus), years 2\u20135 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1\u20135; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
         },
         {
           "path": "stageB.valuation.assumptions.growthPath.value.2",
@@ -6312,7 +6282,7 @@
         {
           "path": "stageB.valuation.assumptions.notes.1",
           "beforeMissing": true,
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% \u2014 methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (\u00b10.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (\u00b10.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
         },
         {
           "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
@@ -6622,7 +6592,7 @@
         {
           "path": "stageB.valuation.notes.1",
           "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% \u2014 methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (\u00b10.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (\u00b10.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
         }
       ]
     },
@@ -6704,7 +6674,7 @@
           "path": "report.quality.notes",
           "beforeMissing": true,
           "after": [
-            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
+            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments \u2014 buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
             "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
             "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
             "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
@@ -6740,7 +6710,7 @@
         {
           "path": "stageB.capital.fcf.basis",
           "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back \u2014 Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED \u2014 grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
         {
           "path": "stageB.forensics.accruals.notes.3",
@@ -6749,18 +6719,18 @@
         },
         {
           "path": "stageB.returns.roic.notes.0",
-          "before": "invested capital = totalDebt + totalStockholdersEquity − cashAndCashEquivalents (house definition per the valuation methodology §2.2)",
+          "before": "invested capital = totalDebt + totalStockholdersEquity \u2212 cashAndCashEquivalents (house definition per the valuation methodology \u00a72.2)",
           "after": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
         },
         {
           "path": "stageB.returns.roic.series.1.notes.0",
-          "before": "no prior balance sheet — single-period IC used",
+          "before": "no prior balance sheet \u2014 single-period IC used",
           "after": "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again"
         },
         {
           "path": "stageB.returns.roic.series.1.notes.1",
           "beforeMissing": true,
-          "after": "no prior balance sheet — single-period IC used"
+          "after": "no prior balance sheet \u2014 single-period IC used"
         },
         {
           "path": "stageB.returns.roic.series.2.notes.0",
@@ -6786,9 +6756,9 @@
               "afterSbc": 1550000000,
               "sbc": 250000000,
               "asOf": "2025-12-31",
-              "basis": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+              "basis": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back \u2014 Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED \u2014 grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
             },
-            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC \u2192 1550000000 after subtracting SBC of 250000000."
           }
         }
       ]
@@ -6802,7 +6772,7 @@
       "deltas": [
         {
           "path": "report.meta.disclaimer",
-          "before": "Informational only — not investment advice.",
+          "before": "Informational only \u2014 not investment advice.",
           "after": "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security."
         },
         {
@@ -7696,7 +7666,7 @@
         {
           "path": "report.valuation.multiples.3.basis",
           "beforeMissing": true,
-          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
+          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 \u2014 TTM suppressed; FMP capex negative) \u2014 free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
         },
         {
           "path": "report.valuation.multiples.4.basis",
@@ -7947,7 +7917,7 @@
             "latestTangibleCommonEquity": 4500000000,
             "asOf": "2025-12-31",
             "notes": [
-              "ROTE = income available to common / average tangible common equity (equity − goodwill − other intangibles − preferred). Filed common earnings retain their sign; preferred cash paid cannot establish the earnings allocation. Unsupported common earnings are withheld."
+              "ROTE = income available to common / average tangible common equity (equity \u2212 goodwill \u2212 other intangibles \u2212 preferred). Filed common earnings retain their sign; preferred cash paid cannot establish the earnings allocation. Unsupported common earnings are withheld."
             ],
             "gaps": []
           }
@@ -8014,7 +7984,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR \u2014 the point estimate is the median of the 2 that were computable",
             "severity": "info"
           }
         },
@@ -8032,7 +8002,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "reason": "insufficient history (need \u22658 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
             "severity": "info"
           }
         },
@@ -8048,7 +8018,7 @@
         {
           "path": "report.scores.aspects.balanceSheet.note",
           "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income \u2014 the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
         },
         {
           "path": "report.scores.aspects.leadership.drivers.0.period",
@@ -8261,7 +8231,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR \u2014 the point estimate is the median of the 2 that were computable",
             "severity": "info"
           }
         },
@@ -8279,7 +8249,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "reason": "insufficient history (need \u22658 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
             "severity": "info"
           }
         },
@@ -8295,7 +8265,7 @@
         {
           "path": "stageB.scores.aspects.balanceSheet.note",
           "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income \u2014 the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
         },
         {
           "path": "stageB.scores.aspects.leadership.drivers.0.period",
@@ -8474,7 +8444,7 @@
         },
         {
           "path": "stageB.technicals.gaps.2.reason",
-          "before": "history does not span the full 3-year window — drawdown computed over available rows only",
+          "before": "history does not span the full 3-year window \u2014 drawdown computed over available rows only",
           "after": "no valid SPY closes supplied for relative-strength alignment"
         },
         {
@@ -8489,7 +8459,7 @@
         },
         {
           "path": "stageB.technicals.gaps.3.reason",
-          "before": "history does not span the full 5-year window — drawdown computed over available rows only",
+          "before": "history does not span the full 5-year window \u2014 drawdown computed over available rows only",
           "after": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only"
         },
         {
@@ -8508,7 +8478,7 @@
         },
         {
           "path": "stageB.technicals.notes.2",
-          "before": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought ≥70, oversold ≤30) + MACD histogram; volume trend rising/falling at 1.2×/0.8× of the 90-day average; “near 52-week high/low” within 5%/10%; deep-drawdown flag at 30% (1y).",
+          "before": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought \u226570, oversold \u226430) + MACD histogram; volume trend rising/falling at 1.2\u00d7/0.8\u00d7 of the 90-day average; \u201cnear 52-week high/low\u201d within 5%/10%; deep-drawdown flag at 30% (1y).",
           "after": "Relative strength uses split-adjusted close-to-close price return; dividends excluded."
         },
         {
@@ -8524,7 +8494,7 @@
         {
           "path": "stageB.technicals.notes.5",
           "beforeMissing": true,
-          "after": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought ≥70, oversold ≤30) + MACD histogram; volume trend rising/falling at 1.2×/0.8× of the 90-day average; “near 52-week high/low” within 5%/10%; deep-drawdown flag at 30% (1y)."
+          "after": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought \u226570, oversold \u226430) + MACD histogram; volume trend rising/falling at 1.2\u00d7/0.8\u00d7 of the 90-day average; \u201cnear 52-week high/low\u201d within 5%/10%; deep-drawdown flag at 30% (1y)."
         },
         {
           "path": "stageB.technicals.notes.6",
@@ -8612,7 +8582,7 @@
       "deltas": [
         {
           "path": "stageB.valuation.sensitivity.notes.0",
-          "before": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard, spec §3)",
+          "before": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard, spec \u00a73)",
           "after": "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells."
         },
         {
@@ -8898,7 +8868,7 @@
           "beforeMissing": true,
           "after": {
             "ratePct": 21,
-            "basis": "max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two)"
+            "basis": "max(statutory 21% \u2014 US federal corporate rate, 26 U.S.C. \u00a711(b); state taxes excluded \u2014 and the 15% global minimum tax, OECD Pillar Two)"
           }
         },
         {
@@ -8920,13 +8890,13 @@
                 "kind": "long-term-investments",
                 "label": "long-term investments (filed carrying value)",
                 "value": 500000000,
-                "basis": "long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
+                "basis": "long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value \u2014 the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital"
               },
               {
                 "kind": "investment-tax",
                 "label": "estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed)",
                 "value": -105000000,
-                "basis": "21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost"
+                "basis": "21% of the 500000000 added above; the rate is max(statutory 21% \u2014 US federal corporate rate, 26 U.S.C. \u00a711(b); state taxes excluded \u2014 and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost"
               }
             ],
             "sharesOutstandingAtQuote": 200000000
@@ -9007,7 +8977,7 @@
         {
           "path": "stageB.valuation.notes.8",
           "beforeMissing": true,
-          "after": "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost."
+          "after": "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% \u2014 US federal corporate rate, 26 U.S.C. \u00a711(b); state taxes excluded \u2014 and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost."
         },
         {
           "path": "stageB.valuation.notes.9",
@@ -9265,8 +9235,8 @@
         },
         {
           "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight \u00d7 data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight \u00d7 data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         {
           "path": "report.scores.composite.score",
@@ -9327,12 +9297,12 @@
         {
           "path": "report.valuation.multiples.1.basis",
           "beforeMissing": true,
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31."
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 \u2014 TTM suppressed-computed \u2014 vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31."
         },
         {
           "path": "report.valuation.multiples.2.basis",
           "beforeMissing": true,
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note."
+          "after": "EV / revenue (latest annual FY 2025-12-31 \u2014 TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note."
         },
         {
           "path": "stageB.gaps.12.reason",
@@ -9441,8 +9411,8 @@
         },
         {
           "path": "stageB.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight \u00d7 data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight \u00d7 data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         {
           "path": "stageB.scores.composite.score",
@@ -9562,14 +9532,14 @@
           "beforeMissing": true,
           "after": [
             "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-            "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+            "grid cells with WACC - gTerm < 1.5pp are withheld and shown as \u2014 (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
             "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
           ]
         },
         {
           "path": "stageB.valuation.sensitivity.notes.1",
           "beforeMissing": true,
-          "after": "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
+          "after": "grid cells with WACC - gTerm < 1.5pp are withheld and shown as \u2014 (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
         }
       ]
     },
@@ -9629,7 +9599,7 @@
         {
           "path": "report.valuation.multiples.0.basis",
           "beforeMissing": true,
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)"
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 \u2014 TTM suppressed)"
         },
         {
           "path": "report.valuation.multiples.0.name",
@@ -9643,8 +9613,8 @@
         },
         {
           "path": "stageB.valuation.multiples.multiples.0.basis",
-          "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)"
+          "before": "price / epsDiluted (latest annual FY 2025-12-31 \u2014 TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 \u2014 TTM suppressed)",
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 \u2014 TTM suppressed)"
         },
         {
           "path": "stageB.valuation.multiples.multiples.0.period",
@@ -9688,7 +9658,7 @@
         {
           "path": "stageB.capital.notes.4",
           "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back \u2014 Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED \u2014 grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
         {
           "path": "stageB.capital.notes.5",
@@ -9738,10 +9708,10 @@
           "beforeMissing": true,
           "after": {
             "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100\u00d7 of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
               "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
               "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5\u00d7IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
               "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
               "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
             ],
@@ -9783,8 +9753,8 @@
         },
         {
           "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made."
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement \u2014 TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100\u00d7 of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made."
         },
         {
           "path": "stageB.valuation.multiples.notes.3",
@@ -9794,17 +9764,17 @@
         {
           "path": "stageB.valuation.multiples.notes.4",
           "beforeMissing": true,
-          "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
+          "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5\u00d7IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
         },
         {
           "path": "stageB.valuation.multiples.peerCoverage",
           "beforeMissing": true,
           "after": {
             "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100\u00d7 of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
               "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
               "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5\u00d7IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
               "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
               "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
             ],
@@ -9831,28 +9801,28 @@
       "deltas": [
         {
           "path": "stageB.forensics.beneish.notes.0",
-          "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
+          "before": "TATA uses the cash-flow construction (NI from continuing ops \u2212 CFO)/TA_t (Hribar\u2013Collins 2002); balance-sheet construction reported as diagnostic only.",
           "after": "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation."
         },
         {
           "path": "stageB.forensics.beneish.notes.1",
-          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+          "before": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader \u2014 includes notes payable).",
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) \u2014 the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research \u00a72.1)."
         },
         {
           "path": "stageB.forensics.beneish.notes.2",
-          "before": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting.",
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+          "before": "The model detects overstatement, not understatement \u2014 a very negative M does not prove conservative accounting.",
+          "after": "TATA uses the cash-flow construction (NI from continuing ops \u2212 CFO)/TA_t (Hribar\u2013Collins 2002); balance-sheet construction reported as diagnostic only."
         },
         {
           "path": "stageB.forensics.beneish.notes.3",
           "beforeMissing": true,
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader \u2014 includes notes payable)."
         },
         {
           "path": "stageB.forensics.beneish.notes.4",
           "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+          "after": "The model detects overstatement, not understatement \u2014 a very negative M does not prove conservative accounting."
         },
         {
           "path": "stageB.forensics.notes.0",
@@ -9862,42 +9832,42 @@
         {
           "path": "stageB.forensics.notes.1",
           "beforeMissing": true,
-          "after": "House heuristic: no SIC code available — manufacturer status inferred from sector/industry strings (non-manufacturer → Z″)."
+          "after": "House heuristic: no SIC code available \u2014 manufacturer status inferred from sector/industry strings (non-manufacturer \u2192 Z\u2033)."
         },
         {
           "path": "stageB.forensics.notes.2",
           "beforeMissing": true,
-          "after": "X5 (sales/TA) is dropped by the Z″ model to remove industry asset-turnover effects."
+          "after": "X5 (sales/TA) is dropped by the Z\u2033 model to remove industry asset-turnover effects."
         },
         {
           "path": "stageB.forensics.notes.3",
           "beforeMissing": true,
-          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
+          "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) \u2014 the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research \u00a72.1)."
         },
         {
           "path": "stageB.forensics.notes.4",
           "beforeMissing": true,
-          "after": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only."
+          "after": "TATA uses the cash-flow construction (NI from continuing ops \u2212 CFO)/TA_t (Hribar\u2013Collins 2002); balance-sheet construction reported as diagnostic only."
         },
         {
           "path": "stageB.forensics.notes.5",
           "beforeMissing": true,
-          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable)."
+          "after": "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader \u2014 includes notes payable)."
         },
         {
           "path": "stageB.forensics.notes.6",
           "beforeMissing": true,
-          "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+          "after": "The model detects overstatement, not understatement \u2014 a very negative M does not prove conservative accounting."
         },
         {
           "path": "stageB.forensics.notes.7",
           "beforeMissing": true,
-          "after": "ΔLEVER: prior-year average TA proxied by end-of-year TA (no t−2 balance sheet) — annotated proxy."
+          "after": "\u0394LEVER: prior-year average TA proxied by end-of-year TA (no t\u22122 balance sheet) \u2014 annotated proxy."
         },
         {
           "path": "stageB.forensics.notes.8",
           "beforeMissing": true,
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments \u2014 buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
         },
         {
           "path": "stageB.forensics.notes.9",
@@ -9945,7 +9915,7 @@
         {
           "path": "report.valuation.dcf.assumptions.3.basis",
           "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1.1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "path": "report.valuation.marketValueScope",
@@ -9960,71 +9930,13 @@
             "approximate": false,
             "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
             "enterpriseValue": 6700000000,
-            "enterpriseValueBasis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+            "enterpriseValueBasis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
           }
         },
         {
           "path": "report.valuation.multiplesBasis",
           "beforeMissing": true,
-          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
-        },
-        {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "leaseEvidence": {
-                "operating": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "finance": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "combined": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "observedLeaseLine": "positive"
-              },
-              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            }
-          }
+          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
         },
         {
           "path": "stageB.capital.netDebtToEbitda.note",
@@ -10043,7 +9955,7 @@
         {
           "path": "stageB.returns.notes.0",
           "beforeMissing": true,
-          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+          "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1.1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
         },
         {
           "path": "stageB.returns.roic.notes.1",
@@ -10084,7 +9996,7 @@
               "raw": 1.1,
               "adjusted": 1.0666666666666667,
               "final": 1.0666666666666667,
-              "method": "Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2]"
+              "method": "Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2]"
             },
             "costOfEquityPct": 9.333333333333332,
             "costOfDebt": {
@@ -10101,7 +10013,7 @@
               "debt": 0.13043478260869565,
               "basis": "market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted)"
             },
-            "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+            "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1.1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
           }
         },
         {
@@ -10109,7 +10021,7 @@
           "beforeMissing": true,
           "after": {
             "value": 9.257246428985505,
-            "basis": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
+            "basis": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667\u00b7raw + 0.333), clamped [0.6, 2], raw 1.1 \u2014 vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt on the retained calculation basis, the latest balance (2025-12-31), the one the EV bridge nets (lease evidence: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted) as the market-value proxy; the effective cost of debt divides interest by book totalDebt on the retained calculation basis, average of the latest two fiscal-year-end balances (retained lease coverage: 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. 2024-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted))"
           }
         },
         {
@@ -10145,33 +10057,33 @@
             "totalLeaseLiability": 100000000,
             "financeLeaseLiability": null,
             "includeLeases": false,
-            "basis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+            "basis": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
           }
         },
         {
           "path": "stageB.valuation.multiples.gaps.0.reason",
-          "before": "insufficient history (need ≥8 quarters) to build own-history percentile bands (up to 5y)",
+          "before": "insufficient history (need \u22658 quarters) to build own-history percentile bands (up to 5y)",
           "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
         },
         {
           "path": "stageB.valuation.multiples.multiples.1.basis",
-          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31."
+          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 \u2014 TTM suppressed-computed \u2014 vendor ebitda field not trusted",
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 \u2014 TTM suppressed-computed \u2014 vendor ebitda field not trusted. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31."
         },
         {
           "path": "stageB.valuation.multiples.multiples.2.basis",
-          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+          "before": "EV / revenue (latest annual FY 2025-12-31 \u2014 TTM suppressed)",
+          "after": "EV / revenue (latest annual FY 2025-12-31 \u2014 TTM suppressed). 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
         },
         {
           "path": "stageB.valuation.multiples.notes.0",
-          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
+          "before": "income-derived multiples use the latest ANNUAL statement \u2014 TTM was suppressed (incomplete quarterly data)",
+          "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest \u2212 cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
         },
         {
           "path": "stageB.valuation.notes.6",
           "beforeMissing": true,
-          "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
+          "after": "DCF equity bridge: EV \u2212 net debt \u2212 minority interest \u2212 preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
         }
       ]
     },
@@ -10183,7 +10095,7 @@
         "D-100",
         "D-138"
       ],
-      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md. Task 11 / D-138: distinguish analyst-estimate forecast-period/fallback dates, recorded acquisition origins and unknown publication vintage. The single atomic report.marketData delta adds exactly seven estimateTiming metadata scalars; every prior field, amount, period, score and state is unchanged. This controlled fixture records its fixed 2026-07-06 fixture-load timestamp, not original provider acquisition or publication. Model/registry timing separately projects validated UTC days to preserve the unchanged cache-safe no-timestamp check. Evidence: actual dry task11-actual-dry-20261031-a and seven-leaf attribution before the named write; no monetary figure moved.",
+      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap M\u00e9tis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md. Task 11 / D-138: distinguish analyst-estimate forecast-period/fallback dates, recorded acquisition origins and unknown publication vintage. The single atomic report.marketData delta adds exactly seven estimateTiming metadata scalars; every prior field, amount, period, score and state is unchanged. This controlled fixture records its fixed 2026-07-06 fixture-load timestamp, not original provider acquisition or publication. Model/registry timing separately projects validated UTC days to preserve the unchanged cache-safe no-timestamp check. Evidence: actual dry task11-actual-dry-20261031-a and seven-leaf attribution before the named write; no monetary figure moved.",
       "deltas": [
         {
           "path": "report.marketData",
@@ -10279,7 +10191,9 @@
     },
     {
       "name": "research-reliability-d139-20261031",
-      "decisions": ["D-139"],
+      "decisions": [
+        "D-139"
+      ],
       "reason": "The retained fixture has 40 valid cells out of 50 requested cells. D-139 withholds its former robust-above conclusion because the growth/margin grid is incomplete; status and explanation change while every valuation, grade, provenance value and observed grid extremum remains pinned.",
       "deltas": [
         {
@@ -10304,7 +10218,8 @@
     {
       "name": "current-main-and-fig-integrity-d140-d141-20261101",
       "decisions": [
-        "D-140", "D-141"
+        "D-140",
+        "D-141"
       ],
       "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-next); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
@@ -10351,7 +10266,174 @@
         {
           "path": "stageB.valuation.notes.7",
           "beforeMissing": true,
-          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value \u2014 the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+        }
+      ]
+    },
+    {
+      "name": "p2-dcf-inputs-fin102-fin113-fin104-fin501-20261102",
+      "decisions": [
+        "D-58",
+        "D-60",
+        "D-99",
+        "D-136"
+      ],
+      "reason": "D-next (P2): FIN-102/FIN-402-V1 add separately asserted terminal evidence; FIN-113 marks the reconstructed current-capital start as approximate. FIN-104 withholds reverse-growth candidates outside the DCF domain, and FIN-501 solves the prescribed shifted margin family with its implied path and matching trigger horizon. Only these owned leaves move. Existing capex-basis restorations and all valuation/score operands outside the reverse solve retain prior pins. The removed no-root note is replaced by the now available in-domain margin solve. Shared stamps do not move.",
+      "deltas": [
+        {
+          "path": "report.thesisTriggers",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "reverse-margin",
+              "metric": "Supported terminal operating margin",
+              "comparator": "below",
+              "threshold": {
+                "value": 2.933349609375,
+                "unit": "%",
+                "source": "computed.valuation.reverseDcf",
+                "asOf": null,
+                "verified": null
+              },
+              "horizon": "Base margin path shifted by the terminal-margin delta, with its shift ramp reaching the full delta by 5 years and held thereafter",
+              "fixedAssumptions": [
+                "Discount rate, terminal growth and reinvestment conventions remain at the model's base case.",
+                "The current quote, net debt, other senior claims and diluted share count remain fixed.",
+                "The revenue growth path remains at the base case; the operating-margin path is the reverse solver's fade."
+              ],
+              "consequence": "If revised evidence supports a terminal margin below this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target."
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedMetric",
+          "before": "constant revenue growth (explicit horizon)",
+          "after": "terminal EBIT margin"
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedValue",
+          "before": -17.24609375,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "leaseEvidence": {
+                "operating": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "finance": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "combined": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "observedLeaseLine": "positive"
+              },
+              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            },
+            "periodStartIsApproximate": true
+          }
+        },
+        {
+          "path": "stageB.returns.roic.series.0.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 36.33592017738359
+        },
+        {
+          "path": "stageB.returns.roic.series.2.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.2.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 40.06410256410257
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedMarginPathPct",
+          "beforeMissing": true,
+          "after": [
+            20,
+            15.73333740234375,
+            11.4666748046875,
+            7.20001220703125,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375
+          ]
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedTerminalMarginPct",
+          "before": null,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.marginPathFamily",
+          "beforeMissing": true,
+          "after": "base-shift-to-terminal"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.method",
+          "before": "growth",
+          "after": "margin"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.notes.2",
+          "beforeMissing": true,
+          "after": "market-implied steady-state (terminal) EBIT margin, shifting the base margin path by the terminal-margin delta times its own fade weights (current 20% unchanged); growth path frozen at base case"
         }
       ]
     }

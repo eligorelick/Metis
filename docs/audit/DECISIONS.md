@@ -3599,7 +3599,7 @@ explicit residual. No threshold was retuned.
 
 FIN-501 follows OD-11: terminal-margin candidates preserve the base fade shape;
 flat paths use a linear ramp. FIN-104 extends the existing DCF domain to every
-reverse candidate, bracket and bound (OD-9). A domain break withholds the
+reverse candidate, bracket and bound (FIN-104). A domain break withholds the
 outside-range inference rather than implying a price-supported growth rate.
 
 ## D-next (P2) - FIN-116 (2026-11-02)

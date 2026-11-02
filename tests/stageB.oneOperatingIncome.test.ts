@@ -19,6 +19,7 @@ describe("one operating-income basis (FIN-402 family)", () => {
     const adjusted = build(history.map(r=>({...r,unusualOperatingItems:r.date === "2025-12-31" ? -80 : null})));
     expect(adjusted.ebitMarginPath.value).toEqual(normalized.ebitMarginPath.value);
     expect(adjusted.scenarioMarginCeiling).toEqual(normalized.scenarioMarginCeiling);
+    expect(adjusted.terminal.roicTermPct.basis).toMatch(/terminal evidence.*excluding.*one-off/);
     expect(build(history.map(r=>({...r,unusualOperatingItems:null}))).ebitMarginPath.value).not.toEqual(normalized.ebitMarginPath.value);
   });
   it("removes a TTM gain from the ceiling as well as the seed", () => {

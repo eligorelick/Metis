@@ -2418,6 +2418,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);
+  if (normalizedYears) terminal.basis += `; terminal evidence uses operating income excluding admitted tagged one-off items (${normalizedYears}); reported GAAP ROIC is unchanged`;
+  if (inputs.recurringOperatingItemsBasis) terminal.basis += `; ${inputs.recurringOperatingItemsBasis}`;
   if (terminal.note !== null) notes.push(terminal.note);
   // WS6 (D-19): say which cost of capital each ROIC year was measured against,
   // in the notes AND in the manifest when it was not the year's own WACC.

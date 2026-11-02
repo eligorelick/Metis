@@ -1,3 +1,4 @@
+import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { expect, it } from "vitest";
 import { buildDcfAssumptions, convergentFadePath, reverseDcf, runDcf } from "@/pipeline/stageB/valuation";
 
@@ -39,6 +40,8 @@ it("publishes the OD-11 shifted margin family with the five-year ramp",()=>{
   const a=assumptions();a.ebitMarginPath.value=[10,11,14,19,20,20,20,20,20,20];
   const r=reverseDcf(runDcf(a,opts).perShare!*.97,a,opts);
   expect(r.marginPathFamily).toBe("base-shift-to-terminal");
+  const triggers=buildThesisTriggers({valuation:{kind:"dcf",assumptions:a,dcf:runDcf(a,opts),reverseDcf:r},projections:{series:[]}} as never);
+  expect(triggers.find(t=>t.id === "reverse-margin")?.horizon).toMatch(/ramp.*5.*years/);
   expect(r.impliedMarginPathPct?.[1]).toBeCloseTo(11+(r.impliedTerminalMarginPct!-20)*.25,8);
   expect(r.impliedMarginPathPct?.[4]).toBeCloseTo(r.impliedTerminalMarginPct!,8);
 });

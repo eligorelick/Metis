@@ -626,7 +626,7 @@ export function computeGrowth(
     "revenue acceleration = latest YoY minus 3y CAGR (house framing)",
   ];
   if (latestYoyPct === null) accelNotes.push("latest YoY unavailable");
-  if (yoyPoint.endDate !== inc[0]?.date) accelNotes.push("newest annual revenue unavailable; an older endpoint is not current growth");
+  if (yoyPoint.endDate !== inc[0]?.date) accelNotes.push(`newest annual revenue ${inc[0]?.date ?? "unknown date"} unavailable; an older endpoint is not current growth`);
   if (!threeYearSpanMatches && threeYearPoint.cagrPct !== null) {
     const reason = `3y revenue acceleration benchmark withheld: actual span is ${threeYearPoint.actualYears?.toFixed(2) ?? "unknown"} years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)`;
     accelNotes.push(reason);
