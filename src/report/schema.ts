@@ -2013,6 +2013,8 @@ export const ScenarioTargetsSchema = z
     dispersion: z
       .object({
         growthSigmaPp: z.number(),
+        uncappedGrowthSigmaPp: z.number().optional(),
+        uncappedMarginSigmaPp: z.number().optional(),
         marginSigmaPp: z.number(),
         /** "own-history" = measured; "house-default" = heuristic fallback (thin history). */
         sigmaSource: z.enum(["own-history", "house-default"]),

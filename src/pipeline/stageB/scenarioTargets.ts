@@ -35,6 +35,7 @@ import {
 import {
   effectiveScenarioShocks,
   scenarioDispersion,
+  sigmaCapPhrases,
   type ProjectionIncomeRow,
 } from "@/pipeline/stageB/projections";
 import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
@@ -207,6 +208,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
       ["Scenario targets unavailable: company-specific dispersion evidence is too thin."],
     );
   }
+  const caps = sigmaCapPhrases(disp);
   const shocks = effectiveScenarioShocks(disp.sigmaGrowth, disp.sigmaMargin, disp.growthMarginCorrelation);
   const dispersionDegenerate = shocks.degenerate;
   const effectiveCorr = shocks.growthMarginCorrelation;
@@ -361,7 +363,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     `${shared.scenarioAssumptions.scenarios.filter((s) => s.name !== "base" && s.effectiveMarginDeltaPp === undefined).map((s) => `, ${signed(s.marginDeltaPp)} for ${s.name}`).join("")}, so the shocks are not symmetric around the base margin.`;
   const basis = [
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
-    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.${marginWithheldText(shared)}${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.`,
+    `bull/bear re-run the SAME DCF with year-one growth shifted \u00b1${round2(dg)}pp${caps.growth} and the year-one margin shifted \u00b1${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both shocks decaying to zero by the final explicit year; ${caps.marginBasis} observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.${marginWithheldText(shared)}${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.`,
     "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
     // D-65: the decay-and-cap paragraph is stated once, as the note of the
     // projections' scenario-construction table (it was printed three times).
@@ -377,6 +379,8 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     basis,
     dispersion: {
       growthSigmaPp: round2(disp.sigmaGrowth),
+      ...(disp.growthCapped ? {uncappedGrowthSigmaPp:round2(disp.rawSigmaGrowth!)} : {}),
+      ...(disp.marginCapped ? {uncappedMarginSigmaPp:round2(disp.rawSigmaMargin!)} : {}),
       marginSigmaPp: round2(disp.sigmaMargin),
       sigmaSource,
       growthMarginCorrelation: effectiveCorr,

@@ -34,6 +34,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-406 | Fixed: A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains. | Owning FIN-406 commit | fin-406-red / fin-406-green | Stored figures unchanged |
 
+| FIN-512 | Fixed: Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds. | Owning FIN-512 commit | fin-512-red / fin-512-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

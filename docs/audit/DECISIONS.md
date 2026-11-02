@@ -3633,3 +3633,7 @@ Headline valuation degradation excludes market-cap history and enterprise-value 
 ## D-next (P2) - FIN-406 (2026-11-02)
 
 A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains. Stored reports remain immutable.
+
+## D-next (P2) - FIN-512 (2026-11-02)
+
+Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Binding caps disclose the uncapped sample sigma beside the bounded shock in target and projection bases; optional raw fields retain compatibility, and judge framing names the bounds. Stored reports remain immutable.

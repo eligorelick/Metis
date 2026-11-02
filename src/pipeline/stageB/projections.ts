@@ -61,8 +61,8 @@ export const PROJECTION_WEIGHTS = { bull: 0.25, base: 0.5, bear: 0.25 } as const
 /** Dispersion multiplier: bull/bear = base ± DISPERSION_K · σ. */
 export const DISPERSION_K = 1.0;
 /** Upper sanity bounds only; stable firms are no longer forced to show a band. */
-const SIGMA_GROWTH_MAX = 25; // pp
-const SIGMA_MARGIN_MAX = 12; // pp
+export const SIGMA_GROWTH_MAX = 25; // pp
+export const SIGMA_MARGIN_MAX = 12; // pp
 
 const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
@@ -254,6 +254,10 @@ function annualizedGrowthPct(revenues: Array<{ date: string; value: number }>): 
  * ------------------------------------------------------------------------ */
 
 export interface ScenarioDispersion {
+  rawSigmaGrowth: number | null;
+  rawSigmaMargin: number | null;
+  growthCapped: boolean;
+  marginCapped: boolean;
   /** Revenue-growth sample σ, percentage points; null when evidence is too thin. */
   sigmaGrowth: number | null;
   /** Operating-margin sample σ, percentage points; null when evidence is too thin. */
@@ -343,6 +347,9 @@ export function scenarioDispersion(incomeHistory: ProjectionIncomeRow[]): Scenar
     }
   }
   return {
+    rawSigmaGrowth: rawSigmaG, rawSigmaMargin: rawSigmaM,
+    growthCapped: rawSigmaG !== null && rawSigmaG > SIGMA_GROWTH_MAX,
+    marginCapped: rawSigmaM !== null && rawSigmaM > SIGMA_MARGIN_MAX,
     sigmaGrowth: rawSigmaG === null ? null : clamp(rawSigmaG, 0, SIGMA_GROWTH_MAX),
     sigmaMargin: rawSigmaM === null ? null : clamp(rawSigmaM, 0, SIGMA_MARGIN_MAX),
     // `paired` now contains only annual steps, so the correlation no longer
@@ -416,6 +423,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       "At least four consecutive annual revenue observations and three margin observations are required for sample dispersion; scenario fan suppressed rather than using house defaults.",
     );
   }
+  const caps = sigmaCapPhrases(rawDisp);
   const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
     // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
@@ -512,7 +520,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth${laterText}` +
         `${revenueAnchor.source === "run-rate" || revenueAnchor.source === "ttm" ? `, carried at the near-term growth rate ${anchorText}` : ""}${consensusText}; ` +
         `then a convergent fade to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
+    `Bull/bear shift year-one growth by \u00b1${round2(dg)}pp${caps.growth} and the year-one margin by \u00b1${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; ${caps.marginLine} the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
     `Forward periods are 12-month windows ending on anniversaries of the latest statement date${anchorWindowEnd === null ? "" : ` (${anchorWindowEnd})`}, not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.`,
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
     `Weighted path = ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear, the fixed display prior.`,
@@ -809,4 +817,12 @@ function buildEpsSeries(
     ],
     disclosures: [],
   };
+}
+
+/** FIN-512: distinguish the measured sample from the bounded model shock. */
+export function sigmaCapPhrases(d: ScenarioDispersion): {growth:string;marginBasis:string;marginLine:string} {
+  const margin = d.marginCapped ? `sigma capped at the house ${SIGMA_MARGIN_MAX}pp bound (sample sigma ${round2(d.rawSigmaMargin!)}pp)` : "sample sigma";
+  return {growth:d.growthCapped ? ` (sigma capped at the house ${SIGMA_GROWTH_MAX}pp bound; sample sigma ${round2(d.rawSigmaGrowth!)}pp)` : "",
+    marginBasis:d.marginCapped ? `margin ${margin} is scaled by` : "margin sample \u03c3 is scaled by",
+    marginLine:d.marginCapped ? `the margin shift is ${margin} scaled by` : "the margin shift is sample \u03c3 scaled by"};
 }

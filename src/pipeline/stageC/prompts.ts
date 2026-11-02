@@ -586,7 +586,7 @@ export function buildJudgeFraming(
     "  replaces displayed assumptions with exact deterministic inputs and labels your text as qualitative",
     "  commentary. Do NOT invent scenario price targets — the headline bull/base/bear priceTargets are",
     "  COMPUTED deterministically by the pipeline (base = the DCF fair value; bull/bear = the same DCF",
-    "  with growth + operating margin shifted ±1σ of the company's own history) and injected AFTER your",
+    "  with growth + operating margin shifted \u00b11\u03c3 of the company's own history, at most 25pp of growth and 12pp of margin; the scenario basis says when a bound binds) and injected AFTER your",
     "  pass. Set each scenario's priceTarget to null; any number you emit there is discarded.",
     "- DCF card: interpret the computed DCF and write the reverse-DCF narrative + section interpretation,",
     "  but do NOT invent any DCF numbers. The valuation.dcf.perShare, upsidePct, the assumptions table AND",

@@ -102,3 +102,12 @@ it("qualifies the historical tax seed without changing stored assumptions (FIN-5
   r.meta.specVersion = "1.56.0";
   expect(withLegacyValuationNotes(r)).toBe(r);
 });
+
+it("qualifies old scenario sigmas at house bounds without inventing uncapped history (FIN-512)",()=>{
+  const r=cloneTask28(loadTask28Fixture());r.meta.specVersion="1.44.0";
+  r.scenarioTargets={status:"available",method:"dcf-dispersion",methodVersion:"old",basis:[],dispersion:{growthSigmaPp:25,marginSigmaPp:12,sigmaSource:"own-history"},targets:[],missingReasons:[]};
+  const view=withLegacyValuationNotes(r);
+  expect(view.appendix.missingData.find(g=>g.field.endsWith("sigmaCap"))?.reason).toMatch(/house.*25pp.*12pp.*uncapped/);
+  expect(withLegacyValuationNotes(view)).toBe(view);
+  r.meta.specVersion="1.56.0";expect(withLegacyValuationNotes(r)).toBe(r);
+});

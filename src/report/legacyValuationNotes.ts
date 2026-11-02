@@ -93,5 +93,12 @@ export function withLegacyValuationNotes(report: Report): Report {
     const rate = /effective rate ([\d.]+%)/.exec(tax.basis)?.[1] ?? "stored";
     added.push({ field: taxField, reason: `Built before spec ${DCF_INPUTS_CONVENTION_SPEC}: year one's tax rate (${rate}) was measured on pre-tax income that still held the tagged one-off items the margin seed removed. From ${DCF_INPUTS_CONVENTION_SPEC} it is re-read between no-tax-effect and marginal-rate readings. Stored figures are unchanged.`, severity: "info", expected: true });
   }
+  const sigmaField = `${LEGACY_VALUATION_NOTE_FIELD}.sigmaCap`;
+  const dispersion = report.scenarioTargets?.dispersion;
+  if (specVersionBefore(report.meta.specVersion ?? "", DCF_INPUTS_CONVENTION_SPEC) && dispersion &&
+      (dispersion.growthSigmaPp === 25 || dispersion.marginSigmaPp === 12) &&
+      !report.appendix.missingData.some(entry => entry.field === sigmaField)) {
+    added.push({field:sigmaField,reason:`Built before spec ${DCF_INPUTS_CONVENTION_SPEC}: scenario sigmas are at the house 25pp growth or 12pp margin bounds. The uncapped sample was not recorded, so these bounded shocks must not be read as uncapped sample dispersion. Stored figures are unchanged.`,severity:"info",expected:true});
+  }
   return added.length === 0 ? report : { ...report, appendix: { ...report.appendix, missingData: [...report.appendix.missingData, ...added] } };
 }
