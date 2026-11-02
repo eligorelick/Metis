@@ -13,11 +13,11 @@ All 16 P3 findings are implemented, including the previously approved AI-407. Ea
 | AI-103 | Fixed | b0758a3b; 24476f58 | AI-103-red; AI-103-judge-red / AI-103-green; AI-103-controls; AI-103-replay | No stored writes; verify replay unchanged |
 | AI-104 | Fixed | b10c4358 | AI-104-red / AI-104-green; AI-104-controls; AI-104-replay | No stored writes or replay manifest deltas |
 | AI-111 | Fixed | 79551c91 | AI-111-red / AI-111-final-green; AI-111-replay | No stored writes; rating outcomes unchanged on replay strings |
-| RPT-504 | Fixed | e337b1d8 | RPT-504-red; RPT-504-job-panel-red / RPT-504-green; P3-job-panel-final-green | Reader shares hidden for data-only; raw audit counts retained |
+| RPT-504 | Fixed | e337b1d8; 79f702b8 | RPT-504-red; RPT-504-job-panel-red / RPT-504-green; P3-job-panel-final-green | Reader shares hidden for data-only; raw audit counts retained |
 | DB-004 | Fixed | 89f10750 | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
 | RPT-209 | Fixed | 89f10750 | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
 | RPT-212 | Fixed | c22b8d14; 24476f58; 7075b347 | RPT-212-red / RPT-212-green; RPT-212-controls | Display-only placement; stored notices unchanged |
-| RPT-206 | Fixed | 8b396c3c | RPT-206-red; RPT-206-job-panel-red / RPT-206-green; RPT-206-job-panel-final-green | Display-only counts and state; recorded metadata unchanged |
+| RPT-206 | Fixed | 8b396c3c; 79f702b8 | RPT-206-red; RPT-206-job-panel-red / RPT-206-green; RPT-206-job-panel-final-green | Display-only counts and state; recorded metadata unchanged |
 | RPT-207 | Fixed | dbcec214; 350d5ca2 | RPT-207-red / RPT-207-green; RPT-207-controls | Display-only dataset grouping; raw manifest unchanged |
 | RPT-211 | Fixed | b7b0576e | RPT-211-red / RPT-211-green | Additional raw figure registry rows; body unchanged |
 
@@ -48,3 +48,5 @@ The existing report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39 stamps 
 AI-407 still detects conflicts rather than requiring full paraphrase agreement. Segment shares remain computed before number verification. The verifier deliberately withholds uncertain metric, period, operand and comparative attribution instead of inferring another figure. AI-502 does not infer the standard meant by a comparative. AI-111's closed mask retains fail-closed ambiguous initial continuations and whole-sentence ratings. No claim of full historical re-verification is made.
 
 Final focused consumer, typecheck and lint receipt names and results are in tmp/claude-impl/HANDOFF.md. No full verify, provider call, push, PR, merge, stash or history rewrite was performed. Concurrent earningsSchedule.ts and the schedule-qualified support line were not edited.
+
+Validation at the final source: P3-acceptance-consumers passed 34 files / 1504 tests. The subsequent job-panel correction passed 58 direct reader-consumer tests (P3-job-panel-final-green). P3-finish-typecheck passed. P3-finish-lint passed with zero warnings. P3-final-replays passed 7/7 and P3-final-docs passed 99/99. Receipts are recorded in the hand-off.
