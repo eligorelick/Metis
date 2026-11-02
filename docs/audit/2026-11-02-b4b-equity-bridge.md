@@ -617,8 +617,8 @@ Excess-return variants restore converted notes and preferred into opening common
 The requested 11.879000243131742 mortgage-REIT pin conflicts with the specified
 minimum rule: BV0=520M, C=50M, D=110M, N=10M and V(BV0)=1306.690026744M.
 The claim reading is V(470M)/100M=11.810467549421368; the converted reading
-is V(520M)/110M=11.879000243131742. Keep the mathematical minimum and flag
-this conflict to the coordinator. Initial green runs caught the old 950-book
+is V(520M)/110M=11.879000243131742. The coordinator has corrected the original brief pin and confirmed the
+mathematical minimum; this is resolved, not an open decision. Initial green runs caught the old 950-book
 alternative-row lookup (now selected-reading book) and an over-precise new
 reverse-solve assertion; the inverse now equals the consistent control exactly.
 
@@ -682,3 +682,35 @@ date; the corrected-date fixture fails without the disclosure in
 new route tests, an incomplete test provenance object and nullable history
 fields passed to a provider-row reader. The fixes add explicit route guards,
 complete provenance and pass only the reader's dated debt/preferred operands.
+
+
+## Coordinator correction: the mortgage-REIT holder choice
+
+With BV0=520M and V(BV0)=1306.690026744M, the preferred holder receives
+V(BV0)-V(BV0-C)=125.64M by keeping the claim versus
+N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
+better for the holder is worse for common. Thus the minimum rule selects
+11.8104675494/share, while the converted reading is 11.8790002431. The
+coordinator corrected the original brief pin, which assumed conversion binds.
+
+
+## Review-round census and affected financial fixtures
+
+The merged baseline is `8df6ef57`; receipts are `fixround2-merged-census`
+and `fixround2-final-census`. All 18 real issuer values or refusals are
+unchanged. GOOGL market EV includes the 18.023B preferred claim; valuation
+score 21.94 -> 21.88 and composite 63.84 -> 63.83. F8 changes disclosures only.
+
+| Fixture | Before/share | Claim reading | Converted reading | After/share | Binds |
+|---|---:|---:|---:|---:|---|
+| bank-notes | 12.1864072142 | 12.4675871639 | 13.1113524219 | 12.4675871639 | claim |
+| bank-preferred | 11.7887156035 | 12.4675871639 | 12.6834761191 | 12.4675871639 | claim |
+| insurer-notes | 12.0378535644 | 12.3095108441 | 12.7986095831 | 12.3095108441 | claim |
+| insurer-preferred | 11.6450098583 | 12.3095108441 | 12.3809393403 | 12.3095108441 | claim |
+| mreit-notes | 12.7496171188 | 13.0669002674 | 13.4604816008 | 13.0669002674 | claim |
+| mreit-preferred | 11.1913341358 | 11.8104675494 | 11.8790002431 | 11.8104675494 | claim |
+
+All six move because the converted variant now earns residual returns on its
+restored book before the lower reading is selected. Other injected values
+and refusals remain unchanged. Both readings use the same fixed ROE/payout
+path, so V(book) scales with opening book for this comparison.

@@ -91,7 +91,11 @@ describe("FIN-302 / FIN-302-V1: one convertible reading", () => {
       expect(er.convertibles).toHaveLength(1);
       expect(er.roePathPct.value).toEqual(noInstrument.roePathPct.value);
       expect(original.perShare).toBeGreaterThan(0);
-      // F1: the exact retained floor is min(11.8104675494, 11.8790002431).
+      // F1 / owner correction: min(claim 11.8104675494, converted 11.8790002431).
+      // Keeping the claim gives its holder V(520M)-V(470M)=125.64M,
+      // versus 10M*V(520M)/110M=118.79M on conversion. The holder keeps
+      // the claim, so common gets the lower claim reading. The original
+      // 11.879 expectation incorrectly assumed conversion binds.
       if (route === "reit" && kind === "preferred") expect(er.perShare).toBeCloseTo(11.810467549421368, 9);
     }
   });
