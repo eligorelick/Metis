@@ -253,7 +253,8 @@ function seriesKey(f: Pick<RevenueFact, "axis" | "member">): string {
 export const SEGMENT_RECAST_THRESHOLD_PCT = 1;
 export const SEGMENT_ROUNDING_FLOOR = 2_000_000;
 export function sameSegmentBasis(at: readonly number[] | undefined, i: number, j: number): boolean {
-  return (at?.includes(i) === true) === (at?.includes(j) === true);
+  // Earlier cells may span several recasts; their mutual comparability is unproven.
+  return at?.includes(i) !== true && at?.includes(j) !== true;
 }
 export function crossFilingClause(ends: readonly string[]): string {
   return ends.length === 0 ? "" : ` Cells in quarters ended ${ends.join(", ")} combine windows from two filings (a fiscal year in one less nine months in another); a segment change first presented in a 10-K would not show in them until the next 10-Q restates a quarter.`;

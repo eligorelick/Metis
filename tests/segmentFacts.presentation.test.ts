@@ -5,7 +5,7 @@ import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { describe, expect, it } from "vitest";
-import { buildQuarterlySegments, type FilingRevenue, type RevenueFact } from "@/edgar/segmentFacts";
+import { sameSegmentBasis, buildQuarterlySegments, type FilingRevenue, type RevenueFact } from "@/edgar/segmentFacts";
 const S = 1e8;
 const AX = "us-gaap:StatementBusinessSegmentsAxis";
 type W = { start: string; end: string };
@@ -80,4 +80,9 @@ it("uses the latest stable presentation after repeated changes",()=>{
  const s=buildQuarterlySegments([second,q1New,q2Old,q1Old],labels)!;
  expect(s.notes.join(" ")).toContain("second");
  expect(s.axes[0]!.rows.find(r=>r.label==="Devices")!.values.at(-1)).toBe(38*S);
+});
+
+it("does not assert comparability between older cells after repeated changes",()=>{
+ expect(sameSegmentBasis([1,2],1,2)).toBe(false);
+ expect(sameSegmentBasis([1,2],0,3)).toBe(true);
 });

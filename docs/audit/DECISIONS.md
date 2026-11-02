@@ -3059,3 +3059,8 @@ Apply OD-12 withhold-never-replace to guidance, paired checks, commentary and ne
 ### D-next (P5): DATA-101 absent temporary equity
 
 OD-8: no manifest entry when that instant period has no filed temporary-equity fact, including issuers with only a historic zero. Filed but refused values, mismatched operands and vendor conflicts still warn. Only the exact legacy absent-or-refused warning folds across dates (D-67). MU #46: absent warnings 31 -> 0; grouped data issues 30 -> 6; stored warning metadata stays untouched.
+
+
+### D-next (P5): AI-508 repeated older presentations
+
+Earlier-presentation flags do not identify which of several old bases a cell uses. Conservatively withhold growth involving any flagged cell; keep reported levels and all proven-current comparisons. ai508-repeat-red reproduces the former true/true comparison. This never asserts comparability between different historical recasts.

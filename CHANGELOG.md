@@ -22,7 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - DATA-101: suppress absent-period temporary-equity noise and fold only legacy absent-or-refused warnings.
 - AI-512-V1: withhold contradicted guidance labels and label-based track records in fresh and stored displays.
-- AI-508: name change filings, stated windows and affected quarter ends.
+- AI-508: name change filings, stated windows and affected quarter ends; withhold comparisons involving older bases after repeated recasts.
 
 - DATA-109: exclude 8-K contents-page stubs from evidence and legacy summaries.
 - DATA-108: recognize clause-only and subsection Item 5.02 headings.

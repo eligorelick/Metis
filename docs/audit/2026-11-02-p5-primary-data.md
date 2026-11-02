@@ -68,3 +68,6 @@ AI-512-V1 fixed: ai512-red reproduces retained #43; ai512-green has 330 passes a
 
 
 DATA-101 fixed: data101-final-red-2 reproduces the historical-zero and legacy-grouping defects (2 failures, 60 controls pass). New-format refusals stay separate. The different-period refusal fixture now includes an actual filed amount at that period, so it tests a refusal rather than the absence intentionally silenced by OD-8. Retained MU #46: grouped count 6 and no absent-period warnings. p5-final-retained-3 passes 7 checks with SHA-256 byte preservation for reports 43, 46, 48, 49 and 50. Intermediate replay failures were harness argument mistakes, corrected; typecheck caught introduced unknown-point typing, corrected using the XBRL parser. No source data, stamps, prompts or goldens changed.
+
+
+AI-508 repeated-change completion: ai508-repeat-red fails on comparing two flagged older cells; p5-final-consumers passes 241 tests after conservatively withholding growth involving either older cell. p5-final-retained-4 verifies business tables against starting-HEAD presentation code on stored reports 43, 46, 48, 49 and 50; all unchanged. Its AMZN payload claim checks reject Q3 FY2025 guidance and keep the period-free 199.5 billion claim.
