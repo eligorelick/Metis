@@ -3150,3 +3150,15 @@ that battery is impossible on the route and the transition pinned the wrong
 denominator. The replacement pins full supported completeness and loss of
 completeness with supported data missing. No band threshold changes. Census
 measurements are in the P9 disposition; stored reports retain their bytes.
+
+
+## D-next (P9) - FIN-307: confirm ADR capitalization warning (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Confirmed:
+keep D-137 OD-6. An otherwise available ADR WACC/DCF retains vendor market
+equity with the issuer-common scope warning; Altman uses book-equity Z-prime.
+The warning reaches classic report HTML, reader Markdown, print, audit Markdown
+and the AI prompt. No calculation or display repair was necessary. Existing
+currency/class refusals and the per-ADS guard remain. This preserves a useful
+aggregate model while explicitly stating its unverified capitalization scope;
+it does not establish depositary ratios or validate market equity.

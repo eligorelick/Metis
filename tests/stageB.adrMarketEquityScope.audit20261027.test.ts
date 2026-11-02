@@ -2,11 +2,34 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataCompleteness } from "@/report/completeness";
 import { adrMarketEquityBundle } from "./helpers/adrMarketEquityBundle";
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { validateBundle } from "@/pipeline/stageA/validate";
+import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportView } from "@/components/report/ReportView";
 
 const run = (options: Parameters<typeof adrMarketEquityBundle>[0] = {}) =>
   runStageB(adrMarketEquityBundle(options), { evIncludeLeases: false });
 
 describe("FIN-307: ADR Altman market equity, with the WACC publication ruling", () => {
+  it("P9 confirms the retained ADR WACC warning in report bodies, audit export and AI payload", () => {
+    const bundle = adrMarketEquityBundle();
+    const computed = runStageB(bundle, { evIncludeLeases: false });
+    const validation = validateBundle(bundle);
+    const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Synthetic ADR", generatedAt: bundle.builtAt,
+      model: "none", costUsd: 0, bundle, validation, computed, costBreakdown: [], reason: "offline control" });
+    const warning = computed.returns.wacc.gaps.find(g => g.field === "returns.wacc.adrMarketEquityScope")!.reason;
+    const before = JSON.stringify(report);
+    for (const body of [renderToStaticMarkup(createElement(ReportView, { report })),
+      reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report),
+      serializePayloadForPrompt(assembleContextPayload(bundle, computed, validation))]) {
+      expect(body).toContain(warning);
+    }
+    expect(JSON.stringify(report)).toBe(before);
+  });
   it("substitutes calibrated book-equity Z-prime for an unproven ADR cap", () => {
     const c = run();
     expect(c.forensics.altman?.variant).toBe("private");

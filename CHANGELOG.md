@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P9 methodology decisions (2026-11-02)
 
+- FIN-307: confirm the retained ADR WACC/DCF scope warning reaches report bodies, audit export and AI payload; Altman keeps book-equity Z-prime.
 - FIN-306: exclude route-withheld Piotroski tests from applicable evidence while retaining the reduced battery's evidence weight and penalties for missing supported inputs.
 
 ## Unreleased - P6 local security (2026-11-02)
