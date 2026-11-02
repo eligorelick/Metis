@@ -1235,6 +1235,7 @@ export const ValuationSchema = z
       currency: z.string().nullable(), shareCountAsOf: z.string().nullable(),
       priceAsOf: z.string().nullable().optional(),
       approximate: z.boolean(), basis: z.string(),
+      multiClass: z.literal(true).optional(),
       classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
       /** Unresolved because the issuer has more than one common class (audit 2026-10-22 B-8). */
       classAmbiguity: z.literal(true).optional(),

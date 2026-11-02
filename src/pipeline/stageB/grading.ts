@@ -34,7 +34,7 @@ import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pip
 import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import type { UtilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
+import { ALTMAN_ZONES, isFinancialForensicsSuppressed, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import { isStartingGrowthFamily, type ValuationResult } from "@/pipeline/stageB/valuation";
 import type { Grade } from "@/types/core";
@@ -123,6 +123,8 @@ interface Signal {
    * weight.
    */
   evidenceFraction?: number;
+  /** FIN-306: share supported by route design; missing supported data still counts. */
+  applicableFraction?: number;
 }
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
@@ -187,7 +189,7 @@ function scoreAspect(
   for (const s of signals) {
     if (s.suppressedBy && policy.suppress.includes(s.suppressedBy)) continue;
     // Applicable to this route (not policy-suppressed), whether or not data exists.
-    applicableWeight += s.weight;
+    applicableWeight += s.weight * Math.min(1, Math.max(0, s.applicableFraction ?? 1));
     if (!isNum(s.raw)) continue;
     const sub = bandScore(s.raw, s.band);
     const evidence = Math.min(1, Math.max(0, s.evidenceFraction ?? 1));
@@ -790,7 +792,13 @@ export interface ScoringInputs {
 }
 
 export function computeScores(inputs: ScoringInputs): Scoring {
-  const { route, policy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
+  const { route, policy: routePolicy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
+  const undeterminedReit = route.base === "reit" && route.reitSubmap === "undetermined";
+  const reitGradeReason = "REIT type undetermined: mortgage and property maps disagree on these grading signals; withheld until filed evidence establishes the type.";
+  // FIN-308: grading-only exclusions. Do not erase otherwise reported raw
+  // figures or substitute a financial return model on an unproved type.
+  const policy = undeterminedReit ? { ...routePolicy, suppress: [...routePolicy.suppress,
+    "roicVsWacc", "fcfGrowth", "operatingMargin", "grossMargin", "altmanZ", "beneishM", "accrualsRatio"] } : routePolicy;
   const weights = weightsForRoute(route);
   const financial = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
   const currentCapital = capital.current;
@@ -873,7 +881,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ? "Valuation withheld: model applicability unresolved (see valuation.modelEligibility) — counted as missing evidence, not as a route without valuation"
     : null;
   const valuationScore =
-    valuation.kind === "pre-revenue"
+    undeterminedReit
+      ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, reitGradeReason, policy, reitGradeReason)
+      : valuation.kind === "pre-revenue"
       ? scoreAspect("valuation", [], weights.valuation, inputs.asOf, "Valuation not modelled for pre-revenue companies (runway framing instead).", policy, "Pre-revenue: no meaningful intrinsic-value model.")
       : scoreAspect(
           "valuation",
@@ -895,9 +905,24 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   }
 
   // --- Quality (value creation + accounting integrity) --------------------
+  // Only the three Piotroski tests common to property and mortgage maps may
+  // grade an undetermined REIT. Keep the full forensic table as computed.
+  const commonPiotroski = undeterminedReit && forensics.piotroski
+    ? ["roaPositive", "roaImproved", "noEquityIssuance"]
+      .map(name => forensics.piotroski!.signals[name as keyof typeof forensics.piotroski.signals]?.value)
+      .filter((v): v is 0 | 1 => v === 0 || v === 1) : null;
+  const gradingPiotroski = commonPiotroski ? {
+    outOf: commonPiotroski.length, score: commonPiotroski.reduce<number>((sum, v) => sum + v, 0), routeWithheld: 6,
+  } : forensics.piotroski;
+  // A missing entire battery (e.g. fewer than two fiscal years) still has a
+  // known supported maximum on an established financial route. Legacy results
+  // that do carry a battery but no count retain their recorded interpretation.
+  const piotroskiRouteWithheld = gradingPiotroski?.routeWithheld ??
+    (gradingPiotroski === null && route.modelEligibility?.status !== "unresolved" && isFinancialForensicsSuppressed(route)
+      ? financial ? 6 : 4 : 0);
   const piotroskiFrac =
-    forensics.piotroski && isNum(forensics.piotroski.score) && forensics.piotroski.outOf > 0
-      ? forensics.piotroski.score / forensics.piotroski.outOf
+    gradingPiotroski && isNum(gradingPiotroski.score) && gradingPiotroski.outOf > 0
+      ? gradingPiotroski.score / gradingPiotroski.outOf
       : null;
   // Financial routes suppress ROIC − WACC because invested capital is undefined
   // when deposits fund the balance sheet; the route's own disclosure names the
@@ -936,7 +961,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         weight: 0.22,
         band: PIOTROSKI_BAND,
         suppressedBy: "piotroskiF",
-        evidenceFraction: forensics.piotroski && forensics.piotroski.outOf > 0 ? Math.min(1, forensics.piotroski.outOf / 9) : 1,
+        evidenceFraction: gradingPiotroski && gradingPiotroski.outOf > 0 ? Math.min(1, gradingPiotroski.outOf / 9) : 1,
+        applicableFraction: (9 - Math.min(9, Math.max(0, piotroskiRouteWithheld))) / 9,
       },
       // The driver is the score AFTER the affine map onto the original
       // variant's 1.81/2.99 zones (normalizeAltmanForBanding) — the number the
@@ -976,25 +1002,30 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     currentCapital ? currentCapital.fcfBeforeSbc : capital.fcf.latestFcfBeforeSbc,
     currentCapital ? currentCapital.cashBridge.stockBasedCompensation : capital.sbc.latest,
   ) ? SBC_FCF_BAND[SBC_FCF_BAND.length - 1][0] : null);
-  const balanceSheet = route.base === "bank"
+  const balanceSheet = undeterminedReit
+    ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, reitGradeReason, policy, reitGradeReason)
+    : route.base === "bank"
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : !financial && route.overlays.includes("regulated-utility")
     ? utilityBalanceSheet(inputs.utilityCredit ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : route.cashFlowApplicability?.status === "not-applicable"
+    ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, route.cashFlowApplicability.reason, policy,
+        "Capital adequacy is not modelled for non-bank lenders: warehouse and loan-owner funding is operating inventory finance, so industrial coverage and leverage do not measure solvency.")
     : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(
         "balanceSheet",
         [
           { name: "netDebtToEbitda", raw: currentCapital ? currentCapital.netDebtToEbitda : capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
-          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND },
+          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND, suppressedBy: "interestCoverage" },
           // WS6 review (SHOULD-FIX 2): graded on the BEFORE-SBC ratio, the
           // definition FCF_CONVERSION_BAND was calibrated on. Grading the
           // after-SBC ratio on the same band silently moved the metric onto a
           // new definition AND charged stock-based compensation twice, since
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
-          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND, suppressedBy: "fcfConversion" },
+          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND, suppressedBy: "sbcPctOfFcf" },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.
@@ -1046,7 +1077,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       ];
   const moat = scoreAspect(
     "moat",
-    [
+    undeterminedReit ? [] : [
       ...moatReturnSignals,
       // Gross margin is a hard-suppressed metric on some routes (banks: FMP emits
       // garbage revenue−costOfRevenue on an interest-income statement; pre-revenue:
@@ -1057,10 +1088,18 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)." +
+    (route.cashFlowApplicability?.status === "not-applicable"
+      ? "Quantitative moat proxy: latest return on tangible common equity (ROTE) and its lowest annual return in the window. ROIC is undefined when debt is operating inventory funding; vendor gross margin is not a filed lender line and is excluded."
+      : "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).") +
       (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
+    undeterminedReit ? reitGradeReason : null,
   );
+
+  if (undeterminedReit) {
+    quality.aspect.note += ` ${reitGradeReason} Piotroski grades only ROA positive, ROA improved and no equity issuance, the three common tests.`;
+    fundamentals.aspect.note += ` ${reitGradeReason} Revenue growth remains applicable.`;
+  }
 
   // --- Leadership (deterministic capital-stewardship proxy) ----------------
   // D-61: two signals that measure capital stewardship directly. The ROIC −

@@ -1405,6 +1405,7 @@ describe("computePiotroski — financial route", () => {
       balanceSheetFunded: true,
     });
     expect(r.outOf).toBe(3);
+    expect(r.routeWithheld).toBe(6); // FIN-306: route design, not missing inputs.
     expect(r.score).toBe(3);
     for (const name of [
       "cfoPositive",
@@ -1438,6 +1439,7 @@ describe("computePiotroski — financial route", () => {
     const r = computePiotroski(current, prior, prior2, { financialsSuppressed: true });
 
     expect(r.outOf).toBe(5);
+    expect(r.routeWithheld).toBe(4);
     expect(r.signals.leverageDown.value).not.toBeNull();
     expect(r.signals.turnoverUp.value).not.toBeNull();
     expect(r.signals.cfoPositive.value).toBeNull();
@@ -1480,6 +1482,7 @@ describe("computePiotroski — financial route", () => {
     );
 
     expect(r.outOf).toBe(2);
+    expect(r.routeWithheld).toBe(6); // The seventh null is missing supported data.
     expect(r.signals.roaImproved.value).toBeNull();
     expect(r.label).toContain("2 of 9 signals");
     expect(r.label).toContain("7 withheld");

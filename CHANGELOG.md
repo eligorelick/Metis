@@ -36,6 +36,24 @@ Replay controls cover alternate CFO aliases and derived-operand rounding.
 Switched SEC rows with missing capex preserve the runway investment-scope
 refusal; older vendor burn cannot replace the missing recent-quarter operand.
 
+## Unreleased - P9 methodology decisions (2026-11-02)
+
+- Cash-capex: confirm standardized FCF retains the statement/vendor cash-capex field and mixed-basis disclosure; arithmetic unchanged.
+- FIN-510-V1: withhold disagreeing deferred-revenue siblings with both values named; preserve JNJ R&D and JPM interest-income controls.
+- FIN-308 (coordinator revision 2026-11-02): distinguish equity from mortgage for established REITs using positive filed real assets (net property plus net PP&E), real assets >= mortgage assets and mortgage assets < 50% of Assets. Restore specialty property-map valuation and grading; keep missing-fact O/NNN unknown and common grading unchanged.
+- FIN-307: confirm the retained ADR WACC/DCF scope warning reaches report bodies, audit export and AI payload; Altman keeps book-equity Z-prime.
+- FIN-306: exclude route-withheld Piotroski tests from applicable evidence while retaining the reduced battery's evidence weight and penalties for missing supported inputs.
+
+## Unreleased - N2 lender and share-class readiness (2026-11-02)
+
+- Review fixes: F1/F2/F12 apply lender valuation and capital-return conventions, remove industrial solvency grading, and disclose the debt perimeter of context EV. F3/F5/F6/F7/F8 qualify quoted-class rows, disclose count differences and treasury shares without netting, and block contrary share-worded economics. F9 distinguishes empty peer collections from discovered candidates. P/TBV names its deductions and excludes a proved same-date fair-value servicing financial asset. Lender ROTE refusals disclose the exact existing evidence gate; numeric census movement is limited to FIGR.
+
+- R-FIGR-2: keep recent-IPO discount-rate refusals and explain the measured monthly-history shortfall, absent peer price histories/unlever-relever evidence and lack of a sourced industry asset-beta fallback. No invented beta, discount rate or sensitivity; existing numerical gates stay unchanged.
+
+- R-FIGR-1: classify owner-FCF metrics, P/FCF, FCF yield, runway and FCF-based DCF as not applicable for non-bank lenders only when lending SIC and primary operating cash-flow originations/sales establish held-for-sale lending. Retain filed cash observations and independent conflicts; exclude inapplicable FCF signals from grade denominators. Keep earnings/book measures and bank routing.
+
+- R-FIGR-3: admit a dated primary balance-sheet common-class inventory only with explicit identical dividend/liquidation rights for every class, unscaled outstanding counts and an issuer-matched provider quote-class title. Disclose the provider binding and same-price approximation in valuation and prompt provenance. Newer unresolved cover observations, including within the same filing, block the older balance-sheet alternative. Raw bundles and stored reports remain unchanged.
+
 ## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
 
 - PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.

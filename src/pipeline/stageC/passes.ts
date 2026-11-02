@@ -3818,6 +3818,7 @@ export function applyMultiples(
     currency: scope.currency ?? null, shareCountAsOf: scope.shareCountAsOf,
     priceAsOf: scope.priceAsOf ?? null,
     approximate: scope.approximate, basis: scope.basis,
+    ...(scope.multiClass ? { multiClass: true as const } : {}),
     ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
     ...(scope.classAmbiguity ? { classAmbiguity: true as const } : {}),
     enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: readerBridge ?? mr.enterpriseValue.basis,
@@ -4130,7 +4131,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
   // cite its guidance records.
-  const filingDisclosures = buildFilingDisclosures(args.bundle);
+  const filingDisclosures = buildFilingDisclosures(args.bundle, args.computed.route?.cashFlowApplicability);
 
   const candidate: Report = {
     meta,

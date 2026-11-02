@@ -140,10 +140,12 @@ import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/u
 import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying, validDay } from "@/pipeline/stageB/marketableEquity";
 import { millions } from "@/pipeline/stageB/netDebt";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
+import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
+import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
@@ -1684,6 +1686,39 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
+/** N2: classify a proved fair-value servicing financial asset, never infer an absent intangible. */
+function withTangibleBookClassification(row: FmpBalanceSheetRow, bundle: DataBundle, facts: CompanyFacts | null): FmpBalanceSheetRow {
+  const date = isoDay(row.date), currency = str(row.reportedCurrency), vendor = num(row.intangibleAssets);
+  const registrant = bundle.edgar.registrant;
+  if (!date || !currency || vendor === null || vendor <= 0 || num(row.goodwill) !== 0 || !registrant || !/^\d{10}$/.test(registrant.cik10) ||
+    Number(firstRow(bundle.profile)?.cik) !== Number(registrant.cik10) ||
+    (row.cik != null && Number(row.cik) !== Number(registrant.cik10))) return row;
+  const intangibleTags = [...tagsFor("goodwill"), ...tagsFor("intangibleAssets"), ...tagsFor("intangibleAssetsParts"), "GoodwillAndIntangibleAssetsNet"];
+  if (facts && intangibleTags.some(tag => tagPoints(facts, tag, currency)?.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10)))) return row;
+  if (["goodwill", "intangibleAssets"].some(field => row.fieldProvenance?.[field]?.source === "edgar" || row.fieldConflicts?.[field]?.usable === false)) return row;
+  const source = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(s => s?.ok ? [s.value.data] : []).find(d =>
+    d.reportDate === date && /^(?:10-Q|10-K)(?:\/A)?$/.test(d.form) && /^\d{4}-\d{2}-\d{2}$/.test(d.filingDate) &&
+    d.reportDate <= d.filingDate && d.filingDate <= bundle.builtAt.slice(0, 10) && /^\d{10}-\d{2}-\d{6}$/.test(d.accession));
+  if (!source) return row;
+  try {
+    const url = new URL(source.documentUrl);
+    if (url.protocol !== "https:" || !["www.sec.gov", "sec.gov"].includes(url.hostname) || url.port || url.username || url.password || url.search || url.hash ||
+      !new RegExp(`^/Archives/edgar/data/${Number(registrant.cik10)}/${source.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(url.pathname)) return row;
+  } catch { return row; }
+  const sheet = (source.statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  if (/\b(?:goodwill|intangible assets?)\b/i.test(sheet)) return row;
+  const scale = /\bin thousands\b/i.test(sheet) ? 1000 : /\bin millions\b/i.test(sheet) ? 1_000_000 : null;
+  const servicing = /\b(?:loan |mortgage )?servicing assets?, at fair value\s*\$?\s*([\d,]+(?:\.\d+)?)/i.exec(sheet);
+  if (!scale || !servicing) return row;
+  const amount = Number(servicing[1]!.replaceAll(",", "")) * scale;
+  const filedServicing = facts ? tagPoints(facts, "ServicingAssetAtFairValueAmount", currency) : null;
+  const filedCurrency = filedServicing?.unit === currency && filedServicing.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10) && Math.abs(p.val - amount) <= scale / 2);
+  const explicitCurrency = currency === "USD" && /\b(?:U\.S\.|US) dollars\b/i.test(sheet);
+  if ((!filedCurrency && !explicitCurrency) || /\b(?:euros|pounds sterling|Canadian dollars)\b/i.test(sheet) || Math.abs(vendor - amount) > scale / 2) return row;
+  return { ...row, intangibleAssets: 0,
+    tangibleBookDeductionBasis: `Filed servicing asset ${amount} ${currency} at fair value (${date}), not deducted: it is a financial asset, not goodwill or other intangible assets. No goodwill or intangible-asset fact is carried on this filed balance sheet; vendor intangibleAssets ${vendor} ties to that servicing asset. Source: ${source.documentUrl}.` };
+}
+
 /** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
 function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
   return rows.flatMap((row) => {
@@ -2010,6 +2045,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
+  // D-67: source bundles and stored reports stay byte-for-byte unchanged.
+  bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const quote = firstRow(bundle.quote);
   const refusedAnnualRevenue = rowsOf(bundle.statements.incomeAnnual).find(row => row.fieldConflicts?.revenue?.usable === false);
   const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id)) ??
@@ -2110,6 +2148,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+    row = withTangibleBookClassification(row, bundle, companyFacts);
     if (companyFacts === null) return row;
     const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
     const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
@@ -2182,6 +2221,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }, ttmGaps, [], issuance);
   }
 
+  const lendingCashFlow = lenderCashFlowApplicability(bundle, route);
+  if (lendingCashFlow) {
+    route.cashFlowApplicability = lendingCashFlow;
+    route.notes.push(lendingCashFlow.reason);
+  }
   const policy = metricPolicy(route);
   const isSuppressed = (key: string): boolean => policy.suppress.includes(key);
   const suppress = (key: string, reason: string): void => {
@@ -2245,6 +2289,18 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.model,
     currencies.ttmIncomeUsable,
   );
+  if (lendingCashFlow) {
+    returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
+    returns.roicVsWacc = { spreadPctPts: null, note: lendingCashFlow.reason };
+    if (returns.rote.latestRotePct === null) {
+      const withheld = returns.rote.notes.filter(note => note.includes("ROTE withheld:"));
+      if (withheld.length) {
+        const reason = `Lender return on tangible common equity withheld: ${withheld.join("; ")}`;
+        returns.rote.gaps = [...returns.rote.gaps.filter(gap => gap.field !== "returns.rote"), { field: "returns.rote", reason, severity: "warn" }];
+        returns.gaps = [...returns.gaps.filter(gap => gap.field !== "returns.rote"), ...returns.rote.gaps.filter(gap => gap.field === "returns.rote")];
+      }
+    }
+  }
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [modelEligibilityReason], gaps: [] };
@@ -2321,6 +2377,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     annualCashFlow: cashflowAnnual[0] ? toCapitalCashFlow(cashflowAnnual[0]) : null,
     annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
+
+  if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a
@@ -2567,6 +2625,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }
   }
 
+  if (lendingCashFlow) {
+    if (runway) runway = { ...runway, burning: null, avgQuarterlyBurn: null, burnWindowQuarters: 0, burnWindowDates: [],
+      runwayQuarters: null, estimatedExhaustionDate: null, notes: [lendingCashFlow.reason],
+      gaps: runway.gaps.filter(gap => gap.field === "runway.liquidAssets" || gap.field.startsWith("runway.dilution")) };
+    for (const key of ["fcf", "fcfGrowth", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf", "netDebt", "netDebtToEbitda", "interestCoverage", "grossMargin", "roic", "roicVsWacc"]) suppress(key, lendingCashFlow.reason);
+    degradation.items.push({ target: "cashFlow.ownerEconomics", action: "suppress", disclosure: lendingCashFlow.reason });
+  }
+
   // --- Scores + projections (deterministic; feature 1.1.0) ------------------
   // Every upside (the grade's DCF signal, the fair value, the scenario targets)
   // sets a model value against the quote. Without one known currency on both
@@ -2746,7 +2812,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     asOf: asOfDay,
     // D-60: the remaining repurchase authorization for the EPS capital-return disclosure.
     capitalReturn: (() => {
-      const capitalReturn = buildFilingDisclosures(bundle)?.capitalReturn ?? null;
+      const capitalReturn = buildFilingDisclosures(bundle, route.cashFlowApplicability)?.capitalReturn ?? null;
       return capitalReturn === null ? null : {
         authorizationRemaining: capitalReturn.authorizationRemaining,
         source: (() => { const source=capitalReturn.authorizationRemainingSource ?? capitalReturn.source;
@@ -2807,12 +2873,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("fcfDcf")) {
     suppress(
       "valuation.dcf",
-      modelEligibilityReason ?? (route.overlays.includes("unprofitable")
+      modelEligibilityReason ?? lendingCashFlow?.reason ?? (route.overlays.includes("unprofitable")
         ? "FCFF DCF not meaningful — free cash flow is structurally negative (unprofitable overlay); see multiples for relative valuation"
         : `FCFF DCF not meaningful for ${route.base} - book/excess-return model used`),
     );
   }
-  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
+  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", lendingCashFlow?.reason ?? `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
   // Audit 2026-10-22 B-24: a results release later than every statement.
@@ -3217,6 +3283,21 @@ function computeReturns(
     },
   });
 
+  if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
+    wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
+    const populatedPeers = Object.keys(bundle.peerFundamentals?.candidates ?? {}).length;
+    const peerBasis = populatedPeers === 0
+      ? `No peer candidate was populated (${bundle.peerFundamentals?.candidateCount ?? 0} discovered; see exclusions); the peer collection would retain profiles, quotes and quarterly statements only, without peer price histories, a common regression window or validated unlever/relever operands. `
+      : `The peer collection retains ${populatedPeers} candidate(s), with profiles, quotes and quarterly statements, without peer price histories, a common regression window or validated unlever/relever operands. `;
+    const reason = `Recent IPO: the retained issuer/SPY history supplies ${betaFit.months} usable monthly return observations; ${BETA_MIN_MONTHS} are required for the issuer regression. ` +
+      peerBasis +
+      "Bottom-up beta was not substituted. No sourced industry asset-beta dataset is retained; a sector ETF beta measures fund exposure, not an issuer asset beta. " +
+      "Cost of equity remains withheld; any WACC needing it remains withheld. No fallback point estimate or sensitivity is presented.";
+    wacc.notes.push(reason);
+    wacc.betaRegressionUnavailable = `${wacc.betaRegressionUnavailable ?? "Issuer regression unavailable."} ${reason}`;
+    for (const gap of wacc.gaps) if (gap.field === "returns.wacc.beta") gap.reason += `. ${reason}`;
+  }
+
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
   }
@@ -3421,6 +3502,7 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     totalEquity: num(row.totalEquity),
     goodwill: num(row.goodwill),
     intangibleAssets: num(row.intangibleAssets),
+    tangibleBookDeductionBasis: str(row.tangibleBookDeductionBasis) ?? undefined,
     minorityInterest: num(row.minorityInterest),
     preferredStock: num(row.preferredStock),
     // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.

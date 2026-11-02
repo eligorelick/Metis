@@ -45,6 +45,8 @@ export interface EconomicShareEvidence {
   effectiveTo: string | null;
   /** The source establishes that every economically participating common class is included. */
   complete: boolean;
+  /** Additional admission limits, retained in every resolved scope disclosure. */
+  basis?: string;
   sourceHash: string;
   sourceIds: string[];
   classes: {
@@ -69,6 +71,7 @@ export interface EconomicEquityScope {
   sourceHashes: string[];
   shareCountAsOf: string | null;
   currency?: string | null;
+  multiClass?: true;
   classPriceDates?: { classId: string; asOf: string }[];
   /** Admitted main quote valuation day, independent of report build/fetch day. */
   priceAsOf?: string | null;
@@ -139,7 +142,7 @@ export function resolveEconomicEquityScope(
     if (!finite(totals[0]) || totals[0] <= 0 || active.some(item => item.asOf !== row.asOf || signature(item) !== signature(row))) return unresolved();
     const approximate = active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy"));
     const weighted = active.some(item => item.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1));
-    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
+    return { status: "resolved", ...(row.classes.length > 1 ? { multiClass: true as const } : {}), marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
       currency: quote.currency ?? null,
       priceAsOf: priceDay,
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),
@@ -149,9 +152,10 @@ export function resolveEconomicEquityScope(
         (!approximate ? "quoted common-class price basis. "
           : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
             ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
-            : "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. ") +
+            : "same-price approximation for equivalent classes without an admitted quote (a separately traded class's own price was not used). ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
-        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` };
+        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` +
+        active.flatMap(item => item.basis ? [` ${item.basis}`] : []).join("") };
   }
   if (quote.marketCapSecurityBasis === "quoted-security" || quote.marketCapSecurityBasis === "unresolved" ||
     (quote.isAdr === true && quote.marketCapSecurityBasis !== "issuer-common")) return unresolved();

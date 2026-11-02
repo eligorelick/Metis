@@ -1,43 +1,5 @@
 # Valuation methodology
 
-N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
-with a directly tagged filed total permits a whole SEC-built income row only
-when the filed operating statement reconciles on matching periods, currency
-and filing scope. Revenue less CostsAndExpenses, or the issuer's filed gross
-profit less operating expenses, must equal operating income within the existing
-filed arithmetic tolerance. Bank revenue routing remains authoritative. A
-quarterly CFO conflict similarly permits the whole canonical SEC quarter with
-its filed lineage. EPS and weighted shares come from the replacement row;
-missing SEC EPS stays missing. No vendor field fills holes in that row.
-Manifests name both values, filings and mixed whole-row sources in TTM windows;
-existing TTM completeness and currency gates continue to apply. Vendor raw
-responses and stored reports are unchanged.
-
-An open annual revenue-definition conflict, recorded by validation or an
-explicit annual row refusal, also withholds EV/Sales and its history/peer
-ranking. A populated TTM vendor denominator cannot bypass that refusal.
-
-A retained XBRL revenue conflict is a completed comparison: completeness
-labels say conflict found and vendor revenue refused or replaced, even when
-downstream validation sees only the refused value. This display reading also
-uses retained evidence in stored reports without rewriting their metadata.
-
-A rising annual weighted-share trend spanning filed common conversion facts,
-or an IPO with a same-filing two-class participating-security allocation,
-does not establish economic dilution. The signal is withheld from scoring and
-share-trend projections; original counts, dates and the filing reason remain
-visible. Only issuer-admitted core-form facts available by the run cutoff
-qualify. IPO proceeds alone do not establish a conversion; ordinary issuance
-remains a dilution signal.
-
-For N3 CFO switches, either conflicting vendor CFO alias triggers admission;
-derived operands retain their existing rounding allowance. Missing canonical
-SEC cash-capex is an explicit investment-scope refusal on the replacement
-row, so runway cannot use an older vendor quarter to bypass the missing
-operand. A missing canonical quarter is never synthesized from a later-filed
-prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
-quarters and do not claim a single-lineage filed SEC TTM.
-
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
@@ -1183,6 +1145,18 @@ every row; the grid note states the excess it held.
 
 ## FCF and SBC
 
+**Cash-capex convention (P9, confirmed 2026-11-02).** Standardized FCF keeps
+the retained statement/vendor cash-capex field. That field is not established
+as PP&E-only and can include software inconsistently across quarters; the
+existing mixed-basis disclosure remains required. No PP&E-only or
+PP&E-plus-software normalization is applied. Adopting either basis would
+change the common FCF convention and require remeasurement of every issuer's
+FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
+by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
+rounded). This decision preserves arithmetic and does not claim period-by-period
+software comparability or issuer-defined FCF reconciliation.
+
+
 **Free cash flow subtracts stock-based compensation by default.** The
 cash-flow statement adds SBC back to operating cash flow because no cash left
 the building that period, but the expense is real: it is settled in newly
@@ -2232,7 +2206,7 @@ code, and tag evidence read from EDGAR companyfacts.
 | --- | --- |
 | deposits **and** (loans **or** net interest income) | bank |
 | premiums earned **and** loss or policy reserves | insurer |
-| `RealEstateInvestmentPropertyNet` / `…AtCost` | equity REIT |
+| Same-filing net property >= 50% of `Assets` | equity REIT (P9) |
 | mortgage-backed securities **or** mortgage loans held for investment, **and no** investment property, **corroborated** (see below) | mortgage REIT |
 
 Deliberate properties:
@@ -2308,8 +2282,46 @@ whose assets are marked securities and whose headline is book value.
 The sub-map is therefore decided by evidence or by an explicit vendor sub-type,
 never by the SIC:
 
-- `RealEstateInvestmentPropertyNet` present → **equity**.
-- Mortgage assets present without investment property → **mortgage**.
+- **Mortgage**: mortgage loans plus AFS MBS are at least 50% of `Assets`,
+  with the existing repo-funding or financial-classification corroboration.
+  Direct-loan synonyms, selected once in order: `MortgageLoansOnRealEstate`,
+  `MortgageLoansOnRealEstateCarryingAmountOfMortgages`, then
+  `MortgageLoansOnRealEstateCommercialAndConsumer`. Generic
+  `LoansReceivableHeldForInvestmentNet` is insufficient. The comparable MBS
+  asset is `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`:
+  available-for-sale securities are carried at fair value. HTM and issuer-category
+  fair-value-only disclosures (`MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`) do
+  not establish carrying assets and cannot supply the mortgage numerator.
+- **Property/equity, for an issuer already routed REIT**: filed real assets
+  must be positive, at least as large as mortgage assets, and mortgage assets
+  must be less than 50% of `Assets`. Real assets are
+  `RealEstateInvestmentPropertyNet` (otherwise `RealEstateInvestmentPropertyAtCost`
+  less `RealEstateInvestmentPropertyAccumulatedDepreciation`, legacy synonym
+  `RealEstateAccumulatedDepreciation`) plus net PP&E. The PP&E chain selects
+  `PropertyPlantAndEquipmentNet`, otherwise the registered synonym
+  `PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization`,
+  once rather than adding synonymous totals. For an established REIT, PP&E
+  represents rental real property such as towers and data centres. Neither
+  goodwill, intangibles nor operating right-of-use assets need to be outweighed
+  by rental property to distinguish equity from mortgage economics.
+- Each numerator operand and `Assets` must share the instant, currency and
+  accession. Only facts filed by the run date and within the recency window
+  qualify. Negative or above-total amounts cannot classify. Gross property
+  without accumulated depreciation cannot supply net real assets. No filed
+  real-asset fact means unknown, even when no mortgage fact is present; the
+  absence of a tag is not positive equity evidence. Both majorities (including
+  50/50) retain the existing unknown outcome. These comparisons select a
+  model; they are not statutory REIT asset tests. The routing basis names the
+  selected tags, amounts, filing, comparison results and reason.
+- This 2026-11-02 coordinator revision corrects FIN-308's earlier property
+  majority rule: specialty equity REITs can have substantial goodwill,
+  intangibles and right-of-use assets while the property map is appropriate.
+  A 45% real / 40% mortgage hybrid is equity; 10% real / 30% mortgage remains
+  unknown. PP&E alone never establishes an issuer's REIT status. Evidence-only
+  base-route inference keeps the existing net-investment-property majority
+  rule; explicit vendor subtype and conflict handling remain unchanged.
 - Vendor industry naming a sub-type (`REIT - Mortgage`, `REIT - Industrial`) →
   that sub-map. A vendor mortgage label contradicted by filed investment
   property is kept but flagged (`route.reitSubmap.conflict`).
@@ -2326,11 +2338,17 @@ interest spread and assets/equity leverage on the other — with the reason on t
 `route.reitSubmap` manifest entry. Publishing either set would assert a business
 model the evidence does not support.
 
-Known limitation (FIN-308): an undetermined sub-map still uses the existing
-industrial grading and forensic policy. A broader hold remains deferred because
-the plan's protected saved O and NNN cases also have undetermined sub-maps;
-their current figures are retained. This does not establish that industrial
-signals fit every undetermined REIT.
+FIN-308 (P9): when the type remains undetermined, grading keeps common revenue
+growth, capital stewardship and technical signals, plus the three common
+Piotroski tests (positive ROA, improved ROA, no equity issuance). The Piotroski
+used and applicable weight are both at most 3/9; missing common tests still
+reduce evidence. The grading audit cites these individual outcomes, not the
+full battery's total. Map-specific valuation, balance-sheet and moat signals
+are withheld, together with FCF growth, margin slope, capital-return spread,
+Altman, Beneish and accrual grading. The reason appears in route and score
+notes and in the gap manifest. Raw financial/forensic figures remain reported
+with their existing limitations; the grade does not silently assert a property
+or mortgage business model. Stored reports remain as recorded.
 
 ### Valuing a financial company
 
@@ -2927,10 +2945,17 @@ weighted by the share of the nine signals that were evaluable, and the
 shortfall counts against the quality aspect's data completeness — two
 coin-flip signals cannot swing the aspect the way nine do.
 
-Known limitation (FIN-306): for reduced financial or eligibility-held batteries,
-the completeness ceiling still includes tests withheld by route. Quality and
-composite coverage can therefore understate the evidence the route can use.
-The proposed correction remains deferred; existing scoring behavior is preserved.
+FIN-306 (P9): route-withheld tests are excluded from the applicable ceiling:
+three tests remain on a bank, insurer or mortgage REIT, and five on a fee-based
+FIN-OTHER route. The forensic result records the route-withheld count separately
+from missing supported data. Used weight remains outOf/9; applicable weight is
+(9 - routeWithheld)/9. An entirely absent battery on an established financial
+route retains the known supported maximum of three or five tests. A fully
+observed supported battery therefore has
+applicable completeness 1, while missing supported tests still reduce quality
+confidence and composite evidence. An unresolved operating-method eligibility
+refusal is not a designed route exclusion. Legacy results without the count
+retain their recorded completeness; stored reports are never rewritten.
 
 | Scale | Applies to | Signals withheld |
 | --- | --- | --- |
@@ -5323,6 +5348,15 @@ Amortization alone is never taken as D&A. Within one trailing year, quarters
 can mix the two compositions (Alphabet tags amortization in some quarters
 only); each quarter's composition is disclosed.
 
+**Deferred-revenue siblings (FIN-510-V1, P9).**
+`ContractWithCustomerLiabilityCurrent` and `DeferredRevenueCurrent` have no
+established definitional containment. When both resolve for the period and
+disagree, deferred revenue is withheld with a gap naming both tags, values
+and currencies. The resolver does not choose the larger or the first tag.
+Equal siblings or a single available sibling retain their existing value;
+other periods do not create a conflict. This does not alter R&D component
+floors or a bank's operating interest-income priority (D-134 OD-4).
+
 **Market cap across share classes (B-8).** An issuer with more than one
 common class needs every class's outstanding count and its economic relation
 to the quoted class before Métis states a market cap. Covers that tag each
@@ -6338,3 +6372,185 @@ Near-52-week price flags round the recorded high or low to cents; computed level
 Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
 
 Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).
+
+Review fix F9 distinguishes discovered candidates from populated peer data. With
+zero populated candidates, the refusal describes what the collection would retain,
+not profiles or statements supposedly present. Beta and history gates do not change.
+
+
+N2 P/TBV review: the basis names goodwill and intangibleAssets amounts actually
+deducted. A positive provider intangible amount is retained as a financial asset
+only when it ties, within filing rounding, to a same-date filed servicing asset
+at fair value in the same currency, and neither the filed balance sheet nor
+same-date goodwill/intangible facts carry an intangible deduction. Primary
+issuer/accession/URL, filing availability, units and date must agree. The
+provider row is not rewritten: a derived calculation copy excludes the proved
+servicing asset from the tangible-book deduction. Unproven cases retain the
+existing deduction. This also keeps tangible common-return denominators on the
+same classified balance basis when they use that date.
+
+Lender ROTE refusal reports carry the exact common-income gate reason (including
+observation-cutoff refusals), while the original admission rules remain in force.
+
+## Filed common-class inventory alternative (R-FIGR-3, N2)
+
+When no complete inline cover inventory is retained, a primary 10-Q/10-K
+balance sheet can establish an economic share denominator. All common classes
+must be explicitly enumerated once, in unscaled shares (the statement says
+"in thousands, except share and per share data"), with issued AND outstanding
+counts at the report date. A current sentence in that same filing must state
+identical dividend and liquidation rights for exactly those classes; voting
+equality, conversion rights, authorization and weighted-average counts do not
+establish this. Missing classes, conflicting entitlements, different dates,
+scaled counts, unknown quote class, ADRs and issuer mismatches fail closed.
+
+The provider's symbol, CIK and common-class title must match the registrant and
+one filed class. This is explicitly a provider quote-class binding, not an
+independently verified SEC trading-symbol row. Other classes use a disclosed
+same-price economic-equivalence approximation, including a separately named
+common class. Counts remain dated balance-sheet counts, not current shares or
+cover-date counts. The latest retained periodic filing governs; a newer unknown
+inventory prevents carrying an older proof forward. Newer-dated cover counts
+within that same filing also prevent substituting the older balance-sheet
+inventory while their scope is unresolved. Existing explicit inventory
+evidence is never replaced. The evidence hash covers retained statement/notes
+and the provider title, not unavailable raw HTML. All resolved scope disclosures,
+payloads and exports retain these limits. The quote payload registers the
+derived issuer-common capitalization separately from the raw, scope-unverified
+provider cap, and registers outstanding economic units at their filed count
+date, with price/count dates and evidence hashes. Outstanding counts support aggregate
+capitalization and multiples; per-share intrinsic value still requires its
+separate diluted-divisor and model-input gates. D-67: derivation is in memory
+for a new computation only; stored source bundles and reports are never rewritten.
+
+Review fixes F3/F5/F6/F7/F8: new resolved multi-class reports label raw
+provider capitalization and shares as quoted-class observations. A same-filing
+provider quoted-class discrepancy above 3% discloses both counts and dates;
+that observation does not alter admission. Explicit treasury counts, including
+a dated matching equity rollforward, are disclosed as a share of economic units
+and are not netted against the filer's issued-and-outstanding counts. Equivalent
+classes without an admitted quote use a disclosed same-price approximation;
+a separately traded class's own price was not used. Contrary dividend rights
+stated as Class X common shares or shares also block 1:1 admission.
+
+## Non-bank held-for-sale lending cash flow (R-FIGR-1, N2)
+
+The general route has a narrow owner-FCF applicability exception. It requires
+SEC SIC 6141, 6153, 6159, 6162 or 6163, matching registrant SIC, and the latest
+retained primary 10-Q/10-K statement of cash flows explicitly reporting nonzero
+"Originations of loans held for sale" and "Proceeds from loan sales" (or
+"Proceeds from sales of loans") within operating activities, before investing
+activities. A repeated "operating activities" reconciliation heading does not
+end that section. The primary SEC Archives URL must bind the CIK and accession;
+filing/report dates must be valid and known by the computation cutoff, and the
+report date must match the latest cash-flow row. An older note cannot pass a
+newer periodic filing. SIC alone, sector alone, negative CFO, balances of loans,
+investing loan activity, originations without sale proceeds, zero flows and
+broad unresolved SIC 6199 do not establish applicability. No bank route changes.
+
+For this evidenced business model, OCF less capex includes funding and turnover
+of held-for-sale loan inventory. It is not an owner-cash measure or an exhaustion
+clock, regardless of its sign or reported profitability. Owner FCF (before and
+after SBC), conversion and growth, P/FCF and its histories/peer rankings, FCF
+yield, cash runway, and FCF-based DCF/reverse DCF/sensitivity are **not
+applicable**, with the filed source and plain reason. There is no new lender
+valuation model. Earnings and book-value measures remain under their existing
+gates. Raw filed OCF, cash capex, loan flows and SBC stay retained; source
+conflicts continue to withhold the affected observations independently. The
+generic derived/vendor FCF line is omitted from statement prompt extracts and
+quarterly report trends, preventing an alternative path from promoting it as
+owner FCF. Issuer-defined cash-flow disclosures retain their filed definitions
+with the applicability caveat.
+
+The FCF growth, DCF and FCF-dependent capital signals are removed from the
+applicable grade denominator, rather than counted as missing inputs. Coverage
+and leverage signals retain their prior rules. Report notes, both layouts,
+payload/prompt provenance and Markdown/audit/print exports carry the same
+explanation. Applicability is derived for new computations; existing saved
+reports are neither reinterpreted nor rewritten (D-67).
+
+Review fixes F1/F2/F12 (owner delegated to the coordinator, 2026-11-01):
+evidenced lenders suppress industrial EV/EBITDA, EV/Sales, net debt,
+net debt/EBITDA, coverage, gross margin, ROIC and ROIC-vs-WACC. Warehouse
+and loan-owner funding is operating inventory finance; industrial leverage
+and coverage do not measure solvency. Capital adequacy is not modelled for
+non-bank lenders, so the Balance Sheet aspect is not modelled. ROTE replaces
+ROIC in Moat; filed operating margin stays applicable. Existing common-income
+availability and allocation gates still apply. EV is context only, with named
+filed debt components tied to the same-date provider perimeter; without that
+composition the context value is withheld. Stored reports are immutable.
+
+## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
+
+No new bottom-up or sector-beta fallback is implemented. The existing peer
+collection retains profile, quote and quarterly income/balance-sheet endpoints,
+not peer return histories. An unsourced vendor peer beta does not establish a
+common observation window or a levered/unlevered basis. The subject's SPY
+regression still requires at least 24 completed, paired monthly returns, with
+the existing 60-month window, settled-session/date and price-basis rules. A
+financial-sector ETF is a diversified fund exposure, not evidence of an
+issuer's asset beta. No industry asset-beta dataset with a sourced vintage and
+applicable business composition is retained. Lowering the issuer-history gate,
+averaging unqualified vendor peer betas or setting beta to one would manufacture
+the required evidence.
+
+When cost of equity is already refused for beta, a recent-IPO overlay plus an
+unavailable issuer regression adds a concrete reader explanation: the actual
+usable return count and 24-return minimum, retained peer count, absent peer
+price histories and unvalidated unlever/relever operands, absent industry
+asset-beta source, and the distinction between sector ETF and issuer risk.
+The beta gap, discount-rate disclosure, payload and exports retain that reason.
+No fallback point estimate or sensitivity is printed. Existing numerical
+admission/refusal gates (including the valid vendor-beta path), bank routing,
+grade denominators and historical stored reports remain unchanged.
+
+A future bottom-up implementation needs independently comparable issuers,
+sufficient common dated return histories, a documented tax and market D/E basis
+for each peer and subject, and uncertainty/sensitivity. The ordinary Hamada
+construction would unlever beta_L by [1 + (1 - tax) x D/E] and relever the
+result to the subject on the same basis. For lenders, borrowing can fund loan
+inventory as an operating input, so treating all funding debt as industrial
+financial leverage also requires an explicit economic justification. Those
+requirements are not established by the current retained inputs; no numerical
+fallback is represented as implemented or validated (see RESEARCH section 8.4
+on bottom-up beta as a research direction).
+
+## SEC-built rows on a filed-total conflict (N3)
+
+N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
+with a directly tagged filed total permits a whole SEC-built income row only
+when the filed operating statement reconciles on matching periods, currency
+and filing scope. Revenue less CostsAndExpenses, or the issuer's filed gross
+profit less operating expenses, must equal operating income within the existing
+filed arithmetic tolerance. Bank revenue routing remains authoritative. A
+quarterly CFO conflict similarly permits the whole canonical SEC quarter with
+its filed lineage. EPS and weighted shares come from the replacement row;
+missing SEC EPS stays missing. No vendor field fills holes in that row.
+Manifests name both values, filings and mixed whole-row sources in TTM windows;
+existing TTM completeness and currency gates continue to apply. Vendor raw
+responses and stored reports are unchanged.
+
+An open annual revenue-definition conflict, recorded by validation or an
+explicit annual row refusal, also withholds EV/Sales and its history/peer
+ranking. A populated TTM vendor denominator cannot bypass that refusal.
+
+A retained XBRL revenue conflict is a completed comparison: completeness
+labels say conflict found and vendor revenue refused or replaced, even when
+downstream validation sees only the refused value. This display reading also
+uses retained evidence in stored reports without rewriting their metadata.
+
+A rising annual weighted-share trend spanning filed common conversion facts,
+or an IPO with a same-filing two-class participating-security allocation,
+does not establish economic dilution. The signal is withheld from scoring and
+share-trend projections; original counts, dates and the filing reason remain
+visible. Only issuer-admitted core-form facts available by the run cutoff
+qualify. IPO proceeds alone do not establish a conversion; ordinary issuance
+remains a dilution signal.
+
+For N3 CFO switches, either conflicting vendor CFO alias triggers admission;
+derived operands retain their existing rounding allowance. Missing canonical
+SEC cash-capex is an explicit investment-scope refusal on the replacement
+row, so runway cannot use an older vendor quarter to bypass the missing
+operand. A missing canonical quarter is never synthesized from a later-filed
+prior YTD operand. Mixed whole-row cash-flow windows disclose remaining vendor
+quarters and do not claim a single-lineage filed SEC TTM.

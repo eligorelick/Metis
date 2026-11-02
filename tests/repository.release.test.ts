@@ -25,6 +25,8 @@ const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-11-02-n3-sec-rows.md",
+  "docs/audit/2026-11-02-p9-methodology.md",
+  "docs/audit/2026-11-02-n2-figr-readiness.md",
   "docs/audit/2026-11-02-p7-display.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
   "docs/audit/2026-11-02-p5-primary-data.md",
@@ -63,6 +65,8 @@ const REQUIRED_RELEASE_FILES = [
  */
 const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-11-02-n3-sec-rows.md",
+  "docs/audit/2026-11-02-p9-methodology.md",
+  "docs/audit/2026-11-02-n2-figr-readiness.md",
   "docs/audit/2026-11-02-b4b-equity-bridge.md",
   "docs/audit/2026-11-02-p7-display.md",
   "docs/audit/2026-11-02-p6-local-security.md",

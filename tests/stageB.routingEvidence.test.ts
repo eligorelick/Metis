@@ -28,6 +28,9 @@ import {
 } from "@/pipeline/stageB/sectorRouting";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FetchResult } from "@/types/core";
+import { runStageB } from "@/pipeline/compute";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { confirmFixtureIssuer } from "./helpers/edgarIdentity";
 
 const TODAY = "2026-07-06";
 
@@ -104,16 +107,63 @@ const INSURER_FACTS = {
 
 /** An equity REIT: investment property on the balance sheet. */
 const EQUITY_REIT_FACTS = {
+  Assets: [{ end: "2025-12-31", val: 40_000_000_000 }],
   RealEstateInvestmentPropertyNet: [{ end: "2025-12-31", val: 24_000_000_000 }],
 };
 
 /** A mortgage REIT: MBS and repo funding, and NO investment property. */
 const MORTGAGE_REIT_FACTS = {
+  Assets: [{ end: "2025-12-31", val: 80_000_000_000 }],
   MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: [
     { end: "2025-12-31", val: 65_000_000_000 },
   ],
   SecuritiesSoldUnderAgreementsToRepurchase: [{ end: "2025-12-31", val: 58_000_000_000 }],
 };
+
+describe("FIN-308 P9: filed REIT asset majority", () => {
+  const pt = (val: number, end = "2025-12-31") => [{ end, val }];
+  it("requires at least half of same-filing total assets, rather than a token property holding", () => {
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(50) })).reitSubmap).toBe("equity");
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(49) })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ RealEstateInvestmentPropertyNet: pt(90) })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(90, "2024-12-31") })).reitSubmap).toBeNull();
+  });
+  it("uses net property, or filed cost less accumulated depreciation, never gross cost alone", () => {
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyAtCost: pt(70), RealEstateInvestmentPropertyAccumulatedDepreciation: pt(25) })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyAtCost: pt(80), RealEstateInvestmentPropertyAccumulatedDepreciation: pt(25) })).reitSubmap).toBe("equity");
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyAtCost: pt(80) })).reitSubmap).toBeNull();
+  });
+  it("adds mortgage loans and MBS, without counting their synonymous totals twice", () => {
+    const tags = { Assets: pt(100), MortgageLoansOnRealEstate: pt(25), MortgageLoansOnRealEstateCarryingAmountOfMortgages: pt(25), MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: pt(25) };
+    expect(deriveRoutingEvidence(okFacts(tags)).reitSubmap).toBe("mortgage");
+    expect(deriveRoutingEvidence(okFacts({ ...tags, MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: pt(10) })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(50), MortgageLoansOnRealEstate: pt(50) })).reitSubmap).toBeNull();
+  });
+  it("requires the same filing and currency, and evidence filed by the run date", () => {
+    const differentFiling = okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) });
+    if (!differentFiling.ok) throw new Error("fixture facts unavailable");
+    const filingTag = differentFiling.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet as { units: { USD: { accn: string }[] } };
+    filingTag.units.USD[0]!.accn = "0000000000-26-999999";
+    expect(deriveRoutingEvidence(differentFiling).reitSubmap).toBeNull();
+    const differentCurrency = okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) });
+    if (!differentCurrency.ok) throw new Error("fixture facts unavailable");
+    const units = (differentCurrency.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet as { units: Record<string, unknown[]> }).units;
+    units.EUR = units.USD!;
+    delete units.USD;
+    expect(deriveRoutingEvidence(differentCurrency).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) }), { today: "2026-01-01" }).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100), RealEstateInvestmentPropertyAtCost: pt(60), RealEstateInvestmentPropertyAccumulatedDepreciation: pt(0) })).reitSubmap).toBe("equity");
+  });
+  it("FIN-308: fair-value-only HTM disclosures do not establish a carrying-assets majority", () => {
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100),
+      MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: pt(10),
+      MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure: pt(60),
+    })).reitSubmap).toBeNull();
+    expect(deriveRoutingEvidence(okFacts({ Assets: pt(100),
+      MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure: pt(60),
+    })).reitSubmap).toBeNull();
+  });
+});
 
 function profile(over: Partial<RoutingProfile> = {}): RoutingProfile {
   return {
@@ -160,6 +210,106 @@ function route(
   });
 }
 
+describe("FIN-308 revision: mortgage versus equity for an established REIT", () => {
+  const pt = (val: number) => [{ end: "2025-12-31", val }];
+  const knownReit = (tags: Record<string, Pt[]>) => route(
+    { sector: "Real Estate", industry: "REIT - Diversified", sic: "6798" },
+    okFacts({ Assets: pt(100), ...tags }),
+  );
+
+  it("uses filed PP&E-only real assets for a specialty REIT, with the comparison and reason disclosed", () => {
+    const r = knownReit({ PropertyPlantAndEquipmentNet: pt(20) });
+    expect(r.reitSubmap).toBe("equity");
+    expect(metricPolicy(r).suppress).not.toContain("pFfo");
+    const note = r.notes.join(" ");
+    expect(note).toContain("PropertyPlantAndEquipmentNet 20 USD");
+    expect(note).toContain("real assets 20 > 0");
+    expect(note).toContain("20 >= mortgage assets 0");
+    expect(note).toContain("0 < 50% of Assets 100");
+    expect(note).toMatch(/already routed REIT.*rental real property/);
+  });
+
+  it.each([
+    { real: 45, mortgage: 40, submap: "equity" },
+    { real: 10, mortgage: 30, submap: "undetermined" },
+    { real: 0, mortgage: 50, submap: "mortgage" },
+    { real: 50, mortgage: 50, submap: "undetermined" },
+    { real: 0, mortgage: 49, submap: "undetermined" },
+    { real: 49, mortgage: 0, submap: "equity" },
+    { real: 0, mortgage: 0, submap: "undetermined" },
+  ])("filed real $real% / mortgage $mortgage% -> $submap", ({ real, mortgage, submap }) => {
+    const r = knownReit({ RealEstateInvestmentPropertyNet: pt(real), MortgageLoansOnRealEstate: pt(mortgage) });
+    expect(r.reitSubmap).toBe(submap);
+    if (submap === "undetermined") {
+      expect(metricPolicy(r).suppress).toContain("pFfo");
+      expect(r.gaps.find(g => g.field === "route.reitSubmap")?.reason).toContain("mortgage assets");
+    }
+  });
+
+  it("adds PP&E to net property or cost less depreciation, without adding property aliases twice", () => {
+    expect(knownReit({ RealEstateInvestmentPropertyAtCost: pt(60), RealEstateAccumulatedDepreciation: pt(50),
+      PropertyPlantAndEquipmentNet: pt(20), MortgageLoansOnRealEstate: pt(25) }).reitSubmap).toBe("equity");
+    expect(knownReit({ RealEstateInvestmentPropertyNet: pt(10), RealEstateInvestmentPropertyAtCost: pt(80),
+      RealEstateAccumulatedDepreciation: pt(20), PropertyPlantAndEquipmentNet: pt(5),
+      MortgageLoansOnRealEstate: pt(30) }).reitSubmap).toBe("undetermined");
+    expect(knownReit({ RealEstateInvestmentPropertyAtCost: pt(60), MortgageLoansOnRealEstate: pt(30) }).reitSubmap).toBe("undetermined");
+  });
+
+  it("uses the registered net-PP&E finance-lease synonym after the literal tag is retired, selecting aliases once", () => {
+    const alias = "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization";
+    const r = knownReit({ PropertyPlantAndEquipmentNet: [{ end: "2019-09-30", val: 15 }], [alias]: pt(20) });
+    expect(r.reitSubmap).toBe("equity");
+    expect(r.notes.join(" ")).toContain(`${alias} 20 USD`);
+    expect(knownReit({ PropertyPlantAndEquipmentNet: pt(10), [alias]: pt(40),
+      MortgageLoansOnRealEstate: pt(30) }).reitSubmap).toBe("undetermined");
+  });
+
+  it("keeps missing real facts unknown and does not use ordinary PP&E to establish REIT status", () => {
+    expect(knownReit({}).reitSubmap).toBe("undetermined");
+    expect(route({}, okFacts({ Assets: pt(100), PropertyPlantAndEquipmentNet: pt(80) })).base).toBe("general");
+    expect(route({ sector: "Technology", industry: "Computer Hardware", sic: "3571" },
+      okFacts({ Assets: pt(100), PropertyPlantAndEquipmentNet: pt(80) })).base).toBe("general");
+  });
+
+  it.each(["instant", "currency", "accession", "duration", "future", "stale"])(
+    "does not admit a PP&E fact on an incompatible %s basis", (mismatch) => {
+      const input = okFacts({ Assets: pt(100), PropertyPlantAndEquipmentNet: pt(20) });
+      if (!input.ok) throw new Error("fixture facts unavailable");
+      const concept = input.value.data.facts["us-gaap"]!.PropertyPlantAndEquipmentNet as {
+        units: Record<string, { end: string; accn: string; filed: string; start?: string }[]>;
+      };
+      const point = concept.units.USD![0]!;
+      if (mismatch === "instant") point.end = "2025-09-30";
+      if (mismatch === "accession") point.accn = "0000000000-26-999999";
+      if (mismatch === "duration") point.start = "2025-01-01";
+      if (mismatch === "future") point.filed = "2026-12-31";
+      if (mismatch === "stale") point.end = "2020-12-31";
+      if (mismatch === "currency") { concept.units.EUR = concept.units.USD!; delete concept.units.USD; }
+      const r = routeCompany(profile({ sic: "6798" }), statements(), {
+        today: TODAY, evidence: deriveRoutingEvidence(input, { today: TODAY }),
+      });
+      expect(r.reitSubmap).toBe("undetermined");
+    },
+  );
+
+  it("carries the specialty property map through FFO/AFFO valuation and grading", () => {
+    const bundle = completeCurrencyBundle({ reit: true, sic: "6798", siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    if (!bundle.profile.ok) throw new Error("fixture profile unavailable");
+    bundle.profile.value.data.rows[0]!.industry = "REIT - Diversified";
+    confirmFixtureIssuer(bundle, 1234567);
+    bundle.edgar.companyFacts = okFacts({ Assets: pt(100), PropertyPlantAndEquipmentNet: pt(20) });
+    const c = runStageB(bundle);
+    expect(c.route.reitSubmap).toBe("equity");
+    if (c.valuation.kind !== "reit") throw new Error("expected REIT valuation");
+    for (const value of [c.valuation.reit.pToFfo, c.valuation.reit.pToAffo, c.valuation.reit.ffoPerShare,
+      c.valuation.reit.affoPerShare, c.valuation.reit.impliedCapRatePct, c.valuation.reit.enterpriseValue]) {
+      expect(value).toEqual(expect.any(Number));
+    }
+    expect(c.scores.aspects.balanceSheet.score).not.toBeNull();
+    expect(c.scores.aspects.moat.score).not.toBeNull();
+  });
+});
+
 describe("deriveRoutingEvidence — tag presence with values and periods", () => {
   it("reads deposits, loans and net interest income as bank evidence with values and period ends", () => {
     const e = deriveRoutingEvidence(okFacts(BANK_FACTS));
@@ -199,7 +349,7 @@ describe("deriveRoutingEvidence — tag presence with values and periods", () =>
     // A hybrid that files investment property is NOT a mortgage REIT: the
     // property tag decides, exactly as D-16 specifies.
     const hybrid = deriveRoutingEvidence(
-      okFacts({ ...EQUITY_REIT_FACTS, ...MORTGAGE_REIT_FACTS }),
+      okFacts({ ...MORTGAGE_REIT_FACTS, ...EQUITY_REIT_FACTS, MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: [{ end: "2025-12-31", val: 10_000_000_000 }] }),
     );
     expect(hybrid.reitSubmap).toBe("equity");
     expect(hybrid.mortgageReit).toEqual([]);
@@ -211,6 +361,7 @@ describe("deriveRoutingEvidence — tag presence with values and periods", () =>
     const stale = deriveRoutingEvidence(
       okFacts({
         Deposits: [{ end: "2014-12-31", val: 10_000_000_000 }],
+        Assets: [{ end: "2025-12-31", val: 15_000_000_000 }],
         RealEstateInvestmentPropertyNet: [{ end: "2025-12-31", val: 9_000_000_000 }],
       }),
     );
@@ -408,6 +559,8 @@ describe("mortgage-REIT evidence is specific, and needs corroboration to re-rout
     const r = route(
       { sector: "Industrials", industry: "Conglomerates", sic: "3531" },
       okFacts({
+        // FIN-308: majority evidence is required in addition to corroboration.
+        Assets: [{ end: "2025-12-31", val: 5_000_000_000 }],
         MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: [
           { end: "2025-12-31", val: 3_000_000_000 },
         ],
@@ -427,6 +580,8 @@ describe("mortgage-REIT evidence is specific, and needs corroboration to re-rout
     const r = route(
       { sector: "Real Estate", industry: null, sic: "6798" },
       okFacts({
+        // FIN-308: majority evidence is required in addition to corroboration.
+        Assets: [{ end: "2025-12-31", val: 5_000_000_000 }],
         MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure: [
           { end: "2025-12-31", val: 3_000_000_000 },
         ],
