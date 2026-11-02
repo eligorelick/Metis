@@ -5985,3 +5985,5 @@ RPT-206: the data-only banner reports classified D-67 data-gap counts, with note
 RPT-207: FMP failures count per dataset: per symbol for issuer/benchmark price histories, and per period for statements. Subject datasets merge with matching keyless verdicts. Peer requests retain their symbols and stay separate; unknown issuers are not guessed.
 
 RPT-206 review: the shared saved-snapshot header labels Research with the recorded research state, including process warnings. Data-gap summaries retain separately classified counts.
+
+AI-111 review: a name initial before Buy/Sell/Hold accepts a comma only before the appositive words the, a, an, our, its, who or whose. Comma-led rating directives remain refused.

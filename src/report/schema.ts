@@ -269,7 +269,7 @@ const RATING_PATTERNS: readonly RegExp[] = [
 
 /** OD-5: closed abbreviation exceptions; rating patterns remain intact. */
 function maskNamePeriods(text: string): string {
-  return text.replace(/\b([A-Z][a-z]+\s+(?:[A-Z]\.\s+)*[A-Z])\.(?=\s+(?:Buy|Sell|Hold)(?:\s*[\u2014\u2013,(]|['\u2019]s\b))/g, "$1")
+  return text.replace(/\b([A-Z][a-z]+\s+(?:[A-Z]\.\s+)*[A-Z])\.(?=\s+(?:Buy|Sell|Hold)(?:\s*[\u2014\u2013(]|,\s+(?:the|a|an|our|its|who|whose)\b|['\u2019]s\b))/g, "$1")
     .replace(/\b(Mr|Ms|Mrs|Mx|Dr|Prof|Rev|Hon|Sen|Rep|Gov|Gen|Col|Capt|Lt)\.(?=\s+[A-Z])(?!\s+(?:Strong\s+)?(?:Buy|Sell|Hold)\s*(?:[.!?]|$))/g, "$1");
 }
 export function noBuySellHold(text: string): boolean {
