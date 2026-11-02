@@ -60,6 +60,7 @@ const REQUIRED_RELEASE_FILES = [
  */
 const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-11-02-n2-figr-readiness.md",
+  "docs/audit/2026-11-02-p6-local-security.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
   "docs/audit/2026-11-02-paid-work-lifecycle.md",
   "docs/audit/2026-11-02-verifier-and-trust-labels.md",

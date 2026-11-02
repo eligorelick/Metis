@@ -121,53 +121,84 @@ function windowsProtect(input: string, decrypt: boolean): string {
 
 function filePath(): string { return path.join(aiDirectory(), "connections.v1.json"); }
 
-let providerCache: { signature: string; values: Readonly<Partial<Record<ProviderCredentialKey, string>>> } | undefined;
+export const AI_STORE_UNREADABLE_HELP = 'See "AI connection storage cannot be read" in docs/OPERATIONS.md.';
+const unreadableMessage = `AI connection storage cannot be read; credentials were not replaced. ${AI_STORE_UNREADABLE_HELP}`;
+type ProviderCredentialValues = Readonly<Partial<Record<ProviderCredentialKey, string>>>;
+type StoreSnapshot = { file: string; bytes: string; value?: AiStore; credentials?: ProviderCredentialValues; error?: Error; retryAt: number };
+let snapshot: StoreSnapshot | undefined;
+export function resetAiStoreCacheForTests(): void { snapshot = undefined; }
+const NO_CREDENTIALS: ProviderCredentialValues = Object.freeze({});
 
-/** Reuse the protected store; decrypt only when its atomically replaced file changes. */
-export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
-  const file = filePath();
-  let stat: fs.Stats;
-  try { stat = fs.statSync(file); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    providerCache = undefined;
-    return {};
-  }
-  const signature = `${file}:${stat.ino}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`;
-  if (providerCache?.signature !== signature) {
-    providerCache = { signature, values: Object.freeze({ ...readAiStore()?.providerCredentials }) };
-  }
-  return providerCache.values;
+export function providerCredentialSnapshot(): { values: ProviderCredentialValues; unreadable?: string } {
+  try {
+    const current = currentSnapshot();
+    if (current === null) return { values: NO_CREDENTIALS };
+    // Byte-identical store: reuse one frozen copy rather than cloning every profile per call.
+    current.credentials ??= Object.freeze({ ...current.value.providerCredentials });
+    return { values: current.credentials };
+  } catch { return { values: {}, unreadable: unreadableMessage }; }
 }
-
+export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
+  return providerCredentialSnapshot().values;
+}
 export function getProviderCredential(key: ProviderCredentialKey): string | undefined {
-  return readProviderCredentials()[key] ?? (process.env[key]?.trim() || undefined);
+  const current = providerCredentialSnapshot();
+  if (current.unreadable && (key === "ANTHROPIC_API_KEY" || key === "ANTHROPIC_ADMIN_KEY")) return undefined;
+  return current.values[key] ?? (process.env[key]?.trim() || undefined);
 }
 
 export function readAiStore(): AiStore | null {
-  if (!fs.existsSync(filePath())) return null;
+  const current = currentSnapshot();
+  return current === null ? null : structuredClone(current.value);
+}
+
+/** The decoded store for the file's exact current bytes; callers that may mutate get a clone from readAiStore. */
+function currentSnapshot(): (StoreSnapshot & { value: AiStore }) | null {
+  const file = filePath();
+  let bytes: string;
+  try { bytes = fs.readFileSync(file, "utf8"); }
+  catch (error) {
+    snapshot = undefined;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw new Error(unreadableMessage);
+  }
+  if (snapshot?.file === file && snapshot.bytes === bytes && snapshot.error && Date.now() < snapshot.retryAt) throw snapshot.error;
+  if (snapshot?.file === file && snapshot.bytes === bytes && snapshot.value) return snapshot as StoreSnapshot & { value: AiStore };
   try {
-    const envelope = JSON.parse(fs.readFileSync(filePath(), "utf8"));
+    const envelope = JSON.parse(bytes);
     const decoded = envelope.protection === "windows-dpapi"
       ? Buffer.from(windowsProtect(envelope.data, true), "base64").toString("utf8")
       : process.platform !== "win32" && envelope.protection === "owner-only" ? envelope.data : null;
     if (decoded === null) throw new Error();
     const value: unknown = JSON.parse(decoded);
     if (!aiStoreSchema.safeParse(value).success) throw new Error();
-    return value as AiStore;
-  } catch { throw new Error("AI connection storage cannot be read; credentials were not replaced"); }
+    const next = { file, bytes, value: structuredClone(value as AiStore), retryAt: 0 };
+    snapshot = next;
+    return next;
+  } catch {
+    const error = new Error(unreadableMessage);
+    snapshot = { file, bytes, error, retryAt: Date.now() + 30_000 };
+    throw error;
+  }
 }
 
 function writeAiStore(store: AiStore): void {
+  // Persist only a state this build can read back, so an invalid save fails
+  // now instead of surfacing as an unreadable store after the next restart.
+  if (!aiStoreSchema.safeParse(store).success) {
+    throw new Error("AI connection storage was not updated: the new settings failed validation, so nothing was written.");
+  }
   const data = JSON.stringify(store);
   const envelope = process.platform === "win32"
     ? { protection: "windows-dpapi", data: windowsProtect(Buffer.from(data).toString("base64"), false) }
     : { protection: "owner-only", data };
   const temporary = `${filePath()}.${randomUUID()}.tmp`;
   try {
-    fs.writeFileSync(temporary, JSON.stringify(envelope), { mode: 0o600, flag: "wx" });
+    const bytes = JSON.stringify(envelope);
+    fs.writeFileSync(temporary, bytes, { mode: 0o600, flag: "wx" });
     fs.renameSync(temporary, filePath());
     if (process.platform !== "win32") fs.chmodSync(filePath(), 0o600);
+    snapshot = { file: filePath(), bytes, value: structuredClone(store), retryAt: 0 };
   } finally { fs.rmSync(temporary, { force: true }); }
 }
 
@@ -175,9 +206,11 @@ function writeAiStore(store: AiStore): void {
 export async function withAiStore<T>(fn: (store: AiStore) => Promise<T> | T): Promise<T> {
   ensurePrivateDirectory(aiDirectory());
   return withAiMutex(path.join(aiDirectory(), "connections.lock"), async () => {
-    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
+    const current = readAiStore();
+    const store = current ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
+    const before = current === null ? null : JSON.stringify(store);
     const result = await fn(store);
-    writeAiStore(store);
+    if (before === null || JSON.stringify(store) !== before) writeAiStore(store);
     return result;
   });
 }

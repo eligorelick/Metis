@@ -15,7 +15,7 @@ import "server-only";
 
 import { z } from "zod";
 import { withMetisAliases } from "./namespace";
-import { readProviderCredentials } from "@/ai/store";
+import { providerCredentialSnapshot } from "@/ai/store";
 
 import {
   ANTHROPIC_REQUEST_TIMEOUT_MS,
@@ -393,11 +393,11 @@ let credentialSignature: string | undefined;
 
 /** Saved provider keys override environment keys and take effect without restarting. */
 export function getConfig(): ThesisConfig {
-  const credentials = readProviderCredentials();
-  const signature = JSON.stringify(credentials);
+  const { values: credentials, unreadable } = providerCredentialSnapshot();
+  const signature = JSON.stringify({ credentials, unreadable });
   if (cached === undefined || signature !== credentialSignature) {
     // Resolve native env lookups before copying: Windows keys are case-insensitive.
-    cached = parseEnv({ ...withMetisAliases(process.env, Object.keys(envSchema.shape)), ...credentials });
+    cached = parseEnv({ ...withMetisAliases(process.env, Object.keys(envSchema.shape)), ...credentials, ...(unreadable ? { ANTHROPIC_API_KEY: undefined, ANTHROPIC_ADMIN_KEY: undefined } : {}) });
     credentialSignature = signature;
   }
   return cached;

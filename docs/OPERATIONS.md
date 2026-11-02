@@ -233,7 +233,11 @@ require accepted browser metadata/matching Origin or the startup
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
-and strict local access even when an optional LAN authority is allowed.
+and loopback access. Configured non-loopback LAN mode disables credential and
+AI connection management regardless of the supplied Host; stop LAN mode and
+restart on loopback to manage keys, while saved credentials still work for runs.
+Company landing pages accept only GET and HEAD; other methods return 405 with
+`Allow: GET, HEAD`.
 
 | Method and path | Request / successful response | Material error behavior |
 | --- | --- | --- |
@@ -299,6 +303,13 @@ Stop every Metis server before upgrading or downgrading this protocol; migrate
 only an incompatible lock when instructed, preserving credentials and Gemini
 directories. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
 and the [native process verification record](audit/2026-10-04-recommendations.md).
+
+Plan-run recovery files live in `<data dir>/recovery/sections` (they follow
+`METIS_DATA_DIR`, not `METIS_DB_PATH`). `*.json` files keep completed analyst
+and judge sections with writer evidence; `*.usage.jsonl` files keep per-request
+usage. Nothing purges them and deleting the database does not remove them:
+delete the directory with Metis stopped. A later retry then requests those
+sections again and uses plan allowance.
 
 Back up a stopped database with any remaining `-wal`/`-shm` sidecars, or use a
 SQLite-aware backup while running. A copied DB without its uncheckpointed WAL
@@ -377,6 +388,7 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | Corrected export refuses a path | Choose new HTML and JSON destinations; existing files are never overwritten. |
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
 | AI store is held by another server | A plan-connection job stops at the start of its fetch step, in one attempt and before any data is fetched, with "AI connections are active in another Metis server"; a pass refused mid-run says the same and is not retried. Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
+| AI connection storage cannot be read | Saved reports stay readable and data keys from the environment still work, but the Claude API and admin keys the store holds are withheld, new jobs do not start and nothing is written to the store. An unchanged file is retried after 30 seconds and a changed one at once. For a timeout, retry shortly; after a downgrade, return to the newer build. Otherwise stop Metis, move `connections.v1.json` aside as a backup and reconnect. Metis never resets or overwrites the unreadable file. |
 
 AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
 ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
