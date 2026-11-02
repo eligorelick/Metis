@@ -2206,6 +2206,16 @@ function entityConflictsForCases(
   );
 }
 
+/** OD-4: payload membership and issuer origin are both required. */
+export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
+  return id => {
+    if (id.startsWith("edgar:")) return (payload.filings ?? []).some(row => row.source === id) || (payload.citationRegistry ?? []).some(row => row.id === id);
+    if (id === "fmp:earning-call-transcript") return payload.transcript != null;
+    if (id === "fmp:press-release") return (payload.citationRegistry ?? []).some(row => row.id === id);
+    return /^(?:payload\.(?:statements|issuer-filings|filing-facts|segments|segment-revenue|leadership|insiders|computed)\.|computed\.)/.test(id) && (payload.provenanceRegistry ?? []).some(row => row.id === id);
+  };
+}
+
 function unresolvedJudgeEntityConflicts(
   payload: ContextPayload,
   bull: AnalystCase,
@@ -2222,7 +2232,7 @@ function unresolvedJudgeEntityConflicts(
   const walk = (node: unknown, structuredSource: string | null = null): void => {
     if (typeof node === "string") {
       reportIssues.push(
-        ...validateEntityText(node, registry, structuredSource).issues.filter(
+        ...validateEntityText(node, registry, structuredSource, issuerPrimarySource(payload)).issues.filter(
           (issue) => structuredSource !== null || issue.code !== "primary-source-required",
         ),
       );
@@ -2237,7 +2247,7 @@ function unresolvedJudgeEntityConflicts(
     if (typeof record.text === "string" && typeof record.label === "string") {
       const rawSource = citationSourceId(record);
       const primarySource = rawSource?.startsWith("web:") ? rawSource.slice(4) : rawSource;
-      reportIssues.push(...validateEntityText(record.text, registry, primarySource).issues);
+      reportIssues.push(...validateEntityText(record.text, registry, primarySource, issuerPrimarySource(payload)).issues);
       for (const [key, value] of Object.entries(record)) {
         if (key !== "text") walk(value);
       }

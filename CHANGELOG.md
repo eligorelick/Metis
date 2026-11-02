@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- AI-103: accept payload-carried issuer disclosures as primary entity sources and explain the rule to the judge; pipeline stage-c-1.6.18.
+
 - AI-116: read combined insider roles and qualify historical title refusals in audit notes.
 
 - AI-504: refuse claims that reverse the operands of a recorded ratio or difference.

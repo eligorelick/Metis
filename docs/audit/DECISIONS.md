@@ -3010,3 +3010,5 @@ AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differ
 AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compare distinct stemmed heads only after metric agreement. Refuse reversed order as unchecked. Preserve symmetric absolute differences and ordinary grammatical/date uses. Five assembled facade replays retain numeric statuses.
 
 AI-116 restores every listed insider role, splitting only before recognized owner-role prefixes. The historical audit qualification is frozen at 1.56.0; it claims no historical re-verification. Paired facade numeric statuses remain unchanged.
+
+AI-103 adopts OD-4 issuer-origin and membership allowlists. Judge framing names those sources; analyst validation remains strict by default. The prompt change moves only PIPELINE_VERSION to stage-c-1.6.18. Financial payload hashes are unchanged.

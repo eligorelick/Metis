@@ -1667,3 +1667,17 @@ describe("judge request shaping stays reproducible", () => {
     expect(args.reservationPass).toBe("synthesize");
   });
 });
+
+it.each(["edgar:10-K item1", "fmp:earning-call-transcript"])("AI-103 judge admits issuer entity source %s", async source => {
+ const { payload } = buildInputs();
+ payload.symbol = "LLY";
+ const excerpt = { source, title: "Issuer disclosure", text: "Orforglipron is a candidate.", asOf: "2026-07-01", truncated: false, originalChars: 28 };
+ payload.filings = [...(payload.filings ?? []), excerpt];
+ if (source === "fmp:earning-call-transcript") payload.transcript = excerpt;
+ payload.citationRegistry = [...(payload.citationRegistry ?? []), { id: source, kind: "payload-text", asOf: "2026-07-01", origin: source }];
+ const output = fakeJudgeOutput();
+ output.fundamentals.commentary = [{ label: "FACT", text: "Orforglipron is a candidate.", source, asOf: "2026-07-01" }];
+ const mock = new MockRunPass(); mock.onJson("llm.judge", output);
+ const result = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+ expect(result.ok).toBe(true);
+});
