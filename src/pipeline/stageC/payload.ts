@@ -864,8 +864,8 @@ function computedSections(
     { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
     { label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
-    { label: "SBC % revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
-    { label: "SBC % FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
+    { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
+    { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
@@ -1077,13 +1077,16 @@ function computedSections(
     const figures: PayloadFigureInput[] = [];
     const add = (key: string, value: number | null, unit: string): void => {
       const construction = key === "cashBridge.operatingCashFlow" ? currentCapital.filedCashFlows?.operatingCashFlow
-        : key === "cashBridge.stockBasedCompensation" ? currentCapital.filedCashFlows?.stockBasedCompensation : undefined;
+        : key === "cashBridge.stockBasedCompensation" ? currentCapital.filedCashFlows?.stockBasedCompensation
+        : key === "cashBridge.cashCapitalExpenditure" ? currentCapital.filedCashFlows?.capitalExpenditure
+        : key === "allocatedSbcExpense" ? currentCapital.filedCashFlows?.allocatedSbcExpense : undefined;
       const period = construction ? `TTM to ${construction.end} (${construction.start} to ${construction.end})` : key.startsWith("debtBridge.") ? currentCapital.asOf
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
       // The bridge group is structure, not the metric: "total debt including
       // leases", never "debt Bridge total Debt Including Leases", which no
       // prose naming the metric could match (NVDA report 34).
-      const label = (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      const label = (key === "cashBridge.stockBasedCompensation" ? "SBC, cash-flow add-back" : key === "allocatedSbcExpense" ? "SBC, allocated expense" : undefined)
+        ?? (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
         ...(construction ? {
@@ -1101,9 +1104,10 @@ function computedSections(
       if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
     }
     for (const [key, value] of Object.entries(currentCapital.debtBridge)) if (typeof value === "number" || value === null) add(`debtBridge.${key}`, value, "currency");
+    if (currentCapital.allocatedSbcExpense !== undefined) add("allocatedSbcExpense", currentCapital.allocatedSbcExpense, "currency");
     for (const [field, construction] of Object.entries(currentCapital.filedCashFlows ?? {})) {
       for (const [i, operand] of construction.points.entries()) figures.push({
-        label: `${field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
+        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
         value: operand.val, unit: "currency", currency: currentCapital.currency, period: `${operand.start} to ${operand.end}`,
         periodContext: { kind: "duration", start: operand.start!, end: operand.end },
         source: `edgar:companyfacts/us-gaap/${construction.tag}; ${operand.form} ${operand.accn}, filed ${operand.filed}`,
@@ -1522,7 +1526,7 @@ const CASHFLOW_LINE_ITEMS: { key: keyof FmpCashFlowRow; label: string; unit: str
   { key: "netCashProvidedByInvestingActivities", label: "cash flow from investing activities (CFI)", unit: "currency" },
   { key: "capitalExpenditure", label: "capex (negative)", unit: "currency" },
   { key: "freeCashFlow", label: "free cash flow", unit: "currency" },
-  { key: "stockBasedCompensation", label: "stock-based comp", unit: "currency" },
+  { key: "stockBasedCompensation", label: "SBC, cash-flow add-back", unit: "currency" },
   { key: "commonStockRepurchased", label: "buybacks (negative)", unit: "currency" },
 ];
 

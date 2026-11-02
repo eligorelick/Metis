@@ -1,0 +1,762 @@
+{
+  "source": "Read-only frozen FIGR paid-xhigh run_input_snapshots; 2026-11-02",
+  "companyFacts": {
+    "cik": 2064124,
+    "entityName": "FIGURE TECHNOLOGY SOLUTIONS, INC.",
+    "facts": {
+      "us-gaap": {
+        "PaymentsToDevelopSoftware": {
+          "description": "The cash outflow associated with the development or modification of software programs or applications for internal use (that is, not to be sold, leased or otherwise marketed to others) that qualify for capitalization.",
+          "label": "Payments to Develop Software",
+          "units": {
+            "USD": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": 17262000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 12498000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 16628000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 4418000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 9871000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 16077000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 20649000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 6436000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 12673000
+              }
+            ]
+          }
+        },
+        "ShareBasedCompensation": {
+          "description": "Amount of noncash expense for share-based payment arrangement.",
+          "label": "Share-based Payment Arrangement, Noncash Expense",
+          "units": {
+            "USD": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": 13450000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 34526000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 38726000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 2414000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 5261000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 22730000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 62364000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 25878000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 51976000
+              }
+            ]
+          }
+        },
+        "AllocatedShareBasedCompensationExpense": {
+          "description": "Amount of expense for award under share-based payment arrangement. Excludes amount capitalized.",
+          "label": "Share-based Payment Arrangement, Expense",
+          "units": {
+            "USD": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": 13450000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 38545000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2024Q3",
+                "fy": 2025,
+                "start": "2024-07-01",
+                "val": 7104000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 45310000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 5341000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 10665000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2025Q2",
+                "fy": 2026,
+                "start": "2025-04-01",
+                "val": 5324000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 30593000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2025Q3",
+                "fy": 2025,
+                "start": "2025-07-01",
+                "val": 19928000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 72421000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 25878000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 51976000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2026Q2",
+                "fy": 2026,
+                "start": "2026-04-01",
+                "val": 26098000
+              }
+            ]
+          }
+        },
+        "WeightedAverageNumberOfSharesOutstandingBasic": {
+          "description": "Number of [basic] shares or units, after adjustment for contingently issuable shares or units and other shares or units not deemed outstanding, determined by relating the portion of time within a reporting period that common shares or units have been outstanding to the total time in that period.",
+          "label": "Weighted Average Number of Shares Outstanding, Basic",
+          "units": {
+            "shares": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": 51305065
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 63700455
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2024Q3",
+                "fy": 2025,
+                "start": "2024-07-01",
+                "val": 68568542
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 65020119
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 69398649
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 69558368
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2025Q2",
+                "fy": 2026,
+                "start": "2025-04-01",
+                "val": 69718087
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 80896185
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2025Q3",
+                "fy": 2025,
+                "start": "2025-07-01",
+                "val": 103571820
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 114435259
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 217277605
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 219395921
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2026Q2",
+                "fy": 2026,
+                "start": "2026-04-01",
+                "val": 221514237
+              }
+            ]
+          }
+        },
+        "WeightedAverageNumberOfDilutedSharesOutstanding": {
+          "description": "The average number of shares or units issued and outstanding that are used in calculating diluted EPS or earnings per unit (EPU), determined based on the timing of issuance of shares or units in the period.",
+          "label": "Weighted Average Number of Shares Outstanding, Diluted",
+          "units": {
+            "shares": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": 51305065
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 69854927
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2024Q3",
+                "fy": 2025,
+                "start": "2024-07-01",
+                "val": 73585747
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": 72637457
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 69398649
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 86763570
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2025Q2",
+                "fy": 2026,
+                "start": "2025-04-01",
+                "val": 87771893
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 103106387
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2025Q3",
+                "fy": 2025,
+                "start": "2025-07-01",
+                "val": 129922329
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 141802002
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 248829672
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 247926321
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "frame": "CY2026Q2",
+                "fy": 2026,
+                "start": "2026-04-01",
+                "val": 246969949
+              }
+            ]
+          }
+        },
+        "NetCashProvidedByUsedInOperatingActivities": {
+          "description": "Amount of cash inflow (outflow) from operating activities, including discontinued operations. Operating activity cash flows include transactions, adjustments, and changes in value not defined as investing or financing activities.",
+          "label": "Net Cash Provided by (Used in) Operating Activities",
+          "units": {
+            "USD": [
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2023-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2023",
+                "fy": 2025,
+                "start": "2023-01-01",
+                "val": -33352000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2024-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": -214365000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2024-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2024",
+                "fy": 2025,
+                "start": "2024-01-01",
+                "val": -127012000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2025-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2025Q1",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": -140273000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2025-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2025-01-01",
+                "val": 76089000
+              },
+              {
+                "accn": "0002064124-25-000032",
+                "end": "2025-09-30",
+                "filed": "2025-11-13",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 49297000
+              },
+              {
+                "accn": "0002064124-26-000009",
+                "end": "2025-12-31",
+                "filed": "2026-03-16",
+                "form": "10-K",
+                "fp": "FY",
+                "frame": "CY2025",
+                "fy": 2025,
+                "start": "2025-01-01",
+                "val": 62568000
+              },
+              {
+                "accn": "0002064124-26-000029",
+                "end": "2026-03-31",
+                "filed": "2026-05-15",
+                "form": "10-Q",
+                "fp": "Q1",
+                "frame": "CY2026Q1",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": -37818000
+              },
+              {
+                "accn": "0001628280-26-057061",
+                "end": "2026-06-30",
+                "filed": "2026-08-14",
+                "form": "10-Q",
+                "fp": "Q2",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": -72969000
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "epsNote": "The rights, including the liquidation and dividend rights and sharing of losses, of the Class A common stock, Blockchain common stock, and Class B common stock are identical, other than voting rights. As the liquidation and dividend rights 31 Table of Contents FIGURE TECHNOLOGY SOLUTIONS, INC. NOTES TO CONDENSED CONSOLIDATED FINANCIAL STATEMENTS (dollars in tables in thousands, except share and per share data, units, ratios or as otherwise noted) and sharing of profits are identical, the undistributed earnings are allocated on a proportionate basis for those classes and the resulting net income (loss) per share will, therefore, be the same for Class A common stock, Blockchain common stock, and Class B common stock on an individual or combined basis, and they have been combined as common shares below. The following table sets forth the calculation of basic and diluted net income per common share for the periods presented: Three Months Ended June 30, Six Months Ended June 30, 2026 2025 2026 2025 Numerator: Net income attributable to FTS $ 87,446 $ 29,942 $ 132,391 $ 29,122 Less: Undistributed earnings attributable to convertible preferred stockholders — ( 22,506 ) — ( 26,064 ) Net income attributable to common stockholders, basic and diluted $ 87,446 $ 7,436 $ 132,391 $ 3,058 Denominator: Basic weighted average common shares attributable to FTS 221,514,237 69,718,087 219,395,921 69,558,368 Add: effect of dilutive securities related to share-based payment awards (A) 25,455,712 18,053,806 28,530,400 17,205,202 Diluted weighted average common shares attributable to FTS 246,969,949 87,771,893 247,926,321 86,763,570 Net income per common share attributable to FTS, basic $ 0.39 $ 0.11 $ 0.60 $ 0.04 Net income per common share attributable to FTS, diluted $ 0.35 $ 0.08 $ 0.53 $ 0.04 (A) The dilutive impact of share-based payment awards and warrants for the three months ended June 30, 2026 and 2025 comprised of 21,891,686 and 16,626,395 shares related to stock options, zero and 1,427,411 shares related to warrants and 3,564,026 and zero related to unvested RSUs, respectively. The dilutive impact of share-based payment awards and warrants for the six months ended June 30, 2026 and 2025 comprised of 23,853,506 and 15,902,257 shares related to stock options, zero and 1,302,945 shares related to warrants, and 4,676,894 and zero related to unvested RSUs, respectively. For the three and six months ended June 30, 2026, 3,205,942 and 1,602,971 shares, respectively, related to unvested options were excluded from the dilutive impact as those shares would have been anti-dilutive to the share count as of June 30, 2026. For the three and six months ended June 30, 2025, 3,110,889 and 2,950,318 shares, respectively, related to unvested RSUs were excluded from the dilutive impact as the issuance of those shares was contingent upon the satisfaction of a liquidity condition which was not satisfied as of the end of those periods."
+}

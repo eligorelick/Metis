@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R9 FIGR deterministic basis fixes (2026-11-02)
+
+- Resolve earnings-date status from retained passages across claims, catalyst cells and scenarios, including natural-language dates. Name issuer newswire announcements and their announcement date; keep vendor-only qualifications and reject unrelated SEC citations and third-party articles as confirmation.
+- Admit explicitly combined, equal-economic-class EPS denominators using same-period filed evidence instead of requiring a weighted average to equal a later cover count; retain unresolved-class protections.
+- Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
+- Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
+- No shared version stamps change. Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 
 - End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026

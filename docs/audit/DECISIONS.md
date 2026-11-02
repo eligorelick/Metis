@@ -4385,3 +4385,33 @@ the new report are fixed:
 
 Tests: `tests/edgar.outlookWebcastStop.test.ts` (real FIGR release text),
 `tests/report.earningsSchedule.test.ts`, `tests/report.prerunReadability.test.ts`.
+
+## D-next (R9) - FIGR deterministic source, period and accounting bases (2026-11-02)
+
+The paid FIGR extra-high report faithfully repeated four deterministic errors
+(A2-02, A2-10, A2-18, A2-21; B2-06 and B2-08). A company-issued newswire
+announcement establishes a planned earnings date, while remaining distinct
+from an SEC filing or company-hosted release. Resolve one event status from
+retained passages and apply it across date spellings, claims and table/scenario
+strings. A source name without a supporting passage does not confirm the date;
+a third-party article does not establish issuer authorship.
+
+An explicitly combined equal-class EPS denominator is a period average, not a
+later cover count. Admit it through the same-period primary note and XBRL
+counts, retaining resolved class inventory, economic-unit and ambiguity guards.
+An unsupported average-versus-cover difference is not itself evidence of
+unresolved units. This admission does not manufacture a current fully diluted
+capitalization or lift the lender route's owner-FCF model restriction.
+
+Extend the filed FY + current YTD - prior-year YTD identity to capex on exactly
+the retained annual tag basis and to allocated SBC expense as a separate
+metric. Both YTD values come from the same 10-Q. Do not add capex synonyms or
+components, or substitute allocated SBC expense for the cash-flow add-back.
+Registered SBC labels and the revenue ratio state their accounting basis.
+
+Tests: `tests/r9.figrDeterministic.test.ts`,
+`tests/report.earningsSchedule.test.ts`; existing share-basis, statement,
+composition and Stage C byte pins remain covered. R9 restores only its reviewed
+SBC label/id leaves before historical byte pins; no shared stamp is changed.
+Read-only frozen-input replay and check receipts:
+`docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.

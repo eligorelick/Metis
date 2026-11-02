@@ -566,7 +566,8 @@ export const LINE_ITEM_TAGS = {
 
   // --- cash flow ------------------------------------------------------------
   cashflowNetIncome: entry([...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLoss"]),
-  stockBasedCompensation: entry(["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"]),
+  // R9: allocated GAAP expense is a separate basis, never a cash-flow add-back fallback.
+  stockBasedCompensation: entry(["ShareBasedCompensation"]),
   changeInWorkingCapital: entry(["IncreaseDecreaseInOperatingCapital"]),
   operatingCashFlow: entry([
     "NetCashProvidedByUsedInOperatingActivities",

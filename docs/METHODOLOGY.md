@@ -261,6 +261,45 @@ summed field needs all four numeric inputs; weighted-average share counts use
 a four-quarter average rather than a sum. Own-history construction scans older
 candidate windows separately and can retain valid windows beyond rejected ones.
 
+R9 (FIGR paid audit, 2026-11-02) also admits a filed cumulative identity:
+**fiscal year + current YTD - prior-year YTD**. Both YTD operands must be in
+the same current 10-Q, on one tag and monetary unit; the annual period ends
+immediately before the current fiscal year starts. If that filing contains
+both standalone-quarter and YTD expense facts, select its longest eligible
+duration, rejecting conflicting copies of that duration. This establishes a
+rolling twelve-month observation, not missing standalone quarters.
+
+The identity covers CFO, cash-flow SBC, allocated SBC expense and capex on
+**exactly the retained annual capex tag basis**. A capex tag must reconcile to
+that annual figure (or its explicit single-tag provenance); multiple matching
+tags, a refused annual field or incompatible operands give no derived capex.
+This does not add quarterly capex synonyms or sum additional spending lines.
+For FIGR, `PaymentsToDevelopSoftware` is 20.649M + 12.673M - 9.871M =
+23.451M USD through June 2026, displayed as a negative cash-flow outflow.
+The non-bank lender restriction on owner FCF and FCF-based valuation remains.
+
+SBC bases stay separate in the model's registered labels: **SBC, cash-flow
+add-back** (`ShareBasedCompensation`) and **SBC, allocated expense**
+(`AllocatedShareBasedCompensationExpense`). Allocated expense is not a
+fallback for the cash-flow field. For FIGR the respective TTM identities give
+109.079M and 113.732M USD; the latter is registered separately when all
+operands exist. The annual SBC/revenue ratio names its cash-flow add-back
+basis (FY2025: 62.364M / 506.865M = 12.3039%); it is not the allocated-expense
+ratio. Neither basis establishes comprehensive current-service cost, and
+capitalized compensation is not added to either as a second FCF deduction.
+
+For per-share admission, an issuer's same-period EPS note can establish an
+all-class denominator without matching a weighted average to a later cover
+count. The narrow R9 path requires explicitly named combined classes,
+identical economic rights, a resolved inventory with one economic unit per
+quoted share, and the same basic/diluted counts in the note's table and exact
+filing/interval XBRL facts. FIGR's Q2 2026 note admits 221,514,237 basic plus
+25,455,712 dilutive awards = 246,969,949 diluted shares. This does not establish
+current fully diluted capitalization. Unnamed classes, unequal or unknown
+economics, duplicate inventories and unsupported EPS counts still refuse;
+the fallback refusal explains that an average-versus-point-in-time difference
+alone is not evidence of unresolved class units.
+
 **Currency evidence.** Income, cash-flow and balance rows carry their own
 presentation currency. An unlabeled row may use another statement's label only
 when fiscal period and filing identity establish that it is from the same
@@ -6304,7 +6343,23 @@ P0 M-1: No-split vendor/SEC per-share comparisons require established ordinary-s
 
 P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.
 
-P0 M-2/L-1: Provider earnings-date qualifications bind within a punctuation-bounded clause. Registered SEC filings and official issuer statements retain their cited dates. Qualifications keep citation credit while leaving factual content unchecked; removed audit rows do not add a second counted claim. R1 (FIGR paid audit, 2026-11-02): the qualification names the sources that would confirm the date, "(FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release)", because a newswire copy of the company's release beside it confirms nothing under this rule. A date the prose already encloses in parentheses takes the qualification after a comma ("..., an FMP calendar estimate not confirmed by an SEC filing or a company-hosted release") rather than a nested parenthesis (D-162).
+P0 M-2/L-1, corrected by R9 (FIGR paid audit, 2026-11-02): earnings dates use
+one date/source/status record per scheduled event. Vendor-only dates retain
+"FMP calendar estimate; not confirmed by an SEC filing or a company-hosted
+release" (or Finnhub). An issuer-authored announcement in a recognized newswire
+feed instead says "company-announced via newswire on YYYY-MM-DD;
+company-hosted release or SEC confirmation not established". The issuer's name
+must lead an announcement of results or a call in the title or first line,
+and the retained passage must state that event date. A third-party preview or
+headline repeating the date is insufficient. A registered SEC or official
+company-hosted citation establishes confirmation only with a retained passage
+that actually states the event date; its source name alone is insufficient.
+This corrects the earlier rule's misleading treatment of company newswire
+copies. Qualification covers ISO and natural-language dates, catalyst Expected
+cells, scenario strings and other visible report prose, retaining unrelated
+dated clauses and metadata. Already-parenthesized dates use a comma rather than
+nested parentheses. Qualifications keep citation credit while leaving other
+factual content unchecked; audit rows do not add a second counted claim.
 
 P0 L-3: When a refused vendor value exactly matches an earlier filing for the same interval and share basis, the conflict reason identifies it as superseded by a later filing. Admission continues to use the latest filed value.
 

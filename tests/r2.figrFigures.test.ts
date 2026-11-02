@@ -126,7 +126,8 @@ describe("R2 FIGR deterministic figures", () => {
     expect(out.cashflow.ok && out.cashflow.value.data.rows[3]?.fieldConflicts?.stockBasedCompensation).toMatchObject({ usable: false, vendorValue: 0, secValue: 17.469e6 });
     withFacts(b, f);
     const p = assembleContextPayload(b, runStageB(b), validation);
-    expect(p.statements.find(s => s.title.startsWith("Cash flow") && s.title.includes("quarterly"))?.lineItems.find(l => l.lineItem === "stock-based comp")?.byPeriod.find(c => c.period === "2025-09-30")?.value).toBeNull();
+    // R9 names the accounting basis in the model-visible statement label.
+    expect(p.statements.find(s => s.title.startsWith("Cash flow") && s.title.includes("quarterly"))?.lineItems.find(l => l.lineItem === "SBC, cash-flow add-back")?.byPeriod.find(c => c.period === "2025-09-30")?.value).toBeNull();
     expect(runStageB(b).capital.current?.cashBridge.stockBasedCompensation).toBeNull();
   });
   it.each(["different-filing", "different-period", "different-currency", "future"])("F04 does not invent a filed TTM identity from incompatible operands (%s)", change => {

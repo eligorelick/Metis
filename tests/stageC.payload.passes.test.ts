@@ -1,5 +1,6 @@
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
 import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
+import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
 /**
  * Stage C tests — payload assembly determinism + provenance, prompt rule blocks,
  * verify-pass tracing, report assembly + schema validation + retry-on-zod, and a
@@ -730,7 +731,8 @@ describe("payload determinism + provenance", () => {
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
     // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
     // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(buildInputs()))))))));
+    // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR9SbcBasisGolden(buildInputs())))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -2780,7 +2782,7 @@ describe("verify-pass tracing", () => {
     const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
     expect(log.filter((entry) => entry.outcome === "unverified" && entry.validationStatus !== "cited").map((entry) => entry.reason))
-      .toEqual(["earnings-date-qualified", "value-mismatch", "value-mismatch", "earnings-date-qualified"]); // M-2: two report-date clauses are qualified and remain unchecked.
+      .toEqual(["earnings-date-qualified", "earnings-date-qualified", "value-mismatch", "value-mismatch", "earnings-date-qualified"]); // R9 also qualifies the natural-language date.
   });
 
   it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
