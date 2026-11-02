@@ -52,6 +52,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Evidence (R8): Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
   341,152 characters (−1,003). Stored data are unchanged.
   See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
+- Verifier (R7): Match conservative producer-bound metric paraphrases, simple inflections, explicit fraction annotations, percentage-point slopes and signed distances below the 52-week high.
+- Verifier (R7): Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
+- Verifier (R7): Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
+- Verifier (R7): The frozen full-report replay recovers 73 numeric validations (62 prose and 11 figures); every prior validation remains. The complete 189-row sweep and retained limitations are recorded in `docs/audit/2026-11-02-r7-figr-xhigh-verifier.md`.
 
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 

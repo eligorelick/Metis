@@ -4550,3 +4550,57 @@ Offline frozen replay: 342,155 → 341,152 characters (−1,003), fingerprint
 `1.61.0:cef2673b`; all eleven requested evidence items retained. No paid API,
 real database, prompts, report/export code or verifier was changed. See
 [R8 audit and replay lines](2026-11-02-r8-figr-evidence-selection.md).
+
+## D-next (R7) - Conservative metric readings for FIGR extra-high claims
+
+Keep numeric support separate from whole-proposition truth. Match the cited
+record's own label symmetrically, with simple inflection and reviewed
+producer-bound equivalents for market cap / trailing common earnings,
+price / tangible book, CAGR horizons, insider counts and categories,
+stock-based compensation, sentiment, targets and the identified FRED spread.
+Do not accept a subset that drops a definition, a reversed ratio, another
+clause's metric, a wrong period/unit/value, or an omitted overlap/approximation
+qualifier. Fraction annotations require explicit fraction provenance; slopes
+retain percentage points per year. The signed distance-from-high reading is
+bound to its exact producer and complete grammatical relation.
+
+A retained annual filing, not an ISO date alone, supplies the December-31
+fiscal basis for the selected annual producers and explicit calendar-quarter
+trend rows. Keep conflicting/absent bases unchecked. Exact TTM interval aliases
+require both ordered endpoints and a matching rolling basis. This is verifier
+context only: no payload text, labels, registry records or version stamps change.
+
+Tests: `tests/stageC.claimEvidence.r7.test.ts` (real frozen claims, records and
+excerpts; paired value/period/unit/metric/operand/qualifier controls), plus the
+existing provenance, fiscal-period, own-description, latest-period and
+multi-quantity refusal suites. Implementation: `1eb7e4dd`.
+
+## D-next (R7) - Explicit excerpt bindings and retained recall limits
+
+Read complete split-year SEC headers and explicit quarter/change layouts,
+checking row width, units, scales, precision and period roles. A row's exclusion
+footnote must actually be retained and attached to that row. Preserve dates
+while masking source-attribution verbs. Keep a result's period when a later
+clause discusses guidance. Treat gain-on/from nouns as metric definitions,
+not directional verbs. Dated table levels cannot borrow a narrative change;
+under a proved calendar quarter, a coarser narrative restatement can be set
+aside only when it independently rounds to the bound table value. A conflict
+stays ambiguous. Keep the clause/own-description conjunction.
+
+The was/down-from comparison retains R5's same-row, separate-period-column
+proof. Read accounting-negative percents with their sign; a complete annual
+two-level comparison establishes its own two dated roles before FY matching.
+Do not infer cells for missing dashes, reverse respectively lists, discard
+coupon/maturity/event dates, certify arithmetic from one cited operand, or
+promote provider text by quantity presence. Supported facts outside these
+closed grammars remain documented recall limits.
+
+Implementation: `1eb7e4dd`, `2f2e26f0`. Full 189-row disposition and replay counts:
+`docs/audit/2026-11-02-r7-figr-xhigh-verifier.md`. The integrator renumbers these
+entries and applies the single shared batch stamp bump. No push or PR.
+
+The equivalent operating-update attribution reading is in `07b57d7b`; its
+period, exclusion, metric and value controls pass with the same complete column
+proof. The final full-report replay recovers 73 validations (62 prose and 11
+figures); one additional row changes only its refusal reason. All prior
+validations and validated table/figure statuses remain.

@@ -111,7 +111,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { unitLabel } from "@/report/format";
-import { descriptionConflictsWithRecord, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
   citationAsOf,
@@ -3338,7 +3338,10 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
-        const columnAgreement = cellPeriod === undefined ? null : recordPeriodAgreement(cellPeriod, record);
+        const filedFiscal = record.fiscalPeriod === undefined && record.periodContext?.fiscalLabel === undefined
+          ? filedCalendarFiscalLabel(record, excerpts) : undefined;
+        const columnAgreement = cellPeriod === undefined ? null : recordPeriodAgreement(cellPeriod,
+          filedFiscal === undefined ? record : { ...record, fiscalPeriod: filedFiscal });
         if (cellPeriod !== undefined && columnAgreement === null) {
           periodNote = [periodNote, `column "${cellPeriod}" not period-checked`].filter(Boolean).join("; ");
         }

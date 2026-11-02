@@ -26,6 +26,7 @@ const publicFiles = () => trackedFiles();
 const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
   "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
+  "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
   "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
   "docs/audit/2026-11-02-r2-figr-figures.md",
@@ -78,6 +79,7 @@ const ALLOWED_MARKDOWN = new Set([
   // R9's requested audit record is part of the tracked release documentation.
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
   "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
+  "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
   "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
   "docs/audit/2026-11-02-r2-figr-figures.md",
