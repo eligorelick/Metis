@@ -43,7 +43,8 @@ describe("FIN-309: one value date on the financial route", () => {
     const book = excessReturnModel(pure), later = excessReturnModel({ ...pure, valuationDate: "2026-07-05" });
     expect(later.startAlternative!.perShare).toBeCloseTo(book.startAlternative!.perShare! * 1.1 ** (186 / 365.25), 9);
     expect(later.startCoeGrid!.perShare[1][1]).toBeCloseTo(later.perShare!, 10);
-    const row = book.startCoeGrid!.rows.findIndex(r => r.bookValue === 950);
+    // F1: converted notes now restore book before valuation (950 -> 1000).
+    const row = book.startCoeGrid!.rows.findIndex(r => r.bookValue === book.startAlternative!.bookValue);
     for (let c = 0; c < 3; c++) expect(later.startCoeGrid!.perShare[row][c]).toBeCloseTo(book.startCoeGrid!.perShare[row][c]! * (1 + book.startCoeGrid!.costOfEquityPcts[c] / 100) ** (186 / 365.25), 9);
     expect(excessReturnModel({ ...pure, valuationDate: "2026-07-05", price: later.perShare! }).reverseSolve.impliedCurrentRoePct).toBeCloseTo(15, 2);
   });
@@ -61,7 +62,8 @@ describe("FIN-309: one value date on the financial route", () => {
   it("withholds an alternative with an unknown opening date when the headline rolls", () => {
     const r = excessReturnModel({ ...pure, valuationDate: "2026-07-05", startAlternative: { ...pure.startAlternative!, asOf: null } });
     expect(r.startAlternative!.perShare).toBeNull();
-    const index = r.startCoeGrid!.rows.findIndex(row => row.bookValue === 950);
+    // F1: locate the alternative on its selected-reading book.
+    const index = r.startCoeGrid!.rows.findIndex(row => row.bookValue === r.startAlternative!.bookValue);
     expect(r.startCoeGrid!.perShare[index]).toEqual([null, null, null]);
   });
   it("rolls an older fiscal-year alternative beyond 200 days when the headline is inside the limit", () => {

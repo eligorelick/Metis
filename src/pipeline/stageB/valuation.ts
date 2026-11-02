@@ -5617,7 +5617,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const coe = inputs.costOfEquityPct;
 
-  const bv0 = posOrNull(inputs.bookValue);
+  let bv0 = posOrNull(inputs.bookValue);
   if (bv0 === null) {
     gaps.push(
       gapEntry("valuation.excessReturn.bookValue", "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
@@ -5769,11 +5769,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       gaps.push(gapEntry("valuation.excessReturn.valuationDate", reason, "info")); notes.push(`Valuation date: ${reason}`);
     }
   }
-  const valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
-  const { bookValuePath, continuingValuePv } = valued;
-  let equityValue = valued.equityValue;
+  let valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   let shares = posOrNull(inputs.dilutedShares);
-  let restored = 0;
+  let restoredBook = 0;
   let readings: ConvertibleReading[] | undefined;
   if (inputs.convertibles?.length && shares !== null) {
     const filedShares = shares;
@@ -5781,13 +5779,17 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     for (const variant of convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0, notes: inputs.totalDebt ?? 0 })) {
       const d = filedShares - variant.sharesRemoved;
       const c = variant.restored.notes + variant.restored.preferred;
-      const value = (valued.equityValue + c) / d;
-      if (d > 0 && value < best) { best = value; shares = d; restored = c; readings = variant.readings; }
+      // F1: conversion restores opening common book, which earns the model's
+      // residual returns. A face-value add-back after valuation is inconsistent.
+      const candidate = excessReturnValue(bv0 + c, roePath, coe, payoutPath, continuing);
+      const value = candidate.equityValue / d;
+      if (d > 0 && value < best) { best = value; shares = d; restoredBook = c; readings = variant.readings; valued = candidate; }
     }
-    equityValue += restored;
+    bv0 += restoredBook;
     const entries = convertibleReadingGaps(readings ?? [], filedShares);
     gaps.push(...entries); notes.push(...entries.map(e => e.reason));
   }
+  const { equityValue, bookValuePath, continuingValuePv } = valued;
   // FIN-506: the reverse solve must invert the exact admitted forward divisor.
   const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
   const perShare = perShareOf(equityValue);
@@ -5797,9 +5799,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   // C-10: the fiscal-year start, valued with the same fade target, carry and
   // payout from its own book value, so the reader sees what the start choice is worth.
   let startAlternative: ExcessReturnStartAlternative | undefined;
-  const alt = inputs.startAlternative;
+  const alt = inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue + restoredBook } : null;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
+    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
@@ -5850,12 +5852,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       if (roll && rowDate === null) return null;
       const factor = roll ? growthFactor(rowDate, inputs.valuationDate ?? null, c) : 1;
       if (c === coe) {
-        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) * factor / shares);
+        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue) * factor / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue + restored) * factor / shares);
+      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue) * factor / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5920,7 +5922,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue + restored;
+      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue;
       return (usePrice ? perShareOf(value)! : value) - target;
     };
     const fLo = f(lo);

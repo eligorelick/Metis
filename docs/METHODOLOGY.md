@@ -6068,3 +6068,8 @@ quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
+
+
+### P1 review correction F1/F7 (2026-11-02)
+
+Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.

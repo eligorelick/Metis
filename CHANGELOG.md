@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
 
+- Review F1/F7: Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
 - FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
   and derivation provenance. Remove measured inside income from projected EBIT;
   keep an unmeasured inside stake in operating capital. Preserve aggregate-path

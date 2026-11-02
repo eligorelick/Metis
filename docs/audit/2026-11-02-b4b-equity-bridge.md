@@ -389,7 +389,10 @@ synthetic financial fixtures on both sides; their composite score is retained.
 The 400B preferred scale input remains outside the DCF domain on both sides;
 no per-share or EPS value is published. The mortgage-REIT preferred fixture
 had no preferred carrying claim in its original row: the new 50M claim is
-therefore first deducted from common book, explaining its conservative decline.
+therefore first deducted from common book. Review F1 identified the subsequent
+face-value add-back as inconsistent, not conservative; round 2 restores the
+book before valuing conversion. Its consistent minimum is 11.810467549421368;
+11.879000243131742 is the converted-only reading, not the minimum.
 The bank and insurer rows already deducted their 50M preferred claim. No
 assertion, grade threshold, coverage floor or refusal is loosened.
 
@@ -599,3 +602,20 @@ unpinned; the exact fixture/contract tests preserve their reviewed normalization
 and pass. No unrelated fix, assertion deletion, coverage floor change or full
 verify run was introduced. Diff checks found no added replacement characters,
 non-ASCII code/test lines, ticker-specific source rule or Stage B config read.
+
+
+## Review round 2: F1/F7
+
+Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F1/F7 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f1-f7-red` / `f1-f7-green-final` | Saved figures/bytes retained; re-run uses corrected method |
+
+The requested 11.879000243131742 mortgage-REIT pin conflicts with the specified
+minimum rule: BV0=520M, C=50M, D=110M, N=10M and V(BV0)=1306.690026744M.
+The claim reading is V(470M)/100M=11.810467549421368; the converted reading
+is V(520M)/110M=11.879000243131742. Keep the mathematical minimum and flag
+this conflict to the coordinator. Initial green runs caught the old 950-book
+alternative-row lookup (now selected-reading book) and an over-precise new
+reverse-solve assertion; the inverse now equals the consistent control exactly.
