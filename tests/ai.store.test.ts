@@ -62,7 +62,7 @@ describe.skipIf(process.platform === "darwin")("protected connection storage", (
       await withAiStore(store => { store.runtimeOwnerPid = process.ppid; });
       ensurePrivateDirectory(aiDirectory());
       child = fork(path.resolve("tests/fixtures/aiRuntimeOwnerWorker.mjs"), [aiRuntimeLockPath()], {
-        execArgv: ["--import", "tsx", "--conditions=react-server"], windowsHide: true,
+        execArgv: ["--import", "tsx", "--conditions=react-server"],
         stdio: ["ignore", "ignore", "pipe", "ipc"],
       });
       await new Promise<void>((resolve, reject) => {
