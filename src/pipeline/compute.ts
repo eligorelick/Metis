@@ -142,7 +142,7 @@ import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/d
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying, validDay } from "@/pipeline/stageB/marketableEquity";
 import { millions } from "@/pipeline/stageB/netDebt";
-import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { retainedCommonClassAmbiguity, retainedCombinedClassEpsBasis } from "@/pipeline/stageB/commonClassScope";
 import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
 import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -151,7 +151,7 @@ import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipel
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
-import { filedCfoTtm, filedCashFlowTtm } from "@/edgar/financialEnrichment";
+import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
@@ -2166,11 +2166,20 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));
   const filedSbc = companyFacts && latestCash?.date && latestCash.reportedCurrency
     ? filedCashFlowTtm(companyFacts, "ShareBasedCompensation", latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const filedAllocatedSbc = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCashFlowTtm(companyFacts, "AllocatedShareBasedCompensationExpense", latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const filedCapex = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCapexTtm(companyFacts, cf0, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
   if (useFiledCfo && latestCash?.date) {
     ttmCf = { date: latestCash.date, reportedCurrency: latestCash.reportedCurrency ?? null,
       capitalExpenditure: ttmCf?.capitalExpenditure ?? null, depreciationAndAmortization: ttmCf?.depreciationAndAmortization ?? null,
       operatingCashFlow: filedCfo.value };
     ttmGaps.push({ field: "compute.ttmCashFlow.filedYtd", reason: filedCfo.reason, severity: "info" });
+  }
+  if (filedCapex && ttmCf) {
+    ttmCf = { ...ttmCf, capitalExpenditure: -filedCapex.value };
+    for (let i = ttmGaps.length - 1; i >= 0; i--) if (ttmGaps[i]!.field === "compute.ttmCashFlow.capitalExpenditure") ttmGaps.splice(i, 1);
+    ttmGaps.push({ field: "compute.ttmCashFlow.capitalExpenditure", reason: filedCapex.reason, severity: "info" });
   }
   const currencies = resolveStatementCurrencies(
     profile?.currency, inc0, ttmInc, ttmCf, incomeQuarterSet.rows[0],
@@ -2446,10 +2455,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (capital.current?.basis === "ttm") {
     const cfo = filedCfo?.end === capital.current.asOf && filedCfo?.value === capital.current.cashBridge.operatingCashFlow ? filedCfo : null;
     const sbc = filedSbc?.end === capital.current.asOf && filedSbc?.value === capital.current.cashBridge.stockBasedCompensation ? filedSbc : null;
+    const capex = filedCapex?.end === capital.current.asOf && -filedCapex.value === capital.current.cashBridge.cashCapitalExpenditure ? filedCapex : null;
+    const allocated = filedAllocatedSbc?.end === capital.current.asOf && latestCash?.reportedCurrency === capital.current.currency ? filedAllocatedSbc : null;
     if (cfo) capital.current.cashBridge.definition += ` ${cfo.reason}`;
     if (sbc) capital.current.cashBridge.definition += ` ${sbc.reason}`;
-    if (cfo || sbc) capital.current.filedCashFlows = {
+    if (capex) capital.current.cashBridge.definition += ` ${capex.reason} Cash-flow capex is displayed as a negative outflow on this same tag basis.`;
+    if (allocated) { capital.current.allocatedSbcExpense = allocated.value; capital.current.cashBridge.definition += ` ${allocated.reason} Allocated expense and cash-flow add-back are distinct bases; neither is substituted for the other.`; }
+    if (cfo || sbc || capex || allocated) capital.current.filedCashFlows = {
       ...(cfo ? { operatingCashFlow: cfo } : {}), ...(sbc ? { stockBasedCompensation: sbc } : {}),
+      ...(capex ? { capitalExpenditure: capex } : {}), ...(allocated ? { allocatedSbcExpense: allocated } : {}),
     };
   }
 
@@ -4365,7 +4379,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
     // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
-    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
+    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic"),
+      combinedClassEps: retainedCombinedClassEpsBasis(bundle, { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) }) },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
   const bridgeConvertibles = readConvertibles(bridgePoint);

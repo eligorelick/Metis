@@ -36,6 +36,11 @@ original versions and bytes; source merge does not deploy or publish a release.
   return and SBC bases, matched windows, share-of-total attribution, scoped absence claims, met versus beat,
   post-transaction liquidity, causal and superlative claims, executive attribution, valuation anchors versus multiples,
   every retained guidance period, KPI causes, specialist terms).
+- Deterministic (R9): Resolve earnings-date status from retained passages across claims, catalyst cells and scenarios, including natural-language dates. Name issuer newswire announcements and their announcement date; keep vendor-only qualifications and reject unrelated SEC citations and third-party articles as confirmation.
+- Deterministic (R9): Admit explicitly combined, equal-economic-class EPS denominators using same-period filed evidence instead of requiring a weighted average to equal a later cover count; retain unresolved-class protections.
+- Deterministic (R9): Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
+- Deterministic (R9): Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
+- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
 
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 

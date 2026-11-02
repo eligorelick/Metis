@@ -180,9 +180,16 @@ export interface FiledCashFlowTtm {
   tag: string; points: FactPoint[];
 }
 /** FY + current YTD - prior YTD; both YTD values must be in the same current 10-Q. */
-export function filedCashFlowTtm(facts: CompanyFacts, tag: "NetCashProvidedByUsedInOperatingActivities" | "ShareBasedCompensation", unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+export function filedCashFlowTtm(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   const ps = points(facts, tag, unit, observedAt);
-  const current = unambiguousNewest(ps.filter(p => p.end === end && p.form.replace(/\/A$/, "") === "10-Q" && span(p) !== null && span(p)! >= 70 && span(p)! <= 300));
+  const currentCopies = ps.filter(p => p.end === end && p.form.replace(/\/A$/, "") === "10-Q" && span(p) !== null && span(p)! >= 70 && span(p)! <= 300);
+  const latest = newest(currentCopies);
+  // Expense tags can carry both a standalone Q2/Q3 and a cumulative YTD in
+  // the same filing. The longest duration is the YTD; distinct values for
+  // that same duration still fail closed.
+  const newestCopies = currentCopies.filter(p => p.filed === latest?.filed && p.accn === latest?.accn);
+  const longest = Math.max(...newestCopies.map(p => span(p)!));
+  const current = unambiguousNewest(newestCopies.filter(p => span(p) === longest));
   if (!current?.start) return null;
   const annualEnd = new Date(Date.parse(current.start) - DAY).toISOString().slice(0, 10);
   const annual = unambiguousNewest(ps.filter(p => p.end === annualEnd && p.filed <= current.filed && span(p) !== null && span(p)! >= 350 && span(p)! <= 380));
@@ -193,12 +200,30 @@ export function filedCashFlowTtm(facts: CompanyFacts, tag: "NetCashProvidedByUse
   if (!prior) return null;
   const value = annual.val + current.val - prior.val;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow" : "stock-based compensation cash-flow add-back (ShareBasedCompensation)";
+  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
+    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
+    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
+    : `cash capital expenditure (${tag})`;
   return { value, operands: [annual.val, current.val, prior.val], start, end, tag, points: [annual, current, prior],
-    reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity replaces the quarterly vendor ${tag === OPERATING_CASH_FLOW_TAG ? "CFO" : "SBC"} sum; it does not establish standalone quarters or cash-capex.` };
+    reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity does not establish standalone quarters or any other accounting/tag basis.` };
 }
 export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
+}
+
+/** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
+export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  if (!annualRow || annualRow.fieldConflicts?.capitalExpenditure?.usable === false || annualRow.reportedCurrency !== unit || typeof annualRow.capitalExpenditure !== "number" || !Number.isFinite(annualRow.capitalExpenditure)) return null;
+  const provenance = annualRow.fieldProvenance?.capitalExpenditure;
+  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag =>
+    !provenance || provenance.source === "edgar" && provenance.unit === unit && provenance.tags.length === 1 && provenance.tags[0] === `us-gaap/${tag}`)
+    .flatMap(tag => {
+      const ttm = filedCashFlowTtm(facts, tag, unit, end, observedAt);
+      return ttm && ttm.points[0]!.end === annualRow.date && ttm.points.every(p => p.val >= 0) && ttm.value >= 0 &&
+        vendorAgreesWithFiled(Math.abs(annualRow.capitalExpenditure!), ttm.points[0]!.val) ? [ttm] : [];
+    });
+  // Equal numeric values on different tags do not prove an interchangeable basis.
+  return candidates.length === 1 ? candidates[0]! : null;
 }
 
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
