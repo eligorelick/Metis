@@ -1654,6 +1654,7 @@ export function gapCountText(gaps: readonly ManifestEntry[], c?: Pick<ReportComp
 
 const DATASET_LABEL: Record<string, string> = {
   marketCapHistory: "Market-cap history",
+  eodPrices: "Issuer price history", spy: "SPY benchmark price history", sectorEtf: "Sector ETF price history",
 };
 
 const STATEMENT_LABEL: Record<string, string> = {
@@ -1672,6 +1673,15 @@ const PROCESS_LABEL: ReadonlyArray<readonly [RegExp, (m: RegExpExecArray) => str
 export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const field = gap.fields[0] ?? gap.key;
   if (DATASET_LABEL[gap.key] !== undefined) return DATASET_LABEL[gap.key]!;
+  const price = /^historicalPriceEodFull\(([^)]+)\)$/.exec(gap.key);
+  if (price) return `Price history (${price[1]})`;
+  const statementField = gap.fields.map(f => /^fmp\.(incomeStatement|balanceSheet|cashFlow)\(([^,]+),(annual|quarter)\)$/.exec(f)).find(Boolean);
+  if (statementField) {
+    const [, endpoint, symbol, period] = statementField;
+    const key = `${({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint]}${period === "annual" ? "Annual" : "Quarterly"}`;
+    const label = STATEMENT_LABEL[key];
+    return label[0].toUpperCase() + label.slice(1) + (gap.key.startsWith(`${endpoint}(${symbol}`) ? ` (${symbol})` : "");
+  }
   for (const [pattern, label] of PROCESS_LABEL) {
     const match = pattern.exec(field);
     if (match) return label(match);
@@ -1679,7 +1689,10 @@ export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const withheld = /^keyless\.([A-Za-z]+)\.backfill\.withheld\.([A-Za-z]+)$/.exec(field);
   if (withheld) return `${sentence(segmentWords(withheld[2]!))} withheld from the ${STATEMENT_LABEL[withheld[1]!] ?? segmentWords(withheld[1]!).join(" ")} backfill`;
   const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
-  if (fmp) return `${sentence(segmentWords(fmp[1]!))} (FMP)`;
+  if (fmp) {
+    const symbol = /^fmp\.[A-Za-z]+\(([^,)]+)/.exec(field)?.[1];
+    return `${sentence(segmentWords(fmp[1]!))} (FMP${symbol && gap.key.startsWith(`${fmp[1]}(${symbol}`) ? `, ${symbol}` : ""})`;
+  }
   if (field === "analysis.llm") return "Analysis not completed";
   return sentence(segmentWords(field.replace(/\([^)]*\)/g, "").replace(/[.:]/g, " ")));
 }

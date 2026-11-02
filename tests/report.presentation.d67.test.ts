@@ -308,3 +308,27 @@ describe("leadership, segments, peers, EPS bridge and charts", () => {
     expect(reportToPrintBody(parsed)).not.toContain("shaded band");
   });
 });
+
+it("RPT-207 splits symbols and statement periods while retaining dataset merges", async () => {
+ const { gapDatasetKey, manifestIssuer } = await import("@/report/completeness");
+ expect(gapDatasetKey("fmp.historicalPriceEodFull(SPY)")).toBe("spy");
+ expect(gapDatasetKey("fmp.historicalPriceEodFull(DEMO)", "DEMO")).toBe("eodPrices");
+ expect(gapDatasetKey("fmp.incomeStatement(DEMO,annual)", "DEMO")).toBe("incomeAnnual");
+ expect(gapDatasetKey("fmp.incomeStatement(DEMO,quarter)", "DEMO")).toBe("incomeQuarterly");
+ expect(gapDatasetKey("fmp.incomeStatement(PEER,quarter)", "DEMO")).toBe("incomeStatement(PEER,quarter)");
+ const gaps = ["fmp.keyMetrics(DEMO)", "fmp.historicalPriceEodFull(DEMO)", "fmp.historicalPriceEodFull(SPY)", "fmp.historicalPriceEodFull(SECTOR)"].map(field => ({ field, reason: "missing", severity: "warn" as const }));
+ expect(manifestIssuer(gaps)).toBe("DEMO");
+ expect(classifyManifest(gaps).dataGaps.map(g => g.key)).toEqual(["keyMetrics", "eodPrices", "spy", "sectorEtf"]);
+ expect(gapDatasetKey("fmp.enterpriseValues(DEMO,quarter)", "DEMO")).toBe(gapDatasetKey("keyless.enterpriseValues"));
+ expect(gapDatasetKey("fmp.historicalMarketCap(DEMO)")).toBe(gapDatasetKey("keyless.marketCapHistory.shareBasis"));
+});
+
+it("RPT-207 preserves unknown-symbol identity and names peer statements", async () => {
+ const { gapDatasetKey, manifestIssuer } = await import("@/report/completeness");
+ const { gapLabel } = await import("@/report/presentation");
+ expect(gapDatasetKey("fmp.historicalPriceEodFull(SECTOR)")).toBe("historicalPriceEodFull(SECTOR)");
+ expect(gapDatasetKey("fmp.incomeStatement(DEMO,annual)")).toBe("incomeStatement(DEMO,annual)");
+ expect(gapLabel({ key: "incomeStatement(PEER,quarter)", fields: ["fmp.incomeStatement(PEER,quarter)"] })).toBe("Quarterly income statement (PEER)");
+ expect(manifestIssuer([{ field: "fmp.planLimit(statements.balanceAnnual)", reason: "x", severity: "info" }])).toBeNull();
+ expect(manifestIssuer([{ field: "benchmarkPrices.sectorEtf(DEMO)", reason: "x", severity: "info" }])).toBe("DEMO");
+});

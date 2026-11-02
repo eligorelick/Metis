@@ -138,12 +138,30 @@ const DATASET_ALIAS: Record<string, string> = {
  * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap
  * history. A field-level backfill entry keeps its own key.
  */
-export function gapDatasetKey(field: string): string {
-  const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
-  if (fmp) return DATASET_ALIAS[fmp[1]!] ?? fmp[1]!;
-  const keyless = /^keyless\.([A-Za-z]+)(?:\.[A-Za-z]+)*$/.exec(field);
-  if (keyless && !field.includes(".backfill.")) return DATASET_ALIAS[keyless[1]!] ?? keyless[1]!;
-  return field;
+/** Infer the subject only from endpoints not also fetched for peers/benchmarks. */
+export function manifestIssuer(gaps: readonly ManifestEntry[]): string | null {
+ const counts = new Map<string, number>();
+ const excluded = new Set(["profile", "quote", "batchQuote", "incomeStatement", "balanceSheet", "historicalPriceEodFull", "planLimit"]);
+ for (const gap of gaps) {
+  const m = /^fmp\.([A-Za-z]+)\(([A-Z0-9][A-Z0-9.^-]{0,19})(?:,|\))/.exec(gap.field);
+  if (m && !excluded.has(m[1])) counts.set(m[2], (counts.get(m[2]) ?? 0) + 1);
+ }
+ const ranked = [...counts].sort((a,b) => b[1] - a[1]);
+ return ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1]) ? ranked[0][0] : gaps.map(g => /^benchmarkPrices\.sectorEtf\(([^)]+)\)$/.exec(g.field)?.[1]).find(Boolean) ?? null;
+}
+export function gapDatasetKey(field: string, issuer?: string | null): string {
+ const fmp = /^fmp\.([A-Za-z]+)\(([^,)]+)(?:,([^)]*))?\)/.exec(field);
+ if (fmp) {
+  const [, endpoint, symbol, period] = fmp;
+  if (endpoint === "historicalPriceEodFull") return symbol === "SPY" ? "spy" : issuer ? symbol === issuer ? "eodPrices" : "sectorEtf" : `${endpoint}(${symbol})`;
+  const statement = ({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint];
+  if (statement && (period === "annual" || period === "quarter")) return symbol === issuer ? `${statement}${period === "annual" ? "Annual" : "Quarterly"}` : `${endpoint}(${symbol},${period})`;
+  if (issuer && symbol !== issuer && endpoint !== "planLimit") return `${endpoint}(${symbol})`;
+  return DATASET_ALIAS[endpoint] ?? endpoint;
+ }
+ const keyless = /^keyless\.([A-Za-z]+)(?:\.[A-Za-z]+)*$/.exec(field);
+ if (keyless && !field.includes(".backfill.")) return DATASET_ALIAS[keyless[1]!] ?? keyless[1]!;
+ return field;
 }
 
 /** Analysis-process disclosures: how the passes ran and what verification found. */
@@ -179,6 +197,7 @@ function downgradeReason(gap: ManifestEntry, edgarAvailable: boolean): string | 
  * persisted counts are unchanged, so stored reports still confirm.
  */
 export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassification {
+  const issuer = manifestIssuer(gaps);
   const actionable = gaps.filter((gap) => gap.expected !== true);
   const edgarAvailable = buildDataCompleteness(gaps).edgar === "available";
   const groups = new Map<string, { kind: "data" | "process" | "downgraded"; entries: ManifestEntry[]; downgrade?: string }>();
@@ -186,7 +205,7 @@ export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassi
     if (gap.severity === "info") continue;
     const downgrade = isProcessDisclosure(gap.field) ? null : downgradeReason(gap, edgarAvailable);
     const kind = isProcessDisclosure(gap.field) ? "process" : downgrade !== null ? "downgraded" : "data";
-    const key = `${kind}|${kind === "process" ? gap.field : gapDatasetKey(gap.field)}`;
+    const key = `${kind}|${kind === "process" ? gap.field : gapDatasetKey(gap.field, issuer)}`;
     const group = groups.get(key) ?? { kind, entries: [], ...(downgrade !== null ? { downgrade } : {}) };
     group.entries.push(gap);
     groups.set(key, group);

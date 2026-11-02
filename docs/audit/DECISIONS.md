@@ -3024,3 +3024,5 @@ DB-004 and RPT-209 apply B10-OD-2 to the corrected CLI and entity-safety view. C
 RPT-212 implements B10-OD-5/R-OD-4 once through RunNotices and headerNotices forwarding on the two saved routes. Headerless live/sample bodies show notices in both layouts. This revises D-111 placement without changing report bytes or export wording.
 
 RPT-206 adopts B10-OD-8. The banner and state word share classified data counts with the header; note-only manifests say no data gaps, with a separate disclosure count. Historic metadata is not rewritten.
+
+RPT-207 preserves FMP endpoint arguments when they identify different datasets. Issuer inference excludes peer/benchmark endpoints and plan-limit dataset names, with a sector-ETF subject fallback on ties. Statement and price labels name the retained scope. Raw manifest entries and persisted completeness stay unchanged.
