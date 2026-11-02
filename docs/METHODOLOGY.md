@@ -5943,3 +5943,7 @@ quarters complete (no finance lease filed) and add two EV own-history
 observations; the May 2022 quarter stays refused because its vendor
 short-term debt does not reconcile with the 10-Q's only current-debt tag,
 `CommercialPaper` 0, and equals its current operating lease liability.
+
+P0 M-1: No-split vendor/SEC per-share comparisons require a confirmed single-ticker registrant and established ordinary-share units. Multiple or unknown listed classes remain incomparable; split reconciliation is unchanged.
+
+P0 L-2: In no-split EPS comparisons, either cent-precision value may establish rounding agreement. The split path retains its strict basis check.

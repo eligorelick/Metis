@@ -397,6 +397,7 @@ interface PrimaryShareReconciliation {
   observedAt?: string;
   /** An ADR's quoted unit is not established by the filer's ordinary-share facts. */
   isAdr: boolean | null;
+  registrantTickers?: readonly string[];
   fiscalYearEnd: string | null;
   period: "annual" | "quarter";
 }
@@ -427,7 +428,8 @@ function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareRecon
  * and ordinary-share unit can contradict a vendor field without a known split. */
 function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR_SHARE_FIELDS)[number],
   context: PrimaryShareReconciliation | undefined, splits: StockSplits, basisDay: string): { value: number; evidence: StatementFieldProvenance } | null {
-  if (!context || context.isAdr !== false) return null;
+  if (!context || context.isAdr !== false || context.registrantTickers?.length !== 1 ||
+    !context.registrantTickers[0]?.trim()) return null;
   const cik = (value: unknown): string | null => /^\d{1,10}$/.test(String(value)) && Number(value) > 0 ? String(Number(value)) : null;
   const issuer = cik(context.companyFacts.cik);
   if (issuer === null || cik(row.cik) !== issuer) return null;
@@ -529,7 +531,8 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
         // A no-split conflict must be distinguishable from the report's cent
         // rounding of filed EPS (e.g. 0.0017 vs 0.00). This does not establish
         // split basis: the original strict split check keeps its zero rule.
-        const roundingOnly = !splitCheck && isEps && Number(filerValue.toFixed(2)) === filerValue && Number(vendorValue.toFixed(2)) === filerValue;
+        const roundingOnly = !splitCheck && isEps && ((Number(filerValue.toFixed(2)) === filerValue && Number(vendorValue.toFixed(2)) === filerValue) ||
+          (Number(vendorValue.toFixed(2)) === vendorValue && Number(filerValue.toFixed(2)) === vendorValue));
         const agrees = vendorValue === filerValue || roundingOnly || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
         if (!agrees) {
           reason = `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis` +
@@ -1434,6 +1437,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       if (!current.ok || current.value.source === "edgar") continue;
       const guarded = guardVendorShareFields(current.value.data.rows, edgarRows, built.splits, basisDay,
         inputs.edgar.companyFacts.ok && Number(inputs.edgar.companyFacts.value.data.cik) === Number(cik10) ? { companyFacts: inputs.edgar.companyFacts.value.data, observedAt: inputs.edgar.companyFacts.value.fetchedAt,
+          registrantTickers: registrant?.tickers,
           isAdr: typeof vendorProfile?.isAdr === "boolean" ? vendorProfile.isAdr : null,
           fiscalYearEnd: registrant?.fiscalYearEnd ?? null, period: member === "incomeAnnual" ? "annual" : "quarter" } : undefined);
       if (guarded.withheld.length === 0) continue;

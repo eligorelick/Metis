@@ -52,13 +52,31 @@ const quarter = fiscalRow("2025-03-31", "Q1", { eps: -2.05, epsDiluted: -2.05, w
 const primaryQuarter = { ...quarter, eps: 0.04, epsDiluted: 0.04, weightedAverageShsOut: 231_076_000, weightedAverageShsOutDil: 231_076_000, netIncome: 44_882_000 };
 
 describe("vendor EPS and weighted shares with independently comparable primary facts", () => {
+  it.each([{ registrantTickers: ["BRK.A", "BRK.B"] }, { registrantTickers: [] }, { registrantTickers: undefined }])("keeps unequal or unestablished share units (%j)", ({ registrantTickers }) => {
+    const facts = factsFor([{ ...primaryQuarter, eps: 150, epsDiluted: 150, weightedAverageShsOutDil: 1000000 }]);
+    const primary = built(facts);
+    const row = { ...quarter, symbol: "BRK.B", eps: 0.1, epsDiluted: 0.1, weightedAverageShsOutDil: 1500000000 };
+    const out = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+    expect(out.rows).toEqual([row]);
+    expect(out.withheld).toEqual([]);
+  });
+
+  it.each([[0.035, 0.04], [0.005, 0.01], [-0.004, 0], [0.04, 0.06]])("rounds at the coarser cent precision: filed %s vendor %s", (filed, vendor) => {
+    const facts = factsFor([{ ...primaryQuarter, epsDiluted: filed }]);
+    const primary = built(facts);
+    const out = guardVendorShareFields([{ ...primaryQuarter, epsDiluted: vendor }], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+    expect(out.rows[0]?.epsDiluted).toBe(filed === 0.04 ? undefined : vendor);
+  });
+
   it("rejects FIG's opposite-sign Q1 EPS and inflated denominator without requiring a split", () => {
     const facts = factsFor([primaryQuarter]);
     const primary = built(facts);
     const before = structuredClone({ quarter, facts, primary });
     expect(primary.incomeQuarterly.rows[0]).toMatchObject({ date: "2025-03-31", period: "Q1", fiscalYear: "2025", epsDiluted: 0.04 });
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.epsDiluted).toBeUndefined();
     expect(result.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
     expect(result.rows[0]?.netIncome).toBe(8_611_000); // Common-basic allocation is not consolidated profit.
@@ -77,7 +95,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([{ ...row, weightedAverageShsOutDil: filed }]);
     const primary = built(facts);
     const result = guardVendorShareFields([row], primary.incomeAnnual.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "annual" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "annual" });
     expect(result.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
     expect(result.rows[0]?.fieldConflicts?.weightedAverageShsOutDil).toMatchObject({ vendorValue: vendor, secValue: filed, usable: false });
   });
@@ -88,7 +106,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const primary = built(facts);
     expect(primary.incomeQuarterly.rows).toEqual([]);
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.epsDiluted).toBeUndefined();
     expect(result.rows[0]?.fieldConflicts?.epsDiluted).toMatchObject({ vendorValue: -2.05, secValue: 0.04 });
     expect(result.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
@@ -98,7 +116,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([primaryQuarter]);
     const primary = built(facts);
     const result = guardVendorShareFields([{ ...quarter, cik: "1579878" }], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.epsDiluted).toBeUndefined();
     expect(result.rows[0]?.fieldConflicts?.epsDiluted?.secValue).toBe(0.04);
   });
@@ -108,7 +126,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([row]);
     const primary = built(facts);
     const result = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]).toBe(row);
     expect(result.withheld).toEqual([]);
   });
@@ -118,7 +136,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([primaryQuarter]);
     const primary = built(facts);
     const result = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.eps).toBeUndefined();
     expect(result.rows[0]?.epsDiluted).toBe(0.04);
     expect(result.rows[0]?.weightedAverageShsOutDil).toBe(231_080_000);
@@ -130,7 +148,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([{ ...primaryQuarter, eps: filed, epsDiluted: filed }]);
     const primary = built(facts);
     const result = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.eps).toBe(vendor);
     expect(result.rows[0]?.epsDiluted).toBe(vendor);
     expect(result.withheld.filter(field => field.field === "eps" || field.field === "epsDiluted")).toEqual([]);
@@ -152,7 +170,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([primaryQuarter]);
     const primary = built(facts);
     const result = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter", ...options });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", ...options });
     expect(result.rows).toEqual([row]);
     expect(result.withheld).toEqual([]);
   });
@@ -161,7 +179,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     const facts = factsFor([{ ...primaryQuarter, eps: undefined, epsDiluted: undefined, weightedAverageShsOut: undefined, weightedAverageShsOutDil: undefined }]);
     const primary = built(facts);
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows).toEqual([quarter]);
     expect(result.withheld).toEqual([]);
   });
@@ -174,7 +192,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     if (kind === "future") concept.units["USD/shares"]![0]!.filed = "2026-11-02";
     const primary = built(facts, kind === "uncovered-basis" ? { ...noSplits, coverage: [{ from: "2026-06-01", to: AS_OF }] } : noSplits);
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.epsDiluted).toBe(-2.05);
     expect(result.rows[0]?.fieldConflicts?.epsDiluted).toBeUndefined();
   });
@@ -185,7 +203,7 @@ describe("vendor EPS and weighted shares with independently comparable primary f
     concept.units["USD/shares"]!.push({ ...concept.units["USD/shares"]![0]!, val: -2.05 });
     const primary = built(facts);
     const result = guardVendorShareFields([quarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
-      { companyFacts: facts, isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
     expect(result.rows[0]?.epsDiluted).toBe(-2.05);
     expect(result.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
   });
