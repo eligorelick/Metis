@@ -646,3 +646,12 @@ The fiscal-year alternative reads convertible preferred through the same exact-d
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | F4 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f4-red` / `f4-green` | Saved figures/bytes retained; re-run uses corrected method |
+
+
+## Review round 2: F5
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F5 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f5-red` / `f5-green` | Saved figures/bytes retained; re-run uses corrected method |

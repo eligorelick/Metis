@@ -1790,7 +1790,8 @@ filed by acquisition. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
 Forecast operating EPS follows the selected divisor. A converted note removes
-interest only on the restored claim at the evidenced annual effective run-rate;
+interest only on the restored claim using the issuer's blended effective debt rate
+(not the note's coupon; may overstate the add-back);
 the reduction is capped at total interest. Without that rate interest remains
 and the assumption says so. All EPS scenarios and share-count alternatives use
 the same reading (FIN-302-V2); a preferred claim still withholds unallocated
@@ -6088,3 +6089,8 @@ The bridge audit table labels each convertible reading as a memo inside the prec
 ### P1 review correction F4 (2026-11-02)
 
 The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+
+### P1 review correction F5 (2026-11-02)
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.

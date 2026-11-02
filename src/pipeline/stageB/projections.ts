@@ -727,7 +727,7 @@ function buildEpsSeries(
   const interest = baseInterest - removedInterest;
   const conversionText = convertedNotes <= 0 ? "" : rate === null
     ? "; convertible notes treated as converted, interest retained because the effective rate is unavailable"
-    : `; convertible notes treated as converted: interest reduced by ${round2(removedInterest / 1e9)}B at the evidenced ${round2(rate)}% rate on the restored claim`;
+    : `; convertible notes treated as converted: interest reduced by ${round2(removedInterest / 1e9)}B using the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back), ${round2(rate)}% on the restored claim`;
   const interestText = runRate
     ? `interest expense ${round2(interest / 1e9)}B a year at the latest quarter's run-rate (${runRate.basis})`
     : latestInterest ? `latest annual interest expense ${round2(interest / 1e9)}B`

@@ -29,6 +29,7 @@ describe("FIN-302-V2: forecast EPS inherits the convertible reading", () => {
     const { eps, rows } = project("converted");
     for (const i of [0, 4]) expect(eps.base[i].value.value).toBeCloseTo((rows[i].ebit - 18 * M) * (1 - rows[i].taxRatePct / 100) / (100 * M), 2);
     expect(eps.assumptions.join(" ")).toMatch(/convertible notes treated as converted/);
+    expect(eps.assumptions.join(" ")).toContain("the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back)");
   });
   it("without an evidenced rate converted interest is retained and disclosed", () => {
     const { eps, rows } = project("converted", null);

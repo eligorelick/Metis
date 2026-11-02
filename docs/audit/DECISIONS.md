@@ -54,7 +54,8 @@ much claim/dilution rather than increase value. Source conventions are the
 reviewed OD-2 citations; no fresh source/network verification is claimed.
 
 FIN-302-V2 extends that same reading to every operating EPS path and share
-alternative. Converted interest is restored-claim times the evidenced run-rate,
+alternative. Converted interest uses the issuer's blended effective debt rate
+(not the note's coupon; may overstate the add-back) times the restored claim,
 capped at total interest. With no evidenced effective rate, keep interest and
 state the conservative limitation; no coupon is inferred. This is the OD-2
 approximation, not a GAAP diluted-EPS forecast. No prompt text or stamp changes.
@@ -3152,5 +3153,12 @@ Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 ## D-next (P1): F4 (2026-11-02)
 
 The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+Shared stamps stay at report 1.56.0, payload 1.60.0 and method
+2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
+
+
+## D-next (P1): F5 (2026-11-02)
+
+Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
 Shared stamps stay at report 1.56.0, payload 1.60.0 and method
 2026_11_CLAUDE_REPAIRS_39. Stored figures and bytes are retained (D-67).
