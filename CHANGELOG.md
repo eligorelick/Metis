@@ -18,6 +18,25 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
+
+- The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and
+  presentation review; stored prose and verification marks stay as written (D-67), and the fixes below apply to the
+  stored report when it is re-rendered or to future runs. See D-163.
+- Read-time: reader labels for peer-table columns, pipeline citations and registry ids; the excluded-provider caption
+  survives a subject row; scenario bullets drop a repeated heading; executive cards name the missing assessment;
+  shared table qualifications are stated once, with XBRL tags, parser diagnostics, per-cell trend derivations and
+  no-news grade contracts moved to the audit companion; templates no longer describe absent model outputs; the trend
+  caption counts its quarters; CPI rows are named as year-over-year inflation and dated by month; the SBC ratio names
+  its add-back basis; a last close from a session still open at the history fetch is labelled as such.
+- Stage B: a still-forming US session bar is left out of observed price history, so technicals end at the last
+  settled close.
+- Future runs: one claim object in each catalyst and risk `reasoning` (both FIGR judges paid a repair for a list), and
+  generic analysis rules for each error the reviews found (operating income versus revenue marks, ratio direction,
+  return and SBC bases, matched windows, share-of-total attribution, scoped absence claims, met versus beat,
+  post-transaction liquidity, causal and superlative claims, executive attribution, valuation anchors versus multiples,
+  every retained guidance period, KPI causes, specialist terms).
+
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 
 - End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026

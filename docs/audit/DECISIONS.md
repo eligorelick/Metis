@@ -4442,5 +4442,25 @@ and the catalystsRisks section request now say that this field holds one
 claim object, labelled JUDGMENT when it joins a sourced fact with the model's
 interpretation.
 
+### D-163: Analysis rules for future runs
+
+The reviews also found analysis errors the evidence did not cause. Both
+analysts and the judge now read generic rules for each: an item recorded in
+revenue or operating expenses (servicing-asset marks) is inside operating
+income, which removes income-tax effects, not revenue marks; lower earnings
+raise P/E; DuPont parent-income ROE and common-income ROTE are separate bases,
+and normalization conclusions are conditional on stated tax and allocation
+assumptions; flows are compared over matched windows on one basis (the SBC
+add-back is not allocated SBC expense); a share of a total needs that
+category's total; an absence is scoped to the retained excerpts; a result
+inside a guided range met it; the last balance does not show liquidity after a
+later transaction; no unsupported either/or cause or unscoped superlative;
+executive execution evidence is company results during a tenure, not a
+personal record; a missing valuation anchor is not a missing multiple; every
+retained guidance period is compared; a defined KPI's movement is not its
+cause; specialist terms are defined on first use. Whether a model follows them
+can only be confirmed in a future paid run.
+
 Tests: `tests/report.xhighReadability.test.ts`, `tests/report.xhighAuditRender.test.ts`,
-`tests/marketAdmission.inProgressSession.test.ts`, `tests/stageC.singleClaimReasoning.test.ts`.
+`tests/marketAdmission.inProgressSession.test.ts`, `tests/stageC.singleClaimReasoning.test.ts`,
+`tests/stageC.xhighAuditPromptRules.test.ts`.
