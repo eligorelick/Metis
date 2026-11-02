@@ -726,16 +726,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       prior.pct > 0 &&
       prior.yearsBack >= 1 &&
       prior.yearsBack <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK;
-    if (priorUsable) {
-      notes.push(
-        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%`,
-      );
-      gaps.push({
-        field: "returns.wacc.interestExpense",
-        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured`,
-        severity: "warn",
-      });
-    } else if (intExpRaw === null || intExpRaw <= 0) {
+    if (!priorUsable && (intExpRaw === null || intExpRaw <= 0)) {
       const intExpNegative = intExpRaw !== null && intExpRaw < 0;
       // Basis-neutral wording: the caller may have passed the TTM figure OR the
       // annual fallback (compute.ts discloses which) — don't claim "Ttm" here.
@@ -790,13 +781,23 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     if (rdEffective !== null && !deMinimis && rdEffective >= rdBand[0] && rdEffective <= rdBand[1]) {
       costOfDebtPct = rdEffective;
       costOfDebtMethod = priorUsable ? "historical" : "effective";
+      if (priorUsable) {
+      notes.push(
+        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%`,
+      );
+      gaps.push({
+        field: "returns.wacc.interestExpense",
+        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured`,
+        severity: "warn",
+      });
+      }
       notes.push(
         `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% accepted (band [rf − ${RD_BAND_BELOW_RF_PCT}, rf + ${RD_BAND_ABOVE_RF_PCT}] = [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]%)`,
       );
     } else {
       if (rdEffective !== null && !deMinimis) {
         notes.push(
-          `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% outside acceptance band [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]% — synthetic rating used`,
+          `${priorUsable ? "historical" : "effective"} cost of debt ${fmt(rdEffective)}% outside acceptance band [${fmt(rdBand[0])}, ${fmt(rdBand[1])}]%; synthetic rating is attempted`,
         );
       }
       // Synthetic rating requires a positive observed interest expense. Missing
@@ -854,6 +855,12 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
   }
 
   // --- Weights + final WACC -------------------------------------------------------
+  if (hasDebt && inputs.priorYearCostOfDebt && (!isFiniteNumber(inputs.interestExpenseTtm) || inputs.interestExpenseTtm <= 0) && costOfDebtMethod !== "historical") {
+    const prior = inputs.priorYearCostOfDebt;
+    gaps.push({field:"returns.wacc.interestExpense", severity: costOfDebtMethod === "unavailable" ? waccGapSeverity : "warn",
+      reason: `Interest expense undisclosed; historical FY ${prior.fiscalYearEnd} rate ${fmt(prior.pct)}% was not used. ` +
+        (costOfDebtMethod === "synthetic" ? `The synthetic cost of debt ${fmt(costOfDebtPct!)}% is used (${syntheticRating}).` : "No synthetic cost of debt is computable; WACC is unavailable.")});
+  }
   const mcap = isFiniteNumber(inputs.marketCap) && inputs.marketCap > 0 ? inputs.marketCap : null;
   let weightCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
   const minorQuote = minorUnitQuote(inputs.quoteCurrency);

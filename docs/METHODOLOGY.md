@@ -6345,3 +6345,5 @@ P2 (FIN-127): Historical projection rows carry the filed fiscalYear, including s
 P2 (FIN-114): The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged.
 
 P2 (FIN-113): Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context.
+
+P2 (FIN-115): Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so.

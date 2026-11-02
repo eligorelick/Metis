@@ -28,6 +28,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-113 | Fixed: Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context. | Owning FIN-113 commit | fin-113-red / fin-113-green | Stored figures unchanged |
 
+| FIN-115 | Fixed: Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so. | Owning FIN-115 commit | fin-115-red / fin-115-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

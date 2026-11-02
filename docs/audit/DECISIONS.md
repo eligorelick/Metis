@@ -3621,3 +3621,7 @@ The WACC and DCF assumption source labels name the selected domicile ERP country
 ## D-next (P2) - FIN-113 (2026-11-02)
 
 Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context. Stored reports remain immutable.
+
+## D-next (P2) - FIN-115 (2026-11-02)
+
+Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so. Stored reports remain immutable.
