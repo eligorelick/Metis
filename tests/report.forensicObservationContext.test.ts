@@ -1,3 +1,4 @@
+import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
@@ -39,7 +41,7 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Freeze the entire Stage B result, permitting only two Task 8 descriptions at three exact output paths.
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
-  const pinned = restoreCapexBasisGolden(c, 1);
+  const pinned = restoreN4aPeerWordingGolden(restoreCapexBasisGolden(c, 1), 2);
   // N2 P/TBV review changes only this deduction disclosure in the control.
   // Pin its exact text once, then preserve the complete historical hash.
   const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;
@@ -157,6 +159,7 @@ describe("retained forensic observation context on real data-only exports", () =
     // stamps and no value, so the hash is re-pinned for them alone.
     expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39");
     expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39");
-    expect(invariantHash(computed)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
+    // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
+    expect(invariantHash(restoreP2ComputedGolden(computed))).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
 });

@@ -211,3 +211,14 @@ describe("priorYearCostOfDebt from annual statements", () => {
     expect(priorYearCostOfDebt(deep, [...balance, { date: "2021-09-25", totalDebt: 124_719_000_000 }])).toBeNull();
   });
 });
+
+it("names the debt cost actually used after rejecting historical rates (FIN-115)",()=>{
+  const r=computeWacc({...base,riskFreePct:5,priorYearCostOfDebt:{...prior,pct:2.5}});
+  expect(r.costOfDebtMethod).toBe("synthetic");
+  expect(r.notes.join(" ")).not.toMatch(/cost of debt taken from FY/);
+  expect(r.gaps.map(g=>g.reason).join(" ")).not.toMatch(/cost of debt inferred from the FY/);
+  expect(r.gaps.map(g=>g.reason).join(" ")).toMatch(/synthetic.*5\.4%/);
+  const unavailable=computeWacc({...base,riskFreePct:5,priorYearCostOfDebt:{...prior,pct:2.5,ebit:null}});
+  expect(unavailable.costOfDebtMethod).toBe("unavailable");
+  expect(unavailable.notes.join(" ")).not.toMatch(/synthetic rating used/);
+});

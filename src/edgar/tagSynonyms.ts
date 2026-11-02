@@ -307,6 +307,11 @@ export const MATURITIES_STAND_IN: TagStandIn = {
 /** The all-classes share count a per-class reporter files instead of the dei cover count. */
 export const BALANCE_SHEET_SHARES_TAG = "CommonStockSharesOutstanding";
 
+/** Filed conversion/IPO evidence shared by annual dilution and awards attribution. */
+export const COMMON_CONVERSION_TAGS = ["StockIssuedDuringPeriodSharesConversionOfConvertibleSecurities", "ConversionOfStockSharesConverted"] as const;
+export const IPO_PROCEEDS_TAG = "ProceedsFromIssuanceInitialPublicOffering";
+export const PARTICIPATING_SECURITY_ALLOCATION_TAGS = ["UndistributedEarningsLossAllocatedToParticipatingSecuritiesBasic", "UndistributedEarningsLossAllocatedToParticipatingSecuritiesDiluted"] as const;
+
 export const LINE_ITEM_TAGS = {
   // --- income statement -----------------------------------------------------
   revenue: entry(REVENUE_TAGS),
@@ -617,3 +622,12 @@ export function floorsFor(item: LineItem): string[] {
   const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
   return [...(entryFor.unlessBelow ?? [])];
 }
+
+// P2: admitted operating one-offs; total wins over components.
+export const UNUSUAL_OPERATING_GAIN_TAGS = ["InsuredEventGainLoss"] as const;
+export const UNUSUAL_OPERATING_CHARGE_TOTAL_TAG = "AssetImpairmentCharges";
+export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
+  "GoodwillImpairmentLoss",
+  "ImpairmentOfLongLivedAssetsHeldForUse",
+  "ImpairmentOfIntangibleAssetsExcludingGoodwill",
+] as const;

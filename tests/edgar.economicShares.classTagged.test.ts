@@ -95,3 +95,8 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     expect(parse(metaLike(), "FB").evidence).toBeNull();
   });
 });
+
+it("L1 uses the same fully named identical-rights sentence on the cover parser", () => {
+  const rights = "The rights, including the liquidation and dividend rights and sharing of losses, of the Class A common stock and Class B common stock are identical, other than voting rights.";
+  expect(parse(metaLike(`<p>${rights}</p>`), "META").evidence?.complete).toBe(true);
+});

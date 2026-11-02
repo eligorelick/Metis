@@ -260,3 +260,10 @@ describe("net debt/EBITDA on the enterprise value's lease basis", () => {
     expect(out.capital.current?.debtBridge.netDebtExcludingOperatingLeases).toBeCloseTo(out.capital.current?.netDebt as number, 0);
   });
 });
+
+it("uses the established filed start for a 53-week current-capital window (FIN-113)",()=>{
+  const r=attachCurrentCapital(annual(),{income:{...income,date:"2026-09-03"},cashFlow:{...cash,date:"2026-09-03"},balance:{...balance,date:"2026-09-03"},currency:"USD",periodStart:"2025-08-29"});
+  expect(r.current?.periodStart).toBe("2025-08-29");
+  expect(r.current?.periodStartIsApproximate).not.toBe(true);
+  expect(attachCurrentCapital(annual(),{income,cashFlow:cash,balance,currency:"USD"}).current?.periodStartIsApproximate).toBe(true);
+});

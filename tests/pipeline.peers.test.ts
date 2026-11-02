@@ -167,6 +167,13 @@ describe("defensible peer comparables", () => {
     expect(result.peerCoverage.exclusions.filter(e => /valuation route unconfirmed/.test(e.reason)).map(e => e.symbol)).toEqual(["P2", "P3", "P4", "P5"]);
     expect(result.peerCoverage.eligible).toEqual([]);
   });
+  it("L6 excludes profile-only peers when SEC evidence establishes held-for-sale lending", () => {
+    const result = comparePeerFundamentals({ ...evidenceRefinedPeerCase("general"),
+      subjectCashFlowApplicability: { status: "not-applicable", reason: "Filed held-for-sale loan originations and sales in OCF", sourceIds: ["https://www.sec.gov/Archives/edgar/data/1/filing.htm"], asOf: "2026-06-30" } });
+    expect(result.peerCoverage.eligible).toEqual([]);
+    expect(result.peers).toEqual([]);
+    expect(result.peerCoverage.exclusions.filter(e => /lender.*unconfirmed/i.test(e.reason)).map(e => e.symbol)).toEqual(["P2", "P3", "P4", "P5"]);
+  });
   it("FIN-125 control: the same profiles remain eligible for a general subject", () => {
     expect(comparePeerFundamentals(evidenceRefinedPeerCase("general")).peerCoverage.eligible).toEqual(["P2", "P3", "P4", "P5"]);
   });

@@ -13,6 +13,7 @@
  * Full precision returned; round only at display time.
  */
 
+import { COMMON_CONVERSION_TAGS, IPO_PROCEEDS_TAG, PARTICIPATING_SECURITY_ALLOCATION_TAGS } from "@/edgar/tagSynonyms";
 import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "./leaseScope";
@@ -500,6 +501,27 @@ function zeroAsNull(v: number | null | undefined): number | null {
 }
 
 // ---------------------------------------------------------------------------
+// One retained-facts rule for N3's annual trend and L7's fiscal-year award fact.
+function filedConversionInWindow(options: CapitalOptions, startDate: string, endDate: string) {
+  if (!options.companyFacts || !options.asOf || !Number.isFinite(Date.parse(options.asOf))) return null;
+  const cutoff = options.asOf.slice(0, 10);
+  const points = (tag: string, unit: string) => {
+    const concept = conceptFactsSchema.safeParse(options.companyFacts!.facts["us-gaap"]?.[tag]);
+    return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
+      CORE_FACT_FORMS.has(p.form) && p.filed <= cutoff && p.end <= cutoff &&
+      p.end >= startDate && p.end <= endDate && p.val !== 0) : [];
+  };
+  const conversions = COMMON_CONVERSION_TAGS
+    .flatMap(tag => points(tag, "shares").filter(p => p.val > 0).map(p => ({ tag, point: p })));
+  const currency = options.reportedCurrency;
+  const ipo = currency ? points(IPO_PROCEEDS_TAG, currency).filter(p => p.val > 0) : [];
+  const allocations = currency ? PARTICIPATING_SECURITY_ALLOCATION_TAGS
+    .flatMap(tag => points(tag, currency)) : [];
+  const twoClassIpo = ipo.find(p => allocations.some(a => a.accn === p.accn && a.end === p.end));
+  const evidence = conversions[0]?.point ?? twoClassIpo;
+  return evidence ? { point: evidence, tag: conversions[0]?.tag ?? "IPO with two-class participating-security allocation" } : null;
+}
+
 // computeCapital
 // ---------------------------------------------------------------------------
 
@@ -878,8 +900,8 @@ export function computeCapital(
   }
 
   // --- WS6 (D-19): dilution from outstanding awards -----------------------------------------
-  // The gap between the diluted and basic weighted-average counts IS the
-  // outstanding-award overhang the statement discloses. Missing counts are
+  // The diluted/basic gap is withheld as an award attribution when the
+  // fiscal year spans filed conversion or participating-preferred IPO evidence. Missing counts are
   // disclosed, never assumed to be zero.
   let dilution: DilutionOverhang;
   {
@@ -890,7 +912,18 @@ export function computeCapital(
     const diluted = isFiniteNumber(latestInc?.weightedAverageShsOutDil) && latestInc.weightedAverageShsOutDil > 0
       ? latestInc.weightedAverageShsOutDil
       : null;
-    const overhangPct = basic !== null && diluted !== null ? ((diluted - basic) / basic) * 100 : null;
+    const priorSpan = (Date.parse(latestInc?.date ?? "") - Date.parse(inc[1]?.date ?? "")) / 86_400_000;
+    const previousEnd = (priorSpan >= 330 && priorSpan <= 400 ? inc[1]!.date : null) ?? (() => {
+      const day = new Date(latestInc?.date ?? "");
+      if (!Number.isFinite(day.getTime())) return "";
+      day.setUTCFullYear(day.getUTCFullYear() - 1);
+      return day.toISOString().slice(0, 10);
+    })();
+    const fiscalStart = previousEnd ? new Date(Date.parse(previousEnd) + 86_400_000).toISOString().slice(0, 10) : "";
+    const conversion = latestInc && fiscalStart ? filedConversionInWindow(options, fiscalStart, latestInc.date) : null;
+    const conversionReason = conversion ? `Dilution overhang unavailable: filed conversion evidence ${conversion.tag} (${conversion.point.form} ${conversion.point.accn}, filed ${conversion.point.filed}, period ending ${conversion.point.end}) spans the fiscal year ${fiscalStart} through ${latestInc!.date}. The diluted/basic gap cannot be attributed to outstanding awards across that conversion; source share counts are retained.` : null;
+    if (conversionReason) gaps.push({ field: "capital.dilution.conversion", reason: conversionReason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
+    const overhangPct = !conversion && basic !== null && diluted !== null ? ((diluted - basic) / basic) * 100 : null;
     const missing = [
       basic === null ? "weightedAverageShsOut (basic)" : null,
       diluted === null ? "weightedAverageShsOutDil (diluted)" : null,
@@ -914,12 +947,12 @@ export function computeCapital(
       dilutedShares: diluted,
       overhangPct,
       asOf: latestInc?.date ?? null,
-      note:
+      note: conversionReason ?? (
         overhangPct === null
           ? `Dilution overhang unavailable: ${missing.length > 0 ? missing.join(" and ") + " not disclosed" : "no annual income statement"}.`
           : `Dilution from outstanding awards: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} weighted-average shares ` +
             `as of ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% overhang. Options, RSUs and convertibles that are ` +
-            "antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool.",
+            "antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."),
     };
     // N3: the note reaches the notes channel in BOTH states. It used to be
     // pushed only when an overhang existed, so "unavailable" was visible in the
@@ -989,23 +1022,10 @@ export function computeCapital(
       // do not establish economic dilution. Preserve observations, remove the
       // signal (and therefore its score/projection weight), and name the filing.
       if (trendPct > 0 && options.companyFacts && options.asOf && Number.isFinite(Date.parse(options.asOf))) {
-        const cutoff = options.asOf.slice(0, 10);
-        const points = (tag: string, unit: string) => {
-          const concept = conceptFactsSchema.safeParse(options.companyFacts!.facts["us-gaap"]?.[tag]);
-          return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
-            CORE_FACT_FORMS.has(p.form) && p.filed <= cutoff && p.end <= cutoff &&
-            p.end >= start.date && p.end <= end.date && p.val !== 0) : [];
-        };
-        const conversions = ["StockIssuedDuringPeriodSharesConversionOfConvertibleSecurities", "ConversionOfStockSharesConverted"]
-          .flatMap(tag => points(tag, "shares").filter(p => p.val > 0).map(p => ({ tag, point: p })));
-        const currency = options.reportedCurrency;
-        const ipo = currency ? points("ProceedsFromIssuanceInitialPublicOffering", currency).filter(p => p.val > 0) : [];
-        const allocations = currency ? ["UndistributedEarningsLossAllocatedToParticipatingSecuritiesBasic", "UndistributedEarningsLossAllocatedToParticipatingSecuritiesDiluted"]
-          .flatMap(tag => points(tag, currency)) : [];
-        const twoClassIpo = ipo.find(p => allocations.some(a => a.accn === p.accn && a.end === p.end));
-        const evidence = conversions[0]?.point ?? twoClassIpo;
+        const conversion = filedConversionInWindow(options, start.date, end.date);
+        const evidence = conversion?.point;
         if (evidence) {
-          const reason = `Annual share-count signal withheld: filed ${conversions[0]?.tag ?? "IPO with two-class participating-security allocation"} (${evidence.form} ${evidence.accn}, filed ${evidence.filed}, period ending ${evidence.end}) spans ${start.date} through ${end.date}. A conversion changes the common weighted denominator and is not evidence of economic dilution; reported share observations are retained.`;
+          const reason = `Annual share-count signal withheld: filed ${conversion!.tag} (${evidence.form} ${evidence.accn}, filed ${evidence.filed}, period ending ${evidence.end}) spans ${start.date} through ${end.date}. A conversion changes the common weighted denominator and is not evidence of economic dilution; reported share observations are retained.`;
           shareCount = { ...shareCount, trendPct: null, annualizedPct: null, direction: null, note: reason };
           notes.push(reason);
           gaps.push({ field: "capital.shareCountTrend.conversion", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });

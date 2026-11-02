@@ -42,3 +42,32 @@ describe("N3 conversion is not a dilution signal",()=>{
   expect(out.scores.aspects.leadership.drivers.some(d=>d.source.includes("shareCount"))).toBe(false);
  });
 });
+
+describe("L7 no award attribution across a filed conversion", () => {
+ const awards = (companyFacts: CompanyFacts, asOf = at) => computeCapital([
+  { date: "2025-12-31", weightedAverageShsOut: 100, weightedAverageShsOutDil: 125 },
+  { date: "2024-12-31", weightedAverageShsOut: 90, weightedAverageShsOutDil: 100 },
+ ], [], [], [], { price: null }, { companyFacts, asOf, reportedCurrency: "USD" });
+ it.each(["conversion", "participating-ipo"])("withholds the award fact for %s while retaining source counts", mode => {
+  const f = mode === "conversion" ? facts({ ConversionOfStockSharesConverted: [point(60)] }) :
+   facts({ ProceedsFromIssuanceInitialPublicOffering: [point(100e6)], UndistributedEarningsLossAllocatedToParticipatingSecuritiesBasic: [point(20e6)] });
+  const out = awards(f);
+  expect(out.dilution).toMatchObject({ basicShares: 100, dilutedShares: 125, overhangPct: null, asOf: "2025-12-31" });
+  expect(out.dilution.note).toMatch(/unavailable.*conversion.*awards/i);
+  expect(out.notes.join(" ")).not.toContain("Dilution from outstanding awards:");
+  expect(out.gaps.find(g => g.field === "capital.dilution.conversion")).toMatchObject({ severity: "info", reason: expect.stringContaining("0000000001-26-000001") });
+ });
+ it.each(["ordinary issuance", "IPO alone", "prior fiscal year", "later filing", "other form", "other unit", "no cutoff"])("retains award evidence for %s", mode => {
+  const tag = mode === "ordinary issuance" ? "StockIssuedDuringPeriodSharesNewIssues" : mode === "IPO alone" ? "ProceedsFromIssuanceInitialPublicOffering" : "ConversionOfStockSharesConverted";
+  const f = facts({ [tag]: [point(60, mode === "prior fiscal year" ? { start: "2024-01-01", end: "2024-12-31" } : mode === "later filing" ? { filed: "2027-02-01" } : mode === "other form" ? { form: "S-1" } : {})] }, mode === "other unit" ? "USD" : undefined);
+  expect(awards(f, mode === "no cutoff" ? "" : at).dilution.overhangPct).toBe(25);
+ });
+});
+
+it("L7 does not stretch the fiscal-year award window across missing annual rows", () => {
+ const out = computeCapital([
+  { date: "2025-12-31", weightedAverageShsOut: 100, weightedAverageShsOutDil: 125 },
+  { date: "2023-12-31", weightedAverageShsOut: 90, weightedAverageShsOutDil: 100 },
+ ], [], [], [], { price: null }, { companyFacts: facts({ ConversionOfStockSharesConverted: [point(60, { start: "2024-01-01", end: "2024-12-31" })] }), asOf: at, reportedCurrency: "USD" });
+ expect(out.dilution.overhangPct).toBe(25);
+});

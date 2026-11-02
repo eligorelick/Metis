@@ -14,7 +14,7 @@
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ThesisTrigger, TracedNumber } from "@/report/schema";
 import { establishedCurrency, formatFinancialValue } from "@/report/format";
-import { forecastYearPeriod, isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
+import { forecastYearPeriod, isStartingGrowthFamily, MARGIN_FADE_YEARS } from "@/pipeline/stageB/valuation";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -87,7 +87,9 @@ export function buildThesisTriggers(
       metric: "Supported terminal operating margin",
       comparator,
       threshold: reverseThreshold(reverse.impliedTerminalMarginPct),
-      horizon: `Margin fades from the starting level to the terminal level over ${years} explicit forecast years`,
+      horizon: reverse.marginPathFamily === "base-shift-to-terminal"
+        ? `Base margin path shifted by the terminal-margin delta, with its shift ramp reaching the full delta by ${Math.min(MARGIN_FADE_YEARS, years)} years and held thereafter`
+        : `Margin fades from the starting level to the terminal level over ${years} explicit forecast years`,
       fixedAssumptions: [...commonFixed, "The revenue growth path remains at the base case; the operating-margin path is the reverse solver's fade."],
       consequence: `If revised evidence supports a terminal margin ${comparator} this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target.`,
     });

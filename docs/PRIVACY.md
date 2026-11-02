@@ -32,6 +32,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | U.S. Treasury (`home.treasury.gov`) | The year of the daily par yield curve CSV requested; no key, contact or identity header | Only when FRED `DGS10`, FMP treasury rates and the last cached `DGS10` observation all have no risk-free rate |
 | Finnhub (`finnhub.io`) | Symbol, endpoint/date parameters; `FINNHUB_API_KEY` in an `X-Finnhub-Token` header | `FINNHUB_API_KEY` is set |
 | FINRA (`api.finra.org`) | Partition requests; symbol and requested settlement cycles in short-interest queries. The production path configures no FINRA credential | Short-interest data is requested |
+| Issuer website for an EDGAR-confirmed issuer | Public home, investor-relations, news and release GET requests; `User-Agent: MetisResearch/1.0 (public investor-relations announcement discovery)`; no key, contact or cookie; up to six requests in 12 seconds to public addresses | Confirming a next earnings date when not already confirmed, or discovering official material-event statements |
 
 Cache hits may avoid these requests. Expired hits can trigger a background
 refresh even while the UI displays stored data. Opening a company page can
@@ -60,9 +61,8 @@ separately installed Gemini CLI.
 What the selected AI provider's research payload contains, precisely
 (`src/pipeline/stageC/payload.ts`, `src/pipeline/stageC/prompts.ts`):
 
-- Excerpts of the company's public SEC filings: 10-K Item 1A (or 20-F Item 3.D)
-  risk factors, 10-K Item 7 (or 20-F Item 5) MD&A, and 10-Q Part I Item 2 MD&A,
-  each truncated to a disclosed character budget.
+- Excerpts of public SEC filings: annual business description (10-K Item 1 or 20-F Item 4), risk factors (10-K Item 1A or 20-F Item 3.D), annual MD&A (10-K Item 7 or 20-F Item 5); quarterly MD&A (Part I Item 2), notes (Part I Item 1), Other Information including trading arrangements (Part II Item 5), controls conclusions (Part I Item 4), and dated officer signatures; the 10-K's notes to the consolidated financial statements; earnings releases (EX-99.1), CFO commentary (EX-99.2), reconciliation tables, material-event 8-K items, and XBRL segments.
+- Up to three official company statements from the issuer's investor-relations pages, labelled as issuer statements.
 - An excerpt of the latest earnings-call transcript, when one was retrieved.
 - The ticker context payload: the computed financial figures, ratios,
   valuation inputs, macro series, and public peer-company comparisons used
@@ -85,9 +85,7 @@ are researching. Public data for peers and market
 benchmarks can support the selected company's analysis. The payload is
 deterministic: the same inputs produce the same bytes.
 
-Text budgets are 18,000 characters for the latest transcript, 14,000 each for
-annual risk factors and MD&A, 8,000 for quarterly MD&A, and 6,000 for news
-snippets. Compact statement extracts keep five annual and four quarterly
+Text budgets, in characters: 18,000 for the latest transcript; risk factors 14,000, or 20% of a longer section up to 24,000; 12,000 for business; 14,000 for annual MD&A; 12,000 for quarterly MD&A; 14,000 for 10-Q notes; 10,000 for 10-K notes; 2,500 for Other Information; 6,000 for controls; 9,000 for earnings releases; 11,000 for CFO commentary; 1,200 per material-event item (1,800 for credit-support agreements), 8,600 total; and 6,000 for news. Signatures are sent whole at at most 2,500 characters, otherwise withheld. Compact statement extracts keep five annual and four quarterly
 periods, and list-shaped sources generally keep twelve rows. These are
 character/row limits, not a guaranteed overall prompt-token limit. Truncation
 is disclosed. The database can cache full provider responses beyond what the

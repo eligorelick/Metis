@@ -1,3 +1,4 @@
+import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const DB_CLI_TEST = "tests/db.cli.test.ts";
@@ -276,3 +277,18 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
 ];
+
+/** TEST-201: one glob-free key per core file preserves the aggregate gate. */
+export const PER_FILE_FLOOR = { statements: 85, branches: 75, functions: 85, lines: 85 };
+export function perFileFloorThresholds(root: string, entries: readonly string[] = ["src/pipeline/stageB", "src/report/schema.ts"]): Record<string, typeof PER_FILE_FLOOR> {
+ const result: Record<string, typeof PER_FILE_FLOOR> = {};
+ const visit=(file: string): void=>{
+  const absolute=path.join(root,file);
+  if(statSync(absolute).isDirectory()) { for(const name of readdirSync(absolute)) visit(`${file}/${name}`); return; }
+  if(!file.endsWith(".ts") || file.endsWith(".d.ts")) return;
+  if(/[*?\[\]{}()!+@]/.test(file)) throw new Error(`coverage floor key must be a glob-free path: ${file}`);
+  result[file.replaceAll("\\","/")]={...PER_FILE_FLOOR};
+ };
+ for(const entry of entries) visit(entry);
+ return result;
+}

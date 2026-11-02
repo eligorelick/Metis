@@ -10,6 +10,7 @@ import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { runStageB } from "@/pipeline/compute";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildDataCompleteness } from "@/report/completeness";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { buildMarketData } from "@/pipeline/marketData";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
@@ -79,6 +80,28 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     expect(JSON.stringify(b)).toBe(before);
   });
 
+  it("L9 records a refused, unconsumed lender discount rate as disclosure only", () => {
+    const b = lender();
+    if (!b.profile.ok) throw new Error("fixture");
+    b.profile.value.data.rows[0]!.beta = -0.02;
+    const c = runStageB(b);
+    expect(c.valuation.kind).toBe("dcf-suppressed");
+    expect(c.returns.wacc.waccPct).toBeNull();
+    expect(c.returns.wacc.costOfEquityPct).toBeNull();
+    expect(c.returns.wacc.gaps.find(g => g.field === "returns.wacc.beta")).toMatchObject({ severity: "info", reason: expect.stringMatching(/no applicable.*discount rate/i) });
+    expect(c.gaps.find(g => g.field === "returns.wacc.beta")?.severity).toBe("info");
+    expect(buildDataCompleteness(c.gaps).state).not.toBe("blocked");
+  });
+  it.each(["general", "bank", "insurer"])("L9 retains critical beta severity for the %s route", kind => {
+    const b = lender({ bank: kind === "bank", sic: kind === "bank" ? "6022" : "3571" });
+    if (!b.profile.ok) throw new Error("fixture");
+    b.profile.value.data.rows[0]!.beta = -0.02;
+    if (kind === "insurer") Object.assign(b.profile.value.data.rows[0]!, { industry: "Insurance - Property & Casualty", sector: "Financial Services" });
+    const c = runStageB(b);
+    expect(c.route.base).toBe(kind === "general" ? "general" : kind);
+    expect(c.gaps.find(g => g.field === "returns.wacc.beta")?.severity).toBe("critical");
+    expect(buildDataCompleteness(c.gaps).state).toBe("blocked");
+  });
   it("F1/F2 remove industrial lender multiples and leverage from numbers and scoring", () => {
     const c = runStageB(lender());
     const p = metricPolicy(c.route);

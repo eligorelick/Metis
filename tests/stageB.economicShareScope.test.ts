@@ -364,3 +364,22 @@ it.each(["preferredStock", "preferredDividendsPaid"] as const)("withholds curren
   args.balance!.preferredStock=0;args.incomeTtm!.preferredDividendsPaid=0;
   expect(multiplesFramework("general",args).multiples.find(row=>row.key==="priceToFcf")?.current).toBeCloseTo(args.quote.marketCap!/1e9);
 });
+
+it("TEST-201 preserves unnamed cover ambiguity and deduplicates its sources",()=>{
+ const b=completeCurrencyBundle({});
+ b.edgar.economicShareInventory=[];
+ b.edgar.tenQNotes=undefined; b.edgar.tenKNotes=undefined;
+ b.gaps=[{field:"keyless.sharesOutstanding.classes",reason:"synthetic",severity:"info",attemptedSources:["edgar:cover a","edgar:cover b","edgar:cover a"]}];
+ expect(retainedCommonClassAmbiguity(b)?.sourceIds).toEqual(["edgar:cover a","edgar:cover b"]);
+ b.gaps=[];
+ expect(retainedCommonClassAmbiguity(b)).toBeNull();
+});
+
+it("TEST-201 selects newest retained inventory and observation filing",()=>{
+ const b=completeCurrencyBundle({}); b.builtAt="2026-10-19T12:00:00Z";
+ const inventory=(filingDate:string)=>({source:{form:"10-K",accession:filingDate,filingDate,documentUrl:`https://www.sec.gov/${filingDate}`,hash:"synthetic"},classes:["A","B"].map(classId=>({classId,label:classId,shares:1,asOf:filingDate,sourceId:classId})),evidence:null,reason:"synthetic",passages:{inventory:"",rights:null}});
+ b.edgar.economicShareInventory=[inventory("2025-11-01"),inventory("2026-02-06")];
+ expect(retainedCommonClassAmbiguity(b)?.sourceIds).toEqual(["https://www.sec.gov/2026-02-06"]);
+ b.edgar.economicShareInventory=b.edgar.economicShareInventory.map(row=>({...row,observations:row.classes.map(c=>({classId:c.classId,shares:1,asOf:row.source.filingDate,contextId:c.classId,sourceId:`${row.source.filingDate}-${c.classId}`}))}));
+ expect(retainedCommonClassAmbiguity(b)?.sourceIds).toEqual(["2026-02-06-A","2026-02-06-B"]);
+});
