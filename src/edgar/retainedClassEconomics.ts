@@ -70,6 +70,7 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
     const custom = /^(?!us-gaap:)[A-Za-z][\w-]*:([A-Z][A-Za-z-]{0,30})CommonStockMember$/.exec(member);
     return custom ? `${custom[1]!.toLowerCase()} common stock` : null;
   };
+  if (!cover.length && inventories.some(s => s.classes.some(o => o.asOf > d.reportDate))) return existing;
   let asOf = d.reportDate;
   let counts: number[] = [];
   if (cover.length) {
@@ -123,7 +124,7 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
     effectiveFrom: d.filingDate, effectiveTo: null, complete: true,
     sourceHash: createHash("sha256").update(JSON.stringify({ statement, text: d.text, quoteTitle: title, ...(cover.length ? { coverObservations: cover, inventoryHashes: inventories.map(s => s.source.hash) } : {}), ...(discrepancy ? { providerCountObservation: provider } : {}) })).digest("hex"),
     sourceIds: [d.documentUrl, bundle.profile.value.endpoint, ...cover.map(o => o.sourceId), ...(discrepancy && bundle.sharesFloat.ok ? [bundle.sharesFloat.value.endpoint] : [])],
-    basis: `${cover.length ? `Filed cover class observations at ${asOf}, mapped one-to-one to the same filing\'s balance-sheet classes` : `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages`}. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
+    basis: `${cover.length ? `Filed cover class observations at ${asOf}, mapped one-to-one to the same filing's balance-sheet classes` : `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages`}. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${cover.length ? ", cover observations and retained inventory hashes" : ""}${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
     classes: names.map((name, i) => ({ classId: name === quoteLabels[0] ? bundle.symbol : name, shares: counts[i]!, countBasis: "outstanding",
       economicUnitsPerQuotedShare: 1, priceBasis: name === quoteLabels[0] ? "quoted-market-price" : "economic-equivalence-proxy" })) }];
 }

@@ -2179,7 +2179,9 @@ quarters are summed; annual plus current YTD less prior YTD is not substituted
 across changing participating-security allocations. EPS is never subtracted or
 invented across an IPO. Capitalization divided by those common earnings is
 labelled aggregate basis, with the Basic allocation convention disclosed.
-This repairs a missing common-income input, not the ownership admission gate.
+The manifest records the four dated common-income components and the filed
+accessions behind a derived Q4. This repairs a missing common-income input
+while retaining the ownership admission gate.
 
 ## Financial-company routes
 

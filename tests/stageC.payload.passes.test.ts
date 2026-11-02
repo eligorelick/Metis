@@ -167,6 +167,7 @@ describe("current-main report generation integrity regressions", () => {
     expect(checkCarriedJudgeSections(output).dropped).toContain(section);
   });
 });
+import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreB6Golden } from "./helpers/b6PayloadGolden";
 import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
 import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
@@ -716,9 +717,15 @@ describe("payload determinism + provenance", () => {
     expect(payloadFingerprint(a.payload).startsWith(`${PAYLOAD_VERSION}:`)).toBe(true);
   });
 
+  // N4a L6 adds only these 48 methodology characters in this general fixture.
+  // Count the exact changed text, then preserve every earlier byte/numeric pin.
+  // This helper owns no stamp transition.
+  const restoreN4aGolden = <T extends ReturnType<typeof buildInputs>>(input: T): T => {
+    return { ...input, computed: restoreN4aPeerWordingGolden(input.computed, 2), payload: restoreN4aPeerWordingGolden(input.payload, 1) };
+  };
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
     // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(buildInputs())))));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreN4aGolden(buildInputs()))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>

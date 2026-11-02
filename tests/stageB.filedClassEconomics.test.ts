@@ -150,3 +150,13 @@ describe("L1 retained cover counts with same-filing class rights", () => {
     expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
   });
 });
+
+it("L1 keeps blocking an unparsed newer class count in the same filing", () => {
+  const b = fixture();
+  if (!b.edgar.tenQNotes?.ok) throw new Error("fixture");
+  const d = b.edgar.tenQNotes.value.data;
+  b.edgar.economicShareInventory = [{ source: { form: d.form, accession: d.accession, filingDate: d.filingDate, documentUrl: d.documentUrl, hash: "hash" },
+    classes: [{ classId: "unknown", label: "unknown common stock", shares: 1, asOf: "2026-04-30", sourceId: d.documentUrl + "#unknown" }],
+    observations: [], evidence: null, passages: { inventory: "unknown", rights: null }, reason: "unresolved" }];
+  expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+});

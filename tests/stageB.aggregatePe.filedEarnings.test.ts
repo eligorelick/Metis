@@ -14,7 +14,7 @@ function fixture() {
   Object.assign(b.profile.value.data.rows[0]!, { cik: "0002064124", isAdr: false });
   Object.assign(b.quote.value.data.rows[0]!, { price: 21.58, marketCap: 4_842_074_477.76, timestamp: Date.parse("2026-10-30T20:00:00Z") / 1000 });
   b.edgar.registrant = { cik10: "0002064124", name: "Retained issuer", tickers: [b.symbol], exchanges: ["Nasdaq"], sic: "3571", sicDescription: "Computers", fiscalYearEnd: "1231", stateOfIncorporation: "DE", forms: ["10-Q", "10-K"] };
-  b.edgar.cik = { ...structuredClone(retained.cik), value: { ...structuredClone(retained.cik.value), data: { ...retained.cik.value.data, ticker: b.symbol } } };
+  b.edgar.cik = { ok: true, value: { ...structuredClone(retained.cik.value), source: "edgar", data: { ...retained.cik.value.data, ticker: b.symbol } } };
   b.edgar.companyFacts = structuredClone(retained.companyFacts) as NonNullable<typeof b.edgar.companyFacts>;
   b.statements.incomeQuarterly.value.data.rows = structuredClone(retained.rows) as FmpIncomeStatementRow[];
   return b;
@@ -28,6 +28,7 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     expect(multiple.current).toBeCloseTo(24.307358750213353, 8);
     expect(multiple.basis).toMatch(/aggregate basis/i);
     expect(multiple.basis).toMatch(/TTM/);
+    expect(c.gaps.find(g => g.field === "compute.ttmCommonEarnings.construction")?.reason).toMatch(/23027000.*fy-minus-ytd.*0002064124-26-000009.*0002064124-25-000032/);
     expect(c.gaps.some(g => /commonIncome/.test(g.field) && /unavailable/.test(g.reason))).toBe(false);
     expect(serializePayloadForPrompt(assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] }))).toMatch(/aggregate basis/i);
     expect(JSON.stringify(b)).toBe(before);
@@ -48,8 +49,8 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     if (mode === "issuer") row.cik = "0000000099";
     if (mode === "currency") row.reportedCurrency = "EUR";
     if (mode === "future") b.edgar.companyFacts.value.fetchedAt = "2026-12-01T00:00:00Z";
-    if (mode === "unavailable") delete b.edgar.companyFacts;
-    if (mode === "conflict") row.fieldConflicts = { netIncomeAvailableToCommon: { usable: false, reason: "retained explicit refusal" } };
+    if (mode === "unavailable") b.edgar.companyFacts = { ok: false, gap: { field: "edgar.companyFacts", severity: "info", reason: "unavailable" } };
+    if (mode === "conflict") row.fieldConflicts = { netIncomeAvailableToCommon: { usable: false, reason: "retained explicit refusal", vendorValue: null, secValue: 44_945_000 } };
     if (mode === "missing-quarter") b.statements.incomeQuarterly.value.data.rows.splice(2, 1);
     if (mode === "currency" || mode === "missing-quarter") expect(pe(b).basis).toMatch(/FY|annual/);
     else expect(pe(b).current).toBeNull();

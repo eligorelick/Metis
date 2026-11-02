@@ -2074,6 +2074,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // L2: a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
   // never infer a common allocation from total income or rebuild IPO EPS.
+  let commonEarningsSupplemented = false;
   const commonTagNames = tagsFor("netIncomeAvailableToCommon");
   if (companyFacts && admittedFacts?.ok && incomeQuarterSet.rows.slice(0, 4).some(r => num(r.netIncomeAvailableToCommon) === null) &&
     commonTagNames.some(tag => companyFacts.facts["us-gaap"]?.[tag] !== undefined) &&
@@ -2087,6 +2088,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       const evidence = sec?.fieldProvenance?.netIncomeAvailableToCommon;
       if (!sec || num(sec.netIncomeAvailableToCommon) === null || sec.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || !evidence ||
         !evidence.tags.some(tag => commonTagNames.some(name => tag === `us-gaap/${name}`))) return row;
+      commonEarningsSupplemented = true;
       notes.push(`Aggregate common earnings: ${row.date} uses filed net income available to common ${sec.netIncomeAvailableToCommon} ${evidence.unit}` +
         ` (${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). No per-share EPS is inferred.`);
       return { ...row, netIncomeAvailableToCommon: sec.netIncomeAvailableToCommon,
@@ -2127,6 +2129,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
   ], bundle.builtAt);
+  if (commonEarningsSupplemented && num(ttmInc?.netIncomeAvailableToCommon) !== null) {
+    const components = incomeQuarterSet.rows.slice(0, 4);
+    const reason = `Aggregate TTM common earnings ${ttmInc!.netIncomeAvailableToCommon}: ` + components.map(row => {
+      const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
+      return `${row.date} ${row.netIncomeAvailableToCommon} (${evidence?.derivation ?? "direct filed flow"}; ${evidence?.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ") ?? "source unavailable"})`;
+    }).join(" + ") + ". Four contiguous common-income quarters; a derived Q4 is fiscal year less nine months, both operands filed. No per-share EPS is inferred and no FY-plus-YTD substitution is used.";
+    notes.push(reason);
+    ttmGaps.push({ field: "compute.ttmCommonEarnings.construction", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
+  }
   const routingIncomeTtm: RoutingIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,

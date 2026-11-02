@@ -10,6 +10,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
@@ -39,7 +40,7 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Freeze the entire Stage B result, permitting only two Task 8 descriptions at three exact output paths.
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
-  const pinned = restoreCapexBasisGolden(c, 1);
+  const pinned = restoreN4aPeerWordingGolden(restoreCapexBasisGolden(c, 1), 2);
   // N2 P/TBV review changes only this deduction disclosure in the control.
   // Pin its exact text once, then preserve the complete historical hash.
   const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;
