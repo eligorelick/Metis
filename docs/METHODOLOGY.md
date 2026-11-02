@@ -5983,3 +5983,5 @@ RPT-212 / B10-OD-5: each run-level synthetic/provider-fallback notice appears on
 RPT-206: the data-only banner reports classified D-67 data-gap counts, with notes and analysis-process disclosures apart. Reader state follows these counts; persisted entry-based state and confidence rules are unchanged.
 
 RPT-207: FMP failures count per dataset: per symbol for issuer/benchmark price histories, and per period for statements. Subject datasets merge with matching keyless verdicts. Peer requests retain their symbols and stay separate; unknown issuers are not guessed.
+
+RPT-206 review: the shared saved-snapshot header labels Research with the recorded research state, including process warnings. Data-gap summaries retain separately classified counts.
