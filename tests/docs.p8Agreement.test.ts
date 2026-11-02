@@ -6,6 +6,7 @@ import { STAGE_B_IMPLEMENTATION_VERSION } from "@/pipeline/runInputSnapshot";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { classifyAccrualBand } from "@/pipeline/stageB/forensics";
 import { PROVISION_TAGS } from "@/pipeline/stageB/financialMetrics";
+import { calendarizeConsensusWindow } from "@/pipeline/stageB/valuation";
 const read = (p: string) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 const flat = (s: string) => s.replace(/\s+/g, " ");
 it("DOC-101 places the three bank rows in the metric table and refuses component sums", () => {
@@ -58,4 +59,21 @@ it("DOC-204 pins all named payload budgets and excerpt families",()=>{
  const families:Record<string,string>={"edgar:10-K item1":"10-K Item 1 or 20-F Item 4","edgar:20-F item4":"10-K Item 1 or 20-F Item 4","edgar:10-K item1A":"10-K Item 1A or 20-F Item 3.D","edgar:20-F item3D":"10-K Item 1A or 20-F Item 3.D","edgar:10-K item7":"10-K Item 7 or 20-F Item 5","edgar:20-F item5":"10-K Item 7 or 20-F Item 5","edgar:10-K notes":"10-K's notes","edgar:10-Q notes":"Part I Item 1","edgar:10-Q item2":"Part I Item 2","edgar:10-Q item4":"Part I Item 4","edgar:10-Q item5":"Part II Item 5","edgar:10-Q signatures":"dated officer signatures","edgar:8-K":"material-event 8-K items","edgar:8-K EX-99 reconciliation":"reconciliation tables","edgar:8-K EX-99.1":"EX-99.1","edgar:8-K EX-99.2":"EX-99.2","edgar:xbrl segment revenue":"segments"};
  const source=read("src/pipeline/stageC/payload.ts");
  for(const [,id] of source.matchAll(/["`](edgar:[^"`$]+?)\s*(?=["`$])/g)) { expect(families,id).toHaveProperty(id.trim()); expect(privacy).toContain(families[id.trim()]); }
+});
+
+// DOC-301 (B12-OD-8): the worked example is the synthetic D-99 fixture of
+// tests/stageB.dcfAnchoring.test.ts, recomputed here from the code, not a
+// provider-derived report counterfactual.
+it("DOC-301 describes the shaped spread of the next fiscal year with the code's own worked example",()=>{
+ const seasonality={fiscalYearEnd:"2025-12-31",quarters:[{date:"2025-03-31",revenue:100},{date:"2025-06-30",revenue:100},{date:"2025-09-30",revenue:100},{date:"2025-12-31",revenue:200}]};
+ const estimates=[{date:"2026-12-31",revenueAvg:550},{date:"2027-12-31",revenueAvg:600},{date:"2028-12-31",revenueAvg:660}];
+ const reported={priorFiscalYearEnd:"2025-12-31",through:"2026-06-30",revenue:220,quarters:2};
+ const w1={startDate:"2026-07-01",endDate:"2027-06-30"};
+ const shaped=calendarizeConsensusWindow(estimates,w1,reported,seasonality);
+ const even=calendarizeConsensusWindow(estimates,w1,reported);
+ expect([shaped.partialSpread,even.partialSpread]).toEqual(["seasonal","even"]);
+ const t=flat(read("docs/METHODOLOGY.md"));
+ expect(t).not.toContain("The next fiscal year's share is still an even spread");
+ expect(t).not.toContain("no within-year shape is assumed");
+ expect(t).toContain(`${shaped.value!.toFixed(0)}, where an even spread gives ${even.value!.toFixed(2)}`);
 });

@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - DOC-301 consensus calendarization wording (2026-11-02)
+
+- DOC-301 (B12-OD-8): METHODOLOGY now states that the next fiscal year's part of forecast window one follows the issuer's quarterly shape, with the tested synthetic example (570, where an even spread gives 627.53). No figure or stored report changes.
+
 ## Unreleased - P2 DCF inputs and seasonality (2026-11-02)
 
 - FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502: consistent operating one-offs across coverage, separate terminal evidence, margin history/ceiling and bounded tax seed. Recurring families remain historical costs. Reported ROIC and stored figures are unchanged.

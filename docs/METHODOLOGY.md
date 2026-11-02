@@ -618,9 +618,15 @@ first available of three sources:
    currency), spread over its unreported days; a consensus at or below what
    is already reported is stale and leaves the window uncovered. NVDA FY2027:
    $409.80B − $177.84B reported for H1 = $231.96B for 2026-07-27..2027-01-31,
-   where an even share gave $205.5B. The next fiscal year's share is still an
-   even spread, which for a fast grower overstates its early quarters
-   (disclosed in D-65; no within-year shape is assumed). Consensus covers the
+   where an even share gave $205.5B. The next fiscal year's part of the
+   window follows the same quarterly shape whenever that year ends within 10
+   days of an anniversary of the shape year (AMZN finding 19, D-99); the even
+   spread applies only when no shape is available or the year does not end on
+   an anniversary, and the anchor basis says which. Worked example
+   (`tests/stageB.dcfAnchoring.test.ts`): a calendar-year issuer whose fourth
+   quarter is 40% of its year, with 220 of a 550 consensus reported by June,
+   takes 330 for July–December plus 40% of next year's 600 for January–June,
+   570, where an even spread gives 627.53. Consensus covers the
    window's four quarters; guidance covers one, and an issuer that reports
    above its own range each quarter makes this guidance-implied floor a lower
    bound rather than a central case. A consensus below that floor predates or
