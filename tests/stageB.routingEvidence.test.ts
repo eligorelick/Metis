@@ -139,11 +139,12 @@ describe("FIN-308 P9: filed REIT asset majority", () => {
   it("requires the same filing and currency, and evidence filed by the run date", () => {
     const differentFiling = okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) });
     if (!differentFiling.ok) throw new Error("fixture facts unavailable");
-    differentFiling.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet!.units.USD![0]!.accn = "0000000000-26-999999";
+    const filingTag = differentFiling.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet as { units: { USD: { accn: string }[] } };
+    filingTag.units.USD[0]!.accn = "0000000000-26-999999";
     expect(deriveRoutingEvidence(differentFiling).reitSubmap).toBeNull();
     const differentCurrency = okFacts({ Assets: pt(100), RealEstateInvestmentPropertyNet: pt(80) });
     if (!differentCurrency.ok) throw new Error("fixture facts unavailable");
-    const units = differentCurrency.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet!.units;
+    const units = (differentCurrency.value.data.facts["us-gaap"]!.RealEstateInvestmentPropertyNet as { units: Record<string, unknown[]> }).units;
     units.EUR = units.USD!;
     delete units.USD;
     expect(deriveRoutingEvidence(differentCurrency).reitSubmap).toBeNull();
