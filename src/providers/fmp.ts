@@ -2456,16 +2456,24 @@ export class FmpClient {
     const rawParts: unknown[] = [];
     let latestFetchedAt = "";
     let anyStale = false;
+    let fallbackThrough: string | null = null;
     for (let i = suffixStart; i <= effectiveNewestIdx; i++) {
       const result = results[i];
       if (!result.ok) continue; // unreachable inside the accepted suffix
       anyStale = anyStale || result.value.stale === true;
       if (result.value.fetchedAt > latestFetchedAt) latestFetchedAt = result.value.fetchedAt;
       rawParts.push(result.value.data.raw);
+      if (result.value.staleReason === "window-fallback") {
+        const lastBar = result.value.data.rows.flatMap(row => typeof row.date === "string" ? [row.date.slice(0, 10)] : []).sort().at(-1);
+        if (lastBar && (fallbackThrough === null || lastBar < fallbackThrough)) fallbackThrough = lastBar;
+      }
       for (const row of result.value.data.rows) {
         if (typeof row.date === "string") byDate.set(row.date.slice(0, 10), row);
       }
     }
+
+    // A later successful chunk must not splice across the fallback's missing sessions.
+    if (fallbackThrough !== null) for (const date of byDate.keys()) if (date > fallbackThrough) byDate.delete(date);
 
     if (byDate.size === 0) {
       return gap(
@@ -2487,6 +2495,7 @@ export class FmpClient {
     // truncated history, so exclude it from the older-chunk counts.
     const olderFailCount = newestIsNoNewBar ? failures.length - 1 : failures.length;
     const disclosures: string[] = results.flatMap(r=>r.ok && r.value.staleReason==="window-fallback" ? [r.value.endpoint]:[]);
+    if (fallbackThrough !== null) disclosures.push(`history truncated at ${fallbackThrough} because an accepted cached window ends there; later bars withheld to avoid a mid-series gap`);
     if (truncatedFrom !== null) {
       const droppedOk = suffixStart - olderFailCount;
       disclosures.push(

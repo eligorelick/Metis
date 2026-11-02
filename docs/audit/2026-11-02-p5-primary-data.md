@@ -110,3 +110,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F4 (DATA-103) | Fixed: Keep industrial revenue tags separate from the bank-extended revenue comparison list. | This commit | fixround-a4-red2 / fixround-a4-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F5 (DATA-114) | Fixed: Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. | This commit | fixround-a5-red / fixround-a5-green | No persisted rewrite |

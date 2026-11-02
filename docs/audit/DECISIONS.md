@@ -3122,3 +3122,8 @@ Refuse residual fills from a filing outside the missing member current presentat
 ### D-next (P5): A-F4 (DATA-103) review correction
 
 Keep industrial revenue tags separate from the bank-extended revenue comparison list. Bank total net revenue still reconciles; it cannot validate a vendor industrial gross-profit subtotal without independently compatible operands. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F5 (DATA-114) review correction
+
+Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. Coordinator decision: later successful chunks must not create a mid-series hole that corrupts return or drawdown calculations. Stored report bytes are unchanged.

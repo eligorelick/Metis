@@ -407,3 +407,5 @@ Price-history window fallback: transient transport failures, 429, 500, 502, 503 
 Current-date history tails refresh in the foreground on the session-aware 15-minute policy; failed refreshes are disclosed as refresh-failed. Older history keeps the normal 24-hour TTL (DATA-112).
 
 EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses a character in a declared name, transliterate it before saving; the contact is sent as an HTTP header.
+
+DATA-114: when a merged FMP history uses a window fallback, the series ends at the earliest last bar of its accepted fallback chunks. Later successful bars are withheld to avoid a gap; endpoint text and stale metadata disclose the truncation.
