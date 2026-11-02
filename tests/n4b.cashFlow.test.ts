@@ -4,6 +4,9 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { runStageB } from "@/pipeline/compute";
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
 
 const at = "2026-11-02T00:00:00.000Z";
 function fixture() {
@@ -23,6 +26,17 @@ function fixture() {
   return b;
 }
 describe("N4b L4 filed CFO operands", () => {
+  it("labels accepted cross-filing standalone CFO derivations in the report table and model context", () => {
+    const b = fixture(); if (!b.statements.cashflowQuarterly.ok) throw Error("fixture");
+    b.statements.cashflowQuarterly.value.data.rows[0]!.fieldProvenance = { operatingCashFlow: { source: "edgar", unit: "USD", periodStart: "2026-04-01", periodEnd: "2026-06-30", observedAt: at,
+      tags: ["us-gaap/NetCashProvidedByUsedInOperatingActivities"], derivation: "ytd-difference", filings: [
+        { accn: "current", form: "10-Q", filed: "2026-08-14" }, { accn: "prior", form: "10-Q", filed: "2026-05-15" },
+      ] } };
+    const d = buildFilingDisclosures(b)!;
+    expect(filingDisclosureTables(d, "fundamentals").find(t => t.heading.startsWith("Quarterly trend"))?.note).toMatch(/2026-06-30.*derived.*across.*filings.*current.*prior/);
+    const payload = assembleContextPayload(b, runStageB(b), { checks: [], flags: [], gaps: [] });
+    expect(payload.quarterlyTrend?.notes.join(" ")).toMatch(/2026-06-30.*derived.*across.*filings/);
+  });
   it("refuses both vendor CFO aliases and FCF when later-filed YTD operands refute the quarter", () => {
     const b = fixture(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
     const before = JSON.stringify(b);

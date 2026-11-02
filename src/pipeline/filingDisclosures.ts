@@ -676,6 +676,10 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       return g.pct;
     };
     const ocf = num(c?.operatingCashFlow) ?? num(c?.netCashProvidedByOperatingActivities);
+    const cfoProof = c?.fieldProvenance?.operatingCashFlow ?? c?.fieldProvenance?.netCashProvidedByOperatingActivities;
+    if (ocf !== null && cfoProof?.derivation && cfoProof.filings.length > 1) {
+      notes.push(`Quarterly operating cash flow for ${d} is derived (${cfoProof.derivation}) from cumulative filed operands across filings: ${cfoProof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}. The canonical filing-lineage rule admits this derivation; it is not a directly filed standalone quarter.`);
+    }
     const capex = num(c?.capitalExpenditure);
     const year = typeof r.fiscalYear === "number" ? String(r.fiscalYear) : r.fiscalYear;
     const period = typeof r.period === "string" ? r.period.trim().toUpperCase() : null;

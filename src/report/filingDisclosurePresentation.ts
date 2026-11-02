@@ -124,6 +124,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
       ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
+      ...d.notes.filter(note => note.startsWith("Quarterly operating cash flow")),
     ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (last eight quarters)",

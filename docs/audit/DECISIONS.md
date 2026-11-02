@@ -3816,3 +3816,10 @@ proves one reporting entity. Fill missing older quarters without duplicates;
 retain the strict cutoff when continuity is absent. Add the two presentation
 helpers to risk coverage. Update only defect-encoding anchor/CFO/amount pins;
 leave thresholds, shared stamps and payload/audit goldens unchanged.
+
+### D-next (N4b) - Standalone CFO derivation disclosure (L4)
+
+Accepted canonical quarters formed from compatible earlier cumulative filings
+are labelled derived across filings, with filing identities, in quarterly
+table notes and model context. Late-operand Q3 remains withheld. No quarterly
+amount, TTM identity, score, stamp or stored report changes in this follow-up.

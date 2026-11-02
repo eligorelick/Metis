@@ -6585,6 +6585,9 @@ operand. A missing canonical quarter is never synthesized from a later-filed
 prior YTD operand. N4b L4 nevertheless refuses a vendor quarter contradicted
 by those retained YTD operands, naming both filings and the implied difference;
 the standalone quarter stays withheld under the existing filing-lineage rule.
+A canonical standalone quarter derived from compatible earlier cumulative
+filings remains usable, but the quarterly table and model context explicitly
+label it derived across filings and name those filings.
 When the quarterly CFO sum is incomplete or contradicted, TTM CFO may use
 filed fiscal year + current YTD - prior-year YTD, with both YTD values
 from the same current 10-Q. The exact operands, currency and filings are
