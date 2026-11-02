@@ -52,6 +52,15 @@ describe("R5 FIGR excerpt columns and ordered level comparisons", () => {
     expect(check(comparison, { ...release, text }).status).not.toBe("validated");
     expect(check("Net take rate was 3.7% in 2026.").status).not.toBe("validated");
   });
+  it("keeps the declared money scale and refuses a conflicting later declaration", () => {
+    const claim = "Consumer Loan Marketplace volume was USD 4.259 billion in Q2 2026.";
+    expect(check(claim).status).toBe("validated");
+    expect(check(claim.replace("billion", "million")).status).not.toBe("validated");
+    const at = release.text.indexOf("Selected Metrics");
+    const text = release.text.slice(0, at) + release.text.slice(at).replace("YoY % YoY% Consumer Loan Marketplace Volume", "YoY % YoY% (In thousands) Consumer Loan Marketplace Volume");
+    expect(check(claim, { ...release, text }).status).not.toBe("validated");
+    expect(check(claim.replace("billion", "million"), { ...release, text }).status).not.toBe("validated");
+  });
   it("keeps an ambiguous multi-metric benchmark sentence unchecked", () => {
     const text = "Additionally, the average production cost per loan was reduced to approximately $717 for the year ended December 31, 2025 from a mortgage industry average of $11,109 as of September 30, 2025, the most recent period available, according to the Mortgage Bankers Association (MBA).";
     const excerpt = { ...release, source: "edgar:10-K item1", title: "10-K Item 1 (FY2025)", text };

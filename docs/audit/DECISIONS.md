@@ -4010,3 +4010,15 @@ operand protections. The real USD 717 / USD 11,109 benchmark is retained as an
 unchecked control, including reversed figures. Other unresolved excerpt
 paraphrases remain disclosed in the R5 sweep. Tests:
 stageC.claimEvidence.figrExcerpt.test.ts and the existing verifier refusal suite.
+
+
+## D-next (R5) - Quarter-header scale conflict safeguard
+
+Final review found the new quarter header's declared scale could override a
+conflicting later parenthetical scale, making 4,259 look like 4.259 billion
+even when the retained table also declared thousands. Withhold a binding when
+either declaration conflicts; retain any explicit per-share qualifier. The
+regression checks the correct amount, a thousandfold error and both readings
+of a conflicting header. This closes an introduced acceptance before handback;
+the paid FIGR replay counts are unchanged. Evidence: r5-scale-conflict-red /
+r5-scale-conflict-green (15 files, 2,464 tests).

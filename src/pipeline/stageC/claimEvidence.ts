@@ -1123,8 +1123,9 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       // This new preceding-header contract admits only the plain scale; an
       // extra currency/unit qualifier cannot disappear into reportingCurrency.
       const plainPrefix = adjacent.every((match) => /^\(\s*(?:\$\s*)?in\s+(?:thousands|millions|billions)\s*\)$/i.test(match[0]));
-      const scale = header.scale ?? (!plainPrefix || scaleWords.size > 1 ? null : scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1);
-      const exceptPerShare = header.exceptPerShare ?? declarations.some((match) => /except\s+per[\s-]+share/i.test(match[0]));
+      const scaleConflict = header.scale !== undefined && declarations.some(match => SCALES[match[1]!.toLowerCase()] !== header.scale);
+      const scale = !plainPrefix || scaleWords.size > 1 || scaleConflict ? null : header.scale ?? (scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1);
+      const exceptPerShare = Boolean(header.exceptPerShare || declarations.some((match) => /except\s+per[\s-]+share/i.test(match[0])));
       // "($ in millions)" makes every cell of the table dollars, not only the first row's.
       const dollars = header.dollars ?? declarations.some((match) => /\$/.test(match[0]));
       for (let c = 0; c < k; c++) {
