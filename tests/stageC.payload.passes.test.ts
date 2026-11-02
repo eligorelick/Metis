@@ -116,11 +116,13 @@ describe("current-main report generation integrity regressions", () => {
     const mock = new MockRunPass();
     mock.onJson(`llm.${side}`, rejected);
     let retained: string | undefined;
+    let partial: string | undefined;
     const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload, (settlement) => {
-      if (settlement.outcome === "failure") retained = settlement.failure.partialText;
+      if (settlement.outcome === "failure") { retained = settlement.failure.rejectedText; partial = settlement.failure.partialText; }
     });
     expect(run.ok).toBe(false);
     expect(retained).toBe(JSON.stringify(rejected));
+    expect(partial).toBeUndefined(); // L-4: complete schema rejection cannot claim recovered sections.
     const checked = checkCarriedAnalystSections(JSON.parse(retained!));
     expect(checked.dropped).toContain("evidence");
     expect(checked.kept.thesis).toEqual(rejected.thesis);

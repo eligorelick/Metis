@@ -1483,11 +1483,9 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
-      // A complete answer rejected by validation is still paid-for evidence.
-      // Retain it in the bounded recovery field just like a truncated answer;
-      // carried-section validation still excludes invalid content on reuse.
-      partialText: run.error.partialText ?? run.rawText,
-      rejectedText: run.rejectedText,
+      // Complete rejected bytes are diagnostic evidence, not recovered sections.
+      partialText: run.error.partialText,
+      rejectedText: run.rejectedText ?? run.rawText,
     }),
     telemetry,
   };

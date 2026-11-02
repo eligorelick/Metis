@@ -4416,7 +4416,7 @@ describe("runJob - durable paid-pass settlements", () => {
     },
   );
 
-  it("keeps the discarded mark on a rejected bull row when durable recovery builds the report", async () => {
+  it.each([false, true])("keeps the discarded mark on a rejected bull row when durable recovery builds the report (identical carried section=%s)", async (identicalCarried) => {
     // RPT-210: recovery used to rebuild the breakdown straight from the ledger,
     // dropping the discarded mark that the live path gave a rejected attempt.
     const { jobId } = createJob("AAPL");
@@ -4434,8 +4434,17 @@ describe("runJob - durable paid-pass settlements", () => {
         payloadFingerprint,
         settledAt: NOW().toISOString(),
       });
-    persist("rpt210-bull-rejected", "bull", testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON"));
-    persist("rpt210-bull", "bull", testSuccessSettlement(testAnalystPass("bull")));
+    const failed = testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON");
+    const accepted = testSuccessSettlement(testAnalystPass("bull"));
+    if (identicalCarried) {
+      const thesis = testAnalystPass("bull").data.thesis;
+      // L-4: exact matching bytes in a rejected complete answer confer no recovery credit.
+      failed.failure = { ...failed.failure, rejectedText: JSON.stringify(testAnalystPass("bull").data) };
+      accepted.telemetry = { ...accepted.telemetry, execution: { requestedModel: "claude-opus-4-8", modelObserved: true,
+        carriedSections: [{ section: "thesis", digest: sectionDigest(thesis), modelObserved: true, usageReported: true }] } };
+    }
+    persist("rpt210-bull-rejected", "bull", failed);
+    persist("rpt210-bull", "bull", accepted);
     persist("rpt210-bear", "bear", testSuccessSettlement(testAnalystPass("bear")));
     // Review of RPT-210: an earlier judge attempt that succeeded but (in a process that no longer
     // exists) could not be assembled leaves no trace but a success artifact and its cost row.
