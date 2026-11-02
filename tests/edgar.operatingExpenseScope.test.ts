@@ -30,7 +30,7 @@ describe("operating expense total completeness", () => {
     const d = buildFilingDisclosures(b);
     expect(d?.quarterlyTrend.map((r) => r.operatingExpenses)).toEqual([null, null]);
     expect(d?.notes.join(" ")).toMatch(/operating expenses.*2026-06-30.*withheld.*complete/i);
-    const table = filingDisclosureTables(d, "fundamentals").find((t) => t.heading === "Quarterly trend (last eight quarters)");
+    const table = filingDisclosureTables(d, "fundamentals").find((t) => t.heading === "Quarterly trend (latest eight available quarters)");
     expect(table?.rows.map((r) => r[6])).toEqual(["—", "—"]);
     if (b.statements.incomeQuarterly.ok) expect(b.statements.incomeQuarterly.value.data.rows[0]?.operatingExpenses).toBe(2323e6);
   });

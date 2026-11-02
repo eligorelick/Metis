@@ -9,6 +9,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown, reportToAuditMarkdown } from "@/report/export/markdown";
 import { keyDataRows } from "@/report/presentation";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -100,7 +101,7 @@ describe("EV/EBITDA on a lower-bound D&A (audit 2026-10-22 B-7)", () => {
     const stored = ReportSchema.parse(report);
     const row = keyDataRows(stored).find(r => /^EV\/EBITDA/.test(r.label));
     expect(row?.note).toBe(`caveat: ${caveat}`);
-    for (const text of [reportToMarkdown(stored), reportToAuditMarkdown(stored), reportToPrintBody(stored), renderToStaticMarkup(createElement(ReportView, { report: stored }))]) {
+    for (const text of [reportToMarkdown(stored), reportToAuditMarkdown(stored), withoutPrintTokens(reportToPrintBody(stored)), renderToStaticMarkup(createElement(ReportView, { report: stored }))]) {
       // Markdown escapes the ampersand, so the check reads past it.
       expect(text).toContain("is a lower bound for 2026-03-31");
     }

@@ -5,6 +5,7 @@ import { decimalRound, formatFinancialValue } from "@/report/format";
 import { issuerReconciliationTables } from "@/report/reconciliationPresentation";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
 import { MaterialEventItemsSchema } from "@/report/schema";
+import { isLenderConvention, readerBaseUnits } from "@/report/readerConventions";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 
 /**
@@ -120,14 +121,15 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).
     const trendNotes = [
-      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.`,
+      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}.${d.quarterlyTrend.some(r => r.freeCashFlow !== null) ? " FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it." : ""}`,
+      missingQuarterNote(d.quarterlyTrend.map(r => r.periodEnd)),
       d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
       ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
       ...d.notes.filter(note => note.startsWith("Quarterly operating cash flow")),
     ].filter((n) => n !== "");
     tables.push({
-      heading: "Quarterly trend (last eight quarters)",
+      heading: "Quarterly trend (latest eight available quarters)",
       headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
       rows: d.quarterlyTrend.map((r) => [
         r.periodEnd,
@@ -144,7 +146,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
         money(r.operatingCashFlow, d.currency),
         money(r.freeCashFlow, d.currency),
       ]),
-      note: trendNotes.join(" "),
+      note: readerBaseUnits(trendNotes.join(" ")),
     });
   }
   const fcf = d.freeCashFlow;
@@ -179,6 +181,25 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   }
   tables.push(...issuerReconciliationTables(d));
   return tables;
+}
+
+/** Identify holes inside the retained window; never manufacture a refused statement row. */
+function missingQuarterNote(ends: string[]): string {
+  const sorted = [...new Set(ends)].sort();
+  const missing: string[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prior = new Date(`${sorted[i - 1]}T00:00:00Z`);
+    const next = new Date(`${sorted[i]}T00:00:00Z`);
+    const months = (next.getUTCFullYear() - prior.getUTCFullYear()) * 12 + next.getUTCMonth() - prior.getUTCMonth();
+    // Week-based fiscal calendars may differ by a few days; a gap is at least five months.
+    for (let offset = 3; offset < months - 1; offset += 3) {
+      const target = new Date(Date.UTC(prior.getUTCFullYear(), prior.getUTCMonth() + offset + 1, 0));
+      const monthEnd = prior.getUTCDate() === new Date(Date.UTC(prior.getUTCFullYear(), prior.getUTCMonth() + 1, 0)).getUTCDate();
+      if (!monthEnd) target.setUTCDate(Math.min(prior.getUTCDate(), target.getUTCDate()));
+      missing.push(target.toISOString().slice(0, 10));
+    }
+  }
+  return missing.length ? `Missing quarter${missing.length > 1 ? "s" : ""} within the displayed window: ${missing.join(", ")}. No row is inferred for an unavailable or refused quarter.` : "";
 }
 
 /**
@@ -385,11 +406,22 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
-      return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No structured guidance rows were extracted; see separately sourced narrative guidance where available."]], note: notes }] : [];
+      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !n.startsWith("Quarterly operating cash flow") && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))]
+        .flatMap(readerGuidanceNote);
+      if (tables.length === 0 && notes.length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
+      if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
+      return tables;
     }
     case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
   }
+}
+
+function readerGuidanceNote(note: string): string[] {
+  const quoted = /^(.*?): outlook sentence not read as guidance: "([\s\S]+)"\.?$/i.exec(note);
+  if (quoted) return [`Issuer outlook statement (${quoted[1]}): “${quoted[2]}”`];
+  if (/no structured .*guidance.*(?:extract|read)|no structured guidance could be extracted|none of its sentences could be read as guidance|outlook sentence not read as guidance/i.test(note)) return [];
+  const text = readerBaseUnits(note.trim());
+  return text ? [/[.!?]$/.test(text) ? text : `${text}.`] : [];
 }
 
 export function withoutTocStubs(summary:string):string {

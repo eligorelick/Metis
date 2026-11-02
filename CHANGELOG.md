@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R3 FIGR report readability (2026-11-02)
+
+- Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.
+- Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
+- Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
+- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+
 ## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
 
 - Recover supported numeric prose through producer-bound score/grade, fraction,

@@ -250,7 +250,7 @@ describe("growth basis: a presentation first filed in the printed quarter's own 
 // Task 9b (B13): the table's "one presentation" sentence appears only where the presentation check ran.
 describe("quarterly trend note: the one-presentation sentence needs the presentation check (Task 9b)", () => {
   const SENTENCE = "where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note";
-  const PRE_TASK_9 = "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.";
+  const PRE_TASK_9 = "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter.";
   const noteOf = (b: DataBundle): string => filingDisclosureTables(buildFilingDisclosures(b)! as never, "fundamentals").find((x) => x.heading.startsWith("Quarterly trend"))!.note!;
 
   function sealed(): DataBundle {
@@ -267,7 +267,8 @@ describe("quarterly trend note: the one-presentation sentence needs the presenta
   it("SEC-built quarterly rows carry the flag, and the table note has the sentence", () => {
     const built = buildFilingDisclosures(sealed())!;
     expect(built.quarterlyTrendPresentationChecked).toBe(true);
-    expect(noteOf(sealed())).toContain(`quarter; ${SENTENCE}. FCF here`);
+    expect(noteOf(sealed())).toContain(`quarter; ${SENTENCE}.`);
+    expect(noteOf(sealed())).not.toContain("FCF here"); // R3: this fixture supplies no FCF column.
   });
 
   it("FMP-shaped rows omit the flag, and the note is the pre-Task-9 text", () => {

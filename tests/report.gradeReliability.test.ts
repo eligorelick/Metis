@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CompositeScorecard } from "@/components/report/sections";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import { gradeReliabilityTable, scorecardTable } from "@/report/presentation";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -96,7 +97,7 @@ describe("attribute grade reliability across reader scorecards", () => {
   it("escapes the less-than coverage marker in HTML and Markdown", () => {
     const report = reliabilityReport();
     for (const html of [renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! })), reportToPrintBody(report)]) {
-      const diagnostic = html.slice(html.indexOf(heading));
+      const diagnostic = withoutPrintTokens(html.slice(html.indexOf(heading)));
       expect(diagnostic).toContain("&lt;100.0%");
       expect(diagnostic).not.toContain("<100.0%");
     }

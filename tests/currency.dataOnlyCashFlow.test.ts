@@ -25,6 +25,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { valuationAuditTables } from "@/report/auditTables";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import type { Report, TracedNumber } from "@/report/schema";
 
 import { M, completeCurrencyBundle, type CurrencyBundleOptions } from "./helpers/currencyBundle";
@@ -147,7 +148,7 @@ describe("the reviewer's rows: FY2025 JPY, FY2024 EUR, FY2023 unknown, income US
     for (const text of [
       renderToStaticMarkup(createElement(ReportView, { report: r })),
       reportToMarkdown(r),
-      reportToPrintBody(r),
+      withoutPrintTokens(reportToPrintBody(r)),
     ]) {
       const fcfLines = text.split(/\n|<tr/).filter((line) => line.includes("Free cash flow (after SBC"));
       expect(fcfLines.join("\n")).toMatch(/170(\.00?)?M JPY/);

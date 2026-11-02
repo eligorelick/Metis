@@ -4309,3 +4309,31 @@ Piotroski producer whose score and coverage metadata are explicitly recognized.
 House score claims still state their 0-100 scale. The existing Beneish refusal
 is unchanged. Expanded targeted evidence: r5-score-scope-green (16 files, 2,469
 tests); r5-score-scope-replay keeps the paid before/after counts unchanged.
+
+## D-next (R3) - Reader conventions and portable audit companions
+
+Render the recorded lender explanation once in Fundamentals under Lender
+conventions, with metric-specific short references elsewhere. Preserve full
+lender/EV methodology and guidance parser diagnostics in the audit companion.
+Downloadable report exports name the companion using the export route's
+basename; app controls keep API links. Read-time display only: retain stored
+rows, claims, verification status, numeric values and all shared stamps.
+
+## D-next (R3) - Route-aware captions, labels and notes
+
+Define only visible metrics. Label the latest eight available quarters and
+name interior missing quarters without filling refused rows. Replace empty
+cash-flow model scaffolding with one explanation, retaining entity forecasts
+when only per-share output is withheld. Prefer retained labels, compact
+Piotroski diagnostics, name cash outflows, show completeness as percentages
+and case strength as N of 5, group prose amounts, separate guidance notes, and
+truncate gap reasons only at word boundaries. Legacy traces lacking original
+record labels use the compact variant encoded in their stable id. A provider
+list excluded by the comparable screen is scale context, not comparables.
+
+## D-next (R3) - Print table integrity
+
+Wrap descriptions at spaces and prevent breaks within dates, amounts/units and
+percentages. Split tables wider than six columns with repeated identifiers;
+do not compress long segment descriptions into arbitrary character fragments.
+Keep original semantic values in print tests while allowing token spans.

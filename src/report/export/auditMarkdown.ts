@@ -38,6 +38,7 @@ import { figureCitationStatus, indexVerificationMarks } from "@/report/verificat
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   markdownBlockquote,
+  markdownListItem,
   markdownHeading,
   markdownProse,
   markdownTable as table,
@@ -502,6 +503,9 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
+    report.filingDisclosures?.quarterlyGrossMarginNotApplicable ? `## Lender conventions (full recorded explanation)\n\n${markdownProse(report.filingDisclosures.quarterlyGrossMarginNotApplicable)}` : "",
+    report.valuation.marketValueScope?.enterpriseValueBasis ? `## Market enterprise-value basis (full recorded explanation)\n\n${markdownProse(report.valuation.marketValueScope.enterpriseValueBasis)}` : "",
+    report.filingDisclosures?.notes.length ? `## Filing disclosure and guidance diagnostics\n\n${report.filingDisclosures.notes.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "",
     report.valuation.multiplesBasis ? `## Current multiple equity and enterprise-value basis\n\n${markdownProse(report.valuation.multiplesBasis)}` : "",
     report.valuation.multiples.some(row => row.basis) ? `## Current multiple row bases and limitations\n\n${table(["Multiple", "Current (unrounded)", "Basis and limitations"], report.valuation.multiples.filter(row => row.basis).map(row => [row.name, row.current === null ? "unavailable" : String(row.current), row.basis!]))}` : "",
     renderOwnHistory(report),

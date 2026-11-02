@@ -15,6 +15,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
 import { ReportSchema } from "@/report/schema";
+import { withoutPrintTokens } from "./printTokens";
 
 import { BUILT_AT, completeCurrencyBundle, M } from "./currencyBundle";
 
@@ -147,7 +148,7 @@ export function runResearchRoutePanel(bundle: DataBundle) {
   const reportBefore = structuredClone(report);
   const surfaces = {
     markdown: reportToMarkdown(report),
-    printHtml: reportToPrintHtml(report),
+    printHtml: withoutPrintTokens(reportToPrintHtml(report)),
     webHtml: renderToStaticMarkup(createElement(ReportView, { report })),
   };
   deepStrictEqual(report, reportBefore, "Rendering mutated the parsed report");
