@@ -3117,3 +3117,5 @@ DB-002: Use block presence separately from grade availability; withheld endpoint
 RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
 
 DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+
+RPT-102: Join historical and forward chart lines only when period adjacency is recorded.

@@ -6017,3 +6017,5 @@ Data-only macro tables list each FRED series once, keeping the core transform an
 The live reverse-DCF growth solve is starting revenue growth that fades to terminal, with the base year-one rate alongside it; it is not the path CAGR (RPT-501).
 
 History withholds score and grade comparisons across score band-table versions: "Score band tables differ". Other families retain their own comparability (DB-005).
+
+The projection fan joins history to forecast only across adjacent periods; an open seam caption gives the first forecast window start (RPT-102).
