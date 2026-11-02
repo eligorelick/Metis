@@ -75,12 +75,15 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     const b = lender();
     if (!b.edgar.tenQNotes?.ok || !b.statements.balanceQuarterly.ok) throw new Error("fixture");
     b.edgar.tenQNotes.value.data.statementsText = "CONSOLIDATED BALANCE SHEETS (in thousands) Liabilities: Payables to third-party loan owners 506,686 383,772 Debt, current ($120,105 at fair value) 222,505 160,959 Debt, current to related parties ($424,640 at fair value) 424,640 166,135 Debt, non-current 315,850 230,143 Total liabilities 1,604,578 1,080,325 " + b.edgar.tenQNotes.value.data.statementsText;
-    Object.assign(b.statements.balanceQuarterly.value.data.rows[0]!, { totalDebt: 1_474_457_000, operatingLeaseLiability: 4_776_000 });
+    Object.assign(b.statements.balanceQuarterly.value.data.rows[0]!, { reportedCurrency: "USD", totalDebt: 1_474_457_000, operatingLeaseLiability: 4_776_000 });
     const ev = runStageB(b).valuation.multiples!.enterpriseValue;
     expect(ev.value).not.toBeNull();
     expect(ev.basis).toMatch(/context only/i);
     expect(ev.basis).toMatch(/payables to third-party loan owners 506686000/i);
     expect(ev.basis).toMatch(/Debt, current to related parties 424640000/i);
+    // F1: a stale whole-row fallback cannot claim the newer filing's debt components.
+    delete b.statements.balanceQuarterly.value.data.rows[0]!.reportedCurrency;
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.value).toBeNull();
   });
 
   it("F12 scores tangible common returns for evidenced lenders while retaining filed operating margin", () => {

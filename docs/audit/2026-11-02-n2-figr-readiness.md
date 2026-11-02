@@ -296,3 +296,11 @@ reproduces both wrong deduction and absent deduction detail on the current
 quarterly anchor. Amount/date/currency/issuer/primary-source and filed-intangible
 controls retain the deduction. The F1 context fixture also gains explicit
 quarterly currency so it exercises the same-date context bridge.
+
+
+F1 context follow-up: a corrected currency-labelled fixture proved that a stale
+whole-row balance fallback could borrow the newer filing's component list.
+EV context now also requires the selected valuation balance date to match that
+composition's date. Red n2-f1-context-date-red; green n2-f1-context-date-green.
+The original cash/lease bridge limitations remain in the basis after the named
+component disclosure; industrial EV multiples are explicitly inapplicable.

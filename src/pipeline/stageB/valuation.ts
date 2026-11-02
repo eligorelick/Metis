@@ -6484,8 +6484,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     multiples.sectorAppropriate = multiples.sectorAppropriate.filter(key => !["priceToFcf", "evToEbitda", "evToSales"].includes(key));
     multiples.notes.push(reason);
     const bridge = multiples.enterpriseValue;
-    bridge.basis = cashFlowApplicability.evDebtBasis ?? `EV context unavailable: the filed debt components do not tie to the retained provider debt perimeter. ${reason}`;
-    if (!cashFlowApplicability.evDebtBasis) { bridge.value = null; bridge.excludingLeases = null; bridge.includingLeases = null; }
+    const contextBasis = inputs.multiples.balance?.date === cashFlowApplicability.asOf ? cashFlowApplicability.evDebtBasis : undefined;
+    bridge.basis = contextBasis
+      ? `${contextBasis} ${bridge.basis.replace("EV/EBITDA uses this same EV.", "Industrial EV multiples are not applicable.")}`
+      : `EV context unavailable: the filed debt components do not tie to the retained provider debt perimeter at the selected balance date. ${reason}`;
+    multiples.notes = multiples.notes.map(note => note.replace("EV/EBITDA uses this same EV.", "Industrial EV multiples are not applicable."));
+    if (!contextBasis) { bridge.value = null; bridge.excludingLeases = null; bridge.includingLeases = null; }
 
     multiples.gaps = multiples.gaps.filter(g => !g.field.startsWith("valuation.multiples.priceToFcf"));
   }

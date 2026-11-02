@@ -3175,3 +3175,8 @@ Owner delegated to the coordinator on 2026-11-01. F9: say no peer candidate was 
 ## D-next (N2): tangible-book servicing financial assets (P/TBV review)
 
 Owner delegated to the coordinator on 2026-11-01. Name actual goodwill/intangible deductions in the basis. A vendor intangible amount tied to a same-date filed servicing asset at fair value is a financial asset and is not deducted, provided the issuer, source URL/accession, filing availability, currency and scale agree and no same-date goodwill/intangible fact or filed balance-sheet line establishes a deduction. Derived rows only; raw bundles and stored reports remain immutable. Controls preserve deductions when amount, date, currency, issuer or primary evidence disagrees. Report every census numeric and basis/prompt mover.
+
+
+### D-next (N2) F1 follow-up: context date
+
+The selected valuation balance date must match the named filed debt composition's date; an older whole-row fallback cannot inherit that newer list. Preserve the cash/lease bridge limitations after the component disclosure. Owner delegation remains 2026-11-01; no stored-report reinterpretation.
