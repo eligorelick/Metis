@@ -472,3 +472,5 @@ Corrected exports retain recorded completeness. An absent record stays absent wh
 Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
 
 Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
+
+SEC-202: Credential and AI connection GET/POST management is refused whenever METIS_ALLOWED_HOST (or its legacy alias) is nonblank and non-loopback or malformed, regardless of Host. Stop LAN mode and restart on loopback to manage keys. Saved credentials still work for runs. A loopback-valued allowlist remains supported.

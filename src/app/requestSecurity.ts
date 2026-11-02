@@ -258,3 +258,16 @@ export function assertHeavyGetMetadata(
   }
   return forbidden("fetch metadata site is invalid");
 }
+
+/** Host is client supplied: configured LAN mode cannot prove local management access. */
+export function assertLocalOnlyRoute(request: Request): NextResponse | null {
+  const configured = metisEnv("ALLOWED_HOST")?.trim();
+  if (configured) {
+    const authority = parseAuthority(configured);
+    if (authority === null || !isLoopback(authority)) return forbidden(
+      "credential and AI connection management is unavailable in LAN mode; unset METIS_ALLOWED_HOST, restart on loopback, change connections at 127.0.0.1, then restore LAN access",
+    );
+  }
+  const authority = requestAuthority(request);
+  return authority !== null && isLoopback(authority) ? null : forbidden("credentials require local access on this computer");
+}

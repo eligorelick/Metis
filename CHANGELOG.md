@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P6 local security (2026-11-02)
 
+- SEC-202: disable credential and connection management in configured LAN mode.
 - SEC-201: refuse company-page mutations before live acquisition.
 
 ## Unreleased - P3 verifier and trust labels (2026-11-02)

@@ -213,7 +213,7 @@ unless you add a security layer of your own. Mutating routes reject a request
 carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
 those automatically; scripts send `X-Metis-Token` (legacy `X-Thesis-Token` accepted) with the contents of
 the `csrf-token` file the server writes at every start and names on stdout. That
-is a browser-CSRF boundary, not local access control: any process on the machine
+is a browser-CSRF boundary; LAN mode disables credential/connection management, not report access: any process on the machine
 can present the same headers. Report security problems through the
 repository's [private advisory form](https://github.com/eligorelick/Metis/security/advisories/new), not a public issue.
 

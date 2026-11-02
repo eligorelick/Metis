@@ -3111,3 +3111,7 @@ Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word 
 ## D-next (P6): Company landing methods
 
 SEC-201: refuse all non-GET/HEAD methods on company landings only, including token-bearing requests. No Server Actions use this page. Saved reports and stamps are unchanged.
+
+## D-next (P6): LAN credential management
+
+SEC-202 adopts OD-3: refuse management in configured LAN mode including forged loopback Host. Malformed allowlists fail closed; loopback allowlists remain local. Reports/actions remain unauthenticated, subject to existing spending safeguards.
