@@ -5955,3 +5955,7 @@ record also fails closed. Empty descriptions and records without labels retain
 their identity-based matching behavior. Citation coverage excludes these refused
 figures; the same verification status reaches report tables and exports. Stored
 reports are unchanged; this rule applies when verification runs.
+
+MetricRow columns (AI-408): a date or explicit fiscal label must be established by the cited record. Other columns and window spellings are logged as not period-checked. On a period-less record, an established as-of decoration is erased; a decidable conflicting supplied period stays unverified.
+
+MetricRow columns (AI-408): a date or explicit fiscal label must be established by the cited record. Other columns and window spellings are logged as not period-checked. On a period-less record, an established as-of decoration is erased; a decidable conflicting supplied period stays unverified.

@@ -2793,6 +2793,23 @@ interface TracedNumberRef {
    */
   rowLabel?: string;
   rowKind?: "metric-row" | "named-row";
+  cellPeriod?: string;
+}
+
+/** OD-3: null means the spelling/window is outside this cell check. */
+function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): boolean | null {
+  if (/\b(?:ttm|12m|ending|ended|to)\b/i.test(label)) return null;
+  const date = label.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
+  if (date) {
+    if (record.period !== null) return /^\d{4}-\d{2}-\d{2}$/.test(record.period) ? date === record.period : null;
+    const context = record.periodContext;
+    return date === record.asOf || date === (context?.kind === "instant" ? context.at : context?.end);
+  }
+  if (/\b(?:Q[1-4]\s*)?FY\s*\d{4}\b/i.test(label)) {
+    const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel;
+    return fiscal ? periodsAgree(label, record.period ?? "", fiscal) : false;
+  }
+  return null;
 }
 
 function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
@@ -2803,17 +2820,17 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     (typeof o.sourceId === "string" || typeof o.source === "string") &&
     ("asOf" in o) &&
     ("verified" in o);
-  const walk = (node: unknown, path: string, rowLabel: string | undefined, rowKind?: TracedNumberRef["rowKind"]): void => {
+  const walk = (node: unknown, path: string, rowLabel: string | undefined, rowKind?: TracedNumberRef["rowKind"], cellPeriod?: string): void => {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (let index = 0; index < node.length; index++) {
-        walk(node[index], `${path}[${index}]`, rowLabel, rowKind);
+        walk(node[index], `${path}[${index}]`, rowLabel, rowKind, cellPeriod);
       }
       return;
     }
     const obj = node as Record<string, unknown>;
     if (isTraced(obj)) {
-      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel, rowKind }) });
+      out.push({ number: obj as unknown as TracedNumber, path: path || "$", cellPeriod, ...(rowLabel === undefined ? {} : { rowLabel, rowKind }) });
       return; // a TracedNumber has no nested TracedNumbers
     }
     // A MetricRow ({label, values: [{period, value}]}) labels the numbers
@@ -2830,7 +2847,8 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
         ? key === "values" ? ownRowLabel : undefined
         : ownName ?? rowLabel;
       walk(obj[key], path ? `${path}.${key}` : key, childLabel,
-        ownRowLabel !== undefined ? key === "values" ? "metric-row" : undefined : ownName !== undefined ? "named-row" : rowKind);
+        ownRowLabel !== undefined ? key === "values" ? "metric-row" : undefined : ownName !== undefined ? "named-row" : rowKind,
+        rowKind === "metric-row" && key === "value" && typeof obj.period === "string" ? obj.period : cellPeriod);
     }
   };
   walk(root, "", undefined);
@@ -3113,7 +3131,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
   const seriesLatest = reportedSeriesLatest(registry);
 
-  for (const { number, path, rowLabel, rowKind } of numbers) {
+  for (const { number, path, rowLabel, rowKind, cellPeriod } of numbers) {
     const sourceId = citationSourceId(number);
     const sourceAsOf = citationAsOf(number);
     if (sourceId !== null) number.sourceId = sourceId;
@@ -3220,16 +3238,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // drops one, adopt the record's value — the registry id already pins the
         // exact record (and hence its period/currency). A SUPPLIED-but-wrong
         // period or currency still mismatches, so a genuine error is not masked.
-        // A dimension the registry does not carry cannot be wrong. Aspect
-        // scores, CAGRs, technicals and returns are registered with NO period
-        // (their labels name none) and the prompt never renders one, yet a
-        // model that fills `period` with the as-of date — haiku did, on 40
-        // numbers in one live run (2026-09-02) — failed every one of them as
-        // period-mismatch while id, value and as-of matched exactly, capping
-        // citation coverage at 71%. Adopt the record's null and drop the
-        // decoration so the stored figure carries the registry's period, not
-        // an invented one. A registered period is still compared exactly.
-        if (record.period === null && number.period != null) number.period = null;
+        // AI-408 / OD-3: retain decidable conflicts before erasing the
+        // period-less as-of decoration used by the historical haiku output.
+        const suppliedPeriodConflict = record.period === null && number.period != null &&
+          recordPeriodAgreement(number.period, record) === false;
+        if (record.period === null && number.period != null && !suppliedPeriodConflict) number.period = null;
         // A spelling of the registered period ("total debt 2025-12-31", or
         // "FY2025" when the issuer's own label for the row is FY2025) is the
         // same period; adopt the registry's spelling and say so in the log.
@@ -3259,6 +3272,14 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
+        const columnAgreement = cellPeriod === undefined ? null : recordPeriodAgreement(cellPeriod, record);
+        if (cellPeriod !== undefined && columnAgreement === null) {
+          periodNote = [periodNote, `column "${cellPeriod}" not period-checked`].filter(Boolean).join("; ");
+        }
+        if (ok && (suppliedPeriodConflict || columnAgreement === false)) {
+          ok = false;
+          reason = "period-mismatch";
+        }
         if (ok) {
           const words = unitLabel(number.unit) ?? "";
           const conflict = descriptionConflictsWithRecord({

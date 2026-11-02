@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- AI-408: check readable MetricRow column periods and refuse unestablished supplied dates/fiscal labels; disclose unchecked column spellings.
+
 - AI-407: registry figures printed under conflicting metric or segment descriptions
   lose their verification mark and count as unchecked. Different printed registry
   sources also fail closed. Stored reports are unchanged.

@@ -2556,8 +2556,7 @@ describe("verify-pass tracing", () => {
     // tag. A live haiku run (2026-09-02) filled `period` with the as-of date on
     // 40 such numbers and every one failed period-mismatch, capping citation
     // coverage at 71% for figures whose id, value and as-of all matched exactly.
-    // A dimension the registry does not carry cannot be wrong: it is adopted
-    // from the record (null) and the number traces.
+    // AI-408: the matching as-of decoration traces; FY1999 is not established.
     const { payload } = buildInputs();
     const deps = makeDeps(new MockRunPass());
     const record = payload.provenanceRegistry!.find(
@@ -2571,11 +2570,11 @@ describe("verify-pass tracing", () => {
       ],
     };
     const { verificationRate, log, verifiedReport } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
-    expect(verificationRate).toBe(1);
-    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(false);
-    // The decoration is normalised away so the persisted number carries the
-    // registry's (absent) period, not an invented one.
-    for (const number of collectTracedNumbers(verifiedReport)) expect(number.period ?? null).toBeNull();
+    expect(verificationRate).toBe(0.5); // AI-408: formerly 1, falsely accepting FY1999.
+    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(true);
+    const numbers = collectTracedNumbers(verifiedReport);
+    expect(numbers[0].period ?? null).toBeNull();
+    expect(numbers[1].period).toBe("FY1999");
   });
 
   it("reads a fiscal spelling of a registered ISO period as that period, and still rejects another year", async () => {
