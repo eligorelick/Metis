@@ -1967,17 +1967,22 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(costLog).all().map(row => row.costUsd)).toEqual([0.9, 0.47]);
   });
 
-  it("AI-110 persists a safe shell when enriched provider text fails the safety schema", async () => {
+  it.each(["executive", "manifest"])("AI-110 persists consistent safe data-only output after %s rejection", async (trigger) => {
     const { jobId } = createJob("AAPL");
     const bundle = fakeBundle();
-    bundle.executives = { ok: true, value: { data: { rows: [{ name: "Jane Doe", title: "Chief Financial Officer. Strong Buy" }], raw: {} },
+    if (trigger === "manifest") bundle.gaps.push({ field: "keyMetrics", reason: "Upstream says Strong Buy.", severity: "warn" });
+    else bundle.executives = { ok: true, value: { data: { rows: [{ name: "Jane Doe", title: "Chief Financial Officer. Strong Buy" }], raw: {} },
       source: "fmp", endpoint: "synthetic-executives", asOf: "2026-07-06", fetchedAt: NOW().toISOString() } };
     const result = await runJob(jobId, mockPasses().passes, { bundle, hasAnthropicKey: false, now: NOW });
     expect(result.status).toBe("done");
     const row = handle.db.select().from(reports).get()!;
     expect(row.reportJson).not.toContain("Strong Buy");
-    const report = ReportSchema.parse(JSON.parse(row.reportJson));
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
     expect(report.appendix.missingData.some(gap => gap.field === "analysis.llm" && /safety schema/.test(gap.reason))).toBe(true);
+    const { buildDataCompleteness } = await import("@/report/completeness");
+    expect(report.meta.dataCompleteness).toEqual(buildDataCompleteness(report.appendix.missingData));
+    const stated = /(\d+) data gaps? disclosed in the appendix/.exec(report.verdict.synthesis);
+    if (stated !== null) expect(Number(stated[1])).toBe(report.appendix.missingData.length);
     expect(handle.db.select().from(costLog).all()).toEqual([]);
   });
 
