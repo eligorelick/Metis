@@ -139,6 +139,6 @@ export function legacyCheckNote(entry: VerificationLogEntry, log: readonly Verif
   const first = parts.findIndex((n, i) => n !== cutoff[i]);
   if (first < 0 || parts[first] >= cutoff[first]) return null;
   if (entry.reason !== "named-individual-title-mismatch" || entry.source !== "fmp:insider-trades" || entry.path === undefined) return null;
-  const dropped = log.some(row => row.path === entry.path && row.check === "named-individual" && /calls [^"\n]+ "(?:director|10 percent owner|ten percent owner|other)"/i.test(row.note ?? ""));
+  const dropped = log.some(row => row.path === entry.path && row.check === "named-individual" && /\((?:director|officer|other|10 percent owner|ten percent owner)\b[^)]*,\s*(?:director|officer|other|10 percent owner|ten percent owner)\b[^)]*\)/i.test(`${row.claim} ${row.note ?? ""}`));
   return dropped ? "recorded before an insider owner type listing several roles was read role by role; this title was not rechecked" : null;
 }

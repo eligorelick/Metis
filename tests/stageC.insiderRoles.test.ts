@@ -1,3 +1,4 @@
+import { legacyCheckNote } from "@/report/claimMatching";
 import { expect, it } from "vitest";
 import { collectPersonRows, collectPersonNames, runConsistencyChecks } from "@/pipeline/stageC/consistency";
 it("AI-116 reads each listed owner role without splitting a title comma", () => {
@@ -8,7 +9,7 @@ it("AI-116 reads each listed owner role without splitting a title comma", () => 
 it("AI-116 qualifies only historical dropped-role judgments", async () => {
  const { legacyCheckNote } = await import("@/report/claimMatching");
  const entry = { claim: "gift", path: "leadership.executives[0].evidence.insiderActivity[0]", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "director", but no cited row gives that title', check: "named-individual" as const };
- expect(legacyCheckNote(entry, [entry], "1.55.0")).toContain("read role by role");
+ expect(legacyCheckNote(entry, [entry], "1.55.0")).toBeNull();
  expect(legacyCheckNote(entry, [entry], "1.56.0")).toBeNull();
  expect(legacyCheckNote({ ...entry, note: 'The claim calls SMITH JOHN "Chief Financial Officer"' }, [{ ...entry, note: 'The claim calls SMITH JOHN "Chief Financial Officer"' }], "1.55.0")).toBeNull();
 });
@@ -24,11 +25,21 @@ it("AI-116 audit export qualifies both historical rows without mutating them", a
  const { ReportSchema } = await import("@/report/schema");
  const report = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-sample.json", "utf8")));
  report.meta.specVersion = "1.55.0";
- const entry = { claim: "gift", path: "leadership.executives[0].evidence.insiderActivity[0]", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "director", but no cited row gives that title' };
+ const entry = { claim: "gift (director, officer: President and CEO)", path: "leadership.executives[0].evidence.insiderActivity[0]", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "director", but no cited row gives that title' };
  report.appendix.verificationLog = [entry, { ...entry, check: "named-individual" }];
  const before = JSON.stringify(report);
  expect(reportToAuditMarkdown(report).match(/read role by role/g)).toHaveLength(2);
  expect(JSON.stringify(report)).toBe(before);
  report.meta.specVersion = "1.56.0";
  expect(reportToAuditMarkdown(report)).not.toContain("read role by role");
+});
+
+it.each(["director, officer: CFO", "officer: CFO, director"])("AI-116 qualifies evidence of multiple roles: %s", roles => {
+ const entry = { claim: `SMITH JOHN (${roles}) recorded a gift`, path: "leadership.executives[0].evidence.insiderActivity[0]", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "CFO"', check: "named-individual" as const };
+ expect(legacyCheckNote(entry, [entry], "1.55.0")).toContain("read role by role");
+ expect(legacyCheckNote(entry, [entry], "1.56.0")).toBeNull();
+});
+it.each(["officer: CFO", "officer: EVP, Operations"])("AI-116 retains correct single-role refusal: %s", roles => {
+ const entry = { claim: `SMITH JOHN (${roles}) recorded a gift`, path: "insider", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "director"', check: "named-individual" as const };
+ expect(legacyCheckNote(entry, [entry], "1.55.0")).toBeNull();
 });
