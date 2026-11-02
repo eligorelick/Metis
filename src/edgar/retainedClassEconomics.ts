@@ -102,9 +102,9 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
   const treasuryBasis = treasury !== null && total > 0 ? ` Treasury shares ${treasury} at ${d.reportDate} (${(treasury / total * 100).toFixed(2)}% of economic units), not netted: the filer's issued-and-outstanding label is followed; treasury is disclosed separately.` : "";
   return [{ issuerId: registrant.cik10, securityId: bundle.symbol, asOf: d.reportDate, filed: d.filingDate,
     effectiveFrom: d.filingDate, effectiveTo: null, complete: true,
-    sourceHash: createHash("sha256").update(JSON.stringify({ statement, text: d.text, quoteTitle: title })).digest("hex"),
-    sourceIds: [d.documentUrl, bundle.profile.value.endpoint],
-    basis: `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
+    sourceHash: createHash("sha256").update(JSON.stringify({ statement, text: d.text, quoteTitle: title, ...(discrepancy ? { providerCountObservation: provider } : {}) })).digest("hex"),
+    sourceIds: [d.documentUrl, bundle.profile.value.endpoint, ...(discrepancy && bundle.sharesFloat.ok ? [bundle.sharesFloat.value.endpoint] : [])],
+    basis: `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
     classes: names.map((name, i) => ({ classId: name === quoteLabels[0] ? bundle.symbol : name, shares: counts[i]!, countBasis: "outstanding",
       economicUnitsPerQuotedShare: 1, priceBasis: name === quoteLabels[0] ? "quoted-market-price" : "economic-equivalence-proxy" })) }];
 }

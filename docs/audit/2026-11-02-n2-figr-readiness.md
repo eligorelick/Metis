@@ -1,5 +1,8 @@
 # N2 lender and share-class readiness (2026-11-02)
 
+The original sections below record the pre-review N2 checkpoints. The review-fix
+section supersedes their applicable conventions and final-gate statements.
+
 Offline evidence: retained corrected FIGR bundle and the integrator's independent
 FIGR-TIEOUT. Baseline f8d6c758. No retained bundle is copied into the repository;
 tests use small synthetic issuers. These readiness items are new research
@@ -243,9 +246,9 @@ gates. All three items are addressed; no live provider/model run was performed.
 
 | Item | Disposition | Commit | Red / green receipts | Stored reports |
 | --- | --- | --- | --- | --- |
-| F1 | Fixed lender multiples, gross margin and net debt suppression; EV context names tied filed components | This F1/F2/F12 commit | n2-f1-f2-f12-red; n2-f1-ev-context-red / n2-f1-f2-f12-green | Immutable; new computations only |
-| F2 | Fixed; lender solvency not modelled; industrial coverage/leverage not displayed as figures or scored | This F1/F2/F12 commit | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
-| F12 | Fixed capital-return policy: ROTE instead of ROIC; operating margin retained | This F1/F2/F12 commit | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
+| F1 | Fixed lender multiples, gross margin and net debt suppression; EV context names tied filed components | cfd1e2e2; F1 follow-up d863fb39 | n2-f1-f2-f12-red; n2-f1-ev-context-red / n2-f1-f2-f12-green | Immutable; new computations only |
+| F2 | Fixed; lender solvency not modelled; industrial coverage/leverage not displayed as figures or scored | cfd1e2e2; F1 follow-up d863fb39 | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
+| F12 | Fixed capital-return policy: ROTE instead of ROIC; operating margin retained | cfd1e2e2; F1 follow-up d863fb39 | n2-f1-f2-f12-red / n2-f1-f2-f12-green | Same |
 
 FIGR FY2025 common earnings of 62.026m are filed under the basic-EPS common
 stockholders tag (two-class allocation). ROTE is not missing that allocation:
@@ -258,7 +261,7 @@ synthetic eligible lender scores ROTE; the retained target remains withheld.
 
 | Review item | Disposition | Commit | Red / green receipts | Stored reports |
 | --- | --- | --- | --- | --- |
-| F3 | Fixed both provider labels in new multi-class reports | This class-scope review commit | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable; optional new-report marker |
+| F3 | Fixed both provider labels in new multi-class reports | 4c978d7c | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable; optional new-report marker |
 | F5 | Disclosure only; counts/dates and discrepancy, no gate change | Same | n2-f5-red-confirmed / n2-f3-f5-f6-f7-f8-green | Immutable |
 | F6 | Treasury count/percentage disclosed without netting | Same | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable |
 | F7 | Exact coordinator same-price wording | Same | n2-f3-f5-f6-f7-f8-red / n2-f3-f5-f6-f7-f8-green | Immutable |
@@ -272,10 +275,10 @@ are replaced with the coordinator's required wording.
 
 | Review item | Disposition | Commit | Red / green receipts | Stored reports |
 | --- | --- | --- | --- | --- |
-| F4 | No further N2 code change: F1 removes lender EV/Sales; general withholding while eligibility.annual.revenue is open belongs to N3 | This disposition commit | F1 receipts; no new rule | Immutable |
-| F9 | Fixed zero-populated-peer wording | This peer-wording commit | n2-f9-red / n2-f9-green | Immutable |
-| F10 | Reach corrected: all resolved-scope issuers, prompt only, in the original N2 prompt change; EXPE is the census prompt-only mover, including raw-cap registry ID change | This disposition commit | Baseline/final census and reviewer EXPE receipts | Immutable |
-| F11 | No change; mortgage-banker phrase variants are a safe coverage limit, not FIGR's trigger | This disposition commit | Review P8; lender controls | Immutable |
+| F4 | No further N2 code change: F1 removes lender EV/Sales; general withholding while eligibility.annual.revenue is open belongs to N3 | a329ec7e | F1 receipts; no new rule | Immutable |
+| F9 | Fixed zero-populated-peer wording | a329ec7e | n2-f9-red / n2-f9-green | Immutable |
+| F10 | Reach corrected: all resolved-scope issuers, prompt only, in the original N2 prompt change; EXPE is the census prompt-only mover, including raw-cap registry ID change | a329ec7e | Baseline/final census and reviewer EXPE receipts | Immutable |
+| F11 | No change; mortgage-banker phrase variants are a safe coverage limit, not FIGR's trigger | a329ec7e | Review P8; lender controls | Immutable |
 
 F10 scope: the original raw-cap relabel changes EXPE's registry ID from
 payload.quote.marketcap to the derived provider-cap label ID, and adds traced
@@ -288,7 +291,7 @@ review census, rather than misreported as byte-identical computations.
 
 | Review item | Disposition | Commit | Red / green receipts | Stored reports |
 | --- | --- | --- | --- | --- |
-| P/TBV | Fixed named deductions and narrowly proved servicing-asset classification | This tangible-book commit | n2-ptbv-red-confirmed / n2-ptbv-green | Immutable; derived rows only |
+| P/TBV | Fixed named deductions and narrowly proved servicing-asset classification | b5ba9502 | n2-ptbv-red-confirmed / n2-ptbv-green | Immutable; derived rows only |
 
 The initial P/TBV red fixture fell back to annual balances because its quarterly
 currency was unlabelled. n2-ptbv-red-confirmed labels the trigger's currency and
@@ -304,3 +307,97 @@ EV context now also requires the selected valuation balance date to match that
 composition's date. Red n2-f1-context-date-red; green n2-f1-context-date-green.
 The original cash/lease bridge limitations remain in the basis after the named
 component disclosure; industrial EV multiples are explicitly inapplicable.
+
+
+## Review-fix replay and verification record
+
+Integration ae4b656e was merged first as 804b9e9b. Only the four expected
+record files conflicted; all batch entries and registered notes were retained,
+and the P3 record test takes the integration's position-independent version.
+The read-only integration extraction's full census hashes match the first
+baseline receipt for all 46 bundles. Stamps remain report 1.56.0, payload
+1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39 and pipeline stage-c-1.6.18.
+
+| FIGR figure | Merged baseline | Review result |
+| --- | ---: | ---: |
+| EV/EBITDA | 16.9788713350x | Not applicable |
+| EV/Sales | 6.8103712878x | Not applicable |
+| Current net debt, selected / retained lease bases, USD | 32,170,000 / 36,946,000 | Not applicable |
+| FY2025 net debt / net debt-to-EBITDA | -421,261,000 / -2.3093044036x | Not applicable |
+| Current / FY interest coverage | 4.4084019265x / 3.4001432372x | Not applicable |
+| Latest ROIC | 20.3649301355% | Not applicable |
+| P/TBV | 3.8358395326x | 3.4150401425x |
+| Composite / band | 50.18 / D | 46.62 / D |
+| Fundamentals / Valuation / Quality / Leadership scores | Unscored | Unscored |
+| Balance Sheet score / band | 54.39 / D | Not modelled |
+| Moat score / band | 74.12 / B | Unscored; ROTE evidence unavailable at cutoff |
+| Technicals score / band | 16.71 / F | 16.71 / F |
+| Business-quality score / band | 53.18 / D | Unscored |
+| Overall evidence completeness | 0.2278009209 | 0.1015228426 |
+| Business-quality evidence completeness | 0.1833202203 | 0 |
+| Balance Sheet applicable / raw completeness | 0.4 / 0.2352941176 | Not modelled / 0 |
+| Moat applicable / raw completeness | 0.45 / 0.45 | 0 / 0 |
+| Quality applicable completeness | 0 | No applicable signals |
+
+ROTE remains withheld; its exact observation-cutoff refusal now reaches the
+report/audit gap instead of only internal notes. No common-income admission
+rule changes. EV excluding / including leases remains 4,858,062,581.86 /
+4,862,838,581.86 USD, context only. Named debt components are current debt
+222.505m, current related-party debt 424.640m, non-current debt 315.850m and
+payables to third-party loan owners 506.686m. Original cash/lease limitations
+remain in its basis. Economic units 223,629,267, issuer capitalization
+4,825,919,581.86, P/B 3.4150401425x and retained P/E 26.975x do not change.
+
+The removed industrial signals' composite weights are coverage 5.2620039465%
+and ROIC 10.0635825477%. Technical factor weight rescales 7.4545055909% ->
+10.1522842640%, contribution -2.4819299807 -> -3.3801381433. Technical signal
+weights (relative strength, high distance, SMA gap) rescale 3.3545275159 /
+2.6090769568 / 1.4909011182 -> 4.5685279188 / 3.5532994924 / 2.0304568528%.
+Their contributions rescale -1.1740846306 / -0.9131769349 / -0.3946684152 ->
+-1.5989847716 / -1.2436548223 / -0.5374985494. Input technicals do not change.
+Every changed numeric path (59 computed; 405 with payload copies and positional
+shifts) is retained locally in review-figr-computed-numeric-deltas.md and
+review-figr-all-numeric-deltas.json. Removed ROIC intermediate operands are
+listed too; no raw observation is erased.
+
+| Census scope | Numeric movers | Basis/prompt movers | Explanation |
+| --- | ---: | ---: | --- |
+| 45 frozen issuers | 0 | 45 | P/TBV basis now names actual deductions |
+| EXPE, included above | 0 | 1 | Also multi-class marker and corrected same-price wording; original N2 prompt-only reach includes the cap registry-ID change |
+| FIGR | 1 | 1 | Evidence-based lender conventions, servicing asset classification, class/treasury and peer disclosures |
+
+Every census issuer, changed path and reason is named in the local
+review-census-deltas.md/.json receipts. All 46 source bundles are unchanged;
+fetch is forbidden. No frozen census issuer qualifies as this lender type.
+JPM/BAC routing and all numeric results are unchanged; BRK.B, GOOGL, META,
+V and MA retain their former scope statuses. Only FIGR's P/TBV number changes.
+
+Fresh-fetch P/E assessment (no code change): n2-review-fresh-fetch-eps calls
+the existing guardVendorShareFields offline with the retained filed evidence.
+It withholds Q3-2025 diluted EPS 0.21 against filed 0.34, plus basic EPS and
+both doubled vendor weighted counts. The guard is src/pipeline/keyless.ts:545;
+its fetch-time caller is the vendor per-share reconciliation block near line
+1492 (007f4fcd). A fresh path through that block would withhold the conflicting
+row. The retained bundle predates this collection treatment; it is not rewritten
+and retained P/E remains 26.975x. A live fetch was not performed.
+
+Golden handling: only two P/TBV basis leaves in audit-intended-deltas move to
+the N2 named group. The historical Stage C golden pins the exact new disclosure
+in both computed and payload objects, then restores that text before ALL older
+byte/hash/registry/finance assertions. No financial golden or floor is weakened.
+A first broad consumer run found that intended wording mismatch. An initial
+basis restorer assumed a zero operand; measurement showed this fixture has
+unavailable operands, and the exact missing-operand text is pinned instead.
+The audit group moved its only leaf and was removed when empty, retaining both
+leaf assertions in the N2 group. F5's provider count observation is hashed and
+its source endpoint is recorded. The lender-specific Moat explanation is
+restricted to evidenced lenders; other issuers retain their previous note.
+
+Final-head receipts are n2-review-product-final, n2-review-typecheck-final and
+n2-review-lint-final. Their authoritative exits/counts, all failure history and
+the exact final SHA are recorded in tmp/claude-impl/HANDOFF.md after completion.
+Focused consumer checks include immutable stored readers, both layouts and
+Markdown/audit/print exports, common-income controls, class economics, existing
+fetch reconciliation, payload golden and exact audited fixture deltas. The
+retained-data exports are n2-review-exports-complete. No src file was added, so
+the conditional new-file risk-coverage gate is not triggered. No push or PR.

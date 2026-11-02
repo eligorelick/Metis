@@ -101,6 +101,23 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     expect(c.growth.margins.operating.series.length).toBeGreaterThan(0);
   });
 
+  it("F12 discloses why filed common earnings cannot enter lender ROTE at the cutoff", () => {
+    const b = lender();
+    if (!b.statements.incomeAnnual.ok) throw new Error("fixture");
+    for (const row of b.statements.incomeAnnual.value.data.rows) {
+      row.netIncomeAvailableToCommon = 140_000_000;
+      row.fieldProvenance = { ...row.fieldProvenance, netIncomeAvailableToCommon: { source: "edgar", unit: "USD",
+        periodStart: `${row.date!.slice(0, 4)}-01-01`, periodEnd: row.date!, observedAt: "2026-07-06T00:00:03.000Z",
+        tags: ["us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic"], filings: [{ accn: "0000000042-26-000001", filed: "2026-05-06", form: "10-Q" }] } };
+    }
+    const c = runStageB(b);
+    expect(c.returns.rote.latestRotePct).toBeNull();
+    expect(c.returns.rote.gaps.find(g => g.field === "returns.rote")?.reason).toContain("observation is not proven available at the analysis cutoff");
+    const report = buildDataOnlyReport({ symbol: b.symbol, companyName: "Example", generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, validation: { checks: [], flags: [], gaps: [] }, computed: c, costBreakdown: [], reason: "offline" });
+    expect(reportToAuditMarkdown(report)).toContain("observation is not proven available at the analysis cutoff");
+  });
+
   it.each([
     ["a fee-based financial issuer", {}],
     ["a non-lender SIC", { sic: "3571" }],

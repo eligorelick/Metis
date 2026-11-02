@@ -2289,6 +2289,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (lendingCashFlow) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
     returns.roicVsWacc = { spreadPctPts: null, note: lendingCashFlow.reason };
+    if (returns.rote.latestRotePct === null) {
+      const withheld = returns.rote.notes.filter(note => note.includes("ROTE withheld:"));
+      if (withheld.length) {
+        const reason = `Lender return on tangible common equity withheld: ${withheld.join("; ")}`;
+        returns.rote.gaps = [...returns.rote.gaps.filter(gap => gap.field !== "returns.rote"), { field: "returns.rote", reason, severity: "warn" }];
+        returns.gaps = [...returns.gaps.filter(gap => gap.field !== "returns.rote"), ...returns.rote.gaps.filter(gap => gap.field === "returns.rote")];
+      }
+    }
   }
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {

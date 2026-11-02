@@ -3180,3 +3180,8 @@ Owner delegated to the coordinator on 2026-11-01. Name actual goodwill/intangibl
 ### D-next (N2) F1 follow-up: context date
 
 The selected valuation balance date must match the named filed debt composition's date; an older whole-row fallback cannot inherit that newer list. Preserve the cash/lease bridge limitations after the component disclosure. Owner delegation remains 2026-11-01; no stored-report reinterpretation.
+
+
+### D-next (N2) review follow-up: exact refusal and golden boundaries
+
+ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no admission gate is relaxed. F5 provider-count disclosure includes the provider endpoint and hash-covered observation. Moat wording changes only for evidenced lenders. The census has FIGR as the only numeric mover (59 computed paths, including removed intermediate operands); all 45 frozen issuers have only named P/TBV basis detail, and EXPE additionally has class-scope metadata/wording. Pin only the two audited P/TBV basis leaves and the exact Stage C wording occurrences; retain all earlier byte/hash/financial assertions. Owner delegated to the coordinator on 2026-11-01.

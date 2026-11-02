@@ -1060,7 +1060,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined when debt is operating funding. Gross margin is dropped where the route suppresses it (including evidenced lenders)." +
+    (route.cashFlowApplicability?.status === "not-applicable"
+      ? "Quantitative moat proxy: latest return on tangible common equity (ROTE) and its lowest annual return in the window. ROIC is undefined when debt is operating inventory funding; vendor gross margin is not a filed lender line and is excluded."
+      : "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).") +
       (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
   );

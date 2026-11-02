@@ -6150,3 +6150,6 @@ provider row is not rewritten: a derived calculation copy excludes the proved
 servicing asset from the tangible-book deduction. Unproven cases retain the
 existing deduction. This also keeps tangible common-return denominators on the
 same classified balance basis when they use that date.
+
+Lender ROTE refusal reports carry the exact common-income gate reason (including
+observation-cutoff refusals), while the original admission rules remain in force.
