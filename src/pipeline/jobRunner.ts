@@ -3872,17 +3872,19 @@ export async function runJob<TPayload = unknown>(
       }
       repairQueued.clear();
     };
-    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh";
+    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh" | "resume";
     const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
       repair: "repairing schema-invalid output",
       retry: "retrying after a dropped connection",
       continue: "continuing from the completed sections of the cut-off response",
+      resume: "running the missing side of a resumed run",
       fresh: "running now that its sibling pass is being retried",
     };
     const RECOVERY_GAP: Record<AnalystRecovery, string> = {
       repair: "repair attempt after schema-invalid output also failed",
       retry: "retry after a dropped connection also failed",
       continue: "continuation of the cut-off response also failed",
+      resume: "resumed side failed",
       fresh: "pass launched after its sibling's retry also failed",
     };
     const runAnalystRepairAttempt = async (
@@ -3978,7 +3980,7 @@ export async function runJob<TPayload = unknown>(
       while (true) {
         if (mode === "repair") {
           if (repairs-- <= 0) return null;
-        } else if (mode !== "fresh") {
+        } else if (mode !== "fresh" && mode !== "resume") {
           if (!first && !plan) return null;
           resends--;
           startStep(state, side);
@@ -4068,7 +4070,7 @@ export async function runJob<TPayload = unknown>(
       let resumedBull = resumeSnapshots.bull;
       let resumedBear = resumeSnapshots.bear;
       for (const side of resumeMissingSides) {
-        const fresh = await recoverAnalystSide(side, "fresh", "running missing resumed side", "", "", true);
+        const fresh = await recoverAnalystSide(side, "resume", "running missing resumed side", "", "", true);
         if (fresh === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
         if (side === "bull") resumedBull = fresh;
         else resumedBear = fresh;

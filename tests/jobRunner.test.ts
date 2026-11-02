@@ -1717,6 +1717,7 @@ describe("runJob - durable paid-pass settlements", () => {
         .toEqual([]);
       const report = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
       const parsed = ReportSchema.parse(JSON.parse(report.reportJson!));
+      expect(parsed.appendix.missingData.find(gap => gap.field === `llm.${side}`)?.reason).toContain("resumed side failed");
       expect(parsed.appendix.missingData).toEqual(expect.arrayContaining([
         expect.objectContaining({ field: `llm.${side}`, attemptedSources: [] }),
       ]));
