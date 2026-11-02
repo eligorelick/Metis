@@ -3237,8 +3237,12 @@ function computeReturns(
 
   if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
     wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
+    const populatedPeers = Object.keys(bundle.peerFundamentals?.candidates ?? {}).length;
+    const peerBasis = populatedPeers === 0
+      ? `No peer candidate was populated (${bundle.peerFundamentals?.candidateCount ?? 0} discovered; see exclusions); the peer collection would retain profiles, quotes and quarterly statements only, without peer price histories, a common regression window or validated unlever/relever operands. `
+      : `The peer collection retains ${populatedPeers} candidate(s), with profiles, quotes and quarterly statements, without peer price histories, a common regression window or validated unlever/relever operands. `;
     const reason = `Recent IPO: the retained issuer/SPY history supplies ${betaFit.months} usable monthly return observations; ${BETA_MIN_MONTHS} are required for the issuer regression. ` +
-      `The peer collection retains ${Object.keys(bundle.peerFundamentals?.candidates ?? {}).length} candidate(s), with profiles, quotes and quarterly statements, without peer price histories, a common regression window or validated unlever/relever operands. ` +
+      peerBasis +
       "Bottom-up beta was not substituted. No sourced industry asset-beta dataset is retained; a sector ETF beta measures fund exposure, not an issuer asset beta. " +
       "Cost of equity remains withheld; any WACC needing it remains withheld. No fallback point estimate or sensitivity is presented.";
     wacc.notes.push(reason);

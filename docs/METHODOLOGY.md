@@ -6134,3 +6134,7 @@ AI-104 review: decline/fall words in a bounded origin phrase (from, after, since
 AI-116 review: the historical title-check qualification requires an explicit parenthesized multi-role owner listing in the claim/check note, in either role order. Single officer titles, including internal title commas, do not qualify.
 
 RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.
+
+Review fix F9 distinguishes discovered candidates from populated peer data. With
+zero populated candidates, the refusal describes what the collection would retain,
+not profiles or statements supposedly present. Beta and history gates do not change.

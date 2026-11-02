@@ -39,6 +39,15 @@ describe("R-FIGR-2 recent-IPO cost-of-equity refusal", () => {
     expect(JSON.stringify(b)).toBe(before);
   });
 
+  it("F9 distinguishes discovered candidates from a peer collection with no populated candidate", () => {
+    const b = fixture();
+    b.peerFundamentals = { candidates: {}, candidateCount: 9, exclusions: [], notes: [] };
+    const notes = runStageB(b).returns.wacc.notes.join(" ");
+    expect(notes).toContain("No peer candidate was populated (9 discovered; see exclusions)");
+    expect(notes).toMatch(/would retain profiles, quotes and quarterly statements only, without peer price histories/);
+    expect(notes).not.toContain("retains 0 candidate(s), with profiles");
+  });
+
   it("keeps the refusal and explanation on a recent bank without changing bank routing", () => {
     const c = runStageB(fixture({ bank: true }));
     expect(c.route.base).toBe("bank");

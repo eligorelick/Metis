@@ -268,3 +268,19 @@ F5's first red attempt had an unavailable shares-float fixture; the corrected
 fixture was rerun against the pre-fix parser and failed on missing disclosure
 (n2-f5-red-confirmed). No coverage assertion is weakened. F7's old wording pins
 are replaced with the coordinator's required wording.
+
+
+| Review item | Disposition | Commit | Red / green receipts | Stored reports |
+| --- | --- | --- | --- | --- |
+| F4 | No further N2 code change: F1 removes lender EV/Sales; general withholding while eligibility.annual.revenue is open belongs to N3 | This disposition commit | F1 receipts; no new rule | Immutable |
+| F9 | Fixed zero-populated-peer wording | This peer-wording commit | n2-f9-red / n2-f9-green | Immutable |
+| F10 | Reach corrected: all resolved-scope issuers, prompt only, in the original N2 prompt change; EXPE is the census prompt-only mover, including raw-cap registry ID change | This disposition commit | Baseline/final census and reviewer EXPE receipts | Immutable |
+| F11 | No change; mortgage-banker phrase variants are a safe coverage limit, not FIGR's trigger | This disposition commit | Review P8; lender controls | Immutable |
+
+F10 scope: the original raw-cap relabel changes EXPE's registry ID from
+payload.quote.marketcap to the derived provider-cap label ID, and adds traced
+issuer-common capitalization 34.282bn and 120,019,343 economic units. This
+applies to all resolved-scope issuers, prompt only. The review F3 optional
+multiClass marker and F7 approximation wording can additionally change scope
+metadata/basis without changing financial numbers. These are disclosed in the
+review census, rather than misreported as byte-identical computations.

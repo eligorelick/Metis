@@ -3165,3 +3165,8 @@ Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale le
 ## D-next (N2): class-scope review disclosures (F3, F5, F6, F7, F8)
 
 Owner delegated to the coordinator on 2026-11-01. New multi-class resolved reports label raw provider cap as quoted class only, not issuer-common, and raw provider shares as quoted class only. Same-filing provider count discrepancies above 3% disclose both counts and their dates without gating admission. Treasury counts and their percentage of admitted units are disclosed without netting the filer's issued-and-outstanding counts. Same-price wording refers to classes without an admitted quote and states that a separately traded class's own price was not used. Contrary economics also match Class X (common) shares. A new optional multiClass marker carries admitted inventory scope into new reports; absent legacy markers do not rewrite historical reports.
+
+
+## D-next (N2): peer refusal and review dispositions (F4, F9, F10, F11)
+
+Owner delegated to the coordinator on 2026-11-01. F9: say no peer candidate was populated, with discovered count and exclusions; describe what such a collection would retain. No beta gate changes. F4: lender EV/Sales is removed by F1; the general open annual-revenue eligibility rule belongs to N3. F10: the original prompt scope includes all resolved-scope issuers, prompt only; EXPE is the observed prompt-only mover and its raw provider-cap registry ID changes. The F3 review marker additionally carries new-report multi-class presentation metadata. F11: no change to the narrow originations/sale-proceeds wording; mortgage-banker variants remain a safe coverage limitation until separately tested.
