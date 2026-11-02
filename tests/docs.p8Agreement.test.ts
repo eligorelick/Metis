@@ -39,7 +39,7 @@ it("DOC-202 pins current stamps, EPS inheritance and continuing value",()=>{
  const t=flat(read("docs/METHODOLOGY.md"));
  expect(t).toContain(`The current source declares report ${REPORT_SPEC_VERSION} / payload ${PAYLOAD_VERSION}, Stage B \`${STAGE_B_IMPLEMENTATION_VERSION}\` and score bands \`${SCORE_BANDS_VERSION}\``);
  for(const [,v] of t.matchAll(/currently \`(SCORE_BANDS_[A-Z0-9_]+)\`/g)) expect(v).toBe(SCORE_BANDS_VERSION);
- const row=t.split("| FMP `analyst-estimates` `epsAvg`")[1].split("\n")[0];
+ const row=read("docs/METHODOLOGY.md").split("\n").find(l=>l.startsWith("| FMP `analyst-estimates` `epsAvg`"))!;
  expect(row).toContain('currencyBasis: "inherited"');
  expect(t).not.toContain("and adds no continuing value");
  const c=flat(read("CHANGELOG.md"));
