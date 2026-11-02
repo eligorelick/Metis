@@ -5991,3 +5991,5 @@ AI-111 review: a name initial before Buy/Sell/Hold accepts a comma only before t
 AI-104 review: decline/fall words in a bounded origin phrase (from, after, since, following) do not suppress a recovery-toward-hurdle warning. Forward fade predicates retain their exclusion.
 
 AI-116 review: the historical title-check qualification requires an explicit parenthesized multi-role owner listing in the claim/check note, in either role order. Single officer titles, including internal title commas, do not qualify.
+
+RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.

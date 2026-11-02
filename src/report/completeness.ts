@@ -1,4 +1,4 @@
-import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
+import { SPY_BENCHMARK, SECTOR_ETF_MAP } from "@/pipeline/stageB/sectorRouting";
 import type { ManifestEntry } from "@/types/core";
 import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
@@ -148,7 +148,16 @@ export function manifestIssuer(gaps: readonly ManifestEntry[]): string | null {
   if (m && !excluded.has(m[1])) counts.set(m[2], (counts.get(m[2]) ?? 0) + 1);
  }
  const ranked = [...counts].sort((a,b) => b[1] - a[1]);
- return ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1]) ? ranked[0][0] : gaps.map(g => /^benchmarkPrices\.sectorEtf\(([^)]+)\)$/.exec(g.field)?.[1]).find(Boolean) ?? null;
+ if (ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1])) return ranked[0][0];
+ const routed = gaps.map(g => /^benchmarkPrices\.sectorEtf\(([^)]+)\)$/.exec(g.field)?.[1]).find(Boolean);
+ if (routed) return routed;
+ // When unique issuer endpoints are absent, exclude the shared benchmarks.
+ const benchmarks = new Set([SPY_BENCHMARK, ...Object.values(SECTOR_ETF_MAP).map(row => row.etf)]);
+ const symbols = new Set(gaps.flatMap(g => {
+  const symbol = /^fmp\.historicalPriceEodFull\(([^)]+)\)$/.exec(g.field)?.[1];
+  return symbol && !benchmarks.has(symbol) ? [symbol] : [];
+ }));
+ return symbols.size === 1 ? [...symbols][0] : null;
 }
 export function gapDatasetKey(field: string, issuer?: string | null): string {
  const fmp = /^fmp\.([A-Za-z]+)\(([^,)]+)(?:,([^)]*))?\)/.exec(field);
