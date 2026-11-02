@@ -19,6 +19,15 @@ describe("durable section checkpoints", () => {
       expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, rejectedText } })).toThrow("invalid failure");
     }
   });
+  it("round-trips a bounded response shape for a rejected answer", () => {
+    const failure = serializePassFailure(new Error("invalid case"), { kind: "schema", responseShape: "s".repeat(2_000) });
+    expect(failure.responseShape).toHaveLength(1_024);
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const responseShape of [17, "", "s".repeat(1_025)]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, responseShape } })).toThrow("invalid failure");
+    }
+  });
   it("round-trips terminal provider diagnostics without changing legacy failures or partial recovery text", () => {
     const providerFailure = { disposition: "terminal" as const, code: "subscription_sharing_usage_limit_exceeded", httpStatus: 429,
       requestId: "req-offline", param: "model", bodyShape: "error" as const };

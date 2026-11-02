@@ -129,6 +129,20 @@ describe("current-main report generation integrity regressions", () => {
     expect(checked.dropped).toContain("evidence");
     expect(checked.kept.thesis).toEqual(rejected.thesis);
   });
+  it("records how a rejected analyst response ended (FIGR extra-high bull skeleton, 2026-11-02)", async () => {
+    // Both paid FIGR runs' first bull answer was one FACT and empty lists (38,666
+    // output tokens and seven searches at extra-high); nothing durable said how
+    // the response ended, so the cause could not be established afterwards.
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", placeholderCase);
+    let shape: string | undefined;
+    const run = await runBullPass(makeDeps(mock), payload, (settlement) => {
+      if (settlement.outcome === "failure") shape = settlement.failure.responseShape;
+    });
+    expect(run.ok).toBe(false);
+    expect(shape).toMatch(/^stop reason end_turn; content blocks: text 1; text \d+ chars; output \d+ tokens$/);
+  });
   it.each(["bull", "bear"] as const)("rejects retained placeholder %s content during generation and checkpoint reuse", async (side) => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();

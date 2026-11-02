@@ -4461,6 +4461,18 @@ retained guidance period is compared; a defined KPI's movement is not its
 cause; specialist terms are defined on first use. Whether a model follows them
 can only be confirmed in a future paid run.
 
+### D-163: How a rejected answer ended is recorded
+
+Both paid FIGR runs' first bull answer was a schema-rejected near-empty case
+(one FACT, empty lists, strength 3); at extra-high it followed 38,666 output
+tokens and seven searches, far below the 128K output ceiling and with no task
+budget on analyst requests. The cause could not be established because the
+durable record kept the rejected text but not how the response ended. A parse
+or schema rejection now stores its response shape: stop reason, content-block
+counts by type, text size and output tokens (block types only, never their
+contents; at most 1,024 characters).
+
 Tests: `tests/report.xhighReadability.test.ts`, `tests/report.xhighAuditRender.test.ts`,
 `tests/marketAdmission.inProgressSession.test.ts`, `tests/stageC.singleClaimReasoning.test.ts`,
-`tests/stageC.xhighAuditPromptRules.test.ts`.
+`tests/stageC.xhighAuditPromptRules.test.ts`, `tests/stageC.payload.passes.test.ts`,
+`tests/stageC.sectionCheckpoint.test.ts`.

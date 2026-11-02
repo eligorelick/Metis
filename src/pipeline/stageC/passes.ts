@@ -208,6 +208,19 @@ export interface PassUsage {
   server_tool_use?: { web_search_requests?: number } | null;
 }
 
+/**
+ * How a response ended, for a rejected answer's durable record: stop reason,
+ * content-block counts, text size and output tokens. Block types only (text,
+ * thinking, server_tool_use, ...), never block contents.
+ */
+export function responseShapeText(message: PassMessage, usage: PassUsage | undefined): string {
+  const counts = new Map<string, number>();
+  for (const block of message.content) counts.set(block.type, (counts.get(block.type) ?? 0) + 1);
+  const blocks = [...counts].map(([type, n]) => `${type} ${n}`).join(", ") || "none";
+  const textChars = message.content.reduce((sum, block) => sum + (block.type === "text" ? block.text?.length ?? 0 : 0), 0);
+  return `stop reason ${message.stop_reason ?? "not recorded"}; content blocks: ${blocks}; text ${textChars} chars; output ${usage?.output_tokens ?? "unknown"} tokens`;
+}
+
 /** Minimal message shape: content blocks (text carries the structured JSON). */
 export interface PassMessage {
   content: ReadonlyArray<{ type: string; text?: string }>;
@@ -440,6 +453,8 @@ export type PassRun<T> =
       rawText?: string;
       /** Section response bytes retained for diagnosis, separately from accepted recovery. */
       rejectedText?: string;
+      /** How a received-but-rejected response ended ({@link responseShapeText}). */
+      responseShape?: string;
       presumed?: boolean;
       execution?: ProviderExecution;
       usage?: PassUsage;
@@ -1183,6 +1198,7 @@ function finishStructuredPass<T>(
       error: { kind: "parse", message: `unparseable structured output for ${field}` },
       validationError: reason,
       rawText: text,
+      responseShape: responseShapeText(data.message, data.usage),
       ...billedAttempt,
     };
   }
@@ -1204,6 +1220,7 @@ function finishStructuredPass<T>(
       error: { kind: "schema", message: `schema-invalid structured output for ${field}` },
       validationError: parsed.error,
       rawText: text,
+      responseShape: responseShapeText(data.message, data.usage),
       ...billedAttempt,
     };
   }
@@ -1494,6 +1511,7 @@ function settlementFromPassRun<T>(
       // Complete rejected bytes are diagnostic evidence, not recovered sections.
       partialText: run.error.partialText,
       rejectedText: run.rejectedText ?? run.rawText,
+      responseShape: run.responseShape,
     }),
     telemetry,
   };

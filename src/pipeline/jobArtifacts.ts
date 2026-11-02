@@ -62,6 +62,12 @@ export interface SerializedPassFailure {
   partialText?: string;
   /** Bounded provider responses for diagnosis only; never used as recovery sections. */
   rejectedText?: string;
+  /**
+   * How a rejected response ended: stop reason, content-block counts, text size
+   * and output tokens. Both paid FIGR runs' first bull answer was a near-empty
+   * case after tens of thousands of output tokens, and nothing durable said why.
+   */
+  responseShape?: string;
 }
 
 export type PassSettlement<T> =
@@ -226,7 +232,7 @@ function boundedText(value: unknown, fallback: string, max: number): string {
 
 export function serializePassFailure(
   error: unknown,
-  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string; rejectedText?: string; providerFailure?: ProviderFailure } = {},
+  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string; rejectedText?: string; responseShape?: string; providerFailure?: ProviderFailure } = {},
 ): SerializedPassFailure {
   const candidate = error instanceof Error ? error : null;
   const failure: SerializedPassFailure = {
@@ -241,6 +247,7 @@ export function serializePassFailure(
   }
   if (details.partialText) failure.partialText = details.partialText.slice(0, 1_000_000);
   if (details.rejectedText) failure.rejectedText = details.rejectedText.slice(0, 1_000_000);
+  if (details.responseShape) failure.responseShape = details.responseShape.slice(0, 1_024);
   return failure;
 }
 
@@ -271,6 +278,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
   if ("detail" in value) allowed.push("detail");
   if ("partialText" in value) allowed.push("partialText");
   if ("rejectedText" in value) allowed.push("rejectedText");
+  if ("responseShape" in value) allowed.push("responseShape");
   if (!hasExactKeys(value, allowed)) throw new Error("jobArtifacts: unexpected failure fields");
   if (
     typeof value.name !== "string" ||
@@ -284,6 +292,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     (value.retryable !== undefined && typeof value.retryable !== "boolean") ||
     (value.partialText !== undefined && (typeof value.partialText !== "string" || value.partialText.length > 1_000_000)) ||
     (value.rejectedText !== undefined && (typeof value.rejectedText !== "string" || value.rejectedText.length > 1_000_000)) ||
+    (value.responseShape !== undefined && (typeof value.responseShape !== "string" || value.responseShape.length === 0 || value.responseShape.length > 1_024)) ||
     (value.detail !== undefined &&
       (typeof value.detail !== "string" || value.detail.length === 0 || value.detail.length > 4_096))
   ) {
@@ -298,6 +307,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     ...(value.detail === undefined ? {} : { detail: value.detail }),
     ...(value.partialText === undefined ? {} : { partialText: value.partialText }),
     ...(value.rejectedText === undefined ? {} : { rejectedText: value.rejectedText }),
+    ...(value.responseShape === undefined ? {} : { responseShape: value.responseShape }),
   };
 }
 
