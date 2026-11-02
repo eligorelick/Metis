@@ -1714,20 +1714,18 @@ income, 1M source monetary units), not an accounting materiality threshold.
 When all base quarters (or the annual fallback) establish inclusion with a
 measured result and a located stake greater than zero, the DCF subtracts that
 signed income from its EBIT seed and each independently measured annual margin,
-and adds the stake once. A filed
-zero or result within the tolerance of zero counts as measured and takes the
+and adds the stake once. A filed zero or result within the tolerance of zero counts as measured and takes the
 window's placement; a window of only such periods does not establish inclusion.
 Fourth-quarter operands use the builder's existing one-presentation FY-minus-YTD
 or FY-minus-quarters resolver; a refused operand cannot become zero (I4).
 When inclusion is established but income is untagged in any base quarter and
-the located stake is greater than zero, the window is operating, including a window mixing that quarter with measured
-below-operating quarters. Apply that treatment to the seed and every history
+the located stake is greater than zero, the window is operating, including a
+window mixing that quarter with measured below-operating quarters. Apply that treatment to the seed and every history
 year: add back each period's measured equity-method income previously subtracted
 from EBIT, and keep that period's stake in operating capital, including the
 sales-to-capital history. Measured income already inside EBIT stays there. The
 stake receives no separate bridge add-back or investment-sale tax (FIN-401
-review R-1/R-3/R-6). That portion is the whole
-LTI when its provenance names only equity-method investments; otherwise it is
+review R-1/R-3/R-6). That portion is the whole LTI when its provenance names only equity-method investments; otherwise it is
 the lesser of LTI and the same-date, same-currency filed equity-method stake.
 No stake amount is estimated. If the stake could not be located, income stays
 in EBIT and the existing investment treatment is retained; notes state the

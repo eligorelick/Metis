@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { M, completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 function stakeBundle() {
   const bundle = completeCurrencyBundle({ debt: 300 });
@@ -120,6 +121,34 @@ describe("FIN-401 review: an income subtraction requires a located stake", () =>
     expect(actual.assumptions.ebitMarginPath.basis).toMatch(/income stays in EBIT.*stake could not be located/i);
     expect(actual.assumptions.ebitMarginPath.basis).not.toMatch(/taken out.*added back/);
     if (lti === null || lti === 0) expect(actual.dcf.bridge.nonOperatingComponents ?? []).not.toContainEqual(expect.objectContaining({ kind: "long-term-investments" }));
+  });
+
+  it("R-2: an older annual stake cannot establish the current quarter's located value", () => {
+    const bundle = stakeBundle();
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture balance");
+      for (const row of member.value.data.rows) {
+        row.reportedCurrency = "USD";
+        row.longTermInvestments = key === "balanceAnnual" ? 1048 * M : 1117 * M;
+        row.fieldProvenance!.longTermInvestments!.tags = ["us-gaap/LongTermInvestments"];
+      }
+    }
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) row.equityMethodIncomePlacement = {
+        placement: "in-operating-income", income: key === "incomeAnnual" ? 20 * M : 5 * M, basis: "measured inside income",
+      };
+    }
+    withIssuerFacts(bundle, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+      EquityMethodInvestments: { units: { USD: [{ end: "2025-12-31", val: 997 * M, form: "10-K", filed: "2026-01-30", accn: "prior-year" }] } },
+    } } });
+    const actual = value(bundle);
+    expect(actual.assumptions.salesToCapital.basis).toMatch(/quarter balance as of 2026-03-31/);
+    expect(actual.assumptions.ebitMarginPath.value).toEqual(Array(10).fill(20));
+    expect(actual.assumptions.ebitMarginPath.basis).toMatch(/stake could not be located/);
+    expect(actual.dcf.bridge.nonOperatingComponents?.find(c => c.kind === "long-term-investments")?.value).toBe(1117 * M);
   });
 
   it("R-4: calls an unlocated unmeasured stake undetermined while retaining the LTI bridge", () => {

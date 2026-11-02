@@ -35,9 +35,10 @@ their repairs. The integrator assigns this D-next number; intended deltas cite
 the existing D-60/D-65 conventions until then.
 
 The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
-to 196.0576271333 per share and BA
-27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
-values or refusals. Evidence and the explicitly unstarted items are recorded in
+to 196.0576271333 per share. R-2
+leaves BA at 27.7411147513 rather than the reviewed 27.1152067083 because the
+bridge-date stake is unlocated; GOOGL, AMZN and the other required controls
+keep their values or refusals. Evidence and the explicitly unstarted items are recorded in
 [the B4b disposition](2026-11-02-b4b-equity-bridge.md).
 
 ## D-next (P1/B4b review): one operating basis across seed and history (2026-11-02)
@@ -50,15 +51,18 @@ A window mixing an unmeasured inside quarter with measured below-operating
 quarters is operating throughout. Other mixed/undetermined windows retain the
 prior treatment. This supersedes the original mixed-history benchmark: XOM
 178.0877966043 -> 196.0576271333 per share in real code; BA and the controls
-are unchanged. The audit benchmark used the same mixed history and is not the
-correct target. See the review-corrections section in the B4b disposition.
+are unchanged in the R-1-only replay. The audit benchmark used the same mixed
+history and is not the correct target. See the review-corrections section in the B4b disposition.
 
 FIN-401 review R-2/R-4 also requires a located stake greater than zero before
 subtracting measured inside income or selecting the operating treatment.
 Otherwise income stays in EBIT, the existing investment bridge is retained,
 and notes disclose that the stake could not be located and placement is
 undetermined. A zero located stake never supports a claim that it remains in
-operating capital. No unfiled amount is estimated.
+operating capital. The real BA bridge has no same-date stake fact (only the
+prior annual 997M), so this guard returns its per-share value from the reviewed
+27.1152067083 to 27.7411147513; it does not silently reuse the prior stake. No
+unfiled amount is estimated.
 
 ## D-next (P1/B4b review): no placement evidence keeps prior wording (2026-11-02)
 
@@ -67,9 +71,14 @@ one with explicitly undetermined or mixed placement evidence. No placement
 on any row keeps the prior long-term-investment note, without the new
 "placement is undetermined" or Rule 5-03 assumption. Explicitly undetermined
 or other mixed windows keep the disclosed assumption. This restores the
-GOOGL/AMZN/DEMO notes without changing a figure or score. Re-pin only DEMO's
+GOOGL/DEMO notes without changing a figure or score. The real AMZN window has
+explicit aggregate-path undetermined placements and therefore keeps the
+assumption note; the review's no-placement premise did not hold for it. Re-pin only DEMO's
 `stageB.valuation.notes.7` text in the existing intended-delta group, naming
-R-5; report/payload/method stamps stay at the shared values.
+R-5; report/payload/method stamps stay at the shared values. After the real-code
+census showed the BA and AMZN deviations above, the integrator confirmed:
+"Retain the stated rules and document both deviations." No prior-date stake
+carry-forward or ticker-specific note exception is authorized.
 
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
