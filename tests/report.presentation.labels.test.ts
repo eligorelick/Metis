@@ -91,6 +91,7 @@ it("RPT-205: geographic labels add no unrecorded scope", () => {
 
 it("RPT-217: reverse values use the metric unit and unavailable sentinels", () => {
  expect(reverseDcfValueText("Forward FCF/share",11)).toBe("11.0");
+ expect(reverseDcfValueText("n/a (not computed in payload)",0)).toBe("\u2014");
  expect(reverseDcfValueText("not applicable",0)).toBe("\u2014");
  expect(reverseDcfValueText("unavailable (data-only payload)",0)).toBe("\u2014");
 });

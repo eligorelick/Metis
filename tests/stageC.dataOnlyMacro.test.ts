@@ -79,7 +79,7 @@ function dataOnly(sector: "Information Technology" | "Consumer Staples"): Report
     validation: VALIDATION,
     computed: runStageB(bundle),
     costBreakdown: [],
-    reason: "ANTHROPIC_API_KEY not set â€” analysis passes skipped",
+    reason: "ANTHROPIC_API_KEY not set \xe2\u20ac\u201d analysis passes skipped",
   });
 }
 

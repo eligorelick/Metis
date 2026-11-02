@@ -670,7 +670,7 @@ export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; det
 
 /** The reverse-DCF implied value with the unit its metric names. */
 export function reverseDcfValueText(metric: string, value: number | null): string {
-  if (value === null || !Number.isFinite(value) || /not applicable|unavailable/i.test(metric)) return "\u2014";
+  if (value === null || !Number.isFinite(value) || /not applicable|unavailable|^n\/a\b/i.test(metric)) return "\u2014";
   return /growth|margin|rate|return|cagr/i.test(metric) ? formatPct(value) : formatNumber(value, 1);
 }
 
@@ -1462,10 +1462,12 @@ export function runSummary(report: Pick<Report, "meta">): string {
       continue;
     }
     const key = `${entry.effectiveModel}${entry.effectiveEffort ? ` (${entry.effectiveEffort} effort)` : ""}`;
-    byModel.set(key, [...(byModel.get(key) ?? []), stepName(entry.step)]);
+    byModel.set(key, [...new Set([...(byModel.get(key) ?? []), stepName(entry.step)])]);
   }
   const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  const done = new Set(execution.filter(e => e.completion === "completed" && e.modelEvidence === "recorded").map(e => passBaseName(e.step)));
   for (const [step, attempts] of unfinished) {
+    if (done.has(step)) continue;
     const failed = attempts.filter(e => e.completion === "failed");
     const unknown = attempts.some(e => e.modelEvidence === "unknown");
     attemptParts.push(failed.length ? `${step} failed${failed.length > 1 ? ` after ${failed.length} attempts` : ""}: no usable analysis was completed${unknown ? "; model observation unknown" : `; recorded attempts on ${[...new Set(attempts.flatMap(e => e.models))].join(" + ")}`}` : `${step}: ${unknown ? "model observation unknown" : attempts.some(e => e.adjustments.includes("model-rejected")) ? "rejected before a model call" : "no model call recorded"}`);

@@ -3147,3 +3147,7 @@ RPT-214: Separate discovery-only exclusions from the candidate denominator witho
 RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
 
 RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+
+P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RPT-503 successful retries appear once as completed, individual failures stay in run details, and requested-configuration reader labels share judge attempt names. RPT-215 adds a read-time clarification to the existing legacy scope section.
+
+P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.

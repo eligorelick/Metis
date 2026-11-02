@@ -31,6 +31,7 @@ export function legacyScopeQualifications(report: Pick<Report, "meta"> & Partial
       ? `Built before report spec ${LEGACY_SCOPE_SINCE_SPEC}.`
       : `Historical scope evidence is not recorded; this read-time convention was introduced in ${LEGACY_SCOPE_SINCE_SPEC}.`) +
       " These are display qualifications, not newly recorded run evidence. Stored figures, grades and recorded evidence are unchanged.",
+    "Legacy pipeline zero valuation placeholders are displayed as unavailable; recorded bytes are unchanged.",
     "Retained receivables scope comparability is unverified. Historical growth comparisons, DSRI values and adverse flags remain as saved; check the selected receivables definitions before drawing an accounting conclusion. Published ratios alone cannot reconstruct a comparable pair.",
     "Saved debt, net debt, EV, WACC, ROIC and DCF operands retain their saved basis. Without complete period-specific lease coverage, a zero or a verified numeric citation does not establish zero leases or whether unseparated leases are included or excluded. Latest-balance evidence does not establish historical bridge or average-debt coverage; saved partial-scope limitations still apply.",
     "A saved Altman score does not establish its market-cap observation date. Missing date evidence does not prove a missing market-cap value; a genuine missing-value refusal remains valid. No quote, filing, report or acquisition date is substituted.",
