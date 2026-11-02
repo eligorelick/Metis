@@ -1043,3 +1043,9 @@ describe("technicals — window labels never overstate the history (audit 2026-0
     expect(res.read.flags.some((f) => /insufficient price history/.test(f))).toBe(true);
   });
 });
+
+it("RPT-103: near-range flags round float-derived price levels to cents",()=>{
+ const rows=mkRows(range(420,i=>150+i*0.13)); rows[419]={...rows[419]!,high:206.33999633789062,close:205};
+ const t=computeTechnicals(rows,mkRows(range(420,i=>100+i*0.1)),[],null);
+ expect(t.read.flags.find(s=>s.includes("52-week high"))).toContain("(206.34 on");
+});

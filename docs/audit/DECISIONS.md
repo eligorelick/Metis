@@ -3135,3 +3135,5 @@ DB-003: Show observed API models as well as account models and name unrecorded p
 DB-006: Distinguish cost-only revisions from research changes without changing diff status.
 
 RPT-001: Identify the symbol, company and saved report id in print page metadata.
+
+RPT-103: Round near-52-week flag price levels to cents; do not change the level.
