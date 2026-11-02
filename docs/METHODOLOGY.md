@@ -1736,7 +1736,9 @@ capital or a separate stake add-back (review R-2/R-4). Below-operating results
 keep the add-back.
 Other mixed or undetermined windows retain the prior treatment and explicitly
 say income is **assumed** below operating income under Regulation S-X Rule 5-03.
-Provider-built rows carry no placement field and take this disclosed default.
+When no row in the window carries placement evidence, retain the prior
+long-term-investment wording without calling placement undetermined (review
+R-5). Provider-built rows with no placement field take that same prior wording.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also

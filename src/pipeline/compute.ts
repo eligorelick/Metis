@@ -3477,8 +3477,10 @@ function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs[
 }
 
 /** FIN-401 / OD-5: only a complete measured window permits an income subtraction. */
-function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined"; income: number | null } {
+function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined" | null; income: number | null } {
   const placements = rows.map(row => row.equityMethodIncomePlacement);
+  // FIN-401 review R-5: no filed placement is distinct from ambiguous evidence.
+  if (placements.every(p => p === undefined)) return { placement: null, income: null };
   if (placements.some(p => p?.placement === "in-operating-income" && p.income === null)) return { placement: "in-operating-income", income: null };
   if (placements.length > 0 && placements.every(p => p !== undefined && (p.placement === "in-operating-income" || p.placement === "immaterial") && p.income !== null)
     && placements.some(p => p?.placement === "in-operating-income")) {
@@ -3608,6 +3610,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       : equityWindow.placement === "in-operating-income"
         ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
         : equityWindow.placement === "below-operating-income" ? "equity-method income is below operating income; its stake is added back once"
+          : equityWindow.placement === null ? "no equity-method income placement is filed; the existing investment treatment is retained"
           : "equity-method income is assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined and the existing stake treatment is retained",
   };
 

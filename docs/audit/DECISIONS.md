@@ -60,6 +60,17 @@ and notes disclose that the stake could not be located and placement is
 undetermined. A zero located stake never supports a claim that it remains in
 operating capital. No unfiled amount is estimated.
 
+## D-next (P1/B4b review): no placement evidence keeps prior wording (2026-11-02)
+
+FIN-401 review R-5: distinguish a window carrying no placement metadata from
+one with explicitly undetermined or mixed placement evidence. No placement
+on any row keeps the prior long-term-investment note, without the new
+"placement is undetermined" or Rule 5-03 assumption. Explicitly undetermined
+or other mixed windows keep the disclosed assumption. This restores the
+GOOGL/AMZN/DEMO notes without changing a figure or score. Re-pin only DEMO's
+`stageB.valuation.notes.7` text in the existing intended-delta group, naming
+R-5; report/payload/method stamps stay at the shared values.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

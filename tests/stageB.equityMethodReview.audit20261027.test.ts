@@ -139,3 +139,31 @@ describe("FIN-401 review: an income subtraction requires a located stake", () =>
     expect(actual.assumptions.ebitMarginPath.basis).toMatch(/income stays in EBIT.*stake could not be located/i);
   });
 });
+
+describe("FIN-401 review: absence of placement evidence preserves the prior note", () => {
+  it("R-5: does not label a window with no placements as undetermined", () => {
+    const bundle = stakeBundle();
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) delete row.equityMethodIncomePlacement;
+    }
+    const actual = value(bundle);
+    const note = actual.valuation.notes.find(n => /DCF equity bridge adds long-term investments/.test(n));
+    expect(note).toMatch(/their gains and losses sit below operating income, so the FCFF path does not value them/);
+    expect(note).not.toMatch(/placement is undetermined|Regulation S-X Rule 5-03/);
+
+    // An explicitly undetermined placement keeps its disclosed assumption and the same figures.
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) row.equityMethodIncomePlacement = {
+        placement: "undetermined", income: 5 * M, basis: "ambiguous filed arithmetic",
+      };
+    }
+    const control = value(bundle);
+    expect(control.valuation.notes.join(" ")).toMatch(/assumed below operating income .*Regulation S-X Rule 5-03; placement is undetermined/);
+    expect(actual.dcf).toEqual(control.dcf);
+    expect(actual.result.scores).toEqual(control.result.scores);
+  });
+});

@@ -53,9 +53,9 @@ refused operand is never silently zero (I4).
 
 The equity-method stake is the whole LTI only when its provenance consists
 solely of equity-method investments. Otherwise it is bounded by the same-date,
-same-currency filed stake and LTI; no amount is estimated. Provider rows without
-placement, other mixed windows and ambiguous arithmetic retain the prior treatment
-and explicitly state the S-X Rule 5-03 assumption. The LTI total's component
+same-currency filed stake and LTI; no amount is estimated. Other mixed windows and ambiguous arithmetic retain the prior treatment
+and explicitly state the S-X Rule 5-03 assumption. Windows with no placement
+on any row keep the prior note without an undetermined-placement claim (R-5). The LTI total's component
 floor uses B13's existing `unlessBelow` rule, max(0.5%, 2M). The provider fill
 evaluates that same builder chain, with identical value/tags and its prior
 missing-piece/provenance disclosures (I5). See **D-next (P1/B4b)** in DECISIONS.
@@ -132,9 +132,10 @@ Stored-report figures and bytes are unchanged under D-67.
 | Review finding | Change / disposition | Commit | Red / green receipts | Measured evidence |
 |---|---|---|---|---|
 | R-1 (High) | Fixed: window treatment governs every margin-history year | `c1a87830` | `r1-r3-r6-red-confirmed` / `r1-r3-r6-green-confirmed` | XOM 178.0877966043 -> 196.0576271333/share; equity 743.3384630263B -> 818.3445356544B; valuation 40/D -> 45.77/D; composite 55.75/C -> 56.56/C |
-| R-2 (Medium) | Fixed: measured inside income leaves EBIT only when the bridge stake is located and positive | Unlocated-family commit, recorded in final handoff | `r2-r4-red` / `r2-r4-green` | Missing/zero/unlocated LTI regressions retain the 20% seed and history instead of removing 20M TTM income; dropPath per-share returns to 30.8148802219, equal to the no-placement control (`r2-drop-replay-after`) |
+| R-2 (Medium) | Fixed: measured inside income leaves EBIT only when the bridge stake is located and positive | `0765df9f` | `r2-r4-red` / `r2-r4-green` | Missing/zero/unlocated LTI regressions retain the 20% seed and history instead of removing 20M TTM income; dropPath per-share returns to 30.8148802219, equal to the no-placement control (`r2-drop-replay-after`) |
 | R-3 (Low) | Fixed with R-1: keep each history year's located stake in capital under the operating window | `c1a87830` | Same receipts; five-year 0.2000x capital-history regression | XOM applied sales-to-capital stays 1.2378923835; records now describe actual history |
-| R-4 (Low) | Fixed: zero located value cannot select operating treatment; disclose unlocated stake with undetermined placement | Same unlocated-family commit | `r2-r4-red` / `r2-r4-green` | Existing 300M LTI add-back and -63M tax retained; false 0M operating-stake claim removed |
+| R-4 (Low) | Fixed: zero located value cannot select operating treatment; disclose unlocated stake with undetermined placement | `0765df9f` | `r2-r4-red` / `r2-r4-green` | Existing 300M LTI add-back and -63M tax retained; false 0M operating-stake claim removed |
+| R-5 (Low) | Fixed: no placement on any row keeps the prior note; explicit ambiguity keeps its assumption | Note-family commit, recorded in final handoff | `r5-red` / `r5-green` | GOOGL/AMZN/DEMO note-only reversal; all numeric leaves unchanged; only intended-delta leaf `stageB.valuation.notes.7` re-pinned, naming R-5 |
 | R-6 (Low) | Fixed with R-1: mixed unmeasured-inside/measured-below quarters use the operating basis throughout, including the seed | `c1a87830` | Same receipts; mixed-quarter test 18.75% -> 20% | BA, GOOGL, AMZN, KO, DUK and T/DIS/CMCSA/NEE controls unchanged in `r1-replay-after` |
 
 The first green attempt exposed a test-fixture currency omission: the bridge
@@ -167,7 +168,8 @@ Every identity was admitted without adaptation; reference inputs stay external.
 - The no-stake payload golden preserves all earlier finance, byte and registry
   pins by restoring only the new header and explicitly counted method stamps.
   The audited fixture re-pins six owned leaves: five method/report stamps and
-  the LTI note's disclosed assumption. No monetary fixture leaf is re-pinned.
+  the LTI note (restored to its prior wording by review R-5). No monetary
+  fixture leaf is re-pinned.
 - Raw `audit:deltas` already differs at two capex descriptions on `eecd2703`
   (`report.balanceSheet.coverage.commentary.1`, `stageB.capital.current`). The
   exact fixture test explicitly restores those reviewed descriptions. Those
@@ -203,7 +205,7 @@ owner decisions have not been changed. FIN-309 must still wait for Task 11.
 In particular, no OD-2 conversion-edge rule or OD-9 asset admission is claimed.
 
 OD-5's known evidence limits remain: partial inclusion and aggregate ambiguity,
-provider rows without placement, other mixed windows, unavailable same-date stake
-breakouts and untagged income amounts. No amount is estimated to fill a gap.
+provider rows without placement (prior note retained), other mixed windows,
+unavailable same-date stake breakouts and untagged income amounts. No amount is estimated to fill a gap.
 The integrator must assign D-next, merge the remaining tracks, and run the full
 release verification. This implementation does not push, open a PR or merge.
