@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P6 local security (2026-11-02)
 
+- SEC-204: keep saved research reachable when AI storage is unreadable; block jobs and billed keys.
 - SEC-202: disable credential and connection management in configured LAN mode.
 - SEC-201: refuse company-page mutations before live acquisition.
 

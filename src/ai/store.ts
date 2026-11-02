@@ -121,33 +121,36 @@ function windowsProtect(input: string, decrypt: boolean): string {
 
 function filePath(): string { return path.join(aiDirectory(), "connections.v1.json"); }
 
-let providerCache: { signature: string; values: Readonly<Partial<Record<ProviderCredentialKey, string>>> } | undefined;
+export const AI_STORE_UNREADABLE_HELP = 'See "AI connection storage cannot be read" in docs/OPERATIONS.md.';
+const unreadableMessage = `AI connection storage cannot be read; credentials were not replaced. ${AI_STORE_UNREADABLE_HELP}`;
+let snapshot: { file: string; bytes: string; value?: AiStore; error?: Error; retryAt: number } | undefined;
+export function resetAiStoreCacheForTests(): void { snapshot = undefined; }
 
-/** Reuse the protected store; decrypt only when its atomically replaced file changes. */
-export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
-  const file = filePath();
-  let stat: fs.Stats;
-  try { stat = fs.statSync(file); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    providerCache = undefined;
-    return {};
-  }
-  const signature = `${file}:${stat.ino}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`;
-  if (providerCache?.signature !== signature) {
-    providerCache = { signature, values: Object.freeze({ ...readAiStore()?.providerCredentials }) };
-  }
-  return providerCache.values;
+export function providerCredentialSnapshot(): { values: Readonly<Partial<Record<ProviderCredentialKey, string>>>; unreadable?: string } {
+  try { return { values: Object.freeze({ ...readAiStore()?.providerCredentials }) }; }
+  catch { return { values: {}, unreadable: unreadableMessage }; }
 }
-
+export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
+  return providerCredentialSnapshot().values;
+}
 export function getProviderCredential(key: ProviderCredentialKey): string | undefined {
-  return readProviderCredentials()[key] ?? (process.env[key]?.trim() || undefined);
+  const current = providerCredentialSnapshot();
+  if (current.unreadable && (key === "ANTHROPIC_API_KEY" || key === "ANTHROPIC_ADMIN_KEY")) return undefined;
+  return current.values[key] ?? (process.env[key]?.trim() || undefined);
 }
 
 export function readAiStore(): AiStore | null {
-  if (!fs.existsSync(filePath())) return null;
+  const file = filePath();
+  let bytes: string;
+  try { bytes = fs.readFileSync(file, "utf8"); }
+  catch (error) {
+    snapshot = undefined;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw new Error(unreadableMessage);
+  }
+  if (snapshot?.file === file && snapshot.bytes === bytes && snapshot.error && Date.now() < snapshot.retryAt) throw snapshot.error;
   try {
-    const envelope = JSON.parse(fs.readFileSync(filePath(), "utf8"));
+    const envelope = JSON.parse(bytes);
     const decoded = envelope.protection === "windows-dpapi"
       ? Buffer.from(windowsProtect(envelope.data, true), "base64").toString("utf8")
       : process.platform !== "win32" && envelope.protection === "owner-only" ? envelope.data : null;
@@ -155,7 +158,11 @@ export function readAiStore(): AiStore | null {
     const value: unknown = JSON.parse(decoded);
     if (!aiStoreSchema.safeParse(value).success) throw new Error();
     return value as AiStore;
-  } catch { throw new Error("AI connection storage cannot be read; credentials were not replaced"); }
+  } catch {
+    const error = new Error(unreadableMessage);
+    snapshot = { file, bytes, error, retryAt: Date.now() + 30_000 };
+    throw error;
+  }
 }
 
 function writeAiStore(store: AiStore): void {

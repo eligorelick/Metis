@@ -21,7 +21,7 @@ function guard(request: Request) {
 export async function GET(request: Request) {
   const denied = guard(request); if (denied) return denied;
   try { return response(withRoute(connectionsView())); }
-  catch { return response({ error: "AI connection storage is unavailable. Existing credentials were not replaced." }, 500); }
+  catch { return response({ error: "AI connection storage is unavailable. Existing credentials were not replaced. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500); }
 }
 
 export async function POST(request: Request) {

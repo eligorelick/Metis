@@ -1,7 +1,7 @@
 import { assertLocalOnlyRoute } from "@/app/requestSecurity";
 import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
-import { getProviderCredential, readProviderCredentials, withAiStore } from "@/ai/store";
+import { getProviderCredential, providerCredentialSnapshot, withAiStore } from "@/ai/store";
 import { hasConfiguredEdgarIdentity } from "@/providers/edgar";
 import { isProviderCredentialKey, PROVIDER_CREDENTIAL_KEYS, type ProviderCredentialStatuses } from "@/settings/credentialContracts";
 import { testProviderCredential } from "@/settings/testCredential";
@@ -16,7 +16,8 @@ function guard(request: Request) {
 }
 
 function statuses(): ProviderCredentialStatuses {
-  const saved = readProviderCredentials();
+  const { values: saved, unreadable } = providerCredentialSnapshot();
+  if (unreadable) throw new Error(unreadable);
   return Object.fromEntries(PROVIDER_CREDENTIAL_KEYS.map((key) => {
     const value = getProviderCredential(key);
     const configured = key === "EDGAR_CONTACT" ? hasConfiguredEdgarIdentity(value ?? "") : !!value;
@@ -27,7 +28,7 @@ function statuses(): ProviderCredentialStatuses {
 export async function GET(request: Request) {
   const denied = guard(request); if (denied) return denied;
   try { return response({ credentials: statuses() }); }
-  catch { return response({ error: "Credential storage is unavailable. Existing keys were not replaced." }, 500); }
+  catch { return response({ error: "Credential storage is unavailable. Existing keys were not replaced. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500); }
 }
 
 export async function POST(request: Request) {

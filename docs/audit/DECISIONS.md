@@ -3115,3 +3115,7 @@ SEC-201: refuse all non-GET/HEAD methods on company landings only, including tok
 ## D-next (P6): LAN credential management
 
 SEC-202 adopts OD-3: refuse management in configured LAN mode including forged loopback Host. Malformed allowlists fail closed; loopback allowlists remain local. Reports/actions remain unauthenticated, subject to existing spending safeguards.
+
+## D-next (P6): Unreadable AI storage
+
+SEC-204 adopts OD-1: preserve shell availability with environment data keys, withhold both billed Anthropic keys, refuse capture and writes, retain original bytes, and retry failures after 30 seconds or immediately on changed bytes. Recovery is named in OPERATIONS.
