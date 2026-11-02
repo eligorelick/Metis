@@ -38,6 +38,7 @@ export interface DebtBridge {
   netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
 }
 export interface CurrentCapitalSnapshot {
+  periodStartIsApproximate?: true;
   industrialMetricsApplicable?: boolean;
   basis: "ttm" | "annual"; asOf: string | null; periodStart: string | null; currency: string | null; fallbackReason: string | null;
   netDebtToEbitda: number | null; netDebt: number | null; ebitda: number | null;
@@ -122,6 +123,7 @@ function yearStart(end: string | null): string | null {
 /** Receives only already-normalized, currency-compatible complete TTM windows. */
 export function attachCurrentCapital(annual: CapitalResult, input: {
   income: CapitalIncomeRow | null; cashFlow: CapitalCashFlowRow | null; balance: CapitalBalanceRow | null;
+  periodStart?: string | null;
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
   modelEligibilityReason?: string;
@@ -148,9 +150,12 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   const annualFcf = snapshot.fcf.series.find(row=>aligns(row.date));
   const netIncome = industrialMetricsApplicable && bridgeRow ? finite(bridgeRow.netIncome) ?? finite(annualFcf?.netIncome) : null;
   const fcf = bridge.standardizedFcf, sbc = bridge.stockBasedCompensation;
+  const startTime = periodEndTime(input.periodStart);
+  const exactStart = startTime !== null && asOf !== null && startTime <= (periodEndTime(asOf) ?? 0) ? input.periodStart! : null;
   const current: CurrentCapitalSnapshot = {
     industrialMetricsApplicable,
-    basis, asOf, periodStart: yearStart(asOf), currency: input.currency,
+    basis, asOf, periodStart: exactStart ?? yearStart(asOf),
+    ...(exactStart === null ? {periodStartIsApproximate: true as const} : {}), currency: input.currency,
     fallbackReason: usable ? null : "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
     netDebtToEbitda: bridgeBalance ? snapshot.netDebtToEbitda.value : null, netDebt: bridgeBalance ? snapshot.netDebtToEbitda.netDebt : null, ebitda: snapshot.netDebtToEbitda.ebitda,
     ebit: snapshot.interestCoverage.ebit, interestExpense: snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,

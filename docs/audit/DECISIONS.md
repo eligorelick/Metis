@@ -3617,3 +3617,7 @@ Historical projection rows carry the filed fiscalYear, including start-year reta
 ## D-next (P2) - FIN-114 (2026-11-02)
 
 The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged. Stored reports remain immutable.
+
+## D-next (P2) - FIN-113 (2026-11-02)
+
+Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context. Stored reports remain immutable.

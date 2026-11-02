@@ -2305,6 +2305,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   const capital = attachCurrentCapital(annualCapital, {
+    periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,

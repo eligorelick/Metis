@@ -26,6 +26,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-114 | Fixed: The WACC and DCF assumption source labels name the selected domicile ERP country. US is reserved for the US row or US fallback; country selection and numerical ERP are unchanged. | Owning FIN-114 commit | fin-114-red / fin-114-green | Stored figures unchanged |
 
+| FIN-113 | Fixed: Current-capital windows use the established oldest-quarter start, including 52/53-week windows. Without an established start the calendar-anniversary fallback is explicitly approximate in the AI context. | Owning FIN-113 commit | fin-113-red / fin-113-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%
