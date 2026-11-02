@@ -13,6 +13,7 @@ class Stream {
   static opened: Stream[] = [];
   listeners = new Map<string, (event: MessageEvent) => void>();
   closed = false;
+  readyState = 1;
   constructor(readonly url: string) { Stream.opened.push(this); }
   addEventListener(name: string, listener: (event: MessageEvent) => void) { this.listeners.set(name, listener); }
   close() { this.closed = true; }
@@ -32,13 +33,30 @@ beforeEach(() => {
   Stream.opened = []; fetcher.mockReset(); router.refresh.mockReset();
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
-afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
+afterEach(async () => { vi.useRealTimers(); await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 async function render(symbol = "DEMO", initialJobId: string | null = "job-A") {
   await act(async () => root.render(createElement(StrictMode, null,
     createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" },
       createElement(GenerateReport, { key: symbol, symbol, initialJobId })))));
 }
 describe("saved-page attachment to an authoritative active run", () => {
+  it("JOB-214 clears reconnect warning on open with an unchanged revision", async () => {
+    await render(); const stream = Stream.opened.at(-1)!;
+    await act(async () => stream.emit("snapshot", snapshot({ status: "running" })));
+    await act(async () => stream.emit("error"));
+    expect(container.textContent).toMatch(/reconnect/i);
+    await act(async () => stream.emit("open"));
+    expect(container.textContent).not.toMatch(/reconnecting/i);
+  });
+  it("JOB-214 reopens a CLOSED stream without posting work", async () => {
+    vi.useFakeTimers(); await render(); const stream = Stream.opened.at(-1)!;
+    const count = Stream.opened.length;
+    stream.readyState = 2;
+    await act(async () => stream.emit("error"));
+    await act(async () => vi.advanceTimersByTimeAsync(1001));
+    expect(Stream.opened).toHaveLength(count + 1);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("JOB-213 accepts a snapshot under the other share-class spelling", async () => {
     await render("BRK-B");
     await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({

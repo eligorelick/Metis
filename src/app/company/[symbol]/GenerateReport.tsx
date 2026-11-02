@@ -696,10 +696,15 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
   const [reconnecting, setReconnecting] = useState(false);
 
   const esRef = useRef<EventSource | null>(null);
+  const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reopenAttemptRef = useRef(0);
+  const observedRevisionsRef = useRef(new Map<string, number>());
   const streamFenceRef = useRef<JobStreamSnapshotFence>(createJobStreamSnapshotFence());
   const requestFenceRef = useRef<JobRequestFence>(createJobRequestFence());
 
   const closeCurrentStream = useCallback(() => {
+    if (reopenTimerRef.current !== null) clearTimeout(reopenTimerRef.current);
+    reopenTimerRef.current = null;
     esRef.current?.close();
     esRef.current = null;
     streamFenceRef.current.invalidate();
@@ -711,17 +716,25 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
   }, [closeCurrentStream, symbol]);
 
   const openStream = useCallback(
-    (jobId: string) => {
+    (jobId: string): void => {
       closeCurrentStream();
       const es = new EventSource(`/api/report/${jobId}/stream`);
       esRef.current = es;
       streamFenceRef.current.activate(es, jobId, symbol);
 
+      es.addEventListener("open", () => {
+        if (esRef.current !== es) return;
+        reopenAttemptRef.current = 0;
+        setReconnecting(false);
+      });
       es.addEventListener("snapshot", (ev) => {
         try {
           const raw = JSON.parse((ev as MessageEvent).data) as unknown;
+          const decoded = decodeSnapshot(raw);
+          if (decoded === null || decoded.revision < (observedRevisionsRef.current.get(jobId) ?? -1)) return;
           const snap = streamFenceRef.current.accept(es, raw);
           if (snap === null) return;
+          observedRevisionsRef.current.set(jobId, snap.revision);
           setAcceptedStatus(snap.status);
           setObservedAt(snap.updatedAt);
           setReconnecting(false);
@@ -777,7 +790,16 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
       es.addEventListener("error", () => {
         // Transport hiccups are nonterminal; EventSource auto-reconnects and
         // the next validated snapshot catches up by canonical revision.
-        if (esRef.current === es) setReconnecting(true);
+        if (esRef.current !== es) return;
+        setReconnecting(true);
+        if (es.readyState === 2 && reopenTimerRef.current === null) {
+          const delays = [1000, 2000, 5000, 10000, 30000];
+          const delay = delays[Math.min(reopenAttemptRef.current++, delays.length - 1)]!;
+          reopenTimerRef.current = setTimeout(() => {
+            reopenTimerRef.current = null;
+            if (esRef.current === es) openStream(jobId);
+          }, delay);
+        }
       });
     },
     [closeCurrentStream, router, symbol],

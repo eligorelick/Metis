@@ -440,3 +440,7 @@ not substitute lineage-root inputs when that artifact has no snapshot.
 JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
 with the actual attempt count, rather than report-schema validation failures.
 Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
