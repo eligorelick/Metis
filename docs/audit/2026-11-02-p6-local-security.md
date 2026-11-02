@@ -14,6 +14,8 @@ Stored reports are never rewritten. Report, payload, Stage B and pipeline stamps
 
 | SEC-207 | Fixed: disclosure; retention intentionally unchanged | Owning SEC-207 commit | sec207-red / sec207-green | None |
 
+| PERF-201 | Fixed: valid-token steady state has zero DPAPI calls or renames | Owning PERF-201 commit | perf201-red / perf201-green | None |
+
 ## Residuals
 
 LAN mode remains unauthenticated for report reads and job starts within existing spending safeguards. It is an opt-in trusted-network deployment, not an authentication boundary.

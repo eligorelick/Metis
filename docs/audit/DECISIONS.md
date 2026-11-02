@@ -3127,3 +3127,7 @@ SEC-206 follows server selection on credential refresh only for an implicit defa
 ## D-next (P6): Recovery retention
 
 SEC-207 adopts OD-2: retain checkpoints and usage journals indefinitely for retries and manual audit. Document plain text, writer evidence, independent data-dir placement and stopped-app deletion. Purging would lose evidence and re-consume plan allowance.
+
+## D-next (P6): Protected-store snapshot
+
+PERF-201 caches successes by exact bytes/path and returns clones; unchanged callbacks skip protection and rename. Real mutations remain mutex serialized with atomic write-through. Stat fields cannot safely identify rotating tokens. Failed callbacks cannot mutate the cache.

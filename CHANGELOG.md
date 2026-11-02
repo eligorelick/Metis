@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P6 local security (2026-11-02)
 
+- PERF-201: reuse exact-byte AI snapshots and skip unchanged protected writes.
 - SEC-207: disclose independent indefinite section recovery, usage journals and separate deletion.
 - SEC-206: synchronize the default dropdown after credential changes while preserving unsaved edits.
 - SEC-204: keep saved research reachable when AI storage is unreadable; block jobs and billed keys.

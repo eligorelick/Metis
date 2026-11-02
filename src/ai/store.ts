@@ -149,6 +149,7 @@ export function readAiStore(): AiStore | null {
     throw new Error(unreadableMessage);
   }
   if (snapshot?.file === file && snapshot.bytes === bytes && snapshot.error && Date.now() < snapshot.retryAt) throw snapshot.error;
+  if (snapshot?.file === file && snapshot.bytes === bytes && snapshot.value) return structuredClone(snapshot.value);
   try {
     const envelope = JSON.parse(bytes);
     const decoded = envelope.protection === "windows-dpapi"
@@ -157,7 +158,8 @@ export function readAiStore(): AiStore | null {
     if (decoded === null) throw new Error();
     const value: unknown = JSON.parse(decoded);
     if (!aiStoreSchema.safeParse(value).success) throw new Error();
-    return value as AiStore;
+    snapshot = { file, bytes, value: structuredClone(value as AiStore), retryAt: 0 };
+    return structuredClone(value as AiStore);
   } catch {
     const error = new Error(unreadableMessage);
     snapshot = { file, bytes, error, retryAt: Date.now() + 30_000 };
@@ -172,9 +174,11 @@ function writeAiStore(store: AiStore): void {
     : { protection: "owner-only", data };
   const temporary = `${filePath()}.${randomUUID()}.tmp`;
   try {
-    fs.writeFileSync(temporary, JSON.stringify(envelope), { mode: 0o600, flag: "wx" });
+    const bytes = JSON.stringify(envelope);
+    fs.writeFileSync(temporary, bytes, { mode: 0o600, flag: "wx" });
     fs.renameSync(temporary, filePath());
     if (process.platform !== "win32") fs.chmodSync(filePath(), 0o600);
+    snapshot = { file: filePath(), bytes, value: structuredClone(store), retryAt: 0 };
   } finally { fs.rmSync(temporary, { force: true }); }
 }
 
@@ -182,9 +186,11 @@ function writeAiStore(store: AiStore): void {
 export async function withAiStore<T>(fn: (store: AiStore) => Promise<T> | T): Promise<T> {
   ensurePrivateDirectory(aiDirectory());
   return withAiMutex(path.join(aiDirectory(), "connections.lock"), async () => {
-    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
+    const current = readAiStore();
+    const store = current ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
+    const before = current === null ? null : JSON.stringify(store);
     const result = await fn(store);
-    writeAiStore(store);
+    if (before === null || JSON.stringify(store) !== before) writeAiStore(store);
     return result;
   });
 }

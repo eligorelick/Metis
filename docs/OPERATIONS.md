@@ -480,3 +480,5 @@ AI connection storage cannot be read: configuration and the shell use environmen
 SEC-206: Settings follows the implicit report selection when a saved Claude key changes. Unsaved connection/model/effort/speed edits remain visible until saved; an explicit saved selection remains authoritative.
 
 Plan-run persistence: `<data dir>/recovery/sections` follows METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` retains completed analyst/judge text and writer evidence; `*.usage.jsonl` retains per-request usage journals indefinitely. No automatic purge runs. With Metis stopped delete this directory separately; database deletion does not remove it. Retrying then requests the deleted sections again, consuming plan allowance.
+
+PERF-201: The process keeps a decrypted AI-store snapshot keyed by path and exact file bytes. Reads return isolated copies. Unchanged mutations do not rewrite/protect the file; real token or setting changes remain serialized and atomic. Changed bytes from another process invalidate the snapshot immediately.
