@@ -89,3 +89,53 @@ describe("FIN-401 review: the window's operating treatment governs every period"
     expect(actual.dcf.bridge.nonOperatingComponents ?? []).not.toContainEqual(expect.objectContaining({ kind: "long-term-investments" }));
   });
 });
+
+describe("FIN-401 review: an income subtraction requires a located stake", () => {
+  it.each([null, 0, 300 * M])("R-2: keeps measured inside income when the located stake is zero (LTI %s)", lti => {
+    const bundle = stakeBundle();
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture balance");
+      for (const row of member.value.data.rows) {
+        row.longTermInvestments = lti;
+        row.fieldProvenance!.longTermInvestments!.tags = ["us-gaap/LongTermInvestments"];
+      }
+    }
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) row.equityMethodIncomePlacement = {
+        placement: "in-operating-income", income: key === "incomeAnnual" ? 20 * M : 5 * M, basis: "measured inside income",
+      };
+    }
+    const control = structuredClone(bundle);
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = control.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) delete row.equityMethodIncomePlacement;
+    }
+    const actual = value(bundle);
+    expect(actual.assumptions.ebitMarginPath.value).toEqual(Array(10).fill(20));
+    expect(actual.dcf.perShare).toBeCloseTo(value(control).dcf.perShare!, 9);
+    expect(actual.assumptions.ebitMarginPath.basis).toMatch(/income stays in EBIT.*stake could not be located/i);
+    expect(actual.assumptions.ebitMarginPath.basis).not.toMatch(/taken out.*added back/);
+    if (lti === null || lti === 0) expect(actual.dcf.bridge.nonOperatingComponents ?? []).not.toContainEqual(expect.objectContaining({ kind: "long-term-investments" }));
+  });
+
+  it("R-4: calls an unlocated unmeasured stake undetermined while retaining the LTI bridge", () => {
+    const bundle = stakeBundle();
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const member = bundle.statements[key];
+      if (!member.ok) throw new Error("fixture balance");
+      for (const row of member.value.data.rows) row.fieldProvenance!.longTermInvestments!.tags = ["us-gaap/LongTermInvestments"];
+    }
+    const actual = value(bundle);
+    const components = actual.dcf.bridge.nonOperatingComponents ?? [];
+    expect(components.find(c => c.kind === "long-term-investments")?.value).toBe(300 * M);
+    expect(components.find(c => c.kind === "investment-tax")?.value).toBe(-63 * M);
+    expect(actual.valuation.notes.join(" ")).toMatch(/placement is undetermined.*stake could not be located/i);
+    expect(actual.valuation.notes.join(" ")).not.toMatch(/equity-method portion 0M stays in operating capital|its stake stays in operating capital and is not added back/);
+    expect(actual.assumptions.ebitMarginPath.value?.[0]).toBe(20);
+    expect(actual.assumptions.ebitMarginPath.basis).toMatch(/income stays in EBIT.*stake could not be located/i);
+  });
+});

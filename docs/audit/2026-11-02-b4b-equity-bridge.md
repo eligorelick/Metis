@@ -40,7 +40,10 @@ pretax/component arithmetic. A nonoperating aggregate can hold equity-method
 income, so a zero residual on that path stays undetermined (C1). The tolerance
 is the project choice max(0.1% of absolute pretax, 1M source monetary units).
 Inside measured income is removed from the DCF seed and measured annual margin
-history, and the stake is added once. Inside unmeasured income makes the whole window operating: each seed quarter
+history only with a located stake greater than zero, and the stake is added
+once. An unlocated stake leaves income in EBIT and retains the existing
+investment bridge, with the missing stake and undetermined placement disclosed. Inside unmeasured income with a positive located stake makes the whole window
+operating: each seed quarter
 and history year restores measured income previously subtracted from EBIT and
 keeps its stake in operating capital, including the sales-to-capital history; there is no
 separate stake add-back or sale-tax deduction. Immaterial/filed-zero quarters
@@ -128,9 +131,11 @@ Stored-report figures and bytes are unchanged under D-67.
 
 | Review finding | Change / disposition | Commit | Red / green receipts | Measured evidence |
 |---|---|---|---|---|
-| R-1 (High) | Fixed: window treatment governs every margin-history year | Basis-family commit, recorded in final handoff | `r1-r3-r6-red-confirmed` / `r1-r3-r6-green-confirmed` | XOM 178.0877966043 -> 196.0576271333/share; equity 743.3384630263B -> 818.3445356544B; valuation 40/D -> 45.77/D; composite 55.75/C -> 56.56/C |
-| R-3 (Low) | Fixed with R-1: keep each history year's located stake in capital under the operating window | Same basis-family commit | Same receipts; five-year 0.2000x capital-history regression | XOM applied sales-to-capital stays 1.2378923835; records now describe actual history |
-| R-6 (Low) | Fixed with R-1: mixed unmeasured-inside/measured-below quarters use the operating basis throughout, including the seed | Same basis-family commit | Same receipts; mixed-quarter test 18.75% -> 20% | BA, GOOGL, AMZN, KO, DUK and T/DIS/CMCSA/NEE controls unchanged in `r1-replay-after` |
+| R-1 (High) | Fixed: window treatment governs every margin-history year | `c1a87830` | `r1-r3-r6-red-confirmed` / `r1-r3-r6-green-confirmed` | XOM 178.0877966043 -> 196.0576271333/share; equity 743.3384630263B -> 818.3445356544B; valuation 40/D -> 45.77/D; composite 55.75/C -> 56.56/C |
+| R-2 (Medium) | Fixed: measured inside income leaves EBIT only when the bridge stake is located and positive | Unlocated-family commit, recorded in final handoff | `r2-r4-red` / `r2-r4-green` | Missing/zero/unlocated LTI regressions retain the 20% seed and history instead of removing 20M TTM income; dropPath per-share returns to 30.8148802219, equal to the no-placement control (`r2-drop-replay-after`) |
+| R-3 (Low) | Fixed with R-1: keep each history year's located stake in capital under the operating window | `c1a87830` | Same receipts; five-year 0.2000x capital-history regression | XOM applied sales-to-capital stays 1.2378923835; records now describe actual history |
+| R-4 (Low) | Fixed: zero located value cannot select operating treatment; disclose unlocated stake with undetermined placement | Same unlocated-family commit | `r2-r4-red` / `r2-r4-green` | Existing 300M LTI add-back and -63M tax retained; false 0M operating-stake claim removed |
+| R-6 (Low) | Fixed with R-1: mixed unmeasured-inside/measured-below quarters use the operating basis throughout, including the seed | `c1a87830` | Same receipts; mixed-quarter test 18.75% -> 20% | BA, GOOGL, AMZN, KO, DUK and T/DIS/CMCSA/NEE controls unchanged in `r1-replay-after` |
 
 The first green attempt exposed a test-fixture currency omission: the bridge
 correctly selected the annual balance, so the hand-computed quarterly 0.2x

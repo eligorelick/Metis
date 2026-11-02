@@ -53,6 +53,13 @@ prior treatment. This supersedes the original mixed-history benchmark: XOM
 are unchanged. The audit benchmark used the same mixed history and is not the
 correct target. See the review-corrections section in the B4b disposition.
 
+FIN-401 review R-2/R-4 also requires a located stake greater than zero before
+subtracting measured inside income or selecting the operating treatment.
+Otherwise income stays in EBIT, the existing investment bridge is retained,
+and notes disclose that the stake could not be located and placement is
+undetermined. A zero located stake never supports a claim that it remains in
+operating capital. No unfiled amount is estimated.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

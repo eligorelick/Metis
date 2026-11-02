@@ -3597,10 +3597,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     const stake = equityMethodFacts === null || ctx.modelCurrency === null ? null : instantFact(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency, date, bundle.builtAt.slice(0, 10));
     return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
   };
+  const equityMethodStakeValue = bridgePoint === null ? 0 : equityMethodStakeAt(bridgePoint);
   const equityMethodStake: DcfAssumptionInputs["equityMethodStake"] = bridgePoint === null ? null : {
-    value: equityMethodStakeAt(bridgePoint), treatment: equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
+    value: equityMethodStakeValue, treatment: equityMethodStakeValue > 0 && equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
     incomePlacement: equityWindow.placement,
-    basis: equityWindow.placement === "in-operating-income" && equityWindow.income !== null
+    basis: equityWindow.placement === "in-operating-income" && equityMethodStakeValue <= 0
+      ? "equity-method income stays in EBIT because its stake could not be located in long-term investments; the existing investment add-back is retained without establishing a separate stake amount"
+      : equityWindow.placement === "in-operating-income" && equityWindow.income !== null
       ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back`
       : equityWindow.placement === "in-operating-income"
         ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
@@ -3611,7 +3614,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // FIN-401 review R-1/R-6: the window's treatment also governs its quarters
   // and all history years. Restore only income already removed from EBIT.
   const adjustEbit = (value: number | null, rows: readonly FmpIncomeStatementRow[]): number | null => {
-    if (value === null) return null;
+    // FIN-401 review R-2/R-4: without a located stake, removing its income
+    // would value it nowhere; keep EBIT and the existing investment treatment.
+    if (value === null || equityMethodStakeValue <= 0) return value;
     if (equityMethodStake?.treatment === "operating") return value + rows.reduce((sum, row) => {
       const p = row.equityMethodIncomePlacement;
       return sum + (p?.placement === "below-operating-income" && p.income !== null ? p.income : 0);
