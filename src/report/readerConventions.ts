@@ -98,7 +98,19 @@ export function providerPeerListPresentation(report: Pick<Report, "competitive">
   const coverage = report.valuation?.peerCoverage;
   // A subject row or incomplete model-authored peer rows cannot override the
   // pipeline's comparable screen. With no screen recorded, preserve old tables.
-  const excluded = coverage && coverage.candidates > 0 && coverage.eligible.length === 0;
-  return excluded ? { heading: "Peer table", hideTable: true,
-    note: "The data provider's peer list contained no comparable companies; competitors are discussed in this section." } : { heading: "Peer table" };
+  if (coverage && coverage.candidates > 0 && coverage.eligible.length === 0) {
+    // Only point at a competitor discussion the report actually carries.
+    const discussed = (report.competitive.competitors?.length ?? 0) > 0;
+    return { heading: "Peer table", hideTable: true,
+      note: `The data provider's peer list contained no comparable companies${discussed ? "; competitors are discussed in this section" : ""}.` };
+  }
+  // Some peers passed the screen, but every listed row is an excluded issuer
+  // (the subject's own row aside): the rows stay, captioned as scale only.
+  const subject = report.meta?.symbol?.toUpperCase();
+  const listed = report.competitive.peerTable.filter(p => !(subject && p.symbol?.toUpperCase() === subject));
+  const allListedExcluded = listed.length > 0 && coverage && listed.every(p => p.symbol &&
+    !coverage.eligible.includes(p.symbol) && coverage.exclusions.some(e => e.symbol === p.symbol));
+  return allListedExcluded
+    ? { heading: "Provider peer list", note: "The provider's list is shown for scale only; these issuers were excluded by the comparable screen and are not used as comparables." }
+    : { heading: "Peer table" };
 }

@@ -70,6 +70,7 @@ describe("FIGR extra-high readability", () => {
 
   it("replaces an excluded provider list even when the model adds the subject", () => {
     const r = withSubjectAndExcludedPeers(report());
+    r.competitive.competitors = [{ text: "Rocket Companies competes with the company in home-equity lending.", label: "FACT", source: "edgar.10-K.item1", asOf: "2025-12-31" }];
     for (const text of surfaces(r)) {
       expect(text).toContain("peer list contained no comparable companies");
       expect(text).toContain("competitors are discussed in this section");
@@ -80,6 +81,24 @@ describe("FIGR extra-high readability", () => {
     r.valuation.peerCoverage = { ...r.valuation.peerCoverage!, eligible: ["COIN"], exclusions: [{ symbol: "GLXY", reason: "business model excluded" }] };
     expect(reportToMarkdown(r)).toContain("Coinbase");
     expect(reportToMarkdown(r)).not.toContain("peer list contained no comparable companies");
+  });
+
+  // Review of the combined priority fixes (2026-11-03), findings 4 and 5.
+  it("names a competitor discussion only when the report carries one", () => {
+    const r = withSubjectAndExcludedPeers(report());
+    r.competitive.competitors = [];
+    for (const text of surfaces(r)) {
+      expect(text).toContain("peer list contained no comparable companies.");
+      expect(text).not.toContain("competitors are discussed in this section");
+    }
+  });
+
+  it("captions excluded listed rows as scale only when other peers passed the screen", () => {
+    const r = withSubjectAndExcludedPeers(report());
+    r.valuation.peerCoverage = { ...r.valuation.peerCoverage!, eligible: ["HOOD"] };
+    const md = reportToMarkdown(r);
+    expect(md).toContain("shown for scale only");
+    expect(md).not.toContain("peer list contained no comparable companies");
   });
 
   it.each([

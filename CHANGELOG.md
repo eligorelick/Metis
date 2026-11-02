@@ -23,6 +23,16 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Recover an unlettered Risk Factors heading within standalone 20-F Item 3 / Item 4 boundaries when the existing extraction layers find no section. Preserve cross-reference rejection, stub detection and existing lettered/10-K paths.
 - Offline regressions include a trimmed TSMC fixture and a lettered control. The read-only cached FY2025 TSMC filing yields 60,948 characters. A payload version bump is required when integrating this changed analyst input for affected filers; no stamps are bumped here.
 
+## Unreleased - Review fixes for the priority round (2026-11-03)
+
+- A writing request that cannot launch after paid research keeps the research charge on the pass record.
+- Research notes come from every billed message (a resumed search turn included), with each cited span's URLs beside it, bounded at 40,000 characters and 200 sources.
+- Analysts carry sourced market and competitor findings into their cases for the judge.
+- The price stance uses sector-appropriate multiples against the company's own growth and returns, and never an unverified provider-EPS multiple.
+- The peer note names a competitor discussion only when the report has one. Excluded rows listed beside admitted peers are captioned as scale only.
+- Upgrade note: a synthesis paused mid-run before this release re-requests its finished sections once.
+- See D-168 to D-172.
+
 ## Unreleased - Company and market analysis (2026-11-03)
 
 - Add optional sourced market-structure and competitor claims across generation, verification and all report views. Historical reports remain readable without added fields.

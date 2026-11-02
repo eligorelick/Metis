@@ -1181,6 +1181,21 @@ export function collectFetchedSources(message: BetaMessage): { url: string; titl
   }));
 }
 
+/**
+ * The plain text of every billed message, in order. A paused search turn is
+ * resumed as a new message that holds only the new blocks, so the final
+ * message alone can lose notes written before the pause. Each cited text
+ * block keeps the URLs of its web-search citations beside it.
+ */
+export function collectResearchText(messages: readonly BetaMessage[]): string {
+  return messages.flatMap((message) => message.content.flatMap((block) => {
+    if (block.type !== "text") return [];
+    const urls = [...new Set((block.citations ?? []).flatMap((citation) =>
+      "url" in citation && typeof citation.url === "string" ? [canonicalizeFetchedUrl(citation.url) ?? citation.url] : []))];
+    return [urls.length > 0 ? `${block.text} [sources: ${urls.join("; ")}]` : block.text];
+  })).join("");
+}
+
 /** One hop of a multi-model response, as `usage.iterations` reports it. */
 interface PricedIteration {
   model: string;
@@ -1596,6 +1611,8 @@ export interface PassError {
 
 export interface PassOutcome {
   fetchedSources: { url: string; title: string; pageAge: string | null }[];
+  /** Text of every billed message in order (a resumed turn included), each cited span followed by its source URLs. */
+  researchText: string;
   message: BetaMessage;
   /** Canonical URLs observed in successful web-search result blocks. */
   fetchedUrls: string[];
@@ -1779,6 +1796,7 @@ function interpretPassMessages(
         message,
         fetchedUrls,
         fetchedSources: billableMessages.flatMap(collectFetchedSources),
+        researchText: collectResearchText(billableMessages),
         usage,
         costUsd,
         fallbackUsed,

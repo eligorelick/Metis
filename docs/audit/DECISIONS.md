@@ -4687,6 +4687,23 @@ pipeline stage-c-1.6.21, and Stage B, fair value and scenario targets
   only in D-170's intended front-page changes: the process table moves to "About
   this report", the front page shows the report date, and the title reads "Equity
   Research Report". The fingerprint was updated on that evidence.
+- **Independent review of the combined change (2026-11-03).** Three findings
+  were fixed before merge:
+  - A writing request that could not launch after paid research kept no charge
+    for that research. Preflight, checkpoint and transport throws now return a
+    failed pass that carries it.
+  - Research notes came from the final message only, which loses a paused turn's
+    earlier text. They now come from every billed message, with each cited span's
+    URLs kept beside it, bounded at 40,000 characters and 200 sources.
+  - Analysts were not told to carry market and competitor findings to the judge.
+    The writer now puts those that bear on its case, cited, into its case.
+  Two peer-caption gaps and the price-stance wording were also fixed: the stance
+  now uses sector-appropriate multiples against the company's own growth and
+  returns, never an unverified provider-EPS multiple. Accepted as is:
+  - The trust summary also moved to the appendix; the front page carries analysis.
+  - Empty research is reused on retry, as saved sections are.
+  - A synthesis paused before this upgrade re-requests its finished sections once,
+    because the cache setting and schema change its checkpoint identity.
 - **Not verified offline.** These need a live run: research quality and length,
   realised one-hour cache hits, and whether the judge now writes the
   market-structure and competitor claims well.

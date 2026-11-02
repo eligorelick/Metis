@@ -59,7 +59,7 @@ describe("FIGR extra-high audit rules reach every analysis role", () => {
 // The judge explains the deterministic scores; the analysts do not receive that block.
 const JUDGE_RULES: Array<[string, RegExp]> = [
   ["lead with the business and investment debate", /summary leads with the business and the investment debate[^.]*what drives value[^.]*market is weighing/],
-  ["interpret available multiples without an intrinsic or peer anchor", /no intrinsic value or peer median[^.]*P\/E, P\/B or P\/TBV[^.]*growth, returns and earnings quality/],
+  ["interpret available multiples without an intrinsic or peer anchor", /no intrinsic value or peer median[^.]*P\/E on filed earnings, P\/B or P\/TBV[^.]*growth, returns\s+and earnings quality/],
   ["reserve an unjudgeable price for meaningless multiples", /price cannot be judged[^.]*only when no multiple is meaningful/],
   ["request market economics and sourced size, growth and share", /business\.marketStructure[^.]*size and growth[^.]*industry is structured[^.]*value accrues[^.]*position and share/],
   ["request named competitors and the basis of competition", /competitive\.competitors[^.]*10-K business excerpt[^.]*cited sources[^.]*how each competes[^.]*wins or loses/],
@@ -76,4 +76,18 @@ describe("FIGR extra-high audit rules for the judge's score explanation", () => 
       for (const [role, text] of Object.entries(framings)) expect(text, role).toMatch(pattern);
     });
   }
+});
+
+// Review of the combined priority fixes (2026-11-03), findings 3 and 6.
+describe("priority-fix review rules", () => {
+  it.each([["bull", buildBullFraming()], ["bear", buildBearFraming()]])("the %s writer carries sourced market and competitor findings to the judge", (_side, framing) => {
+    expect(framing).toContain("market and competitor findings that bear on your case");
+    expect(framing).toContain("its fetched URL, so the judge can use them for the market-structure and competitor sections");
+  });
+  it("takes the price stance from sector-appropriate multiples on a named earnings basis, never an unverified provider EPS", () => {
+    const judge = buildJudgeFraming();
+    expect(judge).toContain("sector-appropriate");
+    expect(judge).toContain("against the company's OWN growth, returns");
+    expect(judge).toContain("provider-EPS multiple whose accounting basis is unverified");
+  });
 });

@@ -236,6 +236,8 @@ export interface PassMessage {
 /** The success branch of the provider's Sourced<PassOutcome>. */
 export interface PassOutcomeLike {
   fetchedSources?: AnalystResearch["sources"];
+  /** Text of every billed research message with cited URLs (Anthropic); the final message's text otherwise. */
+  researchText?: string;
   presumed?: boolean;
   execution?: ProviderExecution;
   message: PassMessage;
@@ -1641,6 +1643,19 @@ async function runAnalystRequest(
   return startAnalystRequest(deps, request, side, completed).result;
 }
 
+/** Bounds on research carried into the writing request, so its size can never fail the writer's preflight. */
+export const ANALYST_RESEARCH_NOTES_MAX_CHARS = 40_000;
+const ANALYST_RESEARCH_MAX_SOURCES = 200;
+
+function boundedResearch(notes: string, sources: AnalystResearch["sources"]): AnalystResearch {
+  const kept = notes.length <= ANALYST_RESEARCH_NOTES_MAX_CHARS ? notes
+    : `${notes.slice(0, ANALYST_RESEARCH_NOTES_MAX_CHARS)}
+[research notes truncated at ${ANALYST_RESEARCH_NOTES_MAX_CHARS} characters]`;
+  return AnalystResearchSchema.parse({ notes: kept, sources: sources.slice(0, ANALYST_RESEARCH_MAX_SOURCES).map((source) => ({
+    url: source.url, title: source.title.slice(0, 500), pageAge: source.pageAge === null ? null : source.pageAge.slice(0, 100),
+  })) });
+}
+
 /** Research and writing are separate provider invocations, each with its own permit.
  * The checkpoint is written before writing starts, including empty research. */
 function startAnalystRequest(
@@ -1706,11 +1721,18 @@ function startAnalystRequest(
     const data = outcome.value.data;
     const urls = new Set((data.fetchedUrls ?? []).flatMap(url => canonicalizeFetchedUrl(url) ?? []));
     const sources = (data.fetchedSources ?? []).filter(source => urls.has(source.url));
-    const research = AnalystResearchSchema.parse({ notes: extractText(data.message), sources: [
-      ...sources, ...[...urls].filter(url => !sources.some(source => source.url === url)).map(url => ({ url, title: "", pageAge: null })),
-    ] });
-    deps.sectionCheckpoint?.save(checkpointField, { research });
-    return attach(await write(withNotes(research)).result, research, data);
+    let research: AnalystResearch = { notes: "", sources: [] };
+    try {
+      research = boundedResearch(data.researchText ?? extractText(data.message), [
+        ...sources, ...[...urls].filter(url => !sources.some(source => source.url === url)).map(url => ({ url, title: "", pageAge: null })),
+      ]);
+      deps.sectionCheckpoint?.save(checkpointField, { research });
+      return attach(await write(withNotes(research)).result, research, data);
+    } catch (error) {
+      // The research request was billed: a writer that cannot launch (preflight,
+      // checkpoint or a thrown transport) keeps that charge on the pass record.
+      return attach(hardFailure(`llm.${side}`, error, deps.model), research, data);
+    }
   }) };
 }
 

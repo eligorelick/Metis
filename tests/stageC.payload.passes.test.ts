@@ -249,6 +249,7 @@ import {
 import {
   MockRunPass,
   runBullPass,
+  ANALYST_RESEARCH_NOTES_MAX_CHARS,
   runBearPass,
   runBullThenBear,
   runAnalystRepairPass,
@@ -773,6 +774,52 @@ describe("analyst research and writing boundaries", () => {
       const checked = await runVerifyPass(deps, payload, judge, { fetchedUrls: repaired.result.fetchedUrls });
       expect(checked.log.find(entry => entry.source === "https://example.com/news")).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
     }
+  });
+
+  // Review of the combined priority fixes (2026-11-03), finding 1: research is billed before writing starts.
+  it("keeps the research charge on the pass when the writing request cannot launch", async () => {
+    const { payload } = buildInputs();
+    const deps: PassDeps = { model: "claude-opus-5-5", webSearchTool: () => ({ type: "web_search_20260318", name: "web_search", max_uses: 8 }),
+      validateRunPass: args => { if (JSON.stringify(args.messages).includes("Independent bull research")) throw new Error("writer input exceeds the context window"); },
+      runPass: async args => {
+        const usage = { input_tokens: 10, output_tokens: 5, server_tool_use: { web_search_requests: 2 } };
+        return { ok: true, value: { data: { model: args.model, usage, costUsd: 0.4, fallbackUsed: false, fetchedUrls: [], fetchedSources: [],
+          message: { model: args.model, usage, content: [{ type: "text", text: "Dated notes" }] } } } };
+      } };
+    const run = await runBullPass(deps, payload);
+    expect(run.ok).toBe(false);
+    if (run.ok) return;
+    expect(run.costUsd).toBeCloseTo(0.4);
+    expect(run.webSearches).toBe(2);
+    expect(run.error.message).toContain("context window");
+    expect(run.error.research?.notes).toBe("Dated notes");
+  });
+
+  // Finding 2: notes come from every billed research message with their citations, and stay bounded.
+  it("writes from every billed research message with its cited sources, bounded in length", async () => {
+    const { payload } = buildInputs();
+    const calls: RunPassArgs[] = [];
+    const run = async (researchText: string) => {
+      calls.length = 0;
+      const deps: PassDeps = { model: "claude-opus-5-5", webSearchTool: () => ({ type: "web_search_20260318", name: "web_search", max_uses: 8 }),
+        runPass: async args => {
+          calls.push(args);
+          const research = !!args.tools?.length;
+          const usage = { input_tokens: 10, output_tokens: 5 };
+          return { ok: true, value: { data: { model: args.model, usage, costUsd: 0.1, fallbackUsed: false, fetchedUrls: [], fetchedSources: [],
+            ...(research ? { researchText } : {}),
+            message: { model: args.model, usage, content: [{ type: "text", text: research ? "After resume." : JSON.stringify(analystCase("bull")) }] } } } };
+        } };
+      return runBullPass(deps, payload);
+    };
+    const first = await run("Before pause. After resume. [sources: https://example.com/a]");
+    expect(first.ok).toBe(true);
+    expect(JSON.stringify(calls[1].messages)).toContain("Before pause. After resume. [sources: https://example.com/a]");
+    const long = await run("x".repeat(100_000));
+    expect(long.ok).toBe(true);
+    const notes = long.ok ? long.result.research?.notes ?? "" : "";
+    expect(notes.length).toBeLessThanOrEqual(ANALYST_RESEARCH_NOTES_MAX_CHARS + 200);
+    expect(notes).toContain("[research notes truncated");
   });
 
   it("marks both synthesis breakpoints with a 1h TTL before section and repair turns", async () => {
