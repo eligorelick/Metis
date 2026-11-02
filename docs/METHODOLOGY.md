@@ -6012,3 +6012,6 @@ A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve G
 
 
 A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation. The old-basis 63 is withheld along with its false +3.17% QoQ; the classic table and payload agree. This does not invent the unreported same-basis 51.
+
+
+A-F4 (DATA-103): Keep industrial revenue tags separate from the bank-extended revenue comparison list. Bank total net revenue still reconciles; it cannot validate a vendor industrial gross-profit subtotal without independently compatible operands.

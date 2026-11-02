@@ -3117,3 +3117,8 @@ Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP o
 ### D-next (P5): A-F3 (AI-508) review correction
 
 Refuse residual fills from a filing outside the missing member current presentation. The old-basis 63 is withheld along with its false +3.17% QoQ; the classic table and payload agree. This does not invent the unreported same-basis 51. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F4 (DATA-103) review correction
+
+Keep industrial revenue tags separate from the bank-extended revenue comparison list. Bank total net revenue still reconciles; it cannot validate a vendor industrial gross-profit subtotal without independently compatible operands. Stored report bytes are unchanged.

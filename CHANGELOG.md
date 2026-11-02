@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- A-F4 (DATA-103): Keep industrial revenue tags separate from the bank-extended revenue comparison list.
+
 - A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation.
 
 - A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order.
