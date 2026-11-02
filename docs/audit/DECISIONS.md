@@ -51,6 +51,12 @@ to the unchanged lower value. Incorrect settlement evidence would retain too
 much claim/dilution rather than increase value. Source conventions are the
 reviewed OD-2 citations; no fresh source/network verification is claimed.
 
+FIN-302-V2 extends that same reading to every operating EPS path and share
+alternative. Converted interest is restored-claim times the evidenced run-rate,
+capped at total interest. With no evidenced effective rate, keep interest and
+state the conservative limitation; no coupon is inferred. This is the OD-2
+approximation, not a GAAP diluted-EPS forecast. No prompt text or stamp changes.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

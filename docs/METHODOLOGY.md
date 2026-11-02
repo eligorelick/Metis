@@ -1748,6 +1748,12 @@ divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
 filed by acquisition. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
+Forecast operating EPS follows the selected divisor. A converted note removes
+interest only on the restored claim at the evidenced annual effective run-rate;
+the reduction is capped at total interest. Without that rate interest remains
+and the assumption says so. All EPS scenarios and share-count alternatives use
+the same reading (FIN-302-V2); a preferred claim still withholds unallocated
+future common earnings.
 
 A note needs a same-currency conversion price K within 366 days. Across the
 95%-105% conversion-count band, a conservative triangular blend weights the

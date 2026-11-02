@@ -147,7 +147,7 @@ export interface ProjectionsInputs {
    * NVDA's FY2026 $0.26B predates $25B of notes issued in Q2 FY2027. Absent:
    * the latest annual interest expense.
    */
-  interestRunRate?: { value: number; basis: string } | null;
+  interestRunRate?: { value: number; basis: string; ratePct?: number | null } | null;
   /** Established financing debt at the DCF statement anchor; zero can establish a debt-free interest assumption. */
   debtAtAnchor?: { date: string; debt: number | null } | null;
 }
@@ -161,7 +161,7 @@ export interface ProjectionsInputs {
  * quarter × 4. Null without a nonnegative disclosed quarterly interest figure.
  */
 export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean; days?: number | null } | null,
-  closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string } | null {
+  closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string; ratePct: number | null } | null {
   if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense < 0) return null;
   if (quarter.interestExpense === 0 && quarter.interestExpenseDisclosed !== true) return null;
   const q = quarter.interestExpense * thirteenWeekFactor(quarter.days ?? null);
@@ -174,10 +174,10 @@ export function interestRunRate(quarter: { date: string; interestExpense: number
     const average = (closing.debt + opening.debt) / 2;
     const rate = (q / average) * 4;
     if (average > 0 && rate > 0 && rate < 0.25) {
-      return { value: rate * closing.debt, basis: `${quarterBasis}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
+      return { value: rate * closing.debt, ratePct: rate * 100, basis: `${quarterBasis}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
     }
   }
-  return { value: q * 4, basis: `${quarterBasis}'s interest ${b(q)} × 4` };
+  return { value: q * 4, ratePct: null, basis: `${quarterBasis}'s interest ${b(q)} × 4` };
 }
 
 /* ------------------------------------------------------------------------ *
@@ -698,7 +698,10 @@ function buildEpsSeries(
     assumptions: [...assumptionLines, "Reported historical diluted EPS is retained. Future operating EPS and every share-count alternative are withheld; consolidated/entity revenue, operating margin and FCFF do not establish common-holder per-share earnings."],
     disclosures: [{ field: "projections.eps.ownershipScope", reason: `Forecast operating EPS withheld: ${reason}`, severity: "warn" }],
   };
-  const shares0 = inputs.dilutedShares;
+  const bridge = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge : undefined;
+  const readings = bridge?.convertibles ?? [];
+  // FIN-302-V2: the reading's actual divisor also anchors every EPS alternative.
+  const shares0 = readings.length ? bridge!.dilutedShares : inputs.dilutedShares;
   // EPS requires a positive share anchor.
   if (!isNum(shares0) || shares0 <= 0) {
     return null;
@@ -717,7 +720,14 @@ function buildEpsSeries(
   const debtFree = inputs.valuation.kind === "dcf" && inputs.debtAtAnchor?.debt === 0 &&
     inputs.debtAtAnchor.date === inputs.valuation.assumptions?.asOf.statements;
   if (runRate === null && latestInterest === undefined && !debtFree) return null;
-  const interest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
+  const baseInterest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
+  const convertedNotes = readings.filter(r => r.kind === "notes" && r.reading === "converted").reduce((sum, r) => sum + r.restored, 0);
+  const rate = isNum(runRate?.ratePct) && runRate.ratePct >= 0 ? runRate.ratePct : null;
+  const removedInterest = convertedNotes > 0 && rate !== null ? Math.min(baseInterest, convertedNotes * rate / 100) : 0;
+  const interest = baseInterest - removedInterest;
+  const conversionText = convertedNotes <= 0 ? "" : rate === null
+    ? "; convertible notes treated as converted, interest retained because the effective rate is unavailable"
+    : `; convertible notes treated as converted: interest reduced by ${round2(removedInterest / 1e9)}B at the evidenced ${round2(rate)}% rate on the restored claim`;
   const interestText = runRate
     ? `interest expense ${round2(interest / 1e9)}B a year at the latest quarter's run-rate (${runRate.basis})`
     : latestInterest ? `latest annual interest expense ${round2(interest / 1e9)}B`
@@ -790,6 +800,7 @@ function buildEpsSeries(
     // not repeated here.
     assumptions: [
       ...assumptionLines,
+      ...(conversionText ? [conversionText.slice(2)] : []),
       `Operating EPS = (forward operating EBIT − ${interestText}, held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change ${round2(g * 100)}%/yr ` +
         `(year-one net income / EBIT ${round2(conversion)}). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS.`,
     ],

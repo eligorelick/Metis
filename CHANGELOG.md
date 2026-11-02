@@ -31,6 +31,8 @@ original versions and bytes; source merge does not deploy or publish a release.
   financial routes, with exact-period filing evidence, preferred overlap guards,
   conservative settlement refusals and continuous conversion-count edges.
   Every re-run and stored-report disclosure retains the chosen basis.
+- FIN-302-V2: forecast EPS follows the selected convertible divisor and removes
+  converted-note interest only at an evidenced effective rate.
 - Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
   scenario-target stamps move with the bridge. No prompt rule text changes.
   Remaining EPS, multi-class, fair-value-asset and book-date items continue in

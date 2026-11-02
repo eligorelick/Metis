@@ -16,7 +16,7 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 | FIN-401-V1 | Fixed | Same family commit | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
 | FIN-302 | Fixed | FIN-302 family commit (handoff) | `fin302-red-confirmed` / `fin302-green-final` | Conditional pre-1.56.0 note; saved figures retained |
 | FIN-302-V1 | Fixed | Same family commit | Same receipts | Same note for excess-return values |
-| FIN-302-V2 | Not started | None | None | Earlier EPS interest/divisor treatment remains |
+| FIN-302-V2 | Fixed | EPS commit (handoff) | `fin302v2-red-confirmed` / `fin302v2-green` | Earlier figures stay; conditional convertible note applies |
 | FIN-407 | Not started | None | None | Earlier multi-class EPS withholding remains |
 | VAL-14 | Not started | None | None | No new fair-value financial-asset admission |
 | FIN-309 | Not started | None | None | Task 11 has not landed; book-date treatment remains |
@@ -240,3 +240,24 @@ had no preferred carrying claim in its original row: the new 50M claim is
 therefore first deducted from common book, explaining its conservative decline.
 The bank and insurer rows already deducted their 50M preferred claim. No
 assertion, grade threshold, coverage floor or refusal is loosened.
+
+## FIN-302-V2 continuation
+
+`fin302v2-red-confirmed` reproduces four defects with the unresolved-note
+control passing; the initial fixture lacked the three-year projection history
+and was corrected before production changes. `fin302v2-green` passes all 61
+tests across four files (EPS, projection, D-65 and convertible controls). The
+selected bridge divisor anchors all EPS variants. Converted-note interest is
+removed only on the restored claim, at the evidenced effective rate, capped
+at total interest. With no rate, interest is retained and disclosed: this is
+the conservative option under OD-2 rather than an invented coupon. No prompt,
+stamp, stored value, numeric golden or grade threshold changes.
+
+The same rebuilt/injected harness at `71e58818` versus EPS repair
+(`fin302-shapes-after` / `fin302v2-replay-after`) gives injected NVDA 50B-note
+base EPS [11.04,16.49,22.70,29.15,35.30] ->
+[11.07,16.52,22.73,29.18,35.34]. DCF/share remains 307.5613571077288;
+valuation 87.35 and composite 80.13/A stay. Unmodified NVDA EPS
+[11.12,16.61,22.87,29.37,35.57] and AMZN
+[6.69,7.38,8.04,8.68,9.29] stay. Preferred GOOGL and injected preferred
+EPS remain withheld. All census/injected valuation figures and grades stay.
