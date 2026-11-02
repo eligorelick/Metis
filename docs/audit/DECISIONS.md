@@ -3122,3 +3122,8 @@ Keep the general/FIN-OTHER route and its existing bank distinction. SIC lending 
 ## D-next (N2): keep the recent-IPO discount-rate refusal (R-FIGR-2)
 
 Do not invent a bottom-up beta from the existing peer collection: it contains no peer return histories/common regression window or validated unlever/relever basis. The retained target has zero populated peer candidates and only 13 completed issuer/SPY monthly returns, below the unchanged 24-return gate; raw vendor beta -0.019161666 remains unusable. No sourced industry asset-beta dataset exists, and the sector ETF measures fund exposure, not issuer asset risk. For lenders, the distinction between operating loan-funding liabilities and financial leverage also prevents blindly applying an industrial debt/equity unlevering rule. Keep all numerical refusals and existing valid-beta behavior, and disclose the actual history count, source shortfalls and why no fallback sensitivity exists. Cost of equity/WACC/per-share intrinsic value remain withheld, with no new missing grade weight or stored-report rewrite (D-67).
+
+
+### D-next (N2) R-FIGR-3 follow-up: newer cover facts dominate
+
+A balance-sheet alternative does not override newer-dated unresolved inline cover observations, even inside the same filing. The freshness refusal is reproduced synthetically and has no retained-target numerical delta. A future live bundle may refuse when it carries such additional unresolved cover evidence; the replay is not a promise to publish through new contrary evidence.

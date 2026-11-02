@@ -634,6 +634,15 @@ function quoteSection(bundle: DataBundle, currency: string | null, equityScope?:
     { label: "yearHigh", value: numOrNull(q?.yearHigh), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "volume", value: numOrNull(q?.volume), unit: "shares", source: "fmp:quote", asOf },
   ];
+  if (equityScope?.status === "resolved") {
+    figures[1] = { ...figures[1]!, label: "provider market cap (raw observation; issuer-common scope not assumed)" };
+    figures.push({ label: `issuer-common capitalization${equityScope.approximate ? " (economic-price approximation)" : ""}`, value: equityScope.marketCap,
+      unit: "currency", currency: equityScope.currency ?? currency, source: "computed.valuation.equityScope.marketCap", asOf: equityScope.priceAsOf ?? null });
+    figures.push({ label: "outstanding economic share units (filed inventory date)", value: equityScope.economicShares,
+      unit: "shares", source: "computed.valuation.equityScope.economicShares", asOf: equityScope.shareCountAsOf });
+    classScopeNote.push("The issuer-common capitalization above is the selected equity numerator for aggregate multiples. The provider cap remains a separate raw observation. Dated outstanding counts are not current-day shares. " + equityScope.basis,
+      `Economic scope evidence hashes: ${equityScope.sourceHashes.join(", ")}.`);
+  }
   return payloadSection({ title: "Quote", figures, notes: [...(q && asOf === null ? ["Price observation date unavailable; source retrieval time does not establish the quote session."] : []), ...classScopeNote] });
 }
 

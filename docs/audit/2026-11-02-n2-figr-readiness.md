@@ -9,9 +9,9 @@ binding: general plus recent-IPO, FIN-OTHER, not the bank map.
 
 | Finding | Disposition | Commit | Red receipt | Green receipt | Stored-report impact |
 | --- | --- | --- | --- | --- | --- |
-| R-FIGR-3 | Fixed, bounded filed-statement alternative | fd8d05a3 | r-figr-3-red-confirmed (2 failures; 11 controls pass) | r-figr-3-final-green (126 pass), r-figr-3-green-controls (350 pass) | New computations only; historical bytes unchanged (D-67). |
+| R-FIGR-3 | Fixed, bounded filed-statement alternative | fd8d05a3 + follow-up in this commit | r-figr-3-red-confirmed (2 failures; 11 controls pass) | r-figr-3-final-green (126 pass), r-figr-3-green-controls (350 pass) | New computations only; historical bytes unchanged (D-67). |
 | R-FIGR-1 | Fixed | eaeb021f | r-figr-1-red; r-figr-1-operating-header-red | r-figr-1-green-controls (187 pass); r-figr-1-consumers (380 pass); r-figr-1-export-controls (27 pass); r-figr-1-payload-consumers (415 pass); r-figr-1-docs-green (184 pass) | New computations only; source conflicts retained; no historical reinterpretation. |
-| R-FIGR-2 | Fixed explanation; numerical refusal retained after assessment | R-FIGR-2 owning commit | r-figr-2-red (2 failures; 2 controls pass) | r-figr-2-green (57 pass), r-figr-2-exports-green | Existing saved reports and numerical gates unchanged. |
+| R-FIGR-2 | Fixed explanation; numerical refusal retained after assessment | fb1d451b | r-figr-2-red (2 failures; 2 controls pass) | r-figr-2-green (57 pass), r-figr-2-exports-green | Existing saved reports and numerical gates unchanged. |
 
 ## R-FIGR-3 evidence and replay
 
@@ -157,3 +157,83 @@ and uncertainty/sensitivity. Loan inventory funding must first be distinguished
 from industrial financial leverage. No nominal minimum-peer-count assertion
 is represented as a working gate without that data pipeline. This satisfies
 the brief's permitted refusal outcome; it is not a deferred hidden default.
+
+
+## Final self-review: newer cover observations (R-FIGR-3)
+
+A red control found that an unresolved, newer-dated inline cover observation in
+the same primary filing could be bypassed by the older balance-sheet alternative.
+The fallback now refuses that case too. Receipt r-figr-3-cover-freshness-red
+(1 failure, 13 controls pass), then r-figr-3-cover-freshness-green. The retained
+bundle contains no cover observations, so its final replay numbers are unchanged.
+A live re-fetch that retains newer unresolved cover facts can therefore still
+refuse this fallback; it must establish those facts' complete economics, rather
+than force the retained snapshot's outcome. This is a deliberate evidence limit.
+
+
+The R-FIGR-3 downstream check also found that the prompt had only the raw
+provider cap even after the computed issuer scope resolved. A separate red
+control (r-figr-3-payload-cap-red) proves that absence. The quote payload now
+registers the derived issuer-common capitalization and the filed economic share
+count as distinct traced figures with their own price/count dates; the provider
+cap remains explicitly raw and scope-unverified. Evidence hashes and the full
+class-scope limitations accompany them. For FIGR those added payload figures
+are 4,825,919,581.86 USD (price day 2026-10-30) and 223,629,267 shares (count
+day 2026-06-30). They add no new computed number and never relabel provider
+capitalization as verified.
+
+Final coverage registration: the new retained-class parser is included in the
+risk-source manifest and its expected-source test. The lender module is already
+in the existing Stage B core glob. No coverage floor or assertion is reduced.
+Receipt n2-coverage-registration-red reports the missing placement; green
+passes all 20 coverage/dependency-shape checks. The initial full product run
+was launched directly with Vitest, omitting npm_execpath required by three
+dependency-shape checks; the npm-context green proves that invocation issue.
+A final product run uses npm through the Node 24 wrapper.
+
+
+Surviving per-share gate: the retained vendor Q2 basic weighted-average count is
+219,395,921, versus 223,629,267 outstanding economic units. The existing
+weighted-denominator check allows the smaller of 3% and half the smallest
+class's economic share (about 1.55% here); that count misses the gate. It remains
+refused independently of the missing cost of equity. The independent tie-out
+reports the filed discrete-Q2 basic/diluted counts 221,514,237 / 246,969,949;
+this track does not silently replace the retained vendor's six-month averages
+or weaken the economic-coverage gate. Outstanding and diluted weighted counts
+remain different facts. The new denominator resolves issuer capitalization,
+not every per-share-model operand.
+
+The payload also stops publishing the previously derived 2024-06-30 quarterly
+FCF of -24,696,000 USD as owner FCF, and drops the duplicate FY2025 raw-vendor
+FCF line of 41,919,000 USD from the prompt; OCF/capex/SBC observations stay
+retained. Full numeric paths, including duplicate payload copies and the
+provider-cap label move, are in the local numeric-deltas receipt.
+
+The first broad run had 23 failures: the 16 coordinator-known base failures,
+three from missing npm context, one missing new-module coverage registration,
+the new cover-freshness red control imported before its fix, the unsupported
+ETF ordering regression, and the stale P3-first-heading pin. Coverage and npm
+context are green in n2-coverage-registration-green; typed ETF defense and both
+release headings are green in n2-final-boundary-green (52 checks). The P3 pin
+is repinned to the required N2 first heading, retaining an additional assertion
+that the P3 heading remains. The invalidated intermediate full rerun was
+cancelled by its own runner ancestry after the source corrections. The final
+product run starts from the stable corrected source through npm. No unrelated
+Track B failure or assertion was altered.
+
+
+## Final gates
+
+n2-product-final-stable: 577 product files, 574 passed and only the three
+coordinator-known files failed; 13,828 tests passed, exactly 16 known base
+failures, three existing skips. Runtime 504.38 seconds. No additional product
+failure remains. n2-final-complete-typecheck and n2-final-complete-lint pass;
+n2-final-complete-docs passes 114 checks, including shared stamps and the
+retained P3 heading. r-figr-3-payload-cap-green passes 351 checks, including the
+unchanged payload golden. n2-retained-exports-final generates all four retained
+replay reports and Markdown/audit/print outputs without mutating report/source
+objects. The 13/24 history shortfall is visible in final Markdown; the existing
+long-gap display truncation sends the full missing-peer/fallback explanation to
+JSON/audit (and retained reader detail), rather than rewriting historical text.
+No full verify/build/coverage claim is made; the integrator owns those merged
+gates. All three items are addressed; no live provider/model run was performed.

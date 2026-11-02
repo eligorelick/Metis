@@ -2003,8 +2003,6 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
 }
 
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
-  // Derived evidence belongs to this computation; D-67 source bundles and stored reports stay byte-for-byte unchanged.
-  bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))
@@ -2016,6 +2014,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
+  // D-67: source bundles and stored reports stay byte-for-byte unchanged.
+  bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const quote = firstRow(bundle.quote);
 
   // The statements AS REPORTED. Calculations that combine rows read the

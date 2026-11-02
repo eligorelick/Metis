@@ -18,10 +18,15 @@ independently verified SEC trading-symbol row. Other classes use a disclosed
 same-price economic-equivalence approximation, including a separately named
 common class. Counts remain dated balance-sheet counts, not current shares or
 cover-date counts. The latest retained periodic filing governs; a newer unknown
-inventory prevents carrying an older proof forward. Existing explicit inventory
+inventory prevents carrying an older proof forward. Newer-dated cover counts
+within that same filing also prevent substituting the older balance-sheet
+inventory while their scope is unresolved. Existing explicit inventory
 evidence is never replaced. The evidence hash covers retained statement/notes
 and the provider title, not unavailable raw HTML. All resolved scope disclosures,
-payloads and exports retain these limits. Outstanding counts support aggregate
+payloads and exports retain these limits. The quote payload registers the
+derived issuer-common capitalization separately from the raw, scope-unverified
+provider cap, and registers outstanding economic units at their filed count
+date, with price/count dates and evidence hashes. Outstanding counts support aggregate
 capitalization and multiples; per-share intrinsic value still requires its
 separate diluted-divisor and model-input gates. D-67: derivation is in memory
 for a new computation only; stored source bundles and reports are never rewritten.

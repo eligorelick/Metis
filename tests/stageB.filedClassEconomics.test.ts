@@ -29,7 +29,11 @@ describe("R-FIGR-3 filed common-class economics", () => {
     expect(scope.basis).toContain("Quote class bound by provider title");
     expect(scope.marketCap).toBe(12_500_000_000); // 125m outstanding x the fixture's $100 quote.
     expect(c.valuation.multiples!.multiples.find(m => m.key === "priceToBook")?.current).toBeGreaterThan(0);
-    const prompt = serializePayloadForPrompt(assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] }));
+    const payload = assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] });
+    expect(payload.quote.figures.find(f => f.source === "computed.valuation.equityScope.marketCap")).toMatchObject({ value: 12_500_000_000, currency: "USD", asOf: "2026-07-05" });
+    expect(payload.quote.figures.find(f => f.source === "computed.valuation.equityScope.economicShares")).toMatchObject({ value: 125_000_000, unit: "shares", currency: null, asOf: "2026-03-31" });
+    expect(payload.quote.figures.find(f => /provider market cap/i.test(f.label))?.value).toBe(10_000_000_000);
+    const prompt = serializePayloadForPrompt(payload);
     expect(prompt).toContain("125000000");
     expect(prompt).toContain("same-price approximation");
     expect(JSON.stringify(b)).toBe(before);
@@ -46,6 +50,9 @@ describe("R-FIGR-3 filed common-class economics", () => {
     ["non-SEC primary source", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.documentUrl = "https://example.com/quarter.htm"; }],
     ["scaled share counts", (b: ReturnType<typeof fixture>) => { if (b.edgar.tenQNotes?.ok) b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replace("except share and per share data", "except per share data"); }],
     ["a newer unresolved inventory", (b: ReturnType<typeof fixture>) => { b.edgar.economicShareInventory = [{ classes: [], evidence: null, passages: { inventory: "", rights: null }, reason: "unknown", source: { form: "10-Q", accession: "later", filingDate: "2026-06-01", documentUrl: "https://www.sec.gov/newer.htm", hash: "hash" } }]; }],
+    ["newer cover observations within the same primary filing", (b: ReturnType<typeof fixture>) => { b.edgar.economicShareInventory = [{ classes: [], evidence: null,
+      observations: [{ classId: "custom:UnresolvedCommonMember", shares: 130_000_000, asOf: "2026-04-30", contextId: "cover", sourceId: "cover-count" }],
+      passages: { inventory: "", rights: null }, reason: "unknown", source: { form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/quarter.htm", hash: "hash" } }]; }],
   ])("refuses %s", (_name, change) => {
     const b = fixture(); change(b);
     expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");

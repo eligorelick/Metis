@@ -46,7 +46,8 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
   // same-day inventory. No omission establishes that a class disappeared.
   if ([bundle.edgar.latestTenQ, bundle.edgar.latestTenK].some(s => s?.ok && s.value.data.filingDate <= cutoff && s.value.data.filingDate > d.filingDate) ||
     (bundle.edgar.economicShareInventory ?? []).some(s => s.source.filingDate <= cutoff &&
-      (s.source.filingDate > d.filingDate || s.source.filingDate === d.filingDate && s.source.documentUrl !== d.documentUrl))) return existing;
+      (s.source.filingDate > d.filingDate || s.source.filingDate === d.filingDate && s.source.documentUrl !== d.documentUrl ||
+        s.source.filingDate === d.filingDate && [...s.classes, ...(s.observations ?? [])].some(o => o.asOf > d.reportDate)))) return existing;
   const statement = d.statementsText ?? "";
   if (!/BALANCE SHEETS?\b/i.test(statement) || !/in thousands, except share and per share data/i.test(statement)) return existing;
   const equityStart = /stockholders['\u2019]? equity:/i.exec(statement);

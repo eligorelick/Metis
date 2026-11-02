@@ -60,6 +60,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/xbrl.ts",
   "src/edgar/statements.ts",
   "src/edgar/instanceFacts.ts",
+  "src/edgar/retainedClassEconomics.ts",
   "src/edgar/cashInvestment.ts",
   // The element names and the successor hop moved OUT of the audited
   // statements.ts, taking logic with them; the reserved-symbol rule is the
