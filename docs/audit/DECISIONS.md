@@ -3145,3 +3145,5 @@ RPT-208: Use band-safe reader score precision on dossier cover and attribution; 
 RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
 
 RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+
+RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.

@@ -1,3 +1,4 @@
+import { passLine, runSummary } from "@/report/presentation";
 /**
  * AMZN audit 2026-10-20 findings 12 and 17: the human report states what the
  * audit export states. A plan-allowance pass that used only the supplied
@@ -140,4 +141,12 @@ describe("contradicted count (AMZN audit 2026-10-20 finding 12)", () => {
     const r = contradictedFigureReport();
     expect(trustHeadline(r.meta.provenanceCoverage)).toContain("; 0 contradicted;");
   });
+});
+
+it("RPT-503: failed judge attempts retain completion disclosure and reader names",()=>{
+ const r=planReport(); const judge=r.meta.execution![2]!;
+ r.meta.execution![2]={...judge,step:"synthesize attempt 2",note:failedPassNote("synthesize attempt 2")};
+ expect(runSummary(r)).not.toContain("synthesize");
+ expect(passLine(r.meta.execution![2]!)).toContain("judge attempt 2");
+ expect(passLine(r.meta.execution![2]!)).toContain("failed: no usable analysis was completed");
 });

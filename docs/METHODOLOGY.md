@@ -6029,3 +6029,5 @@ Before frozen report spec 1.56.0, a legacy report without fairValue reads pipeli
 Near-52-week price flags round the recorded high or low to cents; computed levels remain unchanged (RPT-103).
 
 Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
+
+Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).

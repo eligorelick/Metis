@@ -1,3 +1,4 @@
+import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
@@ -1446,26 +1447,32 @@ export function runSummary(report: Pick<Report, "meta">): string {
     : evidence.analysisCompletion === "not-completed"
       ? "Data-only snapshot; no usable analysis was completed; model execution unknown"
       : "Saved model request and execution unknown";
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   const byModel = new Map<string, string[]>();
   const attemptParts: string[] = [];
+  const unfinished = new Map<string, typeof execution>();
   for (const entry of execution) {
     const step = stepName(entry.step);
     if (entry.completion === "not-called") {
-      attemptParts.push(`${step}: ${entry.adjustments.includes("model-rejected") ? "rejected before a model call" : "no model call recorded"}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
-    const model = entry.models.join(" + ");
     if (entry.modelEvidence === "unknown" || entry.completion === "failed") {
-      attemptParts.push(`${step}: ${entry.modelEvidence === "unknown" ? "model observation unknown" : `recorded attempt on ${model}`}${entry.completion === "failed" ? "; no usable analysis was completed" : ""}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
     const key = `${entry.effectiveModel}${entry.effectiveEffort ? ` (${entry.effectiveEffort} effort)` : ""}`;
     byModel.set(key, [...(byModel.get(key) ?? []), stepName(entry.step)]);
   }
   const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  for (const [step, attempts] of unfinished) {
+    const failed = attempts.filter(e => e.completion === "failed");
+    const unknown = attempts.some(e => e.modelEvidence === "unknown");
+    attemptParts.push(failed.length ? `${step} failed${failed.length > 1 ? ` after ${failed.length} attempts` : ""}: no usable analysis was completed${unknown ? "; model observation unknown" : `; recorded attempts on ${[...new Set(attempts.flatMap(e => e.models))].join(" + ")}`}` : `${step}: ${unknown ? "model observation unknown" : attempts.some(e => e.adjustments.includes("model-rejected")) ? "rejected before a model call" : "no model call recorded"}`);
+  }
+  if (execution.every(e => e.completion !== "completed")) attemptParts.unshift("no pass completed");
   const parts = [...byModel.entries()].map(([model, steps]) => `${list(steps)} on ${model}`).concat(attemptParts);
-  const adjusted = execution.filter((entry) => entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
+  const adjusted = execution.filter((entry) => entry.completion === "completed" && entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
   if (adjusted.length > 0) parts.push(`adjusted — ${adjusted.join("; ")}`);
   if (m.judgeProtocol?.sharedModelFamily.shared) parts.push("the judge shares the analysts' model family");
   return parts.join("; ");
@@ -1478,7 +1485,7 @@ export function runSummary(report: Pick<Report, "meta">): string {
  * Null when no pass ran on a plan allowance.
  */
 export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   // Codex review of PR #41: failed and never-sent attempts are listed in a
   // data-only report's run details, but they used no evidence at all.
   const steps = modelPasses(report.meta.execution)
@@ -1504,7 +1511,7 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
   const output = total(execution.map((entry) => entry.outputTokens));
   const tokens = input === null && output === null ? null
     : `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
-  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => entry.step === "synthesize" ? "judge" : entry.step);
+  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => passAttemptName(entry.step));
   const usageLimit = unreported.length ? `; usage incomplete for ${unreported.join(", ")}` : "";
   const plan = execution.length > 0 && execution.every((entry) => parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel));
   // The same figure the audit ledger totals: the sum of the displayed rows.
@@ -1897,13 +1904,13 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
 
 /** A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export). */
 export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]): string {
-  const step = entry.step === "synthesize" ? "judge" : entry.step;
+  const step = passAttemptName(entry.step);
   const effort = entry.effectiveEffort ? `, ${entry.effectiveEffort} effort` : "";
   const tokens = entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
     : `; ${entry.inputTokens === undefined ? "unknown" : formatNumber(entry.inputTokens, 0)} input / ${entry.outputTokens === undefined ? "unknown" : formatNumber(entry.outputTokens, 0)} output tokens`;
   const requested = entry.requestedModel !== entry.effectiveModel ? ` (requested ${entry.requestedModel})` : "";
   const adjusted = entry.adjustments.length > 0 ? `; ${entry.adjustments.join(", ")}` : "";
-  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}`;
+  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}${(entry.note ?? "").includes(FAILED_PASS_NOTE) ? `; failed: ${FAILED_PASS_NOTE}` : ""}`;
 }
 
 /** Score drivers with reader labels, values in their own units and the points each adds. */

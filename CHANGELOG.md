@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P7 display and history (2026-11-02)
 
+- RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
 - RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
 - RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
 - RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
