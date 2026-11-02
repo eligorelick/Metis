@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- AI-202-V1: preserve guided expense and EPS loss signs; leave ambiguous signs unread.
 - AI-508: guard segment growth and cross-filing subtraction across proven presentation changes; disclose retained cross-filing estimates.
 
 - DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.

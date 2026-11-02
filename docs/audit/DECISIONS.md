@@ -3004,3 +3004,7 @@ DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period
 ### D-next (P5): Segment presentation continuity
 
 AI-508 implements B9 OD-11: detect member changes on shared stated/implied windows beyond 1% and 2 million; retain earlier levels only in the classic table, exclude them from analysts, and withhold cross-basis arithmetic. Unproven cross-filing quarters remain computed estimates with a disclosure that a change first shown in a 10-K cannot yet be ruled out. Saved report bytes are unchanged.
+
+### D-next (P5): Guided amounts retain their sign
+
+AI-202-V1 retains adjacent minus signs and directly stated expense/loss polarity for signed guidance metrics; conflicting signs and ambiguous touching dashes are withheld. Percentage metrics retain their existing negative-value conventions. No stored report rewrite.

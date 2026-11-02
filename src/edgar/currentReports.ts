@@ -73,6 +73,7 @@ export function splitSentences(text: string): string[] {
 }
 
 export interface MoneyMention {
+  signAmbiguous?: boolean;
   /** Base units (e.g. 108_000_000_000 for "$108.0 billion"). */
   value: number;
   /** Printed symbol: "$", "US$", "€", "£", "¥". */
@@ -100,6 +101,8 @@ const amount = (printed: string): number => Number(printed.replace(/,/g, ""));
 export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
   const out: MoneyMention[] = [];
   const spans: [number, number][] = [];
+  const sign = (index: number) => /(?:^|[\s(])[-\u2212]$/.test(text.slice(0,index)) ? -1 : 1;
+  const ambiguous = (index: number) => /(?:^|[\s(])[\u2013\u2014]$/.test(text.slice(0,index));
   for (const m of text.matchAll(MONEY_RANGE_RE)) {
     const scale = SCALE[m[5]!.toLowerCase()]!;
     const [low, high] = [amount(m[2]!) * scale, amount(m[4]!) * scale];
@@ -107,14 +110,14 @@ export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
     if (low > high) continue;
     const symbol = m[1]!.toUpperCase();
     const highStart = m.indices![4]![0];
-    out.push({ value: round(low, 2), symbol, raw: text.slice(m.index, m.indices![3]![0]), index: m.index },
+    out.push({ value: round(low * sign(m.index), 2), ...(ambiguous(m.index) ? {signAmbiguous:true}:{}), symbol, raw: text.slice(m.index, m.indices![3]![0]), index: m.index },
       { value: round(high, 2), symbol, raw: text.slice(highStart, m.index + m[0].length), index: highStart });
     spans.push([m.index, m.index + m[0].length]);
   }
   for (const m of text.matchAll(MONEY_RE)) {
     if (spans.some(([from, to]) => m.index >= from && m.index < to)) continue;
     const scale = m[3] ? SCALE[m[3].toLowerCase()]! : defaultScale;
-    out.push({ value: round(amount(m[2]!) * scale, 2), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index });
+    out.push({ value: round(amount(m[2]!) * scale * sign(m.index), 2), ...(ambiguous(m.index) ? {signAmbiguous:true}:{}), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index });
   }
   return out.sort((a, b) => a.index - b.index);
 }
@@ -402,10 +405,19 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const valueClause = clause.replace(/,?\s*plus or minus [^,;.]*(?:basis points|%)/gi, " ");
   const approximate = /\b(?:approximately|about|around|roughly)\b/i.test(valueClause);
 
-  const values: { value: number; symbol: string | null }[] = rule.unit === "%"
+  const values: { value: number; symbol: string | null; signAmbiguous?: boolean }[] = rule.unit === "%"
     ? percentMentions(valueClause).map((p) => ({ value: p.value, symbol: null }))
-    : moneyMentions(valueClause).map((m) => ({ value: m.value, symbol: m.symbol }));
-  if (values.length === 0) return [];
+    : moneyMentions(valueClause).map((m) => ({ value: m.value, symbol: m.symbol, signAmbiguous: m.signAmbiguous }));
+  if (values.length === 0 || values.some(v=>v.signAmbiguous)) return [];
+  const signed = ["other-income", "eps", "operating-income"].includes(rule.metric);
+  const negativeWords = /\ban? (?:net )?(?:expense|loss) of\s+(?:(?:approximately|about|around|roughly)\s+)?(?:(?:between|in the range of)\s+)?(?:US)?[$\u20ac\u00a3\u00a5]/i.test(valueClause);
+  const anySignWords = /\ban? (?:net )?(?:expense|loss) of\b/i.test(valueClause);
+  if (anySignWords && values.some(v=>v.value<0)) return [];
+  if (rule.unit !== "%" && !signed && values.some(v=>v.value<0)) return [];
+  if (signed && negativeWords) {
+    for(const value of values) value.value=-value.value;
+    if(values.length===2) values.sort((a,b)=>a.value-b.value);
+  }
 
   const pointBound = (v: { value: number; symbol: string | null }): Bound => {
     if (tolBp && rule.unit === "%") {
