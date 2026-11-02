@@ -33,6 +33,33 @@ function value(bundle: ReturnType<typeof stakeBundle>) {
   return { result, valuation, dcf: valuation.dcf, assumptions: valuation.assumptions };
 }
 
+function priorBreakoutBundle({ lti = 1117 * M, end = "2025-12-31", priorLti = 1048 * M, measured = true }:
+  { lti?: number | null; end?: string; priorLti?: number; measured?: boolean } = {}) {
+  const bundle = stakeBundle();
+  for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+    const member = bundle.statements[key];
+    if (!member.ok) throw new Error("fixture balance");
+    for (const row of member.value.data.rows) {
+      row.reportedCurrency = "USD";
+      row.longTermInvestments = key === "balanceAnnual" ? priorLti : lti;
+      row.fieldProvenance!.longTermInvestments!.tags = ["us-gaap/LongTermInvestments"];
+    }
+  }
+  if (measured) for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+    const member = bundle.statements[key];
+    if (!member.ok) throw new Error("fixture income");
+    for (const row of member.value.data.rows) row.equityMethodIncomePlacement = {
+      placement: "in-operating-income", income: key === "incomeAnnual" ? 20 * M : 5 * M, basis: "measured inside income",
+    };
+  }
+  const filing = { end, form: "10-K", filed: "2026-01-30", accn: "prior-breakout" };
+  withIssuerFacts(bundle, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+    EquityMethodInvestments: { units: { USD: [{ ...filing, val: 997 * M }] } },
+    LongTermInvestments: { units: { USD: [{ ...filing, val: priorLti }] } },
+  } } });
+  return bundle;
+}
+
 describe("FIN-401 review: the window's operating treatment governs every period", () => {
   it("R-1/R-3: keeps five XOM-shaped margin and capital years on one basis", () => {
     const bundle = stakeBundle();
@@ -91,7 +118,93 @@ describe("FIN-401 review: the window's operating treatment governs every period"
   });
 });
 
-describe("FIN-401 review: an income subtraction requires a located stake", () => {
+describe("FIN-401 review: an income subtraction requires a stake inside added-back LTI", () => {
+  it("R-2 methodology: a recent prior 10-K places the stake inside later LTI without carrying its amount forward", () => {
+    const actual = value(priorBreakoutBundle());
+    // Filed 240M TTM EBIT less 20M affiliate income, divided by 1200M revenue.
+    expect(actual.assumptions.ebitMarginPath.value?.[0]).toBeCloseTo(18.333333333333332, 12);
+    expect(actual.assumptions.ebitMarginPath.basis).toMatch(/taken out.*10-K.*prior-breakout.*2026-01-30.*2025-12-31/);
+    expect(actual.valuation.notes.join(" ")).toMatch(/taken out.*10-K.*prior-breakout.*2026-01-30.*2025-12-31/);
+    expect(actual.valuation.notes.join(" ")).not.toMatch(/stake could not be located|placement is undetermined/);
+    const components = actual.dcf.bridge.nonOperatingComponents ?? [];
+    expect(components.filter(c => c.kind === "long-term-investments")).toMatchObject([{ value: 1117 * M }]);
+    expect(components.find(c => c.kind === "investment-tax")?.value).toBe(-234.57 * M);
+    const sameDate = priorBreakoutBundle();
+    withIssuerFacts(sameDate, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+      EquityMethodInvestments: { units: { USD: [{ end: "2026-03-31", val: 997 * M, form: "10-Q", filed: "2026-04-30", accn: "current-breakout" }] } },
+    } } });
+    // Same filed bridge amounts and income removal give exactly the same DCF.
+    expect(actual.dcf).toEqual(value(sameDate).dcf);
+  });
+
+  it.each([
+    { name: "null bridge LTI (dropPath)", lti: null },
+    { name: "zero bridge LTI (dropPath)", lti: 0 },
+    { name: "bridge LTI smaller than the last stake", lti: 996 * M },
+    { name: "breakout more than twelve months old", end: "2025-03-30" },
+    { name: "stake reported outside prior LTI", priorLti: 996 * M },
+  ])("R-2 control: keeps income in EBIT with $name", options => {
+    const bundle = priorBreakoutBundle(options);
+    const actual = value(bundle);
+    expect(actual.assumptions.ebitMarginPath.value).toEqual(Array(10).fill(20));
+    expect(actual.assumptions.ebitMarginPath.basis).toMatch(/income stays in EBIT.*stake could not be located/);
+    const control = structuredClone(bundle);
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
+      const member = control.statements[key];
+      if (!member.ok) throw new Error("fixture income");
+      for (const row of member.value.data.rows) delete row.equityMethodIncomePlacement;
+    }
+    expect(actual.dcf).toEqual(value(control).dcf);
+    if (options.lti === null || options.lti === 0) expect(actual.dcf.bridge.nonOperatingComponents ?? [])
+      .not.toContainEqual(expect.objectContaining({ kind: "long-term-investments" }));
+  });
+
+  it("R-2 boundary: accepts a breakout exactly twelve months before the bridge and equal LTI", () => {
+    const actual = value(priorBreakoutBundle({ end: "2025-03-31", lti: 997 * M, priorLti: 997 * M }));
+    expect(actual.assumptions.ebitMarginPath.value?.[0]).toBeCloseTo(18.333333333333332, 12);
+  });
+
+  it("R-2 control: the most recent breakout outside LTI defeats an older inside breakout", () => {
+    const bundle = priorBreakoutBundle();
+    withIssuerFacts(bundle, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+      EquityMethodInvestments: { units: { USD: [
+        { end: "2025-09-30", val: 997 * M, form: "10-Q", filed: "2025-10-30", accn: "older-inside" },
+        { end: "2025-12-31", val: 997 * M, form: "10-K", filed: "2026-01-30", accn: "newer-outside" },
+      ] } },
+      LongTermInvestments: { units: { USD: [
+        { end: "2025-09-30", val: 1048 * M, form: "10-Q", filed: "2025-10-30", accn: "older-inside" },
+        { end: "2025-12-31", val: 996 * M, form: "10-K", filed: "2026-01-30", accn: "newer-outside" },
+      ] } },
+    } } });
+    expect(value(bundle).assumptions.ebitMarginPath.value).toEqual(Array(10).fill(20));
+  });
+
+  it("R-4 control: prior placement evidence cannot supply an operating stake amount", () => {
+    const actual = value(priorBreakoutBundle({ measured: false }));
+    const components = actual.dcf.bridge.nonOperatingComponents ?? [];
+    expect(components.find(c => c.kind === "long-term-investments")?.value).toBe(1117 * M);
+    expect(components.find(c => c.kind === "investment-tax")?.value).toBe(-234.57 * M);
+    expect(actual.valuation.notes.join(" ")).toMatch(/placement is undetermined.*stake could not be located/);
+    expect(actual.valuation.notes.join(" ")).not.toMatch(/equity-method portion .*stays in operating capital|its stake stays in operating capital/);
+  });
+
+  it.each(["unconfirmed issuer", "different currency", "different filing", "future filing", "non-core form", "duration stake"])(
+    "R-2 evidence control: rejects %s", problem => {
+      const bundle = priorBreakoutBundle();
+      const filing = { end: "2025-12-31", form: problem === "non-core form" ? "8-K" : "10-K",
+        filed: problem === "future filing" ? "2026-07-07" : "2026-01-30", accn: "prior-breakout" };
+      withIssuerFacts(bundle, { cik: 42, entityName: "Test", facts: { "us-gaap": {
+        EquityMethodInvestments: { units: { [problem === "different currency" ? "EUR" : "USD"]: [
+          { ...filing, ...(problem === "duration stake" ? { start: "2025-01-01" } : {}), val: 997 * M },
+        ] } },
+        LongTermInvestments: { units: { USD: [
+          { ...filing, accn: problem === "different filing" ? "other-filing" : filing.accn, val: 1048 * M },
+        ] } },
+      } } }, problem !== "unconfirmed issuer");
+      expect(value(bundle).assumptions.ebitMarginPath.value).toEqual(Array(10).fill(20));
+    },
+  );
+
   it.each([null, 0, 300 * M])("R-2: keeps measured inside income when the located stake is zero (LTI %s)", lti => {
     const bundle = stakeBundle();
     for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {

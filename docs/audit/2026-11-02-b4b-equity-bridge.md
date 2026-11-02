@@ -13,7 +13,7 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | FIN-401 | Fixed after review R-1/R-3/R-6: 191.7389267225 -> 196.0576271333/share | Family commit plus review corrections below | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
-| FIN-401-V1 | Measured-income path fixed when the stake is located; BA now takes R-2 unlocated-stake fallback (see review evidence) | `3b775ac7` plus `0765df9f` | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
+| FIN-401-V1 | Fixed: measured income is removed when same-date or recent filing evidence places the stake inside added-back LTI; BA returns 27.7411147513 -> 27.1152067083 | Family and R-2 methodology correction; full SHA in HANDOFF | `r2-method-red-confirmed` / `r2-method-evidence-controls` | Same note, including filed operating subtotals; no saved figure or byte changes |
 | FIN-302 | Not started | None | None | Earlier convertible treatment remains |
 | FIN-302-V1 | Not started | None | None | Earlier financial-route treatment remains |
 | FIN-302-V2 | Not started | None | None | Earlier EPS interest/divisor treatment remains |
@@ -40,9 +40,17 @@ pretax/component arithmetic. A nonoperating aggregate can hold equity-method
 income, so a zero residual on that path stays undetermined (C1). The tolerance
 is the project choice max(0.1% of absolute pretax, 1M source monetary units).
 Inside measured income is removed from the DCF seed and measured annual margin
-history only with a located stake greater than zero, and the stake is added
-once. An unlocated stake leaves income in EBIT and retains the existing
-investment bridge, with the missing stake and undetermined placement disclosed.
+history when the bridge adds positive LTI that holds the stake. A same-date
+stake fact establishes placement directly. Otherwise use the confirmed issuer's
+most recent stake-breakout filing: its balance date must be within 12 months
+before the bridge, its same-date/same-currency LTI must be at least the stake,
+and bridge-date LTI must also be at least that stake. Both prior facts must be
+from the same filing available by the acquisition cutoff. Notes identify that
+filing, filing date and balance date. The older breakout is placement evidence,
+never an amount carried forward; all valuation amounts remain filed bridge-date
+values. Null/zero LTI, a smaller bridge LTI, a stake outside prior LTI, or no
+qualifying breakout within 12 months leaves income in EBIT, valuing the stake
+through its income and preserving the reviewer's dropPath control.
 Inside unmeasured income with a positive located stake makes the whole window
 operating: each seed quarter and history year restores measured income previously
 subtracted from EBIT and keeps its stake in operating capital, including the
@@ -54,7 +62,9 @@ refused operand is never silently zero (I4).
 
 The equity-method stake is the whole LTI only when its provenance consists
 solely of equity-method investments. Otherwise it is bounded by the same-date,
-same-currency filed stake and LTI; no amount is estimated. Other mixed windows
+same-currency filed stake and LTI; no amount is estimated. Operating treatment
+and partial-composition splits still require a same-date stake amount (R-4).
+Older placement evidence cannot size them. Other mixed windows
 and ambiguous arithmetic retain the prior treatment
 and explicitly state the S-X Rule 5-03 assumption. Windows with no placement
 on any row keep the prior note without an undetermined-placement claim (R-5).
@@ -83,7 +93,7 @@ retained sessions, ratios and coverage on both sides.
 | Census shape | Before DCF/share | After DCF/share | Delta | Finding |
 |---|---:|---:|---:|---|
 | XOM | 191.7389267225 | 196.0576271333 | +4.3187004108 | FIN-401, including review R-1/R-3/R-6 |
-| BA | 27.7411147513 | 27.7411147513 | 0 | FIN-401-V1: R-2 requires a located bridge-date stake; reviewed intermediate value was 27.1152067083 |
+| BA | 27.7411147513 | 27.1152067083 | -0.6259080430 | FIN-401-V1: recent same-issuer filing places the stake inside added-back LTI |
 | GOOGL | 215.5926213765 | 215.5926213765 | 0 | Control for this family; convertibles unstarted |
 | AMZN | 102.9741501793 | 102.9741501793 | 0 | Control for this family; VAL-14 unstarted |
 | KO | 41.0870765940 | 41.0870765940 | 0 | Below-operating component path |
@@ -111,19 +121,18 @@ They are unchanged here. Adding those existing bridge lines back reconstructs
 family's +18.0262555147B gives 818.3445356544B with no residual (I10).
 
 BA's TTM affiliate result is 35M: Q3 17M, derived Q4 -14M, filed-zero Q1 0M,
-and Q2 32M. The reviewed commit removed it, lowering the seed from
-4.9289855843% to 4.8917495611% and per-share value from 27.7411147513 to
-27.1152067083. The final R-2 guard reverses that removal: the current bridge
-has LTI 1.117B at 2026-06-30, but no same-date `EquityMethodInvestments` fact.
-The latest stake fact is 997M at 2025-12-31 (10-K accession
-0001628280-26-004357, filed 2026-01-30); that older stake does not establish
-current-date composition. Final per-share is 27.7411147513; seed is
-4.9289855843%; sales-to-capital stays 3.0442738697. The 1.117B add-back and
-234.57M tax remain, with the unlocated-stake note. No older amount is carried
-forward. The original review's claim that R-2 was absent from this census was
-therefore incorrect. No claim that BA's current stake is proven counted once
-is made under this evidence fallback; that would require a revised location
-rule or same-date filing evidence.
+and Q2 32M. Removing it lowers the seed from 4.9289855843% to 4.8917495611%
+and per-share value from 27.7411147513 to 27.1152067083. The prior strict R-2
+guard incorrectly reversed FIN-401-V1 by demanding a same-date stake amount:
+BA has 1.117B LTI at 2026-06-30 but no same-date `EquityMethodInvestments` fact.
+The integrator replaces that methodology on its merits. The latest breakout
+is 997M inside 1.048B LTI at 2025-12-31 (10-K accession
+0001628280-26-004357, filed 2026-01-30), within 12 months, and bridge LTI
+exceeds that stake. It establishes placement, so the measured 35M leaves EBIT
+and the stake is valued once within the unchanged 1.117B LTI add-back and
+234.57M tax. No older amount is carried forward. Sales-to-capital stays
+3.0442738697; equity moves 22.0014781092B -> 21.5050704404B. Notes cite the
+prior filing, filing date and balance date, and explain its limited use.
 
 No band moves. XOM valuation score changes 44.38/D to 45.77/D, composite
 56.43/C to 56.56/C. BA remains valuation 15/F and composite 40.27/D. GOOGL
@@ -143,7 +152,7 @@ Stored-report figures and bytes are unchanged under D-67.
 | Review finding | Change / disposition | Commit | Red / green receipts | Measured evidence |
 |---|---|---|---|---|
 | R-1 (High) | Fixed: window treatment governs every margin-history year | `c1a87830` | `r1-r3-r6-red-confirmed` / `r1-r3-r6-green-confirmed` | XOM 178.0877966043 -> 196.0576271333/share; equity 743.3384630263B -> 818.3445356544B; valuation 40/D -> 45.77/D; composite 55.75/C -> 56.56/C |
-| R-2 (Medium) | Fixed: measured inside income leaves EBIT only when the bridge stake is located and positive | `0765df9f` | `r2-r4-red` / `r2-r4-green` | Missing/zero/unlocated LTI regressions retain the 20% seed and history instead of removing 20M TTM income; dropPath 26.7543500969 -> 30.8148802219/share (`r2-drop-replay-after`); real BA 27.1152067083 -> 27.7411147513 because its current-date stake is unlocated |
+| R-2 (Medium) | Fixed with revised methodology: measured income leaves EBIT when added-back LTI holds the stake, established by same-date or bounded recent-filing evidence | Correction atop `9fd13a22`; full SHA in HANDOFF | `r2-method-red-confirmed` / `r2-method-evidence-controls` | BA 27.7411147513 -> 27.1152067083; null/zero LTI dropPath, smaller LTI, stale breakout and outside-LTI controls keep income; no older amount carried forward |
 | R-3 (Low) | Fixed with R-1: keep each history year's located stake in capital under the operating window | `c1a87830` | Same receipts; five-year 0.2000x capital-history regression | XOM applied sales-to-capital stays 1.2378923835; records now describe actual history |
 | R-4 (Low) | Fixed: zero located value cannot select operating treatment; disclose unlocated stake with undetermined placement | `0765df9f` | `r2-r4-red` / `r2-r4-green` | Existing 300M LTI add-back and -63M tax retained; false 0M operating-stake claim removed |
 | R-5 (Low) | Fixed under confirmed rule and census exceptions: no placements keep prior note; explicit ambiguity keeps its assumption. Requested AMZN reversal does not meet that trigger (see below) | `07ff60d0` | `r5-red` / `r5-green` | GOOGL/DEMO note-only reversal; AMZN has explicit measured/undetermined placements and keeps its note; all numeric leaves unchanged; only intended-delta leaf `stageB.valuation.notes.7` re-pinned, naming R-5 |
@@ -162,15 +171,15 @@ Every identity was admitted without adaptation; reference inputs stay external.
 
 ### Final real-code census versus reviewed commit
 
-Before is `3b775ac7`; after includes R-1 through R-7 under the stated rules.
-Receipts: `review-replay-before` / `review-replay-final`; derived measurements
-are `replay-before.json` / `replay-after.json`. Every issuer already passes
+Before is `3b775ac7`; after includes R-1 through R-7 and the revised R-2 rule.
+Receipts: `review-replay-before` / `r2-method-replay-after`; derived measurements
+are `replay-before.json` / `r2-method-after.json`. Every issuer already passes
 identity admission, so no adaptation was used.
 
 | Census | DCF/share before -> after | Valuation score/band before -> after | Composite score/band before -> after |
 |---|---:|---|---|
 | XOM | 178.0877966043 -> 196.0576271333 | 40.00/D -> 45.77/D | 55.75/C -> 56.56/C |
-| BA | 27.1152067083 -> 27.7411147513 | 15.00/F -> 15.00/F | 40.27/D -> 40.27/D |
+| BA | 27.1152067083 -> 27.1152067083 | 15.00/F -> 15.00/F | 40.27/D -> 40.27/D |
 | GOOGL | 215.5926213765 -> 215.5926213765 | 22.14/F -> 22.14/F | 63.88/C -> 63.88/C |
 | AMZN | 102.9741501793 -> 102.9741501793 | 31.62/F -> 31.62/F | 55.48/C -> 55.48/C |
 | KO | 41.0870765940 -> 41.0870765940 | 16.50/F -> 16.50/F | 55.37/C -> 55.37/C |
@@ -188,20 +197,25 @@ and ROIC history are not changed. No bands change. Refused controls retain
 both their per-share refusal and their numeric/evidence/score inputs; NEE's
 computed negative equity stays -29.6433276266B.
 
-Two review expectations do not follow from the retained data:
+The integrator's prior confirmation to retain both BA and AMZN deviations is
+replaced for BA by the placement-evidence rule above. The correction replay
+against immediate base `9fd13a22` is `r2-method-replay-before` /
+`r2-method-replay-after`, producing `r2-method-before.json` /
+`r2-method-after.json`. BA alone changes: 27.7411147513 -> 27.1152067083;
+its valuation remains 15.00/F and composite 40.27/D. XOM remains
+196.0576271333 with 45.77/D valuation and 56.56/C composite. Every measured
+output for GOOGL, AMZN, KO, DUK and T/DIS/CMCSA/NEE is identical; refusal
+evidence and NEE's -29.6433276266B computed equity are preserved. No band moves.
 
-- BA: the positive, same-date stake requirement in R-2 triggers in this census,
-  as documented above. Preserving 27.1152067083 would require an exception that
-  admits an older stake or other evidence. None is authorized or estimated.
-- AMZN: R-5's no-placement trigger is false. Q2/Q1 2026 have filed immaterial
+AMZN's confirmed note outcome remains:
+
+- R-5's no-placement trigger is false. Q2/Q1 2026 have filed immaterial
   income -11M/-19M; derived Q4 2025 has -467M and Q3 has -73M, both explicitly
   undetermined on the aggregate path. Its note therefore retains the Rule 5-03
   assumption. GOOGL has no placements and its note is restored; DEMO's same
   note reversal is the only re-pinned fixture leaf. A ticker exception would
-  contradict the class-wide rule. The integrator confirmed retaining the stated rules and documenting both
-  deviations (BA and AMZN). These are accepted evidence outcomes, with no
-  ticker exception or invented methodology. All seven review findings are
-  fixed under that confirmation.
+  contradict the class-wide rule. This accepted evidence outcome is unchanged
+  by the R-2 correction. All seven review findings remain fixed.
 
 The final nine-test regression file is also replayed against an archive of
 `3b775ac7`, using the corrected explicit-USD quarterly fixture:
@@ -227,7 +241,21 @@ model calls were made. The final evidence/control commit is listed in HANDOFF.
 | `review-typecheck-complete` | Exit 0 after the final dated-stake control |
 | `review-lint-complete` | Exit 0, no lint warnings after the final dated-stake control |
 | `review-audit-deltas-final` | Exit 1 at only the same pre-existing `report.balanceSheet.coverage.commentary.1` and `stageB.capital.current` paths; no new raw mismatch was accepted |
-| `review-replay-before` / `review-replay-final` | Real-code census before/after; strict-rule BA change and explicit AMZN ambiguity disclosed above |
+| `review-replay-before` / `review-replay-final` | Historical pre-correction review census; BA strict-rule outcome is superseded by the R-2 correction above |
+
+R-2 methodology correction receipts (all at most two Vitest workers):
+
+| Receipt | Result / scope |
+|---|---|
+| `r2-method-red-confirmed` | 2 expected failures (recent breakout and exact 12-month boundary), 16 controls passing before production edits |
+| `r2-method-evidence-controls` | 29 tests in 2 files pass: R-1/R-2/R-4, partial composition, five fallback cases, exact boundary, latest breakout, issuer/currency/filing/cutoff/form/instant controls |
+| `r2-method-review-gates` | 424 tests in 19 files pass: reviewer list plus fair-value/scenario consumers; six added evidence controls pass in the receipt above |
+| `r2-method-payload` | 302 tests in 2 files pass: payload golden and exact intended deltas; no fixture regeneration or intended-delta edits |
+| `r2-method-consumers` | 472 tests in 7 files pass: jobRunner, reverse-DCF context, audit surfaces, print/HTML/history exports, output audit and degraded fair value |
+| `r2-method-docs` | 113 tests in 3 files pass: docs lint, repository release and version stamps; final receipt after these result records is `r2-method-docs-final` |
+| `r2-method-typecheck` / `r2-method-lint` | Both exit 0; lint has no warnings |
+| `r2-method-audit-deltas` | Exit 1 at only the two independently confirmed pre-existing paths: `report.balanceSheet.coverage.commentary.1` and `stageB.capital.current`; exact intended-delta comparison passes |
+| `r2-method-replay-before` / `r2-method-replay-after` | Real-code census at `9fd13a22` and corrected code; BA-only delta above |
 
 The first review docs run failed because the new test was not yet in Git's
 tracked-file inventory; staging the explicit test path resolved it in

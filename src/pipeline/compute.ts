@@ -136,14 +136,14 @@ import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type 
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
+import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying, validDay } from "@/pipeline/stageB/marketableEquity";
 import { millions } from "@/pipeline/stageB/netDebt";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
@@ -3600,13 +3600,38 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
   };
   const equityMethodStakeValue = bridgePoint === null ? 0 : equityMethodStakeAt(bridgePoint);
+  // FIN-401-V1 / review R-2: a recent breakout can establish placement inside
+  // the added-back LTI, but cannot supply a bridge-date stake amount.
+  const priorStakePlacement = (() => {
+    const date = isoDay(bridgePoint?.date), lti = num(bridgePoint?.longTermInvestments);
+    if (equityMethodFacts === null || ctx.modelCurrency === null || date === null || lti === null || lti <= 0) return null;
+    const stakes = tagPoints(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency);
+    const investments = tagPoints(equityMethodFacts, "LongTermInvestments", ctx.modelCurrency);
+    if (stakes?.unit !== ctx.modelCurrency || investments?.unit !== ctx.modelCurrency) return null;
+    const observedDay = bundle.builtAt.slice(0, 10);
+    const stake = stakes.points.filter(p => p.start === undefined && validDay(p.end) && p.end < date &&
+      CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed <= observedDay && Number.isFinite(p.val) && p.val >= 0)
+      .sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn) || b.end.localeCompare(a.end))[0];
+    if (stake === undefined || stake.val <= 0 || lti < stake.val) return null;
+    const cutoff = new Date(`${date}T00:00:00Z`);
+    cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
+    // Clamp February 29 to February 28 when the preceding year is not a leap year.
+    if (cutoff.getUTCMonth() !== Number(date.slice(5, 7)) - 1) cutoff.setUTCDate(0);
+    if (stake.end < cutoff.toISOString().slice(0, 10)) return null;
+    const priorLti = investments.points.find(p => p.start === undefined && p.end === stake.end &&
+      p.accn === stake.accn && p.filed === stake.filed && p.form === stake.form && Number.isFinite(p.val) && p.val >= stake.val);
+    return priorLti === undefined ? null : `${stake.form} ${stake.accn} filed ${stake.filed}, balance ${stake.end}, places the equity-method stake inside long-term investments; the bridge uses only its filed ${date} LTI amount, with no prior stake amount carried forward`;
+  })();
+  const incomeExcludedFromEbit = equityWindow.placement === "in-operating-income" && equityWindow.income !== null &&
+    (equityMethodStakeValue > 0 || priorStakePlacement !== null);
   const equityMethodStake: DcfAssumptionInputs["equityMethodStake"] = bridgePoint === null ? null : {
     value: equityMethodStakeValue, treatment: equityMethodStakeValue > 0 && equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
     incomePlacement: equityWindow.placement,
-    basis: equityWindow.placement === "in-operating-income" && equityMethodStakeValue <= 0
+    incomeExcludedFromEbit,
+    basis: equityWindow.placement === "in-operating-income" && equityMethodStakeValue <= 0 && !incomeExcludedFromEbit
       ? "equity-method income stays in EBIT because its stake could not be located in long-term investments; the existing investment add-back is retained without establishing a separate stake amount"
       : equityWindow.placement === "in-operating-income" && equityWindow.income !== null
-      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back`
+      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back${equityMethodStakeValue <= 0 && priorStakePlacement !== null ? `; placement evidence: ${priorStakePlacement}` : ""}`
       : equityWindow.placement === "in-operating-income"
         ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
         : equityWindow.placement === "below-operating-income" ? "equity-method income is below operating income; its stake is added back once"
@@ -3617,9 +3642,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // FIN-401 review R-1/R-6: the window's treatment also governs its quarters
   // and all history years. Restore only income already removed from EBIT.
   const adjustEbit = (value: number | null, rows: readonly FmpIncomeStatementRow[]): number | null => {
-    // FIN-401 review R-2/R-4: without a located stake, removing its income
-    // would value it nowhere; keep EBIT and the existing investment treatment.
-    if (value === null || equityMethodStakeValue <= 0) return value;
+    // R-2 needs evidence that added-back LTI holds the measured-income stake.
+    // R-4's operating capital split still requires a same-date stake amount.
+    if (value === null || (equityMethodStakeValue <= 0 && !incomeExcludedFromEbit)) return value;
     if (equityMethodStake?.treatment === "operating") return value + rows.reduce((sum, row) => {
       const p = row.equityMethodIncomePlacement;
       return sum + (p?.placement === "below-operating-income" && p.income !== null ? p.income : 0);

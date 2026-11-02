@@ -1712,9 +1712,21 @@ less costs. The house reconciliation tolerance is max(0.1% of absolute pretax
 income, 1M source monetary units), not an accounting materiality threshold.
 
 When all base quarters (or the annual fallback) establish inclusion with a
-measured result and a located stake greater than zero, the DCF subtracts that
-signed income from its EBIT seed and each independently measured annual margin,
-and adds the stake once. A filed zero or result within the tolerance of zero counts as measured and takes the
+measured result, subtract that signed income from the DCF EBIT seed and each
+independently measured annual margin only when positive bridge-date LTI is added
+back and holds the stake (FIN-401-V1, review R-2). A same-date equity-method
+stake fact establishes this directly. Otherwise, the confirmed issuer's most
+recent filing that breaks out the stake must show it inside LTI at a balance
+date no more than 12 months before the bridge date: that filing's same-date,
+same-currency LTI must be at least its stake, and bridge-date LTI must also be
+at least that stake. Both prior facts must come from the same filing, observed
+by the run's acquisition cutoff. The older breakout establishes placement only;
+no stake amount is carried forward or estimated. All valuation amounts remain
+filed bridge-date values. Notes identify the evidence filing, its filing date
+and balance date. With no LTI add-back, LTI smaller than the last stake, a stake
+outside prior LTI, or no qualifying breakout within 12 months, keep the income
+in EBIT so the stake is valued through its income. This avoids both the R-2
+zero-count path and FIN-401-V1's double count. A filed zero or result within the tolerance of zero counts as measured and takes the
 window's placement; a window of only such periods does not establish inclusion.
 Fourth-quarter operands use the builder's existing one-presentation FY-minus-YTD
 or FY-minus-quarters resolver; a refused operand cannot become zero (I4).
@@ -1727,10 +1739,12 @@ sales-to-capital history. Measured income already inside EBIT stays there. The
 stake receives no separate bridge add-back or investment-sale tax (FIN-401
 review R-1/R-3/R-6). That portion is the whole LTI when its provenance names only equity-method investments; otherwise it is
 the lesser of LTI and the same-date, same-currency filed equity-method stake.
-No stake amount is estimated. If the stake could not be located, income stays
-in EBIT and the existing investment treatment is retained; notes state the
-unlocated stake and undetermined placement instead of claiming operating
-capital or a separate stake add-back (review R-2/R-4). Below-operating results
+The operating treatment and any partial-composition split still require a
+same-date stake amount; older placement evidence cannot size that split. If no
+same-date stake is located and the measured-income evidence rule above is not
+met, income stays in EBIT and the existing investment treatment is retained;
+notes state the unlocated stake and undetermined placement instead of claiming
+operating capital or a separate stake add-back (review R-2/R-4). Below-operating results
 keep the add-back.
 Other mixed or undetermined windows retain the prior treatment and explicitly
 say income is **assumed** below operating income under Regulation S-X Rule 5-03.
