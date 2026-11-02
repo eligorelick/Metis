@@ -433,6 +433,8 @@ export type ChainSpec =
    * null and records a refusal; the chain falls to its next step.
    */
   | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[];
+      /** FIN-510-V1: siblings without evidenced containment must agree to serve the field. */
+      requireAgreement?: boolean;
       /** Extra floors for one synonym only (a component that contains that synonym but not the others). */
       unlessBelowTag?: Readonly<Record<string, readonly string[]>> }
   | { kind: "sum"; tags: string[]; unit: "money"; disclose?: string }
@@ -574,6 +576,7 @@ function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): Cha
   const floors = floorsFor(item);
   const tagFloors = tagFloorsFor(item);
   const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }),
+    ...(item === "deferredRevenue" ? { requireAgreement: true } : {}),
     ...(Object.keys(tagFloors).length === 0 ? {} : { unlessBelowTag: tagFloors }) };
   return standIns.length === 0 ? own : { kind: "chain", unit, steps: [own, ...standInSteps(standIns, unit)] };
 }
@@ -1924,6 +1927,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           notes.add(`${label}: ${subset}`);
           skipped.push(subset);
           continue;
+        }
+        if (spec.requireAgreement) {
+          const siblings = spec.tags.filter(sibling => sibling !== tag).flatMap(sibling => {
+            const resolved = notes.quietly(() => resolve(sibling, spec.unit));
+            return resolved === null ? [] : [{ tag: sibling, resolved }];
+          });
+          if (siblings.some(s => s.resolved.unit !== r.unit || s.resolved.value !== r.value)) {
+            notes.refuse(`${at?.field ?? label} withheld: ambiguous siblings ${tag} ${r.value} ${r.unit}; ${siblings.map(s => `${s.tag} ${s.resolved.value} ${s.resolved.unit}`).join("; ")} disagree and no definitional containment is evidenced`);
+            return null;
+          }
         }
         if (spec.sign === undefined) return disclosed(r);
         const decimals = spec.unit === "perShare" ? PER_SHARE_DECIMALS : MONEY_DECIMALS;

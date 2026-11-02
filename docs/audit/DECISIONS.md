@@ -3353,6 +3353,103 @@ PERF-201 caches successes by exact bytes/path and returns clones; unchanged call
 
 SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
 
+
+## D-next (P9) - FIN-306: applicable Piotroski evidence (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
+route-suppressed tests leave the applicable ceiling, while missing supported
+tests still reduce evidence. The used Piotroski weight stays outOf/9 (D-24);
+the applicable weight becomes (9 - routeWithheld)/9 (D-50). This supersedes
+D-137 OD-5's deferral because supported financial tests must be able to reach
+applicable completeness 1. Unresolved eligibility is still missing evidence.
+The old bank 8/9 fixture and B-to-C transition control were retired because
+that battery is impossible on the route and the transition pinned the wrong
+denominator. The replacement pins full supported completeness and loss of
+completeness with supported data missing.
+Even when the entire battery is absent, established financial routes retain
+their supported maximum (3 or 5), while unresolved eligibility stays missing. No band threshold changes. Census
+measurements are in the P9 disposition; stored reports retain their bytes.
+
+
+## D-next (P9) - FIN-307: confirm ADR capitalization warning (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Confirmed:
+keep D-137 OD-6. An otherwise available ADR WACC/DCF retains vendor market
+equity with the issuer-common scope warning; Altman uses book-equity Z-prime.
+The warning reaches classic report HTML, reader Markdown, print, audit Markdown
+and the AI prompt. No calculation or display repair was necessary. Existing
+currency/class refusals and the per-ADS guard remain. This preserves a useful
+aggregate model while explicitly stating its unverified capitalization scope;
+it does not establish depositary ratios or validate market equity.
+
+
+## D-next (P9) - FIN-308: filed REIT type and common grading (revised 2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. On
+2026-11-02 the coordinator revised the initial filed-property-majority rule:
+the sub-map answers mortgage versus equity, not whether property outweighs
+goodwill, intangibles and right-of-use assets. The earlier rule incorrectly
+withheld American Tower's valid property-map metrics and moved its composite
+52.77 D -> 56.18 C by dropping signals.
+
+For an issuer already routed REIT, mortgage loans plus AFS MBS >= 50% of Assets
+establish mortgage exposure, with existing corroboration unchanged. Equity
+requires positive filed real assets, real assets >= mortgage assets, and
+mortgage assets < 50% of Assets. Real assets are net real-estate investment
+property (or filed cost less accumulated depreciation) plus net PP&E; an
+established REIT's towers and data centres are rental real property. Use the
+existing PP&E synonym chain, including the finance-lease net-asset tag used
+by the retained specialty filing, once. METHODOLOGY names every accepted tag,
+same-instant/currency/accession, filed-by and recency requirement. HTM and
+issuer-category fair-value-only mortgage disclosures remain excluded.
+Missing real-asset tags stay unknown. Both majorities, including 50/50, stay
+unknown. PP&E never establishes REIT status, and generic evidence-only route
+inference, explicit vendor subtype and conflict handling remain unchanged.
+No ticker exceptions, stamp changes or stored-report rewrites.
+
+For still-undetermined types, the prior P9 common-grading treatment is
+unchanged: revenue growth, stewardship, technicals and three common Piotroski
+outcomes remain applicable. Map-specific valuation, balance sheet, moat, FCF
+growth, margins, capital-return spread and incompatible forensic grading are
+withheld with a reason. Individual common Piotroski outcomes explain the
+grade while the complete forensic table remains recorded. This supersedes
+D-137 OD-7's preservation deferral and extends D-16.
+
+The retained specialty input now supplies 20.573B net PP&E against 63.3001B
+Assets, same filing 0001053507-26-000133, 2026-06-30, USD. It returns to equity,
+52.77 D, P/FFO 17.3499503074 and P/AFFO 26.7839577164. Trimmed O/NNN have no
+filed real assets and keep common grading: 46.50 D / 50.28 D. Full census O,
+NNN and PLD retain equity. The disposition records every census/fixture mover
+against both 66c9ea1e and ac4916f8, including integration effects.
+
+
+## D-next (P9) - FIN-510-V1: ambiguous deferred-revenue siblings (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Adopted:
+withhold deferred revenue when `ContractWithCustomerLiabilityCurrent` and
+`DeferredRevenueCurrent` disagree for the period, with a gap naming both tags
+and amounts. Neither first-hit order nor a larger number establishes the
+correct scope. This resolves the deferred-revenue residual in D-134 OD-4;
+JNJ R&D and JPM operating interest income remain controls. A single sibling
+or equal siblings remain available. HD FY2025 changes 1.500B -> withheld
+(the other sibling is 2.575B); no score/FCF/valuation consumer changes.
+The same evidence rule also withholds conflicting DIS periods and older
+AAPL, META and ORCL rows, listed in the disposition. Stored reports and saved
+input snapshots are immutable; re-admission of retained facts uses the new
+rule without rewriting them.
+
+
+## D-next (P9) - Cash-capex convention retained (2026-11-02)
+
+The owner delegated this decision to the coordinator on 2026-11-01. Confirmed:
+standardized FCF retains the statement/vendor cash-capex field, with the
+existing disclosure that the basis can mix PP&E and software across quarters.
+No calculation change. A PP&E-only or PP&E-plus-software convention would
+change the basis for every issuer's FCF, P/FCF and DCF seed and requires a
+separate complete remeasurement. The measured FIG difference is 1.302M on
+231.012M FCF (0.6% rounded). Preserving the disclosed retained basis avoids
+silently substituting an accounting convention without comparable period
+inputs. METHODOLOGY states this plainly; no stored report is rewritten.
 ## D-next (P7) - Display and history (2026-11-02)
 
 AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.

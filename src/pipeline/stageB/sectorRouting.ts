@@ -581,33 +581,39 @@ export function routeCompany(
     const industrySicDerived =
       industryIsReit && sicLabel !== null && sicLabel.toLowerCase() === industryLc;
     const industryExplicitEquity = industryIsReit && !industryExplicitMortgage && !industrySicDerived;
-    const evidenceSubmap = evidence?.available === true ? evidence.reitSubmap : null;
+    // FIN-308 revision: PP&E can decide mortgage versus equity only now that
+    // the REIT base route is established; it cannot establish REIT status.
+    const reitComparison = evidence?.reitAssetComparison;
+    const evidenceSubmap = evidence?.available === true
+      ? (reitComparison ? reitComparison.submap : evidence.reitSubmap)
+      : null;
+    const reitBasis = reitComparison?.basis ?? evidence?.basis;
     const evidenceState =
       evidence === null
         ? "no XBRL evidence supplied"
         : !evidence.available
           ? (evidence.unavailableReason ?? "EDGAR companyfacts unavailable")
-          : "companyfacts carry neither investment-property nor MBS / loans-held-for-investment tags";
+          : (reitBasis ?? "companyfacts lack comparable filed real assets (net real-estate investment property plus PropertyPlantAndEquipmentNet) and mortgage assets against Assets");
 
     if (industryExplicitMortgage) {
       reitSubmap = "mortgage";
       if (evidenceSubmap === "equity") {
         notes.push(
           `REIT sub-map: vendor industry '${industryRaw}' names a mortgage REIT, but XBRL evidence shows investment ` +
-            `property (${describeSignals(evidence?.equityReit ?? [])}) — vendor sub-map kept; review.`,
+            `property (${reitBasis ?? describeSignals(evidence?.equityReit ?? [])}) \u2014 vendor sub-map kept; review.`,
         );
         gaps.push({
           field: "route.reitSubmap.conflict",
           reason:
             `industry '${industryRaw}' routes to the mortgage sub-map while companyfacts tag ` +
-            "RealEstateInvestmentPropertyNet — book-value metrics may not fit a hybrid REIT",
+            `${reitBasis ?? "RealEstateInvestmentPropertyNet"} \u2014 book-value metrics may not fit a hybrid REIT`,
           severity: "warn",
           attemptedSources: [evidence?.source ?? "edgar:companyfacts us-gaap", "fmp:/stable/profile"],
         });
       } else if (evidenceSubmap === "mortgage") {
         notes.push(
           `REIT sub-map 'mortgage' from vendor industry '${industryRaw}', confirmed by XBRL evidence: ` +
-            `${describeSignals(evidence?.mortgageReit ?? [])}.`,
+            `${reitBasis ?? describeSignals(evidence?.mortgageReit ?? [])}.`,
         );
       }
     } else if (evidenceSubmap === "mortgage") {
@@ -615,11 +621,11 @@ export function routeCompany(
       reitSubmap = "mortgage";
       notes.push(
         `REIT sub-map 'mortgage' from XBRL evidence (${evidence?.source}${evidenceAsOf}): ` +
-          `${describeSignals(evidence?.mortgageReit ?? [])} without RealEstateInvestmentPropertyNet — ` +
+          `${reitBasis ?? describeSignals(evidence?.mortgageReit ?? [])} \u2014 ` +
           "routed to the book-value submap.",
       );
       notes.push(
-        "mortgage REIT routed to the book-value submap (P/B, dividend yield, spread, leverage) — " +
+        "mortgage REIT routed to the book-value submap (P/B, dividend yield, spread, leverage) \u2014 " +
           "FFO/NOI largely irrelevant (docs/METHODOLOGY.md, The REIT sub-map).",
       );
     } else if (evidenceSubmap === "equity") {
@@ -627,7 +633,7 @@ export function routeCompany(
       reitSubmap = "equity";
       notes.push(
         `REIT sub-map 'equity' from XBRL evidence (${evidence?.source}${evidenceAsOf}): ` +
-          `${describeSignals(evidence?.equityReit ?? [])} — routed to the FFO/AFFO map.`,
+          `${reitBasis ?? describeSignals(evidence?.equityReit ?? [])} \u2014 routed to the FFO/AFFO map.`,
       );
     } else if (industryExplicitEquity) {
       base = "reit";
@@ -639,20 +645,21 @@ export function routeCompany(
     } else {
       base = "reit";
       reitSubmap = "undetermined";
+      notes.push("REIT type undetermined: grading withholds signals whose meaning differs between mortgage and property maps (industrial cash-flow growth, margins, leverage, coverage, capital returns and incompatible forensic tests). Common revenue growth, stewardship, technicals and common Piotroski tests remain applicable.");
       notes.push(
         `REIT sub-map UNDETERMINED: ${
           industryRaw === null
             ? `SIC ${sicRaw ?? "(missing)"} alone`
             : `industry '${industryRaw}'${industrySicDerived ? ` (the SIC ${sicRaw} label, no vendor sub-type)` : ""}`
-        } cannot separate a mortgage REIT from an equity REIT, and ${evidenceState} — FFO/AFFO-based and ` +
+        } cannot separate a mortgage REIT from an equity REIT, and ${evidenceState} \u2014 FFO/AFFO-based and ` +
           "book-value-based metrics are both withheld with this reason.",
       );
       gaps.push({
         field: "route.reitSubmap",
         reason:
           `REIT sub-map undetermined: SIC 6798 / industry '${industryRaw ?? "(missing)"}' cover both equity and ` +
-          `mortgage REITs and ${evidenceState} — FFO/AFFO, P/FFO, book value per share, net interest spread and ` +
-          "leverage withheld",
+          `mortgage REITs and ${evidenceState} \u2014 FFO/AFFO, P/FFO, book value per share, net interest spread and ` +
+          "leverage and grading signals specific to either REIT map withheld; common signals remain applicable",
         severity: "warn",
         attemptedSources: [
           evidence?.source ?? "edgar:companyfacts us-gaap",

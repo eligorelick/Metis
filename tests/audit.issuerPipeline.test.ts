@@ -312,13 +312,13 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
   });
 
   it.each([
-    { ticker: "O" as const, composite: 44.2, beneish: -2.596362634549579 },
-    { ticker: "NNN" as const, composite: 50.73, beneish: -2.5589578643944697 },
-  ])("FIN-308: preserve $ticker's protected figures while its sub-map acceptance conflict remains unresolved", ({ ticker, composite, beneish }) => {
+    { ticker: "O" as const, composite: 46.5, beneish: -2.596362634549579 },
+    { ticker: "NNN" as const, composite: 50.28, beneish: -2.5589578643944697 },
+  ])("FIN-308 P9: $ticker keeps common grading signals while its filed sub-map remains undetermined", ({ ticker, composite, beneish }) => {
     const c = run(ticker).out;
-    // The plan's named unchanged controls are actually undetermined on these
-    // filed inputs. Its universal hold would erase their existing figures;
-    // retain them pending a scope ruling rather than invent asset evidence.
+    // FIN-308: trimmed fixtures omit all investment-property asset tags, so
+    // they cannot establish a majority. Selective grading changes O 44.20 ->
+    // 46.5 and NNN 50.73 -> 50.28 (both D); raw forensic figures stay intact.
     expect(c.route.reitSubmap).toBe("undetermined");
     expect(c.forensics.beneish?.score).toBe(beneish);
     expect(c.scores.composite.score).toBe(composite);

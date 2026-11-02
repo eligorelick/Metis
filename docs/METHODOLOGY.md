@@ -1268,6 +1268,18 @@ every row; the grid note states the excess it held.
 
 ## FCF and SBC
 
+**Cash-capex convention (P9, confirmed 2026-11-02).** Standardized FCF keeps
+the retained statement/vendor cash-capex field. That field is not established
+as PP&E-only and can include software inconsistently across quarters; the
+existing mixed-basis disclosure remains required. No PP&E-only or
+PP&E-plus-software normalization is applied. Adopting either basis would
+change the common FCF convention and require remeasurement of every issuer's
+FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
+by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
+rounded). This decision preserves arithmetic and does not claim period-by-period
+software comparability or issuer-defined FCF reconciliation.
+
+
 **Free cash flow subtracts stock-based compensation by default.** The
 cash-flow statement adds SBC back to operating cash flow because no cash left
 the building that period, but the expense is real: it is settled in newly
@@ -2317,7 +2329,7 @@ code, and tag evidence read from EDGAR companyfacts.
 | --- | --- |
 | deposits **and** (loans **or** net interest income) | bank |
 | premiums earned **and** loss or policy reserves | insurer |
-| `RealEstateInvestmentPropertyNet` / `…AtCost` | equity REIT |
+| Same-filing net property >= 50% of `Assets` | equity REIT (P9) |
 | mortgage-backed securities **or** mortgage loans held for investment, **and no** investment property, **corroborated** (see below) | mortgage REIT |
 
 Deliberate properties:
@@ -2393,8 +2405,46 @@ whose assets are marked securities and whose headline is book value.
 The sub-map is therefore decided by evidence or by an explicit vendor sub-type,
 never by the SIC:
 
-- `RealEstateInvestmentPropertyNet` present → **equity**.
-- Mortgage assets present without investment property → **mortgage**.
+- **Mortgage**: mortgage loans plus AFS MBS are at least 50% of `Assets`,
+  with the existing repo-funding or financial-classification corroboration.
+  Direct-loan synonyms, selected once in order: `MortgageLoansOnRealEstate`,
+  `MortgageLoansOnRealEstateCarryingAmountOfMortgages`, then
+  `MortgageLoansOnRealEstateCommercialAndConsumer`. Generic
+  `LoansReceivableHeldForInvestmentNet` is insufficient. The comparable MBS
+  asset is `MortgageBackedSecuritiesAvailableForSaleFairValueDisclosure`:
+  available-for-sale securities are carried at fair value. HTM and issuer-category
+  fair-value-only disclosures (`MortgageBackedSecuritiesHeldToMaturityFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByUSGovernmentSponsoredEnterprisesFairValueDisclosure`,
+  `MortgageBackedSecuritiesIssuedByPrivateEnterprisesFairValueDisclosure`) do
+  not establish carrying assets and cannot supply the mortgage numerator.
+- **Property/equity, for an issuer already routed REIT**: filed real assets
+  must be positive, at least as large as mortgage assets, and mortgage assets
+  must be less than 50% of `Assets`. Real assets are
+  `RealEstateInvestmentPropertyNet` (otherwise `RealEstateInvestmentPropertyAtCost`
+  less `RealEstateInvestmentPropertyAccumulatedDepreciation`, legacy synonym
+  `RealEstateAccumulatedDepreciation`) plus net PP&E. The PP&E chain selects
+  `PropertyPlantAndEquipmentNet`, otherwise the registered synonym
+  `PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization`,
+  once rather than adding synonymous totals. For an established REIT, PP&E
+  represents rental real property such as towers and data centres. Neither
+  goodwill, intangibles nor operating right-of-use assets need to be outweighed
+  by rental property to distinguish equity from mortgage economics.
+- Each numerator operand and `Assets` must share the instant, currency and
+  accession. Only facts filed by the run date and within the recency window
+  qualify. Negative or above-total amounts cannot classify. Gross property
+  without accumulated depreciation cannot supply net real assets. No filed
+  real-asset fact means unknown, even when no mortgage fact is present; the
+  absence of a tag is not positive equity evidence. Both majorities (including
+  50/50) retain the existing unknown outcome. These comparisons select a
+  model; they are not statutory REIT asset tests. The routing basis names the
+  selected tags, amounts, filing, comparison results and reason.
+- This 2026-11-02 coordinator revision corrects FIN-308's earlier property
+  majority rule: specialty equity REITs can have substantial goodwill,
+  intangibles and right-of-use assets while the property map is appropriate.
+  A 45% real / 40% mortgage hybrid is equity; 10% real / 30% mortgage remains
+  unknown. PP&E alone never establishes an issuer's REIT status. Evidence-only
+  base-route inference keeps the existing net-investment-property majority
+  rule; explicit vendor subtype and conflict handling remain unchanged.
 - Vendor industry naming a sub-type (`REIT - Mortgage`, `REIT - Industrial`) →
   that sub-map. A vendor mortgage label contradicted by filed investment
   property is kept but flagged (`route.reitSubmap.conflict`).
@@ -2411,11 +2461,17 @@ interest spread and assets/equity leverage on the other — with the reason on t
 `route.reitSubmap` manifest entry. Publishing either set would assert a business
 model the evidence does not support.
 
-Known limitation (FIN-308): an undetermined sub-map still uses the existing
-industrial grading and forensic policy. A broader hold remains deferred because
-the plan's protected saved O and NNN cases also have undetermined sub-maps;
-their current figures are retained. This does not establish that industrial
-signals fit every undetermined REIT.
+FIN-308 (P9): when the type remains undetermined, grading keeps common revenue
+growth, capital stewardship and technical signals, plus the three common
+Piotroski tests (positive ROA, improved ROA, no equity issuance). The Piotroski
+used and applicable weight are both at most 3/9; missing common tests still
+reduce evidence. The grading audit cites these individual outcomes, not the
+full battery's total. Map-specific valuation, balance-sheet and moat signals
+are withheld, together with FCF growth, margin slope, capital-return spread,
+Altman, Beneish and accrual grading. The reason appears in route and score
+notes and in the gap manifest. Raw financial/forensic figures remain reported
+with their existing limitations; the grade does not silently assert a property
+or mortgage business model. Stored reports remain as recorded.
 
 ### Valuing a financial company
 
@@ -3012,10 +3068,17 @@ weighted by the share of the nine signals that were evaluable, and the
 shortfall counts against the quality aspect's data completeness — two
 coin-flip signals cannot swing the aspect the way nine do.
 
-Known limitation (FIN-306): for reduced financial or eligibility-held batteries,
-the completeness ceiling still includes tests withheld by route. Quality and
-composite coverage can therefore understate the evidence the route can use.
-The proposed correction remains deferred; existing scoring behavior is preserved.
+FIN-306 (P9): route-withheld tests are excluded from the applicable ceiling:
+three tests remain on a bank, insurer or mortgage REIT, and five on a fee-based
+FIN-OTHER route. The forensic result records the route-withheld count separately
+from missing supported data. Used weight remains outOf/9; applicable weight is
+(9 - routeWithheld)/9. An entirely absent battery on an established financial
+route retains the known supported maximum of three or five tests. A fully
+observed supported battery therefore has
+applicable completeness 1, while missing supported tests still reduce quality
+confidence and composite evidence. An unresolved operating-method eligibility
+refusal is not a designed route exclusion. Legacy results without the count
+retain their recorded completeness; stored reports are never rewritten.
 
 | Scale | Applies to | Signals withheld |
 | --- | --- | --- |
@@ -5407,6 +5470,15 @@ EBITDA built on it is understated by that amount, so EV/EBITDA leans high.
 Amortization alone is never taken as D&A. Within one trailing year, quarters
 can mix the two compositions (Alphabet tags amortization in some quarters
 only); each quarter's composition is disclosed.
+
+**Deferred-revenue siblings (FIN-510-V1, P9).**
+`ContractWithCustomerLiabilityCurrent` and `DeferredRevenueCurrent` have no
+established definitional containment. When both resolve for the period and
+disagree, deferred revenue is withheld with a gap naming both tags, values
+and currencies. The resolver does not choose the larger or the first tag.
+Equal siblings or a single available sibling retain their existing value;
+other periods do not create a conflict. This does not alter R&D component
+floors or a bank's operating interest-income priority (D-134 OD-4).
 
 **Market cap across share classes (B-8).** An issuer with more than one
 common class needs every class's outstanding count and its economic relation

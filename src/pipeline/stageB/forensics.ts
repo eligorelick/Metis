@@ -1475,6 +1475,8 @@ export interface PiotroskiOptions {
 }
 
 export interface PiotroskiResult {
+  /** FIN-306: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
+  routeWithheld?: number;
   score: number | null;
   /** Number of evaluable signals (9 with 3 fiscal years, 7 with 2, 3 on a financial route). */
   outOf: number;
@@ -1772,6 +1774,9 @@ export function computePiotroski(
   return {
     score,
     outOf,
+    ...(!eligibilityUnresolved && (finSuppressed || balanceSheetFunded)
+      ? { routeWithheld: (finSuppressed ? 4 : 0) + (balanceSheetFunded ? 2 : 0) }
+      : {}),
     signals,
     variant,
     label,
