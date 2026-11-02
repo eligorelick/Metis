@@ -3125,3 +3125,5 @@ RPT-203: Use band-safe formatting for prose scores.
 RPT-205: Preserve the geographic scope actually named by the source row.
 
 RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+
+RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.

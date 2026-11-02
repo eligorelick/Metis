@@ -1,3 +1,4 @@
+import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -103,4 +104,16 @@ it("RPT-213: names excess return consistently in classic and exports", () => {
  expect(html).toContain("Excess-return"); expect(html).not.toContain("DCF provenance");
  expect(reportToMarkdown(report)).toContain("### Excess-return value");
  expect(reportToPrintBody(report)).toContain("<h3>Excess-return value</h3>");
+});
+
+it("RPT-215: legacy pipeline zeros read unavailable without rewriting the record", () => {
+ const r=loadTask28Fixture(); delete r.fairValue; r.meta.specVersion="1.1.0";
+ r.valuation.dcf.perShare={value:0,unit:"USD/share",source:"pipeline",asOf:null,verified:null};
+ for(const row of r.valuation.scenarios) row.priceTarget={...r.valuation.dcf.perShare};
+ const before=JSON.stringify(r), view=withLegacyScopeQualifications(r);
+ expect(view.valuation.dcf.perShare).toBeNull();
+ expect(view.valuation.scenarios.every(s=>s.priceTarget===null)).toBe(true);
+ expect(JSON.stringify(r)).toBe(before);
+ const current=structuredClone(r); current.meta.specVersion="1.56.0";
+ expect(withLegacyScopeQualifications(current).valuation.dcf.perShare?.value).toBe(0);
 });

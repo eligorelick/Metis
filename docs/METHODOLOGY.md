@@ -6023,3 +6023,5 @@ The projection fan joins history to forecast only across adjacent periods; an op
 Band-safe score precision also applies to 0-100 scores written in analyst prose (RPT-203).
 
 Classic and exported excess-return values use model-value labels and omit DCF/WACC headings (RPT-213). Stored scenario sentences remain recorded prose. The Damodaran rationale is cited as summarised by the remediation decisions; no source fetch was performed in this offline batch.
+
+Before frozen report spec 1.56.0, a legacy report without fairValue reads pipeline zero placeholders (or a suppressed per-share zero) as unavailable. Zero pipeline scenario targets are likewise withheld, and all-placeholder data-only probabilities become unavailable. Recorded bytes stay unchanged (RPT-215).
