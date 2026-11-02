@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - PR #83 review fixes (2026-11-02)
+
+- A dividend increase stated with its payment and record dates ("from $0.10 to $0.12 per share, to be paid on November 12, 2026 to stockholders of record on November 5, 2026") keeps both dates.
+- A filed CFO identity recovers only operating cash flow's twelve months. Stock-based compensation, issuer free cash flow and other quarterly flows are summed only over four contiguous, single-currency quarters.
+- A saved page attached to a run that finishes before its first status update refreshes when that run saved a different report. A done-but-resumable attachment still stays put.
+
 ## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
 
 - The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and

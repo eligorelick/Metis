@@ -673,12 +673,17 @@ export function RunsOn({ route }: { route?: RunRoute | null }) {
   );
 }
 
-export function GenerateReport({ symbol, initialJobId = null, route = null, liveView = false }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null; liveView?: boolean }) {
+/**
+ * `renderedReportId` is the saved report the server rendered beside this
+ * control. A server-reported active run can finish before the first snapshot
+ * arrives; the saved page refreshes when that run saved a different report.
+ */
+export function GenerateReport({ symbol, initialJobId = null, route = null, liveView = false, renderedReportId = null }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null; liveView?: boolean; renderedReportId?: number | null }) {
   const initial = decodeAcceptedJobId({ jobId: initialJobId });
-  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} liveView={liveView} />;
+  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} liveView={liveView} renderedReportId={renderedReportId} />;
 }
 
-function GenerateReportController({ symbol, initialJobId, route, liveView }: { symbol: string; initialJobId: string | null; route: RunRoute | null; liveView: boolean }) {
+function GenerateReportController({ symbol, initialJobId, route, liveView, renderedReportId }: { symbol: string; initialJobId: string | null; route: RunRoute | null; liveView: boolean; renderedReportId: number | null }) {
   const router = useRouter();
   const dossier = useUiDesign().layout === "dossier";
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
@@ -700,6 +705,9 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
 
   const sawLiveRef = useRef(new Set<string>());
   const refreshedJobsRef = useRef(new Set<string>());
+  // Read inside the stream callback without reopening the stream when it changes.
+  const renderedReportRef = useRef(renderedReportId);
+  useEffect(() => { renderedReportRef.current = renderedReportId; }, [renderedReportId]);
   const esRef = useRef<EventSource | null>(null);
   const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenAttemptRef = useRef(0);
@@ -762,7 +770,11 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
           } else if (terminal === "done") {
             setPhase("done");
             setError(null);
-            if (sawLiveRef.current.has(jobId) && !refreshedJobsRef.current.has(jobId)) {
+            // A run first observed already done refreshes only a saved page that
+            // shows an older report; a done-but-resumable attachment stays put.
+            const rendered = renderedReportRef.current;
+            const savedPageIsStale = !liveView && rendered !== null && snap.reportId !== null && snap.reportId !== rendered;
+            if ((sawLiveRef.current.has(jobId) || savedPageIsStale) && !refreshedJobsRef.current.has(jobId)) {
               refreshedJobsRef.current.add(jobId);
               if (liveView) router.replace(`/company/${encodeURIComponent(symbol)}`, { scroll: false });
               else startTransition(() => router.refresh());

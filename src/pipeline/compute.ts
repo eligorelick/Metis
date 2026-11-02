@@ -1448,6 +1448,24 @@ export function ttmCashFlow(
   return ttmCashFlowFromNormalized(normalized, gaps, siblings);
 }
 
+/**
+ * The window gates of ttmCashFlowFromNormalized (no rejected current period,
+ * four contiguous quarters, one known currency), without its manifest entries.
+ * A filed CFO identity establishes only CFO's twelve months; the other quarterly
+ * flows summed beside it still need their own admitted window (PR #83 review).
+ */
+function cashFlowQuarterWindowAdmitted(
+  normalized: NormalizedQuarterSet<FmpCashFlowRow>,
+  siblings: readonly CurrencyEvidenceRow[] = [],
+): boolean {
+  if (rejectedAffectsCurrentWindow(normalized) || normalized.rows.length < 4) return false;
+  const q = normalized.rows.slice(0, 4);
+  if (quarterWindowViolation(q, normalized.rows[4] ?? null) !== null) return false;
+  const windowCurrency = resolveQuarterCurrency(q, siblings);
+  return windowCurrency.state === "known" &&
+    windowCurrencyGap("cash-flow", windowCurrency, "fmp:/stable/cash-flow-statement?period=quarter") === null;
+}
+
 function ttmCashFlowFromNormalized(
   normalized: NormalizedQuarterSet<FmpCashFlowRow>,
   gaps?: ManifestEntry[],
@@ -2160,6 +2178,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
+  const cashFlowWindowAdmitted = cashFlowQuarterWindowAdmitted(cashflowQuarterSet, [
+    ...incomeQuarterSet.rows,
+    ...balanceQuarterSet.rows,
+  ]);
   const latestCash = cashflowQuarterSet.rows[0];
   const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
     ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
@@ -2415,7 +2437,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   }
 
   const sumCurrentFlow = (field: keyof FmpCashFlowRow): number | null => {
-    if (!ttmCf || !currencies.ttmCashFlowUsable || cashflowQuarterly.length < 4) return null;
+    if (!ttmCf || !currencies.ttmCashFlowUsable || !cashFlowWindowAdmitted) return null;
     const values = cashflowQuarterly.slice(0,4).map(row => num(row[field]));
     return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
   };

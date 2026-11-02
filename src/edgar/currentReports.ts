@@ -1222,15 +1222,19 @@ export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
       used = true;
     }
     const matches = [...sentence.matchAll(/(?:(quarterly|monthly|semi-annual|semiannual|annual|special|extra|supplemental|variable)\s+)?(?:cash )?dividend (?:of|to) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/gi)];
+    // The sentence's payment and record dates apply to the dividend it states,
+    // whether as a plain declaration or as an increase "from $x to $y".
+    const pay = /(?:paid|payable) on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
+    const record = /of record (?:on |as of )?([A-Z][a-z]+ \d{1,2}, \d{4})/i.exec(sentence);
+    const payDate = pay ? isoFromMonthDate(pay[1] ?? pay[2]!) : null;
+    const recordDate = record ? isoFromMonthDate(record[1]!) : null;
     if(change && matches.length===0) {
-      dividends.push({value:Number(change[3]),symbol:change[1]!.toUpperCase(),frequency:"quarterly",payDate:null,recordDate:null});
+      dividends.push({value:Number(change[3]),symbol:change[1]!.toUpperCase(),frequency:"quarterly",payDate,recordDate});
     }
     for(const dividend of matches) {
       const word=dividend[1]?.toLowerCase();
       const frequency: DividendFrequency | null = /in four (?:equal )?quarterly install?ments/i.test(sentence) ? "annual" : word === "semiannual" ? "semi-annual" : word === "extra" ? "special" : (word as DividendFrequency | undefined) ?? null;
-      const pay = /(?:paid|payable) on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
-      const record = /of record (?:on |as of )?([A-Z][a-z]+ \d{1,2}, \d{4})/i.exec(sentence);
-      dividends.push({value:Number(dividend[3]),symbol:dividend[2]!.toUpperCase(),frequency,payDate:pay?isoFromMonthDate(pay[1]??pay[2]!):null,recordDate:record?isoFromMonthDate(record[1]!):null});
+      dividends.push({value:Number(dividend[3]),symbol:dividend[2]!.toUpperCase(),frequency,payDate,recordDate});
       used=true;
     }
     if (used) out.sentences.push(sentence.length > 400 ? `${sentence.slice(0, 399)}…` : sentence);

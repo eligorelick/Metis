@@ -60,3 +60,24 @@ describe("N4b L4 filed CFO operands", () => {
     expect(runStageB(b).gaps.some(g => g.field === "compute.ttmCashFlow.filedYtd")).toBe(false);
   });
 });
+
+// PR #83 review: a filed CFO identity establishes only CFO's twelve months. When the
+// vendor quarters are not four contiguous quarters, their other flows are not summed.
+describe("filed CFO recovery keeps the quarterly window check for companion flows", () => {
+  it("does not sum issuer FCF over non-contiguous quarters", () => {
+    const b = fixture(); if (!b.statements.cashflowQuarterly.ok) throw Error("fixture");
+    const rows = b.statements.cashflowQuarterly.value.data.rows;
+    rows[2]!.date = "2025-09-30"; rows[3]!.date = "2025-06-30";
+    for (const row of rows) Object.assign(row, { issuerFreeCashFlow: -2000000 });
+    const c = runStageB(b);
+    expect(c.gaps.some(g => g.field === "compute.ttmCashFlow.filedYtd")).toBe(true);
+    expect(c.capital.current?.cashBridge.operatingCashFlow).toBe(-86490000);
+    expect(c.capital.current?.cashBridge.issuerFcf ?? null).toBeNull();
+  });
+  it("still sums them over four contiguous quarters", () => {
+    const b = fixture(); if (!b.statements.cashflowQuarterly.ok) throw Error("fixture");
+    for (const row of b.statements.cashflowQuarterly.value.data.rows) Object.assign(row, { issuerFreeCashFlow: -2000000 });
+    const c = runStageB(b);
+    expect(c.capital.current?.cashBridge.issuerFcf).toBe(-8000000);
+  });
+});

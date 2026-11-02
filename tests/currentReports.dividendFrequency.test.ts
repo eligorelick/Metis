@@ -31,3 +31,10 @@ it("RPT-201 rejects invalid units, concepts, points, forms, ages and future obse
  duplicate.facts["us-gaap"].CommonStockDividendsPerShareDeclared.units["USD/shares"].push({...c.units["USD/shares"][2]!, filed:"2026-10-01",val:0.3});
  expect(dividendFrequencyFromFacts(duplicate,"2026-10-27",0.3)).toBe("quarterly");
 });
+
+// PR #83 review: an increase stated with its payment and record dates keeps them.
+it("keeps the payment and record dates of a dividend increase", () => {
+ const facts = parseCapitalReturn("The Board increased its quarterly cash dividend from $0.10 per share to $0.12 per share, to be paid on November 12, 2026 to stockholders of record on November 5, 2026.");
+ expect(facts.dividendChange).toEqual({ from: 0.1, to: 0.12, symbol: "$" });
+ expect(facts.dividendPerShare).toMatchObject({ value: 0.12, frequency: "quarterly", payDate: "2026-11-12", recordDate: "2026-11-05" });
+});

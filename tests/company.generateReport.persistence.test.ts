@@ -171,3 +171,26 @@ describe("saved-page attachment to an authoritative active run", () => {
     expect(container.textContent).not.toContain("A different run is active");
   });
 });
+
+// PR #83 review: a run the server reported active can finish between the server
+// render and the first snapshot. The saved page then shows the previous report.
+describe("saved-page attachment to a run that finished before its first snapshot", () => {
+  async function renderSaved(renderedReportId: number) {
+    await act(async () => root.render(createElement(StrictMode, null,
+      createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" },
+        createElement(GenerateReport, { key: "DEMO", symbol: "DEMO", initialJobId: "job-A", renderedReportId })))));
+  }
+  it("refreshes once when the finished run saved a different report than the one rendered", async () => {
+    await renderSaved(5);
+    const stream = Stream.opened.at(-1)!;
+    await act(async () => stream.emit("snapshot", snapshot({ status: "done", reportId: 6 })));
+    await act(async () => stream.emit("snapshot", snapshot({ revision: 1, status: "done", reportId: 6 })));
+    expect(router.refresh).toHaveBeenCalledOnce();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+  it("does not refresh when the finished run's report is the one rendered", async () => {
+    await renderSaved(6);
+    await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({ status: "done", reportId: 6 })));
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+});

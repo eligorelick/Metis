@@ -951,7 +951,7 @@ export default async function CompanyPage({ params, searchParams }: {
           <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
             actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
             navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
-            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
+            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} renderedReportId={saved.reportId} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
           {!dossier && resumableJobId !== null && <p className="text-[12px] text-muted">A previous run stopped with reusable analyst work. Open Live analysis to resume it.</p>}
           <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} headerNotices />
