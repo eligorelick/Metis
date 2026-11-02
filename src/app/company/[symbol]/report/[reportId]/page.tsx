@@ -88,7 +88,7 @@ export default async function RunReportPage({
           navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" reportHref={`/company/${encodeURIComponent(symbol)}/report/${row.id}`} /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
           controls={dossier ? <div className="snapshot-controls"><ReportNotes symbol={symbol} reportId={row.id} /></div> : undefined}
         />
-        <PersistedReportView key={row.id} report={report} selectedReportId={row.id} />
+        <PersistedReportView key={row.id} report={report} selectedReportId={row.id} headerNotices />
       </div>
     </AppShell>
   );

@@ -958,7 +958,7 @@ export default async function CompanyPage({ params, searchParams }: {
             navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
             controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
-          <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
+          <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} headerNotices />
         </div>
       </AppShell>
     );

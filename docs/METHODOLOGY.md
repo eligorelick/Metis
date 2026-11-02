@@ -5977,3 +5977,5 @@ AI-111 / OD-5: listed honorific periods and contextual name initials do not star
 RPT-504 / B10-OD-11: data-only reports show no checked citation/provenance share on reader surfaces, including legacy reports carrying counts. The audit retains raw evidence-class counts under an explicit no-citation-check disclosure.
 
 DB-004/RPT-209 / B10-OD-2: read and corrected-export paths carry completeness under its recorded convention. Absent metadata stays absent; unconfirmable records stay recorded. Added legacy gaps recount confirmed records under their original rule.
+
+RPT-212 / B10-OD-5: each run-level synthetic/provider-fallback notice appears once: in the saved-snapshot header when mounted, otherwise at the report body head in either layout. Exports retain their existing notice placement.

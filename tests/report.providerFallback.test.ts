@@ -62,10 +62,10 @@ describe("provider-fallback header line (F-1)", () => {
     const classic = renderToStaticMarkup(createElement(ReportView, { report: r, layout: "classic" }));
     expect(classic).toContain(LINE);
     expect(count(classic)).toBe(1);
-    // The saved-snapshot header carries it in either layout; the dossier body does not repeat it.
+    // The saved-snapshot header carries it in either layout; the body suppresses it when that header is mounted (RPT-212).
     const header = renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: r, reportId: 7, status: "done", actions: null }));
     expect(header).toContain(LINE);
-    expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" })))).toBe(0);
+    expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier", headerNotices: true })))).toBe(0);
 
     const markdown = reportToMarkdown(r);
     expect(markdown).toContain(`> ${LINE}`);
@@ -114,4 +114,21 @@ describe("the risk-free citation reads under its source label (audit 2026-10-22 
     expect(sourceLabel(citation)).toBe(`Risk-free rate (${label})`);
     expect(humanizeBareIds(`WACC rests on the rate (${citation}); bare ${id}.`)).toBe(`WACC rests on the rate (Risk-free rate (${label})); bare ${label}.`);
   });
+});
+
+it("RPT-212 prints notices in headerless dossier and suppresses the body beneath a header", () => {
+ const r = report([substitution("incomeAnnual", "edgar", false)]);
+ const count = (text: string) => text.split("Provider fallback \u00b7").length - 1;
+ expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" })))).toBe(1);
+ expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout: "classic", headerNotices: true })))).toBe(0);
+});
+
+it("RPT-212 synthetic notices follow the same once-per-surface rule", async () => {
+ const { loadTask28Fixture } = await import("./helpers/task28Report");
+ const r = loadTask28Fixture(); r.meta.model = "synthetic-fixture"; r.meta.pipelineVersion = "synthetic-sample-1";
+ const count = (text: string) => text.split('data-run-notice="synthetic"').length - 1;
+ for (const layout of ["classic", "dossier"] as const) {
+  expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout })))).toBe(1);
+  expect(count(renderToStaticMarkup(createElement(ReportView, { report: r, layout, headerNotices: true })))).toBe(0);
+ }
 });

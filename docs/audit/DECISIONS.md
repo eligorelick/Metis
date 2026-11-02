@@ -3020,3 +3020,5 @@ AI-111 adopts the closed OD-5 abbreviation mask without changing rating patterns
 RPT-504 applies the existing data-only builder rule at every reader coverage call. The helper preserves header versus appendix block precedence for analysed reports. Stored provenance is retained, not scrubbed, and remains in the audit export with a qualification.
 
 DB-004 and RPT-209 apply B10-OD-2 to the corrected CLI and entity-safety view. Confirmed pre-1.44.0 records keep the old EDGAR rule; confirmed current records recount under the current rule. Equal field/severity/expected manifests preserve identity. Absent/unconfirmable metadata is carried; the CLI only creates a count when it adds legacy audit gaps. Original database bytes are never rewritten.
+
+RPT-212 implements B10-OD-5/R-OD-4 once through RunNotices and headerNotices forwarding on the two saved routes. Headerless live/sample bodies show notices in both layouts. This revises D-111 placement without changing report bytes or export wording.
