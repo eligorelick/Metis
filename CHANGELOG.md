@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R7 FIGR extra-high verifier false negatives (2026-11-02)
+
+- Match conservative producer-bound metric paraphrases, simple inflections, explicit fraction annotations, percentage-point slopes and signed distances below the 52-week high.
+- Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
+- Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
+- The frozen full-report replay recovers 73 numeric validations (62 prose and 11 figures); every prior validation remains. The complete 189-row sweep and retained limitations are recorded in `docs/audit/2026-11-02-r7-figr-xhigh-verifier.md`.
+
 ## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
 
 - End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026

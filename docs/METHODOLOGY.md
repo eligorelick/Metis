@@ -3843,6 +3843,44 @@ numbers already do. Its numeric status is `validated`, its prose support is
 does not certify accompanying judgments or causal explanations. Citation-only
 content remains `source-cited` with numeric status `cited` or `unchecked`.
 
+R7 (FIGR extra-high replay, 2026-11-02) retains those statuses and support
+limits. Typed metric names still require the cited label's content words on
+both sides, in any order, with simple plural inflection and a reviewed set of
+producer-bound equivalents. Negation, accounting basis, aggregation categories
+and operand order remain material. A label mentioned in another clause cannot
+name the quantity. Explicit fraction provenance permits the same quantity to
+be stated as a fraction or percent, including an "as a fraction" annotation;
+ordinary multiples do not. "Percentage points per year" retains its slope
+unit. Only the registered distance-from-high producer reads a positive
+percentage "below its 52-week high" as the corresponding negative distance,
+never as a temporal fall or an inequality.
+
+A retained 10-K title explicitly pairing a December-31 reporting end with its
+FY label establishes a calendar fiscal basis for the annual estimate producers
+and the declared annual Piotroski/SBC observations. Conflicting bases withhold
+that reading. The same basis can establish calendar fiscal columns of the
+known quarterly-trend producer, for its filed year or the next year, only at
+an exact calendar quarter end. A quote date alone establishes no fiscal label.
+Cash-bridge TTM spellings require both ordered endpoints and the matching
+rolling-12-month context; YTD cannot reuse that basis.
+
+The excerpt reader recognizes complete split month/day-and-year SEC headers
+and explicit quarter/change-column operating tables. Missing cells, malformed
+later headers and conflicting scales do not receive inferred values. A
+numbered exclusion footnote can qualify its own marked row only when its
+exclusion text is retained in the same source span. Source-attribution verbs
+do not define a metric; their dates and any negation remain checked. A result's
+own period survives a later guidance clause. A complete "was A, down/up from B"
+comparison uses the same two-column proof as R5. Accounting `(18.1)%` retains
+the negative sign and percent unit; a complete two-level annual comparison
+binds its two explicit year-end roles separately. A named FY can equal the
+annual clause's exact year end only when the excerpt title establishes both.
+Numeric-only matching still leaves accompanying causal explanations and
+judgments unchecked. Respectively lists, mixed metrics, event-date/maturity
+roles and untyped provider notes have no general number-presence fallback;
+the R7 audit lists each retained refusal, including supported facts beyond the
+current deterministic grammar.
+
 Producer-bound readings recognize a house score's correct grade annotation,
 the financial Piotroski variant's explicitly declared evaluated/total signal
 counts, and legacy cash-flow sign legends. A negative income-tax expense may
