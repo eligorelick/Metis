@@ -268,7 +268,7 @@ describe("Task 28 completeness presentation truth table", () => {
       expectedGapCount: 1,
       informationalActionableGapCount: 1,
     });
-    expect(result.bannerText).toContain("3 additional data gaps");
+    expect(result.bannerText).toContain("1 data gap recorded") // RPT-206: only one classified data gap;
     expectNoCompletenessOverclaim(result.bannerText!);
   });
 
@@ -278,7 +278,7 @@ describe("Task 28 completeness presentation truth table", () => {
       { field: "llm.bull", reason: "one additional gap", severity: "info" },
     ]);
     expect(result.additionalActionableGapCount).toBe(1);
-    expect(result.bannerText).toContain("1 additional data gap");
+    expect(result.bannerText).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
     expect(result.bannerText).not.toContain("1 additional data gaps");
     expectNoCompletenessOverclaim(result.bannerText!);
   });
@@ -483,4 +483,17 @@ it("DB-004/RPT-209 carries confirmed old conventions, absent and unconfirmable r
  expect(carryRecordedCompleteness(old, before, structuredClone(before))).toBe(old);
  const current = buildDataCompleteness(before);
  expect(carryRecordedCompleteness(current, before, after)).toEqual(buildDataCompleteness(after));
+});
+
+it("RPT-206 banner counts classified data issues separately from process and notes", () => {
+ const gaps = [
+ { field: "analysis.llm", reason: "AI unavailable", severity: "critical" as const },
+ { field: "fundamentals.revenue", reason: "missing", severity: "warn" as const },
+ { field: "llm.bull", reason: "failed", severity: "warn" as const },
+ { field: "forensics.piotroski", reason: "not evaluable", severity: "info" as const },
+ ];
+ const c = deriveReportCompletenessPresentation(buildDataCompleteness(gaps), gaps);
+ expect(c.bannerText).toBe("No completed multi-pass analysis. AI unavailable 1 data gap recorded.");
+ const notes = gaps.filter(g => g.field !== "fundamentals.revenue");
+ expect(deriveReportCompletenessPresentation(buildDataCompleteness(notes), notes).bannerText).toBe("No completed multi-pass analysis. AI unavailable No data gaps recorded; 2 notes or analysis-process disclosures are listed in the appendix.");
 });

@@ -1,3 +1,4 @@
+import { shownDataState } from "@/report/completeness";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
@@ -2160,9 +2161,9 @@ export function ReportMetaStrip({
         </span>
         <span className="mono">spec {m.specVersion}</span>
         <span
-          className={presentation.state === "blocked"
+          className={shownDataState(presentation) === "blocked"
             ? "font-semibold text-red-500"
-            : presentation.state === "degraded" || presentation.state === "unknown"
+            : shownDataState(presentation) === "degraded" || shownDataState(presentation) === "unknown"
               ? "font-semibold text-amber-500"
               : "text-muted"}
           title="Data state; metadata agreement is a separate reconciliation check."

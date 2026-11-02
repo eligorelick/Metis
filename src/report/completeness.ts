@@ -307,19 +307,21 @@ export function deriveReportCompletenessPresentation(
   }
   if (metadataStatus !== "confirmed") manifestParts.push(statusText);
 
+  const classification = classifyManifest(gaps);
+  const dataCount = classification.dataGaps.length;
+  const otherCount = additionalActionable.length - classification.dataGaps.reduce((n, g) => n + g.fields.length, 0);
   let bannerText: string | null = null;
   if (analysisReason !== null) {
     const prefix = `No completed multi-pass analysis. ${analysisReason}`;
-    if (metadataStatus === "confirmed" && additionalActionable.length === 0) {
+    if (metadataStatus === "confirmed" && dataCount === 0 && otherCount === 0) {
       bannerText = `${prefix} Deterministic data is complete.`;
     } else if (metadataStatus === "confirmed") {
-      bannerText = `${prefix} ${countLabel(additionalActionable.length, "additional data gap", "additional data gaps")} recorded.`;
+      bannerText = dataCount > 0 ? `${prefix} ${countLabel(dataCount, "data gap", "data gaps")} recorded.` : `${prefix} No data gaps recorded; ${countLabel(otherCount, "note or analysis-process disclosure is", "notes or analysis-process disclosures are")} listed in the appendix.`;
     } else {
       bannerText = `${prefix} ${statusText}`;
     }
   }
 
-  const classification = classifyManifest(gaps);
   return {
     classification,
     dataCriticalCount: classification.dataGaps.filter((gap) => gap.severity === "critical").length,
@@ -356,4 +358,9 @@ export function carryRecordedCompleteness(persisted: PersistedDataCompleteness |
  if (before.length === after.length && before.every((row, i) => row.field === after[i].field && row.severity === after[i].severity && row.expected === after[i].expected)) return persisted;
  const rule = recordedCompletenessRule(persisted, before);
  return rule === "current" ? buildDataCompleteness(after) : rule === "pre-1.44.0" ? classifyCompleteness(after, true) : persisted;
+}
+
+/** Reader state follows classified data counts; recorded state stays untouched. */
+export function shownDataState(c: Pick<ReportCompletenessPresentation, "metadataStatus" | "state" | "dataCriticalCount" | "dataWarningCount">): ReportCompletenessPresentation["state"] {
+ return c.metadataStatus !== "confirmed" ? c.state : c.dataCriticalCount > 0 ? "blocked" : c.dataWarningCount > 0 ? "degraded" : "complete";
 }

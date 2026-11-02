@@ -321,7 +321,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("1 additional data gap");
+      expect(text, surface).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
       expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
       expect(text, surface).not.toMatch(/blocked: 0 critical/i);
       expect(text, surface).not.toContain("1 additional data gaps");

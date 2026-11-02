@@ -138,7 +138,7 @@ describe("manifest-driven GenerateReport report-ready panel", () => {
     expect(html).not.toContain(">analyzed<");
     expect(html).toContain("No completed multi-pass analysis");
     expect(html).toContain("TASK28:persisted:analysis-reason");
-    expect(html).toContain("1 additional data gap");
+    expect(html).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
     expect(html).not.toMatch(/did not run|no reasoning/i);
     expect(html).not.toContain("computed metrics are still complete");
     expect(html).not.toContain("Deterministic data is complete");

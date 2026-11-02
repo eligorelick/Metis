@@ -20,6 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## P3 - verifier and trust labels (2026-11-02)
 
+- RPT-206: align banner/state wording with classified data gaps, keeping process disclosures apart.
+
 - RPT-212: show synthetic/provider-fallback notices once across saved, live and sample report layouts.
 
 - DB-004, RPT-209: preserve recorded completeness conventions and absent metadata through corrected exports and entity safety.

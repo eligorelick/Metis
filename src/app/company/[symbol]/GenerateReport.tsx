@@ -1,4 +1,6 @@
 "use client";
+import { shownDataState } from "@/report/completeness";
+
 
 /**
  * GenerateReport — the "generate report" client interaction for /company/[symbol].

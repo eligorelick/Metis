@@ -1,3 +1,4 @@
+import { shownDataState } from "@/report/completeness";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
@@ -1529,7 +1530,7 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
   // contradiction: the data state follows the data counts, and the sentence
   // says that it is the analysis that is blocked.
   const processBlocked = c.state === "blocked" && c.dataCriticalCount === 0 && c.processDisclosureCount > 0;
-  const shown = processBlocked ? (c.dataWarningCount > 0 ? "degraded" : "complete") : c.state;
+  const shown = shownDataState(c);
   const state = shown === "complete" ? "Complete" : shown === "degraded" ? "Degraded" : shown === "blocked" ? "Blocked" : "Unknown";
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // D-67: one count per underlying data gap; how the passes ran is counted apart.

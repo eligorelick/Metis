@@ -17,7 +17,7 @@ AI-407 is implemented under OD-2. All other requested findings are not started.
 | DB-004 | Fixed | Owning completeness commit | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
 | RPT-209 | Fixed | Owning completeness commit | DB-004-RPT-209-red / DB-004-RPT-209-green; DB-004-RPT-209-controls | Carry recorded convention; no stored writes |
 | RPT-212 | Fixed | Owning RPT-212 commit | RPT-212-red / RPT-212-green; RPT-212-controls | Display-only placement; stored notices unchanged |
-| RPT-206 | Not started | - | - | None |
+| RPT-206 | Fixed | Owning RPT-206 commit | RPT-206-red / RPT-206-green | Display-only counts and state; recorded metadata unchanged |
 | RPT-207 | Not started | - | - | None |
 | RPT-211 | Not started | - | - | None |
 
