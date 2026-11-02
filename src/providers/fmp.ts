@@ -53,7 +53,7 @@ export interface CachedFetchResult<T> {
   /** true when served past TTL (stale-while-revalidate) */
   stale?: boolean;
   /** Specific preservation condition surfaced by the durable cache. */
-  staleReason?: "empty-refresh-preserved" | "window-fallback";
+  staleReason?: "empty-refresh-preserved" | "window-fallback" | "refresh-failed";
   servedEndpoint?: string;
   staleDetail?: string;
   /** ISO timestamp of the original fetch that produced `value` */
@@ -2501,7 +2501,7 @@ export class FmpClient {
         endpoint: `/stable/historical-price-eod/full?symbol=${symbol}&from=${from}&to=${to} (${chunks.length} chunk(s)${disclosures.length > 0 ? `; ${disclosures.join("; ")}` : ""})`,
         fetchedAt,
         ...(anyStale ? { stale: true } : {}),
-        ...(results.some(r=>r.ok && r.value.staleReason==="window-fallback")?{staleReason:"window-fallback" as const}:{}),
+        ...(["window-fallback","refresh-failed","empty-refresh-preserved"] as const).reduce((acc,reason)=> acc.staleReason || !results.some(r=>r.ok && r.value.staleReason===reason) ? acc : {staleReason:reason},{} as {staleReason?: Sourced<unknown>["staleReason"]}),
       },
     };
   }

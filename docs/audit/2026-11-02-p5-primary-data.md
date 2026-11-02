@@ -8,7 +8,7 @@
 | AI-202-V1 | Fixed | Owning AI-202-V1 commit | ai202-red / ai202-green-2 | None |
 | RPT-201 | Fixed | Owning RPT-201 commit | rpt201-red-2 / rpt201-green-3 | Yield value retained, legacy assumption note added |
 | DATA-114 | Fixed | Owning DATA-114 commit | data114-red / data114-green-2 | None |
-| DATA-112 | Not started | - | - | Not assessed |
+| DATA-112 | Fixed | Owning DATA-112 commit | data112-red / data112-green-3 | None |
 | DATA-113 | Not started | - | - | Not assessed |
 | DATA-111 | Not started | - | - | Not assessed |
 | AI-506 | Not started | - | - | Not assessed |
@@ -43,3 +43,5 @@ AI-202-V1: +40M expense -> -40M, EPS loss 0.10..0.12 -> -0.12..-0.10, zero-cross
 RPT-201: annual $3.60 at $216 moves 6.67% -> 1.67%; monthly $0.50 moves 0.93% -> 2.78%; special and unknown yields are withheld. Special $1 before regular quarterly $0.35 selects $0.35. Frequency-free stored reports retain x4 with an explicit assumption. The first red yield fixture lacked marketData; rpt201-red-2 reproduces all nine trigger failures with valid input.
 
 DATA-114: both provider adapters previously threw after the UTC-window rollover on a 429; now retain yesterday's identical rows, stale=true, reason=window-fallback, with original fetchedAt. Refusals, different symbols/spans, eight-day acquisitions and successful fresh fetches are controls. No provider traffic.
+
+DATA-112: both adapters returned cached 14:00 close 104.5 after the close; now await 110. Failed refresh and empty refresh preserve 104.5 only with explicit stale metadata. The common adapter owns this policy, adapting the older client-level plan.

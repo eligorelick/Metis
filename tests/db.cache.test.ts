@@ -818,3 +818,26 @@ it("DATA-114 does not replace fresh success and refuses an eight-day cached wind
  await expect(fetch(key("10"),86400000,async()=>{throw Object.assign(new Error("throttled"),{status:429});})).rejects.toThrow("throttled");
  vi.useRealTimers();
 });
+
+it.each(["yahoo","fmp"])("DATA-112 %s refreshes today's tail before serving the post-close answer",async(provider)=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-27T18:00:00Z"));
+ const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+ const key=provider==="yahoo"?"yahoo:/v8/finance/chart/TST?interval=1d&period1=2021-10-27&period2=2026-10-27":"fmp:/stable/historical-price-eod/full?from=2026-10-27&symbol=TST&to=2026-10-27";
+ await fetch(key,86400000,async()=>({close:104.5}));
+ vi.setSystemTime(new Date("2026-10-27T21:30:00Z"));
+ expect(await fetch(key,86400000,async()=>({close:110}))).toMatchObject({value:{close:110}});
+ vi.setSystemTime(new Date("2026-10-28T18:00:00Z"));
+ vi.useRealTimers();
+});
+
+it("DATA-112 tail refresh failure is explicit and empty refresh preserves last good",async()=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-27T18:00:00Z"));
+ const fetch=makeFmpCachedFetch();const key="fmp:/stable/historical-price-eod/full?from=2026-10-27&symbol=TST&to=2026-10-27";
+ await fetch(key,86400000,async()=>({body:[{close:104.5}]}));
+ vi.setSystemTime(new Date("2026-10-27T21:30:00Z"));
+ expect(await fetch(key,86400000,async()=>{throw new Error("offline");})).toMatchObject({value:{body:[{close:104.5}]},stale:true,staleReason:"refresh-failed"});
+ expect(await fetch(key,86400000,async()=>({body:[]}))).toMatchObject({value:{body:[{close:104.5}]},stale:true,staleReason:"empty-refresh-preserved"});
+ expect(await fetch(key,86400000,async()=>({body:[{close:110}]}))).toMatchObject({value:{body:[{close:110}]}});
+ expect(await fetch(key,86400000,async()=>{throw new Error("must remain fresh");})).toMatchObject({value:{body:[{close:110}]}});
+ vi.useRealTimers();
+});

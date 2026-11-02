@@ -3016,3 +3016,7 @@ RPT-201 implements OD-5: prefer regular over special amounts, annualize only reg
 ### D-next (P5): Transient price-history window fallback
 
 DATA-114 applies OD-4 at the durable-cache adapter boundary, only to canonical FMP and Yahoo history keys. It requires the same provider, symbol and window family, both endpoints within seven days, and a seven-day absolute acquisition ceiling. Only transport failure, 429, 500, 502, 503 and 504 qualify; returned metadata names the cached key and original fetch time.
+
+### D-next (P5): History-tail freshness follows the US session
+
+DATA-112 implements OD-3 in the common durable adapters using canonical history keys, so both clients share one freshness rule. Expired current-date tails refresh before return with last-good empty-body preservation and explicit refresh-failed disclosure. Older windows retain their TTL.

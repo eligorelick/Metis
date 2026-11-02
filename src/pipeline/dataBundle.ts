@@ -1,4 +1,4 @@
-import {historyWindowFallback} from "@/providers/historyCache";
+import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -238,7 +238,8 @@ export function makeFmpCachedFetch(): CachedFetchFn {
       endpoint: key,
       fallback: historyWindowFallback(key),
       params: {},
-      ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
+      ttlSeconds: Math.max(0, Math.floor((historyTailTtlMs(key,new Date()) ?? ttlMs) / 1000)),
+      expiredHit: historyTailTtlMs(key,new Date())===null ? "serve-stale" : "refresh-first",
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
       // asOf here is cache-row metadata; the FMP client re-derives the real
       // asOf from response rows (deriveAsOf) after this returns.
@@ -291,7 +292,8 @@ export function makeYahooCachedFetch(): CachedFetchFn {
       endpoint: key,
       fallback: historyWindowFallback(key),
       params: {},
-      ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
+      ttlSeconds: Math.max(0, Math.floor((historyTailTtlMs(key,new Date()) ?? ttlMs) / 1000)),
+      expiredHit: historyTailTtlMs(key,new Date())===null ? "serve-stale" : "refresh-first",
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
       fetcher: async () => ({ body: await loader(), asOf: new Date().toISOString().slice(0, 10) }),
       isEmptyBody: (value: T): boolean => value === null,
@@ -2528,12 +2530,12 @@ export async function buildDataBundle(
           : [],
       ),
       ...allResults.flatMap((result): ManifestEntry[] =>
-        result.ok && (result.value.staleReason === "empty-refresh-preserved" || result.value.staleReason === "window-fallback")
+        result.ok && (result.value.staleReason === "empty-refresh-preserved" || result.value.staleReason === "window-fallback" || result.value.staleReason === "refresh-failed")
           ? [
               {
                 field: `cache.${result.value.source}.${result.value.endpoint}`,
                 reason:
-                  result.value.staleReason === "window-fallback" ? `request failed; ${result.value.endpoint}; retained cached history within the seven-day stale ceiling` : "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
+                  result.value.staleReason === "refresh-failed" ? `session-tail refresh failed; served cached answer fetched ${result.value.fetchedAt}, within the seven-day stale ceiling` : result.value.staleReason === "window-fallback" ? `request failed; ${result.value.endpoint}; retained cached history within the seven-day stale ceiling` : "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
                 severity: "warn",
                 attemptedSources: [result.value.source, result.value.endpoint],
               },

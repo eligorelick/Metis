@@ -1,3 +1,4 @@
+import {sessionTailTtlMs} from "./usSession";
 import {isTransientProviderError} from "./http";
 function window(key:string):{family:string;from:string;to:string}|null {
  const i=key.indexOf(":");if(i<0)return null;
@@ -15,4 +16,8 @@ export function historyWindowFallback(key:string) {
   const cached=window(candidate);if(!cached||cached.family!==requested.family)return false;
   return (["from","to"] as const).every(k=>{const days=(Date.parse(requested[k])-Date.parse(cached[k]))/86400000;return Number.isFinite(days)&&days>=0&&days<=7;});
  }};
+}
+
+export function historyTailTtlMs(key:string,now:Date):number|null {
+ const w=window(key);return w?sessionTailTtlMs(w.to,now):null;
 }
