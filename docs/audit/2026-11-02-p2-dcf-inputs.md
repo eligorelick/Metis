@@ -18,6 +18,8 @@ Every replay is offline. Stored reports are never rewritten.
 | FIN-501 | Fixed: reverse margin family contains base path | Owning reverse commit | fin-501-104-red-02 / fin-501-104-green | Old figures retained |
 | FIN-104 | Fixed: candidate-domain admission | Owning reverse commit | fin-501-104-red-02 / fin-501-104-green | Old bounds remain historical |
 
+| FIN-116 | Fixed: The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost. | Owning FIN-116 commit | fin-116-red / fin-116-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

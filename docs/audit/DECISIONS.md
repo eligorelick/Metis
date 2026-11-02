@@ -3601,3 +3601,7 @@ FIN-501 follows OD-11: terminal-margin candidates preserve the base fade shape;
 flat paths use a linear ramp. FIN-104 extends the existing DCF domain to every
 reverse candidate, bracket and bound (OD-9). A domain break withholds the
 outside-range inference rather than implying a price-supported growth rate.
+
+## D-next (P2) - FIN-116 (2026-11-02)
+
+The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost. Stored reports remain immutable.

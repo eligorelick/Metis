@@ -614,7 +614,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     isFiniteNumber(inputs.negativeTotalDebtObservation) && inputs.negativeTotalDebtObservation < 0
       ? inputs.negativeTotalDebtObservation
       : null;
-  const hasDebt = debtAvg !== null && debtAvg > 0;
+  const weightedDebt = isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 ? inputs.totalDebtLatest : debtAvg;
+  const hasDebt = weightedDebt !== null && weightedDebt > 0;
   if (negativeDebtObservation !== null) {
     notes.push("negative totalDebt observation — invalid capital-structure data; WACC unavailable");
     gaps.push({
@@ -668,8 +669,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       weightEquity: null,
       weightDebt: null,
     };
-  } else if (debtAvg === 0) {
-    notes.push("no debt (totalDebtAvg = 0) — WACC = cost of equity");
+  } else if (!hasDebt) {
+    notes.push("no debt on the weighted latest balance — WACC = cost of equity");
   }
 
   // Every financial route — bank, insurer and mortgage REIT — is valued on the
@@ -777,7 +778,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     };
 
     const rdEffective =
-      intExp !== null && intExp > 0
+      intExp !== null && intExp > 0 && debtAvg > 0
         ? (intExp / debtAvg) * 100
         : priorUsable
           ? prior.pct

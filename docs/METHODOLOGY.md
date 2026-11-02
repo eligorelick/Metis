@@ -6335,3 +6335,5 @@ zero-to-one weight. The base terminal margin exactly reproduces the base path.
 Growth and margin candidates need nonnegative explicit-period PV and positive
 equity; withheld candidates cannot supply range bounds or bridge a bracket.
 If the full scan is not in-domain, no beyond-range growth claim is inferred.
+
+P2 (FIN-116): The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost.
