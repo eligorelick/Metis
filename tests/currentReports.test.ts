@@ -128,6 +128,7 @@ describe("XBRL segment revenue by quarter", () => {
     ]);
     // Q4 FY2026 is the 10-K's year less the Q3 10-Q's nine months.
     expect(series.total[2]).toBe(68_127e6);
+    expect(series.axes[0]!.totalCrossFilingAt).toEqual([2, 6]);
     const platform = series.axes.find((a) => a.axis === "srt:ProductOrServiceAxis")!;
     const row = (label: string) => platform.rows.find((r) => r.label === label)!;
     // Q1 on the recast basis: the Q2 10-Q's six months less its Q2. The CFO

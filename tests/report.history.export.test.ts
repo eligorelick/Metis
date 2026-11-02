@@ -3272,3 +3272,19 @@ describe("immutable legacy entity safety across stored-report reads", () => {
     expect(stored.reportJson).toBe(insertedJsonByteForByte);
   });
 });
+
+it("DB-002: distinguishes withheld grades from absent blocks", () => {
+ const a = loadFixtureReport(), b = clone(a);
+ b.verdict.gradeStrip.leadership!.assessmentStatus = "not-assessed";
+ b.leadership.graded.assessmentStatus = "not-assessed";
+ const d = diffReports(a,b,persistedVersions(a,b));
+ expect(d.gradeChanges.find(c => c.section === "leadership")?.transition).toBe("became-unavailable");
+});
+
+it("DB-005: withholds scores and grades across band tables only", () => {
+ const a=loadFixtureReport(), b=clone(a); b.scores!.bandsVersion += "_RECALIBRATED";
+ const d=diffReports(a,b,persistedVersions(a,b));
+ expect(d.familyComparisons.scores).toEqual({comparison:"not-comparable",reasons:["score-bands-version-mismatch"]});
+ expect(d.familyComparisons.grades).toEqual(d.familyComparisons.scores);
+ expect(d.familyComparisons.weights.comparison).toBe("comparable");
+});

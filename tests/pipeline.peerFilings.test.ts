@@ -25,9 +25,9 @@ function facts(): CompanyFacts {
     dei: { EntityCommonStockSharesOutstanding: { label: "Shares", units: { shares: [{ ...point("2026-09-05", 4.7e9) }] } } },
   } };
 }
-function clients(overrides: Partial<{ sic: string; mapped: boolean; facts: () => CompanyFacts }> = {}): PeerFilingClients {
+function clients(overrides: Partial<{ sic: string; subjectSic: string; mapped: boolean; facts: () => CompanyFacts }> = {}): PeerFilingClients {
   const submission = (cik: string): EdgarSubmissions => ({ cik, name: cik.endsWith("1045810") ? "NVIDIA CORP" : "Broadcom Inc.",
-    sic: cik.endsWith("1045810") ? "3674" : overrides.sic ?? "3674", sicDescription: "Semiconductors & Related Devices", fiscalYearEnd: null,
+    sic: cik.endsWith("1045810") ? overrides.subjectSic ?? "3674" : overrides.sic ?? "3674", sicDescription: "Semiconductors & Related Devices", fiscalYearEnd: null,
     stateOfIncorporation: null, tickers: [], exchanges: [], recentFilings: [], olderPages: [] });
   return {
     edgar: {
@@ -67,4 +67,57 @@ describe("peer fundamentals from SEC filings", () => {
     const filed = await loadPeerFromFilings("AVGO", subjectProfile, clients(overrides), NOW);
     expect(filed).toEqual({ reason: expect.stringMatching(reason) });
   });
+});
+
+
+describe("DATA-103 bank peer routing", () => {
+  it.each(["6022", "3674"])("uses the peer own SIC %s revenue definition", async sic => {
+    const bankFacts = () => {
+      const f = facts();
+      const anchor = f.facts["us-gaap"]!.Revenues as { units: { USD: { val: number }[] } };
+      delete f.facts["us-gaap"]!.Revenues;
+      const total = structuredClone(anchor); total.units.USD[0]!.val = 5_000e6;
+      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense = total;
+      const fees = structuredClone(anchor); fees.units.USD[0]!.val = 700e6;
+      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax = fees;
+      return f;
+    };
+    const peer = await loadPeerFromFilings("AVGO", subjectProfile, clients({ sic, subjectSic: sic, facts: bankFacts }), NOW);
+    if ("reason" in peer) throw Error(peer.reason);
+    expect(peer.incomeQuarterly.ok && peer.incomeQuarterly.value.data.rows[0]!.revenue).toBe(sic === "6022" ? 5_000e6 : 700e6);
+  });
+});
+
+
+describe("DATA-102 fallback freshness", () => {
+  it.each(["quote", "facts", "submissions", "splits"])("retains stale flags from %s", async (kind) => {
+    const c = clients();
+    const stale = async <T>(promise: Promise<T>): Promise<T> => {
+      const result = await promise;
+      return { ...result, value: { ...(result as { value: object }).value, stale: true, staleReason: "empty-refresh-preserved" } };
+    };
+    if (kind === "quote") { const original = c.yahoo.quote; c.yahoo.quote = (...args) => stale(original(...args)); }
+    if (kind === "splits") { const original = c.yahoo.splitHistory; c.yahoo.splitHistory = (...args) => stale(original(...args)); }
+    if (kind === "facts") { const original = c.edgar.companyFacts; c.edgar.companyFacts = (...args) => stale(original(...args)); }
+    if (kind === "submissions") { const original = c.edgar.submissions; c.edgar.submissions = (...args) => stale(original(...args)); }
+    const result = await loadPeerFromFilings("AVGO", subjectProfile, c, NOW);
+    if ("reason" in result) throw new Error(result.reason);
+    const envelope = kind === "submissions" ? result.profile : kind === "facts" ? result.balanceQuarterly : result.quote;
+    expect(envelope).toMatchObject({ ok: true, value: { stale: true, staleReason: "empty-refresh-preserved" } });
+  });
+});
+
+it("DATA-102 a fresh peer profile does not inherit subject submissions staleness",async()=>{
+ const c=clients(),original=c.edgar.submissions;
+ c.edgar.submissions=async(...args)=>{
+  const r=await original(...args);
+  return r.ok && String(args[0]).endsWith("1045810") ? {...r,value:{...r.value,stale:true,staleReason:"refresh-failed"}} : r;
+ };
+ const result=await loadPeerFromFilings("AVGO",subjectProfile,c,NOW);
+ if("reason" in result)throw Error(result.reason);
+ expect(result.profile.ok).toBe(true);
+ if(result.profile.ok) {
+  expect(result.profile.value.stale).not.toBe(true);
+  expect(result.profile.value.staleReason).toBeUndefined();
+ }
 });

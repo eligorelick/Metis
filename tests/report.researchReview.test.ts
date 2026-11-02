@@ -1,3 +1,4 @@
+import { peerCoverageSummary } from "@/report/researchReview";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -119,7 +120,8 @@ describe("research reliability report surfaces", () => {
         { symbol: "PEERA", reason: limited },
       ] };
     for (const rendered of Object.values(surfaces(report))) {
-      expect(rendered).toContain("1 of 7 candidate issuers evaluated; eligible: none; 4 excluded at the screen; 6 not compared because the peer data provider hit its rate limit or quota.");
+      // RPT-214: size-screened discoveries were never requested candidates.
+      expect(rendered).toContain("1 of 7 candidate issuers evaluated; eligible: none; 1 excluded at the screen; 6 not compared because the peer data provider hit its rate limit or quota; 3 discovered issuers outside the comparable-size band were not requested.");
       expect(rendered).not.toContain("11 excluded");
     }
   });
@@ -173,4 +175,10 @@ describe("research reliability report surfaces", () => {
     delete report.thesisTriggers![0].threshold.currency;
     expect(valuationReviewBlocks({ thesisTriggers: report.thesisTriggers })[0].items).toHaveLength(1);
   });
+});
+
+it("RPT-214: discovery size exclusions are separate from requested candidates",()=>{
+ const peers={methodology:[],candidates:1,evaluated:0,eligible:[],comparisons:[],exclusions:[{symbol:"SMALL",reason:"size screen: outside comparable-size band"},{symbol:"OTHER",reason:"industry differs"}]};
+ expect(peerCoverageSummary(peers)[0]).toContain("1 excluded at the screen; 1 discovered issuer outside the comparable-size band was not requested");
+ expect(peerCoverageSummary({...peers,candidates:2})[0]).toContain("2 excluded at the screen.");
 });

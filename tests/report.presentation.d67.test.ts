@@ -332,3 +332,7 @@ it("RPT-207 preserves unknown-symbol identity and names peer statements", async 
  expect(manifestIssuer([{ field: "fmp.planLimit(statements.balanceAnnual)", reason: "x", severity: "info" }])).toBeNull();
  expect(manifestIssuer([{ field: "benchmarkPrices.sectorEtf(DEMO)", reason: "x", severity: "info" }])).toBe("DEMO");
 });
+
+it.each([[84.96,"84.9"],[54.99,"54.9"],[69.91,"69.9"],[39.7,"39.7"]])("RPT-203: prose score %s stays within its band", (raw,shown) => {
+ expect(readerPrecision(`Score ${raw} on the 0-100 scale.`)).toContain(`${shown} on the 0`);
+});

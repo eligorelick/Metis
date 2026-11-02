@@ -181,7 +181,7 @@ type ChartResult = NonNullable<Chart["chart"]["result"]>[number];
  * loader so a bad body is never written to the durable cache.
  */
 class YahooResponseError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status: number | null = null) {
     super(message);
     this.name = "YahooResponseError";
   }
@@ -404,6 +404,7 @@ export class YahooClient {
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
+          if (!res.ok) throw new YahooResponseError(`Yahoo ${res.status === 429 ? "rate limit" : res.status >= 500 ? "server error" : "refusal"} (HTTP ${res.status}) for ${displayEndpoint}; the response body was not JSON`, res.status);
           throw new YahooResponseError(
             `Yahoo returned unparseable body (HTTP ${res.status}) for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -424,7 +425,7 @@ export class YahooClient {
         }
         if (!res.ok) {
           throw new YahooResponseError(
-            `Yahoo HTTP ${res.status} for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
+            `Yahoo HTTP ${res.status} for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`, res.status,
           );
         }
         const result = chart.result?.[0];
@@ -432,7 +433,7 @@ export class YahooClient {
           throw new YahooResponseError(`Yahoo returned no chart result for ${displayEndpoint}`);
         }
         return { result, fetchedAt: this.now().toISOString() };
-      });
+      }, { signal: this.signal });
     } catch (err) {
       if (err instanceof YahooResponseError) {
         return { ok: false, reason: err.message, endpoint: displayEndpoint };
@@ -449,7 +450,7 @@ export class YahooClient {
     return {
       ok: true,
       result: exchange.value.result,
-      endpoint: displayEndpoint,
+      endpoint: exchange.servedEndpoint ? `${displayEndpoint} (served the cached window ${exchange.servedEndpoint} fetched ${exchange.fetchedAt}: ${exchange.staleDetail})` : displayEndpoint,
       fetchedAt: exchange.fetchedAt ?? exchange.value.fetchedAt,
       ...(exchange.stale ? { stale: true } : {}),
       ...(exchange.staleReason ? { staleReason: exchange.staleReason } : {}),
@@ -589,8 +590,17 @@ export class YahooClient {
   }
 
   async quote(symbol: string): Promise<FetchResult<FmpPayload<FmpQuoteRow>>> {
+    return quoteFromMetaResult(symbol,await this.meta(symbol));
+  }
+
+}
+
+export function createYahooClient(config: YahooClientConfig = {}): YahooClient {
+  return new YahooClient(config);
+}
+
+export function quoteFromMetaResult(symbol:string,metaRes:Awaited<ReturnType<YahooClient["meta"]>>):FetchResult<FmpPayload<FmpQuoteRow>> {
     const field = `yahoo.quote(${symbol.trim().toUpperCase()})`;
-    const metaRes = await this.meta(symbol);
     if (!metaRes.ok) return { ok: false, gap: { ...metaRes.gap, field } };
 
     const m = metaRes.value.data;
@@ -647,8 +657,3 @@ export class YahooClient {
       },
     };
   }
-}
-
-export function createYahooClient(config: YahooClientConfig = {}): YahooClient {
-  return new YahooClient(config);
-}

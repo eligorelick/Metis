@@ -1,3 +1,8 @@
+import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, fiscalOutlookLabelContradicted, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
+import {isTableOfContentsStub} from "@/edgar/currentReports";
+import {latestResultsRelease} from "@/providers/currentReports";
+import {isoFromMonthDate} from "@/edgar/currentReports";
+import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
 /**
  * The bundle's 8-K, segment-XBRL and quarterly-statement evidence assembled
  * into the report's deterministic `filingDisclosures` block and the
@@ -41,6 +46,7 @@ import {
   parseSayOnPay,
   parseStatementFacts,
   parseTradingArrangements,
+  tradingArrangementParagraphCount,
   type FilingFact,
 } from "@/edgar/filingFacts";
 import { CommitmentPaymentTimingSchema, MaterialEventItemsSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
@@ -199,7 +205,7 @@ export function newerPeriodicFiling(bundle: DataBundle): { filing: EdgarFiling; 
  * the label decides and the notice names no end. A release that states no results
  * (a deliveries or operational update) never counts.
  */
-export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null } | null {
+export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null; reportedPeriod: string | null } | null {
   const reports = currentReportsOf(bundle);
   if (reports === null) return null;
   const newest = newestStatementRow(bundle);
@@ -219,7 +225,11 @@ export function newerResultsRelease(bundle: DataBundle): { release: EarningsRele
     const periodEnd = yearAgo ? null : release.reported.periodEnd;
     const later = periodEnd !== null ? periodEnd > statementsEnd && daysApart(periodEnd, statementsEnd) > LATER_PERIOD_DAYS
       : fiscalAhead !== null && fiscalAhead > 0;
-    if (later) return { release, statementsEnd, reportedPeriodEnd: periodEnd };
+    if (later) {
+      const label=release.reported.fiscal?.label ?? null;
+      const withheld=label!==null && (periodEnd!==null ? fiscalLabelContradicted(statementFiscalPeriods(bundle),label,periodEnd) : fiscalLabelEndedBy(statementFiscalPeriods(bundle),label,statementsEnd));
+      return { release, statementsEnd, reportedPeriodEnd: periodEnd, reportedPeriod: withheld ? null : label };
+    }
   }
   return null;
 }
@@ -239,7 +249,7 @@ function newerResultsNotice(bundle: DataBundle, currency: string | null): Filing
   const shown = headline?.revenue && headline.epsDiluted && usd(headline.revenue.symbol) && usd(headline.epsDiluted.symbol) ? headline : null;
   return {
     source: releaseRef(release, release.resultsExhibit ?? (release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1")),
-    reportedPeriod: release.reported.fiscal?.label ?? null,
+    reportedPeriod: found.reportedPeriod,
     reportedPeriodEnd: found.reportedPeriodEnd,
     statementsEnd,
     revenue: shown?.revenue?.value ?? null,
@@ -351,14 +361,14 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const annualRanges = new Map(annual.map(i => [`${i.low}|${i.high}`, i]));
   const annualComparison = annualRanges.size === 1 ? [...annualRanges.values()][0]! : null;
   return {
-    periodLabel: item.period.label,
+    periodLabel: fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),item.period.label,release.filingDate) ? "fiscal quarter" : item.period.label,
     fiscalYear: item.period.fiscalYear,
     fiscalQuarter: item.period.fiscalQuarter,
     low: item.low,
     mid: item.mid,
     high: item.high,
     currency,
-    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: annualComparison.period.label,
+    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),annualComparison.period.label,release.filingDate) ? "fiscal year" : annualComparison.period.label,
       fiscalYear: annualComparison.period.fiscalYear, low: annualComparison.low, high: annualComparison.high, currency } }),
     filingDate: release.filingDate,
     accession: release.accession,
@@ -368,7 +378,7 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
       fiscalYearRule(normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)).rows.map(row => String(row.date)))),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,
     taxRatePct: tax?.mid ?? null,
-    taxRatePeriod: tax?.period.label ?? null,
+    taxRatePeriod: tax && !fiscalOutlookLabelContradicted(statementFiscalPeriods(bundle),tax.period.label,release.filingDate) ? tax.period.label : null,
     grossMarginLowPct: gm?.low ?? null,
   };
 }
@@ -706,7 +716,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases, notes);
   const officerChanges = officerChangeRows(reports, bundle);
   const sayOnPay = sayOnPayRow(reports);
-  const tradingArrangements = tradingArrangementRows(bundle);
+  const tradingArrangements = tradingArrangementRows(bundle, notes);
   const primaryStatements = bundle.companyIrMaterialEvents;
   const companyStatements: NonNullable<FilingDisclosures["companyStatements"]> = primaryStatements?.ok
     ? primaryStatements.value.data.events.filter((event) => event.symbol === bundle.symbol && day(event.publishedAt) !== null &&
@@ -739,7 +749,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     : null;
   if (releases.length > 0 && guided === undefined) notes.push("No structured quarterly guidance rows were extracted from the retained releases; separately sourced narrative guidance may still be available.");
 
-  const latest = releases[0];
+  const latest = latestResultsRelease(releases);
   // A dated issuer production statement remains visible even if model prose
   // chooses a weaker or earlier roadmap description. Keep the source wording.
   for (const sentence of splitSentences(latest?.releaseNarrative ?? "").filter((s) => /\bnow in full production\b/i.test(s)).slice(0, 2)) {
@@ -772,6 +782,10 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
         authorizationRemaining: capital.authorizationRemaining && capitalCurrency(capital.authorizationRemaining.symbol) ? capital.authorizationRemaining.value : null,
         authorizationAdded: capital.authorizationAdded && capitalCurrency(capital.authorizationAdded.symbol) ? capital.authorizationAdded.value : null,
         dividendPerShare: capital.dividendPerShare && capitalCurrency(capital.dividendPerShare.symbol) ? capital.dividendPerShare.value : null,
+        ...(capital.dividendPerShare && capital.dividendPerShare.frequency !== undefined ? {
+          dividendFrequency: capital.dividendPerShare.frequency ?? (bundle.edgar?.companyFacts.ok ? dividendFrequencyFromFacts(bundle.edgar.companyFacts.value.data,bundle.builtAt.slice(0,10),capital.dividendPerShare.value):null),
+          dividendFrequencyBasis: capital.dividendPerShare.frequency ? "release" as const : "xbrl" as const,
+        }:{}),
         dividendPayDate: capital.dividendPerShare?.payDate ?? null,
         dividendRecordDate: capital.dividendPerShare?.recordDate ?? null,
         dividendChangeFrom: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.from : null,
@@ -793,8 +807,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     const candidates = sections.flatMap(section => splitSentences(section.data.text)).flatMap(sentence => {
       const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:(?:we|the company) (?:have|has|had) )?(?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining|remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
       if (!match) return [];
-      const stamp = Date.parse(match[1]!);
-      const asOf = Number.isFinite(stamp) ? new Date(stamp).toISOString().slice(0,10) : null;
+      const asOf = isoFromMonthDate(match[1]!);
       const amount = moneyMentions(match[2]!)[0];
       return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
         ? [{ asOf, value: amount.value }] : [];
@@ -810,7 +823,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   }
   // A dividend change or added authorization announced in an earlier release
   // of the window is still news the latest release does not repeat.
-  for (const earlier of releases.slice(1)) {
+  for (const earlier of releases.filter(r=>r!==latest)) {
     const change = earlier.capitalReturn.dividendChange;
     if (change && capitalReturn?.dividendChangeTo == null && capitalCurrency(change.symbol, earlier)) {
       notes.push(`Quarterly dividend raised from ${change.from} to ${change.to} ${currency ?? ""} per share (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));
@@ -824,6 +837,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   const events: FilingDisclosures["events"] = (reports?.events ?? []).map((e) => {
     let summaryCorrection: FilingDisclosures["events"][number]["summaryCorrection"];
     const parts = e.sections
+      .filter(s=>!isTableOfContentsStub(s.text))
       .filter((s) => s.incorporates === null || e.sections.length === 1)
       .flatMap((s) => {
         const stripped = withoutLegacyPrincipalAnnotation(s.summary);
@@ -860,14 +874,18 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
       label: safeText(r.label, "(member label withheld)"),
       childOf: r.childOf === null ? null : axis.rows.find((p) => p.member === r.childOf)?.label ?? null,
       values: r.values,
+      ...(r.earlierPresentationAt ? {earlierPresentationAt:r.earlierPresentationAt}:{}),
+      ...(r.crossFilingAt ? {crossFilingAt:r.crossFilingAt}:{}),
     })),
     total: axis.total,
+    ...(axis.totalEarlierPresentationAt ? {totalEarlierPresentationAt:axis.totalEarlierPresentationAt}:{}),
+    ...(axis.totalCrossFilingAt ? {totalCrossFilingAt:axis.totalCrossFilingAt}:{}),
     priorPresentation: axis.priorPresentation,
     derivedCells: axis.derivedCells,
     ...(axis.residualCells > 0 ? { residualCells: axis.residualCells } : {}),
     sources: segments!.filings.map((f) => `${f.form} ${f.accession} (filed ${f.filingDate})`),
   }));
-  if (segments && segments.notes.length > 0) notes.push(...segments.notes.map((n) => `Segment XBRL: ${n}`));
+  if (segments && segments.notes.length > 0) notes.push(...segments.notes.map((n) => `Segment XBRL, ${n}`));
   for (const axis of segments?.axes ?? []) {
     if (axis.residualCells > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
   }
@@ -1005,7 +1023,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   };
   // D-66: the notes', statements' and commentary's facts; officers and votes.
 
-  return {
+  return withholdContradictedReleaseLabels({
     version: "1.0.0",
     ...(materialEventItems.success ? { materialEventItems: [...new Set(materialEventItems.data)].sort() } : {}),
     currency,
@@ -1035,7 +1053,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     ...(newerResults === null ? {} : { newerResults }),
     ...(newerFiling === null ? {} : { newerFiling }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
-  };
+  }, statementFiscalPeriods(bundle));
 }
 
 type FilingFactRow = NonNullable<FilingDisclosures["filingFacts"]>[number];
@@ -1158,8 +1176,9 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
     const periodEnd = release.reported.periodEnd;
     if (wc == null || periodEnd === null) continue;
     const source = releaseRef(release, release.commentaryUrl === null ? "EX-99.1" : "EX-99.2");
-    const sourceTag = `edgar:8-K ${source.exhibit} ${release.reported.fiscal?.label ?? periodEnd} commentary`;
-    const fiscal = release.reported.fiscal?.label ?? null;
+    const sourceTag = `edgar:8-K ${source.exhibit} ${release.reported.fiscal?.label && !fiscalLabelContradicted(statementFiscalPeriods(bundle),release.reported.fiscal.label,periodEnd) ? release.reported.fiscal.label : periodEnd} commentary`;
+    const stated = release.reported.fiscal?.label ?? null;
+    const fiscal = stated && fiscalLabelContradicted(statementFiscalPeriods(bundle),stated,periodEnd) ? null : stated;
     const text = wc.sentence ?? "";
     const rows: FilingFact[] = [];
     if (wc.dso !== null) rows.push({ key: "dso", label: "days sales outstanding (DSO)", value: wc.dso, unit: "days", symbol: null, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
@@ -1249,8 +1268,19 @@ function sayOnPayRow(reports: CurrentReports | null): NonNullable<FilingDisclosu
 }
 
 /** D-66: the 10-Q Part II Item 5 trading arrangements. */
-function tradingArrangementRows(bundle: DataBundle): NonNullable<FilingDisclosures["tradingArrangements"]> {
+function tradingArrangementRows(bundle: DataBundle, notes: string[]): NonNullable<FilingDisclosures["tradingArrangements"]> {
   const other = sectionRef(bundle.edgar?.tenQOther);
   if (other === null) return [];
-  return parseTradingArrangements(other.data.text).map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
+  const rows = parseTradingArrangements(other.data.text);
+  if (rows.length < tradingArrangementParagraphCount(other.data.text) || (rows.length === 0 && /\b10b5-1\b/.test(other.data.text) && /\b(?:adopt|terminat|modif)/i.test(other.data.text))) {
+    notes.push(`Item 5 of ${other.data.form} ${other.data.accession} mentions Rule 10b5-1 arrangements that could not be read as rows; the excerpt is in the AI context.`);
+  }
+  return rows.map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
+}
+
+export function statementFiscalPeriods(bundle: DataBundle): FiscalLabelledPeriod[] {
+ return [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly),...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)].flatMap(r=>{
+  const year=String(r.fiscalYear??"").trim(), period=String(r.period??"").trim().toUpperCase(), end=day(r.date);
+  return end && /^(?:19|20)\d{2}$/.test(year) && /^(FY|Q[1-4])$/.test(period)?[{end,label:period==="FY"?`FY${year}`:`${period} FY${year}`}]:[];
+ });
 }

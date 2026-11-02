@@ -18,7 +18,8 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { readableHtml } from "./helpers/uiParityContract";
 
-const eligible = ["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"];
+// DATA-107: six OD-2 additions expand the saved scope from 10 to 16.
+const eligible = ["1.01", "1.02", "1.03", "1.05", "2.01", "2.03", "2.04", "2.05", "2.06", "3.01", "3.02", "3.03", "5.01", "5.02", "5.07", "8.01"];
 const today = "2026-10-30";
 const filing = (id: number, overrides: Partial<EdgarFiling> = {}): EdgarFiling => ({
   accessionNumber: `0000000001-26-${String(id).padStart(6, "0")}`, form: "8-K", filingDate: "2026-09-16",
@@ -93,11 +94,13 @@ describe("recorded material-event eligibility and bounded Item 3.02", () => {
 
   it("records the same complete filter that admits candidates and retains sections, including existing 5.07", async () => {
     const titles = ["Entry into a Material Definitive Agreement", "Termination of a Material Definitive Agreement", "Completion of Acquisition or Disposition of Assets", "Creation of a Direct Financial Obligation", "Costs Associated with Exit or Disposal Activities", "Material Impairments", "Unregistered Sales of Equity Securities", "Departure of Directors or Certain Officers", "Submission of Matters to a Vote of Security Holders", "Other Events"];
-    const rows = eligible.map((items, i) => filing(i + 1, { items }));
+    // DATA-107: retain the original ten-document fixture under the unchanged read cap.
+    const originalItems = ["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"];
+    const rows = originalItems.map((items, i) => filing(i + 1, { items }));
     const documents = Object.fromEntries(rows.map((f, i) => [f.accessionNumber, `<p>Form 8-K Current Report</p><h2>Item ${f.items} ${titles[i]}</h2><p>Retained event body.</p>`]));
     const { data, requested } = await collect(rows, documents);
     expect(requested).toHaveLength(10);
-    expect(data.events.map(e => e.sections[0]?.item).sort()).toEqual(eligible);
+    expect(data.events.map(e => e.sections[0]?.item).sort()).toEqual(originalItems);
     expect(data.materialEventItems).toEqual(eligible);
   });
 
@@ -477,7 +480,7 @@ describe("immutable scope evidence across five readers", () => {
       assembleContextPayload(legacy, legacyComputed, { checks: [], flags: [], gaps: [] }));
     const d = buildFilingDisclosures(bundle)!;
     for (const [name, out] of Object.entries(outputs(d))) {
-      expect(out, name).toContain("Recorded eligible material-event item filter: Items 1.01, 1.02, 2.01, 2.03, 2.05, 2.06, 3.02, 5.02, 5.07, 8.01.");
+      expect(out, name).toContain("Recorded eligible material-event item filter: Items 1.01, 1.02, 1.03, 1.05, 2.01, 2.03, 2.04, 2.05, 2.06, 3.01, 3.02, 3.03, 5.01, 5.02, 5.07, 8.01.");
       expect(out, name).toContain("subject to vesting only if");
       expect(out, name).not.toContain("EXHIBIT SENTINEL");
     }

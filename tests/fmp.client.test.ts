@@ -877,3 +877,15 @@ describe("deriveAsOf", () => {
     expect(deriveAsOf([{ timestamp: 4102444800 }], "2026-07-06T00:00:00Z")).toBe("2026-07-06");
   });
 });
+
+it("DATA-114 truncates a merged series at an accepted fallback chunk last bar", async () => {
+ const client=createFmpClient({apiKey:"offline",limiter:makeLimiter(1000,1000),
+  fetchImpl:async (url) => new Response(JSON.stringify([{symbol:"HST",date:String(url).includes("to=2018-12-31")?"2018-12-30":"2019-01-02",close:12}]),{status:200}),
+  cachedFetch:async (_key,_ttl,loader) => ({value:await loader(),...(_key.includes("to=2018-12-31")?{stale:true,staleReason:"window-fallback" as const,servedEndpoint:"prior history",fetchedAt:"2026-10-01T00:00:00Z",staleDetail:"HTTP 429"}:{})})});
+ const result=await client.historicalPriceEodFull("HST","2014-01-01","2019-01-02");
+ expect(result.ok).toBe(true);
+ if(!result.ok)throw Error(result.gap.reason);
+ expect(result.value.data.rows.map(r=>r.date)).toEqual(["2018-12-30"]);
+ expect(result.value).toMatchObject({stale:true,staleReason:"window-fallback",asOf:"2018-12-30"});
+ expect(result.value.endpoint).toContain("history truncated at 2018-12-30");
+});

@@ -17,7 +17,9 @@ export interface Sourced<T> {
   /** True when served past its TTL (stale-while-revalidate) */
   stale?: boolean;
   /** Why stale data was retained, when the cache knows a specific condition. */
-  staleReason?: "empty-refresh-preserved";
+  staleReason?: "empty-refresh-preserved" | "window-fallback" | "refresh-failed";
+  servedEndpoint?: string;
+  staleDetail?: string;
 }
 
 export type DataSource =

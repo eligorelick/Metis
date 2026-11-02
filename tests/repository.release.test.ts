@@ -25,7 +25,10 @@ const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-11-02-n2-figr-readiness.md",
+  "docs/audit/2026-11-02-p7-display.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
+  "docs/audit/2026-11-02-p5-primary-data.md",
+  "docs/audit/2026-11-02-p5-primary-data-lows.md",
   "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   ".github/workflows/ci.yml",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",
@@ -60,8 +63,12 @@ const REQUIRED_RELEASE_FILES = [
  */
 const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-11-02-n2-figr-readiness.md",
+  "docs/audit/2026-11-02-b4b-equity-bridge.md",
+  "docs/audit/2026-11-02-p7-display.md",
   "docs/audit/2026-11-02-p6-local-security.md",
   "docs/audit/2026-11-02-p0-review-fixes.md",
+  "docs/audit/2026-11-02-p5-primary-data.md",
+  "docs/audit/2026-11-02-p5-primary-data-lows.md",
   "docs/audit/2026-11-02-paid-work-lifecycle.md",
   "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   "docs/audit/2026-11-01-current-main-integration.md",

@@ -5,14 +5,14 @@ import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
-import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
-import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT } from "@/edgar/statements";
+import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -826,16 +826,6 @@ function admitEquityStatementNci<T extends FmpStatementRow>(row: T, filings: rea
       `its consolidated total equals the row's total equity, and parent equity is that total less the NCI` }] };
 }
 
-/** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
-/** The first tag of an ordered list with an instant at `end` (a `first` step of the statements chain). */
-function firstInstant(facts: CompanyFacts, tags: readonly string[], unit: string, end: string, observedAt: string): Resolved | null {
-  for (const tag of tags) {
-    const hit = instant(facts, tag, unit, end, observedAt);
-    if (hit) return hit;
-  }
-  return null;
-}
-
 /**
  * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-133): a vendor long-term
  * investments of 0 or absent is undisclosed, not zero, when the same-period
@@ -856,36 +846,16 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
   if (!validDay(row.date) || currency === null || row.fieldProvenance?.longTermInvestments !== undefined || row.fieldConflicts?.longTermInvestments !== undefined
     || (vendor != null && vendor !== 0)) return { row, admissions: [] };
   const date = row.date;
-  const at = (tags: readonly string[]) => firstInstant(facts, tags, currency, date, observedAt);
-  const present: { label: string; r: Resolved }[] = [];
-  const absent: string[] = [];
-  const total = at(tagsFor("longTermInvestments"));
-  if (total) present.push({ label: "long-term investments", r: total });
-  else {
-    const debtSecurities = at(tagsFor("noncurrentDebtSecurities"));
-    if (debtSecurities) present.push({ label: "non-current debt securities", r: debtSecurities });
-    else absent.push("non-current debt securities");
-    const other = at(tagsFor("otherLongTermInvestments"));
-    if (other) present.push({ label: "other long-term investments", r: other });
-    else {
-      const pieces = ([["non-marketable equity securities", at(tagsFor("nonMarketableEquitySecurities"))], ["equity-method investments", at(tagsFor("equityMethodInvestments"))]] as const);
-      if (pieces.every(([, r]) => r === null)) absent.push("other long-term investments");
-      for (const [label, r] of pieces) {
-        if (r) present.push({ label, r });
-        else if (pieces.some(([, hit]) => hit !== null)) absent.push(label);
-      }
-    }
-  }
-  const value = present.reduce((sum, { r }) => sum + r.value, 0);
-  if (present.length === 0 || !(value > 0)) return { row, admissions: [] };
-  const filings = present.flatMap(({ r }) => r.evidence.filings).filter((filing, i, all) => all.findIndex((f) => f.accn === filing.accn) === i);
-  const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: date, observedAt,
-    tags: present.flatMap(({ r }) => r.evidence.tags), filings };
+  const resolved = longTermInvestmentsChainAt(facts, date, currency, observedAt);
+  if (resolved === null || !(resolved.value > 0)) return { row, admissions: [] };
+  const { value, evidence } = resolved;
   const out = { ...row, longTermInvestments: value, fieldProvenance: { ...row.fieldProvenance, longTermInvestments: evidence } } as T;
-  const parts = present.map(({ label, r }) => `${label} ${millions(r.value)} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
+  const parts = resolved.components.map(c => `${c.label} ${millions(c.value)} (${c.tags.join(", ")})`).join(" + ");
+  const floorNotes = resolved.notes.filter(note => note.includes("not used"));
   return { row: out, admissions: [{ kind: "stakes", date, summary: `${millions(value)}${vendor == null ? " (vendor absent)" : ""}`,
     detail: `vendor longTermInvestments ${vendor == null ? "absent" : millions(vendor)} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
-      `${parts} = ${millions(value)} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
+      `${parts} = ${millions(value)} ${currency}${resolved.absent.length > 0 ? `; absent and excluded: ${resolved.absent.join(", ")}` : ""}` +
+      `${floorNotes.length > 0 ? `; ${floorNotes.join("; ")}` : ""}; vendor value retained in the raw row`,
     attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };
 }
 
@@ -893,6 +863,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
   const gaps: ManifestEntry[] = [];
   // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
   const admissions: BalanceAdmission[] = [];
+  const filedTemporaryEnds = temporaryEquityFiledEnds(facts);
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
@@ -958,7 +929,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {
-          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik);
+          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik, filedTemporaryEnds);
           out = temporary.row;
           gaps.push(...temporary.gaps);
         }

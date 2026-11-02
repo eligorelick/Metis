@@ -27,7 +27,9 @@ export async function compileStageBReplay(root, buildId) {
       },
     }],
   });
-  const permittedProviders = new Set(["src/providers/fmp.ts", "src/providers/currentReports.ts"]);
+  // splitEvents.ts imports nothing: its split-evidence constructors are pure (FIN-401 reads
+  // `unavailableSplitEvidence` for the investment chain), so bundling them adds no I/O.
+  const permittedProviders = new Set(["src/providers/fmp.ts", "src/providers/currentReports.ts", "src/providers/splitEvents.ts"]);
   for (const output of Object.values(built.metafile.outputs)) {
     if (output.imports.some(dependency => dependency.path !== "node:crypto")) throw new Error("Non-offline replay dependency in emitted runtime graph");
     for (const [rawPath, contribution] of Object.entries(output.inputs)) {

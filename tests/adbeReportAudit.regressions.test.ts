@@ -122,9 +122,10 @@ describe("independent first-report audit reproductions", () => {
   });
   it("keeps MD&A remaining authority separately sourced from an earnings release's returned cash in the payload",()=>{
     const b=auditBundle();
+    // AI-506/OD-10: a release that states no earnings amount is an operating update.
     const release=buildEarningsReleaseRecord({filing:{accessionNumber:"0000796343-26-000155",filingDate:"2026-09-10",acceptanceDateTime:undefined},
       releaseUrl:"https://www.sec.gov/Archives/edgar/data/796343/000079634326000155/ex99.htm",commentaryUrl:null,commentaryText:null,includeNarrative:true,
-      releaseText:"Adobe Reports Third Quarter Fiscal 2026 Results. During the third quarter of fiscal 2026, Adobe returned US$1.0 billion to stockholders."});
+      releaseText:"Net income was $10.0 million, or $0.10 per diluted share. Adobe Reports Third Quarter Fiscal 2026 Results. During the third quarter of fiscal 2026, Adobe returned US$1.0 billion to stockholders."});
     b.edgar.currentReports={ok:true,value:{source:"edgar",endpoint:"fixture",asOf:"2026-09-10",fetchedAt:b.builtAt,data:{version:CURRENT_REPORTS_VERSION,releases:[release],events:[],notes:[]}}};
     const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
     const figures=payload.issuerFilings?.figures ?? [];

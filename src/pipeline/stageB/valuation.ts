@@ -17,6 +17,7 @@
  * Methodology source: the valuation methodology (Damodaran-standard).
  */
 
+import { convertibleVariants, convertibleReadingGaps, foldConvertiblePreferred, type ConvertibleInstrument, type ConvertibleReading } from "@/pipeline/stageB/convertibles";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
@@ -816,6 +817,8 @@ export interface DcfRevenueTrend {
 }
 
 export interface DcfAssumptionInputs {
+  /** FIN-401 / OD-5: the stake and its income must be on the same side of the DCF. */
+  equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined" | null; incomeExcludedFromEbit?: boolean; basis: string } | null;
   /**
    * FIN-303 (D-25): the lease-inclusive switch (`METIS_EV_INCLUDE_LEASES`, from `runStageB`'s `evIncludeLeases`).
    * Absent is false, the default: sales-to-capital and its A-2 history remove the proven operating-lease slice
@@ -2197,10 +2200,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const regimeText = regime === null
     ? "no 5y margin history for a fade target"
     : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
-  const marginBasis = cappedTarget === m0
+  let marginBasis = cappedTarget === m0
     ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
     : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
       `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
+  if (inputs.equityMethodStake?.incomePlacement === "in-operating-income") marginBasis += `; ${inputs.equityMethodStake.basis}`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
       `EBIT margin path leaves [${MARGIN_WARN_BAND_PP[0]}%, ${MARGIN_WARN_BAND_PP[1]}%] — unusual outside software; review (house-rule warning)`,
@@ -2356,7 +2360,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // removing them would leave no operating capital (FIN-304), the operating
   // ratio is unbounded and takes the house cap, and the bridge still adds the
   // holding back. (Capital emptied by the lease removal is `emptiedHistory`'s.)
-  const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
+  const filedLti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : 0;
+  const operatingStake = inputs.equityMethodStake?.treatment === "operating" ? Math.min(filedLti, Math.max(0, inputs.equityMethodStake.value)) : 0;
+  const lti = filedLti - operatingStake > 0 ? filedLti - operatingStake : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const holdingExceedsCapital = emptiedHistory === null && lti !== null && operatingIc === null;
   const exceedsBasis = holdingExceedsCapital
@@ -2393,6 +2399,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
     `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
   else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
+  if (operatingStake > 0) s2cBasis += ` The equity-method stake ${millions(operatingStake)} stays in operating capital: its income is inside EBIT but unmeasured (FIN-401).`;
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);
@@ -2535,7 +2542,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
-    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date, ...(exceedsBasis !== null ? { basis: exceedsHoldingClause } : emptiedHistory !== null ? { basis: emptiedHoldingClause } : {}) } } : {}),
+    ...(lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date,
+      ...(operatingStake > 0 || exceedsBasis !== null || emptiedHistory !== null ? { basis: [
+        ...(operatingStake > 0 ? [`only the remaining non-operating investments ${millions(lti)} are removed; the equity-method stake ${millions(operatingStake)} stays in operating capital`] : []),
+        ...(exceedsBasis !== null ? [exceedsHoldingClause] : emptiedHistory !== null ? [emptiedHoldingClause] : []),
+      ].join("; ") } : {}) } } : {}),
     investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
@@ -2659,6 +2670,7 @@ export function forecastYearPeriod(anchorEndDate: string, t: number, basis: DcfF
 
 /** The EV→equity→per-share bridge a DCF result was computed with. */
 export interface DcfBridge {
+  convertibles?: ConvertibleReading[];
   netDebt: number | null;
   dilutedShares: number | null;
   minorityInterest: number | null;
@@ -5124,6 +5136,12 @@ export function multiplesFramework(
 // ---------------------------------------------------------------------------
 
 export interface ExcessReturnInputs {
+  valuationDate?: string | null;
+  convertibles?: ConvertibleInstrument[];
+  totalDebt?: number | null;
+  convertiblePreferredClaim?: number | null;
+  permanentPreferred?: number | null;
+  preferredSeriesDistinct?: boolean;
   /** BV0: equity on the same ownership/asset basis as currentRoePct. */
   bookValue: number | null;
   /** Production financial routes value only the equity belonging to common holders. */
@@ -5151,6 +5169,10 @@ export interface ExcessReturnInputs {
     basis: "fiscal-year-rote" | "fiscal-year-common-roe";
     asOf: string | null;
     bookValue: number;
+    /** F4: preferred claims on this book's date; absent means no dated claim. */
+    convertiblePreferredClaim?: number | null;
+    permanentPreferred?: number | null;
+    preferredSeriesDistinct?: boolean;
   } | null;
   /**
    * Optional caller override of the TERMINAL ROE (percent). Without an override,
@@ -5275,6 +5297,8 @@ export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
+  valuationDate?: { value: string; elapsedYears: number; basis: string };
+  convertibles?: ConvertibleReading[];
   equityValue: number | null;
   perShare: number | null;
   /** equityValue / BV0 — sanity anchor vs (ROE - g)/(CoE - g). */
@@ -5509,9 +5533,29 @@ function priceToTangibleBookVsRote(
   };
 }
 
+/** FIN-309: rates and book dates belong to each value; only the headline tests the age limit. */
+function growthFactor(fromDay: string | null, toDay: string | null, ratePct: number): number {
+  const days = fromDay && toDay ? daysBetween(fromDay, toDay) : null;
+  return days !== null && days > 0 ? Math.pow(1 + ratePct / 100, days / DAYS_PER_YEAR) : 1;
+}
+function rollForwardFactor(fromDay: string | null, toDay: string | null, ratePct: number): { factor: number; days: number } | null {
+  const days = fromDay && toDay ? daysBetween(fromDay, toDay) : null;
+  return days !== null && days > 0 && days <= MAX_ROLL_FORWARD_DAYS ? { factor: growthFactor(fromDay, toDay, ratePct), days } : null;
+}
+
 export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  const preferredFold = foldConvertiblePreferred(inputs.permanentPreferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
+  const additionalPreferred = Math.max(0, (preferredFold.preferred ?? 0) - (inputs.permanentPreferred ?? 0));
+  if (preferredFold.gap) gaps.push(preferredFold.gap);
+  const alternative = inputs.startAlternative;
+  const alternativeFold = foldConvertiblePreferred(alternative?.permanentPreferred ?? null,
+    alternative?.convertiblePreferredClaim, alternative?.preferredSeriesDistinct);
+  const additionalAlternativePreferred = Math.max(0, (alternativeFold.preferred ?? 0) - (alternative?.permanentPreferred ?? 0));
+  inputs = { ...inputs,
+    bookValue: inputs.bookValue == null ? null : inputs.bookValue - additionalPreferred,
+    startAlternative: alternative ? { ...alternative, bookValue: alternative.bookValue - additionalAlternativePreferred } : alternative };
   const years = inputs.years ?? EXCESS_RETURN_YEARS;
   const reverseNotes: string[] = [];
   // WS5: the horizon, the discount rate and the opening book value are printed
@@ -5582,7 +5626,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const coe = inputs.costOfEquityPct;
 
-  const bv0 = posOrNull(inputs.bookValue);
+  let bv0 = posOrNull(inputs.bookValue);
   if (bv0 === null) {
     gaps.push(
       gapEntry("valuation.excessReturn.bookValue", "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
@@ -5721,8 +5765,41 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     `fades linearly from ${fmtNum(payout)}% in year 1 to ${fmtNum(steadyPayout)}% in year ${years}, the steady state ` +
     `1 − g / terminal ROE = 1 − ${fmtNum(continuingG)}% / ${fmtNum(endRoe)}% at which book grows at g (clamped to 0-100%)`;
 
-  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
-  const shares = posOrNull(inputs.dilutedShares);
+  const roll = rollForwardFactor(inputs.asOf ?? null, inputs.valuationDate ?? null, coe);
+  let valuationDate: ExcessReturnResult["valuationDate"];
+  if (roll !== null) {
+    const basis = `Excess-return value rolled forward ${roll.days} days to the quote date ${inputs.valuationDate} from opening book ${inputs.asOf} at the cost of equity ${fmtNum(coe)}% (factor ${roll.factor.toFixed(6)}), gross of distributions; interim dividends and buybacks are not deducted (house convention, D-65).`;
+    valuationDate = { value: inputs.valuationDate!, elapsedYears: roll.days / DAYS_PER_YEAR, basis };
+    notes.push(`Valuation date: ${basis}`);
+  } else {
+    const elapsed = inputs.asOf && inputs.valuationDate ? daysBetween(inputs.asOf, inputs.valuationDate) : null;
+    if (elapsed !== null && elapsed > MAX_ROLL_FORWARD_DAYS) {
+      const reason = `Quote ${inputs.valuationDate} is ${elapsed} days after opening book ${inputs.asOf}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day limit; value not rolled forward, stated at the book date.`;
+      gaps.push(gapEntry("valuation.excessReturn.valuationDate", reason, "info")); notes.push(`Valuation date: ${reason}`);
+    }
+  }
+  let valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
+  let shares = posOrNull(inputs.dilutedShares);
+  let restoredBook = 0;
+  let restoredPreferredBook = 0;
+  let readings: ConvertibleReading[] | undefined;
+  if (inputs.convertibles?.length && shares !== null) {
+    const filedShares = shares;
+    let best = Infinity;
+    for (const variant of convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0, notes: inputs.totalDebt ?? 0 })) {
+      const d = filedShares - variant.sharesRemoved;
+      const c = variant.restored.notes + variant.restored.preferred;
+      // F1: conversion restores opening common book, which earns the model's
+      // residual returns. A face-value add-back after valuation is inconsistent.
+      const candidate = excessReturnValue(bv0 + c, roePath, coe, payoutPath, continuing);
+      const value = candidate.equityValue / d;
+      if (d > 0 && value < best) { best = value; shares = d; restoredBook = c; restoredPreferredBook = variant.restored.preferred; readings = variant.readings; valued = candidate; }
+    }
+    bv0 += restoredBook;
+    const entries = convertibleReadingGaps(readings ?? [], filedShares);
+    gaps.push(...entries); notes.push(...entries.map(e => e.reason));
+  }
+  const { equityValue, bookValuePath, continuingValuePv } = valued;
   // FIN-506: the reverse solve must invert the exact admitted forward divisor.
   const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
   const perShare = perShareOf(equityValue);
@@ -5732,9 +5809,14 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   // C-10: the fiscal-year start, valued with the same fade target, carry and
   // payout from its own book value, so the reader sees what the start choice is worth.
   let startAlternative: ExcessReturnStartAlternative | undefined;
-  const alt = inputs.startAlternative;
+  // F4: the selected conversion fraction restores only preferred present at the alternative date.
+  const preferredConversionFraction = (inputs.convertiblePreferredClaim ?? 0) > 0
+    ? restoredPreferredBook / inputs.convertiblePreferredClaim! : 0;
+  const alternativeRestoredBook = restoredBook - restoredPreferredBook +
+    preferredConversionFraction * Math.min(alternativeFold.preferred ?? 0, alternative?.convertiblePreferredClaim ?? 0);
+  const alt = inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue + alternativeRestoredBook } : null;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue;
+    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
@@ -5743,7 +5825,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       startRoePct: alt.roePct,
       bookValue: alt.bookValue,
       equityValue: altValue,
-      perShare: shares !== null ? altValue / shares : null,
+      perShare: shares !== null && !(roll && alt.asOf === null) ? altValue / shares : null,
       differencePp,
       besideHeadline: Math.abs(differencePp) > EXCESS_RETURN_START_GAP_PP,
       label: altLabel,
@@ -5768,6 +5850,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart)}% (headline)`, startReturnPct: roeStart, bookValue: bv0 },
       { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart + step)}% (headline +${step}pp)`, startReturnPct: roeStart + step, bookValue: bv0 },
     ];
+    const alternativeRow = startAlternative === undefined ? -1 : startAlternative.startRoePct < roeStart ? 0 : 2;
     if (startAlternative !== undefined) {
       rows[startAlternative.startRoePct < roeStart ? 0 : 2] = {
         label: `${startAlternative.label} (fiscal-year book value)`,
@@ -5779,14 +5862,17 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     const costOfEquityPcts = [coe - EXCESS_RETURN_GRID_COE_STEP_PP, coe, coe + EXCESS_RETURN_GRID_COE_STEP_PP];
     // Floored at 0 like the published headline (limited liability).
     const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
-    const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
+    const perShareGrid = rows.map((row, rowIndex) => costOfEquityPcts.map((c) => {
+      const rowDate = rowIndex === alternativeRow ? startAlternative!.asOf : inputs.asOf ?? null;
+      if (roll && rowDate === null) return null;
+      const factor = roll ? growthFactor(rowDate, inputs.valuationDate ?? null, c) : 1;
       if (c === coe) {
-        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue / shares);
+        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue) * factor / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue / shares);
+      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue) * factor / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5801,6 +5887,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
             : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
         `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
         "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
+        ...(roll ? [`cells are stated at the quote date ${inputs.valuationDate}, each rolled from its row's opening book at its column's cost of equity`] : []),
       ],
     };
   }
@@ -5838,7 +5925,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const mcap = posOrNull(inputs.marketCap);
   const price = posOrNull(inputs.price);
   const usePrice = price !== null && shares !== null;
-  const target = usePrice ? price : mcap;
+  const quoteTarget = usePrice ? price : mcap;
+  const target = quoteTarget === null ? null : quoteTarget / (roll?.factor ?? 1);
   if (target === null) {
     reverseNotes.push("skipped: market cap not provided (price or diluted shares unavailable)");
   } else {
@@ -5895,6 +5983,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       : `${evidenced!.basis}; residual income beyond year ${years} = terminal excess return x BV_N / (CoE - growth), discounted ${years} years; growth capped at ${TERMINAL_G_CAP_PCT}%${rfForG === null ? "; risk-free rate unavailable" : ` and risk-free ${fmtNum(rfForG)}%`}`,
     payoutPathPct: payoutPath, steadyStatePayoutPct: steadyPayout, payoutPathBasis,
   };
+  if (roll) reverseNotes.push(`Quote target discounted to opening book ${inputs.asOf} by the headline roll factor ${roll.factor}; the solve uses the same convertible reading and divisor as the forward value.`);
   const pTbvVsRote = priceToTangibleBookVsRote(inputs, coe, payout);
   pTbvVsRote.basis += ` ${describeFinancialValuation(financialAssumptions)}`;
   if (pTbvVsRote.withheldReason !== null && pTbvVsRote.pTbv === null) {
@@ -5903,8 +5992,10 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     );
   }
   return {
-    equityValue,
-    perShare,
+    equityValue: equityValue * (roll?.factor ?? 1),
+    perShare: perShare === null ? null : perShare * (roll?.factor ?? 1),
+    ...(valuationDate ? { valuationDate } : {}),
+    ...(readings ? { convertibles: readings } : {}),
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
     payoutRatioPct: { value: payout, basis: `${payoutBasis}; the year-1 payout, which fades linearly to the steady-state ${fmtNum(steadyPayout)}% by year ${years} (1 − g / terminal ROE)` },
@@ -6118,6 +6209,9 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
 // ---------------------------------------------------------------------------
 
 export interface ValuationBundleInputs {
+  convertibles?: ConvertibleInstrument[];
+  convertiblePreferredClaim?: number | null;
+  preferredSeriesDistinct?: boolean;
   currentPrice: number | null;
   waccPct: number | null;
   /** Why `waccPct` is null (the WACC's own gap), quoted by the DCF gap (VAL-10). */
@@ -6335,6 +6429,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     } };
   }
 
+  // FIN-302 C2: deduct each filed preferred series once before offering conversion readings.
+  const foldedPreferred = foldConvertiblePreferred(inputs.preferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
+  inputs = { ...inputs, preferred: foldedPreferred.preferred };
+  if (foldedPreferred.gap) gaps.push(foldedPreferred.gap);
   // FIN-119 (OD-1): redeemable preferred and redeemable NCI are claims senior to
   // common, carried outside every equity field the bridge reads. Fold them into
   // `preferred` and `minorityInterest` here, before the E-5 block, so the
@@ -6821,11 +6919,20 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             .replace(LONG_TERM_INVESTMENTS_REMOVED_CLAUSE, lti.basis ?? LONG_TERM_INVESTMENTS_REMOVED_CLAUSE) });
       }
       for (const c of components) {
+        const placement = c.kind === "long-term-investments" ? dcfIn.equityMethodStake : null;
         notes.push(
           `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
-            "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
+            (placement?.incomePlacement === "in-operating-income" && placement.treatment === "added-back" && (placement.incomeExcludedFromEbit ?? placement.value > 0)
+              ? `They are not cash: ${placement.basis}; no marketability discount or fair-value estimate is applied.`
+              : placement?.treatment === "operating"
+                ? `The equity-method portion ${millions(placement.value)} stays in operating capital; this line adds only the remaining non-operating investments, with no marketability discount or fair-value estimate.`
+                : placement?.incomePlacement == null || placement.incomePlacement === "below-operating-income" || c.kind !== "long-term-investments"
+                  ? "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+                  : "They are not cash: their gains and losses are assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined, so the existing add-back is retained, with no marketability discount or fair-value estimate." +
+                    (placement?.incomePlacement === "in-operating-income" && placement.value <= 0 ? ` ${placement.basis}.` : "")),
         );
       }
+      if (dcfIn.equityMethodStake?.treatment === "operating") notes.push(`DCF equity-method treatment: ${dcfIn.equityMethodStake.basis}.`);
       // AMZN audit 2026-10-20: a stake reaches shareholders by being sold, and
       // the gain is taxed. The basis of each holding is not in the statements,
       // so the whole carrying value is taxed at the marginal rate: an upper
@@ -6926,7 +7033,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       }
       if (temporaryEquityNote !== null) notes.push(temporaryEquityNote);
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
-      const runOpts: DcfRunOptions = {
+      let runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
         netDebt: netDebtForBridge,
         dilutedShares: inputs.dilutedShares,
@@ -6937,6 +7044,27 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      if (inputs.convertibles?.length && dcf.perShare !== null) {
+        const original = runOpts;
+        const variants = convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0,
+          notes: Math.max(0, inputs.bridgeBalance?.totalDebt ?? inputs.multiples.balance?.totalDebt ?? 0) });
+        let best: DcfResult | null = null;
+        for (const variant of variants) {
+          const shares = original.dilutedShares === null ? null : original.dilutedShares - variant.sharesRemoved;
+          if (shares === null || shares <= 0) continue;
+          const candidateOpts = { ...original, dilutedShares: shares,
+            netDebt: original.netDebt === null ? null : original.netDebt - variant.restored.notes,
+            preferred: (original.preferred ?? 0) - variant.restored.preferred };
+          const candidate = runDcf(assumptions, candidateOpts);
+          if (candidate.perShare !== null && (best === null || candidate.perShare < best.perShare!)) {
+            best = candidate; runOpts = candidateOpts; candidate.bridge.convertibles = variant.readings;
+          }
+        }
+        if (best !== null) dcf = best;
+        const entries = convertibleReadingGaps(dcf.bridge.convertibles ?? [], original.dilutedShares);
+        gaps.push(...entries); notes.push(...entries.map(e => e.reason));
+      }
+
       // Audit 2026-10-22 B-29: a DCF outside its domain publishes nothing
       // built from its per-share. The bridge and year rows stay, so a reader
       // sees why; the critical gap names the failed test.
@@ -7020,9 +7148,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // divides by basic shares outstanding at the quote date.
       const quotePrice = inputs.multiples.quote.price;
       const quoteCap = inputs.multiples.quote.marketCap;
-      if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
+      if (isNum(dcf.bridge.dilutedShares) && dcf.bridge.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
         const implied = quoteCap / quotePrice;
-        const diff = (inputs.dilutedShares / implied - 1) * 100;
+        const diff = (dcf.bridge.dilutedShares / implied - 1) * 100;
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
@@ -7031,10 +7159,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
           const basicOnly = divisor?.basis === "loss-period-basic";
           const head = substituted !== null
-            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
+            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(dcf.bridge.dilutedShares)}`
             : basicOnly
-              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
-              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`;
+              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(dcf.bridge.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
+              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
           const tail = basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."

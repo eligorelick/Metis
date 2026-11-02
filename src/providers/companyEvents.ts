@@ -55,7 +55,8 @@ function sourceBoundToIssuer(evidence: CompanyAnnouncementEvidence, url: URL, is
 const LOCATION_DATELINE_PREFIX = /^(?:SEATTLE|REDMOND|NEW YORK|SAN FRANCISCO|BOSTON|CHICAGO|LONDON|DUBLIN)\s*(?:--|[–—])\s*/i;
 function announcementBody(sentence: string, publishedAt: string): string {
   const dated = new RegExp(`^(?:SEATTLE|REDMOND|NEW YORK|SAN FRANCISCO|BOSTON|CHICAGO|LONDON|DUBLIN),\\s*(${DATE_RE.source})\\s*(?:--|[–—])\\s*`, "i").exec(sentence.trimStart());
-  if (dated && Number.isFinite(Date.parse(dated[1]!)) && new Date(dated[1]!).toISOString().slice(0, 10) === publishedAt.slice(0, 10)) return sentence.trimStart().slice(dated[0].length);
+  const day=dated ? `${dated[4]}-${String(MONTHS.indexOf(dated[2]!.toLowerCase())+1).padStart(2,"0")}-${dated[3]!.padStart(2,"0")}` : null;
+  if (dated && day && validDay(day) && day === publishedAt.slice(0,10)) return sentence.trimStart().slice(dated[0].length);
   return sentence.trimStart().replace(LOCATION_DATELINE_PREFIX, "");
 }
 function eventSubject(sentence: string, evidence: CompanyAnnouncementEvidence, issuer: ConfirmedIssuerIdentity): { alias: string | null; method: "named-subject" | "issuer-document" } | null {
