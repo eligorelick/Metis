@@ -1681,3 +1681,41 @@ it.each(["edgar:10-K item1", "fmp:earning-call-transcript"])("AI-103 judge admit
  const result = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
  expect(result.ok).toBe(true);
 });
+
+it("AI-103 replays real stored #38 claims through the offline judge entity path", async () => {
+ const fixture = JSON.parse(readFileSync("tests/fixtures/p3-stored38-issuer-claims.json", "utf8")) as { claims: { path: string; claim: { text: string; label: "FACT" | "JUDGMENT"; source: string; asOf: string } }[] };
+ expect(fixture.claims.length).toBeGreaterThan(10);
+ // Historical payload is unavailable: reconstruct only membership for the two
+ // sources recorded by #38. Claim text/source spelling is retained verbatim.
+ for (const { claim } of fixture.claims) {
+  const { payload } = buildInputs();
+  payload.symbol = "LLY";
+  payload.transcript = { source: "fmp:earning-call-transcript", title: "Recorded transcript membership", text: "", asOf: "2026-04-30", truncated: false, originalChars: 0 };
+  payload.citationRegistry = [...(payload.citationRegistry ?? []), { id: "fmp:press-release", kind: "payload-text", asOf: "2026-07-16", origin: "fmp:press-release" }];
+  const output = fakeJudgeOutput();
+  output.fundamentals.commentary = [claim];
+  const mock = new MockRunPass(); mock.onJson("llm.judge", output);
+  const result = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+  const error = result.ok ? "" : result.validationError ?? result.gap.reason;
+  expect(error, claim.text).not.toContain("primary-source-required");
+  // The curated registry does not enumerate the legacy misspellings;
+  // admission here checks source membership, not spelling completeness.
+  if (/ACHIEVE-related retatrutide/.test(claim.text)) {
+   expect(result.ok).toBe(false);
+   expect(error).toContain("relationship-conflict");
+  } else {
+   expect(result.ok, claim.text).toBe(true);
+  }
+ }
+ // Removing membership from the actual acquisition claim still refuses it.
+ const acquisition = fixture.claims.find(row => row.path === ".balanceSheet.capitalAllocation[1]")!.claim;
+ const { payload } = buildInputs();
+ payload.symbol = "LLY";
+ payload.transcript = null;
+ payload.citationRegistry = [];
+ const output = fakeJudgeOutput(); output.fundamentals.commentary = [acquisition];
+ const mock = new MockRunPass(); mock.onJson("llm.judge", output);
+ const refused = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+ expect(refused.ok).toBe(false);
+ if (!refused.ok) expect(refused.validationError).toContain("primary-source-required");
+});

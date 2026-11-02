@@ -1,0 +1,133 @@
+{
+  "source": "Downloads/Thesis-AI-equity-research/tmp/audit-2026-10-27/data/reports/38.json",
+  "sha256": "6ae810c694e5b42c25605edba6ae73904e5f84dafa1664082f79802c779013c9",
+  "reportId": 38,
+  "claims": [
+    {
+      "path": ".verdict.gradeStrip.moat.reasoning[1]",
+      "claim": {
+        "text": "Q1 2026 immunology, oncology, and neuroscience revenue grew 160% YoY, reducing reliance on a single franchise.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".business.concentrationRisks[0]",
+      "claim": {
+        "text": "Cardiometabolic products (Mounjaro/Zepbound/tirzepatide franchise) represent the dominant driver of recent revenue growth, per both bull and bear cases' emphasis on the $12.8B combined Q1 2026 revenue figure from the earnings call.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".balanceSheet.capitalAllocation[1]",
+      "claim": {
+        "text": "Four 2026 clinical-stage acquisitions (Orna, Syntessa, Colonia, Ajax) plus the AtaiBeckley deal announced July 2026 add integration and execution risk on top of rising leverage.",
+        "label": "FACT",
+        "source": "fmp:press-release \u00b7 2026-07-16",
+        "asOf": "2026-07-16"
+      }
+    },
+    {
+      "path": ".leadership.executives[0].reasoning[1]",
+      "claim": {
+        "text": "On the Q1 2026 earnings call, management raised FY2026 revenue guidance by $2B and EPS guidance by $2/share, citing 'strong underlying performance' \u2014 a directionally positive but single-quarter data point that cannot establish a multi-year guidance track record from this payload alone.",
+        "label": "JUDGMENT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".leadership.executives[0].evidence.guidanceVsActuals[0]",
+      "claim": {
+        "text": "The payload provides no historical guidance-vs-actuals record; only the Q1 2026 call shows an in-quarter guidance raise, which is a positive but thin data point.",
+        "label": "JUDGMENT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".leadership.executives[0].evidence.capitalAllocation[0]",
+      "claim": {
+        "text": "Q1 2026 buybacks of $2.36B and continued dividend distribution ($1.5B in Q1 per transcript) alongside four clinical-stage acquisitions reflect an active, diversified capital-allocation program under Ricks' leadership.",
+        "label": "FACT",
+        "source": "payload.statements.cash-flow-quarterly.2026-03-31.buybacks-negative \u00b7 2026-03-31; [fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-03-31"
+      }
+    },
+    {
+      "path": ".competitive.moatAssessment[0].reasoning[0]",
+      "claim": {
+        "text": "Lilly's manufacturing capacity investments and its dominant GLP-1 franchise position provide meaningful cost and supply advantages versus smaller peers, though this reflects industry commentary rather than a payload-sourced figure.",
+        "label": "JUDGMENT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".competitive.moatAssessment[1].reasoning[0]",
+      "claim": {
+        "text": "Patent protection on core GLP-1 assets and an active Phase III pipeline (42 programs per the Q1 2026 call) support near-term IP-driven differentiation, but the payload provides no patent-expiry dates to assess durability with precision.",
+        "label": "JUDGMENT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".catalystsRisks.catalysts[0].reasoning",
+      "claim": {
+        "text": "Management indicated on the Q1 2026 call that ACHIEVE-related retatrutide data completes the registration package, with a T2D submission planned 'later this quarter.'",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".catalystsRisks.catalysts[1].reasoning",
+      "claim": {
+        "text": "Management stated plans to submit Koundeo in the U.S. for type 2 diabetes 'later this quarter,' with regulatory action anticipated before year-end.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".catalystsRisks.catalysts[2].reasoning",
+      "claim": {
+        "text": "The program caps patient out-of-pocket costs at $50/month, expanding access but also structurally capping realized pricing in the largest growth segment.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".catalystsRisks.risks[2].reasoning",
+      "claim": {
+        "text": "Net debt increased to $38.2B in Q1 2026 while the company simultaneously funded buybacks and four clinical-stage acquisitions plus the AtaiBeckley deal, layering execution risk on top of rising leverage.",
+        "label": "FACT",
+        "source": "payload.statements.balance-sheet-quarterly.2026-03-31.net-debt \u00b7 2026-03-31; fmp:press-release \u00b7 2026-07-16",
+        "asOf": "2026-03-31"
+      }
+    },
+    {
+      "path": ".outlook.segmentTrajectories[0]",
+      "claim": {
+        "text": "Cardiometabolic products (Mounjaro, Zepbound/tirzepatide) remain the primary growth driver per Q1 2026 commentary, with immunology, oncology, and neuroscience segments now growing 160% YoY collectively \u2014 a diversification trend still in its early stages.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    },
+    {
+      "path": ".outlook.guidanceCredibility[0]",
+      "claim": {
+        "text": "Management raised FY2026 revenue guidance to $82-85B and non-GAAP EPS guidance to $35.50-$37.00 on the Q1 2026 call, an in-quarter upward revision; the payload contains no multi-year guidance-vs-actual comparison to assess longer-run credibility.",
+        "label": "FACT",
+        "source": "[fmp:earning-call-transcript \u00b7 2026-04-30]",
+        "asOf": "2026-04-30"
+      }
+    }
+  ]
+}
