@@ -694,6 +694,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
   const [acceptedStatus, setAcceptedStatus] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
 
   const sawLiveRef = useRef(new Set<string>());
   const refreshedJobsRef = useRef(new Set<string>());
@@ -722,16 +723,17 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
       closeCurrentStream();
       const es = new EventSource(`/api/report/${jobId}/stream`);
       esRef.current = es;
+      let fallbackRequested = false;
       streamFenceRef.current.activate(es, jobId, symbol);
 
       es.addEventListener("open", () => {
         if (esRef.current !== es) return;
         reopenAttemptRef.current = 0;
         setReconnecting(false);
+        setConnectionLost(false);
       });
-      es.addEventListener("snapshot", (ev) => {
+      const applySnapshot = (raw: unknown) => {
         try {
-          const raw = JSON.parse((ev as MessageEvent).data) as unknown;
           const decoded = decodeSnapshot(raw);
           if (decoded === null || decoded.revision < (observedRevisionsRef.current.get(jobId) ?? -1)) return;
           const snap = streamFenceRef.current.accept(es, raw);
@@ -788,15 +790,34 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
         } catch {
           /* ignore malformed frame */
         }
+      };
+      es.addEventListener("snapshot", (ev) => {
+        try { applySnapshot(JSON.parse((ev as MessageEvent).data)); } catch { /* malformed frame */ }
       });
       es.addEventListener("error", () => {
         // Transport hiccups are nonterminal; EventSource auto-reconnects and
         // the next validated snapshot catches up by canonical revision.
-        if (esRef.current !== es) return;
+        if (esRef.current !== es || fallbackRequested) return;
         setReconnecting(true);
         if (es.readyState === 2 && reopenTimerRef.current === null) {
           const delays = [1000, 2000, 5000, 10000, 30000];
-          const delay = delays[Math.min(reopenAttemptRef.current++, delays.length - 1)]!;
+          if (reopenAttemptRef.current >= delays.length) {
+            fallbackRequested = true;
+            es.close();
+            setReconnecting(false);
+            setConnectionLost(true);
+            void (async () => {
+              try {
+                const response = await fetch(`/api/report/${jobId}`, { method: "GET" });
+                if (!response.ok) return;
+                const raw: unknown = await response.json();
+                if (esRef.current === es) applySnapshot(raw);
+              } catch { /* Keep the last validated state and lost-connection message. */ }
+              finally { if (esRef.current === es) closeCurrentStream(); }
+            })();
+            return;
+          }
+          const delay = delays[reopenAttemptRef.current++]!;
           reopenTimerRef.current = setTimeout(() => {
             reopenTimerRef.current = null;
             if (esRef.current === es) openJobStream(jobId);
@@ -828,6 +849,8 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
     setAcceptedStatus(null);
     setObservedAt(null);
     setReconnecting(false);
+    setConnectionLost(false);
+    reopenAttemptRef.current = 0;
     setSteps(PIPELINE_STEPS.map((step) => ({ step, status: "pending" as const })));
 
     try {
@@ -904,6 +927,8 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
     setAcceptedStatus(null);
     setObservedAt(null);
     setReconnecting(false);
+    setConnectionLost(false);
+    reopenAttemptRef.current = 0;
     try {
       const res = await fetch(`/api/report/${jobId}/retry`, { method: "POST" });
       if (!requestFenceRef.current.accepts(requestToken)) return;
@@ -964,6 +989,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
         </button>
       </div>
 
+      {connectionLost && <p role="status" className="text-[12px] text-warn">Live connection lost. Reload the page to reconnect; the run may still be active.</p>}
       <RunDisclosure dossier={dossier} phase={phase} totalCost={totalCost} reportId={summary?.reportId ?? null}>
       {phase !== "idle" ? (
         <Panel

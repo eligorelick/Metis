@@ -81,6 +81,26 @@ describe("saved-page attachment to an authoritative active run", () => {
     expect(Stream.opened).toHaveLength(count + 1);
     expect(fetcher).not.toHaveBeenCalled();
   });
+  it.each(["classic", "dossier"] as const)("P4-7 stops CLOSED reconnects and GETs once (%s)", async (layout) => {
+    vi.useFakeTimers();
+    fetcher.mockResolvedValue(new Response(JSON.stringify(snapshot({ revision: 8, status: "error", error: "stopped", resumable: true }))));
+    await render("DEMO", "job-A", false, layout);
+    const initialCount = Stream.opened.length;
+    for (const delay of [1000, 2000, 5000, 10000, 30000]) {
+      const stream = Stream.opened.at(-1)!; stream.readyState = 2;
+      await act(async () => stream.emit("error"));
+      await act(async () => vi.advanceTimersByTimeAsync(delay));
+    }
+    const last = Stream.opened.at(-1)!; last.readyState = 2;
+    await act(async () => { last.emit("error"); last.emit("error"); await Promise.resolve(); });
+    await act(async () => vi.advanceTimersByTimeAsync(120000));
+    expect(Stream.opened).toHaveLength(initialCount + 5);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledWith("/api/report/job-A", { method: "GET" });
+    expect(container.textContent).toMatch(/live connection lost/i);
+    expect(container.textContent).toContain("stopped");
+    expect(container.textContent).toMatch(/Retry/i);
+  });
   it("JOB-213 accepts a snapshot under the other share-class spelling", async () => {
     await render("BRK-B");
     await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({
