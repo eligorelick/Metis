@@ -18,7 +18,7 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 | FIN-302-V1 | Fixed | Same family commit | Same receipts | Same note for excess-return values |
 | FIN-302-V2 | Fixed | EPS commit (handoff) | `fin302v2-red-confirmed` / `fin302v2-green` | Earlier figures stay; conditional convertible note applies |
 | FIN-407 | Fixed | Multi-class EPS commit (handoff) | `fin407-red`, `fin407-stored-red` / `fin407-green-final` | Explain old admission sentence; saved EPS unchanged |
-| VAL-14 | Not started | None | None | No new fair-value financial-asset admission |
+| VAL-14 | Blocked at OD-9 Step 0 | Admission-gate evidence commit (handoff) | `val14-census`, `val14-existing-controls` | No change to stored or new figures |
 | FIN-309 | Not started | None | None | Task 11 has not landed; book-date treatment remains |
 
 The first red run includes the existing six B4a invariants passing. The confirmed
@@ -284,3 +284,90 @@ valuation unavailable, composite 63.67/C. EXPE stays 271.56684754798755/share,
 EPS withheld for ownership, valuation 50.47, composite 65.85/C. The benefit is
 the synthetic admitted-class pair; neither refused census issuer gains EPS.
 `fin407-typecheck` passes. Shared versions and goldens remain unchanged.
+
+## VAL-14: OD-9 admission gate blocked before Step 1
+
+The finding is the reviewed plan's pre-flight AMZN #52 claim-audit addendum;
+`VAL-14` is absent from the supplied original findings JSON and all supplied
+G* triage JSONs. The binding OD-9 and Task 25 therefore supply its trigger.
+`tmp/claude-impl/val14-census.py` reads all 45 snapshots in place, with core-form,
+exact-date and acquisition cutoffs. `val14-census.tsv` and its result receipt
+retain the complete fields (cash, current investments, marketable/current debt,
+LTI, equity-method and AFS totals/components). No raw snapshot was copied.
+
+AMZN has 97.9B on `AvailableForSaleSecuritiesDebtSecurities`, no current or
+noncurrent AFS split, 78.213B cash, 44.775B current marketable securities and
+284.132B other noncurrent assets. The latter total is not proof the 97.9B sits
+outside cash/current investments. Maturity bands describe contractual maturity,
+not balance-sheet placement. No company name or trusted filing-note placement
+is a substitute for a class-wide structured evidence rule. The naive full-total
+rule would also admit 46.9B NVDA, 71.084B MSFT, 99.5B GOOGL, 50.285B UNH and
+92.413B PGR. NVDA already has 34.143B on `DebtSecuritiesCurrent`; that does not
+make the undivided 46.9B wholly outside cash. The current-date TSLA total is
+absent (the plan's older 41.6B observation is not reused as a fresh fact).
+SNOW has a 1.984482B noncurrent split, which alone still needs reconciliation
+against existing LTI; it does not establish AMZN's placement.
+
+OD-9 says: "If the rule would add ... an amount whose placement the filing does
+not establish, Task 25 stops and reports to the controller before Step 1."
+The gate is triggered. No admission implementation or red test is attempted:
+Step 1 is explicitly downstream of this gate. This is a blocked item, not a
+claim that the omission disappeared. Offline restrictions also prevent fresh
+research/source access; the plan's Damodaran/FASB/S-X citations are unverified
+in this run and are not the basis for a new admission. A safe future repair
+needs structured filed placement and overlap evidence, not a ticker exception.
+
+| Census issuer | Undivided AFS at anchor, B | AFS noncurrent component, B | Candidate disposition |
+|---|---:|---:|---|
+| AAPL | not filed | not filed | no new admission |
+| AMT | not filed | not filed | no new admission |
+| AMZN | 97.9 | not filed | no new admission |
+| BA | 0.542 | not filed | no new admission |
+| BAC | not filed | not filed | no new admission |
+| BRK.B | 17.034 | not filed | no new admission |
+| CAT | 3.956 | not filed | no new admission |
+| CMCSA | not filed | not filed | no new admission |
+| COST | 0.796 | not filed | no new admission |
+| CSCO | not filed | not filed | no new admission |
+| CVX | not filed | not filed | no new admission |
+| DIS | not filed | not filed | no new admission |
+| DUK | 5.418 | not filed | no new admission |
+| EXPE | not filed | not filed | no new admission |
+| FCX | not filed | not filed | no new admission |
+| GOOGL | 99.5 | not filed | no new admission |
+| HD | not filed | not filed | no new admission |
+| INTC | 22.163 | not filed | no new admission |
+| JNJ | 3.456 | not filed | no new admission |
+| JPM | not filed | not filed | no new admission |
+| KO | 2.581 | not filed | no new admission |
+| LLY | not filed | not filed | no new admission |
+| MA | 0.318 | not filed | no new admission |
+| MCD | not filed | not filed | no new admission |
+| META | not filed | not filed | no new admission |
+| MSFT | 71.084 | not filed | no new admission |
+| NEE | not filed | not filed | no new admission |
+| NFLX | 8.226455 | not filed | no new admission |
+| NNN | not filed | not filed | no new admission |
+| NVDA | 46.9 | not filed | no new admission |
+| O | not filed | not filed | no new admission |
+| ORCL | not filed | not filed | no new admission |
+| PEP | not filed | not filed | no new admission |
+| PG | not filed | not filed | no new admission |
+| PGR | 92.413 | not filed | no new admission |
+| PLD | not filed | not filed | no new admission |
+| SNOW | 2.62199 | 1.984482 | no new admission |
+| T | 0.518 | not filed | no new admission |
+| TSLA | not filed | not filed | no new admission |
+| TSM | not filed | not filed | no new admission |
+| UNH | 50.285 | not filed | no new admission |
+| V | 1.393 | not filed | no new admission |
+| VZ | not filed | not filed | no new admission |
+| WMT | not filed | not filed | no new admission |
+| XOM | not filed | not filed | no new admission |
+
+`val14-existing-controls`: 31 tests in four files pass (vendor stakes, D-65,
+equity-method stakes and capital-bridge consumers). No production code, stamp,
+prompt, golden, fair-value-asset label or legacy rule changes. Rebuilt AMZN
+remains 102.97415017927976/share, valuation31.62/F, composite55.48/C; controls
+remain as `fin407-after.json`. Intended delta is exactly zero while blocked,
+not the conditional 97.9B x 79% / 10.903B = about +7.09/share in the plan.

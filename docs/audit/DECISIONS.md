@@ -64,6 +64,14 @@ both the authoritative bridge count and the fallback count; its no-EPS and
 three-other-series assertions remain unchanged. Legacy admission-withholding
 text gains the specified explanation under cutoff 1.56.0; no number changes.
 
+VAL-14 stops at OD-9 Task25 Step0. All 45 retained issuers were measured;
+AMZN's 97.9B undivided AFS fact lacks a filed current/noncurrent placement
+split, and the broad rule also admits ordinary portfolio totals. The existing
+D-98 exclusion stays; no new verified financial-asset claim is asserted. This
+is blocked before Step1, not a completed admission repair. The exact census
+and required future placement/overlap evidence are in the same B4b disposition.
+No external research was fetched under the offline instruction.
+
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier
 choices. In particular, the current registry prefers Opus 5.5 for `auto` and

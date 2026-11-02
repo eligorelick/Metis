@@ -35,6 +35,8 @@ original versions and bytes; source merge does not deploy or publish a release.
   converted-note interest only at an evidenced effective rate.
 - FIN-407: admitted multi-class EPS uses the valuation's quoted-share divisor;
   scope refusals still withhold. Explain older admission-withholding text.
+- VAL-14: record the OD-9 admission gate as blocked. Retained undivided AFS
+  facts do not establish outside-cash placement; no asset or value is added.
 - Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
   scenario-target stamps move with the bridge. No prompt rule text changes.
   Remaining EPS, multi-class, fair-value-asset and book-date items continue in
