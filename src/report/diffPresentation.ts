@@ -21,6 +21,7 @@ export const DIFF_REASON_LABELS: Record<DiffReasonCode, string> = {
   "duplicate-target-identity": "Duplicate scenario-target identity",
   "duplicate-projection-identity": "Duplicate projection identity",
   "projection-period-conflict": "Projection point period conflicts with its series",
+  "score-bands-version-mismatch": "Score band tables differ",
   "unit-mismatch": "Units are not comparable",
   "currency-mismatch": "Currencies are not comparable",
   "period-mismatch": "Periods are not comparable",

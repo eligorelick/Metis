@@ -3115,3 +3115,5 @@ AI-201: retain the core transform and merge relevance; identical stored rows mer
 DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
 
 RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+
+DB-005: Withhold score and grade comparisons when both recorded band tables differ.

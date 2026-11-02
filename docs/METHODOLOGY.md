@@ -6015,3 +6015,5 @@ RPT-207 review: when unique issuer endpoints cannot establish the subject, one p
 Data-only macro tables list each FRED series once, keeping the core transform and merging sector relevance (AI-201). Identical stored rows merge for display only.
 
 The live reverse-DCF growth solve is starting revenue growth that fades to terminal, with the base year-one rate alongside it; it is not the path CAGR (RPT-501).
+
+History withholds score and grade comparisons across score band-table versions: "Score band tables differ". Other families retain their own comparability (DB-005).
