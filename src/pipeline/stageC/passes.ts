@@ -2817,7 +2817,7 @@ function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): 
   }
   if (/\b(?:Q[1-4]\s*)?FY\s*\d{4}\b/i.test(label)) {
     const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel;
-    return fiscal ? periodsAgree(label, record.period ?? "", fiscal) : false;
+    return fiscal ? periodsAgree(label, fiscal, fiscal) : false;
   }
   return null;
 }

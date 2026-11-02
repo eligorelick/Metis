@@ -28,3 +28,11 @@ it("keeps matching period-less as-of decorations", async () => {
 it("retains refusal of a wrong cell period", async () => {
   expect(await cell(base.period!, base, "2026-07-26")).toMatchObject({ reason: "period-mismatch" });
 });
+
+it("AI-408 accepts source-declared context dates/fiscal labels and discloses windows", async () => {
+ const rec = { ...base, period: null, fiscalPeriod: undefined, periodContext: { kind: "duration" as const, start: "2025-07-28", end: "2026-07-26", fiscalLabel: "Q2 FY2027" } };
+ expect(await cell("2026-07-26", rec)).toMatchObject({ outcome: "verified" });
+ expect(await cell("Q2 FY2027", rec)).toMatchObject({ outcome: "verified" });
+ expect(await cell("FY2026", { ...base, period: null, fiscalPeriod: undefined })).toMatchObject({ reason: "period-mismatch" });
+ expect(await cell("2026-06-30", { ...base, period: "ttm: 2025-07-01 to 2026-06-30" })).toMatchObject({ outcome: "verified", note: expect.stringContaining("not period-checked") });
+});

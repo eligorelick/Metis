@@ -5,7 +5,7 @@ All 16 P3 findings are implemented, including the previously approved AI-407. Ea
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 | --- | --- | --- | --- | --- |
 | AI-407 | Fixed | Owning AI-407 commit | AI-407-red / AI-407-final-green; AI-407-empty-red | None: stored reports are never rewritten |
-| AI-408 | Fixed | Owning AI-408 commit | AI-408-red / AI-408-final-green; AI-408-replay | No stored writes; zero replay numeric status deltas |
+| AI-408 | Fixed | Owning AI-408 commit | AI-408-red; AI-408-context-red / AI-408-final-green; AI-408-context-green; AI-408-replay | No stored writes; zero replay numeric status deltas |
 | AI-501 | Fixed | Owning AI-501 commit | AI-501-red / AI-501-green; AI-501-controls; AI-501-replay-final | No stored writes; zero numeric replay status deltas |
 | AI-502 | Fixed | Owning AI-502 commit | AI-502-red / AI-502-green; AI-502-controls; AI-502-replay | No stored writes; zero numeric replay deltas |
 | AI-504 | Fixed | Owning AI-504 commit | AI-504-red / AI-504-green; AI-504-controls; AI-504-replay | No stored writes; zero numeric replay deltas |
