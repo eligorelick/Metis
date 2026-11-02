@@ -6351,3 +6351,5 @@ P2 (FIN-115): Discount-rate notes and manifest gaps name the debt cost actually 
 FIN-127 (OD-5): a missing or colliding four-digit fiscalYear is labelled `FY ending <date>`; its calendar year is never substituted as an issuer fiscal-year claim.
 
 P2 (FIN-118): Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution.
+
+P2 (FIN-406): A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains.

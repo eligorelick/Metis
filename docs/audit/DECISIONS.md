@@ -3629,3 +3629,7 @@ Discount-rate notes and manifest gaps name the debt cost actually accepted. A re
 ## D-next (P2) - FIN-118 (2026-11-02)
 
 Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution. Stored reports remain immutable.
+
+## D-next (P2) - FIN-406 (2026-11-02)
+
+A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains. Stored reports remain immutable.

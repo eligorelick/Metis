@@ -1412,7 +1412,7 @@ export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: F
     const basis = `0% tax shield: ${why}, so no effective rate exists and the debt is given no tax shield (house rule, audit 2026-10-22 B-32)`;
     return { rate: 0, basis, fallback: basis };
   };
-  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeTaxExpense !== null) {
+  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeBeforeTax <= 0) {
     return zeroShield(`TTM pre-tax income is not positive (${ttm.incomeBeforeTax} through ${ttm.date})`);
   }
   const date = isoDay(latestAnnual?.date);
@@ -3152,7 +3152,8 @@ function computeReturns(
   };
   const equityScope = resolveEconomicEquityScope(equityQuote, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
-  const vendorTaxRate = num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
+  const taxWindowPretax = ttmInc === null ? num(incomeAnnual[0]?.incomeBeforeTax) : ttmInc.incomeBeforeTax;
+  const vendorTaxRate = taxWindowPretax !== null && taxWindowPretax <= 0 ? null : num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
   if (vendorTaxRate === null && statementTax.fallback !== null) {
     gaps.push({ field: "returns.wacc.effectiveTaxRate.basis", reason: `WACC tax rate: ${statementTax.fallback}`, severity: "info" });
@@ -3196,12 +3197,12 @@ function computeReturns(
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
     // suppress a levered WACC unnecessarily.
-    effectiveTaxRate: num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate) ?? statementTax.rate,
+    effectiveTaxRate: vendorTaxRate ?? statementTax.rate,
     // WS6 (D-19): name which tax-rate source actually supplied it.
     effectiveTaxRateBasis:
-      num(ratiosTtm?.effectiveTaxRateTTM) !== null
+      vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRateTTM) !== null
         ? "FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)"
-        : num(ratiosTtm?.effectiveTaxRate) !== null
+        : vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRate) !== null
           ? "FMP ratios effectiveTaxRate (observed effective rate)"
           : statementTax.basis,
     riskFreeSeriesId: rf.seriesId,

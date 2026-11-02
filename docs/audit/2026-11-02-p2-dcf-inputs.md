@@ -32,6 +32,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-118 | Fixed: Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution. | Owning FIN-118 commit | fin-118-red / fin-118-green | Stored figures unchanged |
 
+| FIN-406 | Fixed: A vendor effective tax ratio cannot create a WACC shield when the same statement window establishes non-positive pre-tax income. The existing zero-shield basis applies equally to keyed and keyless runs, including positive net income from below-line gains. | Owning FIN-406 commit | fin-406-red / fin-406-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%
