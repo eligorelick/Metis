@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- |
 | DATA-103 | Fixed | b0ed6bb9 | data103-red / data103-green | None; saved bytes unchanged |
 | DATA-104 | Fixed | d0feb95f | data104-red / data104-green | None; saved bytes unchanged |
-| AI-508 | Partially fixed | 68fd3767 | ai508-red / ai508-green-2 | Legacy arrays without metadata unchanged |
+| AI-508 | Fixed | 68fd3767 + 9e789e2e + c1b45f9f | ai508-detail-red, ai508-repeat-red / p5-final-consumers | Legacy business tables unchanged in retained replay |
 | AI-202-V1 | Fixed | 749d7a5a | ai202-red / ai202-green-2 | None |
 | RPT-201 | Fixed | 2c4c240c | rpt201-red-2 / rpt201-green-3 | Yield retained with explicit legacy assumption note |
 | DATA-114 | Fixed | e5de3480 | data114-red / data114-green-2 | None |
@@ -13,8 +13,8 @@
 | DATA-111 | Fixed | 096f45c9 | data111-red / data111-green | Saved bytes unchanged; recomputation corrected east of UTC |
 | AI-506 | Fixed | aa596390 | ai506-red / ai506-green-3 | Update-only legacy narrative excluded on payload rebuild |
 | DATA-107 | Fixed | 0d612e11 + 4277b837 | data107-red / data107-scope-green-2; data108-green | Existing saved scope semantics retained |
-| AI-512-V1 | Not started | - | - / - | Not assessed |
-| DATA-101 | Not started | - | - / - | Not assessed |
+| AI-512-V1 | Fixed | cb552f6f + 9a64b870 | ai512-red, ai512-notice-red / ai512-notice-green, p5-complete-retained | Disputed labels withheld at display; bytes unchanged |
+| DATA-101 | Fixed | 2d007083 | data101-final-red-2 / p5-final-consumers, p5-complete-retained | Legacy groups 30 -> 6; metadata and bytes unchanged |
 | DATA-102 | Not started | - | - | Not assessed |
 | DATA-106 | Not started | - | - | Not assessed |
 | DATA-108 | Fixed | 4bf2fc26 | data108-red / data108-green | None |
@@ -74,3 +74,14 @@ AI-508 repeated-change completion: ai508-repeat-red fails on comparing two flagg
 
 
 AI-512-V1 direct-consumer completion: ai512-notice-red proves the Stage B newer-results manifest still reused the raw label after the display fix. The shared newer-results selector now supplies the withheld label to both consumers.
+
+
+## Final three-item completion
+
+The completion supersedes the earlier continuation-limit paragraphs above. All three assigned items are fixed; none blocked or not reproduced. The six Low findings handled elsewhere are outside this continuation.
+
+Final consumer evidence: p5-final-focused (17 files, 648 tests), p5-final-consumers (14 files, 241 tests), p5-final-delta-docs (7 files, 186 tests), ai512-notice-green (6 files, 143 tests), and p5-complete-retained (2 files, 7 tests). All passed with maxWorkers=2. The final retained replay includes unchanged business tables versus starting-HEAD display code, unchanged stored hashes, AMZN period-mismatch/no-period claim controls, and MU enrichment/grouping.
+
+Typecheck p5-complete-typecheck and lint p5-complete-lint pass. Final docs gates: p5-complete-docs-final. Intermediate introduced fixture/unknown-point typing and replay argument mistakes were corrected. The existing stageC.releaseFiscalLabel suite has 12 missing-excerpt-title failures both before and after this work (ai512-baseline-controls versus ai512-green); no assertions were changed. All other executed tests pass. No full verify or network calls. Report 1.56.0, payload 1.60.0 and Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39 stay shared; pipeline stamp stays unchanged because prompt text did not change. No goldens changed.
+
+Residual methodology limits: a recast first seen in a 10-K remains unproven until a later shared window; the cross-filing estimate remains explicitly computed under OD-11. Historical levels remain visible but their growth is withheld when their individual prior bases cannot be established. No owner questions.
