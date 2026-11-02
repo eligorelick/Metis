@@ -65,3 +65,6 @@ AI-508 completion: detailed filing/window/quarter-end notes and moved-together/r
 
 
 AI-512-V1 fixed: ai512-red reproduces retained #43; ai512-green has 330 passes and 12 pre-existing excerpt-title test failures. ai512-baseline-controls reproduces the identical 12 missing-title failures using starting-HEAD versions of all changed disclosure/display modules. The normal-suite tests are synthetic; retained tests run separately offline. No excerpt policy, prompt text, stamps or goldens changed.
+
+
+DATA-101 fixed: data101-final-red-2 reproduces the historical-zero and legacy-grouping defects (2 failures, 60 controls pass). New-format refusals stay separate. The different-period refusal fixture now includes an actual filed amount at that period, so it tests a refusal rather than the absence intentionally silenced by OD-8. Retained MU #46: grouped count 6 and no absent-period warnings. p5-final-retained-3 passes 7 checks with SHA-256 byte preservation for reports 43, 46, 48, 49 and 50. Intermediate replay failures were harness argument mistakes, corrected; typecheck caught introduced unknown-point typing, corrected using the XBRL parser. No source data, stamps, prompts or goldens changed.

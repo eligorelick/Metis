@@ -3054,3 +3054,8 @@ OD-11 retains moved-together current operands, withholds unproven mixed operands
 ### D-next (P5): AI-512-V1 fiscal labels
 
 Apply OD-12 withhold-never-replace to guidance, paired checks, commentary and newer notices. Preserve the stricter existing excerpt-title policy unchanged. Retained AMZN #43: issued-with Q2 FY2025 -> null, outlook Q3 FY2025 -> fiscal quarter, 197-202 billion unchanged; two checks -> zero. Stored displays use their own trend.
+
+
+### D-next (P5): DATA-101 absent temporary equity
+
+OD-8: no manifest entry when that instant period has no filed temporary-equity fact, including issuers with only a historic zero. Filed but refused values, mismatched operands and vendor conflicts still warn. Only the exact legacy absent-or-refused warning folds across dates (D-67). MU #46: absent warnings 31 -> 0; grouped data issues 30 -> 6; stored warning metadata stays untouched.

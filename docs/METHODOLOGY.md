@@ -5988,3 +5988,8 @@ Segment presentation-change notes identify the change filing, stated windows, ea
 
 
 AI-512-V1: guidance uses the run income rows to withhold a disputed fiscal label, never replace it. A completed label disagrees at its date or belongs to a quarter more than 45 days earlier. An outlook label already ended when filed becomes "fiscal quarter" or "fiscal year" with its amounts retained. Paired guidance checks with contradicted labels are excluded from the track record. Commentary uses the quarter end when the fiscal label is contradicted. Saved displays apply the same comparison to their own quarterly trend without rewriting bytes.
+
+
+DATA-101: no temporary-equity warning is emitted for a balance period without any filed instant temporary-equity tag (any unit; zero counts). Filed amounts refused by cutoff, unit or conflict checks still warn, as do operand and vendor conflicts. Only legacy warnings with the exact absent-or-refused reason are grouped across dates; genuine new refusals stay separate.
+
+AI-508 repeated-change limit: earlier-presentation levels remain visible, but growth involving any earlier-presentation cell is withheld because two older cells may themselves span different recasts.

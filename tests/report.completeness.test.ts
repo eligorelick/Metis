@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyManifest,
   buildDataCompleteness,
   deriveReportCompletenessPresentation,
 } from "@/report/completeness";
@@ -468,4 +469,15 @@ describe("Task 28 completeness presentation truth table", () => {
     expect(presentation(gaps, persisted)).toEqual(presentation(gaps, persisted));
     expect(JSON.stringify({ persisted, gaps })).toBe(before);
   });
+});
+
+it("DATA-101: folds only legacy absent-or-refused warnings across periods",()=>{
+ const reason="temporary-equity SEC enrichment withheld: temporary carrying amounts are absent or explicitly refused for this SEC period";
+ const gaps=["2024-12-31","2023-12-31"].map(date=>({field:`statements.balance.${date}.temporaryEquity`,reason,severity:"warn" as const}));
+ expect(classifyManifest(gaps).dataGaps).toHaveLength(1);
+});
+
+it("DATA-101: genuine new refusals remain separate at each period",()=>{
+ const gaps=["2024-12-31","2023-12-31"].map(date=>({field:`statements.balance.${date}.temporaryEquity`,reason:"temporary carrying amount filed but refused",severity:"warn" as const}));
+ expect(classifyManifest(gaps).dataGaps).toHaveLength(2);
 });

@@ -186,7 +186,7 @@ export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassi
     if (gap.severity === "info") continue;
     const downgrade = isProcessDisclosure(gap.field) ? null : downgradeReason(gap, edgarAvailable);
     const kind = isProcessDisclosure(gap.field) ? "process" : downgrade !== null ? "downgraded" : "data";
-    const key = `${kind}|${kind === "process" ? gap.field : gapDatasetKey(gap.field)}`;
+    const key = `${kind}|${kind === "process" ? gap.field : gapGroupKey(gap)}`;
     const group = groups.get(key) ?? { kind, entries: [], ...(downgrade !== null ? { downgrade } : {}) };
     group.entries.push(gap);
     groups.set(key, group);
@@ -344,4 +344,9 @@ export function deriveReportCompletenessPresentation(
     manifestText: manifestParts.join(" "),
     statusText,
   };
+}
+
+export const LEGACY_TEMPORARY_EQUITY_ABSENT_REASON = "temporary-equity SEC enrichment withheld: temporary carrying amounts are absent or explicitly refused for this SEC period";
+export function gapGroupKey(gap: ManifestEntry): string {
+ return gap.reason===LEGACY_TEMPORARY_EQUITY_ABSENT_REASON && /^statements\.balance\.\d{4}-\d{2}-\d{2}\.temporaryEquity$/.test(gap.field) ? "statements.balance.temporaryEquity" : gapDatasetKey(gap.field);
 }
