@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
+
+- L1: admit a complete retained cover class inventory using same-filing class
+  enumeration and identical economic rights; disclose quote binding and proxy prices.
+
 ## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
 
 Auto mode replaces a conflicting vendor income row with a whole internally

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { identicalClassRights } from "@/edgar/economicShares";
 import type { DataBundle } from "@/pipeline/types";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 
@@ -48,7 +49,7 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
   if ([bundle.edgar.latestTenQ, bundle.edgar.latestTenK].some(s => s?.ok && s.value.data.filingDate <= cutoff && s.value.data.filingDate > d.filingDate) ||
     (bundle.edgar.economicShareInventory ?? []).some(s => s.source.filingDate <= cutoff &&
       (s.source.filingDate > d.filingDate || s.source.filingDate === d.filingDate && s.source.documentUrl !== d.documentUrl ||
-        s.source.filingDate === d.filingDate && [...s.classes, ...(s.observations ?? [])].some(o => o.asOf > d.reportDate)))) return existing;
+        s.source.filingDate === d.filingDate && s.source.accession !== d.accession))) return existing;
   const statement = d.statementsText ?? "";
   if (!/BALANCE SHEETS?\b/i.test(statement) || !/in thousands, except share and per share data/i.test(statement)) return existing;
   const equityStart = /stockholders['\u2019]? equity:/i.exec(statement);
@@ -59,24 +60,42 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
   if (names.length < 2 || new Set(names).size !== names.length || !names.includes(quoteLabels[0]!)) return existing;
   // A plain or otherwise unsupported common-stock count is not silently lost.
   if ((equity.match(/\bcommon stock\b/gi) ?? []).length !== names.length) return existing;
-  const countPattern = /([\d,]+|no)(?:\s+and\s+([\d,]+|no))?\s+shares issued and outstanding at ([A-Za-z]+\s+\d{1,2},?\s+\d{4})/gi;
-  const counts: number[] = [];
-  for (let i = 0; i < entries.length; i++) {
-    const row = equity.slice(entries[i]!.index! + entries[i]![0].length, entries[i + 1]?.index);
-    const observed = [...row.matchAll(countPattern)];
-    if (!observed.length || dated(observed[0]![3]!) !== d.reportDate) return existing;
-    const current = observed.filter(m => dated(m[3]!) === d.reportDate).map(m => m[1]!.toLowerCase() === "no" ? 0 : Number(m[1]!.replaceAll(",", "")));
-    if (!current.length || current.some(n => !Number.isSafeInteger(n) || n < 0 || n !== current[0])) return existing;
-    counts.push(current[0]!);
+  // L1: independently parsed cover observations must bijectively name the
+  // same filing's balance-sheet classes; an unknown or missing member refuses.
+  const inventories = (bundle.edgar.economicShareInventory ?? []).filter(s => s.source.filingDate === d.filingDate && s.source.documentUrl === d.documentUrl);
+  const cover = inventories.flatMap(s => s.observations ?? []).filter(o => o.asOf > d.reportDate);
+  const memberLabel = (member: string): string | null => {
+    const standard = /^us-gaap:CommonClass([A-Z0-9]{1,8})Member$/.exec(member);
+    if (standard) return `class ${standard[1]!.toLowerCase()} common stock`;
+    const custom = /^(?!us-gaap:)[A-Za-z][\w-]*:([A-Z][A-Za-z-]{0,30})CommonStockMember$/.exec(member);
+    return custom ? `${custom[1]!.toLowerCase()} common stock` : null;
+  };
+  let asOf = d.reportDate;
+  let counts: number[] = [];
+  if (cover.length) {
+    const observations = inventories.flatMap(s => s.observations ?? []);
+    const mapped = observations.map(o => memberLabel(o.classId));
+    const days = new Set(observations.map(o => o.asOf));
+    if (observations.length !== names.length || new Set(mapped).size !== names.length || !names.every(n => mapped.includes(n)) || days.size !== 1 ||
+      observations.some(o => !validDay(o.asOf) || o.asOf > d.filingDate || !Number.isSafeInteger(o.shares) || o.shares < 0 || !o.sourceId.startsWith(d.documentUrl + "#"))) return existing;
+    asOf = observations[0]!.asOf;
+    counts = names.map(name => observations[mapped.indexOf(name)]!.shares);
+  } else {
+    const countPattern = /([\d,]+|no)(?:\s+and\s+([\d,]+|no))?\s+shares issued and outstanding at ([A-Za-z]+\s+\d{1,2},?\s+\d{4})/gi;
+
+    for (let i = 0; i < entries.length; i++) {
+      const row = equity.slice(entries[i]!.index! + entries[i]![0].length, entries[i + 1]?.index);
+      const observed = [...row.matchAll(countPattern)];
+      if (!observed.length || dated(observed[0]![3]!) !== d.reportDate) return existing;
+      const current = observed.filter(m => dated(m[3]!) === d.reportDate).map(m => m[1]!.toLowerCase() === "no" ? 0 : Number(m[1]!.replaceAll(",", "")));
+      if (!current.length || current.some(n => !Number.isSafeInteger(n) || n < 0 || n !== current[0])) return existing;
+      counts.push(current[0]!);
+    }
   }
   const sentences = d.text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim());
-  const equality = /^The rights, including the (?:liquidation and dividend|dividend and liquidation) rights(?: and sharing of losses)?, of the (.+) are identical, (?:other than|except with respect to) voting rights\.$/i;
   const relation = sentences.find(s => {
-    const match = equality.exec(s);
-    if (!match) return false;
-    const related = labels(match[1]!);
-    const remainder = match[1]!.replace(new RegExp(labelPattern, "gi"), "").replace(/\b(?:and|the)\b|[,\s]/gi, "");
-    return !remainder && related.length === names.length && new Set(related).size === related.length && names.every(n => related.includes(n));
+    const related = identicalClassRights(s);
+    return related && related.length === names.length && names.every(n => related.includes(n));
   });
   if (!relation || sentences.some(s => s !== relation && contraryLabels(s).some(n => names.includes(n)) && /\b(?:dividends?|distributions?|liquidation)\b/i.test(s) &&
     /\b(?:different|unequal|not equal|not identical|preferen\w*|priority|senior|subordinat\w*|not entitled|non-?participating|times|twice|half|percent|greater|less than|equal to)\b|\d\s?%|\b\d+\/\d+\b/i.test(s))) return existing;
@@ -85,7 +104,7 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
     typeof r.outstandingShares === "number" && Number.isSafeInteger(r.outstandingShares) && r.outstandingShares > 0) : undefined;
   const quotedCount = counts[names.indexOf(quoteLabels[0]!)]!;
   const discrepancy = provider && quotedCount > 0 && Math.abs(provider.outstandingShares! / quotedCount - 1) > 0.03
-    ? ` Provider quoted-class count ${provider.outstandingShares} (vendor observation date ${provider.date ?? "unavailable"}; same source filing dated ${d.filingDate}) differs from filed balance-sheet quoted-class count ${quotedCount} at ${d.reportDate} by ${((provider.outstandingShares! / quotedCount - 1) * 100).toFixed(2)}%; the vendor date is not established as a filed count date. Admission is unchanged.` : "";
+    ? ` Provider quoted-class count ${provider.outstandingShares} (vendor observation date ${provider.date ?? "unavailable"}; same source filing dated ${d.filingDate}) differs from filed ${cover.length ? "cover" : "balance-sheet"} quoted-class count ${quotedCount} at ${asOf} by ${((provider.outstandingShares! / quotedCount - 1) * 100).toFixed(2)}%; the vendor date is not established as a filed count date. Admission is unchanged.` : "";
   const treasuryCounts = [...equity.matchAll(/\bTreasury (?:stock|shares)[^;]{0,60}?\(\s*([\d,]+)\s+shares\s*\)/gi)].map(m => Number(m[1]!.replaceAll(",", "")));
   // A flattened rollforward is readable only with the same ordered common
   // classes before Treasury Stock, and a closing row matching all counts.
@@ -99,12 +118,12 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
     for (const row of roll.matchAll(rowPattern)) if (dated(row[1]!) === d.reportDate && counts.every((n, i) => Number(row[i + 2]!.replaceAll(",", "")) === n)) treasuryCounts.push(Number(row[names.length + 2]!.replaceAll(",", "")));
   }
   const treasury = treasuryCounts.length > 0 && new Set(treasuryCounts).size === 1 && Number.isSafeInteger(treasuryCounts[0]) ? treasuryCounts[0]! : null;
-  const treasuryBasis = treasury !== null && total > 0 ? ` Treasury shares ${treasury} at ${d.reportDate} (${(treasury / total * 100).toFixed(2)}% of economic units), not netted: the filer's issued-and-outstanding label is followed; treasury is disclosed separately.` : "";
-  return [{ issuerId: registrant.cik10, securityId: bundle.symbol, asOf: d.reportDate, filed: d.filingDate,
+  const treasuryBasis = !cover.length && treasury !== null && total > 0 ? ` Treasury shares ${treasury} at ${d.reportDate} (${(treasury / total * 100).toFixed(2)}% of economic units), not netted: the filer's issued-and-outstanding label is followed; treasury is disclosed separately.` : "";
+  return [{ issuerId: registrant.cik10, securityId: bundle.symbol, asOf, filed: d.filingDate,
     effectiveFrom: d.filingDate, effectiveTo: null, complete: true,
-    sourceHash: createHash("sha256").update(JSON.stringify({ statement, text: d.text, quoteTitle: title, ...(discrepancy ? { providerCountObservation: provider } : {}) })).digest("hex"),
-    sourceIds: [d.documentUrl, bundle.profile.value.endpoint, ...(discrepancy && bundle.sharesFloat.ok ? [bundle.sharesFloat.value.endpoint] : [])],
-    basis: `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
+    sourceHash: createHash("sha256").update(JSON.stringify({ statement, text: d.text, quoteTitle: title, ...(cover.length ? { coverObservations: cover, inventoryHashes: inventories.map(s => s.source.hash) } : {}), ...(discrepancy ? { providerCountObservation: provider } : {}) })).digest("hex"),
+    sourceIds: [d.documentUrl, bundle.profile.value.endpoint, ...cover.map(o => o.sourceId), ...(discrepancy && bundle.sharesFloat.ok ? [bundle.sharesFloat.value.endpoint] : [])],
+    basis: `${cover.length ? `Filed cover class observations at ${asOf}, mapped one-to-one to the same filing\'s balance-sheet classes` : `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages`}. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
     classes: names.map((name, i) => ({ classId: name === quoteLabels[0] ? bundle.symbol : name, shares: counts[i]!, countBasis: "outstanding",
       economicUnitsPerQuotedShare: 1, priceBasis: name === quoteLabels[0] ? "quoted-market-price" : "economic-equivalence-proxy" })) }];
 }

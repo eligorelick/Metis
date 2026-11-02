@@ -3774,3 +3774,12 @@ ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no 
 ### D-next (N2) P/TBV full-suite golden follow-up
 
 The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.
+
+## D-next (N4a) - Cover counts and same-filing class rights (L1)
+
+Admit dated primary-cover class observations only when the member set maps
+one-to-one to that filing's balance-sheet common classes and its whole rights
+sentence establishes identical dividend/liquidation economics. Use one sentence
+matcher for retained counts and the cover parser. Keep contrary-rights refusal,
+provider quote-title binding and same-price approximation. Stored reports remain
+immutable; the shared report/payload/Stage B/pipeline stamps remain unchanged.

@@ -6423,6 +6423,17 @@ capitalization and multiples; per-share intrinsic value still requires its
 separate diluted-divisor and model-input gates. D-67: derivation is in memory
 for a new computation only; stored source bundles and reports are never rewritten.
 
+L1 (N4a): retained cover XBRL observations may instead supply the count date
+when there is exactly one valid count per common class at one date after the
+balance date and no later than filing. The member set must map one-to-one to
+that same filing's enumerated balance-sheet classes: us-gaap CommonClassXMember
+to Class X common stock, or a custom NameCommonStockMember to Name common stock.
+The shared whole-sentence identical dividend/liquidation-rights matcher also
+serves the cover parser. Contrary economics still block admission. Provider
+quote-title binding and the same-price approximation remain explicit. Cover
+observation source IDs and hashes enter provenance; balance-date treasury
+percentages are not presented as cover-date observations.
+
 Review fixes F3/F5/F6/F7/F8: new resolved multi-class reports label raw
 provider capitalization and shares as quoted-class observations. A same-filing
 provider quoted-class discrepancy above 3% discloses both counts and dates;
