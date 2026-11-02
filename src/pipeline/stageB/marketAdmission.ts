@@ -1,4 +1,6 @@
 /** Shared, browser-safe admission for observed OHLCV. No clock or provider calls. */
+import { inProgressUsSessionDate } from "@/providers/usSession";
+
 export interface MarketBar {
   date: string; open: number; high: number; low: number; close: number;
   volume?: number | null;
@@ -15,13 +17,18 @@ export function admitMarketBars<T extends MarketBar>(rows:readonly T[]|null|unde
   if(!rows?.length)return {rows:[],notes};
   const cutoff=analysisAt===undefined?undefined:day(analysisAt.slice(0,10));
   if(analysisAt!==undefined&&(cutoff===null||!Number.isFinite(Date.parse(analysisAt))))return {rows:[],notes:[`${label}: analysis cutoff invalid; observed prices withheld.`]};
-  let invalid=0,future=0,unavailableVolume=0,duplicates=0;
+  let invalid=0,future=0,unavailableVolume=0,duplicates=0,forming=0;
+  // FIGR extra-high run (2026-11-02, 11:04 New York): a bar for a session still
+  // open is a running trade, not a close; observed history ends at the last
+  // settled session. The live quote is reported separately as intraday.
+  const formingDate=analysisAt===undefined?null:inProgressUsSessionDate(analysisAt);
   const byDate=new Map<string,T>();
   const conflicts=new Set<string>();
   for(const row of rows){
     if(day(row.date)===null||![row.open,row.high,row.low,row.close].every(v=>Number.isFinite(v)&&v>0)||row.low>row.high){invalid++;continue;}
     // Adjusted close may differ from the basis of the range; do not infer that basis.
     if(cutoff!==undefined&&cutoff!==null&&row.date>cutoff){future++;continue;}
+    if(formingDate!==null&&row.date===formingDate){forming++;continue;}
     const volume=typeof row.volume==='number'&&Number.isFinite(row.volume)&&row.volume>=0?row.volume:null;
     if(volume===null)unavailableVolume++;
     const clean={...row,volume};
@@ -36,6 +43,7 @@ export function admitMarketBars<T extends MarketBar>(rows:readonly T[]|null|unde
   admitted.sort((a,b)=>a.date.localeCompare(b.date));
   if(invalid)notes.push(`${label}: dropped ${invalid} row(s) with invalid dates, non-finite/non-positive prices or inverted high/low.`);
   if(future)notes.push(`${label}: excluded ${future} future-dated price row(s) after analysis date ${cutoff}.`);
+  if(forming)notes.push(`${label}: excluded the ${formingDate} session bar, still in progress at analysis time ${analysisAt}; observed history ends at the last settled close.`);
   if(conflicts.size)notes.push(`${label}: excluded ${conflicts.size} date(s) with conflicting duplicate observations.`);
   if(duplicates)notes.push(`${label}: deduplicated ${duplicates} identical observation(s).`);
   if(unavailableVolume)notes.push(`${label}: kept ${unavailableVolume} valid price row(s) with unavailable volume normalized to null.`);
