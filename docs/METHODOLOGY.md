@@ -454,11 +454,18 @@ retained denominator and its currency, interval and filing basis agree.
 Otherwise a mixed-source or differently presented numerator is withheld,
 including from the TTM sum, with a dated explanation. A provider-only row
 remains a provider-basis pair. Raw vendor inputs are preserved.
-The quarterly **Operating expenses** column requires a complete, directly
-tagged `OperatingExpenses` total on the same filed basis as revenue. Unproved
-vendor subsets and partial R&D/SG&A totals are withheld with notes. Revenue
-minus operating income is not silently substituted: for a lender that residual
-may include funding interest and other costs outside that subtotal.
+The quarterly **Operating expenses** column states one basis. A directly
+tagged `OperatingExpenses` total on the same filed basis as revenue is a filed
+total. A provider amount is admitted only on a provider row where it bridges
+that row's gross profit to its admitted operating income (gross profit less
+operating expenses equals operating income within the vendor tolerance); the
+trend then states once that the column is the provider's subtotal, not a filed
+total. Provider cells beside quarters built from SEC filings are withheld with
+one note. Amounts that do not bridge, unproved vendor subsets and partial
+R&D/SG&A totals are withheld with dated notes, listed only for the quarters the
+trend shows. Revenue minus operating income is not substituted: for a lender
+that residual may include funding interest and other costs outside that
+subtotal.
 
 Short interest as a percentage of float is a derived ratio, not a FINRA-reported
 percentage. Both the FINRA settlement date and the vendor float observation

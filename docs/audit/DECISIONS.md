@@ -4228,3 +4228,15 @@ Update the old vendor-total test because changing an envelope provider cannot
 turn an unproved subset into a total. Tests: `tests/edgar.operatingExpenseScope.test.ts`
 and the R2 expense-subset regression. Shared stamps and stored bytes remain
 unchanged across all R2 decisions; the integration owner applies the batch bump.
+
+Integration review: a provider amount is also a complete total on its own
+row's operating basis when it bridges that row's gross profit to its admitted
+operating income. On the owner's saved real-data snapshots 31 of 34 QCOM, 33 of
+34 NVDA and 33 of 34 AMZN rows do, and the first rule withheld 10-34 amounts per
+issuer with one appendix gap each. An amount that does not bridge is withheld:
+FIGR Q1 2026, once the filed operating income replaces the provider's
+pre-interest numerator (145.56M - 86.73M = 58.83M against 41.94M). In the
+quarterly trend one column states one basis: provider cells beside quarters
+built from SEC filings are withheld with one note, and otherwise one note
+states the provider basis. The trend notes only the quarterly rows it shows.
+Tests: `tests/r2.operatingExpenseReview.test.ts`.

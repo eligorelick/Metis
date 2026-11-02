@@ -20,7 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - R2 FIGR figure fixes (2026-11-02)
 
-- Reconcile operating-income/revenue bases before quarterly, annual and TTM calculations; withhold unmatched margins and unproved operating-expense subtotals with dated explanations.
+- Reconcile operating-income/revenue bases before quarterly, annual and TTM calculations; withhold unmatched margins and unproved operating-expense subtotals with dated explanations. Integration review: a provider operating-expense amount that bridges its row's gross profit to its operating income stays (the first rule removed 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots), and the quarterly trend states one basis per column.
 - Refuse SBC quarters contradicted by filed cash-flow operands, and construct trailing SBC using filed fiscal year plus current YTD less prior-year YTD. Register the filed CFO/SBC operands and exact trailing windows.
 - Name the provider debt perimeter that includes loan-owner payables and separately register filed borrowings; retain context-EV arithmetic and lender exclusions. Mark P/TBV applicable for evidenced lenders on its existing tangible-common-equity basis.
 - Date the vendor float operand beside derived short-interest percentages. Estimate figure/registry as-of dates now identify the retained observation, keeping forecast-period references separate and publication vintage unestablished.

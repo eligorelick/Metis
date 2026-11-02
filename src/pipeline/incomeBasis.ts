@@ -2,7 +2,7 @@ import type { DataBundle } from "./types";
 import type { FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
-import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { sectorIndustryForSic } from "@/edgar/sic";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -49,8 +49,22 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
         gaps.push({ field: `statements.income.${row.date}.operatingIncome`, severity: "info", reason });
       }
       const expense = out.fieldProvenance?.operatingExpenses;
-      if (finite(out.operatingExpenses) && !(expense?.tags.includes("us-gaap/OperatingExpenses") && sameBasis(out.fieldProvenance?.revenue, expense))) {
-        const reason = `Operating expenses for ${row.date} withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.`;
+      const filedTotal = expense?.tags.includes("us-gaap/OperatingExpenses") === true && sameBasis(out.fieldProvenance?.revenue, expense);
+      // Integration review (R2): a provider amount that bridges its own row's
+      // gross profit to the (admitted) operating income is a complete total on
+      // that row's operating basis. On the owner's saved real-data snapshots it
+      // does for 31 of 34 QCOM, 33 of 34 NVDA and 33 of 34 AMZN rows; FIGR's
+      // Q1 2026 does not once the filed operating income replaces the
+      // provider's pre-interest numerator.
+      const providerRow = (out.source ?? input.value.source) !== "edgar" && expense === undefined;
+      const bridgeable = providerRow && finite(out.operatingExpenses) && finite(out.grossProfit) && finite(out.operatingIncome) &&
+        out.fieldConflicts?.grossProfit?.usable !== false;
+      const bridges = bridgeable && vendorAgreesWithDerived(out.operatingIncome as number, (out.grossProfit as number) - (out.operatingExpenses as number),
+        [out.grossProfit as number, out.operatingExpenses as number]);
+      if (finite(out.operatingExpenses) && !filedTotal && !bridges) {
+        const reason = bridgeable
+          ? `Operating expenses for ${row.date} withheld: the provider amount does not bridge the row's gross profit to its operating income (${out.grossProfit} - ${out.operatingExpenses} = ${(out.grossProfit as number) - (out.operatingExpenses as number)} vs ${out.operatingIncome}), so it is not a complete total on the row's operating basis.`
+          : `Operating expenses for ${row.date} withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.`;
         out = { ...out, operatingExpenses: undefined, fieldConflicts: { ...out.fieldConflicts,
           operatingExpenses: { usable: false, vendorValue: row.operatingExpenses ?? null, secValue: null, reason } } };
         gaps.push({ field: `statements.income.${row.date}.operatingExpenses`, severity: "info", reason });

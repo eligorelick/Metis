@@ -606,8 +606,23 @@ function oneBasisGrowth(row: FmpIncomeStatementRow, prior: FmpIncomeStatementRow
 
 /** `checked` is set when a shown quarter carries the builder's `revenuePresentation`, i.e. `oneBasisGrowth` could run (Task 9b). */
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[], flags: { presentationChecked: boolean }): FilingDisclosures["quarterlyTrend"] {
-  bundle = withIncomeOperatingBasis(bundle);
-  notes.push(...bundle.gaps.filter(g => /\.operating(?:Income|Expenses)$/.test(g.field)).map(g => g.reason));
+  // Integration review (R2): the trend notes only the quarterly rows it shows
+  // (an annual row on the same date is not one of them), once per row.
+  const withheldOperating = new Map<string, string[]>();
+  {
+    const before = new Map(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly).map(r => [`${day(r.date)}|${r.reportedCurrency}`, r]));
+    const operatingBasis = withIncomeOperatingBasis(bundle);
+    for (const row of rowsOf<FmpIncomeStatementRow>(operatingBasis.statements?.incomeQuarterly)) {
+      const d = day(row.date), prior = before.get(`${d}|${row.reportedCurrency}`);
+      if (d === null || prior === undefined) continue;
+      const reasons = (["operatingIncome", "operatingExpenses"] as const)
+        .filter(field => num(prior[field]) !== null && num(row[field]) === null)
+        .map(field => row.fieldConflicts?.[field]?.reason)
+        .filter((reason): reason is string => typeof reason === "string");
+      if (reasons.length > 0) withheldOperating.set(d, reasons);
+    }
+    bundle = operatingBasis;
+  }
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
   for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {
@@ -653,7 +668,9 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     return d === undefined ? undefined : income.get(d);
   };
   flags.presentationChecked = dates.slice(0, TREND_QUARTERS).some((d) => revenueBasis(income.get(d)).presentation !== null);
-  return dates.slice(0, TREND_QUARTERS).map((d) => {
+  const shown = dates.slice(0, TREND_QUARTERS);
+  for (const d of shown) notes.push(...(withheldOperating.get(d) ?? []));
+  const trend = shown.map((d) => {
     const r = income.get(d)!;
     const c = cash.get(d);
     const revenue = num(r.revenue);
@@ -716,6 +733,19 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       }),
     };
   });
+  // Integration review (R2): one column, one stated basis. A provider subtotal
+  // beside rows built from SEC filings mixes two bases (FIGR: three provider
+  // cells among SEC-built quarters with none); state the provider basis when
+  // it is the only one shown.
+  const providerDates = trend.filter(t => t.operatingExpenses !== null && income.get(t.periodEnd)?.fieldProvenance?.operatingExpenses === undefined)
+    .map(t => t.periodEnd);
+  if (providerDates.length > 0 && shown.some(d => income.get(d)?.source === "edgar")) {
+    notes.push(`Operating expenses not shown for ${providerDates.join(", ")}: the quarters shown mix rows built from SEC filings with provider rows; one column cannot state one basis.`);
+    for (const t of trend) if (providerDates.includes(t.periodEnd)) t.operatingExpenses = null;
+  } else if (providerDates.length > 0) {
+    notes.push("Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total.");
+  }
+  return trend;
 }
 
 /** D-63: the disclosure for segment cells filled as the quarter's total less the axis's other rows. */

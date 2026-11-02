@@ -9,7 +9,7 @@
 | F23: float ratio mixed observation dates | Call it derived and show float observation date beside FINRA settlement date in key data and market tables. | bd26083d | `r2.figrFigures`: F23; `report.presentation.d62`, `marketData.integrity` |
 | Consensus estimate as-of | Use validated observation UTC day in model figure and registry; retain the envelope fiscal reference separately and state publication vintage unestablished. | bd26083d | R2 estimate registry regression; `estimateTiming.integration`; `stageC.payload.passes` timing controls |
 | TTM CFO untraced | Register exact duration and the report's TTM interval plus all filed operands and identities. FIGR CFO remains -86.490M. | bd26083d | R2 filed TTM CFO test, including exact `matchProvenanceRecord` |
-| Inconsistent Operating expenses column | Require complete directly tagged OperatingExpenses on revenue's filed basis; withhold vendor subsets with dated notes. | bd26083d | R2 expense-subset test; `edgar.operatingExpenseScope` complete-total control |
+| Inconsistent Operating expenses column | Require complete directly tagged OperatingExpenses on revenue's filed basis, or (integration review) a provider amount that bridges its row's gross profit to its operating income; one basis per trend column; withhold the rest with dated notes. | bd26083d | R2 expense-subset test; `edgar.operatingExpenseScope` complete-total control |
 
 ## Evidence and residuals
 
@@ -38,6 +38,16 @@ Estimate tests formerly pinned the fiscal-period reference as figure as-of;
 they now pin observation day and separately retain reference/publication roles.
 The period-scaling fixture now supplies a common filed operating/revenue basis,
 so it continues to isolate annual revenue refusal and 53-week scaling.
+
+Integration review: the first expense rule withheld every provider amount
+without a filed `OperatingExpenses` total, which on the owner's saved real-data
+snapshots removed 34 of 34 QCOM and AMZN amounts, 30 of 34 NVDA and all 10 META
+amounts, each with an appendix gap. The reviewed rule keeps an amount that
+bridges its row's gross profit to its operating income and states one basis per
+trend column (`tests/r2.operatingExpenseReview.test.ts`); FIGR's Q1 2026 amount
+is still withheld. The intended-deltas R2 group then holds one path: the
+filing-disclosures block, whose only change on the audit fixture is the
+provider-basis note.
 
 `r2FigurePayloadGolden` restores only the eight counted observation/reference
 objects before every pre-existing byte/hash assertion. The intended-deltas

@@ -30,9 +30,6 @@
         "macro.UNRATE",
         "macro.VIXCLS",
         "returns.wacc.history",
-        "statements.income.2023-12-31.operatingExpenses",
-        "statements.income.2024-12-31.operatingExpenses",
-        "statements.income.2025-12-31.operatingExpenses",
         "technicals.range52w",
         "valuation.analystEstimates.currency",
         "valuation.dcf.growthAnchor",
@@ -108,9 +105,6 @@
         "macro.UNRATE",
         "macro.VIXCLS",
         "returns.wacc.history",
-        "statements.income.2023-12-31.operatingExpenses",
-        "statements.income.2024-12-31.operatingExpenses",
-        "statements.income.2025-12-31.operatingExpenses",
         "technicals.range52w",
         "valuation.analystEstimates.currency",
         "valuation.dcf.growthAnchor",
@@ -7852,6 +7846,90 @@
       "reason": "The unchanged audit fixture has no admitted SPY session reference, so the new disclosed observed-session guard withholds its previously assumed full-year range. The technical aspect retains its independently admitted SMA signal: completeness 0.55 to 0.20, score 81.25 to 80.28, composite 74.53 to 73.97. Existing weights and bands are unchanged; the associated signal/driver arrays, factor exposure, assessment status, explanatory methodology and one inserted coverage gap move accordingly. Additional drawdown changes are actual-window row counts and precise partial-coverage metadata/notes; observed depths and pre-existing sufficiency flags in this fixture stay unchanged. Other changes are report version 1.26.0 and exactly identified capital-stewardship/share-denominator wording. Nontechnical financial values, valuation, projections and source observations remain pinned; dense covered and sparse refusal controls are separately tested. Index shifts and paths returning to the historical baseline are accounted for explicitly rather than replacing the baseline.",
       "deltas": [
         {
+          "path": "report.appendix.missingData.46",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.3y",
+            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.47",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.5y",
+            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.48",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.range52w",
+            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.49",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.relativeStrength.sector",
+            "reason": "no XLK history supplied",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.50",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.analystEstimates.currency",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "severity": "info",
+            "attemptedSources": [
+              "fmp:/stable/analyst-estimates"
+            ]
+          }
+        },
+        {
+          "path": "report.appendix.missingData.51",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.growthAnchor",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.52",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.terminalRoic.waccBasis",
+            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.54",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.ownHistory",
+            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.55",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
           "path": "report.scores.aspects.balanceSheet.note",
           "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
           "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
@@ -8012,6 +8090,90 @@
             "from": "medium",
             "to": "low",
             "reason": "the deterministic technicals score rests on under half of the inputs its route supports"
+          }
+        },
+        {
+          "path": "stageB.gaps.45",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.3y",
+            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.46",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.5y",
+            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.47",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.range52w",
+            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.48",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.relativeStrength.sector",
+            "reason": "no XLK history supplied",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.49",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.analystEstimates.currency",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "severity": "info",
+            "attemptedSources": [
+              "fmp:/stable/analyst-estimates"
+            ]
+          }
+        },
+        {
+          "path": "stageB.gaps.50",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.growthAnchor",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.51",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.terminalRoic.waccBasis",
+            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.ownHistory",
+            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.54",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
           }
         },
         {
@@ -9323,6 +9485,25 @@
       ]
     },
     {
+      "name": "audit-batch5-trust-signals-20261022",
+      "decisions": [
+        "D-110"
+      ],
+      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.coverage.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
+        }
+      ]
+    },
+    {
       "name": "audit-batch4-freshness-20261026",
       "decisions": [
         "D-112"
@@ -9574,6 +9755,15 @@
       "reason": "D-138 Task 4: distinguish operating, finance and combined lease evidence from the retained debt basis; qualify unverified scope, use neutral debt captions, and describe actual EV/DCF/WACC/ROIC adjustments without changing numeric results or refusals. The report-53 batch spec advances once to 1.53.0 for the changed source-scope context; earlier cutoffs and historical tuples remain unchanged.",
       "deltas": [
         {
+          "path": "report.appendix.missingData.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+            "severity": "info"
+          }
+        },
+        {
           "path": "report.balanceSheet.debtProfile.commentary.1",
           "beforeMissing": true,
           "after": {
@@ -9613,6 +9803,15 @@
           "path": "stageB.capital.netDebtToEbitda.note",
           "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
           "after": "NET_DEBT_V3: total debt minus cash and short-term investments (combined field); 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted; EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
+        },
+        {
+          "path": "stageB.gaps.52",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+            "severity": "info"
+          }
         },
         {
           "path": "stageB.returns.notes.0",
@@ -10183,131 +10382,11 @@
     {
       "name": "R2 FIGR figure bases and timing",
       "decisions": [
-        "D-138",
+        "D-72",
         "D-155"
       ],
-      "reason": "R2 D-next decisions extend the D-138 timing and D-155 filed-basis rules: withhold three unproved annual operating-expense subtotals, disclose their dated gaps, and carry the new explanations into the report. The 27 paths include six added manifest slots and 21 reclassified paths shifted by those gaps or their report notes; no unaffected financial amount is re-pinned. The integrator replaces the parent references with the final R2 decision numbers.",
+      "reason": "R2 (FIGR paid audit, trend operating expenses) as reviewed at integration. On this fixture every provider operating-expense amount bridges its row's gross profit to its operating income, so the amounts stay and the quarterly trend states their basis once: \"Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total.\" The delegate's first rule withheld every provider amount without a filed OperatingExpenses total (three annual subtotals here, 21 shifted manifest entries; 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots). The reviewed rule withholds only an amount that does not bridge (FIGR Q1 2026 once the filed operating income replaces the provider's pre-interest numerator) or a provider cell beside rows built from SEC filings in the trend. The path is the whole filing-disclosures block D-72 introduced (absent from the audited baseline; it was blessed under nvda-review-evidence-2026-10-16, which this regrouping retires); its only change here is that one basis note. No financial amount changes. The integrator replaces D-155 with the final R2 decision number.",
       "deltas": [
-        {
-          "path": "report.appendix.missingData.46",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2023-12-31.operatingExpenses",
-            "reason": "Operating expenses for 2023-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.47",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2024-12-31.operatingExpenses",
-            "reason": "Operating expenses for 2024-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.48",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2025-12-31.operatingExpenses",
-            "reason": "Operating expenses for 2025-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.49",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.3y",
-            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.50",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.5y",
-            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.51",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.range52w",
-            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.52",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.relativeStrength.sector",
-            "reason": "no XLK history supplied",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
-            "severity": "info",
-            "attemptedSources": [
-              "fmp:/stable/analyst-estimates"
-            ]
-          }
-        },
-        {
-          "path": "report.appendix.missingData.54",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.55",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.terminalRoic.waccBasis",
-            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.56",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.57",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.58",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
-            "severity": "info"
-          }
-        },
         {
           "path": "report.filingDisclosures",
           "beforeMissing": true,
@@ -10330,7 +10409,7 @@
                 "revenueYoyPct": 8.6957,
                 "revenueQoqPct": null,
                 "grossMarginPct": 60,
-                "operatingExpenses": null,
+                "operatingExpenses": 5000000000,
                 "operatingMarginPct": 20,
                 "epsDiluted": 8.536585365853659,
                 "operatingCashFlow": 2400000000,
@@ -10343,7 +10422,7 @@
                 "revenueYoyPct": 9.5238,
                 "revenueQoqPct": null,
                 "grossMarginPct": 59,
-                "operatingExpenses": null,
+                "operatingExpenses": 4600000000,
                 "operatingMarginPct": 19,
                 "epsDiluted": 7.246376811594203,
                 "operatingCashFlow": 2100000000,
@@ -10356,7 +10435,7 @@
                 "revenueYoyPct": null,
                 "revenueQoqPct": null,
                 "grossMarginPct": 58,
-                "operatingExpenses": null,
+                "operatingExpenses": 4200000000,
                 "operatingMarginPct": 18,
                 "epsDiluted": 6.028708133971292,
                 "operatingCashFlow": null,
@@ -10364,152 +10443,8 @@
               }
             ],
             "notes": [
-              "Operating expenses for 2025-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-              "Operating expenses for 2024-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-              "Operating expenses for 2023-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-              "Operating expenses for 2025-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-              "Operating expenses for 2024-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal.",
-              "Operating expenses for 2023-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal."
+              "Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total."
             ]
-          }
-        },
-        {
-          "path": "stageB.gaps.45",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2023-12-31.operatingExpenses",
-            "severity": "info",
-            "reason": "Operating expenses for 2023-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal."
-          }
-        },
-        {
-          "path": "stageB.gaps.46",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2024-12-31.operatingExpenses",
-            "severity": "info",
-            "reason": "Operating expenses for 2024-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal."
-          }
-        },
-        {
-          "path": "stageB.gaps.47",
-          "beforeMissing": true,
-          "after": {
-            "field": "statements.income.2025-12-31.operatingExpenses",
-            "severity": "info",
-            "reason": "Operating expenses for 2025-12-31 withheld: a complete operating-expense total on the revenue's filed basis is not established; vendor expense subsets and revenue minus operating income do not establish this subtotal."
-          }
-        },
-        {
-          "path": "stageB.gaps.48",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.3y",
-            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.49",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.5y",
-            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.50",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.range52w",
-            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.51",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.relativeStrength.sector",
-            "reason": "no XLK history supplied",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.52",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
-            "severity": "info",
-            "attemptedSources": [
-              "fmp:/stable/analyst-estimates"
-            ]
-          }
-        },
-        {
-          "path": "stageB.gaps.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.54",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.terminalRoic.waccBasis",
-            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.55",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.56",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.57",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
-            "severity": "info"
-          }
-        }
-      ]
-    },
-    {
-      "name": "audit-batch5-trust-signals-20261022",
-      "decisions": [
-        "D-110"
-      ],
-      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
-      "deltas": [
-        {
-          "path": "report.balanceSheet.coverage.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "JUDGMENT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
           }
         }
       ]
