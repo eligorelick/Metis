@@ -15,7 +15,10 @@ export function readerConventionText(text: string, context = ""): string {
     : /EV\/|enterpriseValue|enterprise value|multiplesBasis|debtProfile|debtBridge|computed\.capital\.current/i.test(metric)
       ? "Not applicable to a non-bank lender: loan funding is operating inventory finance (see Lender conventions)."
       : "Not applicable to a non-bank lender: owner cash flow is not established (see Lender conventions).";
-  return text.replace(LENDER_PARAGRAPH, reason).replace(/\bdcf-suppressed\b/g, "cash-flow valuation unavailable");
+  return text.replace(LENDER_PARAGRAPH, reason).replace(/\bdcf-suppressed\b/g, "cash-flow valuation unavailable")
+    // "Provider enterprise value not applicable: Not applicable to a non-bank
+    // lender: ..." states the reason once (pre-run re-render of the FIGR report).
+    .replace(/\bnot applicable:\s+Not applicable to a non-bank lender:/g, "not applicable to a non-bank lender:");
 }
 
 /** The dedicated field is preferred; older reports may retain the paragraph only in a basis. */

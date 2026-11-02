@@ -42,6 +42,23 @@ describe("provider earnings-date qualification boundaries", () => {
     expect(out).toBe("The provider earnings calendar schedules the Q3 2026 report for 2026-11-12 (FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release), and a company newswire release of 2026-10-22 gives the same date.");
     expect(out).not.toContain("company confirmation not established");
   });
+  // Pre-run check for the FIGR extra-high run (2026-11-02): the high-effort report's
+  // executive summary wrote "(scheduled for 2026-11-12)" and the qualifier nested a
+  // second parenthesis inside it. Inside parentheses the qualifier follows a comma.
+  it("qualifies a date already inside parentheses without nesting a second parenthesis", () => {
+    const fmpNote = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-12 [fmp:earnings-calendar · 2026-11-02]";
+    const text = "Three things would move the view. A Q3 2026 report (scheduled for 2026-11-12) showing revenue tracking volume at the top of guidance would make the price look undemanding.";
+    const input = { verdict: { executiveSummary: [{ text, label: "JUDGMENT", source: "fmp:earnings-calendar", asOf: "2026-11-02" }] } };
+    const out = guardEarningsSchedule(input, [fmpNote]);
+    const qualified = out.report.verdict.executiveSummary[0]!.text;
+    expect(qualified).toBe("Three things would move the view. A Q3 2026 report (scheduled for 2026-11-12, an FMP calendar estimate not confirmed by an SEC filing or a company-hosted release) showing revenue tracking volume at the top of guidance would make the price look undemanding.");
+    expect(qualified).not.toMatch(/\([^()]*\(/);
+    expect(out.log).toHaveLength(1);
+    // Idempotent: a second pass over its own output adds nothing.
+    const again = guardEarningsSchedule(out.report, [fmpNote]);
+    expect(again.report.verdict.executiveSummary[0]!.text).toBe(qualified);
+    expect(again.log).toHaveLength(0);
+  });
   it("keeps registered SEC confirmation", () => {
     const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }])).toMatchObject({ report: input, log: [] });

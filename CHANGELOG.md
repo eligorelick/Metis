@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
+
+- End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026
+  outlook statements no longer run on into the webcast notice ("... $4.8 - $5.2 Webcast Information Figure will host a conference call and webca st at 8:30 a.m.").
+- Qualify a provider earnings date that the prose already encloses in parentheses after a comma
+  ("(scheduled for 2026-11-12, an FMP calendar estimate not confirmed by an SEC filing or a company-hosted release)") instead of nesting a second parenthesis.
+- Read-time wording: a lender reason after a "not applicable:" lead-in is stated once, and the key-data short-interest ratio follows a semicolon rather than a second parenthesis.
+- Checked with the stored high-effort FIGR report re-rendered by the integrated code and the real Q1/Q2 2026 release text; no stamp change (the round's unreleased 1.57.0/1.61.0 stamps cover it). See D-162.
+
 ## Unreleased - R3 FIGR report readability (2026-11-02)
 
 - Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.

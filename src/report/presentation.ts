@@ -985,7 +985,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float (derived using float observed ${md?.shares?.floatAsOf ?? md?.shares?.asOf ?? "date unestablished"})` : null;
     rows.push({
       label: "Short interest",
-      value: `${formatLargeNumber(si.shares)} shares${ofFloat ? ` (${ofFloat})` : ""}`,
+      // A semicolon, not a second parenthesis: the ratio already carries its float date in one.
+      value: `${formatLargeNumber(si.shares)} shares${ofFloat ? `; ${ofFloat}` : ""}`,
       note: [`settled ${si.settlementDate}`, si.daysToCover !== null ? `${formatNumber(si.daysToCover, 1)} days to cover` : null].filter(Boolean).join("; "),
     });
   }

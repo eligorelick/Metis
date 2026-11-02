@@ -4359,3 +4359,29 @@ Wrap descriptions at spaces and prevent breaks within dates, amounts/units and
 percentages. Split tables wider than six columns with repeated identifiers;
 do not compress long segment descriptions into arbitrary character fragments.
 Keep original semantic values in print tests while allowing token spans.
+
+## D-162 - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
+
+Before the owner's one extra-high run, the stored high-effort FIGR report was
+re-rendered with the integrated code and the run's failure records were
+reread. The extra-high setting itself needs no change: output ceilings (128K
+per request, 64K advisory per synthesis request), the effort-scaled stream
+silence limit (900 s), the 45-minute stage deadline and the spend caps all
+have room, and the three first-attempt failures were a blank date (D-156), an
+incomplete bull skeleton and an omitted judge section, each recovered by the
+existing retry or repair. Four text defects that would otherwise be stored in
+the new report are fixed:
+
+- An issuer outlook block ends at a "Webcast Information" (or "Webcast and
+  Conference Call") heading, case-sensitively like the other stops, so FIGR's
+  guidance line is quoted without the webcast notice and its broken word.
+- A provider earnings date already inside parentheses is qualified after a
+  comma ("..., an FMP calendar estimate not confirmed by an SEC filing or a
+  company-hosted release"); elsewhere the parenthetical form is unchanged, and
+  a second pass adds nothing.
+- Read-time only: "not applicable: Not applicable to a non-bank lender:" reads
+  "not applicable to a non-bank lender:", and the key-data short interest is
+  "21.28M shares; 17.33% of float (derived using float observed ...)".
+
+Tests: `tests/edgar.outlookWebcastStop.test.ts` (real FIGR release text),
+`tests/report.earningsSchedule.test.ts`, `tests/report.prerunReadability.test.ts`.

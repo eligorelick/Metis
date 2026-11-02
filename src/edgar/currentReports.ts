@@ -319,7 +319,10 @@ const METRIC_RULES: { metric: GuidanceMetric; pattern: RegExp; unit: GuidanceIte
 ];
 
 const OUTLOOK_HEADING = /\b(?:Business |Financial |Fiscal \d{4} )?(?:Outlook|Guidance)\b/g;
-const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
+// "Webcast Information" (FIGR's Q1 and Q2 2026 releases) heads the call notice
+// that follows a one-row guidance table; case-sensitive like the others, so a
+// webcast mentioned inside an outlook sentence does not end the block.
+const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Webcast Information|Webcast and Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
 const EXPECTATION = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|outlook|guid(?:e|ance)|project(?:s|ed)|forecast)\b/i;
 // Some releases introduce compact bullets with a dated heading, not an
 // expectation verb. A combined heading detects outlook scope but cannot bind

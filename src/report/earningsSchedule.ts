@@ -62,13 +62,28 @@ export function guardEarningsSchedule<T extends object>(input: T, notes: readonl
       // FIGR paid audit (2026-11-02): name the sources that would confirm the
       // date. "Company confirmation not established" read as a contradiction
       // beside a newswire copy of the company's release, which confirms nothing here.
-      const qualifier = `${event.provider === "fmp" ? "FMP" : "Finnhub"} calendar estimate; not confirmed by an SEC filing or a company-hosted release`;
+      const provider = event.provider === "fmp" ? "FMP" : "Finnhub";
+      const qualifier = `${provider} calendar estimate; not confirmed by an SEC filing or a company-hosted release`;
       const dated = `${event.date} (${qualifier})`;
+      // Pre-run check for the FIGR extra-high run (2026-11-02): a date the prose
+      // already encloses in parentheses ("(scheduled for 2026-11-12)") takes the
+      // qualifier after a comma instead of a nested parenthesis.
+      const inline = `${event.date}, ${provider === "FMP" ? "an" : "a"} ${provider} calendar estimate not confirmed by an SEC filing or a company-hosted release`;
+      const qualifyDates = (piece: string): string => {
+        let out = "", depth = 0;
+        for (let i = 0; i < piece.length;) {
+          if (piece.startsWith(event.date, i)) { out += depth > 0 ? inline : dated; i += event.date.length; continue; }
+          const ch = piece[i]!;
+          if (ch === "(") depth++; else if (ch === ")") depth = Math.max(0, depth - 1);
+          out += ch; i++;
+        }
+        return out;
+      };
       if (claim) qualifiedClaimPaths.add(path);
       const amended = parts.map(part => {
         if (!isEvent(part)) return part;
         const { pieces, hits } = eventPieces(part, event.date);
-        return pieces.map((piece, i) => hits.has(i) && !piece.includes(dated) ? piece.replaceAll(event.date, dated) : piece).join("");
+        return pieces.map((piece, i) => hits.has(i) && !piece.includes(dated) && !piece.includes(inline) ? qualifyDates(piece) : piece).join("");
       }).join("");
       if (amended === next) continue;
       next = amended;
