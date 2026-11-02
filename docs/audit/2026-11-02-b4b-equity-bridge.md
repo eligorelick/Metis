@@ -628,3 +628,12 @@ Market EV folds the exact-date convertible-preferred carrying claim under the sa
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
 | F2 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f2-red` / `f2-green-initial` | Saved figures/bytes retained; re-run uses corrected method |
+
+
+## Review round 2: F3
+
+The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+
+| Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
+|---|---|---|---|---|
+| F3 | Fixed | Same commit as this record; full SHA in HANDOFF-FIXROUND-2 | `f3-red-confirmed` / `f3-green` | Saved figures/bytes retained; re-run uses corrected method |

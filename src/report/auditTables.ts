@@ -102,7 +102,7 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
       ...(b.noncontrollingBook === undefined ? [] : [[`Minority interest at book value (not deducted)${minorityNote}`, money(b.noncontrollingBook)]]),
       [`Less preferred equity${preferredNote}`,claim(b.preferredEquity)],
       ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
-      ...(b.convertibles ?? []).map(r => [`Convertible ${r.kind}: ${r.reading}; removed ${formatLargeNumber(r.sharesRemoved)} conversion shares; restored ${money(r.restored)} of the claim. ${r.basis}`, money(r.claim)]),
+      ...(b.convertibles ?? []).map(r => [`Convertible ${r.kind} (memo; inside the lines above): ${r.reading}; removed ${formatLargeNumber(r.sharesRemoved)} conversion shares; restored ${money(r.restored)} of the claim. ${r.basis}`, "\u2014"]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
       ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),
       ...(b.valuationDate === undefined
