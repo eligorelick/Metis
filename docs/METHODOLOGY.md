@@ -6027,3 +6027,5 @@ Classic and exported excess-return values use model-value labels and omit DCF/WA
 Before frozen report spec 1.56.0, a legacy report without fairValue reads pipeline zero placeholders (or a suppressed per-share zero) as unavailable. Zero pipeline scenario targets are likewise withheld, and all-placeholder data-only probabilities become unavailable. Recorded bytes stay unchanged (RPT-215).
 
 Near-52-week price flags round the recorded high or low to cents; computed levels remain unchanged (RPT-103).
+
+Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).

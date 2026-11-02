@@ -20,6 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P7 display and history (2026-11-02)
 
+- RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
 - RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
 - RPT-204: Render the Beneish M score without a misleading m unit suffix.
 - RPT-103: Round near-52-week flag price levels to cents; do not change the level.
