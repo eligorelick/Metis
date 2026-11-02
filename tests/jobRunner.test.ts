@@ -1956,6 +1956,64 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
   });
 
+  it("JOB-206 tolerates only transient writer locks with sufficient expiry slack", async () => {
+    const { renewalFailureTolerable, connectionBusyTimeoutMs } = await import("@/pipeline/jobScheduler");
+    const input = { error: Object.assign(new Error("locked"), { code: "SQLITE_BUSY" }),
+      knownLeaseExpiresAtMs: 900000, nowMs: 230000, beatMs: 225000, busyTimeoutMs: 5000 };
+    expect(connectionBusyTimeoutMs()).toBe(5000);
+    expect(renewalFailureTolerable(input)).toBe(true);
+    expect(renewalFailureTolerable({ ...input, nowMs: 455000 })).toBe(true);
+    expect(renewalFailureTolerable({ ...input, nowMs: 670000 })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, nowMs: 680000 })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, error: { code: "SQLITE_BUSY_SNAPSHOT" } })).toBe(true);
+    expect(renewalFailureTolerable({ ...input, error: { code: "SQLITE_LOCKED" } })).toBe(false);
+    expect(renewalFailureTolerable({ ...input, error: new Error("disk error") })).toBe(false);
+  });
+
+  it.each(["paid", "job"] as const)("JOB-206 survives one transient %s renewal lock without replay", async (kind) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));
+    handle.sqlite.pragma("busy_timeout = 0");
+    const { jobId } = createJob("AAPL");
+    const scheduler = await import("@/pipeline/jobScheduler");
+    const limits = { maxActiveJobs: 1, maxActiveLlmCalls: 1, maxRollingCostUsd: null,
+      rollingCostWindowMs: 3600000, paidPassLeaseTtlMs: 200, jobLeaseTtlMs: 200 };
+    const claim = scheduler.claimQueuedJobById(jobId, "busy-beat", new Date(), limits)!;
+    const target = kind === "paid" ? "renewPaidPassLease" : "renewJobLease";
+    const original = scheduler[target];
+    const spy = vi.spyOn(scheduler, target).mockImplementationOnce(() => {
+      throw Object.assign(new Error("database is locked"), { code: "SQLITE_BUSY" });
+    }).mockImplementation(original as never);
+    const acquired = deferred();
+    const release = deferred();
+    const base = mockPasses();
+    let signal: AbortSignal | undefined;
+    let calls = 0;
+    const passes: PipelinePasses = { ...base.passes, runBullThenBear: async (...raw: unknown[]) => {
+      calls++;
+      signal = (raw[0] as { signal?: AbortSignal }).signal;
+      const { lifecycle, settlements } = testAnalystHooks(raw);
+      await launchTestAnalystSide(lifecycle, "bull");
+      acquired.resolve(undefined);
+      await release.promise;
+      await settlements?.bull?.(testSuccessSettlement(testAnalystPass("bull")));
+      lifecycle?.onPassFinish?.("bull");
+      throw new BullBearPassFailure("bear was not launched", {
+        bullLaunched: true, bearLaunched: false, bearError: "not launched" });
+    }};
+    const running = runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true,
+      now: NOW, claim, schedulerLimits: limits });
+    await acquired.promise;
+    await vi.advanceTimersByTimeAsync(100);
+    const aborted = signal?.aborted;
+    release.resolve(undefined);
+    await running;
+    spy.mockRestore();
+    expect(aborted).toBe(false);
+    expect(calls).toBe(1);
+    expect(handle.db.select().from(costLog).all().filter(row => row.step === "bull")).toHaveLength(1);
+  });
+
   it("renews a long paid attempt before lease expiry and settles through the same owner", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-06T00:00:00.000Z"));

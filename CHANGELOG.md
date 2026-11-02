@@ -20,6 +20,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P4 paid-work lifecycle (2026-11-02)
 
+JOB-206: A transient SQLite renewal lock waits for the next beat only when the
+known lease has room for that beat and the connection busy timeout. Authority
+loss, exhausted slack and other errors still abort; no request is replayed.
+
 JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
 reusing accepted analyst or synthesis work. The snapshot hash and capture time
 stay unchanged; current-clock validation and the payload fingerprint still

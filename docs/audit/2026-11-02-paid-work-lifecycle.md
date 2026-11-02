@@ -1,11 +1,11 @@
 # P4 paid-work lifecycle disposition
 
-This bounded batch completes JOB-202. Other items are not started.
+This batch preserves accepted work and safe in-flight renewals.
 
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 | --- | --- | --- | --- | --- |
 | JOB-202 | Fixed: compatible accepted-work reuse loads frozen lineage inputs and Stage B configuration, preserving hash and capture time | Owning JOB-202 commit | JOB-202-red, JOB-202-real-red / JOB-202-green, JOB-202-real-green | No rewrite; newly resumed reports retain source input provenance |
-| JOB-206 | Not started | — | — | None |
+| JOB-206 | Fixed: tolerate busy renewal only with proven lease slack | Owning JOB-206 commit | JOB-206-red / JOB-206-green2 | None |
 | JOB-213 | Not started | — | — | None |
 | DOC-203 | Not started | — | — | None |
 | AI-510 | Not started | — | — | None |
@@ -38,3 +38,8 @@ continue to consume the same report schema and original snapshot association.
 Residuals: all thirteen other assigned findings remain not started. In particular,
 this item adds no repair or automatic paid replay and does not resolve the
 separate resumed-side recovery, lease, or chained verification provenance issues.
+
+JOB-206: injected SQLITE_BUSY on either renewal beat aborted 2/2 runs before
+the fix; both now retain one analyst launch and exactly one bull ledger row.
+Six focused tests pass, including expiry boundaries, non-busy errors and lost
+owner controls. No accounting, schema, prompt, stamp or stored-report change.

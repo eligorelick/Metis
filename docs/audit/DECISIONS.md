@@ -1,6 +1,11 @@
 # Decisions
 
-## D-next (P4): frozen inputs for accepted-work reuse (JOB-202)
+## D-next (P4): preserve accepted and in-flight work (JOB-202, JOB-206)
+
+B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
+exceeds now plus the next beat and SQLite busy timeout. Successful complete
+beats advance the local expiry; partial beats do not. False renewals still
+abort immediately. Request identities and settlement accounting stay intact.
 
 Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
 the lineage root's integrity-checked snapshot. Matching snapshot versions use

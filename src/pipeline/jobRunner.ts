@@ -152,6 +152,8 @@ import {
   stepSettledTotals,
   PaidPassOverReservationError,
   isTransientWriterLock,
+  renewalFailureTolerable,
+  connectionBusyTimeoutMs,
   type JobClaim,
   type PaidPassLease,
   type SchedulerLimits,
@@ -1296,7 +1298,9 @@ function createSettlementCheckpoint<T>(
       );
       if (acquired.acquired) {
         lease = acquired.lease;
+        const beatMs = Math.max(1, Math.floor(state.schedulerLimits.paidPassLeaseTtlMs / 4));
         renewal = setInterval(() => {
+          const beatStartedMs = Date.now();
           try {
             if (lease !== null && !renewPaidPassLease(lease, undefined, state.schedulerLimits)) {
               stopRenewal();
@@ -1323,11 +1327,20 @@ function createSettlementCheckpoint<T>(
                 return;
               }
             }
+            const expiresAt = new Date(beatStartedMs + state.schedulerLimits.paidPassLeaseTtlMs).toISOString();
+            if (lease !== null) lease.leaseExpiresAt = expiresAt;
+            for (const requestLease of requestLeases.values()) requestLease.leaseExpiresAt = expiresAt;
           } catch (error) {
+            const knownLeaseExpiresAtMs = Math.min(
+              Date.parse(lease!.leaseExpiresAt),
+              ...Array.from(requestLeases.values(), row => Date.parse(row.leaseExpiresAt)),
+            );
+            if (renewalFailureTolerable({ error, knownLeaseExpiresAtMs,
+              nowMs: Date.now(), beatMs, busyTimeoutMs: connectionBusyTimeoutMs() })) return;
             stopRenewal();
             controller.abort(error);
           }
-        }, Math.max(1, Math.floor(state.schedulerLimits.paidPassLeaseTtlMs / 4)));
+        }, beatMs);
         renewal.unref?.();
         return;
       }
@@ -2903,15 +2916,22 @@ export async function runJob<TPayload = unknown>(
   // Process-local cancellation registration plus durable exact-claim renewal.
   liveJobIds().add(jobId);
   liveJobControllers().set(jobId, jobController);
+  const heartbeatBeatMs = Math.max(1, Math.floor(state.schedulerLimits.jobLeaseTtlMs / JOB_LEASE_RENEWAL_DIVISOR));
+  let jobLeaseKnownExpiresAtMs = Date.parse(state.claim.leaseExpiresAt);
   const heartbeat = setInterval(() => {
+    const beatStartedMs = Date.now();
     try {
       if (!renewJobLease(state.claim, undefined, state.schedulerLimits)) {
         jobController.abort(new SupersededRunError(state.jobId, state.runGeneration));
+      } else {
+        jobLeaseKnownExpiresAtMs = beatStartedMs + state.schedulerLimits.jobLeaseTtlMs;
       }
     } catch (error) {
+      if (renewalFailureTolerable({ error, knownLeaseExpiresAtMs: jobLeaseKnownExpiresAtMs,
+        nowMs: Date.now(), beatMs: heartbeatBeatMs, busyTimeoutMs: connectionBusyTimeoutMs() })) return;
       jobController.abort(error);
     }
-  }, Math.max(1, Math.floor(state.schedulerLimits.jobLeaseTtlMs / JOB_LEASE_RENEWAL_DIVISOR)));
+  }, heartbeatBeatMs);
   heartbeat.unref?.();
 
   const now = opts.now ?? ((): Date => new Date());

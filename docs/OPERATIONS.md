@@ -404,3 +404,8 @@ fingerprint and execution telemetry paths. It does not change stored preferences
 the public report endpoint continues to use the user's selected connection.
 
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.
+
+A transient SQLite writer lock during job or paid-request lease renewal waits
+for the next renewal beat only while the known lease expiry leaves room for
+that beat and the connection busy timeout. Lost authority, insufficient slack
+or another error still aborts; this never replays the provider request.
