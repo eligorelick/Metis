@@ -639,7 +639,7 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     return false;
   }));
   const dates = [...income.keys()].sort().reverse();
-  const facts = bundle.edgar?.companyFacts;
+  const facts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
   const buildFiled = (accessions?: string[]) => facts?.ok ? buildStatementsFromCompanyFacts(accessions ? factsForFilings(facts.value.data, accessions) : facts.value.data,
     { symbol: bundle.symbol, cik: String(facts.value.data.cik), asOf: bundle.builtAt.slice(0, 10), factsObservedAt: facts.value.fetchedAt, annualPeriods: 12, quarterlyPeriods: 40,
       vendorSplits: { status: "unavailable", source: "filed revenue presentation", reason: "Revenue growth does not resolve per-share values" } }).incomeQuarterly.rows : [];
@@ -1065,6 +1065,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     ...(segmentPerformance.length === 0 ? {} : { segmentPerformance }),
     ...(trendFlags.presentationChecked ? { quarterlyTrendPresentationChecked: true as const } : {}),
     quarterlyTrend: trend,
+    ...(cashFlowApplicability ? { quarterlyGrossMarginNotApplicable: cashFlowApplicability.reason } : {}),
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
     ...(commitmentPaymentTiming.length === 0 ? {} : { commitmentPaymentTiming }),

@@ -23,9 +23,10 @@ const traced = (over: Partial<TracedNumber> = {}): TracedNumber =>
     ...over,
   }) as TracedNumber;
 
+// L10: amount magnitudes use K from 1,000; currency evidence is unchanged.
 describe("monetary formatting respects the reported currency", () => {
   it("renders USD with the dollar sign", () => {
-    expect(formatTracedValue(traced({ currency: "USD" }))).toBe("$1,234.50");
+    expect(formatTracedValue(traced({ currency: "USD" }))).toBe("$1.2K");
   });
 
   it("does NOT render a non-USD figure as dollars", () => {
@@ -39,8 +40,8 @@ describe("monetary formatting respects the reported currency", () => {
     // A report written before TracedNumber.currency existed parses with the
     // field ABSENT. The lowercase unit "usd" is a historical name for "some
     // currency", so nothing establishes USD; an explicit "USD" unit does.
-    expect(formatTracedValue(traced())).toBe("1,234.50 (currency unknown)");
-    expect(formatTracedValue(traced({ unit: "USD" }))).toBe("$1,234.50");
+    expect(formatTracedValue(traced())).toBe("1.2K (currency unknown)");
+    expect(formatTracedValue(traced({ unit: "USD" }))).toBe("$1.2K");
   });
 
   it("never renders a currency the pipeline recorded as unknown (null) as dollars", () => {
@@ -77,8 +78,8 @@ describe("monetary formatting respects the reported currency", () => {
   });
 
   it("formatFinancialValue takes the currency from the field or an explicit ISO unit only", () => {
-    expect(formatFinancialValue(1234.5, "usd")).toBe("1,234.50 (currency unknown)");
-    expect(formatFinancialValue(1234.5, "USD")).toBe("$1,234.50");
+    expect(formatFinancialValue(1234.5, "usd")).toBe("1.2K (currency unknown)");
+    expect(formatFinancialValue(1234.5, "USD")).toBe("$1.2K");
     expect(formatFinancialValue(1234.5, "usd", "JPY")).toContain("JPY");
   });
 });

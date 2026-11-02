@@ -18,6 +18,6 @@ export function collapseMeasuredCagrValues<T extends { period?: string; value: T
     if (seen.has(key)) return [];
     seen.add(key);
     const measured = /measured over (\d+(?:\.\d+)?)y/.exec(value.period!)![1];
-    return [{ ...value, period: `${measured}y CAGR (available history)` }];
+    return [{ ...value, period: `${measured}y CAGR (available history)`, value: { ...value.value, period: `${measured}y` } }];
   });
 }

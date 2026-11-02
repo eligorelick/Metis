@@ -2334,9 +2334,9 @@ export function computeSupportFlags(
           flags.push({
             id: "receivables-vs-revenue",
             severity: gapPp > H.growthGapFlagPp ? "flag" : "warn",
-            message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% — ${receivables.status === "selected" && receivables.basis === "vendor-unverified" ? "scope comparability is unverified; review the underlying receivables definitions before drawing an accounting conclusion" : "possible channel stuffing or loosened credit terms"}.`,
+            message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% \u2014 ${receivables.status === "selected" && receivables.basis === "vendor-unverified" ? "scope comparability is unverified; review the underlying receivables definitions before drawing an accounting conclusion" : "possible channel stuffing or loosened credit terms"}.`,
             metrics: { receivablesGrowthPct: arGrowth, revenueGrowthPct: revGrowth, gapPp },
-            rule: `house rule: receivables growth − revenue growth > ${H.growthGapWarnPp}pp (warn) / > ${H.growthGapFlagPp}pp (flag), with receivables growth > ${H.minGrowthPct}%`,
+            rule: `house rule: receivables growth \u2212 revenue growth > ${H.growthGapWarnPp}pp (warn) / > ${H.growthGapFlagPp}pp (flag), with receivables growth > ${H.minGrowthPct}%`,
             heuristic: true,
             asOf: growthDates,
           });
@@ -2345,7 +2345,7 @@ export function computeSupportFlags(
         gaps.push(
           gapEntry(
             "forensics.flags.receivables",
-            receivables.status === "unavailable" && receivables.cause === "incomparable" ? `${receivables.reason} Receivables-vs-revenue flag not evaluated.` : "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
+            receivables.status === "unavailable" && receivables.cause === "incomparable" ? `${receivables.reason} Receivables-vs-revenue flag not evaluated.` : "accountsReceivables/netReceivables missing \u2014 receivables-vs-revenue flag not evaluated",
             "info",
           ),
         );

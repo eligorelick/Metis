@@ -697,7 +697,8 @@ describe("reportToMarkdown", () => {
     }
     expect(printed).toContain("<th>Bull</th><th>Base</th><th>Bear</th><th>Weighted</th>");
     expect(printed).toContain("FY2099");
-    expect(printed).toContain("$2,099.00");
+    // L10: compact amounts now use the shared K scale; ordering is unchanged.
+    expect(printed).toContain("$2.1K");
     // The Markdown export and the print HTML now share one canonical financial
     // formatter, so a figure renders identically on both surfaces. This used to
     // re-parse the Markdown string and re-group it for print; that conversion is

@@ -1411,10 +1411,12 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         .filter((day): day is string => day !== null);
       // Only periods strictly older than anything the successor filed: a
       // period both entities reported would otherwise appear twice.
-      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => (a < b ? a : b));
+      const comparableQuarterHistory = member === "incomeQuarterly" && continuity !== null;
+      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => comparableQuarterHistory ? (a > b ? a : b) : (a < b ? a : b));
       const older = result.rows.filter((row) => {
         const day = isoDay(row["date"]);
-        return day !== null && (cutoff === null || day < cutoff);
+        return day !== null && (cutoff === null || day < cutoff) &&
+          (!comparableQuarterHistory || !currentRows.some(current => isoDay(current["date"]) === day || compatibleFiscalAlias(current, row)));
       });
       if (older.length === 0) return;
       const tagged = older.map(

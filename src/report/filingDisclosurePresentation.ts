@@ -115,7 +115,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.quarterlyTrend.length > 0) {
-    const showGrossMargin = d.quarterlyTrend.some(r => r.grossMarginPct !== null);
+    const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
     // D-63 fields, rendered where present: the quarter's equity-securities
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).

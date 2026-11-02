@@ -3807,3 +3807,12 @@ Collapse explicit, identical measured CAGR observations into one row naming
 the measured span. Keep distinct windows and values. Use the same compact
 K/M/B/T amount scale for segment and fundamentals money; preserve per-share
 precision. Pure display grouping does not alter retained figures or scores.
+
+### D-next (N4b) - Census and regression controls
+
+A successor comparative discovered for L3 must not truncate valid predecessor
+income history when the existing earnings and per-share continuity evidence
+proves one reporting entity. Fill missing older quarters without duplicates;
+retain the strict cutoff when continuity is absent. Add the two presentation
+helpers to risk coverage. Update only defect-encoding anchor/CFO/amount pins;
+leave thresholds, shared stamps and payload/audit goldens unchanged.

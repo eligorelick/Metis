@@ -6,6 +6,7 @@ import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { YahooClient } from "@/providers/yahoo";
+import { factsForFilings } from "@/edgar/filedPresentation";
 
 const at = "2026-11-02T00:00:00.000Z";
 const facts = retained.companyFacts as CompanyFacts;
@@ -54,7 +55,7 @@ describe("N4b L3 filed comparative quarterly series", () => {
   });
   it("uses current-filing YoY comparatives and matched filed Q4 operands, never cross-source growth", async () => {
     const i = fixture(), out = await applyKeylessFallbacks(i), b = completeCurrencyBundle({});
-    b.builtAt = at; b.edgar.companyFacts = i.edgar.companyFacts; b.edgar.registrant = i.edgar.registrant;
+    b.builtAt = at; b.edgar.companyFacts = i.edgar.companyFacts; b.edgar.registrant = i.edgar.registrant; b.edgar.cik = i.edgar.cik;
     b.statements.incomeQuarterly = out.members.incomeQuarterly;
     const trend = buildFilingDisclosures(b)!.quarterlyTrend;
     expect(trend.find(r => r.periodEnd === "2026-06-30")?.revenueYoyPct).toBeCloseTo(112.6644, 3);
@@ -72,5 +73,48 @@ describe("N4b L3 filed comparative quarterly series", () => {
     const row = buildFilingDisclosures(b)!.quarterlyTrend[0]!;
     expect(row.revenueQoqPct).toBeNull();
     expect(row.revenueGrowthNotes?.join(" ")).toMatch(/source|presentation/i);
+  });
+  it("prefers the current filing's prior-year comparative over a later changed copy", () => {
+    const i = fixture(), b = completeCurrencyBundle({});
+    b.builtAt = at; b.edgar.companyFacts = i.edgar.companyFacts; b.edgar.cik = i.edgar.cik;
+    if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+    const revenue = b.edgar.companyFacts.value.data.facts["us-gaap"]!.Revenues as { units: { USD: Record<string, unknown>[] } };
+    revenue.units.USD.push({ start: "2025-04-01", end: "2025-06-30", val: 206077000, form: "10-Q", filed: "2026-10-01", accn: "later", fp: "Q3", fy: 2026 });
+    b.statements.incomeQuarterly.value.data.rows = [
+      { date: "2026-06-30", reportedCurrency: "USD", revenue: 225588000, source: "edgar" },
+      { date: "2025-06-30", reportedCurrency: "USD", revenue: 206077000, source: "edgar" },
+    ];
+    expect(buildFilingDisclosures(b)!.quarterlyTrend[0]!.revenueYoyPct).toBeCloseTo(112.6644, 3);
+  });
+  it.each([true, false])("a successor comparative cannot truncate admitted predecessor quarters (continuity=%s)", async continuous => {
+    const i = fixture(); i.statementSource = "edgar";
+    if (!i.edgar.companyFacts.ok) throw Error("fixture");
+    const original = structuredClone(i.edgar.companyFacts.value.data);
+    for (const raw of Object.values(i.edgar.companyFacts.value.data.facts["us-gaap"] ?? {})) {
+      const concept = raw as { units: Record<string, { end: string; val: number }[]> };
+      for (const [unit, points] of Object.entries(concept.units)) concept.units[unit] = points.filter(p => ["2026-06-30", "2025-06-30"].includes(p.end));
+    }
+    if (!continuous) {
+      i.edgar.companyFacts.value.data.facts["us-gaap"]!.NetIncomeLoss = { units: {} };
+      delete i.edgar.companyFacts.value.data.facts["us-gaap"]!.NetIncomeLossAvailableToCommonStockholdersBasic;
+    }
+    i.edgar.predecessor = { cik10: "0000000002", name: "Predecessor", facts: original, endpoint: "retained", fetchedAt: at,
+      via: { accession: "predecessor", form: "10-Q", filed: "2026-05-15", successorFormAccession: "successor" } };
+    const out = await applyKeylessFallbacks(i);
+    if (!out.members.incomeQuarterly.ok) throw Error("fixture");
+    expect(out.members.incomeQuarterly.value.data.rows.some(r => r.date === "2026-03-31")).toBe(continuous);
+    expect(out.members.incomeQuarterly.value.data.rows.filter(r => r.date === "2025-06-30")).toHaveLength(1);
+  });
+  it("isolates one filing without retaining malformed companion concepts or mutating the source", () => {
+    const f = structuredClone(facts);
+    f.facts["other"] = undefined as never;
+    f.facts["us-gaap"]!.malformed = { units: null } as never;
+    const before = JSON.stringify(f);
+    const selected = factsForFilings(f, ["0002064124-26-000029"]);
+    expect(selected.facts["us-gaap"]).not.toHaveProperty("malformed");
+    const built = buildStatementsFromCompanyFacts(selected, { symbol: "TEST", cik: String(facts.cik), asOf: at.slice(0, 10), annualPeriods: 12, quarterlyPeriods: 32, vendorSplits: { status: "unavailable", source: "retained", reason: "offline" } });
+    expect(built.incomeQuarterly.rows.find(r => r.date === "2025-03-31")?.operatingIncome).toBe(8072000);
+    expect(built.incomeQuarterly.rows.find(r => r.date === "2025-06-30")).toBeUndefined();
+    expect(JSON.stringify(f)).toBe(before);
   });
 });

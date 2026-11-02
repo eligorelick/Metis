@@ -6542,6 +6542,10 @@ replace the vendor row. Quarterly YoY prefers the current filing's comparative;
 YoY and QoQ divide filed operands on one presentation, or vendor operands on
 one vendor basis, and disclose any refusal. Matched FY-minus-nine-month pairs
 can establish a Q4 growth comparison independently of a refused vendor row.
+A successor comparative cannot truncate otherwise eligible predecessor income
+quarters when the existing earnings and per-share continuity test proves one
+reporting entity; fill only missing older quarters, never duplicate periods.
+Without that continuity evidence, retain the original strict history cutoff.
 
 N3 (2026-11-02): In statement-source auto mode, a vendor revenue conflict
 with a directly tagged filed total permits a whole SEC-built income row only

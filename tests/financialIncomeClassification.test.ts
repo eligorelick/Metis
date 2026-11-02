@@ -59,7 +59,7 @@ describe("same-definition income classification", () => {
   });
   it.each(["date", "unknown-currency", "no-anchor", "no-facts"])("retains unknown observations without invented classification (%s)", change => {
     const f = facts();
-    if (change === "no-anchor") delete f.facts["us-gaap"]!.Assets;
+    if (change === "no-anchor") { delete f.facts["us-gaap"]!.Assets; delete f.facts["us-gaap"]!.Revenues; } // L3: revenue is an independent income anchor.
     if (change === "no-facts") f.facts = {};
     const row = admit(change === "date" ? { date: undefined } : change === "unknown-currency" ? { reportedCurrency: null } : {}, f).row;
     expect(row.fieldConflicts?.grossProfit).toBeUndefined();
