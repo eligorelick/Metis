@@ -98,6 +98,13 @@ export const GROSS_PROFIT_COST_TAGS: readonly string[] = ["CostOfRevenue", "Cost
 export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments";
 
+/**
+ * FIN-401: total costs and expenses, read only to test whether revenue less
+ * costs reconciles to a pretax base that excludes equity-method income (the
+ * equity-method result then sits inside revenue). Never a chain line item.
+ */
+export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
+
 export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,

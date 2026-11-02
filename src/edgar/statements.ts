@@ -75,6 +75,7 @@ import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import { unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
+  COSTS_AND_EXPENSES_TAG,
   COMBINED_CURRENT_DEBT_TAG,
   EBIT_AGGREGATE_MAY_HOLD_INTEREST,
   EBIT_OTHER_MAY_HOLD_INTEREST,
@@ -1397,7 +1398,7 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
 const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
   const tags = new Set<string>(FY_ANCHOR_DURATION_TAGS);
   tags.add("Assets");
-  tags.add("CostsAndExpenses"); // FIN-401: arithmetic scope of a before-equity-method pretax base.
+  tags.add(COSTS_AND_EXPENSES_TAG); // FIN-401: arithmetic scope of a before-equity-method pretax base.
   // Not in any chain: the share-count fallback below reads it directly.
   tags.add(BALANCE_SHEET_SHARES_TAG);
   for (const table of [INCOME_CHAINS, BALANCE_CHAINS, CASHFLOW_CHAINS]) {
@@ -2476,7 +2477,7 @@ function equityMethodPlacement(
     if (amounts.IncomeLossFromEquityMethodInvestments !== undefined) return result("below-operating-income", "The EBIT derivation subtracted the filed equity-method income.");
     if (baseTags.includes(PRETAX_EXCLUDING_EQUITY_METHOD_TAG)) {
       const revenue = money("Revenues");
-      const costs = money("CostsAndExpenses");
+      const costs = money(COSTS_AND_EXPENSES_TAG);
       return result(!refused && income !== null && revenue !== null && costs !== null && pretax !== null && Math.abs(revenue - costs - pretax) <= tolerance
         ? "in-operating-income" : "below-operating-income", "Pretax element excludes equity-method income by definition; revenue less costs is tested for income already inside revenue.");
     }
