@@ -60,17 +60,10 @@ import { GenerateReport } from "./GenerateReport";
 import { describeAnalysisRoute } from "@/ai/connections";
 import { ReportTabs } from "./ReportTabs";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
+import { activeRunIdentity } from "@/pipeline/companyJobIdentity";
 import { normalizeRouteSymbol } from "@/symbol";
 import { notFound } from "next/navigation";
 import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
-
-async function activeRunIdentity(symbol: string): Promise<string | null> {
-  if (!getConfig().uiRedesign) return null;
-  try {
-    const { getReusableActiveJobForSymbol } = await import("@/pipeline/jobRunner");
-    return getReusableActiveJobForSymbol(symbol)?.jobId ?? null;
-  } catch { return null; }
-}
 
 // The bundle reads keys from process.env at request time and hits the network
 // (live EDGAR/FINRA/FRED even keyless) — never statically render this route.
@@ -950,6 +943,7 @@ export default async function CompanyPage({ params, searchParams }: {
   if (saved?.report) {
     const dossier = getConfig().uiRedesign;
     const initialJobId = await activeRunIdentity(symbol);
+    const resumableJobId = !dossier ? (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol) : null;
     return (
       <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={saved.reportId} />}>
         <div className="saved-research-workspace flex flex-col gap-3 p-4">
@@ -958,6 +952,7 @@ export default async function CompanyPage({ params, searchParams }: {
             navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
             controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
           />
+          {!dossier && resumableJobId !== null && <p className="text-[12px] text-muted">A previous run stopped with reusable analyst work. Open Live analysis to resume it.</p>}
           <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
         </div>
       </AppShell>
@@ -1088,7 +1083,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </div>
         </div>
 
-        {getConfig().uiRedesign ? <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} /> : <GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />}
+        <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()} liveView={liveRequested} />
 
         <QuoteHeader bundle={bundle} computed={computed} />
 

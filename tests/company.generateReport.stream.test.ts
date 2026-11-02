@@ -663,6 +663,7 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
       join(process.cwd(), "src", "app", "company", "[symbol]", "page.tsx"),
       "utf8",
     );
-    expect(page).toContain('<GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />');
+    // JOB-301: classic now receives read-only discovery, as dossier already did.
+    expect(page).toContain('initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()}');
   });
 });

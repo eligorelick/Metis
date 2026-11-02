@@ -1,6 +1,7 @@
 /** Revisioned, snapshot-only SSE transport for durable report jobs. */
 import {
   getJobSnapshot,
+  readJobRevision,
   jobExists,
   subscribeJob,
   type JobSnapshot,
@@ -181,6 +182,14 @@ export async function GET(
         refs.refreshing = true;
         let succeeded = false;
         try {
+          const revision = readJobRevision(jobId);
+          if (revision === null) { cleanup(); return; }
+          if (refs.lastRevision !== null && revision <= refs.lastRevision) {
+            refs.retryIndex = 0;
+            succeeded = true;
+            schedulePoll();
+            return;
+          }
           const snapshot = getJobSnapshot(jobId);
           if (snapshot === null) {
             cleanup();

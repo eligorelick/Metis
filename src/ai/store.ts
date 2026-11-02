@@ -6,7 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { z } from "zod";
 import { CHATGPT_EFFORTS, validModelId, type AiSelection } from "./contracts";
-import { withAiMutex } from "./mutex";
+import { withAiMutex, holdProcessLifetimeLock } from "./mutex";
 import { PROVIDER_CREDENTIAL_KEYS, type ProviderCredentialKey } from "@/settings/credentialContracts";
 
 export interface ChatGptProfile {
@@ -69,13 +69,8 @@ export function isAiRuntimeConflict(error: unknown): boolean {
 
 /** Call under withAiStore: one local server owns connection lifecycles at a time. */
 export function claimAiRuntime(store: AiStore): void {
-  const owner = store.runtimeOwnerPid;
-  if (owner && owner !== process.pid) {
-    let alive = true;
-    try { process.kill(owner, 0); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false; }
-    if (alive) throw new Error(AI_RUNTIME_CONFLICT_MESSAGE);
-  }
+  ensurePrivateDirectory(aiDirectory());
+  if (!holdProcessLifetimeLock(aiRuntimeLockPath())) throw new Error(AI_RUNTIME_CONFLICT_MESSAGE);
   store.runtimeOwnerPid = process.pid;
 }
 
@@ -100,6 +95,8 @@ export function aiDirectory(): string {
   const legacy = path.join(base, "Thesis", "ai");
   return fs.existsSync(legacy) ? legacy : path.join(base, "Metis", "ai");
 }
+
+export function aiRuntimeLockPath(): string { return path.join(aiDirectory(), "runtime.lock"); }
 
 export function ensurePrivateDirectory(dir: string): void {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });

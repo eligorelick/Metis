@@ -19,11 +19,12 @@ const harness = vi.hoisted(() => ({
   getReportByIdForSymbol: vi.fn(),
   runStageB: vi.fn(),
   activeJob: vi.fn(),
+  resumableJob: vi.fn(),
   instrumentSupport: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob }));
+vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob, getLatestResumableJobForSymbol: harness.resumableJob }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: harness.buildDataBundle,
 }));
@@ -220,6 +221,7 @@ describe("persisted report presentation", () => {
     harness.runStageB.mockReturnValue(computed);
     harness.instrumentSupport.mockReset().mockReturnValue({ supported: true, kind: "company" });
     harness.activeJob.mockReset().mockReturnValue(null);
+    harness.resumableJob.mockReset().mockReturnValue(null);
     harness.getLatestDoneReport.mockReset();
     harness.getLatestDoneReport.mockReturnValue({
       reportId: 42,
@@ -240,6 +242,12 @@ describe("persisted report presentation", () => {
     });
   });
 
+  it("P4-2 classic saved research discloses reusable analyst work", async () => {
+    harness.resumableJob.mockReturnValue("finished-job");
+    const html = renderToStaticMarkup(await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) }));
+    expect(html).toContain("A previous run stopped with reusable analyst work. Open Live analysis to resume it.");
+    expect(harness.buildDataBundle).not.toHaveBeenCalled();
+  });
   it("opens an existing ticker report without starting live data or calculations", async () => {
     const before = JSON.stringify(report);
     const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });

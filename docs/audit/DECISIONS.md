@@ -11,6 +11,78 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-next (P4) - 2026-11-02: preserve accepted work, paid lifecycle and spend limits
+
+B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
+alias names at startup without values. Keep explicit canonical precedence.
+
+B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
+sides. Rejected-output repair and zero-cost plan resends have independent
+allowances; a repair resend retains feedback and uses no continuation.
+Keep per-attempt checkpoint identity and pre-dispatch accounting unchanged.
+
+B8-OD-3: fold dot/hyphen share classes for admission, active lookup and client
+attachment. Defer the issuer index while existing active alias rows drain;
+never terminalize or delete their accepted work to force a migration.
+
+B8-OD-7: tolerate SQLITE_BUSY renewal errors only while the known expiry
+exceeds now plus the next beat and SQLite busy timeout. Successful complete
+beats advance the local expiry; partial beats do not. False renewals still
+abort immediately. Request identities and settlement accounting stay intact.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+B8-OD-10: use one provider-busy predicate for bounded backoff and failure
+wording. Temporary 429/5xx, overload and unavailable responses are distinguished
+from cut-off streams. Retry-After parsing remains outside this batch.
+
+Apply B8-OD-1: when Retry reuses accepted bull, bear or synthesis work, read
+the lineage root's integrity-checked snapshot. Matching snapshot versions use
+its acquired bundle and Stage B configuration and preserve its hash and capture
+time. Missing legacy or version-incompatible snapshots fall back to acquisition.
+Corrupt snapshots fail closed. Validation retains the retry's clock and the
+existing fingerprint guard remains mandatory before resumed model dispatch.
+
+This extends D-51/D-81 without changing settlement/checkpoint identity, synthesis
+allowance, accepted-section reuse, or pre-dispatch versus uncertain accounting.
+No automatic paid retry or replay is added; terminal refusals remain terminal.
+Stored reports are never rewritten. Payload, prompts, financial formulas and
+their version stamps are unchanged. The real payload/fingerprint runner tests
+prove moved quotes no longer prevent compatible frozen-input reuse, with exact
+analyst ledger rows and model-pass counts.
+
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.

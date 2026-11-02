@@ -47,3 +47,8 @@ The rebrand changes product identity and compatible operational names. It does n
 - **Research and history:** the financial term *thesis*, synthesis, `thesisTriggers`, hashes, model identifiers, prior commit/PR/run IDs, stored reports and quoted legacy identifiers retain their meaning. Historical audit/configuration examples preserve the names used at the time; they remain evidence about those batches, not current setup instructions. Repository links use the Metis target while retaining the original issue, PR and workflow run IDs.
 
 The package name is `metis`; the repository target is [eligorelick/Metis](https://github.com/eligorelick/Metis). Existing local checkout paths and Git history remain intact. Follow [operations](OPERATIONS.md) for current usage and [privacy](PRIVACY.md) before removing any local data.
+
+The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
+legacy shell and launcher values. Uncomment only intentional overrides: even a
+blank canonical assignment wins. Startup warns about conflicting aliases using
+key names only, never their values.

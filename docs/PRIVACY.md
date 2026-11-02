@@ -275,6 +275,11 @@ Connection lifecycle and inference operations claim one live Metis server
 per OS user; another server cannot connect, refresh or disconnect them until
 the owning server stops. Status reads and selection saves are not an
 authentication boundary and do not themselves claim that runtime ownership.
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
 Remove the CLI's remote authorization
 from Google Account connections if needed. ChatGPT disconnect clears local
 tokens and attempts to revoke the renewable session; an unconfirmed remote

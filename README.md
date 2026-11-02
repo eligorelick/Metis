@@ -56,11 +56,11 @@ Connections have offline test coverage, and complete reports have run live throu
 
 <!-- BEGIN GENERATED: config -->
 
-Every key is optional. This table is generated from `.env.example`, which
-carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;
-explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).
+Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
+Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy
+`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).
 
-| Key | Shipped value / opt-in example | What it does |
+| Key | Shipped value, built-in default or opt-in example | What it does |
 | --- | --- | --- |
 | `FMP_API_KEY` | unset | Financial Modeling Prep key — any plan. |
 | `ANTHROPIC_API_KEY` | unset | Anthropic key enables Claude analyst/judge passes when Claude API is selected. |

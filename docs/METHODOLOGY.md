@@ -4123,6 +4123,11 @@ does not recompute them. See `tests/stageC.deterministicInjection.test.ts`,
 `tests/stageC.provenance.test.ts`, `tests/stageC.verifyChecks.test.ts`,
 `tests/degradation.report.test.ts` and `tests/report.executionMetadata.test.ts`.
 
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
 ## Disclaimer scope
 
 New reports carry this text verbatim; historical reports retain the disclaimer
@@ -4190,6 +4195,13 @@ with present code, and a lock hash does not attest installed dependencies.
 See the [implementation disposition](audit/2026-10-17-book-to-code-disposition.md)
 and [verification record](audit/2026-10-17-safeguard-verification.md) for the
 bounded scope, evidence and remaining analytical work.
+
+Retry that reuses accepted analysts or synthesis rebuilds from the lineage's
+frozen acquired inputs and Stage B configuration when snapshot versions match.
+The original capture time remains the report's input provenance. Validation
+uses the new run clock, and the payload fingerprint must still match the reused
+work. Missing legacy snapshots or incompatible versions use freshly acquired
+inputs under the same fingerprint guard. Stored reports are never rewritten.
 
 ### Common-cash payout admission
 
