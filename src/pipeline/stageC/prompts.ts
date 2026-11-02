@@ -314,6 +314,7 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  If an item's tax effect is not disclosed, leave its after-tax adjustment unavailable and state the missing bridge.",
   "  Omit generic normalization boilerplate for item types the evidence does not report.",
   "- Distinguish issuer-defined FCF, standardized CFO minus cash capex, after-SBC FCF and unlevered FCFF.",
+  "- When a trailing SBC concentration is disclosed, qualify every after-SBC FCF use with the quarter amount, comparison median and other-three-quarter run-rate companion. Keep the house-default figure and score. State an IPO or other cause only when dated filed evidence establishes it.",
   "  Reconcile lease principal and liquidity/debt definitions where supplied. Never equate those measures.",
   "- Each material numeric assertion in prose must use its exact typed record or its own source passage,",
   "  metric, period, unit and currency. Prefer one metric/period per sourced sentence. A valid citation",

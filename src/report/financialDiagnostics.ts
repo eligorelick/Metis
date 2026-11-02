@@ -92,6 +92,29 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
       text: [current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
         .filter((text): text is string => text !== undefined).join(" ") });
   }
+  const concentration = current?.sbcConcentration;
+  if (concentration) {
+    const qualify = (value: unknown): void => {
+      if (value === null || typeof value !== "object") return;
+      for (const [key, child] of Object.entries(value)) {
+        if (["text", "label", "basis", "reason"].includes(key) && typeof child === "string" &&
+            (/(?:FCF|free cash flow).*after[ -]SBC|after[ -]SBC.*(?:FCF|free cash flow)|structurally negative/i.test(child)) && !child.includes(concentration.basis)) {
+          (value as Record<string,unknown>)[key] = `${child} ${concentration.basis}`;
+        } else if (typeof child === "object") qualify(child);
+      }
+    };
+    qualify(next);
+    const source = "computed.capital.current.sbcConcentration.runRateAfterSbc";
+    if (!next.fundamentals.fcf.some(row => row.values.some(v => v.value.source === source))) {
+      const value = numeric(source, concentration.runRateAfterSbc, "currency", current!.asOf, current!.currency,
+        `run-rate companion; excludes quarter ending ${concentration.quarterEnd}; other three quarters x 4/3`)!;
+      next.fundamentals.fcf.push({label:`After-SBC FCF run-rate companion. ${concentration.basis}`,values:[{period:"Run-rate companion (other three quarters x 4/3)",value}]});
+    }
+    if (!next.catalystsRisks.risks.some(r => r.reasoning.text.includes(concentration.basis))) {
+      next.catalystsRisks.risks.push({title:"SBC concentration in trailing cash flow",severity:"medium",probability:"unknown",source:"computed.capital.current.sbcConcentration",
+        reasoning:{label:"JUDGMENT",source:"computed.capital.current.sbcConcentration",asOf:current!.asOf,text:concentration.basis}});
+    }
+  }
   const accrual = computed.forensics?.accruals;
   if (accrual) {
     for (const field of ["cashFlowAccrualRatio", "balanceSheetAccrualRatio", "aggregateAccrualsCashFlow", "aggregateAccrualsBalanceSheet", "noaCurrent", "noaPrior", "scalerValue", "netIncome", "operatingCashFlow", "investingCashFlow", "operatingAccruals", "financialAssetCashFlow", "operatingInvestingCashFlow"] as const) {

@@ -3641,3 +3641,7 @@ Scenario shocks retain their existing 25pp growth and 12pp margin bounds. Bindin
 ## D-next (P2) - RPT-502 (2026-11-02)
 
 Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged. Stored reports remain immutable.
+
+## D-next (P2) - N1 (2026-11-02)
+
+When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence. Stored reports remain immutable.

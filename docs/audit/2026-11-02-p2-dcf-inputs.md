@@ -38,6 +38,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | RPT-502 | Fixed: Available-scenario assumptions now state that runs outside the DCF domain are withheld. The obsolete negative-equity floor-at-zero claim is removed; deterministic scenario targets and stored report bytes remain unchanged. | Owning RPT-502 commit | fin-512-legacy-rpt502-red / rpt-502-green | Stored figures unchanged |
 
+| N1 | Fixed: When one trailing quarter has positive SBC at least 3x the median of the other positive quarters, disclose its date and amount and the comparison median beside after-SBC FCF uses. Publish an other-three-quarter sum x 4/3 run-rate companion. House-default cash flow and scoring stay unchanged. No IPO or other cause is inferred without dated filed evidence. | Owning N1 commit | n1-red-02 / n1-green-02 | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

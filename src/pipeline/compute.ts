@@ -2304,6 +2304,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   const capital = attachCurrentCapital(annualCapital, {
+    trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
     periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
     route: route.base,
     modelEligibilityReason,
@@ -2477,6 +2478,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     quote,
   });
 
+  const sbcConcentration = capital.current?.sbcConcentration;
+  if (sbcConcentration) {
+    capital.notes.push(sbcConcentration.basis);
+    if (valuation.kind === "dcf-suppressed") {
+      valuation.suppressionReason = `${valuation.suppressionReason ?? "FCFF DCF suppressed under the unprofitable overlay."} ${sbcConcentration.basis}`;
+      valuation.notes.push(sbcConcentration.basis);
+      valuation.gaps = valuation.gaps.map(gap => gap.field === "valuation.dcf" ? {...gap,reason:`${gap.reason} ${sbcConcentration.basis}`} : gap);
+    }
+  }
   // --- Route metrics for financial companies (WS5, D-17) --------------------
   // The bank, insurer and mortgage-REIT routes have led with NIM, the
   // efficiency ratio, the combined ratio, book value per share, the spread and
@@ -3869,7 +3879,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
                 afterSbc: ctx.capital.current.cashBridge.afterSbcStandardizedFcf,
                 sbc: ctx.capital.current.cashBridge.stockBasedCompensation,
                 asOf: ctx.capital.current.asOf,
-                basis: `TTM ${ctx.capital.current.periodStart ?? "?"} to ${ctx.capital.current.asOf ?? "?"}: operating cash flow minus cash capital expenditure, before and after stock-based compensation`,
+                basis: `TTM ${ctx.capital.current.periodStart ?? "?"} to ${ctx.capital.current.asOf ?? "?"}: operating cash flow minus cash capital expenditure, before and after stock-based compensation${ctx.capital.current.sbcConcentration ? `; ${ctx.capital.current.sbcConcentration.basis}` : ""}`,
               }
             : {
                 beforeSbc: ctx.capital.fcf.latestFcfBeforeSbc,
