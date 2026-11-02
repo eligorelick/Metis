@@ -56,6 +56,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/splitEvents.ts",
   // Decides how long a cached quote stays fresh, so a slip serves an old price.
   "src/providers/usSession.ts",
+  "src/providers/historyCache.ts",
+  "src/edgar/dividendFrequency.ts",
   "src/edgar/extract.ts",
   "src/edgar/xbrl.ts",
   "src/edgar/statements.ts",

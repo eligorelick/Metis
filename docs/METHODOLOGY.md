@@ -6000,3 +6000,6 @@ AI-512-V1: the newer-results completeness warning uses the same withheld fiscal 
 A request-parameter subscription refusal is an expected disclosure in fixed words, without vendor advertisements. It is not remembered, since another parameter value may be allowed. Non-JSON provider outages and rate limits are named by status without page text.
 
 Rule 10b5-1 plans are read from Item 408(a) tables or bounded dated prose with a named person, role, action and expiry. Missing share capacity remains unknown. If arrangements are mentioned but no rows can be parsed, disclosure notes say so and the original excerpt remains in the AI context.
+
+
+Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. Coordinator decision: status-bearing parse errors close the non-JSON outage gap without making caller aborts eligible for stale fallback. Dividend-frequency and history-window modules join the unchanged per-file risk floors.

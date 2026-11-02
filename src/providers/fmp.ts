@@ -1670,7 +1670,7 @@ export class FmpClient {
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
-          if (res.status >= 500) throw new FmpBodyParseError(`FMP server error (HTTP ${res.status}) for ${endpointPath}; the response body was not JSON`);
+          if (res.status >= 500) throw new FmpBodyParseError(`FMP server error (HTTP ${res.status}) for ${endpointPath}; the response body was not JSON`, res.status);
           throw new FmpBodyParseError(
             `FMP returned unparseable body (HTTP ${res.status}) for ${endpointPath}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -2671,7 +2671,7 @@ function parameterRefusal(status: number, text: string): boolean {
 }
 
 class FmpBodyParseError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status?: number) {
     super(message);
     this.name = "FmpBodyParseError";
   }

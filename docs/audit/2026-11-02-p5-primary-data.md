@@ -85,3 +85,8 @@ Final consumer evidence: p5-final-focused (17 files, 648 tests), p5-final-consum
 Typecheck p5-complete-typecheck and lint p5-complete-lint pass. Final docs gates: p5-complete-docs-final. Intermediate introduced fixture/unknown-point typing and replay argument mistakes were corrected. The existing stageC.releaseFiscalLabel suite has 12 missing-excerpt-title failures both before and after this work (ai512-baseline-controls versus ai512-green); no assertions were changed. All other executed tests pass. No full verify or network calls. Report 1.56.0, payload 1.60.0 and Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39 stay shared; pipeline stamp stays unchanged because prompt text did not change. No goldens changed.
 
 Residual methodology limits: a recast first seen in a 10-K remains unproven until a later shared window; the cross-filing estimate remains explicitly computed under OD-11. Historical levels remain visible but their growth is withheld when their individual prior bases cannot be established. No owner questions.
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| Step 1 (DATA-114/115/116) | Fixed: Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. | This commit | fixround-step1-red2 / fixround-step1-green; risk inventory red in fixround-step1-red | No persisted rewrite |

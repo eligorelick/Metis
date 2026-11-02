@@ -3097,3 +3097,8 @@ Follow B9-OD-6: preserve stale and staleReason from submissions, companyfacts, q
 ### D-next (P5-lows): DATA-110 conservative prose arrangements
 
 Require a dated named-person action with role and expiry. Missing share counts remain null; company repurchase narratives do not become insider plans. Table treatment of future grants stays unchanged. Unparsed plan mentions receive a limitation note.
+
+
+### D-next (P5): Step 1 (DATA-114/115/116) review correction
+
+Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data. Coordinator decision: status-bearing parse errors close the non-JSON outage gap without making caller aborts eligible for stale fallback. Dividend-frequency and history-window modules join the unchanged per-file risk floors. Stored report bytes are unchanged.

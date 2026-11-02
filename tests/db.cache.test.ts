@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Unit tests for the db/cache/settings module: cachedFetch fresh/stale/miss
  * paths, cache-key determinism, invalidation helpers, and settings precedence.
- * No network — everything runs against an in-memory better-sqlite3 database
+ * No network â€” everything runs against an in-memory better-sqlite3 database
  * injected via setDbForTests().
  */
 
@@ -186,7 +186,7 @@ describe("default database path", () => {
   });
 });
 
-describe("cachedFetch — miss path", () => {
+describe("cachedFetch â€” miss path", () => {
   it("fetches, stores, and returns a fresh Sourced<T>", async () => {
     const fetcher = vi.fn(async () => ({ body: { price: 123.45 }, asOf: "2026-07-06" }));
     const result = await cachedFetch({
@@ -250,7 +250,7 @@ describe("cachedFetch — miss path", () => {
   });
 });
 
-describe("cachedFetch — fresh hit path", () => {
+describe("cachedFetch â€” fresh hit path", () => {
   it("serves from cache without calling the fetcher", async () => {
     const first = vi.fn(async () => ({ body: [1, 2, 3], asOf: "2026-07-05" }));
     const opts = {
@@ -276,7 +276,7 @@ describe("cachedFetch — fresh hit path", () => {
   });
 });
 
-describe("cachedFetch — stale (serve-stale-while-revalidate) path", () => {
+describe("cachedFetch â€” stale (serve-stale-while-revalidate) path", () => {
   const opts = {
     provider: "fmp" as const,
     endpoint: "income-statement",
@@ -384,7 +384,7 @@ describe("cachedFetch — stale (serve-stale-while-revalidate) path", () => {
   });
 });
 
-describe("cachedFetch — empty body never clobbers good cached data (M6)", () => {
+describe("cachedFetch â€” empty body never clobbers good cached data (M6)", () => {
   // FMP wraps responses as { body, status, fetchedAt }; a transient 200-[] means
   // body === []. isEmptyBody detects that so an empty refresh cannot wipe a
   // previously-good non-empty statement/price body for the whole TTL.
@@ -411,7 +411,7 @@ describe("cachedFetch — empty body never clobbers good cached data (M6)", () =
     await flushPendingRefreshes();
     expect(emptyRefresh).toHaveBeenCalledTimes(1);
 
-    // The good row SURVIVED the empty refresh — it was not clobbered.
+    // The good row SURVIVED the empty refresh â€” it was not clobbered.
     const row = readRow(key);
     expect(JSON.parse(row!.bodyJson)).toEqual({ body: [{ revenue: 1 }], status: 200 });
     expect(row?.asOf).toBe("2026-04-01");
@@ -425,7 +425,7 @@ describe("cachedFetch — empty body never clobbers good cached data (M6)", () =
 
   it("stops preserving an empty refresh once the absolute stale ceiling is exceeded", async () => {
     await cachedFetch({ ...opts, fetcher: async () => ({ body: { body: [{ revenue: 1 }], status: 200 }, asOf: "2026-04-01" }) });
-    // Beyond ttl + maxStaleSeconds → the synchronous fetchStoreReturn path.
+    // Beyond ttl + maxStaleSeconds â†’ the synchronous fetchStoreReturn path.
     backdate(key, TTL.FUNDAMENTALS + 8 * 86_400);
 
     const refreshed = await cachedFetch({
@@ -606,10 +606,10 @@ describe("cachedFetch semantic validation", () => {
   });
 });
 
-describe("cachedFetch — corrupt row self-heals instead of crash-looping (L6)", () => {
+describe("cachedFetch â€” corrupt row self-heals instead of crash-looping (L6)", () => {
   it("deletes an undecodable (bad gzip) row and refetches", async () => {
     const key = buildCacheKey("fmp", "quote", { symbol: "AAPL" });
-    // Seed a FRESH row whose bodyGz is not valid gzip → decodeCacheBody throws.
+    // Seed a FRESH row whose bodyGz is not valid gzip â†’ decodeCacheBody throws.
     handle.db
       .insert(apiCache)
       .values({
@@ -860,3 +860,38 @@ describe("DATA-115 caller cancellation", () => {
     expect(fetcher).toHaveBeenCalledTimes(abortJoiner ? 0 : 1);
   });
 });
+
+import { HttpRequestAbortedError, makeLimiter } from "@/providers/http";
+import { createFmpClient } from "@/providers/fmp";
+it("P5 merged abort never resolves from an adjacent cached window", async () => {
+  const fetch = makeFmpCachedFetch();
+  const oldKey = "fmp:/stable/historical-price-eod/full?from=2025-10-01&symbol=ABT&to=2026-10-01";
+  const key = oldKey.replaceAll("10-01", "10-02");
+  await fetch(oldKey, 86400000, async () => ({ body: [1] }));
+  const leaderSignal = new AbortController();
+  let rejectLeader!: (e: unknown) => void;
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const leader = fetch(key, 86400000, () => { started(); return new Promise((_, reject) => { rejectLeader = reject; }); }, { signal: leaderSignal.signal });
+  const observedLeader = leader.catch(e => e);
+  await ready;
+  const joiner = fetch(key, 86400000, async () => ({ body: [2] }), { signal: new AbortController().signal });
+  leaderSignal.abort();
+  const error = new HttpRequestAbortedError("cancelled leader", { url: "offline", provider: "fmp", attempts: 1 });
+  expect(isTransientProviderError(error)).toBe(false);
+  rejectLeader(error);
+  expect(await observedLeader).toBe(error);
+  expect(await joiner).toMatchObject({ value: { body: [2] } });
+  expect(await joiner).not.toHaveProperty("staleReason");
+});
+it("P5 FMP non-JSON 503 retains the adjacent history window", async () => {
+  let status = 200;
+  const client = createFmpClient({ apiKey: "offline", cachedFetch: makeFmpCachedFetch(), maxRetries: 0,
+    limiter: makeLimiter(1000, 1000), fetchImpl: async () => new Response(status === 200 ? JSON.stringify([{ symbol: "HST", date: "2026-10-01", close: 12 }]) : "<html>unavailable</html>", { status }) });
+  expect((await client.historicalPriceEodFull("HST", "2025-10-01", "2026-10-01")).ok).toBe(true);
+  status = 503;
+  const result = await client.historicalPriceEodFull("HST", "2025-10-02", "2026-10-02");
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.value).toMatchObject({ stale: true, staleReason: "window-fallback", data: { rows: [{ date: "2026-10-01", close: 12 }] } });
+});
+

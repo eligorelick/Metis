@@ -16,3 +16,18 @@ it("requires three positive quarterly facts and a matching latest per-share amou
  expect(dividendFrequencyFromFacts(facts(3,0.7905),"2026-10-27",0.2635)).toBeNull();
  expect(dividendFrequencyFromFacts(facts(3,0),"2026-10-27",0.5)).toBeNull();
 });
+
+it("RPT-201 rejects invalid units, concepts, points, forms, ages and future observations", () => {
+ const f = facts();
+ const c = f.facts["us-gaap"].CommonStockDividendsPerShareDeclared;
+ expect(dividendFrequencyFromFacts({ ...f, facts: {} }, "2026-10-27", 0.26)).toBeNull();
+ expect(dividendFrequencyFromFacts({ ...f, facts: {"us-gaap": { CommonStockDividendsPerShareDeclared: {} }} }, "2026-10-27", 0.26)).toBeNull();
+ for (const patch of [{form:"8-K"}, {start:"2025-01-01"}, {end:"2027-01-01"}, {end:"2024-01-01"}, {filed:"2027-01-01"}, {val:"bad"}]) {
+  const points = c.units["USD/shares"].map(p => ({...p, ...patch}));
+  expect(dividendFrequencyFromFacts({...f, facts:{"us-gaap":{ CommonStockDividendsPerShareDeclared:{ units:{"USD/shares":points} }}}} as never,"2026-10-27",0.26)).toBeNull();
+ }
+ expect(dividendFrequencyFromFacts({...f, facts:{"us-gaap":{ CommonStockDividendsPerShareDeclared:{ units:{USD:c.units["USD/shares"]} }}}},"2026-10-27",0.26)).toBeNull();
+ const duplicate = structuredClone(f);
+ duplicate.facts["us-gaap"].CommonStockDividendsPerShareDeclared.units["USD/shares"].push({...c.units["USD/shares"][2]!, filed:"2026-10-01",val:0.3});
+ expect(dividendFrequencyFromFacts(duplicate,"2026-10-27",0.3)).toBe("quarterly");
+});

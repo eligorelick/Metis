@@ -29,6 +29,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - P5 primary-source data and freshness (2026-11-02)
 
+- Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data.
+
 - DATA-101: suppress absent-period temporary-equity noise and fold only legacy absent-or-refused warnings.
 - AI-512-V1: withhold contradicted guidance labels and label-based track records in fresh and stored displays.
 - AI-508: name change filings, stated windows and affected quarter ends; withhold comparisons involving older bases after repeated recasts.
