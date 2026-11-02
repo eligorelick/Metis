@@ -79,7 +79,7 @@ import {
 import {
   annualSegmentHeading,
   assessmentLine,
-  auditExportPath,
+  auditExportFilename,
   citedMark,
   claimCitation,
   compactLongIntegers,
@@ -127,6 +127,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
+import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
@@ -536,52 +537,56 @@ function renderValuation(
   // perShare is null when the deterministic fair value was suppressed — show
   // "unavailable", never a fabricated number.
   const dcfPs = v.dcf.perShare;
-  lines.push(
-    fairValue?.method === "excess-return" ? "### Excess-return value" : "### DCF",
-    "",
-    dcfPs
-      ? `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
-      : `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).`,
-    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
-    ...(dcfPs && fairValueDegradedText(fairValue) ? ["", `**${prose(fairValueDegradedText(fairValue)!)}**`] : []),
-    ...(fairValue
-      ? [
-          fairValue.status === "available"
-            ? `_${prose(fairValue.basis.join(" "))}_`
-            : `_${prose(fairValueWithheldText(fairValue))}_`,
-        ]
-      : []),
-    "",
-  );
-  lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))]))));
-  lines.push(...auditTableBlocks(valuationAuditTables(v.dcf)));
+  const noModel = review.report ? unavailableCashFlowModel(review.report) : false;
+  if (noModel) lines.push(markdownProse(cashFlowModelExplanation(review.report!)), "", ...auditTableBlocks(unavailableModelInputTables(review.report!)));
+  if (!noModel) {
+    lines.push(
+      fairValue?.method === "excess-return" ? "### Excess-return value" : "### DCF",
+      "",
+      dcfPs
+        ? `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
+        : `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).`,
+      // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+      ...(dcfPs && fairValueDegradedText(fairValue) ? ["", `**${prose(fairValueDegradedText(fairValue)!)}**`] : []),
+      ...(fairValue
+        ? [
+            fairValue.status === "available"
+              ? `_${prose(fairValue.basis.join(" "))}_`
+              : `_${prose(fairValueWithheldText(fairValue))}_`,
+          ]
+        : []),
+      "",
+    );
+    lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))]))));
+    lines.push(...auditTableBlocks(valuationAuditTables(v.dcf)));
 
-  // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
-  const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
-  const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
-  if (waccs.length > 0 && gterms.length > 0) {
-    const lookup = new Map<string, number | null>();
-    for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
-    const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
-    const rows = waccs.map((w) => [
-      `${w.toFixed(1)}%`,
-      ...gterms.map((g) => {
-        const ps = lookup.get(`${w}|${g}`);
-        // The grid is in the currency of the per-share value beside it.
-        return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
-      }),
-    ]);
-    lines.push("### Sensitivity (per share — rows = WACC, cols = terminal g)", "", table(headers, rows), "");
+    // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
+    const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
+    const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
+    if (waccs.length > 0 && gterms.length > 0) {
+      const lookup = new Map<string, number | null>();
+      for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
+      const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
+      const rows = waccs.map((w) => [
+        `${w.toFixed(1)}%`,
+        ...gterms.map((g) => {
+          const ps = lookup.get(`${w}|${g}`);
+          // The grid is in the currency of the per-share value beside it.
+          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
+        }),
+      ]);
+      lines.push("### Sensitivity (per share — rows = WACC, cols = terminal g)", "", table(headers, rows), "");
+    }
+
+    lines.push(
+      "### Reverse DCF",
+      "",
+      `Implied ${markdownProse(v.reverseDcf.impliedMetric)}: **${reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue)}**`,
+      "",
+      prose(v.reverseDcf.narrative),
+      "",
+    );
   }
-
-  lines.push(
-    "### Reverse DCF",
-    "",
-    `Implied ${markdownProse(v.reverseDcf.impliedMetric)}: **${reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue)}**`,
-    "",
-    prose(v.reverseDcf.narrative),
-    "",
-  );
 
   lines.push(...subsection("### Multiples", bodyTable(
     // Empirical percentile within the retained sample; N is separate from its scale.
@@ -602,17 +607,20 @@ function renderValuation(
   // D-62: consensus and market data, shown once, beside the multiples.
   if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));
 
-  lines.push("### Scenarios", "");
-  if (review.scenarioPresentation?.weightBasis) lines.push(`_${markdownProse(review.scenarioPresentation.weightBasis)}_`, "");
-  if (scenarioTargets) {
-    if (scenarioTargets.status === "available") {
-      lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}_`, "");
-    } else {
-      const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
-      lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
+  if (!noModel) {
+    lines.push("### Scenarios", "");
+    if (review.scenarioPresentation?.weightBasis) lines.push(`_${markdownProse(review.scenarioPresentation.weightBasis)}_`, "");
+    if (scenarioTargets) {
+      if (scenarioTargets.status === "available") {
+        lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}_`, "");
+      } else {
+        const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
+        lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
+      }
     }
   }
   for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: review.report?.meta.symbol })) {
+    if (noModel && block.title === "Valuation sensitivity assessment") continue;
     lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [prose(p), ""]));
     for (const item of block.items) {
       lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [prose(p), ""]));
@@ -620,13 +628,15 @@ function renderValuation(
     if (block.table) lines.push(table(block.table.headers, block.table.rows), "");
   }
   // D-62: the assumption lines every scenario shares are stated once.
-  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
-  if (common.length > 0) {
-    lines.push("**Assumptions common to every scenario:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
+  if (!noModel) {
+    const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+    if (common.length > 0) {
+      lines.push("**Assumptions common to every scenario:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
+    }
+    v.scenarios.forEach((sc, index) => {
+      lines.push(renderScenario(sc, specific[index] ?? [], review.scenarioPresentation !== undefined), "");
+    });
   }
-  v.scenarios.forEach((sc, index) => {
-    lines.push(renderScenario(sc, specific[index] ?? [], review.scenarioPresentation !== undefined), "");
-  });
   if (routeMetrics) lines.push(renderRouteMetrics(routeMetrics), "");
   return lines.join("\n").trimEnd();
 }
@@ -738,10 +748,12 @@ function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures
   return lines.join("\n").trimEnd();
 }
 
-function renderCompetitive(c: Competitive, ctx: GradeContext = {}): string {
+function renderCompetitive(c: Competitive, ctx: GradeContext = {}, report?: Report): string {
   const lines: string[] = [sectionHeading("competitive"), ""];
   lines.push(gradeBlock("Moat", c.moatGraded, new Map(), {}, ctx), "");
-  lines.push("### Peer table", "");
+  const peerList = report ? providerPeerListPresentation(report) : { heading: "Peer table" };
+  lines.push(`### ${peerList.heading}`, "");
+  if (peerList.note) lines.push(markdownProse(peerList.note), "");
   if (c.peerTable.length > 0) {
     // Columns keyed by the metric, not by position (peerMetricKey).
     const metricKeys: string[] = [];
@@ -881,7 +893,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
 
   const runRows: string[][] = [
     ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
-    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
+    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", displayProse(m.judgeProtocol.note)]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],
     ...evidenceRow(report),
@@ -927,7 +939,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
     "",
   );
 
-  const path = auditExportPath(report,context);
+  const path = auditExportFilename(report,context);
   lines.push(
     "### Audit trail",
     "",
@@ -961,6 +973,8 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);
+  const lenderTables = lenderConventionTables(report);
+  report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
@@ -978,16 +992,16 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
     renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
-    renderFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report, gradeContext(report, "fundamentals", completeness)),
+    renderFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report, gradeContext(report, "fundamentals", completeness)),
     renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness)),
     renderValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),
     renderQuality(report.quality, gradeContext(report, "quality", completeness)),
     renderTechnicals(report, gradeContext(report, "technicals", completeness)),
     renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)),
-    renderCompetitive(report.competitive, gradeContext(report, "moat", completeness)),
+    renderCompetitive(report.competitive, gradeContext(report, "moat", completeness), report),
     renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
-    report.projections ? renderProjections(report.projections) : "",
+    report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : "",
     renderMacro(report.macro),
     renderAppendix(report, completeness, context),
   ].filter((b) => b.length > 0);

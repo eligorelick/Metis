@@ -7,11 +7,12 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { ReportSchema, type Report } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
+import { withoutPrintTokens } from "./helpers/printTokens";
 
 const surfaces = [
   { name: "live", render: (report: Report) => renderToStaticMarkup(createElement(ReportView, { report })) },
   { name: "Markdown", render: reportToMarkdown },
-  { name: "print", render: reportToPrintBody },
+  { name: "print", render: (report: Report) => withoutPrintTokens(reportToPrintBody(report)) },
 ];
 
 const metricGroups = ["growthTable", "marginTrend", "returns", "fcf"] as const;

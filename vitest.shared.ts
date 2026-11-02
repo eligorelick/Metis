@@ -269,6 +269,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",
   "src/report/filingDisclosurePresentation.ts",
+  "src/report/readerConventions.ts",
   "src/report/reconciliationPresentation.ts",
   "src/report/filingSupplementPresentation.ts",
   // Added 2026-10-15 (D-62): the shared presentation rules, the audit export

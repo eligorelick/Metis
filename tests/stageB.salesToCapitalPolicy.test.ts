@@ -4,6 +4,7 @@ import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 
 function assumptions(rawRatio: number, investments = 0) {
   const input: DcfAssumptionInputs = {
@@ -50,7 +51,7 @@ describe("sales-to-capital policy disclosure", () => {
     expect(row.basis).toContain("raw ratio 15.2575x");
     const report = loadTask28Fixture();
     report.valuation.dcf = { ...report.valuation.dcf, ...display };
-    for (const surface of [reportToMarkdown(report), reportToPrintBody(report)]) {
+    for (const surface of [reportToMarkdown(report), withoutPrintTokens(reportToPrintBody(report))]) {
       expect(surface).toContain("raw ratio 15.3×");
       expect(surface).toContain("model input used 5.00×");
       expect(surface).toContain("revenue 15257.5 / operating invested capital 1000");

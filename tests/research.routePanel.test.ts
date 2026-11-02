@@ -120,7 +120,7 @@ describe("synthetic accounting-route integration panel", () => {
     for (const surface of Object.values(surfaces)) {
       expect(surface).toContain("P/FFO");
       expect(surface).toContain("50.00");
-      expect(surface).toContain("Forward FCFF projections are only modelled on the general route");
+      expect(surface).toContain("DCF, reverse DCF, scenario targets and weighted projections are unavailable");
     }
   });
 
@@ -150,7 +150,7 @@ describe("synthetic accounting-route integration panel", () => {
     expect(report.scenarioTargets).toMatchObject({ status: "suppressed", targets: [] });
     if (route === "pre-revenue") expect(report.valuation.multiples).toEqual([]);
     for (const surface of Object.values(surfaces)) {
-      expect(surface).toContain("Forward FCFF projections are only modelled on the general route");
+      expect(surface).toContain("DCF, reverse DCF, scenario targets and weighted projections are unavailable");
     }
   });
 

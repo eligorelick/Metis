@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - R3 FIGR report readability (2026-11-02)
+
+- Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.
+- Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
+- Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
+- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+
 ## Unreleased - Final FIGR preflight correction (2026-11-02)
 
 - D-155 review: a conflicting vendor quarter is replaced by the filed fiscal-year-less-nine-months (or year-to-date difference) row when each operand is the current period of its own filing and the year-to-date was filed first; quarters derived only from later comparatives stay refused. Restores FIGR's live Q4 2025 revenue (159.913M filed, not the vendor's 223.181M) and its TTM window.

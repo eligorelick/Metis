@@ -6519,6 +6519,42 @@ payload/prompt provenance and Markdown/audit/print exports carry the same
 explanation. Applicability is derived for new computations; existing saved
 reports are neither reinterpreted nor rewritten (D-67).
 
+R3 reader presentation (2026-11-02): a recorded non-bank lender explanation
+appears in full once under **Lender conventions** in Fundamentals. Debt,
+capital grading, owner FCF, P/FCF, EV multiples, historical EV and intrinsic
+value use short reasons referring to that explanation. The page-one market-EV
+basis is one sentence; the companion audit export retains the complete bridge,
+lease methodology, class-price basis, raw amounts and lender explanation.
+These are read-time rules for new and saved reports, without recomputation or
+stored-row changes.
+
+Quarterly captions name the latest eight **available** quarters and identify
+internal gaps in the displayed window; they never fill a refused row. Define
+FCF only if a retained row supplies an FCF cell. When no cash-flow model or
+entity forecast is available, one route-specific explanation replaces empty
+DCF/reverse-DCF, sensitivity, common-assumption, target and weighted-projection
+scaffolding. Available entity forecasts remain visible when only a per-share
+divisor is withheld. Internal route ids are not reader labels.
+
+Use a supplied metric label where retained, shortening Piotroski signal
+diagnostics for tables; legacy traces without that label use a compact named
+variant and evaluable-signal count. Display capex and buybacks as capital
+expenditure and share repurchases (cash outflows). Display evidence-completeness
+fractions as percentages and analyst self-assessment as **N of 5**. Group raw
+base-unit amounts in prose without changing dates, accession identities or
+values. Guidance notes occupy separate rows/sentences; parser diagnostics stay
+in the audit, while an unstructured issuer outlook may remain a quoted issuer
+statement. Long data-gap reasons end at a word boundary, with the full text in
+the audit.
+
+Print tables wrap descriptions at spaces, keep amounts/units, percentages and
+dates together, and split tables wider than six columns into groups with
+repeated row identifiers. Downloaded report exports name their companion using
+the download basename (`SYMBOL-report-ID-audit.md`); in-app controls retain the
+working API link. When the comparable screen excluded every issuer in a
+provider peer list, label it **Provider peer list**, shown for scale only and
+not used as comparables. The audit retains exclusions and their reasons.
+
 Review fixes F1/F2/F12 (owner delegated to the coordinator, 2026-11-01):
 evidenced lenders suppress industrial EV/EBITDA, EV/Sales, net debt,
 net debt/EBITDA, coverage, gross margin, ROIC and ROIC-vs-WACC. Warehouse

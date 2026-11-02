@@ -100,7 +100,7 @@ import {
 import {
   annualSegmentHeading,
   assessmentLine,
-  auditExportPath,
+  auditExportFilename,
   citedMark,
   claimCitation,
   compactLongIntegers,
@@ -149,6 +149,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
+import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
@@ -222,12 +223,21 @@ function sectionHeading(key: ReportSectionKey): string {
 /** Allocate print space by column role, never by a financial value. */
 function printColumnWeight(header: string): number {
   if (/^(?:why|what it measures|basis|note|reason|explanation|fallback|detail)/i.test(header)) return 5;
-  if (/^(?:metric|aspect|section|signal|assumption|multiple|period|measured over|source|endpoint|field|component|name)$/i.test(header)) return 1.8;
+  if (/^(?:metric|aspect|section|signal|assumption|multiple|period|measured over|source|endpoint|field|component|name|segment|disclosure|item|quarter ended)$/i.test(header)) return 2.4;
   return 1.2;
 }
 
 /** A table from escaped header + body cells (cells may carry inner markup). */
 function table(headers: string[], rows: string[][]): string {
+  if (headers.length > 6) {
+    const anchors = headers[0] === "Quarter ended" && headers[1] === "Fiscal" ? 2 : 1;
+    const parts: string[] = [];
+    for (let start = anchors; start < headers.length; start += 6 - anchors) {
+      const indices = [...Array.from({ length: anchors }, (_, i) => i), ...Array.from({ length: Math.min(6 - anchors, headers.length - start) }, (_, i) => start + i)];
+      parts.push(`<div class="print-table-part"><p class="table-legend">Table continuation ${parts.length + 1}; row labels repeat across column groups.</p>${table(indices.map(i => headers[i]!), rows.map(row => indices.map(i => row[i] ?? DASH)))}</div>`);
+    }
+    return parts.join("");
+  }
   const weights = headers.map(printColumnWeight);
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const columns = `<colgroup>${weights.map((weight) => `<col style="width:${(weight / total * 100).toFixed(3)}%">`).join("")}</colgroup>`;
@@ -235,8 +245,16 @@ function table(headers: string[], rows: string[][]): string {
   const body =
     rows.length === 0
       ? `<tbody><tr><td colspan="${headers.length}" class="empty">${DASH}</td></tr></tbody>`
-      : `<tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
+      : `<tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${printTokens(c)}</td>`).join("")}</tr>`).join("")}</tbody>`;
   return `<table class="print-ledger-table">${columns}${head}${body}</table>`;
+}
+
+/** Operate only on escaped text nodes, preserving markup and escaped entity boundaries. */
+function printTokens(html: string): string {
+  return html.split(/(<[^>]*>)/g).map(part => part.startsWith("<") ? part : part.replace(
+    /(?<![\w&#])(?:\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?|[+−-]?(?:\$|(?:USD|EUR|GBP|JPY|TWD)\s)\d[\d,]*(?:\.\d+)?(?:[KMBT](?!\w))?|[+−-]?\d[\d,]*(?:\.\d+)?\s?(?:%|×|pp\b|[KMBT]\b|USD\b|EUR\b|GBP\b|JPY\b|TWD\b))(?![\w;])/g,
+    token => `<span class="print-token">${token}</span>`,
+  )).join("");
 }
 
 /**
@@ -489,42 +507,46 @@ function sectionValuation(
   const seen = new Map<string, FigureRow>();
   const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report, gradeContext(report, "valuation"))];
   const dcfPs = v.dcf.perShare;
-  parts.push(
-    dcfPs
-      ? `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
-      : `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
-  );
-  // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
-  const degraded = dcfPs ? fairValueDegradedText(fairValue) : null;
-  if (degraded) parts.push(`<p class="disclaimer">${prose(degraded)}</p>`);
-  if (fairValue) {
+  const noModel = unavailableCashFlowModel(report);
+  if (noModel) parts.push(`<p>${esc(cashFlowModelExplanation(report))}</p>`, bodyTables(unavailableModelInputTables(report)));
+  if (!noModel) {
     parts.push(
-      fairValue.status === "available"
-        ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
-        : `<p class="faint">${esc(fairValueWithheldText(fairValue))}</p>`,
+      dcfPs
+        ? `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
+        : `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
     );
-  }
-  parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
-  parts.push(bodyTables(valuationAuditTables(v.dcf)));
+    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+    const degraded = dcfPs ? fairValueDegradedText(fairValue) : null;
+    if (degraded) parts.push(`<p class="disclaimer">${prose(degraded)}</p>`);
+    if (fairValue) {
+      parts.push(
+        fairValue.status === "available"
+          ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
+          : `<p class="faint">${esc(fairValueWithheldText(fairValue))}</p>`,
+      );
+    }
+    parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
+    parts.push(bodyTables(valuationAuditTables(v.dcf)));
 
-  const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
-  const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
-  if (waccs.length > 0 && gterms.length > 0) {
-    const lookup = new Map<string, number | null>();
-    for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
-    const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
-    const rows = waccs.map((w) => [
-      `${w.toFixed(1)}%`,
-      ...gterms.map((g) => {
-        const ps = lookup.get(`${w}|${g}`);
-        // In the currency of the per-share value beside it.
-        return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
-      }),
-    ]);
-    parts.push(`<h3>Sensitivity (per share &mdash; rows = WACC, cols = terminal g)</h3>`, table(headers, rows.map((r) => r.map((c) => `<span class="mono">${esc(c)}</span>`))));
-  }
+    const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
+    const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
+    if (waccs.length > 0 && gterms.length > 0) {
+      const lookup = new Map<string, number | null>();
+      for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
+      const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
+      const rows = waccs.map((w) => [
+        `${w.toFixed(1)}%`,
+        ...gterms.map((g) => {
+          const ps = lookup.get(`${w}|${g}`);
+          // In the currency of the per-share value beside it.
+          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
+        }),
+      ]);
+      parts.push(`<h3>Sensitivity (per share &mdash; rows = WACC, cols = terminal g)</h3>`, table(headers, rows.map((r) => r.map((c) => `<span class="mono">${esc(c)}</span>`))));
+    }
 
-  parts.push(`<h3>Reverse DCF</h3><p>Implied ${esc(v.reverseDcf.impliedMetric)}: <strong class="mono">${esc(reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue))}</strong></p><p>${prose(v.reverseDcf.narrative)}</p>`);
+    parts.push(`<h3>Reverse DCF</h3><p>Implied ${esc(v.reverseDcf.impliedMetric)}: <strong class="mono">${esc(reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue))}</strong></p><p>${prose(v.reverseDcf.narrative)}</p>`);
+  }
 
   parts.push(subsection("Multiples", bodyTable(
     // Empirical percentile within the retained sample; N is separate from its scale.
@@ -542,21 +564,26 @@ function sectionValuation(
   // D-62: consensus and market data, once, beside the multiples.
   parts.push(bodyTables(consensusTables(report)));
 
-  parts.push(`<h3>Scenarios</h3>`);
-  if (review.scenarioPresentation?.weightBasis) parts.push(`<p class="faint">${esc(review.scenarioPresentation.weightBasis)}</p>`);
-  if (scenarioTargets) {
-    parts.push(scenarioTargets.status === "available"
-      ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
-      : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
+  if (!noModel) {
+    parts.push(`<h3>Scenarios</h3>`);
+    if (review.scenarioPresentation?.weightBasis) parts.push(`<p class="faint">${esc(review.scenarioPresentation.weightBasis)}</p>`);
+    if (scenarioTargets) {
+      parts.push(scenarioTargets.status === "available"
+        ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
+        : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
+    }
   }
   for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: report.meta.symbol })) {
+    if (noModel && block.title === "Valuation sensitivity assessment") continue;
     parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));
   }
-  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
-  if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
-  v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
+  if (!noModel) {
+    const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+    if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
+    v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
+  }
   if (routeMetrics) parts.push(routeMetricsBlock(routeMetrics));
   return `<section class="block">${sectionHeading("valuation")}${parts.join("")}</section>`;
 }
@@ -659,7 +686,8 @@ function sectionCompetitive(c: Competitive, report: Report): string {
   }
   // D-62: "Scale — narrow", not the raw enums.
   const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
-  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>Peer table</h3>${peers}${subsection("Moat assessment", moat)}
+  const peerList = providerPeerListPresentation(report);
+  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>${esc(peerList.heading)}</h3>${peerList.note ? `<p>${esc(peerList.note)}</p>` : ""}${peers}${subsection("Moat assessment", moat)}
     <h3>Market-share direction</h3><p>${prose(c.marketShareDirection)}</p></section>`;
 }
 
@@ -731,7 +759,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   const methodology = `<div class="methodology"><h3>Methodology and limitations</h3><ul>${methodologyNotes(report).map((note) => `<li>${esc(note)}</li>`).join("")}</ul></div>`;
   const runRows: string[][] = [
     ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
-    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
+    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", displayProse(m.judgeProtocol.note)]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],
     ...evidenceRow(report),
@@ -761,7 +789,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
     SOURCE_ENTRY_FIELDS.map((field) => field.label),
     a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : esc(source[field.key])))),
   )}`;
-  const path = auditExportPath(report,context);
+  const path = auditExportFilename(report,context);
   const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;
   return `<section class="block">${sectionHeading("appendix")}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;
 }
@@ -774,13 +802,15 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);
+  const lenderTables = lenderConventionTables(report);
+  report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
     business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
-    fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
+    fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report),
     balanceSheet: sectionBalanceSheet(report.balanceSheet, report),
     valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
     quality: sectionQuality(report.quality, report),
@@ -789,7 +819,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     competitive: sectionCompetitive(report.competitive, report),
     catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     outlook: sectionOutlook(report),
-    projections: report.projections ? sectionProjections(report.projections) : "",
+    projections: report.projections && !unavailableCashFlowModel(report) ? sectionProjections(report.projections) : "",
     macro: sectionMacro(report.macro),
     appendix: sectionAppendix(report, completeness, context),
   };
@@ -852,12 +882,13 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .claim-status { color: #3d382f; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .table-legend { color: #3d382f; font-size: 8.5pt; margin: 2pt 0 8pt; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
-.print-ledger-table { table-layout: fixed; }
+.print-ledger-table { table-layout: auto; }
+.print-token { white-space: nowrap; }
 .report-header table { table-layout: fixed; }
 .report-header th:first-child, .report-header td:first-child { width: 22%; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
-th, td { border: 1px solid #d5cbbb; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th, td { border: 1px solid #d5cbbb; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: normal; word-break: normal; hyphens: none; }
 th { background: #f6f2e9; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #665b4c; }
 td.empty { text-align: center; color: #6f685c; }
 ul.claims { margin: 4pt 0; padding-left: 16pt; }

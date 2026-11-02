@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import { provenanceHeadline, trustHeadline, trustRows } from "@/report/presentation";
 import { ReportSchema, type ProvenanceCoverage, type Report } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -52,7 +53,7 @@ describe("verification headline order (audit 2026-10-22 B-10)", () => {
 
   it.each([
     { name: "Markdown", header: (r: Report) => { const md = reportToMarkdown(r); return md.slice(0, md.indexOf("### Key data")); } },
-    { name: "print", header: (r: Report) => { const p = reportToPrintBody(r); return p.slice(0, p.indexOf("</header>")); } },
+    { name: "print", header: (r: Report) => { const p = withoutPrintTokens(reportToPrintBody(r)); return p.slice(0, p.indexOf("</header>")); } },
   ])("prints a Verification row and a Provenance row in the $name header", ({ header }) => {
     const text = header(metaReport());
     expect(text).toContain(VALIDATION);

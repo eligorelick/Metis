@@ -408,7 +408,7 @@ describe("filing disclosures through the payload and the report tables", () => {
     expect(headings).toEqual(expect.arrayContaining([
       "Management guidance (issued with Q2 FY2027 results)",
       "Segment revenue by quarter — Product / market platform",
-      "Quarterly trend (last eight quarters)",
+      "Quarterly trend (latest eight available quarters)",
       "Issuer-reported free cash flow and capital return",
       "Material SEC current reports (Form 8-K, last 12 months)",
     ]));

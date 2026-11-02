@@ -5,6 +5,7 @@ import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
+import { readerBaseUnits, readerConventionText } from "@/report/readerConventions";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -320,7 +321,11 @@ function genericRegistryLabel(source: string): string {
  */
 export function metricLabel(source: string, unit = ""): string {
   const fromUnit = unitLabel(unit);
-  if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
+  if (fromUnit) return readerMetricLabel(fromUnit);
+  const piotroski = /^computed\.forensics\.piotroski-f-(financial-variant|eligibility-unresolved)-(\d+)-of-9-signals/.exec(source);
+  if (piotroski) return `Piotroski F (${piotroski[1]!.replaceAll("-", " ")}, ${piotroski[2]} of 9 signals)`;
+  const outflow = /^(?:payload|computed)\..*\b(capex|buybacks)-negative-(year-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
+  if (outflow) return `${outflow[1] === "capex" ? "Capital expenditure" : "Share repurchases"} (cash outflow) (${outflow[2]!.replace("year-ended-", "year ended ")})`;
   // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
   // suppressed) names that year in its payload label, so in its id too.
   const annual = /^computed\.valuation\.(p-e|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
@@ -337,6 +342,13 @@ export function metricLabel(source: string, unit = ""): string {
   if (/^(computed|payload)\.[^\s]+$/.test(source)) return genericRegistryLabel(source);
   if (/^edgar:/.test(source)) return sourceLabel(source);
   return source;
+}
+
+/** Prefer the supplied record label, keeping long signal diagnostics out of tables. */
+export function readerMetricLabel(label: string): string {
+  const cleaned = label.replace(/^(capex|buybacks) \(negative\)/i, (_, name: string) => `${name.toLowerCase() === "capex" ? "Capital expenditure" : "Share repurchases"} (cash outflow)`)
+    .replace(/(Piotroski F \([^)]*?\d+ of 9 signals)[ —;]+\d+ withheld:[^)]*\)/, "$1)");
+  return cleaned.length ? cleaned[0]!.toUpperCase() + cleaned.slice(1) : cleaned;
 }
 
 /** B-4: the risk-free citation, `computed.returns.wacc.riskFree(<series id>)`. */
@@ -409,6 +421,7 @@ export function citedMark(n: TracedNumber): string {
  */
 export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "currency" | "source">): string {
   const unit = n.unit.trim().toLowerCase();
+  if (/evidence-completeness$/.test(n.source) && ["fraction", "frac", "ratio", "number", ""].includes(unit)) return ratioPercentText(n.value);
   if (isRatioAsPercent(n.source) && ["x", "×", "multiple", "fraction", "frac", "ratio"].includes(unit)) return ratioPercentText(n.value);
   if (/piotroski-f-9-signals$/.test(n.source) && Number.isInteger(n.value)) return `${n.value}/9`;
   return formatFinancialAmount(n.value, n.unit, n.currency);
@@ -820,7 +833,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
       ? { label: scope ? "Derived market cap (scope unverified)" : "Market cap (derived)", value: money(marketCap, priceCurrency), note: `quote price × filed share count, computed by Métis${scope ? "; complete issuer-common coverage unverified" : ""}${priceAsOf ? `; as of ${priceAsOf}` : ""}` }
       : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
   if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
-    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });
+    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: "Issuer-common market capitalization plus the disclosed net claims; full bridge in the companion audit export." });
   } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
     // Legacy reports retain their stored bridge convention; new reports use
     // the admitted Stage B EV, including its NCI, cash and lease scope guards.
@@ -1231,7 +1244,7 @@ export function metricRowsWithoutTabled<T extends { label: string; values: reado
       if (home !== null && !homes.includes(home)) homes.push(home);
       return home === null;
     });
-    return values.length === 0 ? [] : [{ ...row, values }];
+    return values.length === 0 ? [] : [{ ...row, label: readerMetricLabel(row.label), values }];
   });
   return { kept, homes };
 }
@@ -1357,7 +1370,10 @@ export function readerPrecision(text: string, source?: string): string {
 
 /** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
 export function displayProse(text: string, source?: string): string {
-  return readerPrecision(humanizeInlineCitations(text), source);
+  const readable = readerBaseUnits(readerConventionText(text, source))
+    .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
+    .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
+  return readerPrecision(humanizeInlineCitations(readable), source);
 }
 
 /**
@@ -1720,7 +1736,8 @@ function shortReason(reason: string): string {
   if (reason.length <= limit) return reason;
   const cut = reason.slice(0, limit);
   const stop = Math.max(cut.lastIndexOf("; "), cut.lastIndexOf(". "));
-  return `${(stop > 120 ? cut.slice(0, stop) : cut).trimEnd()} … (full text in the audit export)`;
+  const word = cut.lastIndexOf(" ");
+  return `${(stop > 120 ? cut.slice(0, stop) : word > 0 ? cut.slice(0, word) : "Reason withheld").trimEnd()} … (full text in the audit export)`;
 }
 
 /**
@@ -1737,14 +1754,14 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
     tables.push({
       heading: "Data warnings and critical gaps",
       headers: ["Gap", "Severity", "Reason"],
-      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(gap.reason)}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.field))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
     });
   }
   if (k.processDisclosures.length > 0) {
     tables.push({
       heading: "Analysis-process disclosures",
       headers: ["Disclosure", "Detail"],
-      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(gap.reason)]),
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.field))]),
       note: "How the analysis passes ran and what verification found; they are not missing data.",
     });
   }
@@ -1785,6 +1802,14 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
 export function auditExportPath(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
   const id = presentationReportId(report,context);
   return typeof id === "number" && Number.isSafeInteger(id) ? `/api/export/${id}?format=audit` : null;
+}
+
+/** Same basename as the download route, usable after the report leaves the app. */
+export function auditExportFilename(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
+  const id = presentationReportId(report, context);
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) return null;
+  const symbol = report.meta.symbol.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+  return `${symbol}-report-${id}-audit.md`;
 }
 
 /** A signal's raw value in its own unit ("66.9%", "426.7×", "0.66 frac" → "65.8%"). */

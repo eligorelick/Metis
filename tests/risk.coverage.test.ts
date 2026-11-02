@@ -229,6 +229,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",
   "src/report/filingDisclosurePresentation.ts",
+  "src/report/readerConventions.ts",
   "src/report/reconciliationPresentation.ts",
   "src/report/filingSupplementPresentation.ts",
   "src/report/presentation.ts",

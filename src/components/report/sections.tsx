@@ -1,6 +1,7 @@
 import { reverseDcfValueText } from "@/report/presentation";
 import { macroDisplayRows } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
@@ -960,6 +961,7 @@ export function ValuationSection({
   presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
+  const noModel = report ? unavailableCashFlowModel(report) : false;
   const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
     : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
       : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
@@ -976,7 +978,7 @@ export function ValuationSection({
       />
 
       {/* DCF headline + reverse-DCF callout */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p><ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
             {modelLabel}
@@ -1058,13 +1060,13 @@ export function ValuationSection({
             </table>
           </div>
         </SubBlock>
-      </div>
+      </div>}
 
-      {presentation === "dossier" && <CapitalBridge dcf={dcf} />}
-      <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
+      {!noModel && presentation === "dossier" && <CapitalBridge dcf={dcf} />}
+      {!noModel && <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
         {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} />}
         {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} /> : <ExtraAuditTables tables={valuationAuditTables(dcf)} />}
-      </SubBlock>
+      </SubBlock>}
 
       <SubBlock label="multiples vs peers & own 5-yr history">
         <MultiplesTable rows={valuation.multiples} />
@@ -1072,9 +1074,9 @@ export function ValuationSection({
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
-      <ValuationReview valuation={valuation} scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
+      <ValuationReview valuation={valuation} scenarioPresentation={noModel ? undefined : scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
-      <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
+      {!noModel && <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
         <p className="mb-2 text-[11px] leading-snug text-faint">
           {scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable."}
         </p>
@@ -1118,7 +1120,7 @@ export function ValuationSection({
             );
           })}
         </div>
-      </SubBlock>
+      </SubBlock>}
 
       {routeMetrics ? (
         <SubBlock
@@ -1571,12 +1573,13 @@ export function CompetitiveSection({
   report = {},
   grading = {},
 }: {
-  report?: Pick<Report, "filingDisclosures">;
+  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation">>;
   grading?: SectionGrading;
   competitive: Competitive;
   index: number;
   openReasoning?: boolean;
 }) {
+  const peerList = providerPeerListPresentation({ competitive, valuation: report.valuation });
   return (
     <SectionFrame id="competitive" index={index} title="Competitive · Moat">
       <GradeReasoning
@@ -1605,7 +1608,8 @@ export function CompetitiveSection({
         </div>
       </SubBlock>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <SubBlock label="peer table">
+        <SubBlock label={peerList.heading}>
+          {peerList.note && <p className="text-[11px] leading-snug text-muted">{peerList.note}</p>}
           <PeerTable peers={competitive.peerTable} />
         </SubBlock>
         <SubBlock label="market-share direction">
@@ -2048,7 +2052,7 @@ export function AppendixSection({
       <SubBlock label="run details">
         <ul className="flex flex-col gap-0.5 text-[11px] text-muted">
           {(m.execution ?? []).map((entry, i) => <li key={`${entry.step}-${i}`} className="mono">{passLine(entry)}</li>)}
-          {m.judgeProtocol && <li>{m.judgeProtocol.note}</li>}
+          {m.judgeProtocol && <li>{displayProse(m.judgeProtocol.note)}</li>}
           {m.verifyModel !== undefined && <li>verify model {m.verifyModel}</li>}
           <li>{usageSummary(report)}</li>
           {evidenceScope !== null && <li>evidence · {evidenceScope}</li>}
