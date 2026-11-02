@@ -5,7 +5,7 @@ import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { describe, expect, it } from "vitest";
-import { sameSegmentBasis, buildQuarterlySegments, type FilingRevenue, type RevenueFact } from "@/edgar/segmentFacts";
+import { segmentPresentationChanges, parseInstanceRevenue, parseMemberLabels, sameSegmentBasis, buildQuarterlySegments, type FilingRevenue, type RevenueFact } from "@/edgar/segmentFacts";
 const S = 1e8;
 const AX = "us-gaap:StatementBusinessSegmentsAxis";
 type W = { start: string; end: string };
@@ -104,4 +104,40 @@ it("AI-508 refuses an old-presentation residual after a Q3 reallocation", () => 
  expect(payload.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
  expect(payload.segmentRevenue?.figures.some(f=>/Devices.*total less.*2026-06-30/.test(f.label))).toBe(false);
  expect(table.rows.find(r=>r[0]==="Devices")!.at(-3)).toBe("\u2014");
+});
+
+it("AI-508 pins Q3 reallocation and the following 10-K on the current basis", () => {
+ const filings=[q3n26,q2o26,q1o26,kOld];
+ const data=buildQuarterlySegments(filings,labels)!;
+ expect(data.axes[0]!.rows.find(r=>r.label==="Devices")!.values.map(v=>v===null?null:v/S)).toEqual([65,63,61,null,52,62,60]);
+ const q3=surfaces(filings).payload;
+ expect(q3.quarterlyTrend?.figures.find(f=>/Devices revenue growth year over year/.test(f.label))?.value).toBe(25);
+ expect(q3.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
+ const next=filing("0001111111-27-000001","10-K","2027-02-10",[...trio({start:"2026-01-01",end:"2026-12-31"},1059,231),...trio(FY,908,204)]);
+ const nextFilings=[next,q3n26,q2o26,q1o26];
+ const row=buildQuarterlySegments(nextFilings,labels)!.axes[0]!.rows.find(r=>r.label==="Devices")!;
+ expect(row.values.map(v=>v===null?null:v/S)).toEqual([66,65,63,61,54,52,62,60]);
+ expect(row.crossFilingAt).toEqual([0,4]);
+ const p=surfaces(nextFilings).payload;
+ expect(p.quarterlyTrend?.figures.find(f=>/Devices revenue growth quarter over quarter/.test(f.label))?.value).toBe(1.54);
+ expect(p.quarterlyTrend?.figures.find(f=>/Devices revenue growth year over year/.test(f.label))?.value).toBe(22.22);
+ expect(p.segmentRevenue?.figures.find(f=>/Devices.*2026-12-31/.test(f.label))?.source).toBe("computed:xbrl segment cross-filing difference");
+});
+it.each([[43050e6,1e6,false],[50e6,1e6,false],[50e6,3e6,true]] as const)("AI-508 rounding floor and relative tolerance %s/%s",(base,delta,changed)=>{
+ const fx=(w:W,value:number):RevenueFact=>({...fact("p:XMember",w,0),value});
+ const pair=[filing("old","10-Q","2025-04-29",[fx(Q1,base)]),filing("new","10-Q","2025-07-29",[fx(Q2,base),fx(H1,2*base+delta)])];
+ expect(segmentPresentationChanges(pair).has(`${AX}|p:XMember`)).toBe(changed);
+});
+import fs from "node:fs";
+import path from "node:path";
+it("AI-508 NVIDIA instances do not raise a presentation change",()=>{
+ const read=(name:string)=>fs.readFileSync(path.join(__dirname,"../fixtures/edgar/nvda-current-reports",name),"utf8");
+ const instance=(name:string,accession:string,form:string,filingDate:string)=>{const p=parseInstanceRevenue(read(name));return {accession,form,filingDate,facts:p.facts,concept:p.concept};};
+ const s=buildQuarterlySegments([instance("nvda-20260726_htm.xml","0001045810-26-000075","10-Q","2026-08-26"),instance("nvda-20260125_htm.xml","0001045810-26-000021","10-K","2026-02-25"),instance("nvda-20251026_htm.xml","0001045810-25-000230","10-Q","2025-11-19")],parseMemberLabels(read("nvda-20260726_lab.xml")))!;
+ expect(s.axes.length).toBeGreaterThan(0);
+ expect(s.notes.join(" ")).not.toContain("presentation changed");
+ for(const axis of s.axes) {
+  expect(axis.totalEarlierPresentationAt ?? []).toEqual([]);
+  for(const row of axis.rows)expect(row.earlierPresentationAt ?? []).toEqual([]);
+ }
 });

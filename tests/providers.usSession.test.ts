@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CLOSE_SETTLE_MS, isUsSessionOpen, lastUsSessionClose, quoteTtlMs } from "@/providers/usSession";
+import { CLOSE_SETTLE_MS, isUsSessionOpen, lastUsSessionClose, quoteTtlMs, sessionTailTtlMs } from "@/providers/usSession";
 
 const BASE = 15 * 60_000;
 const at = (iso: string) => new Date(iso);
@@ -62,4 +62,17 @@ describe("quoteTtlMs", () => {
   it("never shortens the plain TTL inside the settle window", () => {
     expect(quoteTtlMs(BASE, at("2026-10-26T20:10:00Z"))).toBe(BASE);
   });
+});
+
+it.each(["Asia/Tokyo","America/Los_Angeles"])("DATA-112 session tails across weekend and DST are zone-independent (%s)",zone=>{
+ const previous=process.env.TZ;process.env.TZ=zone;
+ try {
+  for(const now of ["2026-11-01T15:00:00Z","2026-11-02T14:00:00Z"]) {
+   const ttl=sessionTailTtlMs(now.slice(0,10),at(now))!;
+   expect(Date.parse(now)-Date.parse("2026-10-30T20:29:59Z")).toBeGreaterThan(ttl);
+   expect(Date.parse(now)-Date.parse("2026-10-30T20:30:00Z")).toBeLessThanOrEqual(ttl);
+  }
+  expect(sessionTailTtlMs("2026-11-02",at("2026-11-02T14:30:00Z"))).toBe(BASE);
+  expect(sessionTailTtlMs("2026-11-01",at("2026-11-02T14:30:00Z"))).toBeNull();
+ } finally {if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });

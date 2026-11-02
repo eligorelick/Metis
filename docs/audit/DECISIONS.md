@@ -3132,3 +3132,8 @@ Truncate merged FMP history at the earliest last bar of any accepted window-fall
 ### D-next (P5): A-F6 (RPT-201) review correction
 
 Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. Monthly, annual and special distributions no longer receive quarterly wording in analyst context. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F7 (AI-508/DATA-112) review correction
+
+Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim. Stored report bytes are unchanged.

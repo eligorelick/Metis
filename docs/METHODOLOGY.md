@@ -6021,3 +6021,6 @@ A-F5 (DATA-114): Truncate merged FMP history at the earliest last bar of any acc
 
 
 A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. Monthly, annual and special distributions no longer receive quarterly wording in analyst context.
+
+
+A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. Test-only follow-up pins behavior already verified by review probes, including explicit Tokyo and Los Angeles clocks; no production change or red behavior claim.

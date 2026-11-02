@@ -120,3 +120,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F6 (RPT-201) | Fixed: Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. | This commit | fixround-a6-red2 / fixround-a6-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F7 (AI-508/DATA-112) | Fixed: Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls. | This commit | fixround-a7-controls | No persisted rewrite |

@@ -894,4 +894,21 @@ it("P5 FMP non-JSON 503 retains the adjacent history window", async () => {
   expect(result.ok).toBe(true);
   if (result.ok) expect(result.value).toMatchObject({ stale: true, staleReason: "window-fallback", data: { rows: [{ date: "2026-10-01", close: 12 }] } });
 });
-
+it.each(["yahoo","fmp"])("DATA-112 %s weekend/DST refresh and after-settle reuse", async provider=>{
+ const previous=process.env.TZ;
+ try {
+  for(const zone of ["Asia/Tokyo","America/Los_Angeles"]) for(const [index,now] of ["2026-11-01T15:00:00Z","2026-11-02T14:00:00Z"].entries()) for(const settled of [false,true]) {
+   process.env.TZ=zone;vi.useFakeTimers({toFake:["Date"]});
+   vi.setSystemTime(new Date(settled?"2026-10-30T21:00:00Z":"2026-10-30T19:00:00Z"));
+   const fetch=provider==="yahoo"?makeYahooCachedFetch():makeFmpCachedFetch();
+   const symbol=`T${index}${settled}${zone.replaceAll("/","")}`;
+   const key=provider==="yahoo"?`yahoo:/v8/finance/chart/${symbol}?interval=1d&period1=2026-10-01&period2=${now.slice(0,10)}`:`fmp:/stable/historical-price-eod/full?from=2026-10-01&symbol=${symbol}&to=${now.slice(0,10)}`;
+   await fetch(key,86400000,async()=>({body:[{close:100}]}));
+   vi.setSystemTime(new Date(now));
+   const loader=vi.fn(async()=>({body:[{close:110}]}));
+   const r=await fetch(key,86400000,loader);
+   expect(r.value.body[0]!.close).toBe(settled?100:110);
+   expect(loader).toHaveBeenCalledTimes(settled?0:1);
+  }
+ }finally{vi.useRealTimers();if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
+});
