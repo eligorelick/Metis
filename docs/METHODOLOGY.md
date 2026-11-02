@@ -6370,3 +6370,8 @@ provider labels use the stored valuation dependencies. Only the exact obsolete
 scenario-method sentence is replaced. No stored value or report byte changes.
 The 51-report offline replay is immutable and idempotent, including early
 reports without score arrays. Unknown evidence receives no guessed correction.
+
+
+P2 FIN-102 refusal boundary: an operating loss enters terminal evidence only
+with an admitted positive invested-capital denominator. A refused, missing or
+nonpositive capital base remains missing; no loss flag supplies a zero return.

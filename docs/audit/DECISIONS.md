@@ -3657,3 +3657,11 @@ marks stays recorded. Degradation labels follow actual stored dependencies;
 the exact obsolete scenario-method sentence takes the domain convention.
 All source bytes and numeric figures remain immutable. The 51-report replay
 also covers missing early score arrays and repeated view application.
+
+
+## D-next (P2) - FIN-102 capital refusal boundary (2026-11-02)
+
+The B5b Task 6 controller ruling preserves B4a refusals: an operating-loss year
+with unknown or nonpositive invested capital remains missing. The loss flag
+is attached only after a positive denominator is admitted. The terminal rule
+requires an established numeric return and never substitutes zero for it.

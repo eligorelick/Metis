@@ -1845,7 +1845,8 @@ export function computeRoic(
     const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
     const t = lossYearFloor !== null ? lossYearFloor.pct / 100 : yearTaxRate(row, yearNotes);
     const normalizedEbit = ebit - (options.unusualByYear?.get(row.date) ?? 0);
-    entry.operatingLoss = normalizedEbit <= 0;
+    // A loss is terminal evidence only after its capital denominator is admitted.
+    entry.operatingLoss = false;
     const terminalTax = normalizedEbit > 0
       ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null) {
@@ -1916,6 +1917,7 @@ export function computeRoic(
       continue;
     }
     entry.investedCapitalAvg = icAvg;
+    entry.operatingLoss = normalizedEbit <= 0;
     entry.roicPct = nopat === null ? null : (nopat / icAvg) * 100;
     entry.terminalEvidenceRoicPct = terminalTax === null ? null : normalizedEbit * (1 - terminalTax) / icAvg * 100;
   }

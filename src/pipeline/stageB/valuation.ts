@@ -1129,7 +1129,6 @@ export function terminalRoic(
   const byDate = [...history].sort((a, b) => b.date.localeCompare(a.date));
   const window = fourOfFive ? byDate.slice(0, 5) : byDate;
   const years = window
-    .map(y => !fourOfFive && y.operatingLoss && !isNum(y.roicPct) ? { ...y, roicPct: 0 } : y)
     .filter((y): y is DcfRoicYear & { roicPct: number } => isNum(y.roicPct))
     .slice(0, 5);
   const n = years.length;

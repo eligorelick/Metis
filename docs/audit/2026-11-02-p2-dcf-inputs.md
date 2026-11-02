@@ -12,7 +12,7 @@ stage-c-1.6.18. Owner decisions were read from specs/, including OD-5 and OD-11.
 | FIN-402-V1 | Fixed: separate normalized terminal evidence; GAAP grades retained | 7b91d6c1 | fin-402-family-red | fin-402-family-green-03 | No numeric rewrite |
 | FIN-402-V2 | Fixed: normalized annual margins/ceiling with per-tag recurring guard | 7b91d6c1 | fin-402-family-red | fin-402-family-green-03 | No numeric rewrite |
 | FIN-502 | Fixed: bounded normalized tax seed | 7b91d6c1 | fin-402-family-red; fin-502-legacy-red | fin-402-family-docs-green-02 | Proven old mismatch receives note |
-| FIN-102 | Fixed: known operating losses remain terminal misses | 8e353992 / 04ca47f2 | fin-102-red | fin-102-green-02 | Skipped old terminal years receive note |
+| FIN-102 | Fixed: known operating losses with admitted positive capital remain terminal misses | 8e353992 / 04ca47f2 | fin-102-red | fin-102-green-02 | Skipped old terminal years receive note |
 | FIN-111 | Fixed: transition flows leave growth, fits and valuation history | 3d5bbeda | fin-111-red | fin-111-green | Numbers retained |
 | FIN-501 | Fixed: OD-11 base-shift margin family; actual solved path published | afc0a927 / 40786255 | fin-501-104-red-02; fin-501-od11-red; fin-501-trigger-red | fin-501-od11-green; p2-integration-green-04 | Numbers retained |
 | FIN-104 | Fixed: all reverse candidates/brackets/bounds stay in-domain | afc0a927 | fin-501-104-red-02 | fin-501-104-green-02 | Old unsupported range-end claim receives note |
@@ -161,3 +161,10 @@ not accepted as a P2 delta. Final gates are required after these corrections.
 
 No owner-level question or known unimplemented item remains. Stored financial
 outputs remain historical; the display adapters explain proven old conventions.
+
+Final self-review added the explicit B4a refusal boundary: FIN-102 does not count
+an operating loss on refused, missing or nonpositive capital. Receipt
+fin-102-capital-refusal-red proves the prior overreach; its green consumer gate
+includes the existing capital-refusal and golden tests. The earlier candidate
+product run is superseded; p2-product-final-02 and p2-risk-final are required
+on the corrected committed head, together with renewed type/lint/replay gates.
