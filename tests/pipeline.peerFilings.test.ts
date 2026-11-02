@@ -74,12 +74,12 @@ describe("DATA-103 bank peer routing", () => {
   it.each(["6022", "3674"])("uses the peer own SIC %s revenue definition", async sic => {
     const bankFacts = () => {
       const f = facts();
-      const anchor = f.facts["us-gaap"]!.Revenues!;
+      const anchor = f.facts["us-gaap"]!.Revenues as { units: { USD: { val: number }[] } };
       delete f.facts["us-gaap"]!.Revenues;
-      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense = structuredClone(anchor);
-      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense!.units.USD![0]!.val = 5_000e6;
-      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax = structuredClone(anchor);
-      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax!.units.USD![0]!.val = 700e6;
+      const total = structuredClone(anchor); total.units.USD[0]!.val = 5_000e6;
+      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense = total;
+      const fees = structuredClone(anchor); fees.units.USD[0]!.val = 700e6;
+      f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax = fees;
       return f;
     };
     const peer = await loadPeerFromFilings("AVGO", subjectProfile, clients({ sic, subjectSic: sic, facts: bankFacts }), NOW);

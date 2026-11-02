@@ -2,8 +2,8 @@
 
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 | --- | --- | --- | --- | --- |
-| DATA-103 | Fixed | Owning DATA-103 commit | data103-red / data103-green | None; saved bytes unchanged |
-| DATA-104 | Not started | - | - | Not assessed |
+| DATA-103 | Fixed | b0ed6bb9 | data103-red / data103-green | None; saved bytes unchanged |
+| DATA-104 | Fixed | Owning DATA-104 commit | data104-red / data104-green | None; saved bytes unchanged |
 | AI-508 | Not started | - | - | Not assessed |
 | AI-202-V1 | Not started | - | - | Not assessed |
 | RPT-201 | Not started | - | - | Not assessed |
@@ -27,3 +27,5 @@
 ## Evidence and residuals
 
 DATA-103: the base loses $5,000,000,000 total net revenue against a $700,000,000 ASC-606 fee subset on both keyless and vendor rows. The repaired classification retains $5,000,000,000 and still refuses a disagreeing $4,000,000,000 vendor total. Industrial routing remains unchanged. No stamp changes; shared stamps already match the brief.
+
+DATA-104: latest-only USD convenience data previously left one year; recurring USD convenience data left three years and 12.82% growth. Both now retain five CNY years and filed growth of 5.86%. Currency-switch and non-anchor debt-currency controls are included. Offline census receipt data104-prevalence: 50 cached companyfacts, one foreign annual filer, zero US-GAAP foreign annual filers, zero US-GAAP dual-unit anchor tags. The sole IFRS filer has convenience USD in all eight filings, outside this builder's namespaces. Severity remains Medium under the reviewed interpretation. No stamps or goldens changed. Existing FX guards withhold mixed-currency DCF and multiples.

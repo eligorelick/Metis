@@ -2996,3 +2996,7 @@ No-split share comparisons require a confirmed single-ticker ordinary-share scop
 ### D-next (P5): Bank classification uses issuer SIC routing
 
 DATA-103: carry the existing bank revenue routing into income classification and SEC peer statement construction. Compare total net revenue on its own definition; retain vendor disagreement refusals and industrial ASC-606 routing. Stored reports retain their bytes.
+
+### D-next (P5): Presentation currency precedes statement resolution
+
+DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period unit, break ties by total anchor points, USD, then alphabetical. Withhold other-unit-only history and disclose unused convenience amounts. No currency conversion is inferred. Mixed-currency valuation remains withheld.

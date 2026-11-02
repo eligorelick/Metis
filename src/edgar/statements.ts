@@ -1501,6 +1501,43 @@ function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext, asOf: strin
   return index;
 }
 
+/** DATA-104: prefer the newest annual filing's broadest anchor coverage. */
+function presentationCurrency(index: FactIndex): string | null {
+  const anchors = [...new Set([...FY_ANCHOR_DURATION_TAGS, "Assets"])];
+  const cells = anchors.flatMap(tag => (index.get(tag) ?? []).filter(up => unitMatches(up.unit, "money"))
+    .flatMap(up => up.all.filter(p => ANNUAL_FORMS.has(p.form.trim())).map(p => ({ unit: up.unit, point: p }))));
+  if (cells.length === 0) return null;
+  const newest = cells.map(c => `${c.point.filed}|${c.point.accn}`).sort().at(-1)!;
+  const units = [...new Set(cells.map(c => c.unit))];
+  const coverage = (unit: string) => new Set(cells.filter(c => c.unit === unit && `${c.point.filed}|${c.point.accn}` === newest).map(c => c.point.end)).size;
+  const total = (unit: string) => cells.filter(c => c.unit === unit).length;
+  return units.sort((a, b) => coverage(b) - coverage(a) || total(b) - total(a) || (a === "USD" ? -1 : b === "USD" ? 1 : a.localeCompare(b)))[0]!;
+}
+
+function otherUnitAnnualNotes(index: FactIndex, unit: string): string[] {
+  const ends = new Map<string, Set<string>>();
+  for (const tag of [...new Set([...FY_ANCHOR_DURATION_TAGS, "Assets"])]) {
+    for (const up of index.get(tag) ?? []) {
+      if (!unitMatches(up.unit, "money")) continue;
+      const dates = ends.get(up.unit) ?? new Set<string>();
+      for (const p of up.all) {
+        const duration = durationDays(p);
+        if (ANNUAL_FORMS.has(p.form.trim()) && (tag === "Assets" || (duration !== null && duration >= ANNUAL_MIN_DAYS && duration <= ANNUAL_MAX_DAYS))) dates.add(p.end);
+      }
+      ends.set(up.unit, dates);
+    }
+  }
+  const own = ends.get(unit) ?? new Set<string>();
+  const notes: string[] = [];
+  for (const [other, dates] of ends) {
+    if (other === unit || dates.size === 0) continue;
+    const shared = [...dates].filter(end => own.has(end)).sort();
+    if (shared.length) notes.push(`convenience_unit: ${other} amounts for ${shared.join(", ")} sit beside the ${unit} statements (a convenience translation, Regulation S-X 3-20(b)) and are not used`);
+    for (const end of [...dates].filter(end => !own.has(end)).sort()) notes.push(`mixed_unit: fiscal year ending ${end} is filed only in ${other}; the statements are in ${unit}; the year is withheld without a currency conversion`);
+  }
+  return notes;
+}
+
 function pickUnitPoints(index: FactIndex, tag: string, kind: UnitKind, currency?: string): UnitPoints | null {
   const entries = index.get(tag);
   if (entries === undefined) return null;
@@ -4056,6 +4093,11 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
+  const presentationUnit = presentationCurrency(index);
+  if (presentationUnit !== null) {
+    for (const entries of index.values()) entries.sort((a, b) => Number(b.unit === presentationUnit || b.unit === `${presentationUnit}/shares`) - Number(a.unit === presentationUnit || a.unit === `${presentationUnit}/shares`));
+  }
+  const currencyNotes = presentationUnit === null ? [] : otherUnitAnnualNotes(index, presentationUnit);
   const state: BuildState = { filesTwentyF: false, filesForm20F: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
@@ -4089,6 +4131,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     : "revenue resolved through the bank revenue chain (the issuer is classified as a bank; its ASC-606 revenue tags carry fee revenue only and are tried last)";
 
   const incomeAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) incomeAnnualNotes.add(note);
   const incomeQuarterlyNotes = createNoteSink();
   if (bankRevenue) {
     incomeAnnualNotes.add(bankNote);
@@ -4098,6 +4141,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   // weighted shares on the income rows, CommonStockSharesOutstanding on the
   // balance rows.
   const balanceAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) balanceAnnualNotes.add(note);
   const balanceQuarterlyNotes = createNoteSink();
   const withheldSummary = describeShareBasisWithheld(shareBasisWithheld, basisDay);
   for (const text of [...splits.notes.map((n) => n.text), ...(withheldSummary === null ? [] : [withheldSummary])]) {
@@ -4187,13 +4231,15 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
       notes.withhold("commonDividendsPaid", date, reason);
     },
   };
+  const cashflowAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) cashflowAnnualNotes.add(note);
   const cashflowAnnual = buildStatementRows<FmpCashFlowRow>(
     cashflowDef,
     annualSlots((fy) => annualResolver(index, fy)),
     "annual",
     opts,
     state,
-    createNoteSink(),
+    cashflowAnnualNotes,
   );
   const cashflowQuarterlyNotes = createNoteSink();
   const cashflowQuarterly = buildStatementRows<FmpCashFlowRow>(
