@@ -1,10 +1,5 @@
 # Changelog
 
-## P0 review fixes ? 2026-11-02
-
-Require single-ticker ordinary-share scope for no-split reconciliation, accept symmetric cent rounding, and identify superseded filings. Bind earnings-date qualification to clauses and respect registered company sources, preserving citation credit and one counted claim. Keep complete schema rejections separate from partial recovery bytes. Report 1.56.0, payload 1.60.0, Stage B repair stamp 39; prompt stamp unchanged.
-
-
 Entries record dated development batches. “Now”, migration advice, model
 defaults, prices, version stamps and validation describe the batch they appear
 in; later entries supersede earlier choices. `Unreleased` records merged work
@@ -22,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - P0 review fixes (2026-11-02)
+
+Require single-ticker ordinary-share scope for no-split reconciliation, accept symmetric cent rounding, and identify superseded filings. Bind earnings-date qualification to clauses and respect registered company sources, preserving citation credit and one counted claim. Keep complete schema rejections separate from partial recovery bytes. Report 1.56.0, payload 1.60.0, Stage B repair stamp 39; prompt stamp unchanged.
 
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 

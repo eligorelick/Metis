@@ -9,6 +9,28 @@ describe("provider earnings-date qualification boundaries", () => {
     const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
   });
+  // A spaced em/en dash separates clauses just like a semicolon (written as
+  // escapes so file encoding cannot change the character).
+  it.each(["Earnings rose 5% year over year — the special dividend is payable 2026-11-04.",
+    "Earnings rose 5% year over year – the special dividend is payable 2026-11-04."])("keeps a dividend date after a dash: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "fmp:profile", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note])).toMatchObject({ report: input, log: [] });
+  });
+  // A bare date phrase set off by a comma still belongs to the event clause beside it.
+  it.each(["On 2026-11-04, Figma will report third-quarter results.",
+    "Figma will report results after the close on Wednesday, 2026-11-04."])("qualifies an earnings date in a bare date phrase: %s", text => {
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    const out = guardEarningsSchedule(input, [note]);
+    expect(out.report.verdict.executiveSummary[0]!.text).toContain("2026-11-04 (Finnhub calendar estimate; company confirmation not established)");
+    expect(out.report.verdict.executiveSummary[0]!.label).toBe("ESTIMATE");
+    expect(out.log).toHaveLength(1);
+  });
+  it("qualifies only the comma piece that states the event when the same date appears twice", () => {
+    const text = "Results are due 2026-11-04, and the dividend is payable 2026-11-04.";
+    const input = { verdict: { executiveSummary: [{ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
+    expect(guardEarningsSchedule(input, [note]).report.verdict.executiveSummary[0]!.text).toBe(
+      "Results are due 2026-11-04 (Finnhub calendar estimate; company confirmation not established), and the dividend is payable 2026-11-04.");
+  });
   it("keeps registered SEC confirmation", () => {
     const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }])).toMatchObject({ report: input, log: [] });

@@ -3045,7 +3045,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   }
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
-  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, payload.filings.filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
+  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, (payload.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
   Object.assign(verifiedReport, guardedSchedule.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
@@ -4144,7 +4144,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     const scheduleNote = nextEarningsNote(args.bundle);
     const schedulePayload = payloadContextReady ? assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] }) : undefined;
     const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote], schedulePayload?.citationRegistry,
-      schedulePayload?.filings.filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
+      (schedulePayload?.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source));
     scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
     assembled = scheduleGuard.report;
   }
