@@ -582,7 +582,7 @@ function ownDescriptionTokens(text: string, ignore: readonly string[]): string[]
   // A window is compared as a period (AI-303 / C-6), not as a metric word, exactly as the claim's own window tokens are.
   return metricTokens(blanked, ignore).filter((word) => !OWN_CONTEXT_WORDS.has(word) && !word.startsWith("window"));
 }
-function metricTokens(label: string, ignore: readonly string[], options: { loose?: boolean } = {}): string[] {
+function metricTokens(label: string, ignore: readonly string[], options: { loose?: boolean; keepDirectionWords?: boolean } = {}): string[] {
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -601,7 +601,7 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
   // words would let a GAAP claim reuse the GAAP substring of its opposite.
   metric = metric.toLowerCase().replace(/\bnon[\s‐‑–—-]+(?=[a-z])/g, "non-").replace(/[‐‑–—]/g, "-");
   const ignored = new Set([...ignore.flatMap((word) => word.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().match(/[a-z0-9]+/g) ?? []),
-    ...findDirectionWords(metric).map((hit) => hit.word), ...CURRENCIES.toLowerCase().split("|")]);
+    ...(options.keepDirectionWords ? [] : findDirectionWords(metric).map((hit) => hit.word)), ...CURRENCIES.toLowerCase().split("|")]);
   const words = (metric.match(/[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*/g) ?? [])
     // A hyphenated ignored name ("Jen-Hsun") is ignored as a whole.
     .filter((word) => !(word.includes("-") && word.split("-").every((part) => ignored.has(part))))
@@ -1186,7 +1186,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const claimTokens = perShare(unestablished(metricTokens(own.label, ignore, { loose: true })).filter((word) => !(word === "yoy" && established.has("annual")) &&
       word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
     const labels = labelReadings(record);
-    if (!labels.some((label) => namesMetric(claimTokens, perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)))))) {
+    // AI-501: label direction nouns define the metric; a claim's attached
+    // direction can instead describe the relation to its own figure.
+    const claimKept = perShare(unestablished(metricTokens(own.label, ignore, { keepDirectionWords: true })).filter((word) => !(word === "yoy" && established.has("annual")) && word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
+    if (!labels.some((label) => {
+      const words = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore, { keepDirectionWords: true })));
+      return namesMetric(claimKept, words) || (own.direction !== null && namesMetric(claimTokens, words));
+    })) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
     }
     // AI-303-V4: a record citation states one figure, so the whole claim is read.
