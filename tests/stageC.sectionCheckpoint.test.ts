@@ -8,6 +8,17 @@ import { parsePassArtifactEnvelope, serializePassFailure } from "@/pipeline/jobA
 const directories: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const dir of directories.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 describe("durable section checkpoints", () => {
+  it("round-trips bounded rejected diagnostics independently of recovery text", () => {
+    const partialText = '{"thesis":[]}';
+    const failure = serializePassFailure(new Error("invalid section"), { kind: "schema", partialText, rejectedText: "x".repeat(1_000_001) });
+    expect(failure.partialText).toBe(partialText);
+    expect(failure.rejectedText).toHaveLength(1_000_000);
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const rejectedText of [17, "x".repeat(1_000_001)]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, rejectedText } })).toThrow("invalid failure");
+    }
+  });
   it("round-trips terminal provider diagnostics without changing legacy failures or partial recovery text", () => {
     const providerFailure = { disposition: "terminal" as const, code: "subscription_sharing_usage_limit_exceeded", httpStatus: 429,
       requestId: "req-offline", param: "model", bodyShape: "error" as const };

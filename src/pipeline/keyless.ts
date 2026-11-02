@@ -4,7 +4,9 @@
  *
  * Three rules govern everything below:
  *
- *  1. FMP VALUES ARE NEVER OVERWRITTEN. Missing security classification may be
+ *  1. FMP VALUES ARE NEVER OVERWRITTEN. Contradicted share/EPS fields may be
+ *     withheld with their original observations retained as conflicts.
+ *     Missing security classification may be
  *     augmented from confirmed-issuer public metadata with field-level evidence.
  *     Otherwise only a member that is a gap, or an ok result
  *     carrying zero rows (`needsFallback`), is eligible for replacement. A
@@ -45,9 +47,9 @@ import {
   type StatementBuildOptions,
   type StatementRowsResult,
 } from "@/edgar/statements";
-import { conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import { tagsFor } from "@/edgar/tagSynonyms";
-import { describeSplits, sameShareBasis, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
+import { describeSplits, sameShareBasis, shareBasisFactor, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
 import { mergeSplitEvidence, unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   SUCCESSOR_FORM,
@@ -73,6 +75,8 @@ import type {
   FmpQuoteRow,
   FmpRawRow,
   FmpSharesFloatRow,
+  FmpStatementRow,
+  StatementFieldProvenance,
 } from "@/providers/fmp";
 import type { YahooClient, YahooMeta } from "@/providers/yahoo";
 import type { StatementSource } from "@/config/env";
@@ -374,7 +378,7 @@ export function sharesOnOrBefore(
   return sharePointOnOrBefore(points, date)?.value ?? null;
 }
 
-/** The vendor income-statement fields whose split basis is checked (and withheld when unestablished). */
+/** Vendor income fields checked for split basis and independently demonstrated primary conflicts. */
 export const VENDOR_SHARE_FIELDS = ["eps", "epsDiluted", "weightedAverageShsOut", "weightedAverageShsOutDil"] as const;
 
 /** A vendor share count or EPS agrees with the filer's when within this relative tolerance. */
@@ -388,10 +392,90 @@ const VENDOR_SHARE_FIELD_LABELS: Record<(typeof VENDOR_SHARE_FIELDS)[number], st
   eps: "eps",
 };
 
+interface PrimaryShareReconciliation {
+  companyFacts: CompanyFacts;
+  observedAt?: string;
+  /** An ADR's quoted unit is not established by the filer's ordinary-share facts. */
+  isAdr: boolean | null;
+  fiscalYearEnd: string | null;
+  period: "annual" | "quarter";
+}
+
+function validSharePeriodDay(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+}
+
+/** Use an explicit interval first. A missing start can be established only for
+ * an exactly matching month-end fiscal calendar; 52/53-week and transition
+ * intervals need their own start evidence and are never rounded to a calendar quarter. */
+function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareReconciliation): string | null {
+  if (row.periodStart != null) return validSharePeriodDay(row.periodStart) ? row.periodStart : null;
+  const starts = [...new Set(Object.values(row.fieldProvenance ?? {}).filter(proof => proof.source === "edgar" && proof.periodEnd === row.date && proof.periodStart !== null).map(proof => proof.periodStart!))];
+  if (starts.length > 0) return starts.length === 1 && validSharePeriodDay(starts[0]) ? starts[0]! : null;
+  if (!/^\d{4}$/.test(String(row.fiscalYear)) || !/^\d{4}$/.test(context.fiscalYearEnd ?? "")) return null;
+  const year = Number(row.fiscalYear), month = Number(context.fiscalYearEnd!.slice(0, 2));
+  const annualEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  if (annualEnd.replaceAll("-", "").slice(4) !== context.fiscalYearEnd) return null;
+  const quarter = context.period === "annual" ? 4 : Number(String(row.period).slice(1));
+  const endMonth = month - (4 - quarter) * 3;
+  const end = new Date(Date.UTC(year, endMonth, 0)).toISOString().slice(0, 10);
+  if (row.date !== end) return null;
+  return new Date(Date.UTC(year, endMonth - (context.period === "annual" ? 12 : 3), 1)).toISOString().slice(0, 10);
+}
+
+/** Only direct, unambiguous filed facts with the same issuer, interval, currency
+ * and ordinary-share unit can contradict a vendor field without a known split. */
+function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR_SHARE_FIELDS)[number],
+  context: PrimaryShareReconciliation | undefined, splits: StockSplits, basisDay: string): { value: number; evidence: StatementFieldProvenance } | null {
+  if (!context || context.isAdr !== false) return null;
+  const cik = (value: unknown): string | null => /^\d{1,10}$/.test(String(value)) && Number(value) > 0 ? String(Number(value)) : null;
+  const issuer = cik(context.companyFacts.cik);
+  if (issuer === null || cik(row.cik) !== issuer) return null;
+  if (!validSharePeriodDay(row.date) || row.date > splits.asOf ||
+    !(context.period === "annual" ? row.period === "FY" : /^Q[1-4]$/.test(row.period ?? "")) ||
+    !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "")) return null;
+  const start = vendorSharePeriodStart(row, context);
+  const expectedUnit = field === "eps" || field === "epsDiluted" ? `${row.reportedCurrency}/shares` : "shares";
+  if (start === null) return null;
+  const days = (Date.parse(row.date) - Date.parse(start)) / DAY_MS;
+  const [minDays, maxDays] = context.period === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  if (days < minDays! || days > maxDays!) return null;
+  // Share facts do not name a currency. Independently establish the row's
+  // reporting currency on the SAME exact interval before comparing counts.
+  const currencyEstablished = [...tagsFor("revenue"), ...tagsFor("netIncome")].some(tag => {
+    const concept = conceptFactsSchema.safeParse(context.companyFacts.facts["us-gaap"]?.[tag]);
+    return concept.success && parseFactPoints(concept.data.units[row.reportedCurrency!] ?? []).some(point => point.start === start && point.end === row.date &&
+      CORE_FACT_FORMS.has(point.form) && validSharePeriodDay(point.filed) && point.filed <= splits.asOf);
+  });
+  if (!currencyEstablished) return null;
+  let selected: { value: number; evidence: StatementFieldProvenance } | null = null;
+  for (const tag of tagsFor(field)) {
+    const concept = conceptFactsSchema.safeParse(context.companyFacts.facts["us-gaap"]?.[tag]);
+    if (!concept.success) continue;
+    const points = parseFactPoints(concept.data.units[expectedUnit] ?? []).filter(point => point.start === start && point.end === row.date &&
+      CORE_FACT_FORMS.has(point.form) && validSharePeriodDay(point.filed) && point.filed <= splits.asOf);
+    const latest = points.map(point => point.filed).sort().at(-1);
+    const current = points.filter(point => point.filed === latest);
+    if (current.length === 0) continue;
+    if (current.some(point => point.val !== current[0]!.val)) return null;
+    const point = current.toSorted((a, b) => b.accn.localeCompare(a.accn))[0]!;
+    const basis = shareBasisFactor(splits, point.filed, null, basisDay);
+    if ("withheld" in basis) return null;
+    const value = expectedUnit === "shares" ? point.val * basis.factor : point.val / basis.factor;
+    if (!isFiniteNumber(value) || (expectedUnit === "shares" && value <= 0)) return null;
+    if (selected !== null && selected.value !== value) return null;
+    selected ??= { value, evidence: { source: "edgar", unit: expectedUnit, periodStart: start, periodEnd: row.date,
+      observedAt: context.observedAt ?? "", tags: [`us-gaap/${tag}`], filings: [{ accn: point.accn, filed: point.filed, form: point.form }] } };
+  }
+  return selected;
+}
+
 /**
  * Keep a vendor income row's share and per-share fields only where their split
- * basis on `basisDay` is established. A row that no split the report knows of
- * postdates needs nothing. For a row for a period before such a split (or
+ * basis on `basisDay` is established. Independently comparable primary facts
+ * also reject a demonstrated vendor conflict when there is no known split;
+ * absent or incomparable coverage alone never rejects that vendor field.
+ * For a row for a period before such a split (or
  * before an unresolved one) EACH field is tested on its own against the
  * filer's same field for the same period — put on the `basisDay` basis by
  * src/edgar/statements.ts — within `VENDOR_SHARES_TOLERANCE`: a matching diluted
@@ -408,6 +492,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
   edgarRows: readonly FmpRawRow[],
   splits: StockSplits,
   basisDay: string,
+  reconciliation?: PrimaryShareReconciliation,
 ): { rows: TRow[]; withheld: { date: string; field: (typeof VENDOR_SHARE_FIELDS)[number]; reason: string }[] } {
   const filed = new Map<string, FmpRawRow>();
   for (const r of edgarRows) {
@@ -422,15 +507,18 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
     if (present.length === 0) return row;
     const later = splits.events.find((e) => date < e.sessionWindow.to && e.sessionWindow.from <= basisDay);
     const open = splits.unresolved.find((u) => date < u.to && u.from <= basisDay);
-    if (later === undefined && open === undefined) return row;
-    const against = later !== undefined ? `the ${describeSplits({ ...splits, events: [later] })}` : `an unresolved split (${open!.reason})`;
+    const splitCheck = later !== undefined || open !== undefined;
+    const against = later !== undefined ? `the ${describeSplits({ ...splits, events: [later] })}` : open !== undefined ? `an unresolved split (${open.reason})` : "independent same-period filed facts";
     const filer = filed.get(date);
     let copy: Record<string, unknown> | null = null;
     for (const field of present) {
+      const primary = splitCheck ? null : comparablePrimaryShareField(row as FmpStatementRow, field, reconciliation, splits, basisDay);
+      const proof = primary?.evidence ?? null;
+      if (!splitCheck && primary === null) continue;
       const label = VENDOR_SHARE_FIELD_LABELS[field];
       const isEps = field === "eps" || field === "epsDiluted";
       const vendorValue = row[field];
-      const filerValue = filer?.[field];
+      const filerValue = splitCheck ? filer?.[field] : primary!.value;
       let reason: string | null = null;
       if (!isFiniteNumber(vendorValue) || (!isEps && vendorValue <= 0)) {
         reason = `the vendor's ${label} for ${date} (${String(vendorValue)}) is not a usable figure to test against ${against}`;
@@ -438,15 +526,25 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
         reason = `no filed ${label} for ${date} on the ${basisDay} basis to test the vendor's ${vendorValue} against ${against}`;
       } else {
         const diff = Math.abs(vendorValue - filerValue);
-        const agrees = vendorValue === filerValue || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
+        // A no-split conflict must be distinguishable from the report's cent
+        // rounding of filed EPS (e.g. 0.0017 vs 0.00). This does not establish
+        // split basis: the original strict split check keeps its zero rule.
+        const roundingOnly = !splitCheck && isEps && Number(filerValue.toFixed(2)) === filerValue && Number(vendorValue.toFixed(2)) === filerValue;
+        const agrees = vendorValue === filerValue || roundingOnly || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
         if (!agrees) {
-          reason = `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis, across ${against}`;
+          reason = `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis` +
+            (splitCheck ? `, across ${against}` : `; exact ${proof!.periodStart} through ${proof!.periodEnd} ${proof!.unit}; field unavailable until reconciled`);
         }
       }
       if (reason === null) continue;
       withheld.push({ date, field, reason });
       copy ??= { ...row };
       delete copy[field];
+      if (!splitCheck && proof !== null) {
+        copy.fieldConflicts = { ...(copy.fieldConflicts as FmpStatementRow["fieldConflicts"]), [field]: {
+          vendorValue: isFiniteNumber(vendorValue) ? vendorValue : null, secValue: isFiniteNumber(filerValue) ? filerValue : null, usable: false, reason, secEvidence: proof,
+        } };
+      }
     }
     return copy === null ? row : (copy as TRow);
   });
@@ -1316,13 +1414,16 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   }
 
 
-  // --- Vendor statement rows across a known split ---------------------------
+  // --- Vendor per-share fields: split basis and independent primary tie-out --
   //
   // FMP's FAQ documents that historical prices and shares outstanding are
   // split-adjusted; it says nothing specific about the income statement's
   // weighted-average share counts and EPS. A vendor row for a period before a
   // split the report knows of keeps each share or per-share field only where
   // the filer's same field for that period, on the same basis, agrees with it.
+  // Without such a split, direct same-period primary facts can still establish
+  // a conflict. They need not form a whole statement row: missing Assets
+  // anchors do not invalidate an independently filed quarterly EPS fact.
   // Other fields stand, and the manifest says which were withheld and why.
   if (built !== null) {
     for (const [member, edgarRows] of [
@@ -1331,7 +1432,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     ] as const) {
       const current = members[member];
       if (!current.ok || current.value.source === "edgar") continue;
-      const guarded = guardVendorShareFields(current.value.data.rows, edgarRows, built.splits, basisDay);
+      const guarded = guardVendorShareFields(current.value.data.rows, edgarRows, built.splits, basisDay,
+        inputs.edgar.companyFacts.ok && Number(inputs.edgar.companyFacts.value.data.cik) === Number(cik10) ? { companyFacts: inputs.edgar.companyFacts.value.data, observedAt: inputs.edgar.companyFacts.value.fetchedAt,
+          isAdr: typeof vendorProfile?.isAdr === "boolean" ? vendorProfile.isAdr : null,
+          fiscalYearEnd: registrant?.fiscalYearEnd ?? null, period: member === "incomeAnnual" ? "annual" : "quarter" } : undefined);
       if (guarded.withheld.length === 0) continue;
       members[member] = { ok: true, value: { ...current.value, data: { ...current.value.data, rows: guarded.rows } } };
       const dates = [...new Set(guarded.withheld.map((w) => w.date))].sort();
@@ -1341,10 +1445,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         field: `keyless.${member}.shareBasis`,
         reason:
           `${guarded.withheld.length} field(s) in ${dates.length} vendor row(s) (${dates[0]} … ${dates[dates.length - 1]}; ${fields.join(", ")}) withheld: ` +
-          `each period precedes a split the report knows of, and its split basis on ${basisDay} could not be established — ${reasons.slice(0, 3).join("; ")}` +
+          `the share basis or agreement with independently comparable filed facts on ${basisDay} could not be established — ${reasons.slice(0, 3).join("; ")}` +
           (reasons.length > 3 ? `; and ${reasons.length - 3} more reason(s)` : ""),
         severity: "warn",
-        attemptedSources: [current.value.endpoint, `edgar:companyfacts us-gaap/${SPLIT_RATIO_TAG}`, built.splits.vendor.source],
+        attemptedSources: [current.value.endpoint, ...fields.flatMap(field => tagsFor(field).map(tag => `edgar:companyfacts us-gaap/${tag}`)),
+          `edgar:companyfacts us-gaap/${SPLIT_RATIO_TAG}`, built.splits.vendor.source],
       });
     }
   }

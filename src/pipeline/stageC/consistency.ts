@@ -1094,6 +1094,10 @@ export function namedIndividuals(
       // Barnum, the CFO") is not part of the name.
       const swept = (groups.name ?? groups.surname ?? candidate).trim().split(/\s+/);
       while (swept.length > 1 && NOT_A_NAME_WORDS.has(swept[0].toLowerCase())) swept.shift();
+      // A compound title can match the comma-name pattern ("Chief Executive
+      // Officer, President"). After trimming it still is a role, not a person.
+      // Known names were collected above; explicit honorific surnames remain names.
+      if (groups.surname === undefined && swept.every(word => NOT_A_NAME_WORDS.has(word.toLowerCase()))) continue;
       const name = swept.join(" ");
       const start = (match.index ?? 0) + Math.max(0, match[0].indexOf(name));
       const end = start + name.length;
@@ -1495,7 +1499,7 @@ function titleOf(sentence: string, start: number, end: number): Pick<NamedIndivi
  */
 function titlesAfterName(sentence: string, end: number): string[] {
   const rest = sentence.slice(end);
-  const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
+  const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:(?:is|was)\s+listed\s+as|as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
   if (lead === null) return [];
   const tail = rest.slice(lead[0].length);
   const stop = TITLE_STOP.exec(tail);

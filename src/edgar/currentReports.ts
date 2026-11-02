@@ -318,15 +318,26 @@ const METRIC_RULES: { metric: GuidanceMetric; pattern: RegExp; unit: GuidanceIte
 const OUTLOOK_HEADING = /\b(?:Business |Financial |Fiscal \d{4} )?(?:Outlook|Guidance)\b/g;
 const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
 const EXPECTATION = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|outlook|guid(?:e|ance)|project(?:s|ed)|forecast)\b/i;
+// Some releases introduce compact bullets with a dated heading, not an
+// expectation verb. A combined heading detects outlook scope but cannot bind
+// a value to either period until a subsequent, unambiguous heading does so.
+const DATED_OUTLOOK_HEADING = /\b(?:(?:first|second|third|fourth)[ -]quarter(?: and full[ -]year)?(?: of)?(?: (?:fiscal|fiscal year|FY))? ?'?\d{4}|full[ -](?:fiscal )?year(?: of)?(?: fiscal)?(?: year)? \d{4})\s+(?:Outlook|Guidance)\s*:/gi;
+const COMPACT_GUIDANCE_METRIC = /^(?:(?:non-GAAP|GAAP)\s+)?(?:revenue|operating income)\b/i;
+const EXPECTATION_VERB = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|project(?:s|ed)|forecast)\b/i;
+const SCALED_MONEY = String.raw`(?:${MONEY_SYMBOL})\s?(?:${MONEY_NUMBER})\s*(?:thousand|million|billion|trillion)\b`;
+const COMPACT_GUIDANCE_RANGE = new RegExp(String.raw`^(?:(non-GAAP|GAAP)\s+)?(revenue|operating income)\s+between\s+(${SCALED_MONEY}\s+and\s+${SCALED_MONEY})(?=\s*(?:[,.;•]|$))`, "i");
 
-/** The outlook block: the first Outlook/Guidance heading followed by an expectation sentence. */
+/** The first dated outlook heading or one followed by an expectation sentence. */
 export function outlookBlock(text: string): string | null {
+  const dated = [...text.matchAll(DATED_OUTLOOK_HEADING)];
   for (const heading of text.matchAll(OUTLOOK_HEADING)) {
-    const from = heading.index;
+    const datedHeading = dated.find((match) => match.index <= heading.index && match.index + match[0].length > heading.index);
+    const from = datedHeading?.index ?? heading.index;
     const window = text.slice(from, from + 3_000);
-    if (!/\bexpect/i.test(window.slice(0, 1_500))) continue;
-    const stop = OUTLOOK_STOP.exec(window.slice(heading[0].length + 20));
-    const end = stop ? heading[0].length + 20 + stop.index : window.length;
+    if (datedHeading === undefined && !/\bexpect/i.test(window.slice(0, 1_500))) continue;
+    const afterHeading = heading.index + heading[0].length - from + (datedHeading === undefined ? 20 : 0);
+    const stop = OUTLOOK_STOP.exec(window.slice(afterHeading));
+    const end = stop ? afterHeading + stop.index : window.length;
     return window.slice(0, end).trim();
   }
   return null;
@@ -340,6 +351,30 @@ function basesOf(sentence: string): GuidanceBasis[] {
 }
 
 type Bound = { low: number; mid: number; high: number; form: GuidanceItem["form"]; symbol: string | null };
+
+/** Only called inside a dated outlook: no period or expectation is inferred from the bullet itself. */
+function compactGuidanceRange(sentence: string, period: FiscalPeriod | null): GuidanceItem[] {
+  const match = COMPACT_GUIDANCE_RANGE.exec(sentence);
+  if (match === null || period === null) return [];
+  // A heading cannot overrule an explicit period attached to the range.
+  // Comparison bases after "compared with/to" or "versus" are not its target.
+  const attribution = sentence.slice(match[0].length).split(/\b(?:compared\s+(?:with|to)|versus|vs\.?)\b/i)[0]!;
+  for (const explicit of [fullYearPhrase(attribution), quarterPhrase(attribution)]) {
+    if (explicit !== null && explicit.label !== period.label) return [];
+  }
+  // Read only the attached range, excluding growth rates, prior-guide changes
+  // and secondary metrics such as a margin printed after operating income.
+  const values = moneyMentions(match[3]!);
+  const [low, high] = values;
+  if (values.length !== 2 || low!.symbol !== high!.symbol || low!.value > high!.value) return [];
+  return [{
+    metric: match[2]!.toLowerCase() === "revenue" ? "revenue" : "operating-income",
+    basis: match[1]?.toLowerCase() === "non-gaap" ? "non-gaap" : match[1] === undefined ? "unspecified" : "gaap",
+    period, unit: "currency", symbol: low!.symbol,
+    low: low!.value, mid: round((low!.value + high!.value) / 2), high: high!.value, form: "range",
+    sentence: sentence.length > 400 ? `${sentence.slice(0, 399)}…` : sentence,
+  }];
+}
 
 /**
  * Read one guidance sentence. Values come only from the clause after the
@@ -441,8 +476,22 @@ export function parseGuidance(rawText: string, document?: ParsedDocument): Issue
   const items: GuidanceItem[] = [];
   const qualifiers: string[] = [];
   const unparsed: string[] = [];
+  let datedScope = false;
+  let datedPeriod: FiscalPeriod | null = null;
   for (const sentence of splitSentences(block)) {
-    const parsed = parseGuidanceSentence(sentence, period);
+    const heading = [...sentence.matchAll(DATED_OUTLOOK_HEADING)].at(-1);
+    if (heading !== undefined) {
+      datedScope = true;
+      datedPeriod = /\bquarter and\b/i.test(heading[0]) ? null : fullYearPhrase(heading[0]) ?? quarterPhrase(heading[0]);
+    }
+    const body = (heading === undefined ? sentence : sentence.slice(heading.index + heading[0].length)).trim();
+    if (datedScope && COMPACT_GUIDANCE_METRIC.test(body) && !EXPECTATION_VERB.test(body)) {
+      const parsed = compactGuidanceRange(body, datedPeriod);
+      items.push(...parsed);
+      if (parsed.length === 0 && /\d/.test(body) && /[$%€£¥]/.test(body)) unparsed.push(body.slice(0, 300));
+      continue;
+    }
+    const parsed = parseGuidanceSentence(datedScope ? body : sentence, datedScope ? datedPeriod : period);
     if (parsed.length > 0) {
       items.push(...parsed);
     } else if (/\b(?:not assuming|assumes?|excludes?|excluding|does not include)\b/i.test(sentence) && sentence.length <= 400) {

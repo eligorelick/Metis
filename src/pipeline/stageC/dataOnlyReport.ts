@@ -645,7 +645,7 @@ function technicalsSection(computed: ComputedMetrics, graded: GradeBlock, curren
   return {
     graded,
     read: {
-      trend: `${t.read.trend} (deterministic SMA50/SMA200 read; no completed analyst assessment is available)`,
+      trend: technicalTrendText(t, currency),
       momentum: `${t.read.momentum} (deterministic RSI/MACD read)`,
       keyLevels: `${px("SMA50", t.read.keyLevels.sma50)} · ${px("SMA200", t.read.keyLevels.sma200)} · ${px("52-week high", t.read.keyLevels.high52w)} · ${px("52-week low", t.read.keyLevels.low52w)}`,
       relativeStrength: t.read.relativeStrength,
@@ -963,3 +963,4 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     calculationAsOf: computed.builtAt ?? null, reportGeneratedAt: enriched.meta.generatedAt,
   }) }, appendix };
 }
+import { technicalTrendText } from "@/report/technicalTrend";

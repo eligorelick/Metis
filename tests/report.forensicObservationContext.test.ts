@@ -10,6 +10,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
   const bundle = completeCurrencyBundle({ sic: "3571" });
@@ -38,7 +39,7 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Freeze the entire Stage B result, permitting only two Task 8 descriptions at three exact output paths.
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
-  const pinned = structuredClone(c);
+  const pinned = restoreCapexBasisGolden(c, 1);
   flagOf(pinned)!.message = "TASK8_DISCONTINUED_CONTEXT";
   pinned.scores.aspects.quality.signals!.find(s => s.id === "altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";
   pinned.scores.aspects.quality.drivers.find(d => d.source === "computed.scores.quality.altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";

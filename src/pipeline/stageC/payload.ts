@@ -441,7 +441,9 @@ export interface ContextPayload {
 // D-138 report-53 batch: source-scope qualifications and neutral debt captions change model context.
 // F-01/F-02/F-03: admitted facts, annual operands and numeric evidence semantics
 // require fresh model/checkpoint identity; historical report bytes are unchanged.
-export const PAYLOAD_VERSION = "1.57.0" as const;
+// FIG report review: primary EPS/share refusals, dated guidance, estimate-period
+// and Form 4 venue scope. Accepted model work from earlier payloads is incompatible.
+export const PAYLOAD_VERSION = "1.59.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -582,7 +584,8 @@ export function formatFigure(f: PayloadFigure): string {
   const currency = monetary && canonical?.currency === null
     ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
     : "";
-  const estimateDates = f.estimateTiming === undefined ? "" : `; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
+  const estimatePeriod = f.estimateTiming?.asOfRole === "forecast-period-end" ? `; forecast period ${estimateDay(f.period) ?? "not established"}` : "";
+  const estimateDates = f.estimateTiming === undefined ? "" : `${estimatePeriod}; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
   return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.estimateTiming === undefined ? f.asOf : estimateDay(f.asOf))}${periodContext}${estimateDates}`;
 }
@@ -1796,9 +1799,10 @@ function gradesConsensusWord(value: unknown): string {
  * is assembler-controlled — the source is allowlisted and both dates must be
  * real ISO days — so no provider text can forge the trailing tag.
  */
-function nextEarningsNote(bundle: DataBundle): string | null {
+export function nextEarningsNote(bundle: DataBundle): string | null {
   const next = bundle.earningsCalendarNext;
-  if (!next.ok) return null;
+  if (!next?.ok) return null;
+  if (next.value.data.confirmation === "company_confirmed") return null;
   const source = next.value.source;
   if (source !== "fmp" && source !== "finnhub") return null;
   const date = typeof next.value.data.date === "string" ? next.value.data.date.slice(0, 10) : "";
@@ -1862,7 +1866,7 @@ function peersSection(bundle: DataBundle): PayloadSection {
 
 /**
  * AI-117: FMP's insider statistics are calendar-quarter rows whose
- * `totalPurchases`/`totalSales` are open-market transaction counts (Form 4
+ * `totalPurchases`/`totalSales` are open-market or private transaction counts (Form 4
  * codes P and S), not shares. The window is the trailing four complete
  * calendar quarters; the quarter containing `asOf` is left out, and a gap in
  * the served quarters ends the window.
@@ -1873,8 +1877,8 @@ export interface InsiderStatisticsWindow {
   /** First day of the oldest quarter, last day of the newest. */
   start: string;
   end: string;
-  openMarketPurchases: number | null;
-  openMarketSales: number | null;
+  purchases: number | null;
+  sales: number | null;
   acquiredTransactions: number | null;
   disposedTransactions: number | null;
   sharesAcquired: number | null;
@@ -1944,8 +1948,8 @@ export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatistics
     quarters: taken.map((row) => ({ year: row.year, quarter: row.quarter })),
     start: `${oldest.year}-${String((oldest.quarter - 1) * 3 + 1).padStart(2, "0")}-01`,
     end: quarterEnd(newest.year, newest.quarter),
-    openMarketPurchases: sum("totalPurchases"),
-    openMarketSales: sum("totalSales"),
+    purchases: sum("totalPurchases"),
+    sales: sum("totalSales"),
     acquiredTransactions: sum("acquiredTransactions"),
     disposedTransactions: sum("disposedTransactions"),
     sharesAcquired: sum("totalAcquired"),
@@ -1976,8 +1980,8 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       ? round(win.acquiredTransactions / win.disposedTransactions, 4)
       : null;
     figures.push(
-      { label: `insider open-market purchase transactions (Form 4 code P), ${w}`, value: win.openMarketPurchases, unit: "count", ...common },
-      { label: `insider open-market sale transactions (Form 4 code S), ${w}`, value: win.openMarketSales, unit: "count", ...common },
+      { label: `insider purchase transactions (Form 4 code P), ${w}`, value: win.purchases, unit: "count", ...common },
+      { label: `insider sale transactions (Form 4 code S), ${w}`, value: win.sales, unit: "count", ...common },
       { label: `insider shares acquired, all reported acquisitions incl. awards, option exercises and gifts received, ${w}`, value: win.sharesAcquired, unit: "shares", ...common },
       { label: `insider shares disposed, all reported dispositions incl. open-market sales, tax withholding and gifts, ${w}`, value: win.sharesDisposed, unit: "shares", ...common },
       { label: `insider acquired/disposed transaction-count ratio (all acquisition and disposition codes), ${w}`, value: ratio, unit: "x", ...common },
@@ -1986,7 +1990,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
     notes.push(
       `Insider statistics: FMP calendar quarters ${list} (${win.start} to ${win.end}) summed` +
         `${win.inProgress ? `; ${win.inProgress.year} Q${win.inProgress.quarter} is in progress at ${statsAsOf} and is left out (its Form 4 rows are listed below)` : ""}. ` +
-        "Purchase and sale figures count open-market transactions (Form 4 codes P and S), not shares; the share volumes cover every reported acquisition or disposition.",
+        "Purchase and sale figures count open-market or private transactions (Form 4 codes P and S), not shares; their venue and motive are not established. The share volumes cover every reported acquisition or disposition.",
     );
   } else if (statsAsOf !== null) {
     const current = insiderQuarterContaining(statsAsOf);

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.54.0** and
-payload **1.57.0** (the focused issuer, fiscal-period and numeric-evidence repairs). The
+Current source declares application **0.1.0**, report spec **1.55.0** and
+payload **1.59.0** (including the FIG source-reconciliation and disclosure fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - FIG live-test follow-up (2026-11-01)
+
+Preserves rejected provider responses for diagnosis separately from accepted section recovery, tolerates a canonical citation ID when its legacy source alias is blank, and permits explicitly withheld analyst targets with a reason. Citation normalization does not establish factual verification. The cash-flow bridge now identifies the retained provider cash-capex basis and its possible software/period differences; arithmetic is unchanged. Payload 1.58.0 and Stage B version 37 prevent reuse of accepted model work under the changed evidence disclosure. Historical reports are not rewritten. A bounded FIG run on Sonnet 5.5 medium completed using the preceding payload; these follow-up changes are tested offline, not claimed as a new live-model validation.
 
 ## Unreleased - bounded report recovery and integrity (2026-11-01)
 

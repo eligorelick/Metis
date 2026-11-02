@@ -12,6 +12,119 @@ import { describe, expect, it } from "vitest";
 import placeholderCase from "./fixtures/analyst-placeholder-case.json";
 
 describe("current-main report generation integrity regressions", () => {
+  it.each(["array", "invalid known section"])("retains rejected %s bytes separately from accepted section recovery", async (kind) => {
+    const { payload } = buildInputs();
+    const thesis = analystCase("bull").thesis;
+    const rejected = kind === "array" ? ["REJECTED_SECTION_SENTINEL"] : { evidence: "REJECTED_SECTION_SENTINEL" };
+    let calls = 0;
+    let settled: unknown;
+    const runPass: PassDeps["runPass"] = async () => {
+      calls++;
+      const usage = { input_tokens: 10, output_tokens: 5 };
+      return { ok: true, value: { data: { model: "claude-sonnet-5-5", usage, costUsd: 0.1, fallbackUsed: false,
+        message: { content: [{ type: "text", text: JSON.stringify(calls === 1 ? { thesis } : rejected) }], usage, model: "claude-sonnet-5-5" },
+      } } };
+    };
+    const run = await runBullPass({ model: "claude-sonnet-5-5", sectionedOutput: true, runPass }, payload, value => { settled = value; });
+    expect(run.ok).toBe(false);
+    expect(settled).toMatchObject({ outcome: "failure", failure: {
+      partialText: JSON.stringify({ thesis }), rejectedText: expect.stringContaining("REJECTED_SECTION_SENTINEL"),
+    }, telemetry: { inputTokens: calls * 10, outputTokens: calls * 5, costUsd: calls * 0.1 } });
+    if (!run.ok) {
+      const kept = checkCarriedAnalystSections(JSON.parse(run.error.partialText!)).kept;
+      expect(kept).toEqual({ thesis });
+    }
+  });
+  it("uses a real legacy citation when the duplicate sourceId is only a placeholder", async () => {
+    const { payload } = buildInputs();
+    const raw = analystCase("bear");
+    raw.evidence[0]!.sourceId = "x";
+    const mock = new MockRunPass();
+    mock.onJson("llm.bear", raw);
+    const run = await runBearPass(makeDeps(mock), payload);
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.evidence[0]?.sourceId).toBeUndefined();
+      expect(run.result.output.evidence[0]?.source).toBe(raw.evidence[0]?.source);
+      expect(run.result.output.evidence[0]?.verified).toBeNull();
+    }
+    expect(raw.evidence[0]?.sourceId).toBe("x");
+  });
+  it("does not turn a normalized but unregistered citation into verified evidence", async () => {
+    const { payload } = buildInputs();
+    const raw = judgeOutput();
+    raw.business.whatTheySell = [{ text: "Revenue was USD 123 million.", label: "FACT", source: "", sourceId: "invented.source", asOf: "2026-06-30" }];
+    const normalized = normalizeJudgeOutput(raw) as JudgeOutput;
+    const verified = await runVerifyPass(makeDeps(new MockRunPass()), payload, normalized, { fetchedUrls: [] });
+    const entry = verified.log.find(item => item.source === "invented.source");
+    expect(entry).toBeDefined();
+    expect(entry?.outcome).toBe("unverified");
+    expect(entry?.validationStatus).not.toBe("validated");
+  });
+  it.each([true, false])("allows a withheld analyst target only with a reason (reason=%s)", async (reason) => {
+    const { payload } = buildInputs();
+    const raw = { ...analystCase("bear"), priceTarget: { value: null, horizon: "not modeled", assumptions: reason ? ["Per-share value is withheld because economic share-class scope is unresolved."] : [] } };
+    const mock = new MockRunPass();
+    mock.onJson("llm.bear", raw);
+    const run = await runBearPass(makeDeps(mock), payload);
+    expect(run.ok).toBe(reason);
+    if (run.ok) expect(run.result.output.priceTarget.value).toBeNull();
+    expect(checkCarriedAnalystSections(raw).dropped.includes("priceTarget")).toBe(!reason);
+  });
+  it("asks for evidence limitations instead of fabricated analyst targets", () => {
+    for (const prompt of [buildBullFraming(), buildBearFraming()]) {
+      expect(prompt).toContain("`priceTarget.value` to null");
+      expect(prompt).toContain("Do not substitute a historical high/low");
+    }
+  });
+  it.each(["bull", "bear"] as const)("accepts a blank legacy source when the %s claim supplies its canonical sourceId", async (side) => {
+    const { payload } = buildInputs();
+    const original = analystCase(side);
+    const claim = { ...original.thesis[0]!, source: "", sourceId: original.thesis[0]!.source };
+    const raw = { ...original, thesis: [claim] };
+    const before = structuredClone(raw);
+    const mock = new MockRunPass();
+    mock.onJson(`llm.${side}`, raw);
+    const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload);
+    expect(run.ok).toBe(true);
+    if (run.ok) expect(run.result.output.thesis[0]).toEqual({ ...claim, source: claim.sourceId });
+    // Recovery keeps the writer's bytes; parsing the assembled case applies
+    // the same normalization again.
+    expect(checkCarriedAnalystSections(raw).kept.thesis).toEqual([claim]);
+    expect(raw).toEqual(before);
+  });
+  it.each(["", "  ", "[fmp:profile · 2026-07-06]", "x"])("does not manufacture a usable citation from sourceId %j", async (sourceId) => {
+    const { payload } = buildInputs();
+    const raw = analystCase("bull");
+    raw.thesis[0] = { ...raw.thesis[0]!, source: "", sourceId };
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", raw);
+    expect((await runBullPass(makeDeps(mock), payload)).ok).toBe(false);
+  });
+  it("normalizes the same citation alias in judge claims without replacing nonblank legacy sources", () => {
+    const raw = judgeOutput();
+    const claim = raw.business.whatTheySell[0]!;
+    raw.business.whatTheySell = [{ ...claim, source: "", sourceId: "fmp:profile" }, { ...claim, source: "legacy", sourceId: "fmp:profile" }];
+    const result = normalizeJudgeOutput(raw) as JudgeOutput;
+    expect(result.business.whatTheySell[0]?.source).toBe("fmp:profile");
+    expect(result.business.whatTheySell[1]?.source).toBe("legacy");
+    expect(raw.business.whatTheySell[0]?.source).toBe("");
+  });
+  it.each(["bull", "bear"] as const)("retains a rejected %s response for durable diagnosis without admitting its invalid sections", async (side) => {
+    const { payload } = buildInputs();
+    const rejected = { ...analystCase(side), evidence: [{ value: 2, unit: "x", source: "x", asOf: null, verified: null }] };
+    const mock = new MockRunPass();
+    mock.onJson(`llm.${side}`, rejected);
+    let retained: string | undefined;
+    const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload, (settlement) => {
+      if (settlement.outcome === "failure") retained = settlement.failure.partialText;
+    });
+    expect(run.ok).toBe(false);
+    expect(retained).toBe(JSON.stringify(rejected));
+    const checked = checkCarriedAnalystSections(JSON.parse(retained!));
+    expect(checked.dropped).toContain("evidence");
+    expect(checked.kept.thesis).toEqual(rejected.thesis);
+  });
   it.each(["bull", "bear"] as const)("rejects retained placeholder %s content during generation and checkpoint reuse", async (side) => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
@@ -1510,7 +1623,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.57.0");
+    expect(first.payloadVersion).toBe("1.59.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2948,6 +3061,94 @@ describe("final assembled report verification", () => {
 });
 
 describe("assembleReport", () => {
+  it("qualifies an unconfirmed earnings date in sourced and plain prose without treating it as validated", async () => {
+    const { bundle, computed } = buildInputs();
+    bundle.earningsCalendarNext = { ok: true, value: { source: "fmp", endpoint: "/stable/earnings-calendar", asOf: "2026-07-06", fetchedAt: GENERATED_AT,
+      data: { symbol: "AAPL", date: "2026-11-04", confirmation: "vendor_estimate" } } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
+    const output = judgeOutput();
+    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:income-statement(annual)", asOf: "2025-09-27" }];
+    output.disagreements = [{ topic: "Growth", bullView: "Growth accelerated", bearView: "Guidance slows", kind: "interpretation", judgeResolution: "Results on 2026-11-04 will clarify the trend." }];
+    const original = JSON.stringify(output);
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.verifiedReport.verdict.executiveSummary![0]).toMatchObject({ label: "ESTIMATE" });
+    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toContain("FMP calendar estimate; company confirmation not established");
+    expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; company confirmation not established");
+    const log = result.log.filter(e => e.path === "verdict.executiveSummary[0]");
+    expect(log.some(e => e.reason === "earnings-date-qualified" && e.claim === output.verdict.executiveSummary![0]!.text)).toBe(true);
+    expect(log.every(e => e.validationStatus !== "validated" && e.numericSupportStatus !== "validated")).toBe(true);
+    const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: result.verifiedReport,
+      verify: result, costEntries: [], model: "none" }, GENERATED_AT);
+    expect(report.verdict.executiveSummary![0]!.text).toBe(result.verifiedReport.verdict.executiveSummary![0]!.text);
+    const repeated = await runVerifyPass(makeDeps(new MockRunPass()), payload, result.verifiedReport, { fetchedUrls: [] });
+    expect(repeated.verifiedReport.verdict.executiveSummary).toEqual(result.verifiedReport.verdict.executiveSummary);
+    expect(repeated.verifiedReport.disagreements).toEqual(result.verifiedReport.disagreements);
+    expect(repeated.log.filter(e => e.path === "verdict.executiveSummary[0]").every(e => e.validationStatus !== "validated")).toBe(true);
+    expect(JSON.stringify(output)).toBe(original);
+  });
+
+  it.each(["company_confirmed", "vendor_estimate"] as const)("does not qualify unrelated dates or override a %s event", async confirmation => {
+    const { bundle, computed } = buildInputs();
+    bundle.earningsCalendarNext = { ok: true, value: { source: confirmation === "company_confirmed" ? "edgar" : "fmp", endpoint: "retained", asOf: "2026-07-06", fetchedAt: GENERATED_AT,
+      data: { date: "2026-11-04", confirmation } } };
+    const output = judgeOutput();
+    output.verdict.executiveSummary = [{ text: confirmation === "company_confirmed" ? "Results are scheduled for 2026-11-04." : "The filing was signed on 2026-11-04.", label: "FACT", source: "fmp:profile", asOf: "2026-07-01" }];
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toBe(output.verdict.executiveSummary[0]!.text);
+    expect(result.log.some(e => e.reason === "earnings-date-qualified")).toBe(false);
+  });
+
+  it.each([
+    [21.65, 23.3598, 23.087, "below both"],
+    [25, 23, 24, "above both"],
+    [23.5, 23, 24, "between"],
+    [23.5, 24, 23, "between"],
+    [23, 23, 24, "equal to the 50-day"],
+    [23, 24, 23, "equal to the 200-day"],
+    [23, 23, 23, "equal to both"],
+    [23, null, 24, "50-day average unavailable"],
+    [null, 23, 24, "Last close unavailable"],
+  ] as const)("grounds the technical trend relation for close %s / SMA50 %s / SMA200 %s", (close, sma50, sma200, relation) => {
+    const { bundle, computed } = buildInputs();
+    computed.technicals.lastClose = close;
+    computed.technicals.smaCross.sma50 = sma50;
+    computed.technicals.smaCross.sma200 = sma200;
+    computed.technicals.read.trend = "sideways";
+    computed.technicals.asOf = "2026-10-30";
+    const output = judgeOutput();
+    output.technicals.read.trend = "Sideways: the close sits between both averages.";
+    const original = JSON.stringify(output);
+    const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: output,
+      verify: { verificationRate: null, log: [] }, costEntries: [], model: "none" }, GENERATED_AT);
+    expect(report.technicals.read.trend).toContain(relation);
+    expect(report.technicals.read.trend).toContain("sideways");
+    expect(report.technicals.read.trend).toContain("2026-10-30");
+    expect(report.technicals.read.momentum).toBe(output.technicals.read.momentum);
+    expect(JSON.stringify(output)).toBe(original);
+  });
+
+  it("keeps compound executive titles and rejects listed-as title mismatches through full verification", async () => {
+    const { payload } = buildInputs();
+    payload.leadership.notes = [
+      "Dylan Field — Chief Executive Officer, President & Chairman [fmp:key-executives]",
+      "Praveer Melwani — Chief Financial Officer & Treasurer [fmp:key-executives]",
+    ];
+    payload.citationRegistry = [...(payload.citationRegistry ?? []).filter(r => r.id !== "fmp:key-executives"),
+      { id: "fmp:key-executives", kind: "payload-text", origin: "fmp:key-executives", asOf: null }];
+    const output = judgeOutput();
+    output.fundamentals.commentary = [
+      { text: "Dylan Field is listed as Chief Executive Officer, President & Chairman.", label: "FACT", source: "fmp:key-executives", asOf: null },
+      { text: "Praveer Melwani is listed as Chief Executive Officer.", label: "FACT", source: "fmp:key-executives", asOf: null },
+    ];
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.checks?.namedIndividual).toMatchObject({ checked: 2, passed: 1, failed: 1 });
+    const checks = result.log.filter(entry => entry.check === "named-individual");
+    expect(checks).toHaveLength(1);
+    expect(checks[0]).toMatchObject({ reason: "named-individual-title-mismatch", path: "fundamentals.commentary[1]" });
+    expect(JSON.stringify(result.log)).not.toContain("names Officer");
+  });
+
   it("keeps final fallback executive assessments strict when verification produced no log", () => {
     const {bundle,computed}=buildInputs();
     const output=judgeOutput();
@@ -3039,7 +3240,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.54.0");
+    expect(report.meta.specVersion).toBe("1.55.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -5505,8 +5706,9 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
     if (!bull.ok) {
       expect(bull.error.kind).toBe("schema");
       expect(bull.validationError).toBe(
-        "the case is incomplete: `thesis` contains placeholder content; supply supported content or an explicit evidence limitation; " +
-          "`keyDrivers` is empty: give it at least one sourced claim; " +
+        // The real legacy citation survives a placeholder duplicate ID;
+        // the empty sections and zero target still fail independently.
+        "the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim; " +
           "`risksToCase` is empty: give it at least one sourced claim; " +
           "`priceTarget.value` must be a positive price; `priceTarget.horizon` is empty: state the horizon; " +
           "`priceTarget.assumptions` must explain the target or explicitly qualify insufficient valuation evidence",

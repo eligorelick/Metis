@@ -155,6 +155,21 @@ describe("page-1 key data and the audit export", () => {
     expect(rows.some((row) => /short interest/i.test(row.label))).toBe(false);
   });
 
+  it("distinguishes quote and computed price ranges without mixing their endpoints", () => {
+    const r = report();
+    r.marketData!.quote!.yearHigh = 50.04;
+    r.marketData!.quote!.yearLow = 17.55;
+    r.technicals.indicators = [
+      { value: 50.42, unit: "USD/share", source: "computed.technicals.52w-high", asOf: "2026-10-15", verified: true },
+      { value: 18, unit: "USD/share", source: "computed.technicals.52w-low", asOf: "2026-10-15", verified: true },
+    ];
+    expect(keyDataRows(r).find(row => row.label === "52-week range (quote)"))
+      .toMatchObject({ value: "$17.55 – $50.04", note: expect.stringContaining("different window or price basis") });
+    r.marketData!.quote!.yearLow = null;
+    expect(keyDataRows(r).find(row => row.label === "52-week range (computed)"))
+      .toMatchObject({ value: "$18.00 – $50.42" });
+  });
+
   it("keeps raw audit leaves out of the report and in the audit export", () => {
     const r = report();
     const markdown = reportToMarkdown(r);

@@ -110,6 +110,36 @@ function run(
   });
 }
 
+describe("FIG executive title boundaries", () => {
+  const source = "fmp:key-executives";
+  const personRows: PersonRow[] = [
+    { tag: source, asOf: null, name: "Dylan Field", title: "Chief Executive Officer, President & Chairman", anyOrder: false },
+    { tag: source, asOf: null, name: "Praveer Melwani", title: "Chief Financial Officer & Treasurer", anyOrder: false },
+  ];
+  const check = (text: string) => run(refs(claim(text, source, { asOf: null })), [], {
+    citationRegistry: [{ id: source, kind: "payload-text", origin: source, asOf: null }],
+    personNames: personRows.map(row => row.name), personRows,
+  });
+
+  it("accepts a complete listed compound title without inventing Officer as a person", () => {
+    const result = check("Dylan Field is listed as Chief Executive Officer, President & Chairman.");
+    expect(result.checks.namedIndividual).toMatchObject({ checked: 1, passed: 1, failed: 0 });
+    expect(result.findings).toEqual([]);
+  });
+
+  it.each(["is listed as", "was listed as"])("rejects a wrong title introduced by %s", lead => {
+    const result = check(`Praveer Melwani ${lead} Chief Executive Officer.`);
+    expect(result.findings[0]?.reason).toBe("named-individual-title-mismatch");
+    expect(result.rejectedClaimPaths.has("fundamentals.commentary[0]")).toBe(true);
+  });
+
+  it("preserves real unknown people and honorific surnames that resemble role words", () => {
+    expect(check("Jane Roe, Chief Executive Officer, joined the company.").findings[0]?.reason).toBe("named-individual-not-in-source");
+    expect(namedIndividuals("Dr. Officer joined the board.", [])[0]).toMatchObject({ name: "Officer", surnameOnly: true });
+    expect(check("Praveer Melwani is listed as Chief Financial Officer & Treasurer.").findings).toEqual([]);
+  });
+});
+
 /* ------------------------------------------------------------------------ *
  * (d) Direction
  * ------------------------------------------------------------------------ */

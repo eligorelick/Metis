@@ -128,9 +128,9 @@ export function estimateTimingText(value: unknown, recordedAsOf: unknown): strin
 
 function estimateDateText(asOfRole: EstimateTiming["asOfRole"], recordedAsOf: unknown): string {
   const day = estimateDay(recordedAsOf);
-  const role = asOfRole === "forecast-period-end" ? "forecast-period end"
+  const role = asOfRole === "forecast-period-end" ? "source-envelope reference forecast-period end"
     : asOfRole === "fallback-day" ? "fallback envelope day" : "unclassified recorded date";
-  return day !== null ? `${role} ${day}` : "envelope date not established";
+  return day !== null ? `${role} ${day}${asOfRole === "forecast-period-end" ? "; individual forecast periods are shown separately" : ""}` : "envelope date not established";
 }
 
 export function estimateModelTimingText(timing: EstimateModelTiming, recordedAsOf: unknown): string {

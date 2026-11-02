@@ -150,7 +150,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
 // D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
-export const REPORT_SPEC_VERSION = "1.54.0" as const;
+export const REPORT_SPEC_VERSION = "1.55.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1569,6 +1569,7 @@ export const VerificationLogEntrySchema = z
         "supported",
         "unsupported-report-reference",
         "report-reference-normalized",
+        "earnings-date-qualified",
         "unknown-source",
         "text-source",
         "value-mismatch",
@@ -2695,7 +2696,9 @@ export type Report = z.infer<typeof ReportSchema>;
 
 export const AnalystPriceTargetSchema = z
   .object({
-    value: z.number(),
+    // Withhold when no supportable price can be modeled; assumptions explain
+    // the missing evidence. A zero or a historical price is not a refusal.
+    value: z.number().nullable(),
     horizon: z.string(),
     assumptions: z.array(ratingSafeString()),
   })

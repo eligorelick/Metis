@@ -51,7 +51,7 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.2.1" as const;
+export const CURRENT_REPORTS_VERSION = "current-reports-1.2.2" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -495,7 +495,7 @@ export async function collectCurrentReports(
       }
     }
     const guidance = record.guidance;
-    if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no outlook section was found in the release or commentary`);
+    if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no structured guidance could be extracted from the release or commentary`);
     else if (guidance.items.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): an outlook section was found but none of its sentences could be read as guidance`);
     for (const sentence of guidance?.unparsed ?? []) notes.push(`8-K ${filing.accessionNumber}: outlook sentence not read as guidance: "${sentence}"`);
     releases.push(record);

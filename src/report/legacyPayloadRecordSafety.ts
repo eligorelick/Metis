@@ -20,7 +20,7 @@ export const PAYLOAD_RECORD_CORRECTION_NOTE =
   "Deterministic presentation correction: foreign peer market caps shown without a currency, insider transaction counts shown as shares, the capex/D&A average label, the data-only FRED unit sentences, provider geography the report's own XBRL segment tables contradict, and the data-only label that called the fiscal-year FCF conversion graded; the displayed coverage counts exclude the corrected entries; no analyst or model rerun occurred; the stored report and its recorded counts are unchanged.";
 
 const PEER_NOTE = "Peer market cap: the provider row states no currency and this listing's exchange suffix differs from the subject's; reports before spec 1.45.0 gave it the subject's currency (D-57, amended by D-124), so its currency is not established.";
-const INSIDER_NOTE = "FMP's insider total purchases and sales count open-market transactions, not shares, and covered only FMP's newest calendar quarter at the fetch date, which may have been the quarter in progress (D-125).";
+const INSIDER_NOTE = "FMP's insider total purchases and sales count open-market or private transactions, not shares, and covered only FMP's newest calendar quarter at the fetch date, which may have been the quarter in progress (D-125).";
 const LOG_NOTE = "(display correction, D-124, D-125, D-127)";
 const CAPEX_PERIOD_OLD = "capex / D&A, 5y average";
 const CAPEX_PERIOD_NEW = "capex / D&A, average of up to 5 fiscal years (the number averaged was not recorded)";

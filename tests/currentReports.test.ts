@@ -266,7 +266,7 @@ describe("bounded EDGAR collection", () => {
     const notes = reports.value.data.notes.join("\n");
     expect(notes).toMatch(/0001045810-26-000073 EX-99\.2 \(missing\.htm\) unreadable/);
     expect(notes).toMatch(/0001045810-26-000030 \(2026-03-01\): Item 2\.02 filing furnishes no EX-99 exhibit/);
-    expect(notes).toMatch(/0001045810-26-000040 \(2026-04-01\): no outlook section was found/);
+    expect(notes).toMatch(/0001045810-26-000040 \(2026-04-01\): no structured guidance could be extracted/);
     expect(notes).toMatch(/0001045810-26-000065 \(2026-08-01\) lists Items 8\.01 but no item heading could be read/);
     expect(notes).toMatch(/0001045810-26-000078 \(2026-09-03\) not read: unsafe primary document/);
     // Nothing is requested for the unsafe row or for 8-Ks outside the one-year window.

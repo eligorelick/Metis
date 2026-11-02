@@ -225,8 +225,10 @@ const EXACT_LABELS: Record<string, string> = {
 
 /** AI-117: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
 const INSIDER_STAT_LABEL: Readonly<Record<string, string>> = {
-  "open-market-purchase-transactions": "Insider open-market purchase transactions (Form 4 code P)",
-  "open-market-sale-transactions": "Insider open-market sale transactions (Form 4 code S)",
+  "purchase-transactions": "Insider purchase transactions (Form 4 code P; open-market or private)",
+  "sale-transactions": "Insider sale transactions (Form 4 code S; open-market or private)",
+  "open-market-purchase-transactions": "Insider purchase transactions (Form 4 code P; open-market or private)",
+  "open-market-sale-transactions": "Insider sale transactions (Form 4 code S; open-market or private)",
   "shares-acquired": "Insider shares acquired (all reported acquisitions)",
   "shares-disposed": "Insider shares disposed (all reported dispositions)",
   "acquired-disposed-transaction-count-ratio": "Insider acquired/disposed transaction-count ratio",
@@ -251,7 +253,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.peers\.([a-z0-9]+)-.+$/, (m) => `${m[1]!.toUpperCase()} market cap`],
   [/^payload\.macro\.([a-z0-9]+)-change-from-prior-observation-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}, change from prior observation`],
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
-  [/^payload\.insiders\.insider-(open-market-purchase-transactions|open-market-sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
+  [/^payload\.insiders\.insider-((?:open-market-)?purchase-transactions|(?:open-market-)?sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
   // D-67: "Pricetobook current", "Beneish index aqi", "Product market platform data center share of revenue …".
@@ -793,9 +795,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   if (price !== null) {
     rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
   }
-  const high = md?.quote?.yearHigh ?? firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
-  const low = md?.quote?.yearLow ?? firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
-  if (high !== null && low !== null) rows.push({ label: "52-week range", value: `${money(low, priceCurrency, true)} – ${money(high, priceCurrency, true)}` });
+  const quoteRange = md?.quote?.yearHigh != null && md.quote.yearLow != null;
+  const high = quoteRange ? md!.quote!.yearHigh : firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
+  const low = quoteRange ? md!.quote!.yearLow : firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
+  if (high !== null && low !== null) rows.push({ label: `52-week range (${quoteRange ? "quote" : "computed"})`, value: `${money(low, priceCurrency, true)} – ${money(high, priceCurrency, true)}`,
+    note: quoteRange ? "Provider quote range; it may use a different window or price basis than the computed technical range." : "Range from the retained price history used for technical calculations." });
 
   const quotedCap = md?.quote?.marketCap ?? firstTrace(traces, /^payload\.quote\.market-?cap$/)?.value ?? null;
   const dilutedShares = bridge?.dilutedShares ?? null;
@@ -1796,7 +1800,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   return {
     heading: "Scorecard",
-    headers: ["Aspect", "Score", "Band", "Weight", "Evidence", "What it measures"],
+    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
       const weight = scores.composite.weights[key];
@@ -1810,8 +1814,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         aspect.notApplicableReason ?? aspect.note,
       ];
     }),
-    ...(limited.length === 0 ? {} : {
-      note: `${limited.map((key) => {
+    note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {
         const signals = scores.aspects[key].signals ?? [];
         const effective = signals.length > 0
           ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)
@@ -1821,8 +1824,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
           ? `below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter`
           : "all from one signal, and a letter needs a second";
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
-      }).join(" ")}`,
-    }),
+      }).join(" ")}`.trim(),
   };
 }
 

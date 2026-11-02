@@ -50,6 +50,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { restoreQcom53Task12Lock } from "./helpers/qcom53Task12Lock";
+import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 
 import {
   type AuditJsonValue,
@@ -333,7 +334,10 @@ describe("Task 32 provider-free historical fixture comparison", () => {
     expect(() => assertAuditJsonSafe({ invalid: decoratedArray })).toThrow(
       /non-canonical array property.*invalid/,
     );
-    assertExactDeltaContract(baseline.projection, current, deltas);
+    // Reverse only the two explicit capex-basis descriptions. D-141 separately
+    // records the method stamp and deterministic trend sentence in the exact
+    // delta ledger; every historical financial observation stays pinned.
+    assertExactDeltaContract(baseline.projection, restoreCapexBasisGolden(current, 2), deltas);
     expect(deltas.length).toBeGreaterThan(0);
     // The same two manifests compared by entry name rather than by position:
     // an inserted gap entry shifts hundreds of leaves, and this is where a

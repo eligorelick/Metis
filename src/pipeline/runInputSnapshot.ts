@@ -37,7 +37,12 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // revenue refusal, ADR Altman scope, common-equity/gain/scope peer comparisons and same-construction P/E ranking.
 // D-138 report-53 batch: receivables continuity and descriptive lease evidence on the retained debt basis.
 // F-01/F-02: issuer admission and fiscal identity change deterministic operands.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_ISSUER_FISCAL_ADMISSION_36" as const;
+// FIG live test: current cash-flow bridge discloses unestablished vendor capex
+// scope instead of asserting the mixed series is cash PP&E only. Values unchanged.
+// FIG report audit: source admission now withholds independently contradicted
+// historical EPS/share fields and admits dated compact guidance. Older input
+// snapshots require their original engine; do not relabel their materialized rows.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FIG_SOURCE_RECONCILIATION_38" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

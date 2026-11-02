@@ -51,6 +51,31 @@ async function consumers(result?: Awaited<ReturnType<typeof retained>>) {
 afterEach(() => vi.useRealTimers());
 
 describe("estimate periods are not publication vintage", () => {
+  it.each([false, true])("distinguishes a historical envelope reference from each future forecast period (reversed=%s)", async reversed => {
+    const rows = [
+      { symbol: "QCOM", date: "2025-12-31", revenueAvg: 1_000_000_000, epsAvg: 1.5 },
+      { symbol: "QCOM", date: "2026-12-31", revenueAvg: 1_300_000_000, epsAvg: 1.9 },
+      { symbol: "QCOM", date: "2027-12-31", revenueAvg: 1_450_000_000, epsAvg: 2.1 },
+    ];
+    const { bundle, report } = await consumers(await retained(reversed ? [...rows].reverse() : rows));
+    const before = JSON.stringify(report);
+    const note = consensusTables(report)[0]!.note!;
+    expect(note).toContain("source-envelope reference forecast-period end 2025-12-31");
+    expect(note).toContain("individual forecast periods are shown separately");
+    expect(note).toContain(`recorded acquisition ${ACQUIRED}`);
+    const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle));
+    const figure = payload.estimates.figures.find(f => f.period === "2027-12-31" && f.unit === "currency")!;
+    expect(figure).toMatchObject({ value: 1_450_000_000, period: "2027-12-31", asOf: "2025-12-31" });
+    expect(formatFigure(figure)).toContain("forecast period 2027-12-31");
+    expect(formatFigure(figure)).toContain("source-envelope reference forecast-period end 2025-12-31");
+    for (const text of [reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report),
+      renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(text).toContain("source-envelope reference forecast-period end 2025-12-31");
+      expect(text).toContain("publication/update vintage not established");
+    }
+    expect(JSON.stringify(report)).toBe(before);
+  });
+
   it.each(["success", "empty", "failure"] as const)("keeps old body acquisition through fresh/stale reads and %s refresh", async outcome => {
     const handle = createDatabase(":memory:");
     setDbForTests(handle.db);

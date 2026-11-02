@@ -10,6 +10,18 @@ const cash = { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -2
 // The lease total shows the operating lease inside total debt (audit 2026-10-19 CODE-1).
 const balance = { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10, capitalLeaseObligations: 10 };
 
+it("does not label vendor cash capex as established PP&E-only spending (FIG live receipt)", () => {
+  // Frozen FIG TTM vendor rows: two quarters also include capitalized software.
+  // The arithmetic is correct for those inputs, but their scope is not PP&E only.
+  const bridge = cashFlowBridge({ date: "2026-06-30", operatingCashFlow: 249250000,
+    capitalExpenditure: -18238000, stockBasedCompensation: 1673178000 });
+  expect(bridge.standardizedFcf).toBe(231012000);
+  expect(bridge.afterSbcStandardizedFcf).toBe(-1442166000);
+  expect(bridge.definition).toContain("retained statement's cash-capex field");
+  expect(bridge.definition).toContain("not reconciled to cash PP&E alone");
+  expect(bridge.definition).not.toContain("minus cash PP&E;");
+});
+
 describe("TTM operating income incomplete (FIN-112)", () => {
   function fixture(missing: boolean) {
     const bundle = completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });

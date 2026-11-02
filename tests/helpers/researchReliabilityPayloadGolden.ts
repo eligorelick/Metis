@@ -1,13 +1,19 @@
 import { expect } from "vitest";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import { payloadFingerprint, serializePayloadForPrompt, type ContextPayload } from "@/pipeline/stageC/payload";
+import { restoreCapexBasisGolden } from "./capexBasisGolden";
+import { restoreFigInsiderLabels } from "./figInsiderLabelGolden";
 
 /** D-139: one sensitivity-scope sentence changes; all financial and provenance pins remain enforced. */
 export function restoreResearchReliabilityGolden(input: { computed: ComputedMetrics; payload: ContextPayload }) {
-  const payload = structuredClone(input.payload);
+  // FIG live test: restore only the reviewed capex-basis disclosure before
+  // the historical byte/hash pins. No financial operand or value is changed.
+  const computed = restoreCapexBasisGolden(input.computed, 1);
+  const payload = restoreCapexBasisGolden(input.payload, 1);
+  restoreFigInsiderLabels(payload);
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.
-  expect(payload.payloadVersion).toBe("1.57.0");
+  expect(payload.payloadVersion).toBe("1.59.0");
   payload.payloadVersion = "1.56.0";
   // D-140: retain every older pin.
   expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");
@@ -25,5 +31,5 @@ export function restoreResearchReliabilityGolden(input: { computed: ComputedMetr
   figures[0].value = value.replace(current, prior);
   expect(payloadFingerprint(payload)).toBe("1.55.0:7c555e2d");
   expect(Buffer.byteLength(serializePayloadForPrompt(payload))).toBe(148619);
-  return { computed: input.computed, payload };
+  return { computed, payload };
 }

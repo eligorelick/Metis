@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CompositeScorecard } from "@/components/report/sections";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
-import { gradeReliabilityTable } from "@/report/presentation";
+import { gradeReliabilityTable, scorecardTable } from "@/report/presentation";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
 const heading = "Attribute grade reliability";
@@ -23,6 +23,18 @@ function reliabilityReport() {
 }
 
 describe("attribute grade reliability across reader scorecards", () => {
+  it("distinguishes full configured grade evidence from route-applicable reliability evidence", () => {
+    const report = reliabilityReport();
+    Object.assign(report.scores!.aspects.quality, { dataCompleteness: .31, applicableCompleteness: .31 / .66 });
+    const before = structuredClone(report.scores);
+    const scorecard = scorecardTable(report.scores!);
+    expect(scorecard.headers).toContain("Evidence (all signal weights)");
+    expect(scorecard.note).toContain("full configured signal weight");
+    expect(scorecard.note).toContain("excludes route-inapplicable inputs");
+    expect(scorecard.rows[2]![4]).toBe("31.0%");
+    expect(gradeReliabilityTable(report.scores!).rows[2]![1]).toBe("47.0%");
+    expect(report.scores).toEqual(before);
+  });
   it("pairs each attribute with its own applicable coverage and rounds ranges outward", () => {
     const report = reliabilityReport();
     Object.assign(report.scores!.aspects.fundamentals, { score: 80.125, applicableCompleteness: .5 });

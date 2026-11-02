@@ -6411,14 +6411,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.54.0");
+    expect(repRow?.specVersion).toBe("1.55.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.15");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.17");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -10869,13 +10869,17 @@ describe("runJob - final evidence timing", () => {
     expect(persisted.meta.evidenceTiming).toBeUndefined();
   });
 
-  it("preserves the original generation cutoff when durable verify recovery links an existing report", async () => {
+  it.each(["current", "prior"])("preserves the original generation cutoff and method stamps when durable verify recovery links an existing report (%s)", async version => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(assembledAt);
     const { jobId } = createJob("AAPL");
     const bundle = timingBundle();
     const payload = pipelinePasses.assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: NOW() }));
     const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload, jobSeed: jobId }, fakeJudgeOutput());
+    if (version === "prior") {
+      verified.verifiedReport.meta.specVersion = "1.54.0";
+      verified.verifiedReport.meta.pipelineVersion = "stage-c-1.6.16";
+    }
     persistPassSettlement({
       jobId, runGeneration: 0, attemptId: "timing-verify", pass: "verify",
       settlement: testSuccessSettlement({ data: verified.verifiedReport, model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
@@ -10889,6 +10893,8 @@ describe("runJob - final evidence timing", () => {
     expect(result).toMatchObject({ status: "done", dataOnly: false });
     const persisted = readReport(result.reportId);
     expect(persisted.meta.generatedAt).toBe(assembledAt);
+    expect(persisted.meta.specVersion).toBe(verified.verifiedReport.meta.specVersion);
+    expect(persisted.meta.pipelineVersion).toBe(verified.verifiedReport.meta.pipelineVersion);
     expect(persisted.meta.evidenceTiming).toEqual(verified.verifiedReport.meta.evidenceTiming);
     expect(persisted.meta.evidenceTiming?.cutoffAt).toBe(assembledAt);
     expect(persisted.meta.evidenceTiming?.calculationAsOf).toBe(bundle.builtAt);

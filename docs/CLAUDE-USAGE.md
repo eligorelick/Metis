@@ -69,7 +69,7 @@ These are representative **registry values**, in USD per million tokens:
 | Registry model | Input | Output | Five-minute cache write | Cache read |
 | --- | ---: | ---: | ---: | ---: |
 | `claude-opus-5-5` | 4 | 20 | 5 | 0.20 |
-| `claude-sonnet-5-5` | 2 | 10 | 2.50 | 0.20 |
+| `claude-sonnet-5-5` | 2 | 10 | 2.50 | 0.10 |
 | `claude-fable-5-1` | 10 | 50 | 12.50 | 0.25 |
 | `claude-haiku-4-5` | 1 | 5 | 1.25 | 0.10 |
 

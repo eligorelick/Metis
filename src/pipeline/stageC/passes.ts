@@ -48,7 +48,9 @@ import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
+import { guardEarningsSchedule } from "@/report/earningsSchedule";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
+import { technicalTrendText } from "@/report/technicalTrend";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
@@ -89,6 +91,7 @@ import {
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
   guidanceLowCitation,
+  nextEarningsNote,
   previousOutputBlock,
   renderUntrustedJson,
   type ContextPayload,
@@ -431,6 +434,8 @@ export type PassRun<T> =
        * between converging and re-rolling the dice on weaker models.
        */
       rawText?: string;
+      /** Section response bytes retained for diagnosis, separately from accepted recovery. */
+      rejectedText?: string;
       presumed?: boolean;
       execution?: ProviderExecution;
       usage?: PassUsage;
@@ -960,6 +965,12 @@ async function runPassInSections<T>(a: {
     lastCheckpoint = json;
   };
   const observations: RequestObservation[] = [];
+  // Keep a bounded diagnostic trail even when section validation drops a known
+  // field. It is attached only to failures and never fed to checkpoint recovery.
+  let responseText = "";
+  const retainResponse = (text: string): void => {
+    responseText = (responseText + (responseText ? "\n--- section response ---\n" : "") + text).slice(-1_000_000);
+  };
   if (rejectedComplete) checkpoint(completed);
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
@@ -972,12 +983,13 @@ async function runPassInSections<T>(a: {
     sectionProgress: Object.keys(completed).some(key => !initialKeys.has(key)) } : {};
   const failure = (error: PassErrorLike, gap?: ManifestEntry): PassRun<T> => {
     checkpoint(completed);
-    return finishStructuredPass({ ok: false,
+    const failed = finishStructuredPass({ ok: false,
       gap: gap ?? { field: a.field, reason: error.message, severity: "critical" },
       error: { ...error, ...counters(), usage, costUsd, fallbackUsed, ...(presumed ? { presumed: true } : {}),
         ...sectionExecution(a.requestedModel, observations, carried),
         ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) },
     }, a.parse, a.field, a.requestedModel);
+    return failed.ok ? failed : { ...failed, ...(responseText ? { rejectedText: responseText } : {}) };
   };
   const account = (data: { model?: string; execution?: ProviderExecution; usage?: PassUsage; costUsd?: number; presumed?: boolean; fallbackUsed?: boolean }): void => {
     observations.push(data);
@@ -1019,6 +1031,7 @@ async function runPassInSections<T>(a: {
       }
       if (!outcome.ok) {
         account(outcome.error);
+        if (outcome.error.partialText) retainResponse(outcome.error.partialText);
         accept(completedTopLevelFields(outcome.error.partialText ?? ""), [...a.allKeys], outcome.error);
         if (api && outcome.error.kind === "max_tokens") {
           maxKeys = Math.min(maxKeys, keys.length);
@@ -1035,6 +1048,7 @@ async function runPassInSections<T>(a: {
         usageReported: outcome.value.data.execution?.usageReported ?? outcome.value.data.presumed !== true,
       } } : outcome.value.data;
       account(data);
+      retainResponse(extractText(data.message));
       for (const url of data.fetchedUrls ?? []) fetchedUrls.add(url);
       let json: unknown;
       try { json = parseJsonSalvaging(extractText(data.message)); }
@@ -1087,7 +1101,7 @@ async function runPassInSections<T>(a: {
   } } }, a.parse, a.field, a.requestedModel);
   if (!finished.ok) {
     checkpoint(completed);
-    return { ...finished, error: { ...finished.error, ...counters(), ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) } };
+    return { ...finished, ...(responseText ? { rejectedText: responseText } : {}), error: { ...finished.error, ...counters(), ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) } };
   }
   return finished;
 }
@@ -1328,13 +1342,30 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
  * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
  * the parse and cost a repair on all four analyst first attempts.
  */
-function dropBlankSourceIds(raw: unknown): unknown {
+function normalizeCitationFields(raw: unknown): unknown {
   if (raw === null || typeof raw !== "object") return raw;
-  if (Array.isArray(raw)) return raw.map(dropBlankSourceIds);
+  if (Array.isArray(raw)) return raw.map(normalizeCitationFields);
   const next: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
-    next[key] = dropBlankSourceIds(value);
+    next[key] = normalizeCitationFields(value);
+  }
+  // FIG / Sonnet 5.5: a canonical sourceId with source:"" is already a
+  // citation, but the required legacy field rejected the whole paid answer.
+  // Copy only a syntactically valid ID on a claim/number; provenance and truth
+  // still require verification. Preserve any nonblank legacy source verbatim.
+  const carrier = (typeof next.text === "string" && typeof next.label === "string") ||
+    (typeof next.value === "number" && typeof next.unit === "string");
+  if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
+      typeof next.sourceId === "string") {
+    const id = citationSourceId({ sourceId: next.sourceId });
+    if (id !== null) next.source = id;
+  }
+  // A placeholder duplicate ID conveys no citation. Keep the independently
+  // supplied legacy citation, which the verifier will still have to resolve.
+  if (carrier && hasPlaceholderContent(next.sourceId, "sourceId") && typeof next.source === "string" &&
+      !hasPlaceholderContent(next.source, "source") && citationSourceId({ source: next.source }) !== null) {
+    delete next.sourceId;
   }
   return next;
 }
@@ -1362,7 +1393,7 @@ function normalizeAnalystCase(raw: unknown): unknown {
   // fillNullableGaps: the request schema lets the model OMIT a nullable field
   // instead of sending null (collapseNullableComplexity, report/schema.ts) —
   // restore the null before validating against the still-strict Zod schema.
-  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(dropBlankSourceIds(raw))));
+  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(normalizeCitationFields(raw))));
 }
 
 /**
@@ -1452,7 +1483,11 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
-      partialText: run.error.partialText,
+      // A complete answer rejected by validation is still paid-for evidence.
+      // Retain it in the bounded recovery field just like a truncated answer;
+      // carried-section validation still excludes invalid content on reuse.
+      partialText: run.error.partialText ?? run.rawText,
+      rejectedText: run.rejectedText,
     }),
     telemetry,
   };
@@ -2252,7 +2287,7 @@ function cleanRatingSafeArray(value: unknown): unknown {
 }
 
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = normalizeKnownEnumCasing(dropBlankSourceIds(raw));
+  const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }
@@ -3012,6 +3047,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   }
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
+  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? []);
+  Object.assign(verifiedReport, guardedSchedule.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
   const fetchedUrls = new Set(
@@ -3052,7 +3089,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     personRows,
   });
 
-  const log: VerificationLogEntry[] = [...guardedReferences.log];
+  const log: VerificationLogEntry[] = [...guardedReferences.log, ...guardedSchedule.log];
   let traced = 0;
 
   // D-45: the excerpts a number may be read against, and the one currency a
@@ -3297,7 +3334,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // the URL still carried it, the coverage number would say the opposite of
     // the finding sitting next to it in the same appendix.
     const rejected = consistency.rejectedClaimPaths.has(path);
-    const supported = match.supported && !rejected;
+    const scheduleQualified = guardedSchedule.qualifiedClaimPaths.has(path);
+    const supported = match.supported && !rejected && !scheduleQualified;
     const judgment = claim.label === "JUDGMENT";
     const registryRecord = sourceId === null
       ? undefined
@@ -3357,7 +3395,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       // Matching quantities does not adjudicate the entire prose proposition.
       // Keep numeric validation/counts while exposing the narrower claim scope.
       outcome: "unverified",
-      note: supported
+      note: scheduleQualified ? "Provider-only event date qualified; the original citation does not establish company confirmation or validate the surrounding claim." : supported
         ? statusFinding?.note ?? validation.note
         : rejected
           ? rejection?.check === "named-individual"
@@ -3374,7 +3412,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
+      reason: scheduleQualified ? "earnings-date-qualified" : rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
@@ -4055,7 +4093,10 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     balanceSheet: args.judgeOutput.balanceSheet,
     valuation,
     quality,
-    technicals: args.judgeOutput.technicals,
+    technicals: args.computed.technicals ? {
+      ...args.judgeOutput.technicals,
+      read: { ...args.judgeOutput.technicals.read, trend: technicalTrendText(args.computed.technicals, statementCurrencies(args.bundle).trading) },
+    } : args.judgeOutput.technicals,
     leadership: args.judgeOutput.leadership,
     competitive: args.judgeOutput.competitive,
     catalystsRisks: args.judgeOutput.catalystsRisks,
@@ -4102,8 +4143,10 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
       candidate.sourceFactSummary = buildSourceFactSummary(payload);
     }
     const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
-    guarded.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log];
-    assembled = guarded.report;
+    const scheduleNote = nextEarningsNote(args.bundle);
+    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote]);
+    scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
+    assembled = scheduleGuard.report;
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
   if (!parsed.success) {
