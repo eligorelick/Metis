@@ -3625,3 +3625,7 @@ Current-capital windows use the established oldest-quarter start, including 52/5
 ## D-next (P2) - FIN-115 (2026-11-02)
 
 Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so. Stored reports remain immutable.
+
+## D-next (P2) - FIN-118 (2026-11-02)
+
+Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution. Stored reports remain immutable.

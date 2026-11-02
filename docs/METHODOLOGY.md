@@ -6349,3 +6349,5 @@ P2 (FIN-113): Current-capital windows use the established oldest-quarter start, 
 P2 (FIN-115): Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so.
 
 FIN-127 (OD-5): a missing or colliding four-digit fiscalYear is labelled `FY ending <date>`; its calendar year is never substituted as an issuer fiscal-year claim.
+
+P2 (FIN-118): Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution.

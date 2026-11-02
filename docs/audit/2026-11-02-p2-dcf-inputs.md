@@ -30,6 +30,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-115 | Fixed: Discount-rate notes and manifest gaps name the debt cost actually accepted. A rejected historical rate is labelled rejected; synthetic-use wording appears only after a synthetic rate is computable, and unavailable outcomes say so. | Owning FIN-115 commit | fin-115-red / fin-115-green | Stored figures unchanged |
 
+| FIN-118 | Fixed: Headline valuation degradation excludes market-cap history and enterprise-value history. Daily and SPY price substitutions are named only when the selected WACC beta consumes the keyless regression; the provider-fallback manifest still retains every substitution. | Owning FIN-118 commit | fin-118-red / fin-118-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

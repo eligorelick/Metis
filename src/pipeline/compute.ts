@@ -2791,6 +2791,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       asOf: asOfDay,
     }),
     degradedInputsReason({
+      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression/.test(returns.wacc.betaSource ?? ""),
       riskFree: riskFreePct(bundle),
       waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
       bundleGaps: bundle.gaps,
