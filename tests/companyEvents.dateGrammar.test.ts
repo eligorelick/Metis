@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { companyEarningsAnnouncement } from "@/providers/companyEvents";
 
 const issuer = { cik: "1", canonicalName: "Example Travel Group, Inc.", verifiedWebsite: "https://example.com/" };
@@ -31,4 +31,13 @@ describe("issuer-bound earnings date grammar", () => {
     ]) expect(companyEarningsAnnouncement({ ...evidence, ...patch, text: clause }, "EXM", "2026-10-13")).toBeNull();
     expect(companyEarningsAnnouncement({ ...evidence, authority: "sec_filing", url: "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/release.htm", text: clause }, "EXM", "2026-10-13")).not.toBeNull();
   });
+});
+
+const originalTz=process.env.TZ;
+afterAll(()=>{if(originalTz===undefined)delete process.env.TZ;else process.env.TZ=originalTz;});
+it.each(["UTC","America/Denver","Europe/Berlin","Asia/Tokyo"])("DATA-111 dateline in %s",tz=>{
+ process.env.TZ=tz;
+ expect(companyEarningsAnnouncement({...evidence,text:`SEATTLE, October 7, 2026 -- ${clause}`},"EXM","2026-10-13")).not.toBeNull();
+ expect(companyEarningsAnnouncement({...evidence,text:`SEATTLE, October 8, 2026 -- ${clause}`},"EXM","2026-10-13")).toBeNull();
+ expect(companyEarningsAnnouncement({...evidence,text:`SEATTLE, October 6, 2026 -- ${clause}`},"EXM","2026-10-13")).toBeNull();
 });

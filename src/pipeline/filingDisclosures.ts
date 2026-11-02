@@ -1,3 +1,4 @@
+import {isoFromMonthDate} from "@/edgar/currentReports";
 import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
 /**
  * The bundle's 8-K, segment-XBRL and quarterly-statement evidence assembled
@@ -794,8 +795,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     const candidates = sections.flatMap(section => splitSentences(section.data.text)).flatMap(sentence => {
       const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:(?:we|the company) (?:have|has|had) )?(?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining|remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
       if (!match) return [];
-      const stamp = Date.parse(match[1]!);
-      const asOf = Number.isFinite(stamp) ? new Date(stamp).toISOString().slice(0,10) : null;
+      const asOf = isoFromMonthDate(match[1]!);
       const amount = moneyMentions(match[2]!)[0];
       return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
         ? [{ asOf, value: amount.value }] : [];

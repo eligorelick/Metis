@@ -3024,3 +3024,7 @@ DATA-112 implements OD-3 in the common durable adapters using canonical history 
 ### D-next (P5): One keyless price observation
 
 DATA-113 derives quote from the successful meta result already used for profile, retaining stale flags and acquisition time for both. Failed meta preserves the prior quote retry and failure disclosure.
+
+### D-next (P5): Prose dates are calendar dates
+
+DATA-111 uses calendar arithmetic for month-name dates in repurchase authorization and company announcement datelines. Explicit UTC, Denver, Berlin and Tokyo tests cover both acceptance and one-day mismatch refusal.

@@ -5969,3 +5969,5 @@ Price history may retain a prior compatible window after a transient failure (DA
 Current-date price history (DATA-112, OD-3) uses the D-113 session clock at the durable adapter: 15 minutes during the session, with the same post-close settling rule as quotes. Expired tails refresh before return; failed refreshes serve stale with a manifest warning, and empty refreshes preserve last-good data inside the stale ceiling. Historical windows retain 24 hours.
 
 A keyless run prices its profile and quote from the same successful Yahoo five-day chart observation. Both preserve that observation's stale flags and acquisition time. If meta failed, quote retains its independent retry and disclosure (DATA-113).
+
+A date printed in filing prose is read as that calendar day in every time zone, without local-midnight conversion. The same rule governs issuer announcement datelines (DATA-111).
