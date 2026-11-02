@@ -494,3 +494,5 @@ Current-date history tails refresh in the foreground on the session-aware 15-min
 EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses a character in a declared name, transliterate it before saving; the contact is sent as an HTTP header.
 
 DATA-114: when a merged FMP history uses a window fallback, the series ends at the earliest last bar of its accepted fallback chunks. Later successful bars are withheld to avoid a gap; endpoint text and stale metadata disclose the truncation.
+
+Core coverage holds every Stage B and report-schema file to 85/75/85/85 (statements/branches/functions/lines), alongside the unchanged 90/84/95/93 aggregate. Risk coverage retains its 85/75/85/85 per-file gate. Every TS and TSX source has a named placement.

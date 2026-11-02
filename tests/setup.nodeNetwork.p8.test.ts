@@ -7,12 +7,12 @@ import { expect, it, vi } from "vitest";
 import { installNoLiveNetworkGuard } from "./setup/noLiveNetwork";
 it("TEST-203 refuses Node transports before reaching a socket or resolver, passing loopback",async()=>{
  for(const [module, key] of [[http,"request"],[http,"get"],[https,"request"],[https,"get"],[dns,"lookup"],[dnsPromises,"lookup"]] as const){
-  const original=module[key];
+  const original=Reflect.get(module,key);
   const stub=vi.fn(()=>Promise.resolve([]));
   Object.defineProperty(module,key,{value:stub,writable:true,configurable:true});
   try {
    installNoLiveNetworkGuard();
-   const call=module[key] as (...args: unknown[])=>unknown;
+   const call=Reflect.get(module,key) as (...args: unknown[])=>unknown;
    try { await call(module===dns||module===dnsPromises?"example.invalid":"https://example.invalid/"); expect.fail("guard accepted remote transport"); }
    catch(e){ expect(String(e)).toContain("live network is disabled in the test suite"); }
    expect(stub).not.toHaveBeenCalled();
