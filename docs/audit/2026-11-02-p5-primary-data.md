@@ -95,3 +95,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F1 (RPT-201) | Fixed: Use schema-valid null guidance in the dividend-yield display fixture. | This commit | fixround-step1-red / fixround-a1-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F2 (AI-202-V1) | Fixed: Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. | This commit | fixround-a2-red / fixround-a2-green | No persisted rewrite |

@@ -3107,3 +3107,8 @@ Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; canc
 ### D-next (P5): A-F1 (RPT-201) review correction
 
 Use schema-valid null guidance in the dividend-yield display fixture. The four existing assertions exercise the frequency display again; no production behavior changed. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F2 (AI-202-V1) review correction
+
+Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. The two reviewed loss/expense pairs now retain -0.10/-0.12 and -30M/-40M on their printed bases; existing range controls stay unchanged. Stored report bytes are unchanged.

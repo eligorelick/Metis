@@ -184,3 +184,11 @@ describe("AI-202-V1 guidance sign",()=>{
   expect(moneyMentions("revenue of $73-76 billion").map(m=>m.value)).toEqual([73e9,76e9]);
  });
 });
+
+it.each([
+ ["GAAP and non-GAAP EPS are expected to be a loss of $0.10 and $0.12, respectively.", -0.10, -0.12],
+ ["GAAP and non-GAAP other income and expense are expected to be an expense of approximately $30 million and $40 million, respectively.", -30e6, -40e6],
+])("AI-202-V1 keeps respectively amounts on their stated basis: %s", (sentence, gaap, nonGaap) => {
+ const rows = parseGuidanceSentence(sentence as string, q(2026,3));
+ expect(rows.map(r => [r.basis,r.mid])).toEqual([["gaap",gaap],["non-gaap",nonGaap]]);
+});

@@ -6006,3 +6006,6 @@ Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient his
 
 
 A-F1 (RPT-201): Use schema-valid null guidance in the dividend-yield display fixture. The four existing assertions exercise the frequency display again; no production behavior changed.
+
+
+A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order. The two reviewed loss/expense pairs now retain -0.10/-0.12 and -30M/-40M on their printed bases; existing range controls stay unchanged.

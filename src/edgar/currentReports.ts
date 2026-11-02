@@ -416,7 +416,6 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   if (rule.unit !== "%" && !signed && values.some(v=>v.value<0)) return [];
   if (signed && negativeWords) {
     for(const value of values) value.value=-value.value;
-    if(values.length===2) values.sort((a,b)=>a.value-b.value);
   }
 
   const pointBound = (v: { value: number; symbol: string | null }): Bound => {
@@ -447,6 +446,8 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const isRange =/\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
   // B-25: one end of a stated range is never published as a point.
   if (isRange && values.length < 2) return [];
+  // Sort only one signed range; respectively pairs retain the printed basis order.
+  if (signed && negativeWords && values.length === 2 && isRange && !respectively) values.sort((a,b)=>a.value-b.value);
 
   let bounds: Bound[] = [];
   if (respectively && bases.length === 2) {
