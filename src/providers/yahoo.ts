@@ -404,6 +404,7 @@ export class YahooClient {
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
+          if (!res.ok) throw new YahooResponseError(`Yahoo ${res.status === 429 ? "rate limit" : res.status >= 500 ? "server error" : "refusal"} (HTTP ${res.status}) for ${displayEndpoint}; the response body was not JSON`);
           throw new YahooResponseError(
             `Yahoo returned unparseable body (HTTP ${res.status}) for ${displayEndpoint}: ${res.bodyText.slice(0, 200)}`,
           );

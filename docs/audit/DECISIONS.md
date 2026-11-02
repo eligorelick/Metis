@@ -3004,3 +3004,7 @@ DATA-104 follows B9-OD-1: select the newest annual filing majority anchor-period
 ### D-next (P5-lows): DATA-106 contact header admission
 
 Follow B9-OD-9: printable ASCII and Latin-1 remain valid; higher code points and control characters are refused locally with an actionable message. No network test is attempted for an invalid header.
+
+### D-next (P5-lows): DATA-116 fixed provider diagnostics
+
+B9-OD-7: parameter-value subscription refusals are expected but never learned as endpoint restrictions. Outages remain unexpected. Existing stored manifest text is unchanged.

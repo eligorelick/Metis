@@ -5957,3 +5957,5 @@ P0 L-3: When a refused vendor value exactly matches an earlier filing for the sa
 The income-classification check rebuilds filed statements with the issuer's SIC routing. A bank's total net revenue is compared with the bank revenue chain; an SEC-served peer bank uses the same chain.
 
 Statements built from SEC companyfacts use the presentation currency covering the most anchor periods in the newest annual filing (ties: total anchor points, then USD, then alphabetical). Convenience translations never replace the presentation history; other-currency-only years are withheld with a mixed_unit note. Existing mixed-currency valuation guards still apply.
+
+A request-parameter subscription refusal is an expected disclosure in fixed words, without vendor advertisements. It is not remembered, since another parameter value may be allowed. Non-JSON provider outages and rate limits are named by status without page text.
