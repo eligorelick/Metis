@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.59.0** and
-payload **1.63.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes and the priority fixes). The
+payload **1.64.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes and D-173/D-174). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Fresh annual filings: lagging balance feed and collapsed debt (2026-11-02)
+
+- In the days after an annual report, a provider's annual balance sheet can trail its annual income and cash-flow statements. Stage B now uses the quarterly balance sheet dated at that fiscal year end (the same closing balance) and says so, instead of withholding Altman, Beneish, accruals and ROIC - WACC for the newest year (D-173). Found on AAPL the day its 10-K was filed.
+- A debt figure that collapses by more than 60% is now withheld even when the company reports no interest expense, unless a debt repayment in the cash flow, a matching fall in total liabilities or a matching rise in equity explains it (D-174). On the same day the provider's new AAPL row carried $2.0B of debt instead of about $84B, and the report had published net debt of -$54.7B. Values return when the provider corrects the row.
+- Stamps: Stage B, fair value and scenario targets `FISCAL_YEAR_END_BALANCE_43`; payload 1.64.0.
 
 ## Unreleased - 20-F risk factors under an unlettered sub-heading (2026-11-03)
 

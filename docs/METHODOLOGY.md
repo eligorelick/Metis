@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.59.0 / payload 1.63.0, Stage B `STAGE_B_2026_11_PRIORITY_FIXES_42` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.59.0 / payload 1.64.0, Stage B `STAGE_B_2026_11_FISCAL_YEAR_END_BALANCE_43` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -3491,8 +3491,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_PRIORITY_FIXES_42 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_PRIORITY_FIXES_42. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FISCAL_YEAR_END_BALANCE_43 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FISCAL_YEAR_END_BALANCE_43. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -4709,6 +4709,15 @@ A withheld noncurrent figure withholds total and net debt. A composed figure tha
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
+
+When interest cannot judge the debt (none disclosed, or below that 0.25% floor), the collapse test still runs, on other evidence (D-174). Debt of at least 5% of total assets that fell by more than 60% is withheld unless at least half the fall is explained by one of three things:
+- the span's net debt issuance (or its repayments, when net issuance is not disclosed);
+- a fall in total liabilities (the debt left the balance sheet);
+- a rise in equity (a conversion or exchange).
+
+Providers write undisclosed flows as 0, which is why the balance sheet counts as evidence. With none of the three available, nothing is judged. A provider's fresh AAPL year-end row carried $2.0B of debt against $84.3B a quarter earlier, with no repayment, and passed every interest-based check because Apple discloses no interest expense.
+
+**The newest year's closing balance (D-173).** A provider's annual balance-sheet feed can trail its annual income and cash-flow feeds for days after an annual report. When the annual balance feed has no row within the 7-day alignment tolerance of the newest annual income period end, and nothing newer, Stage B uses the quarterly balance sheet from the same filing (same period end and acceptance time, same labelled currency). It is the same closing balance. Both families must come from one source, and the fill is disclosed as `compute.balanceAnnual.fiscalYearEnd`. The filled row passes the same debt checks as any annual row. Lagging income or cash-flow feeds are not filled, because those are period flows.
 
 **A missing operating-lease maturity.** Some filers tag only one maturity of
 their operating-lease liability: Freeport-McMoRan tags the noncurrent portion

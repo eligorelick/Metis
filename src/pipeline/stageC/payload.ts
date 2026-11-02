@@ -467,7 +467,9 @@ export interface ContextPayload {
 // that round added alter admitted context.
 // 1.63.0 (D-168 to D-172, priority fixes): a 20-F's unlettered Risk Factors sub-heading inside Item 3 reaches the payload,
 // and the TTM cash-flow window gate changes current-capital operands.
-export const PAYLOAD_VERSION = "1.63.0" as const;
+// 1.64.0 (D-173, D-174): the newest fiscal year's closing balance fills a lagging annual balance feed, and a debt
+// collapse no cash flow explains is withheld without interest, changing the debt, returns, forensic and valuation operands.
+export const PAYLOAD_VERSION = "1.64.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

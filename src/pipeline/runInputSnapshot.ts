@@ -43,7 +43,9 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // historical EPS/share fields and admits dated compact guidance. Older input
 // snapshots require their original engine; do not relabel their materialized rows.
 // FIN-401 / FIN-401-V1 (B4b): an old Stage B result used the earlier equity-method reading and must be recomputed.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PRIORITY_FIXES_42" as const;
+// D-173: a lagging annual balance feed is filled with the fiscal-year-end quarterly balance of the same date.
+// D-174: a debt collapse no disclosed debt cash flow explains is withheld when interest cannot judge it.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FISCAL_YEAR_END_BALANCE_43" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -4707,3 +4707,76 @@ pipeline stage-c-1.6.21, and Stage B, fair value and scenario targets
 - **Not verified offline.** These need a live run: research quality and length,
   realised one-hour cache hits, and whether the judge now writes the
   market-structure and competitor claims well.
+
+## D-173 - Fiscal-year-end balance when the annual balance feed lags (2026-11-02)
+
+A free data-only run of AAPL on merged main, hours after its 10-K for the year
+ended 2026-09-26, found the provider's annual income and cash-flow statements and
+its quarterly balance sheet already at 2026-09-26, while its annual balance sheet
+still ended at 2025-09-27. The newest year therefore had no balance sheet:
+Altman Z, Beneish M, accruals and ROIC - WACC were withheld, Quality fell to 17%
+of its signals, and the composite moved from C (61) to D (54.7) on the same day's
+data. Nothing wrong was shown; the gaps were disclosed.
+
+- **Decision.** A balance sheet is a point-in-time statement, so the quarterly row
+  dated exactly at the newest annual income period end is that fiscal year's
+  closing balance. Stage B uses it for the annual calculations only when the
+  annual balance feed has no row within 7 days of that date (a 52/53-week alias is
+  the same year) and nothing newer, only when the row comes from the filing that
+  carries the annual income row (same period end and acceptance time) in the same
+  labelled currency, and only when both balance families come from the same
+  source. The fill is disclosed as an info entry
+  (`compute.balanceAnnual.fiscalYearEnd`). Nothing is summed or
+  estimated, and the provider rows as fetched are unchanged.
+- **Not done.** A lagging annual income or cash-flow feed is not filled: those are
+  period flows and would need four quarters summed.
+- **The filled row passes the same debt checks as any annual row,** so a bad
+  closing row cannot reach the annual series unchecked. Apple's could not, under
+  D-174.
+
+## D-174 - Debt collapse without usable interest expense (2026-11-02)
+
+The same AAPL run showed a second, older fault. The provider's new year-end quarter
+carried long-term debt 0 and total debt 1.997B, the previous quarter's commercial
+paper, against 84.31B at 2026-06-27. The quarter's cash flow showed zero net debt
+issuance. Apple's SEC facts did not yet include the 10-K. The debt checks judge debt
+by its interest expense, and Apple discloses none, so the report on merged main
+published "Debt used in this report: $2.00B", net debt of -54.73B, and a DCF bridged
+on it.
+
+- **Decision.** When interest cannot judge the debt (none disclosed, or below the
+  existing materiality floor), resolved debt that was material (5% of total assets)
+  and fell by more than 60% from the previous balance is withheld, with the reason,
+  unless something explains at least half the fall:
+  - the span's net debt issuance (or repayments, when net issuance is not
+    disclosed);
+  - a matching fall in total liabilities (the debt left the balance sheet);
+  - a matching rise in equity (a conversion or exchange).
+
+  This is the existing collapse rule with the cash flow and balance sheet as the
+  evidence in place of interest. The balance sheet counts because the provider
+  writes undisclosed flows as 0. With none of the three available, nothing is
+  judged. On AAPL, net issuance was 0, total liabilities rose 16.7B and equity rose
+  4.6B: the debt had not left the balance sheet.
+- **Effect on AAPL's frozen inputs.** Total, net and long-term debt at 2026-09-26
+  are withheld. Enterprise value, net-debt ratios, WACC and therefore the DCF are
+  withheld with that reason, as for any withheld debt. ROIC for the newest year is
+  withheld instead of reading 149%. Altman Z (11.37) and the other D-173 forensics
+  compute. Quality is A (89.6), and the composite is C (60.4) at 96% evidence,
+  against D (54.7) on the wrong debt. When the provider corrects the row, the
+  check passes and the values return.
+- **Independent review (2026-11-02).** All four findings were fixed before merge:
+  - Conversions without cash were withheld. The liability and equity evidence now
+    accepts them.
+  - A provider 0 counted as "no repayment". The balance-sheet evidence now covers
+    that case.
+  - The fill could promote a row from another filing. It now requires the same
+    filing.
+  - The fill could promote an unlabelled or other-currency row. It now requires the
+    same labelled currency.
+- **Accepted.** One case is still withheld: most of a non-interest-disclosing
+  filer's debt moved to liabilities held for sale. The debt still exists until the
+  sale closes, and withholding it is a disclosed refusal, not a wrong figure.
+- **Stamps (D-173 and D-174).** Stage B, fair value and scenario targets
+  `FISCAL_YEAR_END_BALANCE_43`; payload 1.64.0. Report spec 1.59.0 and pipeline
+  stage-c-1.6.21 are unchanged.
