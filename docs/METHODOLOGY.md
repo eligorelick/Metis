@@ -5963,3 +5963,5 @@ MetricRow columns (AI-408): a date or explicit fiscal label must be established 
 AI-501: a direction word in a registry record's own label is part of its metric. The claim must name it. An attached direction on a claim is also read as the claim's relation; this does not change excerpt matching or make increase-named rows signed-change records.
 
 AI-502 / OD-6: percentage points alone never establish movement. Slopes are changes; other percentage-point records need a change-named final slug and no difference operator in their label. Movement/comparative prose against spreads, divergence and yield-curve levels stays unchecked; numeric sign conflicts still compare values.
+
+AI-504: a difference or ratio record is named only when its operands occur in record order. Reversed operands stay unchecked; the verifier never computes a reciprocal or negated replacement. Absolute differences have no operand order; grammatical to, date intervals, P/E and parenthetical em dashes are not operators.

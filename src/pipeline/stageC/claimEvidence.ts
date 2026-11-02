@@ -1,7 +1,7 @@
 /** Conservative numeric support for prose. A citation alone never proves a fact. */
 import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
-import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE_WORDS, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
+import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE_WORDS, isDeltaRecord, labelOperands, type LabelOperands, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
 import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 
@@ -797,6 +797,16 @@ function explicitLabelSpan(text: string, record: NumericProvenanceRecord): { sta
   }
   return { start: span[1], end: span[2] };
 }
+function operandsInOrder(claimWords: readonly string[], operands: LabelOperands, ignore: readonly string[]): boolean {
+  const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
+  const left = metricTokens(operands.left, ignore, { keepDirectionWords: true }).map(stem);
+  const right = metricTokens(operands.right, ignore, { keepDirectionWords: true }).map(stem);
+  const l = left.filter(w => !right.includes(w) && !w.startsWith("window")).at(-1);
+  const r = right.find(w => !left.includes(w) && !w.startsWith("window"));
+  const words = claimWords.map(stem);
+  return l === undefined || r === undefined || !words.includes(l) || !words.includes(r) || words.indexOf(l) < words.indexOf(r);
+}
+
 function namesMetric(claim: string[], source: string[]): boolean {
   if (claim.length === 0 || source.length === 0) return false;
   const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
@@ -1189,12 +1199,17 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // AI-501: label direction nouns define the metric; a claim's attached
     // direction can instead describe the relation to its own figure.
     const claimKept = perShare(unestablished(metricTokens(own.label, ignore, { keepDirectionWords: true })).filter((word) => !(word === "yoy" && established.has("annual")) && word !== `window${PRIOR_FISCAL_YEAR_END.toLowerCase()}`));
-    if (!labels.some((label) => {
+    const matchingLabels = labels.flatMap((label) => {
       const words = perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore, { keepDirectionWords: true })));
-      return namesMetric(claimKept, words) || (own.direction !== null && namesMetric(claimTokens, words));
-    })) {
+      return namesMetric(claimKept, words) ? [{ label, words: claimKept }] : own.direction !== null && namesMetric(claimTokens, words) ? [{ label, words: claimTokens }] : [];
+    });
+    if (matchingLabels.length === 0) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
     }
+    if (!matchingLabels.some(({ label, words }) => {
+      const operands = labelOperands(label);
+      return operands === null || operandsInOrder(words, operands, ignore);
+    })) return support("unchecked", "text-context-mismatch", "the prose reverses the operands of the cited difference or ratio");
     // AI-303-V4: a record citation states one figure, so the whole claim is read.
     const series = namesRecency(typedText) ? reportedSeries(record) : null;
     if (series !== null && (options.seriesLatest?.get(series.key) ?? series.date) > series.date) {

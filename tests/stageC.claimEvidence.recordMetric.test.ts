@@ -50,3 +50,22 @@ it("AI-502 distinguishes temporal basis from difference operators", () => {
  expect(labelOperands("revenue growth year over year")).toBeNull();
  expect(labelOperands("revenue accel (YoY \u2212 3y CAGR)")?.kind).toBe("difference");
 });
+
+it.each([
+ [spread, "The WACC \u2212 ROIC spread was 136.76 percentage points.", "The ROIC \u2212 WACC spread was 136.76 percentage points."],
+ [{ ...spread, id: "computed.net-debt-to-ebitda", label: "net debt to ebitda", value: -0.12, unit: "ratio" as const }, "EBITDA to net debt was -0.12x.", "Net debt to EBITDA was -0.12x."],
+ [{ ...spread, id: "computed.capex-d-a", label: "capex/D&A (latest)", value: 2.13, unit: "ratio" as const }, "D&A/capex (latest) was 2.13x.", "Capex/D&A (latest) was 2.13x."],
+ [{ ...spread, id: "computed.priceToBook", label: "priceToBook (current)", value: 22.86, unit: "ratio" as const }, "Current book to price was 22.86x.", "Current price to book was 22.86x."],
+])("AI-504 refuses reversed operands %#", (rec, reversed, correct) => {
+ expect(check(reversed, rec)).toBe("unchecked");
+ expect(check(correct, rec)).toBe("validated");
+});
+it.each(["absolute cash-flow versus balance-sheet accrual divergence", "P/E (ttm)", "FCF conversion (latest, before SBC \u2014 the graded ratio)", "investments subject to short-term lock-up restrictions as of 2026-07-26", "free cash flow, 2025-07-27 to 2026-07-26"])("AI-504 keeps nonoperators %s", label => {
+ expect(labelOperands(label)).toBeNull();
+});
+
+it("AI-504 preserves buyback comparison order", () => {
+ const rec = { ...spread, id: "computed.buyback-timing", label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: 5, unit: "percent" as const };
+ expect(check("Buyback timing: cost paid vs cost of the repurchased shares at each year's average price was 5.00%.", rec)).toBe("unchecked");
+ expect(check("Buyback timing: cost of the repurchased shares at each year's average price vs cost paid was 5.00%.", rec)).toBe("validated");
+});

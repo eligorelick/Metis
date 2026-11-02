@@ -3006,3 +3006,5 @@ OD-3: readable column dates/fiscal labels must match the record. Windows and unr
 AI-501 follows Task 17: preserve defining direction nouns in record labels, with two claim readings only when direction attaches to the figure. Level claims against increase rows become unchecked; verb-change recall remains deliberately withheld. No payload or stored bytes change.
 
 AI-502 adopts OD-6 in the verifier, without a producer kind field. Signed differences do not establish temporal movement or a comparative standard; both stay unchecked. Temporal slopes and change-named percentage-point records retain direction checks, except labels naming differences. New unknown records default to non-change. Comparative recall is deliberately withheld.
+
+AI-504 extends D-66 formula identity to ordered difference/ratio operands. Compare distinct stemmed heads only after metric agreement. Refuse reversed order as unchecked. Preserve symmetric absolute differences and ordinary grammatical/date uses. Five assembled facade replays retain numeric statuses.
