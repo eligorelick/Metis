@@ -217,6 +217,15 @@ function debtInEv(ticker: Ticker): number {
 const AVAILABILITY_REFUSAL = /common earnings [a-z -]*(?:analysis cutoff|availability)/;
 
 describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-19)", () => {
+  it("FIN-309: PGR excess-return value shares the retained quote date", () => {
+    const v = run("PGR").out.valuation;
+    if (v.kind !== "excess-return") throw new Error("fixture financial route");
+    const er = v.excessReturn;
+    expect(er.perShare).not.toBeNull();
+    expect(er.valuationDate?.value).toBe("2026-10-19");
+    const days = (Date.parse("2026-10-19") - Date.parse(er.asOf!)) / 86400000;
+    expect(er.valuationDate?.elapsedYears).toBeCloseTo(days / 365.25, 10);
+  });
   it("route each issuer as the audit run did", () => {
     expect(TICKERS.map((ticker) => [ticker, run(ticker).out.route.base, run(ticker).out.route.overlays, run(ticker).out.valuation.kind])).toEqual([
       ["FCX", "general", [], "dcf"],

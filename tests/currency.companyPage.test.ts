@@ -178,3 +178,10 @@ describe("company page returns panel on an equity-only route (audit 2026-10-22, 
     expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+[\d.]+% \/ [\d.]+%\|/);
   });
 });
+
+it("RPT-501: names the reverse growth solve by its starting rate", async () => {
+ const p = await panels({});
+ const text = p.ValuationPanel!.replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ expect(text).toContain("starting revenue growth (fades to terminal rate); base case");
+ expect(text).not.toMatch(/implies [\d.]+% revenue CAGR/);
+});

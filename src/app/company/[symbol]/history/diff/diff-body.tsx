@@ -1,3 +1,4 @@
+import { gradeEndpointText } from "@/report/diffPresentation";
 import type { ReactNode } from "react";
 
 import { Badge, Panel } from "@/components/ui";
@@ -229,8 +230,8 @@ function gradeRow(change: GradeChange) {
       transition={change.transition}
       comparison={change.comparison}
       identity={GRADE_SURFACE_BY_KEY[change.section].label}
-      from={change.from ?? missingEndpoint("from", change.transition)}
-      to={change.to ?? missingEndpoint("to", change.transition)}
+      from={gradeEndpointText(change, "from")}
+      to={gradeEndpointText(change, "to")}
       direction={gradeDirection(change)}
     />
   );

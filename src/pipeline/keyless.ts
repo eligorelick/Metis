@@ -1,3 +1,4 @@
+import {quoteFromMetaResult} from "@/providers/yahoo";
 /**
  * Keyless fallback orchestration — fills the bundle members FMP could not
  * serve from the public sources (SEC EDGAR + Yahoo) that need no API key.
@@ -80,7 +81,7 @@ import type {
 } from "@/providers/fmp";
 import type { YahooClient, YahooMeta } from "@/providers/yahoo";
 import type { StatementSource } from "@/config/env";
-import type { DataSource, FetchResult, ManifestEntry } from "@/types/core";
+import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -320,8 +321,9 @@ function sourced<T extends FmpRawRow>(
   endpoint: string,
   asOf: string,
   fetchedAt: string,
+  flags: {stale?:boolean;staleReason?:Sourced<unknown>["staleReason"]} = {},
 ): FetchResult<FmpPayload<T>> {
-  return { ok: true, value: { data: { rows, raw: null }, asOf, source, endpoint, fetchedAt } };
+  return { ok: true, value: { data: { rows, raw: null }, asOf, source, endpoint, fetchedAt,...flags } };
 }
 
 /**
@@ -969,13 +971,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     wantProfile || wantInstrumentType ? attempt(`yahoo.meta(${inputs.symbol})`, () => inputs.yahoo.meta(inputs.symbol)) : null,
     wantSplitList ? attempt(`yahoo.splitHistory(${inputs.symbol})`, () => inputs.yahoo.splitHistory(inputs.symbol)) : null,
   ]);
-  // `quote()` is `meta()` plus a row mapping: both read the SAME chart request
-  // (range=5d&interval=1d), so issuing them together would race two identical
-  // requests to an unofficial endpoint. Sequencing the quote AFTER the meta
-  // lets it resolve from the durable cache the first one just populated. The
-  // three history series stay concurrent above — they are distinct requests.
+  // Reuse the successful meta observation for both prices. If meta failed,
+  // the quote retains its independent retry and disclosed failure path.
   const quoteResult = wantQuote
-    ? await attempt(`yahoo.quote(${inputs.symbol})`, () => inputs.yahoo.quote(inputs.symbol))
+    ? metaResult?.ok ? quoteFromMetaResult(inputs.symbol,metaResult) : await attempt(`yahoo.quote(${inputs.symbol})`, () => inputs.yahoo.quote(inputs.symbol))
     : null;
 
   // The vendor's split events: the full list, the daily history's and the
@@ -1791,7 +1790,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       const profileRow = row as FmpProfileRow;
       const asOf = metaResult !== null && metaResult.ok ? metaResult.value.asOf : inputs.today;
       const profileEp = profileEndpoint(outstanding?.basis ?? null);
-      members.profile = sourced([profileRow], "computed", profileEp, asOf, fetchedAt);
+      members.profile = sourced([profileRow], "computed", profileEp, asOf, metaResult?.ok ? metaResult.value.fetchedAt : fetchedAt, metaResult?.ok ? {stale:metaResult.value.stale,staleReason:metaResult.value.staleReason}:{});
       record("profile", "computed", profileEp);
     }
   }
@@ -2210,7 +2209,7 @@ function describePublicFloatAge(
  * net-interest-income line to protect, and forcing the bank chain there would
  * discard a correct ASC-606 revenue.
  */
-export function bankStatementRouting(registrant: EdgarRegistrant | null): boolean {
+export function bankStatementRouting(registrant: Pick<EdgarRegistrant, "sic"> | null): boolean {
   const industry = sectorIndustryForSic(registrant?.sic ?? null).industry;
   return industry !== null && industry.toLowerCase().startsWith("banks");
 }

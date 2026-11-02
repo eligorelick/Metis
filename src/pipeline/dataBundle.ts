@@ -1,3 +1,4 @@
+import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -33,6 +34,7 @@ import {
   FMP_EMPTY_ARRAY_REASON,
   type FmpPlanLimit,
   type CachedFetchFn,
+  type CachedFetchPolicy,
   type CachedFetchResult,
   type FmpClient,
   type FmpEarningsRow,
@@ -138,7 +140,7 @@ import {
   type XbrlSummary,
 } from "@/pipeline/types";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
-import { applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
+import { bankStatementRouting, applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -229,15 +231,18 @@ export function resolveGicsSector(sector: string | null | undefined): GicsSector
  */
 export function makeFmpCachedFetch(): CachedFetchFn {
   let mod: Promise<typeof import("@/cache/apiCache")> | null = null;
-  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<CachedFetchResult<T>> => {
+  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>, policy?: CachedFetchPolicy): Promise<CachedFetchResult<T>> => {
     mod ??= import("@/cache/apiCache");
     const { cachedFetch } = await mod;
     const sourced = await cachedFetch<T>({
       provider: "fmp",
       endpoint: key,
+      fallback: historyWindowFallback(key),
       params: {},
-      ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
+      ttlSeconds: Math.max(0, Math.floor((historyTailTtlMs(key,new Date()) ?? ttlMs) / 1000)),
+      expiredHit: historyTailTtlMs(key,new Date())===null ? "serve-stale" : "refresh-first",
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+      signal: policy?.signal,
       // asOf here is cache-row metadata; the FMP client re-derives the real
       // asOf from response rows (deriveAsOf) after this returns.
       fetcher: async () => ({ body: await loader(), asOf: new Date().toISOString().slice(0, 10) }),
@@ -262,6 +267,8 @@ export function makeFmpCachedFetch(): CachedFetchFn {
     const out: CachedFetchResult<T> = { value: sourced.data, fetchedAt: sourced.fetchedAt };
     if (sourced.stale === true) out.stale = true;
     if (sourced.staleReason !== undefined) out.staleReason = sourced.staleReason;
+    if(sourced.servedEndpoint)out.servedEndpoint=sourced.servedEndpoint;
+    if(sourced.staleDetail)out.staleDetail=sourced.staleDetail;
     return out;
   };
 }
@@ -279,21 +286,26 @@ export function makeFmpCachedFetch(): CachedFetchFn {
  */
 export function makeYahooCachedFetch(): CachedFetchFn {
   let mod: Promise<typeof import("@/cache/apiCache")> | null = null;
-  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<CachedFetchResult<T>> => {
+  return async <T>(key: string, ttlMs: number, loader: () => Promise<T>, policy?: CachedFetchPolicy): Promise<CachedFetchResult<T>> => {
     mod ??= import("@/cache/apiCache");
     const { cachedFetch } = await mod;
     const sourced = await cachedFetch<T>({
       provider: "yahoo",
       endpoint: key,
+      fallback: historyWindowFallback(key),
       params: {},
-      ttlSeconds: Math.max(0, Math.floor(ttlMs / 1000)),
+      ttlSeconds: Math.max(0, Math.floor((historyTailTtlMs(key,new Date()) ?? ttlMs) / 1000)),
+      expiredHit: historyTailTtlMs(key,new Date())===null ? "serve-stale" : "refresh-first",
       maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+      signal: policy?.signal,
       fetcher: async () => ({ body: await loader(), asOf: new Date().toISOString().slice(0, 10) }),
       isEmptyBody: (value: T): boolean => value === null,
     });
     const out: CachedFetchResult<T> = { value: sourced.data, fetchedAt: sourced.fetchedAt };
     if (sourced.stale === true) out.stale = true;
     if (sourced.staleReason !== undefined) out.staleReason = sourced.staleReason;
+    if(sourced.servedEndpoint)out.servedEndpoint=sourced.servedEndpoint;
+    if(sourced.staleDetail)out.staleDetail=sourced.staleDetail;
     return out;
   };
 }
@@ -352,6 +364,7 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
         },
         ttlSeconds: ttlForFredSeries(seriesId),
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await fredSeries(id, opts, cfg);
           if (!res.ok) throw new FredGap(res.gap);
@@ -420,6 +433,7 @@ export function makeCachedFinraShortInterestTrend(cfg: FinraConfig): FinraShortI
         params: { nPartitions: n },
         ttlSeconds: FINRA_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await finraShortInterestTrend(sym, n, cfg);
           if (!res.ok) throw new ProviderGap(res.gap);
@@ -467,6 +481,7 @@ export function makeCachedFinnhubInsiderSentiment(cfg: FinnhubConfig): FinnhubIn
         params: { symbol: sym, from, to },
         ttlSeconds: FINNHUB_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const res = await insiderSentiment(sym, from, to, cfg);
           if (!res.ok) throw new ProviderGap(res.gap);
@@ -508,6 +523,7 @@ export function makeCachedFinnhubFallback<T>(
         params: { symbol: symbol.trim().toUpperCase(), from, to },
         ttlSeconds: FINNHUB_FALLBACK_TTL_SECONDS,
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
+
         fetcher: async () => {
           const result = await fetcher(symbol, from, to, cfg);
           if (!result.ok) throw new ProviderGap(result.gap);
@@ -2380,8 +2396,8 @@ export async function buildDataBundle(
     const facts = edgarBundle.companyFacts.value.data;
     const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
     const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
-    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt);
-    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt);
+    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
+    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
       incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
     // Review m6: one completion and one stakes entry for both families, each listing its dates.
@@ -2521,12 +2537,12 @@ export async function buildDataBundle(
           : [],
       ),
       ...allResults.flatMap((result): ManifestEntry[] =>
-        result.ok && result.value.staleReason === "empty-refresh-preserved"
+        result.ok && (result.value.staleReason === "empty-refresh-preserved" || result.value.staleReason === "window-fallback" || result.value.staleReason === "refresh-failed")
           ? [
               {
                 field: `cache.${result.value.source}.${result.value.endpoint}`,
                 reason:
-                  "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
+                  result.value.staleReason === "refresh-failed" ? `session-tail refresh failed; served cached answer fetched ${result.value.fetchedAt}, within the seven-day stale ceiling` : result.value.staleReason === "window-fallback" ? `request failed; ${result.value.endpoint}; retained cached history within the seven-day stale ceiling` : "provider refresh returned an anomalous empty body; retained last-good data within the absolute seven-day stale ceiling",
                 severity: "warn",
                 attemptedSources: [result.value.source, result.value.endpoint],
               },

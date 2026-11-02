@@ -1,3 +1,4 @@
+import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 /**
  * /company/[symbol] — saved research first, live analysis on request.
  *
@@ -633,7 +634,7 @@ function DcfBlock({
         <div className="mt-2 text-[11px] text-muted">
           <span className="text-faint">reverse DCF:</span>{" "}
           {reverse.method === "growth"
-            ? `market price implies ${fmtPct(reverse.impliedRevenueGrowthPct)} revenue CAGR`
+            ? isStartingGrowthFamily(reverse.growthPathFamily) ? `market price implies ${fmtPct(reverse.impliedRevenueGrowthPct)} starting revenue growth (fades to terminal rate)${typeof reverse.baseRevenueGrowthPct === "number" && Number.isFinite(reverse.baseRevenueGrowthPct) ? `; base case ${fmtPct(reverse.baseRevenueGrowthPct)}` : ""}` : `market price implies ${fmtPct(reverse.impliedRevenueGrowthPct)} revenue growth (path family unavailable)`
             : `market price implies ${fmtPct(reverse.impliedTerminalMarginPct)} terminal EBIT margin`}
         </div>
       ) : null}

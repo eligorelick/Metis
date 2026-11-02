@@ -2,7 +2,7 @@ import { assertLocalOnlyRoute } from "@/app/requestSecurity";
 import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
 import { getProviderCredential, providerCredentialSnapshot, withAiStore } from "@/ai/store";
-import { hasConfiguredEdgarIdentity } from "@/providers/edgar";
+import { edgarIdentityProblem, hasConfiguredEdgarIdentity } from "@/providers/edgar";
 import { isProviderCredentialKey, PROVIDER_CREDENTIAL_KEYS, type ProviderCredentialStatuses } from "@/settings/credentialContracts";
 import { testProviderCredential } from "@/settings/testCredential";
 
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     const draft = typeof value === "string" ? value.trim() : undefined;
     const secret = draft || (action === "test" ? getProviderCredential(key) : undefined);
     if (!secret) return response({ error: "Enter a value first." }, 400);
+    if (key === "EDGAR_CONTACT" && edgarIdentityProblem(secret)) return response({ error: edgarIdentityProblem(secret) }, 400);
     if (key === "EDGAR_CONTACT" ? !hasConfiguredEdgarIdentity(secret) : /\s/.test(secret)) return response({ error: key === "EDGAR_CONTACT" ? "Enter your name or organization and a reachable email; placeholder addresses are not accepted." : "API keys cannot contain whitespace." }, 400);
     if (action === "test") return response(await testProviderCredential(key, secret));
     await withAiStore((store) => { store.providerCredentials = { ...store.providerCredentials, [key]: secret }; });

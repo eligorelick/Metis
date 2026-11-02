@@ -480,3 +480,17 @@ This contract reproduces Stage B calculations and preserves the evidence acquire
 P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
 
 Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
+
+History comparisons distinguish a withheld grade (became unavailable or available) from an added or removed section (DB-002).
+
+History names recorded effective API and account models and identifies passes with unknown actual models (DB-003).
+
+Printable saved-report browser titles identify the symbol, company and report id (RPT-001).
+
+Price-history window fallback: transient transport failures, 429, 500, 502, 503 or 504 may use a cached window for the same provider, symbol and endpoint whose start and end precede the requested window by at most seven days. Acquisition age is capped at seven days. Endpoint and manifest disclosures mark the fallback stale and name its source window and original fetch time. Explicit refusals, schema and identity errors are not covered (DATA-114).
+
+Current-date history tails refresh in the foreground on the session-aware 15-minute policy; failed refreshes are disclosed as refresh-failed. Older history keeps the normal 24-hour TTL (DATA-112).
+
+EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses a character in a declared name, transliterate it before saving; the contact is sent as an HTTP header.
+
+DATA-114: when a merged FMP history uses a window fallback, the series ends at the earliest last bar of its accepted fallback chunks. Later successful bars are withheld to avoid a gap; endpoint text and stale metadata disclose the truncation.

@@ -1,5 +1,7 @@
+import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
+import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 /**
@@ -557,7 +559,6 @@ export function geographyLabel(name: string): string {
   const fixed: Record<string, string> = {
     "TAIWAN, PROVINCE OF CHINA": "Taiwan",
     "TAIWAN": "Taiwan",
-    "CHINA": "China (incl. Hong Kong)",
     "UNITED STATES": "United States",
     "KOREA, REPUBLIC OF": "South Korea",
     "UNITED KINGDOM": "United Kingdom",
@@ -670,7 +671,7 @@ export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; det
 
 /** The reverse-DCF implied value with the unit its metric names. */
 export function reverseDcfValueText(metric: string, value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
+  if (value === null || !Number.isFinite(value) || /not applicable|unavailable|^n\/a\b/i.test(metric)) return "\u2014";
   return /growth|margin|rate|return|cagr/i.test(metric) ? formatPct(value) : formatNumber(value, 1);
 }
 
@@ -835,7 +836,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
   // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
-  const newer = report.filingDisclosures?.newerResults;
+  const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
   if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
     rows.push({
       label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,
@@ -850,10 +851,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
     const dividendCurrency = report.filingDisclosures?.currency;
     const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
-    rows.push(yieldCurrency.comparable ? {
+    const f=capitalReturn.dividendFrequency;
+    const multiplier=f===undefined?4:f==="quarterly"?4:f==="monthly"?12:f==="semi-annual"?2:f==="annual"?1:null;
+    const amount=money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true);
+    rows.push(yieldCurrency.comparable ? multiplier===null ? {
+      label:"Dividend yield",value:"withheld",note:f===null?"the release does not state the dividend's frequency":`a ${f} dividend is not annualized`,
+    } : {
       label: "Dividend yield",
-      value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
-      note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+      value: formatPct(((capitalReturn.dividendPerShare * multiplier) / price) * 100, 2),
+      note: f===undefined ? `${amount} annualized x4 as a quarterly dividend; this report did not record the release's stated frequency` : `${amount} ${f}${capitalReturn.dividendFrequencyBasis==="xbrl"?" (from the issuer's XBRL dividend facts)":""}${multiplier===1?"":", annualized"}`,
     } : {
       label: "Dividend yield", value: "withheld",
       note: yieldCurrency.mismatch
@@ -1323,7 +1329,7 @@ export function readerPrecision(text: string, source?: string): string {
   // identify which operand carries the ratio. Preserve these claims as written.
   if (source !== undefined && isRatioAsPercent(source)) return text;
   const out = text
-    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
+    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${formatScore(Number(value))}${tail}`)
     // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
     .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
   return out.replace(
@@ -1447,26 +1453,34 @@ export function runSummary(report: Pick<Report, "meta">): string {
     : evidence.analysisCompletion === "not-completed"
       ? "Data-only snapshot; no usable analysis was completed; model execution unknown"
       : "Saved model request and execution unknown";
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   const byModel = new Map<string, string[]>();
   const attemptParts: string[] = [];
+  const unfinished = new Map<string, typeof execution>();
   for (const entry of execution) {
     const step = stepName(entry.step);
     if (entry.completion === "not-called") {
-      attemptParts.push(`${step}: ${entry.adjustments.includes("model-rejected") ? "rejected before a model call" : "no model call recorded"}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
-    const model = entry.models.join(" + ");
     if (entry.modelEvidence === "unknown" || entry.completion === "failed") {
-      attemptParts.push(`${step}: ${entry.modelEvidence === "unknown" ? "model observation unknown" : `recorded attempt on ${model}`}${entry.completion === "failed" ? "; no usable analysis was completed" : ""}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
     const key = `${entry.effectiveModel}${entry.effectiveEffort ? ` (${entry.effectiveEffort} effort)` : ""}`;
-    byModel.set(key, [...(byModel.get(key) ?? []), stepName(entry.step)]);
+    byModel.set(key, [...new Set([...(byModel.get(key) ?? []), stepName(entry.step)])]);
   }
   const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  const done = new Set(execution.filter(e => e.completion === "completed" && e.modelEvidence === "recorded").map(e => passBaseName(e.step)));
+  for (const [step, attempts] of unfinished) {
+    if (done.has(step)) continue;
+    const failed = attempts.filter(e => e.completion === "failed");
+    const unknown = attempts.some(e => e.modelEvidence === "unknown");
+    attemptParts.push(failed.length ? `${step} failed${failed.length > 1 ? ` after ${failed.length} attempts` : ""}: no usable analysis was completed${unknown ? "; model observation unknown" : `; recorded attempts on ${[...new Set(attempts.flatMap(e => e.models))].join(" + ")}`}` : `${step}: ${unknown ? "model observation unknown" : attempts.some(e => e.adjustments.includes("model-rejected")) ? "rejected before a model call" : "no model call recorded"}`);
+  }
+  if (execution.every(e => e.completion !== "completed")) attemptParts.unshift("no pass completed");
   const parts = [...byModel.entries()].map(([model, steps]) => `${list(steps)} on ${model}`).concat(attemptParts);
-  const adjusted = execution.filter((entry) => entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
+  const adjusted = execution.filter((entry) => entry.completion === "completed" && entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
   if (adjusted.length > 0) parts.push(`adjusted — ${adjusted.join("; ")}`);
   if (m.judgeProtocol?.sharedModelFamily.shared) parts.push("the judge shares the analysts' model family");
   return parts.join("; ");
@@ -1479,7 +1493,7 @@ export function runSummary(report: Pick<Report, "meta">): string {
  * Null when no pass ran on a plan allowance.
  */
 export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   // Codex review of PR #41: failed and never-sent attempts are listed in a
   // data-only report's run details, but they used no evidence at all.
   const steps = modelPasses(report.meta.execution)
@@ -1505,7 +1519,7 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
   const output = total(execution.map((entry) => entry.outputTokens));
   const tokens = input === null && output === null ? null
     : `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
-  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => entry.step === "synthesize" ? "judge" : entry.step);
+  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => passAttemptName(entry.step));
   const usageLimit = unreported.length ? `; usage incomplete for ${unreported.join(", ")}` : "";
   const plan = execution.length > 0 && execution.every((entry) => parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel));
   // The same figure the audit ledger totals: the sum of the displayed rows.
@@ -1898,13 +1912,13 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
 
 /** A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export). */
 export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]): string {
-  const step = entry.step === "synthesize" ? "judge" : entry.step;
+  const step = passAttemptName(entry.step);
   const effort = entry.effectiveEffort ? `, ${entry.effectiveEffort} effort` : "";
   const tokens = entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
     : `; ${entry.inputTokens === undefined ? "unknown" : formatNumber(entry.inputTokens, 0)} input / ${entry.outputTokens === undefined ? "unknown" : formatNumber(entry.outputTokens, 0)} output tokens`;
   const requested = entry.requestedModel !== entry.effectiveModel ? ` (requested ${entry.requestedModel})` : "";
   const adjusted = entry.adjustments.length > 0 ? `; ${entry.adjustments.join(", ")}` : "";
-  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}`;
+  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}${(entry.note ?? "").includes(FAILED_PASS_NOTE) ? `; failed: ${FAILED_PASS_NOTE}` : ""}`;
 }
 
 /** Score drivers with reader labels, values in their own units and the points each adds. */
@@ -1949,4 +1963,15 @@ export function factorExposureTable(scores: NonNullable<Report["scores"]>): Body
 export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appendix">, scope: "header" | "appendix"): ProvenanceCoverage | undefined {
   if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
   return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
+}
+
+/** AI-201: merge identical stored macro rows without altering the record. */
+export function macroDisplayRows(macro: Report["macro"]): Report["macro"]["relevantSeries"] {
+  const rows: Report["macro"]["relevantSeries"] = [];
+  for (const row of macro.relevantSeries) {
+    const existing = rows.find(r => r.seriesId === row.seriesId && r.latest.unit === row.latest.unit && r.latest.value === row.latest.value && r.latest.asOf === row.latest.asOf);
+    if (existing) { if (!existing.relevance.includes(row.relevance)) existing.relevance += ` ${row.relevance}`; }
+    else rows.push({ ...row });
+  }
+  return rows;
 }

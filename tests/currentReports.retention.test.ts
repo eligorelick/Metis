@@ -12,7 +12,8 @@ import { loadTask28Fixture } from "./helpers/task28Report";
 
 const header = "Three months ended June 30, Six months ended June 30, 2026 2025 2026 2025";
 const eps = `Financial Results for Second Quarter 2026. Quarter ended June 30, 2026. Adjusted Net Income (Loss) & Adjusted EPS ${header} (In millions, except share and per share data) GAAP diluted earnings per share $ 7.20 $ 2.40 $ 7.00 $ 1.00 Adjusted earnings per share $ 5.80 $ 4.20 $ 7.60 $ 4.60`;
-const fcf = `Financial Results for Second Quarter 2026. Quarter ended June 30, 2026. Free Cash Flow is defined as net cash flow provided by operating activities less capital expenditures. Free Cash Flow ${header} (In millions) Net cash provided by operating activities $ 1,010 $ 900 $ 2,040 $ 1,830 Less: Total capital expenditures (200) (190) (410) (400) Free cash flow $ 810 $ 710 $ 1,630 $ 1,430`;
+// AI-506/OD-10: a release that states no earnings amount is an operating update.
+const fcf = `Net income was $10.0 million, or $0.10 per diluted share. Financial Results for Second Quarter 2026. Quarter ended June 30, 2026. Free Cash Flow is defined as net cash flow provided by operating activities less capital expenditures. Free Cash Flow ${header} (In millions) Net cash provided by operating activities $ 1,010 $ 900 $ 2,040 $ 1,830 Less: Total capital expenditures (200) (190) (410) (400) Free cash flow $ 810 $ 710 $ 1,630 $ 1,430`;
 function record(releaseText = eps, commentaryText: string | null = eps.replace("$ 5.80", "$ 6.80")) {
   return buildEarningsReleaseRecord({ filing: { accessionNumber: "retention", filingDate: "2026-08-05" }, releaseUrl: "https://www.sec.gov/release", commentaryUrl: commentaryText === null ? null : "https://www.sec.gov/commentary", releaseText, commentaryText, includeNarrative: false });
 }

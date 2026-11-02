@@ -1,4 +1,4 @@
-import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
@@ -76,7 +76,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
       heading: `Management guidance${g.reportedPeriod ? ` (issued with ${g.reportedPeriod} results)` : ""}`,
       headers: ["Period", "Metric", "Basis", "Low", "Midpoint", "High", "Stated as", ...(revisions ? ["Previous guidance"] : []), ...(growth ? ["Current growth", "Previous growth"] : [])],
       rows: g.rows.map((row) => [
-        row.period,
+        /^(fiscal quarter|fiscal year)$/.test(row.period) ? `${row.period} (issuer label withheld: statement periods contradict it)` : row.period,
         METRIC_LABELS[row.metric],
         basis(row.basis),
         row.form === "range" || row.form === "plus-minus" ? value(row, row.low, d.currency) : DASH,
@@ -162,7 +162,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
-        rows.push([`Quarterly cash dividend per share${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
+        rows.push([`${cr.dividendFrequency === undefined ? "Quarterly" : cr.dividendFrequency === null ? "Cash" : cr.dividendFrequency[0]!.toUpperCase()+cr.dividendFrequency.slice(1)}${cr.dividendFrequency===null ? "" : " cash"} dividend per share${cr.dividendFrequency===null ? " (frequency not stated)":""}${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
       }
       if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) rows.push(["Dividend change (per share, quarterly)", `${money(cr.dividendChangeFrom, d.currency, true)} → ${money(cr.dividendChangeTo, d.currency, true)}`, src]);
     }
@@ -267,12 +267,13 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const rows = s.rows.map((r) => [
       r.childOf === null ? r.label : `  ↳ ${r.label}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
-      growth(r.values, quarterAgo),
-      growth(r.values, yearAgo),
+      sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
+      sameSegmentBasis(r.earlierPresentationAt,0,yearAgo) ? growth(r.values, yearAgo) : DASH,
       total !== null && total > 0 && r.values[0] !== null && r.values[0] !== undefined ? pct((r.values[0] / total) * 100) : DASH,
     ]);
-    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), growth(s.total, quarterAgo), growth(s.total, yearAgo), total !== null ? "100.0%" : DASH]);
+    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), sameSegmentBasis(s.totalEarlierPresentationAt,0,quarterAgo) ? growth(s.total, quarterAgo) : DASH, sameSegmentBasis(s.totalEarlierPresentationAt,0,yearAgo) ? growth(s.total, yearAgo) : DASH, total !== null ? "100.0%" : DASH]);
     const notes = [
+      crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
@@ -314,7 +315,7 @@ export function materialEventTables(d: FilingDisclosures | undefined): ReportAud
   return [{
     heading: "Material SEC current reports (Form 8-K, last 12 months)",
     headers: ["Filed", "Event date", "Items", "Summary", "Accession"],
-    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutLegacyPrincipalAnnotation(e.summary), e.accession]),
+    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutTocStubs(withoutLegacyPrincipalAnnotation(e.summary)), e.accession]),
     note: materialEventScopeNote(d) + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
   }];
 }
@@ -350,7 +351,7 @@ export function newerResultsSentence(n: Pick<NonNullable<FilingDisclosures["newe
 
 /** The report banner, when the report has a newer-results notice. */
 export function newerResultsBanner(d: FilingDisclosures | undefined): string | null {
-  return d?.newerResults ? newerResultsSentence(d.newerResults) : null;
+  return d?.newerResults ? newerResultsSentence(shownFilingDisclosures(d).newerResults!) : null;
 }
 
 /**
@@ -369,6 +370,7 @@ export function newerFilingBanner(d: FilingDisclosures | undefined): string | nu
 
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return section === "catalystsRisks" ? materialEventTables(d) : [];
+  d = shownFilingDisclosures(d);
   switch (section) {
     case "business": return [...segmentTables(d), ...segmentPerformanceTables(d)];
     case "fundamentals": return trendTables(d);
@@ -386,4 +388,78 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
     }
     case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
   }
+}
+
+export function withoutTocStubs(summary:string):string {
+ return summary.replace(/Item \d\.\d{2}: \d{1,3}(?: Table of Contents)?(?=\s+Item \d\.\d{2}:|\s*$)/g, "").replace(/\s+/g," ").trim();
+}
+
+export interface FiscalLabelledPeriod { end: string; label: string }
+const fiscalYearOf = (label: string) => /FY(\d{4})$/.exec(label)?.[1];
+export function fiscalLabelContradictedAt(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ return periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000 &&
+  (fiscalYearOf(p.label)!==fiscalYearOf(label) || (p.label.startsWith("Q") && label.startsWith("Q") && p.label!==label) || (/^FY/.test(p.label) && /^Q[1-3] /.test(label))));
+}
+export function fiscalLabelEndedBy(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ return periods.some(p=>p.label===label && p.end<=cutoff);
+}
+/** One completed-release rule for excerpt titles and deterministic tables. */
+export function fiscalLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ if (fiscalLabelContradictedAt(periods,label,end)) return true;
+ if (periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000)) return false;
+ if (periods.some(p=>p.label===label && Date.parse(end)-Date.parse(p.end)>45*86400000)) return true;
+ const q = /^Q([1-4]) FY(\d{4})$/.exec(label);
+ if (!q) return false;
+ const sorted=[...periods].sort((a,b)=>b.end.localeCompare(a.end));
+ const quarter=sorted.find(p=>/^Q[1-4] FY\d{4}$/.test(p.label));
+ if (quarter) {
+  const old=/^Q([1-4]) FY(\d{4})$/.exec(quarter.label)!;
+  const successor=old[1]==="4"?`Q1 FY${Number(old[2])+1}`:`Q${Number(old[1])+1} FY${old[2]}`;
+  const days=(Date.parse(end)-Date.parse(quarter.end))/86400000;
+  return !(days>=80 && days<=100 && label===successor);
+ }
+ const annual=sorted.find(p=>/^FY\d{4}$/.test(p.label));
+ if (!annual) return false;
+ const n=Number(q[1]),days=(Date.parse(end)-Date.parse(annual.end))/86400000;
+ return !(days>=91*n-11 && days<=Math.min(91*n+9,366) && Number(q[2])===Number(fiscalYearOf(annual.label))+1);
+}
+/** An outlook must follow the newest labelled statement available by filing date. */
+export function fiscalOutlookLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ if (fiscalLabelEndedBy(periods,label,cutoff)) return true;
+ const order=(s:string):number|null=>{
+  const m=/^(?:Q([1-4]) )?FY(\d{4})$/.exec(s);
+  return m?Number(m[2])*4+Number(m[1]??4):null;
+ };
+ const target=order(label);
+ const newest=[...periods].filter(p=>p.end<=cutoff && order(p.label)!==null).sort((a,b)=>b.end.localeCompare(a.end) || order(b.label)!-order(a.label)!)[0];
+ return target!==null && newest!==undefined && target<=order(newest.label)!;
+}
+/** AI-512-V1: withhold disputed labels; never replace them with a guessed fiscal period. */
+export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d:T, periods: readonly FiscalLabelledPeriod[]):T {
+ const removed: string[]=[];
+ const completed=(label:string|null,end:string|null)=>label!==null && end!==null && fiscalLabelContradicted(periods,label,end);
+ let guidance=d.guidance;
+ if(guidance) {
+  const reported=completed(guidance.reportedPeriod,guidance.reportedPeriodEnd);
+  const rows=guidance.rows.map(r=>{
+   if(!fiscalOutlookLabelContradicted(periods,r.period,guidance!.source.filingDate)) return r;
+   removed.push("an outlook label");
+   return {...r,period:r.period.startsWith("Q")?"fiscal quarter":"fiscal year"};
+  });
+  if(reported) removed.push(`the issued-with label for quarter ended ${guidance.reportedPeriodEnd}`);
+  guidance={...guidance,reportedPeriod:reported?null:guidance.reportedPeriod,rows};
+ }
+ const guidanceChecks=d.guidanceChecks.filter(c=>{
+  if(!completed(c.period,c.periodEnd) && !fiscalLabelEndedBy(periods,c.period,c.guidance.filingDate)) return true;
+  removed.push(`results against prior guidance for quarter ended ${c.periodEnd}`);return false;
+ });
+ let newerResults=d.newerResults;
+ if(newerResults?.reportedPeriod && (completed(newerResults.reportedPeriod,newerResults.reportedPeriodEnd) || (!newerResults.reportedPeriodEnd && fiscalLabelEndedBy(periods,newerResults.reportedPeriod,newerResults.statementsEnd)))) {
+  removed.push("the newer-results label");newerResults={...newerResults,reportedPeriod:null};
+ }
+ if(!removed.length) return d;
+ return {...d,guidance,guidanceChecks,...(newerResults?{newerResults}:{}),notes:[...d.notes,`Issuer fiscal labels withheld because the statement periods contradict them: ${removed.join("; ")}. Results paired only by those labels are left out.`]};
+}
+export function shownFilingDisclosures<T extends FilingDisclosures>(d:T):T {
+ return withholdContradictedReleaseLabels(d,d.quarterlyTrend.flatMap(r=>r.fiscalLabel?[{end:r.periodEnd,label:r.fiscalLabel}]:[]));
 }

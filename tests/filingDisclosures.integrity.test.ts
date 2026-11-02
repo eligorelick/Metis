@@ -81,9 +81,10 @@ describe("filing disclosures statement integrity", () => {
       releaseText: readFileSync("fixtures/edgar/nvda-current-reports/q1fy27-ex99-1.txt", "utf8"), commentaryText: null, includeNarrative: true,
     }));
     rows(bundle, "incomeQuarterly").unshift(
-      { date: "2026-07-26", reportedCurrency: "USD", acceptedDate: "2026-08-26 12:00:00", revenue: 90e9, grossProfit: 45e9 },
-      { date: "2026-07-26", reportedCurrency: "USD", acceptedDate: "2026-09-01 12:00:00", revenue: 95e9 },
-      { date: "2026-04-26", reportedCurrency: "USD", revenue: 81_615e6 },
+      // AI-512-V1 B-F4: the real releases require matching issuer fiscal labels in this synthetic statement fixture.
+      { date: "2026-07-26", fiscalYear: "2027", period: "Q2", reportedCurrency: "USD", acceptedDate: "2026-08-26 12:00:00", revenue: 90e9, grossProfit: 45e9 },
+      { date: "2026-07-26", fiscalYear: "2027", period: "Q2", reportedCurrency: "USD", acceptedDate: "2026-09-01 12:00:00", revenue: 95e9 },
+      { date: "2026-04-26", fiscalYear: "2027", period: "Q1", reportedCurrency: "USD", revenue: 81_615e6 },
     );
     const checks = buildFilingDisclosures(bundle)!.guidanceChecks;
     expect(checks.find((c) => c.metric === "revenue")).toMatchObject({ actual: 95e9, position: "above" });
@@ -201,7 +202,12 @@ describe("filing disclosures statement integrity", () => {
       releaseUrl: "https://www.sec.gov/prior", commentaryUrl: null,
       releaseText: readFileSync("fixtures/edgar/nvda-current-reports/q1fy27-ex99-1.txt", "utf8"), commentaryText: null, includeNarrative: true,
     });
+    // AI-512-V1 B-F4: keep the currency control on one coherent calendar fiscal basis.
+    reports.value.data.releases[0]!.reported.fiscal = {label:"Q1 FY2026",fiscalYear:2026,fiscalQuarter:1};
+    for (const item of reports.value.data.releases[0]!.guidance?.items ?? []) item.period={label:"Q2 FY2026",fiscalYear:2026,fiscalQuarter:2};
     prior.reported.periodEnd = "2025-12-31";
+    prior.reported.fiscal = {label:"Q4 FY2025",fiscalYear:2025,fiscalQuarter:4};
+    for (const item of prior.guidance?.items ?? []) item.period={label:"Q1 FY2026",fiscalYear:2026,fiscalQuarter:1};
     reports.value.data.releases.push(prior);
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.some((c) => c.metric === "revenue")).toBe(false);
     const revenueGuide = prior.guidance!.items.find((i) => i.metric === "revenue")!;

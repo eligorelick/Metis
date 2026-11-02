@@ -1,3 +1,4 @@
+import { passAttemptName } from "@/report/execution";
 import type { Report } from "@/report/schema";
 import type { ReactNode } from "react";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
@@ -22,7 +23,7 @@ export function ReportEvidenceRail({ report, inspector, selectedReportId }: { re
         <div><dt className="text-faint">Saved model evidence</dt><dd className="break-words">{runSummary(report)}</dd></div>
         <div><dt className="text-faint">Saved requested configuration</dt><dd className="break-words">{models.requestedConfiguration.length === 0
           ? "Unknown; no per-pass requested configuration was recorded."
-          : models.requestedConfiguration.map(config => `${config.step}: ${config.model}${config.effort ? ` / ${config.effort} effort` : ""}${config.serviceTier ? ` / ${config.serviceTier} speed` : ""}`).join("; ")}</dd></div>
+          : models.requestedConfiguration.map(config => `${passAttemptName(config.step)}: ${config.model}${config.effort ? ` / ${config.effort} effort` : ""}${config.serviceTier ? ` / ${config.serviceTier} speed` : ""}`).join("; ")}</dd></div>
         <div><dt className="text-faint">Analysis completion</dt><dd>{models.analysisCompletion === "completed" ? "Completed bull, bear and judge passes were recorded."
           : models.analysisCompletion === "partial" ? "Only some completed analysis passes were recorded."
             : models.analysisCompletion === "not-completed" ? "No usable analyst analysis was completed."

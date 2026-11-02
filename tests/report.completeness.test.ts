@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyManifest,
   buildDataCompleteness,
   deriveReportCompletenessPresentation,
 } from "@/report/completeness";
@@ -496,4 +497,14 @@ it("RPT-206 banner counts classified data issues separately from process and not
  expect(c.bannerText).toBe("No completed multi-pass analysis. AI unavailable 1 data gap recorded.");
  const notes = gaps.filter(g => g.field !== "fundamentals.revenue");
  expect(deriveReportCompletenessPresentation(buildDataCompleteness(notes), notes).bannerText).toBe("No completed multi-pass analysis. AI unavailable No data gaps recorded; 2 notes or analysis-process disclosures are listed in the appendix.");
+});
+it("DATA-101: folds only legacy absent-or-refused warnings across periods",()=>{
+ const reason="temporary-equity SEC enrichment withheld: temporary carrying amounts are absent or explicitly refused for this SEC period";
+ const gaps=["2024-12-31","2023-12-31"].map(date=>({field:`statements.balance.${date}.temporaryEquity`,reason,severity:"warn" as const}));
+ expect(classifyManifest(gaps).dataGaps).toHaveLength(1);
+});
+
+it("DATA-101: genuine new refusals remain separate at each period",()=>{
+ const gaps=["2024-12-31","2023-12-31"].map(date=>({field:`statements.balance.${date}.temporaryEquity`,reason:"temporary carrying amount filed but refused",severity:"warn" as const}));
+ expect(classifyManifest(gaps).dataGaps).toHaveLength(2);
 });

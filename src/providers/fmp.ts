@@ -53,15 +53,20 @@ export interface CachedFetchResult<T> {
   /** true when served past TTL (stale-while-revalidate) */
   stale?: boolean;
   /** Specific preservation condition surfaced by the durable cache. */
-  staleReason?: "empty-refresh-preserved";
+  staleReason?: "empty-refresh-preserved" | "window-fallback" | "refresh-failed";
+  servedEndpoint?: string;
+  staleDetail?: string;
   /** ISO timestamp of the original fetch that produced `value` */
   fetchedAt?: string;
 }
+
+export interface CachedFetchPolicy { signal?: AbortSignal }
 
 export type CachedFetchFn = <T>(
   key: string,
   ttlMs: number,
   loader: () => Promise<T>,
+  policy?: CachedFetchPolicy,
 ) => Promise<CachedFetchResult<T>>;
 
 // ---------------------------------------------------------------------------
@@ -188,6 +193,13 @@ export interface FmpStatementRow extends FmpRawRow {
   fieldConflicts?: Record<string, StatementFieldConflict>;
 }
 
+/** FIN-401: arithmetic/provenance classification, never inferred from the operating-income tag alone. */
+export interface EquityMethodIncomePlacement {
+  placement: "in-operating-income" | "below-operating-income" | "undetermined" | "immaterial";
+  income: number | null;
+  basis: string;
+}
+
 export interface FmpIncomeStatementRow extends FmpStatementRow {
   revenue?: number;
   costOfRevenue?: number;
@@ -206,6 +218,7 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   incomeTaxExpense?: number;
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
+  equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
   netIncomeConsolidated?: number;
@@ -1660,10 +1673,12 @@ export class FmpClient {
           const restriction = parseFmpRestriction(res.bodyText);
           if (restriction !== null) throw new FmpAccessError(restriction, res.status);
         }
+        if (parameterRefusal(res.status, res.bodyText)) throw new FmpParameterRefusalError(res.status);
         let body: unknown;
         try {
           body = res.bodyText.length > 0 ? (JSON.parse(res.bodyText) as unknown) : null;
         } catch {
+          if (res.status >= 500) throw new FmpBodyParseError(`FMP server error (HTTP ${res.status}) for ${endpointPath}; the response body was not JSON`, res.status);
           throw new FmpBodyParseError(
             `FMP returned unparseable body (HTTP ${res.status}) for ${endpointPath}: ${res.bodyText.slice(0, 200)}`,
           );
@@ -1674,6 +1689,7 @@ export class FmpClient {
             const restriction = parseFmpRestriction(fmpErrorMessage(body));
             if (restriction !== null) throw new FmpAccessError(restriction, res.status);
           }
+          if (parameterRefusal(res.status, fmpErrorMessage(body))) throw new FmpParameterRefusalError(res.status);
           throw new FmpApiError(fmpErrorMessage(body), res.status);
         }
         if (!res.ok) {
@@ -1719,7 +1735,7 @@ export class FmpClient {
           fetchedAt,
           ...(expectedEntityScope === undefined ? {} : { entityScope: expectedEntityScope }),
         };
-      }));
+      }), { signal: this.signal });
     } catch (err) {
       if (err instanceof FmpPlanLimitError) {
         planLimitCaps.set(apiKey, err.cap);
@@ -1728,6 +1744,7 @@ export class FmpClient {
       if (err instanceof FmpEntityIdentityError) {
         return gap(spec.gapField, err.message, "critical", [endpointPath]);
       }
+      if (err instanceof FmpParameterRefusalError) return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       if (err instanceof FmpAccessError) {
         return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       }
@@ -1796,7 +1813,7 @@ export class FmpClient {
       data: { rows, raw: body, ...(estimateFallback === null ? {} : { estimateTiming: buildEstimateTiming(rows, estimateFallback, { cacheFetchedAt: exchange.fetchedAt, responseFetchedAt: exchange.value.fetchedAt }) }), ...(planLimit === undefined ? {} : { planLimit }) },
       asOf: deriveAsOf(rows, estimateFallback ?? fetchedAt ?? this.now().toISOString()),
       source: "fmp",
-      endpoint: endpointPath,
+      endpoint: exchange.servedEndpoint ? `${endpointPath} (served the cached window ${exchange.servedEndpoint} fetched ${exchange.fetchedAt}: ${exchange.staleDetail})` : endpointPath,
       fetchedAt: estimateFallback ?? fetchedAt ?? this.now().toISOString(),
       ...(exchange.stale ? { stale: true } : {}),
       ...(exchange.staleReason ? { staleReason: exchange.staleReason } : {}),
@@ -2447,16 +2464,24 @@ export class FmpClient {
     const rawParts: unknown[] = [];
     let latestFetchedAt = "";
     let anyStale = false;
+    let fallbackThrough: string | null = null;
     for (let i = suffixStart; i <= effectiveNewestIdx; i++) {
       const result = results[i];
       if (!result.ok) continue; // unreachable inside the accepted suffix
       anyStale = anyStale || result.value.stale === true;
       if (result.value.fetchedAt > latestFetchedAt) latestFetchedAt = result.value.fetchedAt;
       rawParts.push(result.value.data.raw);
+      if (result.value.staleReason === "window-fallback") {
+        const lastBar = result.value.data.rows.flatMap(row => typeof row.date === "string" ? [row.date.slice(0, 10)] : []).sort().at(-1);
+        if (lastBar && (fallbackThrough === null || lastBar < fallbackThrough)) fallbackThrough = lastBar;
+      }
       for (const row of result.value.data.rows) {
         if (typeof row.date === "string") byDate.set(row.date.slice(0, 10), row);
       }
     }
+
+    // A later successful chunk must not splice across the fallback's missing sessions.
+    if (fallbackThrough !== null) for (const date of byDate.keys()) if (date > fallbackThrough) byDate.delete(date);
 
     if (byDate.size === 0) {
       return gap(
@@ -2477,7 +2502,8 @@ export class FmpClient {
     // The no-new-bar newest chunk is a "failure" but is NOT an older chunk that
     // truncated history, so exclude it from the older-chunk counts.
     const olderFailCount = newestIsNoNewBar ? failures.length - 1 : failures.length;
-    const disclosures: string[] = [];
+    const disclosures: string[] = results.flatMap(r=>r.ok && r.value.staleReason==="window-fallback" ? [r.value.endpoint]:[]);
+    if (fallbackThrough !== null) disclosures.push(`history truncated at ${fallbackThrough} because an accepted cached window ends there; later bars withheld to avoid a mid-series gap`);
     if (truncatedFrom !== null) {
       const droppedOk = suffixStart - olderFailCount;
       disclosures.push(
@@ -2499,6 +2525,7 @@ export class FmpClient {
         endpoint: `/stable/historical-price-eod/full?symbol=${symbol}&from=${from}&to=${to} (${chunks.length} chunk(s)${disclosures.length > 0 ? `; ${disclosures.join("; ")}` : ""})`,
         fetchedAt,
         ...(anyStale ? { stale: true } : {}),
+        ...(["window-fallback","refresh-failed","empty-refresh-preserved"] as const).reduce((acc,reason)=> acc.staleReason || !results.some(r=>r.ok && r.value.staleReason===reason) ? acc : {staleReason:reason},{} as {staleReason?: Sourced<unknown>["staleReason"]}),
       },
     };
   }
@@ -2653,8 +2680,15 @@ class FmpPlanLimitError extends Error {
   }
 }
 
+class FmpParameterRefusalError extends Error {
+  constructor(status: number) { super(`FMP subscription (HTTP ${status}): a request parameter value is unavailable with this key. Use other available sources.`); }
+}
+function parameterRefusal(status: number, text: string): boolean {
+  return (status === 402 || status === 403) && /\bis not available under your current subscription\b/i.test(text) && parseFmpRestriction(text) === null;
+}
+
 class FmpBodyParseError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status?: number) {
     super(message);
     this.name = "FmpBodyParseError";
   }

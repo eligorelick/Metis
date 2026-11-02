@@ -156,3 +156,11 @@ describe("newer results than the statements (audit 2026-10-22 B-24)", () => {
     expect(computed.gaps.some((g) => g.field === "fundamentals.newerResults")).toBe(false);
   });
 });
+
+it("AI-512-V1: newer-results manifest withholds an already-used fiscal label",()=>{
+ const b=bundleWith(RESULTS);
+ if(!b.edgar.currentReports?.ok) throw new Error("fixture missing");
+ b.edgar.currentReports.value.data.releases[0]!.reported.fiscal={label:"Q2 FY2026",fiscalYear:2026,fiscalQuarter:2};
+ const gap=runStageB(b).gaps.find(g=>g.field==="fundamentals.newerResults")!;
+ expect(gap.reason).not.toContain("Q2 FY2026");expect(gap.reason).toContain("2026-09-30");
+});

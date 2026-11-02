@@ -98,6 +98,13 @@ export const GROSS_PROFIT_COST_TAGS: readonly string[] = ["CostOfRevenue", "Cost
 export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments";
 
+/**
+ * FIN-401: total costs and expenses, read only to test whether revenue less
+ * costs reconciles to a pretax base that excludes equity-method income (the
+ * equity-method result then sits inside revenue). Never a chain line item.
+ */
+export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
+
 export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
@@ -451,7 +458,7 @@ export const LINE_ITEM_TAGS = {
    * `AvailableForSaleSecuritiesDebtSecurities` total usually also holds
    * current and cash-equivalent securities, so it is never one.
    */
-  longTermInvestments: entry(["LongTermInvestments"]),
+  longTermInvestments: entry(["LongTermInvestments"], undefined, ["EquityMethodInvestments"]),
   noncurrentDebtSecurities: entry(["MarketableSecuritiesNoncurrent", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"]),
   /** A filed "other investments" line, which holds the two pieces after it when it is tagged. */
   otherLongTermInvestments: entry(["OtherLongTermInvestments"]),

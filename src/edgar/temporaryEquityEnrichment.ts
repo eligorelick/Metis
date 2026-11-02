@@ -1,7 +1,7 @@
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { tagsFor } from "@/edgar/tagSynonyms";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
-import { CORE_FACT_FORMS, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, parseFactPoints, conceptFactsSchema, type CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 
@@ -9,6 +9,16 @@ const FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "tempo
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const same = vendorAgreesWithFiled;
 const utcDay = (timestamp: string): number => Math.floor(Date.parse(timestamp) / 86_400_000);
+
+export function temporaryEquityFiledEnds(facts: CompanyFacts): ReadonlySet<string> {
+ const ends = new Set<string>();
+ for (const field of FIELDS) for (const tag of tagsFor(field)) {
+  const parsed=conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+  if(parsed.success) for(const points of Object.values(parsed.data.units)) for(const point of parseFactPoints(points)) if(!point.start) ends.add(point.end);
+ }
+ return ends;
+}
+export const TEMPORARY_EQUITY_REFUSED_REASON = "temporary carrying amounts were filed for this SEC period but refused (conflicting values, a filing after the analysis cutoff, or no exact period and unit match)";
 
 /** Reuse the normalizer's cutoff, exact-period/unit and ambiguity guards once
  * per statement envelope. This performs no external reads or share inference.
@@ -24,8 +34,9 @@ export function temporaryEquityRows(facts: CompanyFacts, scope: "annual" | "quar
 /** A category may join only a matching vendor balance and SAME-FILING SEC
  * A/L/permanent-equity operands. No non-null vendor observation is replaced.
  */
-export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, secRows: readonly FmpBalanceSheetRow[], factsCik: number): { row: T; gaps: ManifestEntry[] } {
+export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, secRows: readonly FmpBalanceSheetRow[], factsCik: number, filedEnds: ReadonlySet<string>): { row: T; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
+  if (!row.date || !filedEnds.has(row.date)) return { row, gaps };
   const refuse = (reason: string) => {
     gaps.push({ field: `statements.balance.${row.date}.temporaryEquity`, reason: `temporary-equity SEC enrichment withheld: ${reason}`, severity: "warn" });
     return { row, gaps };
@@ -78,6 +89,6 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
     out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: evidence } };
     gaps.push({ field: `statements.balance.${row.date}.${field}`, reason: `missing temporary-equity category ${field} enriched from ${evidence.tags.join(" + ")} after matching same-filing SEC A/L/permanent-equity operands`, severity: "info", expected: true });
   }
-  if (!FIELDS.some(field => finite(sec[field]) && sec.fieldProvenance?.[field] !== undefined && sec.fieldConflicts?.[field]?.usable !== false)) return refuse("temporary carrying amounts are absent or explicitly refused for this SEC period");
+  if (!FIELDS.some(field => finite(sec[field]) && sec.fieldProvenance?.[field] !== undefined && sec.fieldConflicts?.[field]?.usable !== false)) return refuse(TEMPORARY_EQUITY_REFUSED_REASON);
   return { row: out, gaps };
 }
