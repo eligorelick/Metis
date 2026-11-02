@@ -269,7 +269,7 @@ describe("persisted report presentation", () => {
     try {
       const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
       const run = elementsWithin(tree).find(element => element.type === GenerateReport);
-      expect(run?.props).toEqual({ symbol: "DEMO", initialJobId: "existing-job", route: { label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true } });
+      expect(run?.props).toEqual({ symbol: "DEMO", initialJobId: "existing-job", route: { label: "ChatGPT plan · gpt-6.1-sol · max effort", ready: true }, renderedReportId: 42 });
       expect(harness.activeJob).toHaveBeenCalledWith("DEMO");
       expect(elementsWithin(tree).some(element => element.props.report === report)).toBe(true);
       expect(harness.buildDataBundle).not.toHaveBeenCalled(); expect(harness.runStageB).not.toHaveBeenCalled();
