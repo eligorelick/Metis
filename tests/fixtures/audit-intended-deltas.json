@@ -10340,12 +10340,12 @@
       "decisions": [
         "D-140", "D-141"
       ],
-      "reason": "D-140 established workflow/source-scope conventions. D-141 advances the report to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
+      "reason": "D-140 established workflow/source-scope conventions. P0 M-1/M-2/L-2 advances the report to 1.56.0 (D-next); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.55.0"
+          "after": "1.56.0"
         },
         {
           "path": "report.technicals.read.trend",

@@ -3361,7 +3361,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // A period or unit word the check could not establish against the cited
     // record is a metadata gap: the claim is unverified, never validated, and
     // contradicted only when its value conflicts as well.
-    const validationStatus = semanticFailure === undefined ? validation.status
+    const validationStatus = scheduleQualified ? "unchecked" : semanticFailure === undefined ? validation.status
       : semanticFailure.check === "direction" || validation.status === "contradicted" ? "contradicted" : "unchecked";
     // The recorded reason names the conflict, so a contradicted entry never
     // carries a metadata reason (presentation reads such legacy entries as

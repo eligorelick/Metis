@@ -4436,12 +4436,12 @@ describe("runJob - durable paid-pass settlements", () => {
       });
     const failed = testFailureSettlement(testAnalystPass("bull", 0.42825), "the output was not valid JSON");
     const accepted = testSuccessSettlement(testAnalystPass("bull"));
-    if (identicalCarried) {
+    if (identicalCarried && failed.outcome === "failure") {
       const thesis = testAnalystPass("bull").data.thesis;
       // L-4: exact matching bytes in a rejected complete answer confer no recovery credit.
-      failed.failure = { ...failed.failure, rejectedText: JSON.stringify(testAnalystPass("bull").data) };
-      accepted.telemetry = { ...accepted.telemetry, execution: { requestedModel: "claude-opus-4-8", modelObserved: true,
-        carriedSections: [{ section: "thesis", digest: sectionDigest(thesis), modelObserved: true, usageReported: true }] } };
+      Object.assign(failed.failure, { rejectedText: JSON.stringify(testAnalystPass("bull").data) });
+      Object.assign(accepted.telemetry, { execution: { requestedModel: "claude-opus-4-8", modelObserved: true,
+        carriedSections: [{ section: "thesis", digest: sectionDigest(thesis), modelObserved: true, usageReported: true }] } });
     }
     persist("rpt210-bull-rejected", "bull", failed);
     persist("rpt210-bull", "bull", accepted);

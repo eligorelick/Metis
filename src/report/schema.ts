@@ -150,7 +150,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
 // D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
-export const REPORT_SPEC_VERSION = "1.55.0" as const;
+export const REPORT_SPEC_VERSION = "1.56.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

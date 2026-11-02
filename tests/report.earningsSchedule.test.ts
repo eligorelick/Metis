@@ -13,6 +13,13 @@ describe("provider earnings-date qualification boundaries", () => {
     const input = { verdict: { executiveSummary: [{ text: "Company confirmed it will report results on 2026-11-04 in its 8-K.", label: "FACT", source: "edgar:8-K", asOf: "2026-11-01" }] } };
     expect(guardEarningsSchedule(input, [note], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }])).toMatchObject({ report: input, log: [] });
   });
+  it("keeps a registered official company source without trusting an unregistered source name", () => {
+    const source = "https://issuer.example/news/results";
+    const input = { verdict: { executiveSummary: [{ text: "Company will report results on 2026-11-04.", label: "FACT", sourceId: source, source: "legacy", asOf: "2026-11-01" }] } };
+    const registry = [{ id: source, kind: "payload-text" as const, origin: source, asOf: "2026-11-01" }];
+    expect(guardEarningsSchedule(input, [note], registry, [source])).toMatchObject({ report: input, log: [] });
+    expect(guardEarningsSchedule(input, [note], [], [source]).log).toHaveLength(1);
+  });
   it("does not count qualification audit rows as another claim", () => {
     const input = { verdict: { executiveSummary: [{ text: "Earnings are due 2026-11-04.", label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-11-01" }] } };
     const out = guardEarningsSchedule(input, [note]);
