@@ -4,6 +4,12 @@ import path from "node:path";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const fake = vi.hoisted(() => ({ protect: vi.fn() }));
 vi.mock("node:child_process", () => ({ execFileSync: (...args: unknown[]) => fake.protect(...args) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+vi.mock("@/watchlist/watchlist", () => ({ getWatchlistView: async () => [] }));
+import { POST as credentialsPOST } from "@/app/api/settings/credentials/route";
+import RootLayout from "@/app/layout";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import * as store from "@/ai/store";
 import { getConfig, resetConfigCache } from "@/config/env";
 import { captureAiSelection } from "@/ai/connections";
@@ -27,12 +33,16 @@ it.each(["future-schema", "decrypt"])("keeps configuration usable but money and 
   const bytes = envelope(cause === "future-schema" ? "future" : "none"); fs.writeFileSync(file, bytes);
   if (cause === "decrypt") fake.protect.mockImplementation(() => { throw new Error("synthetic failure"); });
   expect(() => getConfig()).not.toThrow();
+  expect(renderToStaticMarkup(await RootLayout({ children: createElement("main", null, "saved research") }))).toContain("saved research");
   expect(getConfig().fmpApiKey).toBe("example-data"); expect(getConfig().hasAnthropicKey).toBe(false);
   expect(store.getProviderCredential("ANTHROPIC_API_KEY")).toBeUndefined();
   expect(store.getProviderCredential("ANTHROPIC_ADMIN_KEY")).toBeUndefined();
   expect(() => captureAiSelection()).toThrow("docs/OPERATIONS.md");
   const mutate = vi.fn(); await expect(store.withAiStore(mutate)).rejects.toThrow("cannot be read"); expect(mutate).not.toHaveBeenCalled();
   expect(fs.readFileSync(file, "utf8")).toBe(bytes);
+  const response = await credentialsPOST(new Request("http://localhost/api/settings/credentials", { method: "POST", headers: { host: "localhost", "sec-fetch-site": "same-origin", "content-type": "application/json" }, body: JSON.stringify({ action: "save", key: "FMP_API_KEY", value: "example-data" }) }));
+  expect(response.status).toBe(500);
+  expect((await response.json()).error).toContain("docs/OPERATIONS.md");
   const calls = fake.protect.mock.calls.length; getConfig(); getConfig(); expect(fake.protect.mock.calls.length).toBe(calls);
   fake.protect.mockImplementation((_e, _a, o) => o.input);
   fs.writeFileSync(file, envelope() + " ");
@@ -44,4 +54,16 @@ it("retries an unchanged failure after thirty seconds (SEC-204)", () => {
   fake.protect.mockImplementationOnce(() => { throw new Error("synthetic timeout"); });
   expect(() => getConfig()).not.toThrow(); expect(getConfig().hasAnthropicKey).toBe(false);
   vi.setSystemTime(Date.now() + 30_001); expect(getConfig().hasAnthropicKey).toBe(true);
+});
+
+it("does not cache a transient file-read error (SEC-204 control)", async () => {
+  await store.withAiStore(() => {});
+  const file = path.join(store.aiDirectory(), "connections.v1.json");
+  const original = fs.readFileSync;
+  const read = vi.spyOn(fs, "readFileSync").mockImplementation(((...args: Parameters<typeof fs.readFileSync>) => {
+    if (args[0] === file) throw Object.assign(new Error("synthetic busy"), { code: "EBUSY" });
+    return original(...args);
+  }) as typeof fs.readFileSync);
+  expect(getConfig().hasAnthropicKey).toBe(false);
+  read.mockRestore(); expect(getConfig().hasAnthropicKey).toBe(true);
 });

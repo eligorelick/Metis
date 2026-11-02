@@ -12,3 +12,15 @@ it.each(["192.168.1.50:3000", "bad/authority"])("refuses all credential manageme
     }
   }
 });
+
+it.each(["", "localhost:3000", "127.0.0.1:3000", "[::1]:3000"])("retains loopback management for a loopback allowlist: %s", async (allowed) => {
+  vi.stubEnv("METIS_ALLOWED_HOST", allowed);
+  const { assertLocalOnlyRoute } = await import("@/app/requestSecurity");
+  const local = new Request("http://localhost:3000/settings", { headers: { host: "localhost:3000" } });
+  expect(assertLocalOnlyRoute(local)).toBeNull();
+  expect(assertLocalOnlyRoute(new Request("http://192.168.1.50:3000/settings", { headers: { host: "192.168.1.50:3000" } }))?.status).toBe(403);
+});
+it("honors the legacy LAN alias (SEC-202)", async () => {
+  vi.stubEnv("METIS_ALLOWED_HOST", undefined); vi.stubEnv("THESIS_ALLOWED_HOST", "192.168.1.50:3000");
+  expect((await credentialsGET(new Request("http://localhost/settings", { headers: { host: "localhost", "sec-fetch-site": "same-origin" } }))).status).toBe(403);
+});

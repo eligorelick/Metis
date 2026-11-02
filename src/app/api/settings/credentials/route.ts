@@ -56,6 +56,6 @@ export async function POST(request: Request) {
     await withAiStore((store) => { store.providerCredentials = { ...store.providerCredentials, [key]: secret }; });
     return response({ ok: true, credentials: statuses(), message: "Saved. Test the connection to verify access." });
   } catch {
-    return response({ error: "Credential storage is unavailable. The action could not be completed." }, 500);
+    return response({ error: "Credential storage is unavailable. The action could not be completed. See AI connection storage cannot be read in docs/OPERATIONS.md." }, 500);
   }
 }
