@@ -3792,3 +3792,9 @@ FY-minus-nine-month numerator already existed. Supplement only an absent,
 non-refused common field with exact issuer/period/currency/cutoff proof through
 the existing SEC resolver. Per-share P/E stays first choice. The aggregate
 fallback states its construction and Basic common-stockholder allocation.
+
+## D-next (N4a) - Evidence-consistent lender peers (L6)
+
+Exclude candidates whose profile-only screen cannot confirm the SEC evidence
+that establishes the subject's held-for-sale lending cash-flow applicability.
+Mirror the existing SEC-route unconfirmed reason; no new provider request.

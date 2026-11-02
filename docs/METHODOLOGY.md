@@ -6503,6 +6503,13 @@ availability and allocation gates still apply. EV is context only, with named
 filed debt components tied to the same-date provider perimeter; without that
 composition the context value is withheld. Stored reports are immutable.
 
+L6 (N4a): the same-evidence rule for SEC-refined peer routes also applies to
+held-for-sale lender cash-flow applicability. A same-industry profile alone
+cannot confirm the filed loan-origination and loan-sale OCF evidence, so those
+peers are excluded as unconfirmed. The bounded peer dataset does not collect
+this evidence, and adds no SEC request to manufacture comparability. Ordinary
+general-route peers and the existing bank/insurer route rules retain their gates.
+
 ## Recent-IPO discount-rate refusal (R-FIGR-2, N2)
 
 No new bottom-up or sector-beta fallback is implemented. The existing peer

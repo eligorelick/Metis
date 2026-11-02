@@ -4210,6 +4210,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
   Object.assign(multiples, comparePeerFundamentals({
     symbol: bundle.symbol, profile: bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined, quote: bundle.quote, route: route.base,
+    subjectCashFlowApplicability: route.cashFlowApplicability,
     subject: multiples, now: new Date(bundle.peerFundamentals?.collectedAt ?? bundle.builtAt), collection: bundle.peerFundamentals,
     subjectIncomeQuarterly: bundle.statements.incomeQuarterly.ok
       ? { ...bundle.statements.incomeQuarterly, value: { ...bundle.statements.incomeQuarterly.value, data: { ...bundle.statements.incomeQuarterly.value.data, rows: ctx.incomeQuarterly } } }
