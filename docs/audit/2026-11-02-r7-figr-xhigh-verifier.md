@@ -77,13 +77,21 @@ test passed a widened JSON coverage category as a typed excerpt. An explicit
 passes with exit 0. The initial receipt is retained as
 `r7-verify-initial-typecheck`; the complete `r7-verify` gate is rerun on the
 commit containing this correction.
+The next full run was stopped after deadline overruns in the unchanged
+repository reference scan, UI surface-render tests and nested risk-coverage
+controls under contention on CPUs 0-3. Its partial log is retained as
+`r7-verify-cpu-contention-stopped`; it is not a passing or completed gate.
+Moving the same four-CPU budget to CPUs 4-7 (`ProcessorAffinity = 240`) passes
+all three affected files unchanged: `r7-contention-controls`, **43 tests,
+exit 0**, 17.11 seconds. The final gate uses this available CPU set, preserving
+all configured worker counts, timeouts, assertions and coverage thresholds.
 
 The required final command is:
 
 ```powershell
 Remove-Item Env:VITEST_MAX_WORKERS -ErrorAction SilentlyContinue
 $r7GateProcess = [Diagnostics.Process]::GetCurrentProcess()
-$r7GateProcess.ProcessorAffinity = [IntPtr]15
+$r7GateProcess.ProcessorAffinity = [IntPtr]240
 & tmp/claude-2026-11-01/run.ps1 -Name r7-verify -NpmScript verify
 ```
 
