@@ -1,4 +1,4 @@
-# P1 / B4b: equity-method stake disposition (2026-11-02)
+# P1 / B4b: equity bridge and invested capital (2026-11-02)
 
 This batch continues all assigned B4b items from `eecd2703`.
 The family commit is **Value equity-method stakes once from their income placement
@@ -12,14 +12,14 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 
 | Finding | Disposition | Commit | Red / green receipts | Stored-report impact |
 |---|---|---|---|---|
-| FIN-401 | Fixed | Family commit named above | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
-| FIN-401-V1 | Fixed | Same family commit | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
-| FIN-302 | Fixed | FIN-302 family commit (handoff) | `fin302-red-confirmed` / `fin302-green-final` | Conditional pre-1.56.0 note; saved figures retained |
-| FIN-302-V1 | Fixed | Same family commit | Same receipts | Same note for excess-return values |
-| FIN-302-V2 | Fixed | EPS commit (handoff) | `fin302v2-red-confirmed` / `fin302v2-green` | Earlier figures stay; conditional convertible note applies |
-| FIN-407 | Fixed | Multi-class EPS commit (handoff) | `fin407-red`, `fin407-stored-red` / `fin407-green-final` | Explain old admission sentence; saved EPS unchanged |
-| VAL-14 | Blocked at OD-9 Step 0 | Admission-gate evidence commit (handoff) | `val14-census`, `val14-existing-controls` | No change to stored or new figures |
-| FIN-309 | Not started | None | None | Task 11 has not landed; book-date treatment remains |
+| FIN-401 | Fixed | `3b775ac7` | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
+| FIN-401-V1 | Fixed | `3b775ac7` | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
+| FIN-302 | Fixed | `71e58818` | `fin302-red-confirmed` / `fin302-green-final` | Conditional pre-1.56.0 note; saved figures retained |
+| FIN-302-V1 | Fixed | `71e58818` | Same receipts | Same note for excess-return values |
+| FIN-302-V2 | Fixed | `956c5b0d` | `fin302v2-red-confirmed` / `fin302v2-green` | Earlier figures stay; conditional convertible note applies |
+| FIN-407 | Fixed | `991238bb` | `fin407-red`, `fin407-stored-red` / `fin407-green-final` | Explain old admission sentence; saved EPS unchanged |
+| VAL-14 | Blocked at OD-9 Step 0 | `5b00696d` | `val14-census`, `val14-existing-controls` | No change to stored or new figures |
+| FIN-309 | Fixed | Financial-date commit (handoff) | `fin309-red`, `fin309-pgr-red`, `fin309-stored-red`, `fin309-citation-red` / `fin309-green-final`, `fin309-citation-green` | Explain earlier date mismatch; saved numbers/dates retained |
 
 The first red run includes the existing six B4a invariants passing. The confirmed
 red has 15 defect failures and two controls passing. Separate stored-report and
@@ -163,10 +163,10 @@ shared version header; the entry now follows that header. These were introduced
 failures, not pre-existing defects. No full `npm run verify` was run, per the
 implementation brief; release verification remains with the integrator.
 
-Stop after this complete family. FIN-302, FIN-302-V1, FIN-302-V2, FIN-407,
-VAL-14 and FIN-309 are **not started**. Their mechanisms, outputs, tests and
-owner decisions have not been changed. FIN-309 must still wait for Task 11.
-In particular, no OD-2 conversion-edge rule or OD-9 asset admission is claimed.
+The continuation below completes FIN-302, FIN-302-V1, FIN-302-V2, FIN-407
+and FIN-309. Task 11 and the continuous OD-2 rule are implemented. VAL-14
+is blocked by OD-9 before admission Step 1. Final counts: seven fixed, one
+blocked, zero not reproduced, zero partially fixed, zero not started.
 
 OD-5's known evidence limits remain: partial inclusion and aggregate ambiguity,
 provider rows without placement, mixed windows, unavailable same-date stake
@@ -257,7 +257,7 @@ The same rebuilt/injected harness at `71e58818` versus EPS repair
 (`fin302-shapes-after` / `fin302v2-replay-after`) gives injected NVDA 50B-note
 base EPS [11.04,16.49,22.70,29.15,35.30] ->
 [11.07,16.52,22.73,29.18,35.34]. DCF/share remains 307.5613571077288;
-valuation 87.35 and composite 80.13/A stay. Unmodified NVDA EPS
+valuation 87.35 and composite 80.13/B stay. Unmodified NVDA EPS
 [11.12,16.61,22.87,29.37,35.57] and AMZN
 [6.69,7.38,8.04,8.68,9.29] stay. Preferred GOOGL and injected preferred
 EPS remain withheld. All census/injected valuation figures and grades stay.
@@ -371,3 +371,79 @@ prompt, golden, fair-value-asset label or legacy rule changes. Rebuilt AMZN
 remains 102.97415017927976/share, valuation31.62/F, composite55.48/C; controls
 remain as `fin407-after.json`. Intended delta is exactly zero while blocked,
 not the conditional 97.9B x 79% / 10.903B = about +7.09/share in the plan.
+
+## FIN-309 continuation and final verification
+
+Task 11 is complete at `71e58818`. `fin309-red` reproduces five date/roll
+failures with the DCF control passing. `fin309-pgr-red` proves the retained
+PGR input lacks the quote-date field at `5b00696d`; `fin309-stored-red` proves
+the missing legacy explanation. `fin309-green-final` passes 135 tests in ten
+files, including the PGR pipeline, financial routes, previous reverse-solve
+controls and legacy views. `fin309-citation-red` catches book/absent dates on
+rolled headline/grid payload citations; `fin309-citation-green` passes 27
+tests including all eight date controls and all financial visibility tests.
+
+The roll is (1 + CoE)^(days/365.25) for headline ages 1-200 days. The 0, 200,
+201-day boundaries, backward quote, missing CoE, currency refusal, own-date
+alternative/grid, 240-day alternative under a 150-day headline, convertible
+reverse round-trip, withheld unknown alternative date and DCF control are
+covered. It is gross of distributions, explicitly disclosed. Beyond the limit
+fair-value asOf stays book, with an info gap; raw book/return diagnostics retain
+their original dates. P/TBV and continuing-value share use their book bases.
+The reverse solve discounts its quote target by the headline factor and keeps
+the chosen convertible claim/divisor. Classic/dossier, Markdown and print use
+the existing shared legacy adapters; saved dates, figures and bytes stay.
+
+Replays `fin309-replay-before` / `fin309-replay-after` rebuild all six statement
+members on each side (before `5b00696d`), retain acquired evidence and use
+side-specific TSX aliases. No network, provider or model calls.
+
+| Shape | Before/share | After/share | Valuation score | Composite |
+|---|---:|---:|---|---|
+| Bank quote 2026-04-01 (1 day) | 12.467587163860598 | 12.470372158232475 | unavailable -> unavailable | 63.88/C -> 63.88/C |
+| Bank quote 2026-07-05 (96 days) | 12.467587163860598 | 12.737803397932037 | unavailable -> unavailable | 63.88/C -> 63.88/C |
+| Insurer quote 2026-04-01 | 12.30951084413699 | 12.312260527613907 | unavailable -> unavailable | 65.92/C -> 65.92/C |
+| Insurer quote 2026-07-05 | 12.30951084413699 | 12.576301011299876 | unavailable -> unavailable | 65.92/C -> 65.92/C |
+| Retained PGR, quote 2026-10-21 (113 days) | 293.4674325041842 | 300.2180924804883 | 81.96 -> 82.66 | 73.09/B -> 73.31/B |
+| BAC (outside roll limit) | 41.396348578171214 | 41.396348578171214 | 44.13 -> 44.13 | 57.49/C -> 57.49/C |
+| JPM | withheld | withheld | 20 -> 20 | 55.10/C -> 55.10/C |
+| General quote 2026-04-01 | 33.43339975109757 | 33.43339975109757 | 15 -> 15 | 58.93/C -> 58.93/C |
+| General quote 2026-07-05 | 34.12465562909289 | 34.12465562909289 | 15 -> 15 | 58.93/C -> 58.93/C |
+
+The separate checked-in PGR issuer pipeline uses the retained 2026-10-19 quote
+and asserts that date and its exact opening-book elapsed period. XOM, BA,
+GOOGL, AMZN, NVDA, DUK, EXPE and META retain their figures/grades from the
+prior item. No new band moves. No prompt or numeric golden changes; the shared
+report/payload/Stage B/fair-value/scenario stamps stay as FIN-401 set them.
+
+Self-review was performed by the implementation sub-agent, without spawning a
+reviewer (the task requires the implementer to work directly). It checked exact
+period/date admission, restore caps, cash-principal/unknown settlement, preferred
+overlap, chosen re-run arithmetic, EPS interest/divisor, optional schema arrays,
+legacy cutoffs/idempotence, date boundaries and downstream payload provenance.
+The citation date defect found in this review was verified red then green above.
+A fresh independent integration review remains the integrator's responsibility.
+The only unresolved item is VAL-14's explicit owner admission gate; no other
+owner-level methodology question is needed. No push, PR, merge, stash, history
+rewrite, live run or full `npm run verify` was performed.
+
+Final successful receipts, all offline through Node24 wrapper and Vitest
+`--maxWorkers=2` in this continuation:
+
+| Receipt | Result |
+|---|---|
+| `b4b-final-consumers` | 822 tests / 17 files; bridge, claims, EPS, schema, fair value, scenarios, payload and job-runner consumers |
+| `b4b-final-payload-export` | 511 tests / 7 files; final payload dates, export/print, assessments and audit fixture/delta contracts |
+| `fin309-green-final` | 135 tests / 10 files; financial routes, PGR pipeline, reverse solve and legacy adapters |
+| `fin309-citation-green` | 27 tests / 2 files; final date controls and per-share payload citation dates |
+| `b4b-final-records` | 113 docs/release/stamp tests |
+| `b4b-final-typecheck-v2` | exit 0 after final production/date tests |
+| `b4b-final-lint` | exit 0, no warnings from ESLint |
+
+The pre-existing Vite CommonJS/configLoader notice remains. The two raw
+`audit:deltas` description mismatches recorded before this continuation
+(`report.balanceSheet.coverage.commentary.1`, `stageB.capital.current`) remain
+unpinned; the exact fixture/contract tests preserve their reviewed normalization
+and pass. No unrelated fix, assertion deletion, coverage floor change or full
+verify run was introduced. Diff checks found no added replacement characters,
+non-ASCII code/test lines, ticker-specific source rule or Stage B config read.

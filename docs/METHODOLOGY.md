@@ -1728,6 +1728,23 @@ Mixed or undetermined windows retain the prior treatment and explicitly say
 income is **assumed** below operating income under Regulation S-X Rule 5-03.
 Provider-built rows carry no placement field and take this disclosed default.
 
+**Financial value dates (FIN-309).** Bank, insurer and mortgage-REIT
+excess-return values roll from the opening-book date to the observed quote date
+at the cost of equity: (1 + CoE)^(days/365.25), only for 1-200 elapsed days.
+This is gross of distributions: interim dividends and buybacks are not deducted.
+When the headline qualifies, each fiscal-year alternative and sensitivity cell
+rolls from its own opening-book date at its own column's CoE, including an older
+alternative beyond 200 days. An alternative with an unknown opening date has
+no quoted-date per-share or grid cell. Reverse valuation discounts the quote
+price (or disclosed market-cap fallback) by the headline factor and retains
+the selected convertible divisor/claim. Book paths, opening equity, implied
+P/B and continuing-value share remain book-date diagnostics. Beyond 200 days
+the value stays at book with an explicit gap. Headline fair value and per-share
+payload citations use the value's actual date; book inputs retain their dates.
+No missing-input or currency refusal is relaxed. Legacy pre-1.56.0 financial
+values receive a display explanation of the earlier book/run-date mismatch;
+saved figures and dates are never rewritten.
+
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says

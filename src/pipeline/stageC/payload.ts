@@ -1135,7 +1135,7 @@ function computedSections(
     // one number from a model whose horizon, discount rate and opening book
     // value were only inferable from prose.
     valFigures.push(
-      { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: null },
+      { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf },
       { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
@@ -1158,12 +1158,12 @@ function computedSections(
     const grid = val.excessReturn.startCoeGrid;
     grid?.rows.forEach((row, i) => grid.costOfEquityPcts.forEach((c, j) => {
       valFigures.push({ label: `excess-return per share, start ${row.label} × cost of equity ${c.toFixed(1)}%`, value: grid.perShare[i]?.[j] ?? null,
-        unit: "currency/share", currency: currencies.model, source: `computed.valuation.excessReturn.startCoeGrid.r${i + 1}c${j + 1}`, asOf: val.excessReturn.asOf });
+        unit: "currency/share", currency: currencies.model, source: `computed.valuation.excessReturn.startCoeGrid.r${i + 1}c${j + 1}`, asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf });
     }));
     const alt = val.excessReturn.startAlternative;
     if (alt !== undefined) {
       valFigures.push({ label: `excess-return per share from the ${alt.label}`, value: alt.perShare, unit: "currency/share", currency: currencies.model,
-        source: "computed.valuation.excessReturn.startAlternative", asOf: alt.asOf });
+        source: "computed.valuation.excessReturn.startAlternative", asOf: val.excessReturn.valuationDate?.value ?? alt.asOf });
     }
   } else if (val.kind === "reit") {
     valFigures.push(

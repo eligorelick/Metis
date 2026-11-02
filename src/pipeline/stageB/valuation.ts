@@ -5135,6 +5135,7 @@ export function multiplesFramework(
 // ---------------------------------------------------------------------------
 
 export interface ExcessReturnInputs {
+  valuationDate?: string | null;
   convertibles?: ConvertibleInstrument[];
   totalDebt?: number | null;
   convertiblePreferredClaim?: number | null;
@@ -5291,6 +5292,7 @@ export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
+  valuationDate?: { value: string; elapsedYears: number; basis: string };
   convertibles?: ConvertibleReading[];
   equityValue: number | null;
   perShare: number | null;
@@ -5526,6 +5528,16 @@ function priceToTangibleBookVsRote(
   };
 }
 
+/** FIN-309: rates and book dates belong to each value; only the headline tests the age limit. */
+function growthFactor(fromDay: string | null, toDay: string | null, ratePct: number): number {
+  const days = fromDay && toDay ? daysBetween(fromDay, toDay) : null;
+  return days !== null && days > 0 ? Math.pow(1 + ratePct / 100, days / DAYS_PER_YEAR) : 1;
+}
+function rollForwardFactor(fromDay: string | null, toDay: string | null, ratePct: number): { factor: number; days: number } | null {
+  const days = fromDay && toDay ? daysBetween(fromDay, toDay) : null;
+  return days !== null && days > 0 && days <= MAX_ROLL_FORWARD_DAYS ? { factor: growthFactor(fromDay, toDay, ratePct), days } : null;
+}
+
 export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -5744,6 +5756,19 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     `fades linearly from ${fmtNum(payout)}% in year 1 to ${fmtNum(steadyPayout)}% in year ${years}, the steady state ` +
     `1 − g / terminal ROE = 1 − ${fmtNum(continuingG)}% / ${fmtNum(endRoe)}% at which book grows at g (clamped to 0-100%)`;
 
+  const roll = rollForwardFactor(inputs.asOf ?? null, inputs.valuationDate ?? null, coe);
+  let valuationDate: ExcessReturnResult["valuationDate"];
+  if (roll !== null) {
+    const basis = `Excess-return value rolled forward ${roll.days} days to the quote date ${inputs.valuationDate} from opening book ${inputs.asOf} at the cost of equity ${fmtNum(coe)}% (factor ${roll.factor.toFixed(6)}), gross of distributions; interim dividends and buybacks are not deducted (house convention, D-65).`;
+    valuationDate = { value: inputs.valuationDate!, elapsedYears: roll.days / DAYS_PER_YEAR, basis };
+    notes.push(`Valuation date: ${basis}`);
+  } else {
+    const elapsed = inputs.asOf && inputs.valuationDate ? daysBetween(inputs.asOf, inputs.valuationDate) : null;
+    if (elapsed !== null && elapsed > MAX_ROLL_FORWARD_DAYS) {
+      const reason = `Quote ${inputs.valuationDate} is ${elapsed} days after opening book ${inputs.asOf}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day limit; value not rolled forward, stated at the book date.`;
+      gaps.push(gapEntry("valuation.excessReturn.valuationDate", reason, "info")); notes.push(`Valuation date: ${reason}`);
+    }
+  }
   const valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   const { bookValuePath, continuingValuePv } = valued;
   let equityValue = valued.equityValue;
@@ -5774,7 +5799,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   let startAlternative: ExcessReturnStartAlternative | undefined;
   const alt = inputs.startAlternative;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue + restored;
+    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
@@ -5783,7 +5808,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       startRoePct: alt.roePct,
       bookValue: alt.bookValue,
       equityValue: altValue,
-      perShare: shares !== null ? altValue / shares : null,
+      perShare: shares !== null && !(roll && alt.asOf === null) ? altValue / shares : null,
       differencePp,
       besideHeadline: Math.abs(differencePp) > EXCESS_RETURN_START_GAP_PP,
       label: altLabel,
@@ -5808,6 +5833,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart)}% (headline)`, startReturnPct: roeStart, bookValue: bv0 },
       { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart + step)}% (headline +${step}pp)`, startReturnPct: roeStart + step, bookValue: bv0 },
     ];
+    const alternativeRow = startAlternative === undefined ? -1 : startAlternative.startRoePct < roeStart ? 0 : 2;
     if (startAlternative !== undefined) {
       rows[startAlternative.startRoePct < roeStart ? 0 : 2] = {
         label: `${startAlternative.label} (fiscal-year book value)`,
@@ -5819,14 +5845,17 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     const costOfEquityPcts = [coe - EXCESS_RETURN_GRID_COE_STEP_PP, coe, coe + EXCESS_RETURN_GRID_COE_STEP_PP];
     // Floored at 0 like the published headline (limited liability).
     const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
-    const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
+    const perShareGrid = rows.map((row, rowIndex) => costOfEquityPcts.map((c) => {
+      const rowDate = rowIndex === alternativeRow ? startAlternative!.asOf : inputs.asOf ?? null;
+      if (roll && rowDate === null) return null;
+      const factor = roll ? growthFactor(rowDate, inputs.valuationDate ?? null, c) : 1;
       if (c === coe) {
-        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) / shares);
+        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) * factor / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue + restored) / shares);
+      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue + restored) * factor / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5841,6 +5870,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
             : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
         `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
         "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
+        ...(roll ? [`cells are stated at the quote date ${inputs.valuationDate}, each rolled from its row's opening book at its column's cost of equity`] : []),
       ],
     };
   }
@@ -5878,7 +5908,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const mcap = posOrNull(inputs.marketCap);
   const price = posOrNull(inputs.price);
   const usePrice = price !== null && shares !== null;
-  const target = usePrice ? price : mcap;
+  const quoteTarget = usePrice ? price : mcap;
+  const target = quoteTarget === null ? null : quoteTarget / (roll?.factor ?? 1);
   if (target === null) {
     reverseNotes.push("skipped: market cap not provided (price or diluted shares unavailable)");
   } else {
@@ -5935,6 +5966,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       : `${evidenced!.basis}; residual income beyond year ${years} = terminal excess return x BV_N / (CoE - growth), discounted ${years} years; growth capped at ${TERMINAL_G_CAP_PCT}%${rfForG === null ? "; risk-free rate unavailable" : ` and risk-free ${fmtNum(rfForG)}%`}`,
     payoutPathPct: payoutPath, steadyStatePayoutPct: steadyPayout, payoutPathBasis,
   };
+  if (roll) reverseNotes.push(`Quote target discounted to opening book ${inputs.asOf} by the headline roll factor ${roll.factor}; the solve uses the same convertible reading and divisor as the forward value.`);
   const pTbvVsRote = priceToTangibleBookVsRote(inputs, coe, payout);
   pTbvVsRote.basis += ` ${describeFinancialValuation(financialAssumptions)}`;
   if (pTbvVsRote.withheldReason !== null && pTbvVsRote.pTbv === null) {
@@ -5943,8 +5975,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     );
   }
   return {
-    equityValue,
-    perShare,
+    equityValue: equityValue * (roll?.factor ?? 1),
+    perShare: perShare === null ? null : perShare * (roll?.factor ?? 1),
+    ...(valuationDate ? { valuationDate } : {}),
     ...(readings ? { convertibles: readings } : {}),
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },

@@ -22,6 +22,13 @@ import { ReportSchema, type Report } from "@/report/schema";
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
 const NOTE = /Valued under the equity-bridge method before report spec .*Re-run the report for the current method/;
+it("FIN-309 qualifies legacy financial value dates without rewriting the stored date", () => {
+  const report = base("1.55.0", "excess-return");
+  const view = withLegacyBridgeMethod(report);
+  expect(view.fairValue!.basis.join(" ")).toMatch(/opening-book date.*stored headline date may show the run date/);
+  expect(view.fairValue!.perShare).toEqual(report.fairValue!.perShare);
+  expect(withLegacyBridgeMethod(view)).toEqual(view);
+});
 it("FIN-407 explains the earlier admission withholding without changing stored EPS", () => {
   const report = base("1.55.0");
   const series = report.projections!.series.find(s => s.metric === "epsDiluted")!;

@@ -33,9 +33,9 @@ figure and no stored byte. The conditional convertible clause is now implemented
 awaits its disposition. The integrator assigns this D-next number; intended deltas cite
 the existing D-60/D-65 conventions until then.
 
-The rebuilt census moves XOM 191.7389267225 to 178.0877966043 per share and BA
+The FIN-401 family replay moves XOM 191.7389267225 to 178.0877966043 per share and BA
 27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
-values or refusals. Evidence and the explicitly unstarted items are recorded in
+values or refusals for that family. Continuation evidence and the VAL-14 gate are recorded in
 [the B4b disposition](2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
@@ -71,6 +71,16 @@ D-98 exclusion stays; no new verified financial-asset claim is asserted. This
 is blocked before Step1, not a completed admission repair. The exact census
 and required future placement/overlap evidence are in the same B4b disposition.
 No external research was fetched under the offline instruction.
+
+FIN-309 completes Task11's dependent financial-date work: roll only when the
+headline is 1-200 days after opening book, at CoE and gross of distributions.
+Alternatives/grid cells use their own book dates and rates, with no separate
+200-day cutoff once the headline qualifies. Reverse valuation discounts the
+price target (market-cap fallback only if needed) by the same headline factor
+and keeps the selected convertible reading. Book diagnostics are unchanged.
+Fair-value and per-share payload dates reflect quote versus book truthfully;
+legacy figures/dates are retained with a display explanation under 1.56.0.
+No prompt text changes; pipeline version stays stage-c-1.6.17.
 
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier

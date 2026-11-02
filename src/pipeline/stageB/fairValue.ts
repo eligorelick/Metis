@@ -257,7 +257,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     // not correctness). verified:true == "traced to computed inputs", the same
     // convention projections/scenarioTargets use — NOT a factual claim.
     source,
-    asOf,
+    asOf: valuation.kind === "excess-return" ? valuation.excessReturn.valuationDate?.value ?? valuation.excessReturn.asOf : asOf,
     verified: true,
   };
   const upsidePct =
@@ -271,6 +271,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
   let alternative: FairValue["alternative"];
   if (valuation.kind === "excess-return") {
     const er = valuation.excessReturn;
+    startLines.push(...er.notes.filter(n => n.startsWith("Valuation date:")));
     startLines.push(`Excess-return path: ${er.roePathPct.basis}.`);
     const alt = er.startAlternative;
     if (alt?.besideHeadline === true && isNum(alt.perShare)) {

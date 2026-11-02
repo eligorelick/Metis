@@ -57,6 +57,20 @@ const bank = (over: Partial<ExcessReturnInputs> = {}): ExcessReturnInputs => ({
 });
 
 describe("C-11: the start-return × cost-of-equity grid", () => {
+  it("FIN-309: headline, alternative and grid citations use their rolled value date", () => {
+    const bundle = buildSyntheticRouteBundle("bank");
+    if (!bundle.quote.ok) throw new Error("fixture quote");
+    bundle.quote.value.data.rows[0].timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind !== "excess-return") throw new Error("fixture route");
+    expect(computed.valuation.excessReturn.valuationDate?.value).toBe("2026-07-05");
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date(bundle.builtAt) }));
+    const figures = payload.computed.find(s => s.title === "Valuation (computed)")!.figures;
+    const perShare = figures.filter(f => f.source === "computed.valuation.excessReturn" || f.source.startsWith("computed.valuation.excessReturn.startCoeGrid.") || f.source === "computed.valuation.excessReturn.startAlternative");
+    expect(perShare).toHaveLength(11);
+    expect(perShare.every(f => f.asOf === "2026-07-05")).toBe(true);
+    expect(figures.find(f => f.source === "computed.valuation.excessReturn.openingBookValue")?.asOf).toBe("2026-03-31");
+  });
   it("shows the trailing and fiscal-year starts against the cost of equity ±1pp, centred on the headline", () => {
     const er = excessReturnModel(bank());
     const grid = er.startCoeGrid!;

@@ -170,6 +170,14 @@ function addEquityMethodReadingNote(report: Report): Report {
     `${prefix}: its long-term investments were assumed to sit below operating income; if its income was inside operating income, that stake was valued twice. Re-run the report for the current method.`] } };
 }
 
+function addFinancialDateNote(report: Report): Report {
+  const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier financial value date`;
+  const fv = report.fairValue;
+  if (fv?.status !== "available" || fv.method !== "excess-return" || fv.basis.some(line => line.startsWith(prefix))) return report;
+  return { ...report, fairValue: { ...fv, basis: [...fv.basis,
+    `${prefix}: the figure stayed at its opening-book date; its stored headline date may show the run date. Re-run the report for the current method.`] } };
+}
+
 function explainLegacyClassEps(report: Report): Report {
   const projections = report.projections;
   if (projections === undefined) return report;
@@ -203,6 +211,7 @@ export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Repor
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addEquityMethodReadingNote },
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addConvertibleReadingNote },
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: explainLegacyClassEps },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addFinancialDateNote },
 ];
 
 export function withLegacyBridgeMethod(report: Report): Report {

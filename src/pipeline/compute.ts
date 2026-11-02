@@ -4151,6 +4151,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           marketCap,
           price: currentPrice,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
+          valuationDate: quotePriceObservationDay(quote),
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).

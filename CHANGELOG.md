@@ -37,10 +37,13 @@ original versions and bytes; source merge does not deploy or publish a release.
   scope refusals still withhold. Explain older admission-withholding text.
 - VAL-14: record the OD-9 admission gate as blocked. Retained undivided AFS
   facts do not establish outside-cash placement; no asset or value is added.
+- FIN-309: roll financial excess-return values to the observed quote date within
+  200 days, with matching alternative/grid/reverse arithmetic and citation dates.
+  Retain book dates beyond the limit and qualify earlier stored date labels.
 - Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
   scenario-target stamps move with the bridge. No prompt rule text changes.
-  Remaining EPS, multi-class, fair-value-asset and book-date items continue in
-  this batch; see the B4b disposition note.
+  Seven findings are fixed; VAL-14 is blocked by the binding admission guard.
+  See the B4b disposition for measurements, receipts and remaining evidence.
 
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 
