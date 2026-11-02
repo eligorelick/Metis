@@ -2001,6 +2001,24 @@ describe("runJob - durable paid-pass settlements", () => {
     expect(await activeRunIdentity("AAPL")).toBeNull();
   });
 
+  it("P4-4 retains provider attribution when a paid repair is blocked before launch", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull"); await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("rejected"), { bull, bullLaunched: true, bearLaunched: true,
+        bearRetryable: true, bearFailureKind: "schema", bearError: "schema-invalid output" });
+    };
+    let bearPreflights = 0;
+    passes.preflightPass = (_deps, request) => { if (request.pass === "bear" && ++bearPreflights > 1) throw new Error("paid bear pass blocked by job-budget"); };
+    passes.runAnalystPass = async () => { throw new Error("must not launch"); };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result.dataOnly).toBe(true);
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find(gap => gap.field === "llm.bear")?.attemptedSources).toEqual(["anthropic"]);
+  });
+
   it.each([[false, false, false], [true, false, false], [false, true, false], [false, false, true]])("AI-510/JOB-201 recovers transitions (resume=%s mirror=%s budget=%s)", async (resume, mirror, budget) => {
     vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
     const { jobId } = createJob("AAPL");

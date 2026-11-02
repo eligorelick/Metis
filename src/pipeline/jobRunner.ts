@@ -3974,6 +3974,7 @@ export async function runJob<TPayload = unknown>(
         ? { completed: checked.kept, ...(plan ? { sectionRetryCount: 1 } : {}) } : undefined;
       if (Object.keys(checked.kept).length > 0) mode = "continue";
       let sent = initialRequest ? 0 : 1;
+      let anyLaunched = !initialRequest;
       // Fresh sends and rejected-output repair are distinct from zero-cost plan resends.
       // The facade never admits a billed/uncertain transport failure as retryable.
       let first = true;
@@ -3992,6 +3993,7 @@ export async function runJob<TPayload = unknown>(
         const out = await runAnalystRepairAttempt(side, mode, feedback,
           `${currentDetail}${carriedDetail(continuation, dropped)}`, continuation, `${sent}/${maximum}`);
         if (out.ok) return out.value;
+        anyLaunched ||= out.launched;
         const failure = passErrorDetails(out.error);
         const canRepair = isRetryableJudgeError(out.error) &&
           (failure.kind === "schema" || failure.kind === "parse") && repairs > 0;
@@ -3999,7 +4001,7 @@ export async function runJob<TPayload = unknown>(
         if (!canRepair && !canResend) {
           computed.gaps.push({ field: `llm.${side}`,
             reason: `${mode === "retry" && providerWasBusy(currentDetail) ? "retry after the provider was busy or unavailable also failed" : RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
-            severity: "critical", attemptedSources: out.launched ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [] });
+            severity: "critical", attemptedSources: anyLaunched ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [] });
           closeQueuedRepairs(`not repaired: the ${side} repair failed`);
           markSkipped(state, "synthesize", "upstream bull/bear pass failed");
           markSkipped(state, "verify", "upstream bull/bear pass failed");
