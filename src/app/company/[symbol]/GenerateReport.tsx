@@ -695,6 +695,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
 
+  const sawLiveRef = useRef(new Set<string>());
   const refreshedJobsRef = useRef(new Set<string>());
   const esRef = useRef<EventSource | null>(null);
   const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -746,6 +747,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
           const terminal = terminalStateFromSnapshot(snap);
           if (terminal !== null) requestFenceRef.current.invalidate();
           if (terminal === null) {
+            sawLiveRef.current.add(jobId);
             setPhase("running");
             return;
           }
@@ -756,7 +758,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
           } else if (terminal === "done") {
             setPhase("done");
             setError(null);
-            if (!refreshedJobsRef.current.has(jobId)) {
+            if (sawLiveRef.current.has(jobId) && !refreshedJobsRef.current.has(jobId)) {
               refreshedJobsRef.current.add(jobId);
               if (liveView) router.replace(`/company/${encodeURIComponent(symbol)}`, { scroll: false });
               else startTransition(() => router.refresh());
@@ -844,6 +846,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
           setPhase("error");
           return;
         }
+        sawLiveRef.current.add(newJobId);
         setJobId(newJobId);
         openStream(newJobId);
         return;
@@ -905,6 +908,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView }: { s
       const res = await fetch(`/api/report/${jobId}/retry`, { method: "POST" });
       if (!requestFenceRef.current.accepts(requestToken)) return;
       if (res.status === 202) {
+        sawLiveRef.current.add(jobId);
         openStream(jobId);
         return;
       }

@@ -42,12 +42,26 @@ async function render(symbol = "DEMO", initialJobId: string | null = "job-A", li
 describe("saved-page attachment to an authoritative active run", () => {
   it.each([false, true])("JOB-215 updates saved research once per completed job (live=%s)", async (live) => {
     await render("DEMO", "job-A", live); const stream = Stream.opened.at(-1)!;
+    await act(async () => stream.emit("snapshot", snapshot({ status: "running" })));
     await act(async () => stream.emit("snapshot", snapshot({ revision: 1, status: "done", settlementsPending: true })));
     await act(async () => stream.emit("snapshot", snapshot({ revision: 2, status: "done", settlementsPending: false })));
     expect(router.refresh).toHaveBeenCalledTimes(live ? 0 : 1);
     expect(router.replace).toHaveBeenCalledTimes(live ? 1 : 0);
     if (live) expect(router.replace).toHaveBeenCalledWith("/company/DEMO", { scroll: false });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+  it.each(["classic", "dossier"] as const)("P4-1 already-done resumable attachment stays on live view (%s)", async (layout) => {
+    await render("DEMO", "job-A", true, layout);
+    await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({ status: "done", dataOnly: true, resumable: true })));
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(container.textContent).toMatch(/Retry/i);
+  });
+  it("P4-1 saved-page terminal attachment does not refresh on load", async () => {
+    await render();
+    await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({ status: "done", resumable: true })));
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
   it("JOB-214 clears reconnect warning on open with an unchanged revision", async () => {
     await render(); const stream = Stream.opened.at(-1)!;
