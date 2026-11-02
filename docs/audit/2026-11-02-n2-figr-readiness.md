@@ -393,11 +393,23 @@ leaf assertions in the N2 group. F5's provider count observation is hashed and
 its source endpoint is recorded. The lender-specific Moat explanation is
 restricted to evidenced lenders; other issuers retain their previous note.
 
-Final-head receipts are n2-review-product-final, n2-review-typecheck-final and
-n2-review-lint-final. Their authoritative exits/counts, all failure history and
+Final-head receipts are n2-review-product-final-repaired,
+n2-review-typecheck-final-repaired and n2-review-lint-final-repaired. Their authoritative exits/counts, all failure history and
 the exact final SHA are recorded in tmp/claude-impl/HANDOFF.md after completion.
 Focused consumer checks include immutable stored readers, both layouts and
 Markdown/audit/print exports, common-income controls, class economics, existing
 fetch reconciliation, payload golden and exact audited fixture deltas. The
 retained-data exports are n2-review-exports-complete. No src file was added, so
 the conditional new-file risk-coverage gate is not triggered. No push or PR.
+
+
+Full-suite follow-up: n2-review-product-final ran on 0c62069f and found one
+stale complete-output hash in report.forensicObservationContext (582 files
+and 13,888 tests passed; one failed, three existing skips). The new P/TBV basis
+text is now pinned exactly once and restored only for that historical hash;
+the historical hash value itself stays unchanged. No product code or financial
+value changes. Red: n2-review-product-final; green:
+n2-review-forensic-golden-green. The entire suite is rerun on the subsequent
+committed head, with the final-repaired receipt names above. This is the only
+product failure seen in the first final-head suite; the former 16 base failures
+are fixed by integration.

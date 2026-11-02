@@ -3185,3 +3185,8 @@ The selected valuation balance date must match the named filed debt composition'
 ### D-next (N2) review follow-up: exact refusal and golden boundaries
 
 ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no admission gate is relaxed. F5 provider-count disclosure includes the provider endpoint and hash-covered observation. Moat wording changes only for evidenced lenders. The census has FIGR as the only numeric mover (59 computed paths, including removed intermediate operands); all 45 frozen issuers have only named P/TBV basis detail, and EXPE additionally has class-scope metadata/wording. Pin only the two audited P/TBV basis leaves and the exact Stage C wording occurrences; retain all earlier byte/hash/financial assertions. Owner delegated to the coordinator on 2026-11-01.
+
+
+### D-next (N2) P/TBV full-suite golden follow-up
+
+The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.

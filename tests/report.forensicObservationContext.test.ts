@@ -40,6 +40,13 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
   const pinned = restoreCapexBasisGolden(c, 1);
+  // N2 P/TBV review changes only this deduction disclosure in the control.
+  // Pin its exact text once, then preserve the complete historical hash.
+  const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;
+  const current = "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (";
+  const prior = "marketCap / (common equity - goodwill - intangibleAssets) (";
+  expect(tbv.basis.split(current)).toHaveLength(2);
+  tbv.basis = tbv.basis.replace(current, prior);
   flagOf(pinned)!.message = "TASK8_DISCONTINUED_CONTEXT";
   pinned.scores.aspects.quality.signals!.find(s => s.id === "altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";
   pinned.scores.aspects.quality.drivers.find(d => d.source === "computed.scores.quality.altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";
