@@ -1076,6 +1076,8 @@ export const DcfSchema = z
     sensitivityNotes: z.array(z.string()).optional(),
     upsidePct: z.number().nullable(),
     bridge: z.object({
+      convertibles: z.array(z.object({ kind: z.enum(["notes", "preferred"]), conversionShares: z.number(), claim: z.number().nullable(),
+        reading: z.enum(["claim", "converted", "net-share", "unresolved"]), sharesRemoved: z.number(), restored: z.number(), basis: z.string() }).strict()).optional(),
       enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
       preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
       presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),

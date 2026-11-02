@@ -1733,6 +1733,33 @@ diluted count, which carries option and RSU dilution (except a loss period's, be
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides.
 
+*Convertibles (FIN-302 / FIN-302-V1; OD-2).* Both DCF and excess-return
+compare claim and converted readings at the model's own value, publishing the
+lower (claim wins ties). The claim reading removes the same-period filed
+conversion increment from the divisor; converted keeps it and restores only
+the carrying claim already deducted. All combinations of notes and preferred
+are compared. Re-runs, grids and inverse calculations inherit that choice.
+Preferred option-value claims join the permanent preferred deduction. When
+both tags may overlap, deduct the larger and warn; add them only with an
+independently filed inclusive carrying total equal to their sum. Names in free
+text are not series evidence. Inclusive notes payable is never added to its
+current component. Claims match the bridge date; increments match the exact
+divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
+filed by acquisition. An unestablished claim or full-share settlement retains
+both claim and shares with a warning bounding understatement at N/(D - N).
+A cash-principal note keeps its principal and conversion-spread shares.
+
+A note needs a same-currency conversion price K within 366 days. Across the
+95%-105% conversion-count band, a conservative triangular blend weights the
+consistent adjustments by max(0, 1 - abs(N/(C/K) - 1)/0.05): full at 100%, zero
+at either edge. This continuously meets the conservative unchanged value;
+preferred uses full weight. Conversion-option time value is not modelled.
+Offline measurement on 2026-11-02 found no recent K among 45 census issuers
+(three before 2020; one IFRS issuer lacks the US-GAAP Assets anchor). Thus notes
+rarely qualify: the two readings mainly reach convertible preferred. A tagged
+claim with no matching increment gets an info disclosure. Stored pre-1.56.0
+valuations get a conditional convertible note without changing figures or bytes.
+
 *Loss periods (FIN-404).* A period with a loss from continuing operations files
 a diluted count equal to its basic count, because every potential share is
 antidilutive (ASC 260-10-45-17..20); that count is right for the period's EPS

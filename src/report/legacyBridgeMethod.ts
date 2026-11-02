@@ -170,6 +170,14 @@ function addEquityMethodReadingNote(report: Report): Report {
     `${prefix}: its long-term investments were assumed to sit below operating income; if its income was inside operating income, that stake was valued twice. Re-run the report for the current method.`] } };
 }
 
+function addConvertibleReadingNote(report: Report): Report {
+  const prefix = `Valued before report spec ${BRIDGE_READINGS_SINCE_SPEC_VERSION} under the earlier convertible reading`;
+  const fv = report.fairValue;
+  if (fv?.status !== "available" || (fv.method !== "fcff-dcf" && fv.method !== "excess-return") || fv.basis.some(line => line.startsWith(prefix))) return report;
+  return { ...report, fairValue: { ...fv, basis: [...fv.basis,
+    `${prefix}: if a convertible's if-converted shares were in the diluted count, its claim could also be deducted, and a convertible preferred tagged only as convertible preferred was not deducted. Re-run the report for the current method.`] } };
+}
+
 /**
  * The clauses, each with its own part's cutoff. `withLegacyBridgeMethod` checks every clause's `since` on its own and has
  * no module-wide early return, so a later part's clauses (Task 15b, under their own frozen since-version) still reach a
@@ -180,6 +188,7 @@ export const LEGACY_BRIDGE_CLAUSES: Array<{ since: string; apply: (report: Repor
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: addReitNote },
   { since: BRIDGE_METHOD_SINCE_SPEC_VERSION, apply: correctFinanceLeaseSentence },
   { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addEquityMethodReadingNote },
+  { since: BRIDGE_READINGS_SINCE_SPEC_VERSION, apply: addConvertibleReadingNote },
 ];
 
 export function withLegacyBridgeMethod(report: Report): Report {

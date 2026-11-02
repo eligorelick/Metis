@@ -18,7 +18,7 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## P1 / B4b: equity-method stakes (2026-11-02)
+## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
 
 - FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
   and derivation provenance. Remove measured inside income from projected EBIT;
@@ -27,10 +27,14 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Share the long-term-investments component floor between SEC statements and
   provider stakes fill. Explain affected stored valuations at display time under
   the frozen 1.56.0 cutoff, without rewriting figures or bytes.
+- FIN-302 / FIN-302-V1: choose one convertible reading across the DCF and
+  financial routes, with exact-period filing evidence, preferred overlap guards,
+  conservative settlement refusals and continuous conversion-count edges.
+  Every re-run and stored-report disclosure retains the chosen basis.
 - Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
   scenario-target stamps move with the bridge. No prompt rule text changes.
-  Remaining convertible, multi-class, fair-value-asset and book-date items are
-  not started in this bounded commit; see the B4b disposition note.
+  Remaining EPS, multi-class, fair-value-asset and book-date items continue in
+  this batch; see the B4b disposition note.
 
 ## Unreleased - FIG live-test follow-up (2026-11-01)
 

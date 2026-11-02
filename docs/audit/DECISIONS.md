@@ -1,6 +1,6 @@
 # Decisions
 
-## D-next (P1/B4b): equity-method income and stakes counted once (2026-11-02)
+## D-next (P1/B4b): equity bridge and invested capital (2026-11-02)
 
 FIN-401 / FIN-401-V1 implement OD-5, including pre-flight C1, I4 and I5, on
 `eecd2703`. A filed operating subtotal is classified by pretax/component
@@ -29,14 +29,27 @@ LTI component and the sales-to-capital basis's non-operating LTI treatment.
 Task 15b's proposed DCF-notes detector is adapted: those notes were payload-only,
 not a stored DcfSchema field. The actual stored basis establishes the old treatment,
 and the note's income-placement consequence remains conditional. It changes no
-figure and no stored byte. Convertible and financial-asset clauses wait for
-their repairs. The integrator assigns this D-next number; intended deltas cite
+figure and no stored byte. The conditional convertible clause is now implemented; the financial-asset clause
+awaits its disposition. The integrator assigns this D-next number; intended deltas cite
 the existing D-60/D-65 conventions until then.
 
 The rebuilt census moves XOM 191.7389267225 to 178.0877966043 per share and BA
 27.7411147513 to 27.1152067083; GOOGL, AMZN and the required controls keep their
 values or refusals. Evidence and the explicitly unstarted items are recorded in
 [the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+
+FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
+period/end and acquisition cutoffs on both routes. Unknown settlement retains
+the conservative claim-plus-shares value and a quantified bound; cash-principal
+notes retain spread shares. Each preferred claim is deducted once, using the
+larger ambiguous overlap or the sum only when an independent filed inclusive
+carrying total proves separate series. GOOGL has no permanent preferred tag at
+its bridge date, so its new 18.023B claim is deducted directly. Restore caps use
+only deducted claims. The M6 ruling is a triangular conservative adjustment
+weight across 95%-105% (full at 100%, zero at both edges), continuously returning
+to the unchanged lower value. Incorrect settlement evidence would retain too
+much claim/dilution rather than increase value. Source conventions are the
+reviewed OD-2 citations; no fresh source/network verification is claimed.
 
 Entries are dated design history, not a single current configuration. Later
 decisions and the [current audit](2026-10-03-repository-audit.md) supersede earlier

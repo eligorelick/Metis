@@ -1,3 +1,4 @@
+import { convertibleInstrumentsAt } from "@/pipeline/stageB/convertibles";
 import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
@@ -4098,6 +4099,22 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
+  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
+    confirmedIssuerFacts(bundle.symbol, bundle.edgar),
+    { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
+    isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
+    bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
+    { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
+  const bridgeConvertibles = readConvertibles(bridgePoint);
+  const financialConvertibles = readConvertibles(balPoint);
+  const instrumentsOnEconomicBasis = (read: typeof bridgeConvertibles) => {
+    // A substituted loss count already excludes conversion shares. An unresolved class count cannot be repaired here.
+    if (dilutedShareDivisor && dilutedShareDivisor.basis !== "filed") return [];
+    const factor = economicDiluted?.shares != null && dilutedShares ? economicDiluted.shares / dilutedShares : 1;
+    return read.instruments.map(i => ({ ...i, conversionShares: i.conversionShares * factor,
+      conversionPrice: i.conversionPrice === null ? null : i.conversionPrice / factor }));
+  };
+
 
   const ttmReturn = ctx.commonReturnTtm;
   const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
@@ -4126,6 +4143,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
+          convertibles: instrumentsOnEconomicBasis(financialConvertibles),
+          convertiblePreferredClaim: financialConvertibles.convertiblePreferredClaim,
+          permanentPreferred: num(balPoint?.preferredStock),
+          preferredSeriesDistinct: financialConvertibles.preferredSeriesDistinct,
+          totalDebt: num(balPoint?.totalDebt),
           marketCap,
           price: currentPrice,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
@@ -4210,6 +4232,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     bridgeBalance,
     netDebt: bridgeNetDebtInfo.value,
     dilutedShares: valuationDilutedShares,
+    convertibles: instrumentsOnEconomicBasis(bridgeConvertibles),
+    convertiblePreferredClaim: bridgeConvertibles.convertiblePreferredClaim,
+    preferredSeriesDistinct: bridgeConvertibles.preferredSeriesDistinct,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
@@ -4281,6 +4306,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   void ratiosTtm; // reserved for future ratio cross-checks
   let result = valueCompany(route, bundleInputs);
+  result.gaps.push(...(financialRoute ? financialConvertibles.gaps : bridgeConvertibles.gaps));
   // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
   // report main published. Retain its prior withheld valuation only when the
   // new attempt fails critically and the actual prior treatment did not.

@@ -22,6 +22,19 @@ import { ReportSchema, type Report } from "@/report/schema";
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
 const NOTE = /Valued under the equity-bridge method before report spec .*Re-run the report for the current method/;
+it("FIN-302 legacy convertibles are conditional, idempotent and keep every stored figure", () => {
+  for (const method of ["fcff-dcf", "excess-return"] as const) {
+    const report = base("1.55.0", method);
+    const bytes = JSON.stringify(report);
+    const view = withLegacyBridgeMethod(report);
+    expect(view.fairValue!.basis.join(" ")).toMatch(/if a convertible's if-converted shares/);
+    expect(view.fairValue!.perShare).toEqual(report.fairValue!.perShare);
+    expect(view.valuation).toEqual(report.valuation);
+    expect(withLegacyBridgeMethod(view)).toEqual(view);
+    expect(JSON.stringify(report)).toBe(bytes);
+    expect(withLegacyBridgeMethod(base("1.56.0", method))).toEqual(base("1.56.0", method));
+  }
+});
 const CLAIMS = /so any the issuer filed were not deducted/;
 const E7 = /deducted the filed retirement and environmental obligations shown in its bridge at their full amount, before the tax relief a settlement earns/;
 const LEASE = /sales-to-capital kept the 5,494M operating lease the EV left out in invested capital/;
@@ -150,7 +163,9 @@ describe("legacy equity-bridge method note", () => {
     for (const surface of surfaces(report)) expect(count(surface, NOTE)).toBe(1);
     const view = withLegacyBridgeMethod(report);
     expect(view.fairValue!.basis[0]).toBe("Stored fair value basis line.");
-    expect(view.fairValue!.basis).toHaveLength(2);
+    // FIN-302 adds one conditional B4b note beside the B4a note (2 -> 3).
+    expect(view.fairValue!.basis).toHaveLength(3);
+    expect(view.fairValue!.basis[2]).toMatch(/earlier convertible reading/);
   });
 
   it("applying the rule twice adds the note once", () => {
@@ -165,12 +180,14 @@ describe("legacy equity-bridge method note", () => {
   it("a report at or after the batch's spec carries no note", () => {
     for (const version of [BRIDGE_METHOD_SINCE_SPEC_VERSION, "9.0.0"]) {
       const report = base(version);
-      expect(withLegacyBridgeMethod(report)).toBe(report);
+      const view = withLegacyBridgeMethod(report);
+      expect({ ...view, fairValue: report.fairValue }).toEqual(report);
+      expect(view.fairValue!.basis).toHaveLength(version === "9.0.0" ? 1 : 2);
       for (const surface of surfaces(report)) expect(surface).not.toMatch(NOTE);
       const reitReport = reit(version);
       expect(withLegacyBridgeMethod(reitReport)).toBe(reitReport);
       const fin = financeOnly(version);
-      expect(withLegacyBridgeMethod(fin)).toBe(fin);
+      expect({ ...withLegacyBridgeMethod(fin), fairValue: fin.fairValue }).toEqual(fin);
     }
     // Control: B13's spec is below the cutoff, and the comparison is numeric.
     for (const version of ["1.44.0", "1.49.0", "1.9.0"]) {
@@ -239,10 +256,14 @@ describe("legacy equity-bridge method note", () => {
       const view = withLegacyBridgeMethod(atCutoff);
       expect(view.quality.notes).toContain("LATER-PART-CLAUSE");
       // This part's clauses add nothing at its own cutoff.
-      expect(view.fairValue).toEqual(atCutoff.fairValue);
+      // FIN-302: B4b now adds its conditional note at the older B4a cutoff.
+      expect({ ...view.fairValue, basis: atCutoff.fairValue!.basis }).toEqual(atCutoff.fairValue);
+      expect(view.fairValue!.basis).toHaveLength(2);
+      expect(view.fairValue!.basis[1]).toMatch(/earlier convertible reading/);
       // A report at or after the later clause's cutoff gets neither.
       const later = base("1.51.0");
-      expect(withLegacyBridgeMethod(later)).toBe(later);
+      expect(withLegacyBridgeMethod(later).quality).toBe(later.quality);
+      expect(withLegacyBridgeMethod(later).fairValue!.basis).toHaveLength(2);
     } finally {
       LEGACY_BRIDGE_CLAUSES.pop();
     }

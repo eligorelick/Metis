@@ -440,6 +440,7 @@ export interface DcfDisplay {
   sensitivityGrid: SensitivityCell[];
   sensitivityNotes?: string[];
   bridge?: {
+    convertibles?: DcfBridge["convertibles"];
     enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
     equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
     currency: string | null; asOf: string | null; nonOperatingAssets?: number;
@@ -525,6 +526,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
   return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.noncontrollingDeducted ?? dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
+    ...(dcf.bridge.convertibles ? { convertibles: dcf.bridge.convertibles } : {}),
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
     ...(dcf.bridge.nonOperatingAssets !== undefined ? { nonOperatingAssets: dcf.bridge.nonOperatingAssets } : {}),

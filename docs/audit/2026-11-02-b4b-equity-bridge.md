@@ -1,9 +1,9 @@
 # P1 / B4b: equity-method stake disposition (2026-11-02)
 
-This is a bounded first family of the requested B4b batch, based on `eecd2703`.
+This batch continues all assigned B4b items from `eecd2703`.
 The family commit is **Value equity-method stakes once from their income placement
 (FIN-401, FIN-401-V1)**; its full SHA is recorded in the implementation handoff.
-No later item has been started. The assigned order and Task 11 dependency remain.
+The FIN-401 family is preserved at `3b775ac7`; later item records follow below.
 
 ## Findings and receipts
 
@@ -14,8 +14,8 @@ wrapper ran `npm ci` using Node 24; the lockfile was not changed.
 |---|---|---|---|---|
 | FIN-401 | Fixed | Family commit named above | `fin401-red-confirmed` / `fin401-green-final` | Conditional display-time method note; figures and bytes retained |
 | FIN-401-V1 | Fixed | Same family commit | `fin401-red-confirmed` / `fin401-green-final` | Same note, including filed operating subtotals |
-| FIN-302 | Not started | None | None | Earlier convertible treatment remains |
-| FIN-302-V1 | Not started | None | None | Earlier financial-route treatment remains |
+| FIN-302 | Fixed | FIN-302 family commit (handoff) | `fin302-red-confirmed` / `fin302-green-final` | Conditional pre-1.56.0 note; saved figures retained |
+| FIN-302-V1 | Fixed | Same family commit | Same receipts | Same note for excess-return values |
 | FIN-302-V2 | Not started | None | None | Earlier EPS interest/divisor treatment remains |
 | FIN-407 | Not started | None | None | Earlier multi-class EPS withholding remains |
 | VAL-14 | Not started | None | None | No new fair-value financial-asset admission |
@@ -173,3 +173,70 @@ provider rows without placement, mixed windows, unavailable same-date stake
 breakouts and untagged income amounts. No amount is estimated to fill a gap.
 The integrator must assign D-next, merge the remaining tracks, and run the full
 release verification. This implementation does not push, open a PR or merge.
+
+## FIN-302 / FIN-302-V1 continuation
+
+The corrected normal-suite fixture fails all seven assertions at `3b775ac7`
+(`fin302-red-confirmed`) and passes on the repair. `fin302-stored-red` proves
+the missing stored note. `fin302-green-final` passes 112 tests in eight files,
+including B4a loss divisors, financial start/payout, D-65 and legacy controls.
+The older legacy tests now explicitly expect the added B4b note while preserving
+their B4a cutoff, number and idempotence assertions (basis length 2 -> 3).
+Optional stored convertible readings survive the strict schema and reach the
+shared audit tables used by classic/dossier, Markdown and print; absent arrays
+remain optional. No prompt text, method stamp or numeric golden changes.
+
+The reader measures core-form facts filed by acquisition, exact bridge-date
+claims, exact-period increments (80-100 / 350-380 days), inclusive notes totals,
+and independently proven preferred-series totals. No SEC/model/provider calls.
+`conversion-census.json` records all 45 issuers: no recent K; historical K only
+NVDA 2019-01-27, PLD 2014-06-30 and TSLA 2014-03-31; TSM out of scope. DUK
+has a current 1M note increment but no K; EXPE's current increment is zero;
+GOOGL 16M quarterly preferred shares (8M YTD rejected); PG 68.3M annual.
+GOOGL files only convertible-preferred carrying value, no permanent preferred
+carrying tag at 2026-06-30. There is no evidence for two preferred series there.
+W-rare wording therefore applies. Reviewed OD-2 sources are retained as owner
+instructions, not re-fetched under the offline restriction.
+
+The continuous M6 rule uses triangular adjustment weight across the band;
+full two-reading comparison at N=C/K, zero adjustment at 95%/105%, unchanged
+conservative value outside. Tests verify both edges, unknown claims, cash
+principal, wrong currency, future filings, old K, YTD rejection, inclusive debt,
+all four combinations and preferred overlap. It ignores option time value.
+
+The rebuilt census (`fin302-replay-before-v3`, `fin302-replay-after`) moves
+GOOGL DCF/share 215.592621376525 -> 214.40710782751535 (-1.18551354900965,
+-0.5499%). Its 18.023B claim is deducted once and 16M shares leave the divisor.
+Valuation 22.14 -> 21.94; composite 63.88/C -> 63.84/C. Forecast EPS
+[11.23,13.08,14.81,16.39,17.81] becomes withheld on the senior preferred claim,
+as required by OD-1. XOM, BA, AMZN, NVDA, DUK, KO and all tested refusals
+retain per-share figures and grades. PG remains withheld; SNOW is disclosure
+only. More injected-shape receipts are recorded in the handoff.
+
+Injected shapes use the same rebuilt census harness (TSX aliases explicitly
+point to each side), receipts `fin302-shapes-before-v3` / `fin302-shapes-after`.
+Synthetic financial shapes retain the finding's route fixtures; model quote and
+all existing controls are unchanged. Valuation score is unavailable on these
+synthetic financial fixtures on both sides; their composite score is retained.
+
+| Injected shape | Before/share | After/share | Composite before -> after |
+|---|---:|---:|---|
+| NVDA-notes-50B | 305.517459307272 | 307.5613571077288 | 80.04 -> 80.13 |
+| NVDA-preferred-50B | 312.38397491189676 | 314.4278727123535 | 80.41 -> 80.45 |
+| NVDA-preferred-400B | None | None | 75.41 -> 75.41 |
+| bank-control | 12.467587163860598 | 12.467587163860598 | 63.88 -> 63.88 |
+| bank-notes | 11.71652769615815 | 12.18640721423044 | 63.87 -> 63.87 |
+| bank-preferred | 11.33417014896418 | 11.788715603509635 | 63.86 -> 63.86 |
+| insurer-control | 12.30951084413699 | 12.30951084413699 | 65.92 -> 65.92 |
+| insurer-notes | 11.567974046297412 | 12.0378535643697 | 65.9 -> 65.9 |
+| insurer-preferred | 11.190464403760899 | 11.645009858306354 | 65.89 -> 65.89 |
+| mreit-control | 13.066900267444916 | 13.066900267444916 | 65.92 -> 65.92 |
+| mreit-notes | 12.279737600731366 | 12.749617118803656 | 65.9 -> 65.9 |
+| mreit-preferred | 11.879000243131742 | 11.191334135837607 | 65.89 -> 65.89 |
+
+The 400B preferred scale input remains outside the DCF domain on both sides;
+no per-share or EPS value is published. The mortgage-REIT preferred fixture
+had no preferred carrying claim in its original row: the new 50M claim is
+therefore first deducted from common book, explaining its conservative decline.
+The bank and insurer rows already deducted their 50M preferred claim. No
+assertion, grade threshold, coverage floor or refusal is loosened.

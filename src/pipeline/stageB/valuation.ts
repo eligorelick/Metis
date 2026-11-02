@@ -17,6 +17,7 @@
  * Methodology source: the valuation methodology (Damodaran-standard).
  */
 
+import { convertibleVariants, convertibleReadingGaps, foldConvertiblePreferred, type ConvertibleInstrument, type ConvertibleReading } from "@/pipeline/stageB/convertibles";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
@@ -2669,6 +2670,7 @@ export function forecastYearPeriod(anchorEndDate: string, t: number, basis: DcfF
 
 /** The EV→equity→per-share bridge a DCF result was computed with. */
 export interface DcfBridge {
+  convertibles?: ConvertibleReading[];
   netDebt: number | null;
   dilutedShares: number | null;
   minorityInterest: number | null;
@@ -5133,6 +5135,11 @@ export function multiplesFramework(
 // ---------------------------------------------------------------------------
 
 export interface ExcessReturnInputs {
+  convertibles?: ConvertibleInstrument[];
+  totalDebt?: number | null;
+  convertiblePreferredClaim?: number | null;
+  permanentPreferred?: number | null;
+  preferredSeriesDistinct?: boolean;
   /** BV0: equity on the same ownership/asset basis as currentRoePct. */
   bookValue: number | null;
   /** Production financial routes value only the equity belonging to common holders. */
@@ -5284,6 +5291,7 @@ export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
+  convertibles?: ConvertibleReading[];
   equityValue: number | null;
   perShare: number | null;
   /** equityValue / BV0 — sanity anchor vs (ROE - g)/(CoE - g). */
@@ -5521,6 +5529,12 @@ function priceToTangibleBookVsRote(
 export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  const preferredFold = foldConvertiblePreferred(inputs.permanentPreferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
+  const additionalPreferred = Math.max(0, (preferredFold.preferred ?? 0) - (inputs.permanentPreferred ?? 0));
+  if (preferredFold.gap) gaps.push(preferredFold.gap);
+  if (additionalPreferred > 0) inputs = { ...inputs,
+    bookValue: inputs.bookValue == null ? null : inputs.bookValue - additionalPreferred,
+    startAlternative: inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue - additionalPreferred } : inputs.startAlternative };
   const years = inputs.years ?? EXCESS_RETURN_YEARS;
   const reverseNotes: string[] = [];
   // WS5: the horizon, the discount rate and the opening book value are printed
@@ -5730,8 +5744,25 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     `fades linearly from ${fmtNum(payout)}% in year 1 to ${fmtNum(steadyPayout)}% in year ${years}, the steady state ` +
     `1 − g / terminal ROE = 1 − ${fmtNum(continuingG)}% / ${fmtNum(endRoe)}% at which book grows at g (clamped to 0-100%)`;
 
-  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
-  const shares = posOrNull(inputs.dilutedShares);
+  const valued = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
+  const { bookValuePath, continuingValuePv } = valued;
+  let equityValue = valued.equityValue;
+  let shares = posOrNull(inputs.dilutedShares);
+  let restored = 0;
+  let readings: ConvertibleReading[] | undefined;
+  if (inputs.convertibles?.length && shares !== null) {
+    const filedShares = shares;
+    let best = Infinity;
+    for (const variant of convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0, notes: inputs.totalDebt ?? 0 })) {
+      const d = filedShares - variant.sharesRemoved;
+      const c = variant.restored.notes + variant.restored.preferred;
+      const value = (valued.equityValue + c) / d;
+      if (d > 0 && value < best) { best = value; shares = d; restored = c; readings = variant.readings; }
+    }
+    equityValue += restored;
+    const entries = convertibleReadingGaps(readings ?? [], filedShares);
+    gaps.push(...entries); notes.push(...entries.map(e => e.reason));
+  }
   // FIN-506: the reverse solve must invert the exact admitted forward divisor.
   const perShareOf = (equity: number): number | null => shares !== null ? equity / shares : null;
   const perShare = perShareOf(equityValue);
@@ -5743,7 +5774,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   let startAlternative: ExcessReturnStartAlternative | undefined;
   const alt = inputs.startAlternative;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue;
+    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue + restored;
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
@@ -5790,12 +5821,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
     const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
       if (c === coe) {
-        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue / shares);
+        return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue + restored) / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue / shares);
+      return cell((excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue + restored) / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5858,7 +5889,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue;
+      const value = excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue + restored;
       return (usePrice ? perShareOf(value)! : value) - target;
     };
     const fLo = f(lo);
@@ -5914,6 +5945,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   return {
     equityValue,
     perShare,
+    ...(readings ? { convertibles: readings } : {}),
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
     payoutRatioPct: { value: payout, basis: `${payoutBasis}; the year-1 payout, which fades linearly to the steady-state ${fmtNum(steadyPayout)}% by year ${years} (1 − g / terminal ROE)` },
@@ -6127,6 +6159,9 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
 // ---------------------------------------------------------------------------
 
 export interface ValuationBundleInputs {
+  convertibles?: ConvertibleInstrument[];
+  convertiblePreferredClaim?: number | null;
+  preferredSeriesDistinct?: boolean;
   currentPrice: number | null;
   waccPct: number | null;
   /** Why `waccPct` is null (the WACC's own gap), quoted by the DCF gap (VAL-10). */
@@ -6344,6 +6379,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     } };
   }
 
+  // FIN-302 C2: deduct each filed preferred series once before offering conversion readings.
+  const foldedPreferred = foldConvertiblePreferred(inputs.preferred ?? null, inputs.convertiblePreferredClaim, inputs.preferredSeriesDistinct);
+  inputs = { ...inputs, preferred: foldedPreferred.preferred };
+  if (foldedPreferred.gap) gaps.push(foldedPreferred.gap);
   // FIN-119 (OD-1): redeemable preferred and redeemable NCI are claims senior to
   // common, carried outside every equity field the bridge reads. Fold them into
   // `preferred` and `minorityInterest` here, before the E-5 block, so the
@@ -6923,7 +6962,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       }
       if (temporaryEquityNote !== null) notes.push(temporaryEquityNote);
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
-      const runOpts: DcfRunOptions = {
+      let runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
         netDebt: netDebtForBridge,
         dilutedShares: inputs.dilutedShares,
@@ -6934,6 +6973,27 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      if (inputs.convertibles?.length && dcf.perShare !== null) {
+        const original = runOpts;
+        const variants = convertibleVariants(inputs.convertibles, { preferred: inputs.convertiblePreferredClaim ?? 0,
+          notes: Math.max(0, inputs.bridgeBalance?.totalDebt ?? inputs.multiples.balance?.totalDebt ?? 0) });
+        let best: DcfResult | null = null;
+        for (const variant of variants) {
+          const shares = original.dilutedShares === null ? null : original.dilutedShares - variant.sharesRemoved;
+          if (shares === null || shares <= 0) continue;
+          const candidateOpts = { ...original, dilutedShares: shares,
+            netDebt: original.netDebt === null ? null : original.netDebt - variant.restored.notes,
+            preferred: (original.preferred ?? 0) - variant.restored.preferred };
+          const candidate = runDcf(assumptions, candidateOpts);
+          if (candidate.perShare !== null && (best === null || candidate.perShare < best.perShare!)) {
+            best = candidate; runOpts = candidateOpts; candidate.bridge.convertibles = variant.readings;
+          }
+        }
+        if (best !== null) dcf = best;
+        const entries = convertibleReadingGaps(dcf.bridge.convertibles ?? [], original.dilutedShares);
+        gaps.push(...entries); notes.push(...entries.map(e => e.reason));
+      }
+
       // Audit 2026-10-22 B-29: a DCF outside its domain publishes nothing
       // built from its per-share. The bridge and year rows stay, so a reader
       // sees why; the critical gap names the failed test.
@@ -7017,9 +7077,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // divides by basic shares outstanding at the quote date.
       const quotePrice = inputs.multiples.quote.price;
       const quoteCap = inputs.multiples.quote.marketCap;
-      if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
+      if (isNum(dcf.bridge.dilutedShares) && dcf.bridge.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
         const implied = quoteCap / quotePrice;
-        const diff = (inputs.dilutedShares / implied - 1) * 100;
+        const diff = (dcf.bridge.dilutedShares / implied - 1) * 100;
         // D-65: the reader sees both share counts beside the bridge.
         dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
@@ -7028,10 +7088,10 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           const substituted = divisor?.basis === "loss-period-substituted" ? divisor : null;
           const basicOnly = divisor?.basis === "loss-period-basic";
           const head = substituted !== null
-            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(inputs.dilutedShares)}`
+            ? `Per-share values divide by the latest period's basic count plus the award dilution of the profitable period (${substituted.donorPeriod} ${substituted.donorDate}) (the latest period is a loss, so its filed diluted count carries none), ${fmtMoney(dcf.bridge.dilutedShares)}`
             : basicOnly
-              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(inputs.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
-              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}`;
+              ? `Per-share values divide by the latest period's basic count, ${fmtMoney(dcf.bridge.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
+              : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
           const tail = basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
