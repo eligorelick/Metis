@@ -20,6 +20,8 @@ Every replay is offline. Stored reports are never rewritten.
 
 | FIN-116 | Fixed: The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost. | Owning FIN-116 commit | fin-116-red / fin-116-green | Stored figures unchanged |
 
+| FIN-405 | Fixed: Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report. | Owning FIN-405 commit | fin-405-red / fin-405-green | Stored figures unchanged |
+
 ## Evidence and residuals
 
 The non-deductible-charge synthetic tax seed moves from 35% to 21.0526316%

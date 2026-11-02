@@ -3605,3 +3605,7 @@ outside-range inference rather than implying a price-supported growth rate.
 ## D-next (P2) - FIN-116 (2026-11-02)
 
 The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost. Stored reports remain immutable.
+
+## D-next (P2) - FIN-405 (2026-11-02)
+
+Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report. Stored reports remain immutable.

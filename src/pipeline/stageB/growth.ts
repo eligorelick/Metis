@@ -614,7 +614,7 @@ export function computeGrowth(
   const threeYearPoint = revenueCagrs.find((c) => c.windowYears === 3) ?? cagrForWindow(revenueSeries, 3);
   // Latest YoY only counts when it truly spans ~1 year of history.
   const latestYoyPct =
-    yoyPoint.cagrPct !== null && yoyPoint.actualYears !== null && yoyPoint.actualYears >= 0.75 && yoyPoint.actualYears <= 1.5
+    yoyPoint.endDate === inc[0]?.date && yoyPoint.cagrPct !== null && yoyPoint.actualYears !== null && yoyPoint.actualYears >= 0.75 && yoyPoint.actualYears <= 1.5
       ? yoyPoint.cagrPct
       : null;
   // Preserve degraded CAGR windows above, but a differently sized window
@@ -626,6 +626,7 @@ export function computeGrowth(
     "revenue acceleration = latest YoY minus 3y CAGR (house framing)",
   ];
   if (latestYoyPct === null) accelNotes.push("latest YoY unavailable");
+  if (yoyPoint.endDate !== inc[0]?.date) accelNotes.push("newest annual revenue unavailable; an older endpoint is not current growth");
   if (!threeYearSpanMatches && threeYearPoint.cagrPct !== null) {
     const reason = `3y revenue acceleration benchmark withheld: actual span is ${threeYearPoint.actualYears?.toFixed(2) ?? "unknown"} years, outside the 3y horizon (±0.05y fiscal-calendar tolerance)`;
     accelNotes.push(reason);

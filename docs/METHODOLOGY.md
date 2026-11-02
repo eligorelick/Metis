@@ -6337,3 +6337,5 @@ equity; withheld candidates cannot supply range bounds or bridge a bracket.
 If the full scan is not in-domain, no beyond-range growth claim is inferred.
 
 P2 (FIN-116): The latest debt balance used for WACC weights also admits the debt leg. Average debt is only the effective-rate denominator; newly borrowed debt cannot imply an all-equity rate, and fully repaid debt needs no debt cost.
+
+P2 (FIN-405): Latest revenue YoY and acceleration are withheld when their endpoint is older than the newest annual flow row; an older comparison cannot be dated as current in the payload or report.
