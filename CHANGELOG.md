@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.58.0** and
-payload **1.62.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run and extra-high audit fixes). The
+Current source declares application **0.1.0**, report spec **1.59.0** and
+payload **1.63.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes and the priority fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -34,7 +34,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Accept catalyst/risk reasoning as a legacy single sourced claim or a non-empty claim list. New judge schemas and generation use lists; prompts ask for one to four separately sourced FACT/JUDGMENT claims.
 - Keep legacy objects, verification paths and UI/Markdown/print/audit output unchanged. Render new claim lists as short paragraphs with individual citations and verification marks; check every claim at its indexed path.
 - Replay the retained extra-high FIGR section offline (seven catalysts and twelve risks) without a repair request. Restore omitted nullable dates within the object/list union; reject empty lists and malformed claims. Add legacy presentation goldens and independent sibling-claim verification regressions.
-- Version constants are unchanged as requested; integration needs report spec `1.58.0` → `1.59.0` and pipeline `stage-c-1.6.20` → `stage-c-1.6.21` (D-next, P2). No live provider calls, stored-report migration or financial methodology changes.
+- Stamps for this round move once at integration (D-172). No live provider calls, stored-report migration or financial methodology changes.
 
 ## Unreleased - Separate analyst research from writing (2026-11-03)
 

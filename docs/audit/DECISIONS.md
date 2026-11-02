@@ -11,32 +11,6 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
-## D-next (P1) - Separate analyst research and retain synthesis cache (2026-11-03)
-
-- **Evidence/options.** Both paid FIGR bull attempts returned the same empty outline; extra-high spent $2.2965, 38,666 output tokens and seven searches before a $0.763 tool-free repair succeeded. Synthesis rewrote a 140,207-token prefix across requests more than five minutes apart. Options: keep repairing combined search/grammar requests, split in the provider, or split in the pass layer using existing checkpoints.
-- **Choice.** The pass layer runs independent bull/bear plain-text research, then tool-free schema writing, each admitted/settled by the existing provider mechanism. Bull's first research stream event still releases bear. Notes and observed URL/title/page-age sources are untrusted material after the payload; they are checkpointed before writing and retained in success/failure artifacts. Repairs, continuations and restarts reuse successful research without rebilling it. Failed research stops the pass and is retried only as a fresh research request; an empty successful result is checkpointed and writing discloses the limitation. ChatGPT/Gemini subscription adapters expose no search, so remain unchanged.
-- **Cache/limits.** Only synthesis uses 1h payload and case breakpoints (two of four; equal TTLs). Reported 5m/1h write buckets determine actual cost; missing buckets on a 1h request use the 1h rate. Bounds include the writer request and 1h synthesis rates. No cross-pass sharing is assumed: [Anthropic caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) invalidates prefixes on tool changes, and [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) changes the system prefix when `output_config.format` changes. The grammar/search mechanism is a hypothesis, not live-confirmed. Search quality, real cache hits and realized savings require an owner-approved live run. Required follow-up stamps: report spec and pipeline; payload bytes/schema are unchanged.
-
-## D-next (P2) - Separately sourced catalyst and risk reasoning (2026-11-03)
-
-- **Evidence.** Both owner-approved FIGR runs on 2026-11-02 returned catalyst/risk reasoning as claim arrays. The single-object schema discarded the entire section and required another paid request (about $1.71 in the extra-high run). Its retained section contains seven catalysts and twelve risks, with two to six claims per item; one claim also omits nullable `asOf`.
-- **Choice and alternatives.** Accept a single sourced claim or a non-empty sourced-claim array. New judge requests and normalized generation use arrays; ask for one to four concise claims, each with its own source/date, separating FACT from JUDGMENT. Do not flatten claims into one citation or discard additional claims to meet a prompt length preference. This replaces the unverified single-object prompt rule recorded in the preceding FIGR audit.
-- **Compatibility and verification.** Stored single objects keep their shape, unindexed verification paths and exact UI/Markdown/print/audit output. New array claims retain indexed paths such as `catalystsRisks.catalysts[0].reasoning[1]`; each is checked and marked independently. Existing recursive claim/evidence, verification-mark, audit and completeness traversal already handles lists. Transport `reasoning.effort` and grade-block reasoning are separate contracts. New rationale lists read as one paragraph with a separate citation and mark for each claim.
-- **Risks and reversibility.** Accepting the shape does not establish factual support; all source, date, numeric and label checks still apply. Empty arrays and malformed claims remain invalid. Nullable omission restoration now traverses the object/list union. No stored report is migrated. A frozen public-data extract reproduces the paid failure offline; no provider requests or owner stores are used by the tests.
-- **Validation and stamps.** Regression tests cover legacy presentation hashes, new lists, independent validated/contradicted marks and the retained section completing with one simulated request. Version constants remain unchanged under the task's explicit no-bump instruction. Integration needs report spec `1.58.0` → `1.59.0` (minor, accepted report shape) and pipeline `stage-c-1.6.20` → `stage-c-1.6.21` (patch, generation rules/normalization); the payload shape is unchanged.
-
-## D-next (P3) - Company and market analysis (2026-11-03)
-
-- **Choice.** Add optional `business.marketStructure` and `competitive.competitors` sourced-claim arrays. Request them in fresh judge output; preserve absent fields in stored reports. Existing recursive evidence checks and claim marks apply to both. Market figures require cited evidence; interpretation remains JUDGMENT.
-- **Reading.** Lead with the business and investment debate, judging meaningful P/E, P/B or P/TBV against growth, returns and earnings quality when intrinsic/peer anchors are missing. Omit provider peer rows when none survives the screen; stored rows remain unchanged. Put process details first in the appendix, with key data before the verdict.
-- **Scope.** No provider calls, financial calculations, rating/grade rules, catalyst/risk reasoning or historical fixture bytes change. Report-spec and pipeline stamp bumps are deferred to integration. Offline regressions cover schema/continuation, evidence marks, all renderers and front-page order; live narrative quality remains untested.
-
-## D-next (P4) - Bounded unlettered 20-F risk factors (2026-11-03)
-
-- Fall back only after existing layers find no 20-F Item 3D; require standalone Risk Factors within standalone Item 3 and Item 4 headers, retaining every existing header rejection rule and the stub detector.
-- Trimmed TSMC regressions cover cross-references, missing boundaries, stubs and a lettered control; read-only cached FY2025 extraction returns 60,948 characters without provider calls. Other unobserved markup may still refuse extraction.
-- A payload version bump is required at integration because affected filers now supply risk factors to analysts. No stamp or decision number is assigned in this repair; stored reports remain untouched.
-
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.
@@ -4666,3 +4640,53 @@ the technicals and score claims that quote the unfinished session (D-163) plus
 the servicing rollforward and one restricted-cash line. Tests:
 `tests/report.earningsSchedule.test.ts`, `tests/evidenceSelection.context.test.ts`,
 `tests/stageC.claimEvidence.r7.test.ts`.
+
+## D-168 - P1: Separate analyst research and retain synthesis cache (2026-11-03)
+
+- **Evidence/options.** Both paid FIGR bull attempts returned the same empty outline; extra-high spent $2.2965, 38,666 output tokens and seven searches before a $0.763 tool-free repair succeeded. Synthesis rewrote a 140,207-token prefix across requests more than five minutes apart. Options: keep repairing combined search/grammar requests, split in the provider, or split in the pass layer using existing checkpoints.
+- **Choice.** The pass layer runs independent bull/bear plain-text research, then tool-free schema writing, each admitted/settled by the existing provider mechanism. Bull's first research stream event still releases bear. Notes and observed URL/title/page-age sources are untrusted material after the payload; they are checkpointed before writing and retained in success/failure artifacts. Repairs, continuations and restarts reuse successful research without rebilling it. Failed research stops the pass and is retried only as a fresh research request; an empty successful result is checkpointed and writing discloses the limitation. ChatGPT/Gemini subscription adapters expose no search, so remain unchanged.
+- **Cache/limits.** Only synthesis uses 1h payload and case breakpoints (two of four; equal TTLs). Reported 5m/1h write buckets determine actual cost; missing buckets on a 1h request use the 1h rate. Bounds include the writer request and 1h synthesis rates. No cross-pass sharing is assumed: [Anthropic caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) invalidates prefixes on tool changes, and [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) changes the system prefix when `output_config.format` changes. The grammar/search mechanism is a hypothesis, not live-confirmed. Search quality, real cache hits and realized savings require an owner-approved live run. Required follow-up stamps: report spec and pipeline; payload bytes/schema are unchanged.
+
+## D-169 - P2: Separately sourced catalyst and risk reasoning (2026-11-03)
+
+- **Evidence.** Both owner-approved FIGR runs on 2026-11-02 returned catalyst/risk reasoning as claim arrays. The single-object schema discarded the entire section and required another paid request (about $1.71 in the extra-high run). Its retained section contains seven catalysts and twelve risks, with two to six claims per item; one claim also omits nullable `asOf`.
+- **Choice and alternatives.** Accept a single sourced claim or a non-empty sourced-claim array. New judge requests and normalized generation use arrays; ask for one to four concise claims, each with its own source/date, separating FACT from JUDGMENT. Do not flatten claims into one citation or discard additional claims to meet a prompt length preference. This replaces the unverified single-object prompt rule recorded in the preceding FIGR audit.
+- **Compatibility and verification.** Stored single objects keep their shape, unindexed verification paths and exact UI/Markdown/print/audit output. New array claims retain indexed paths such as `catalystsRisks.catalysts[0].reasoning[1]`; each is checked and marked independently. Existing recursive claim/evidence, verification-mark, audit and completeness traversal already handles lists. Transport `reasoning.effort` and grade-block reasoning are separate contracts. New rationale lists read as one paragraph with a separate citation and mark for each claim.
+- **Risks and reversibility.** Accepting the shape does not establish factual support; all source, date, numeric and label checks still apply. Empty arrays and malformed claims remain invalid. Nullable omission restoration now traverses the object/list union. No stored report is migrated. A frozen public-data extract reproduces the paid failure offline; no provider requests or owner stores are used by the tests.
+- **Validation and stamps.** Regression tests cover legacy presentation hashes, new lists, independent validated/contradicted marks and the retained section completing with one simulated request. Version constants remain unchanged under the task's explicit no-bump instruction. Integration needs report spec `1.58.0` → `1.59.0` (minor, accepted report shape) and pipeline `stage-c-1.6.20` → `stage-c-1.6.21` (patch, generation rules/normalization); the payload shape is unchanged.
+
+## D-170 - P3: Company and market analysis (2026-11-03)
+
+- **Choice.** Add optional `business.marketStructure` and `competitive.competitors` sourced-claim arrays. Request them in fresh judge output; preserve absent fields in stored reports. Existing recursive evidence checks and claim marks apply to both. Market figures require cited evidence; interpretation remains JUDGMENT.
+- **Reading.** Lead with the business and investment debate, judging meaningful P/E, P/B or P/TBV against growth, returns and earnings quality when intrinsic/peer anchors are missing. Omit provider peer rows when none survives the screen; stored rows remain unchanged. Put process details first in the appendix, with key data before the verdict.
+- **Scope.** No provider calls, financial calculations, rating/grade rules, catalyst/risk reasoning or historical fixture bytes change. Report-spec and pipeline stamp bumps are deferred to integration. Offline regressions cover schema/continuation, evidence marks, all renderers and front-page order; live narrative quality remains untested.
+
+## D-171 - P4: Bounded unlettered 20-F risk factors (2026-11-03)
+
+- Fall back only after existing layers find no 20-F Item 3D; require standalone Risk Factors within standalone Item 3 and Item 4 headers, retaining every existing header rejection rule and the stub detector.
+- Trimmed TSMC regressions cover cross-references, missing boundaries, stubs and a lettered control; read-only cached FY2025 extraction returns 60,948 characters without provider calls. Other unobserved markup may still refuse extraction.
+- A payload version bump is required at integration because affected filers now supply risk factors to analysts. No stamp or decision number is assigned in this repair; stored reports remain untouched.
+
+## D-172 - Integrating the priority fixes (2026-11-03)
+
+The PR #83 review fixes and D-168 to D-171 were built separately and combined on
+one branch. Each change ships in one stamp bump: report 1.59.0, payload 1.63.0,
+pipeline stage-c-1.6.21, and Stage B, fair value and scenario targets
+`PRIORITY_FIXES_42`.
+
+- **Review fixes on PR #83.** These went to main with the merge; the stamps move here.
+  - A dividend increase keeps the payment and record dates its sentence states.
+  - A filed CFO identity establishes only operating cash flow's twelve months, so
+    other quarterly flows are summed only over four contiguous single-currency
+    quarters. This can change current-capital operands, hence the Stage B and
+    valuation stamps.
+  - A saved page attached to a run that finished before its first snapshot
+    refreshes when that run saved a different report.
+- **Interaction.** D-169 pins a presentation fingerprint of a legacy report.
+  Rendering that report with D-169 alone and with D-169 and D-170 together differs
+  only in D-170's intended front-page changes: the process table moves to "About
+  this report", the front page shows the report date, and the title reads "Equity
+  Research Report". The fingerprint was updated on that evidence.
+- **Not verified offline.** These need a live run: research quality and length,
+  realised one-hour cache hits, and whether the judge now writes the
+  market-structure and competitor claims well.
