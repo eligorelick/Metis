@@ -165,11 +165,11 @@ export function renderConfigBlock(sections, schemaKeys) {
     throw new Error(`.env.example documents no ${undocumented.join(", ")}; every validated key must appear there`);
   }
   const lines = [CONFIG_BEGIN, ""];
-  lines.push("Every key is optional. This table is generated from `.env.example`, which");
-  lines.push("carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;");
-  lines.push("explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).");
+  lines.push("Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.");
+  lines.push("Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy");
+  lines.push("`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).");
   lines.push("");
-  lines.push("| Key | Shipped value / opt-in example | What it does |");
+  lines.push("| Key | Shipped value, built-in default or opt-in example | What it does |");
   lines.push("| --- | --- | --- |");
   for (const section of sections) {
     for (const entry of section.entries) {
