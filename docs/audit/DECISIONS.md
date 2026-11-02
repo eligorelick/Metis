@@ -3142,3 +3142,8 @@ Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle
 ### D-next (P5): A-F8 (AI-508) review correction
 
 Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. The note says because not both operands are proven current; the duplicated methodology paragraph is removed. Notes no longer list every window of the change filing. Stored report bytes are unchanged.
+
+
+### D-next (P5): B-F1/B-F5 (AI-506) review correction
+
+Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. Coordinator decision: an unread earnings amount is not proof that none was stated. With no results release retained, release FCF, capital return and reconciliation rows are withheld too. D-112 retention now prioritizes non-dollar results classified by the expanded token; the four-record cap and final period order stay unchanged. Stored report bytes are unchanged.

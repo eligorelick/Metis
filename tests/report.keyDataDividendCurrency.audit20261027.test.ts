@@ -13,7 +13,8 @@ function run(currency: string) {
     filing: { accessionNumber: "0000000001-26-000001", filingDate: "2026-07-01", acceptanceDateTime: undefined },
     releaseUrl: "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/ex99.htm",
     commentaryUrl: null, commentaryText: null, includeNarrative: true,
-    releaseText: "Synthetic Corp Reports Results. The Board declared a quarterly cash dividend of $0.50 per share.",
+    // AI-506/OD-10: a release that states no earnings amount is an operating update.
+    releaseText: "Net income was $10.0 million, or $0.10 per diluted share. Synthetic Corp Reports Results. The Board declared a quarterly cash dividend of $0.50 per share.",
   });
   bundle.edgar.currentReports = { ok: true, value: { source: "edgar", endpoint: "fixture", asOf: "2026-07-01", fetchedAt: bundle.builtAt,
     data: { version: CURRENT_REPORTS_VERSION, releases: [release], events: [], notes: [] } } };

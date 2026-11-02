@@ -677,7 +677,7 @@ const OUTLOOK_OR_DIVIDEND = /\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es
  */
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
-  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
+  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US\$|\$|USD|EUR|GBP|JPY|CNY|RMB|\u20ac|\u00a3|\u00a5)\s?\(?\d|(?:US\$|\$|USD|EUR|GBP|JPY|CNY|RMB|\u20ac|\u00a3|\u00a5)\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
     .some((m) => !OUTLOOK_OR_DIVIDEND.test(sentencePrefix(text, m.index) +
       text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }

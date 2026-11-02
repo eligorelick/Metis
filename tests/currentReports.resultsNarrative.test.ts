@@ -45,3 +45,26 @@ it.each(["monthly","annual","special",null] as const)("RPT-201 dividend pay-date
  const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
  expect(p.issuerFilings?.notes).toContain(`Next ${frequency ? frequency+" " : ""}dividend payable 2026-11-30 (8-K div).`);
 });
+
+import { reportsResults } from "@/edgar/currentReports";
+it.each(["US$","$","USD","EUR","GBP","JPY","CNY","RMB","\u20ac","\u00a3","\u00a5"])("AI-506 results currency %s is read",currency=>{
+ expect(reportsResults(`Net income was ${currency}10.0 million.`)).toBe(true);
+ expect(reportsResults(`We expect net income of ${currency}10.0 million next quarter.`)).toBe(false);
+});
+it("AI-506 OD-10 only operating updates retain no narrative or release-derived rows",async()=>{
+ const filings:Fx[]=[["update","2026-10-07","Example Reports September Sales. September sales were $20 billion. The Board declared a quarterly cash dividend of $1.30 per share. Free Cash Flow is defined as net cash flow provided by operating activities less capital expenditures. Free Cash Flow Three months ended June 30, Six months ended June 30, 2026 2025 2026 2025 (In millions) Net cash provided by operating activities $ 1,010 $ 900 $ 2,040 $ 1,830 Less: Total capital expenditures (200) (190) (410) (400) Free cash flow $ 810 $ 710 $ 1,630 $ 1,430"]];
+ const cr=await collectCurrentReports(clientFor(filings),"1",filings.map(edgarFiling),"2026-10-20","submissions");
+ if(!cr.ok)throw Error(cr.gap.reason);
+ expect(cr.value.data.releases).toHaveLength(1);
+ expect(cr.value.data.releases[0]).toMatchObject({reportsResults:false,releaseNarrative:null,commentaryNarrative:null});
+ expect(cr.value.data.releases[0]!.freeCashFlow.length).toBeGreaterThan(0);
+ expect(cr.value.data.notes.join(" ")).toContain("no earnings, EPS or operating-income amount was read in 8-K update (2026-10-07); treated as an operating update");
+ expect(cr.value.data.notes.join(" ")).toContain("no earnings-release narrative is kept");
+ const b=completeCurrencyBundle({});b.edgar!.currentReports=cr;
+ const d=buildFilingDisclosures(b)!;
+ expect(d.capitalReturn).toBeNull();expect(d.freeCashFlow).toEqual([]);expect(d.reconciliation).toBeUndefined();
+ const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
+ expect(p.filings.some(e=>/earnings release|CFO commentary/i.test(e.title))).toBe(false);
+ expect(p.filings.some(e=>e.text.includes("September sales"))).toBe(false);
+ expect((p.issuerFilings?.figures ?? []).some(f=>/free.cash.flow|dividend|reconciliation/i.test(f.label))).toBe(false);
+});

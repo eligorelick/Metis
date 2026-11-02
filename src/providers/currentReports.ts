@@ -509,7 +509,7 @@ export async function collectCurrentReports(
   const holder=latestResultsRelease(ordered);
   releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   const newer=holder ? ordered.slice(0,ordered.indexOf(holder)) : ordered;
-  if(newer.length) notes.unshift(holder ? `${newer.map(r=>`8-K ${r.accession} (${r.filingDate})`).join(", ")} states no results (an operating update); the earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "None of the retained Item 2.02 filings states results; no earnings-release narrative is kept.");
+  if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}`);
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)

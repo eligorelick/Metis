@@ -64,7 +64,7 @@ Continuation limits: AI-508 implements the arithmetic, analyst exclusion and com
 AI-508 completion: detailed filing/window/quarter-end notes and moved-together/repeated-change controls. ai508-detail-red: 2 failures, 5 passes; ai508-detail-green verifies corrected notes and controls. Retained inputs contain no recast trigger; stored-series replay is a must-not-move control.
 
 
-AI-512-V1 fixed: ai512-red reproduces retained #43; ai512-green has 330 passes and 12 pre-existing excerpt-title test failures. ai512-baseline-controls reproduces the identical 12 missing-title failures using starting-HEAD versions of all changed disclosure/display modules. The normal-suite tests are synthetic; retained tests run separately offline. No excerpt policy, prompt text, stamps or goldens changed.
+Correction (P5-B F1): AI-506 introduced 20 failures in five result-free release fixtures; these were not pre-existing at 007f4fcd. The earlier ai512-baseline-controls used modules from a commit already containing AI-506 and did not establish a base failure. The fix-round adds one GAAP results sentence per fixture, changes no assertion, and verifies OD-10 no-results withholding. Historical receipts remain available.
 
 
 DATA-101 fixed: data101-final-red-2 reproduces the historical-zero and legacy-grouping defects (2 failures, 60 controls pass). New-format refusals stay separate. The different-period refusal fixture now includes an actual filed amount at that period, so it tests a refusal rather than the absence intentionally silenced by OD-8. Retained MU #46: grouped count 6 and no absent-period warnings. p5-final-retained-3 passes 7 checks with SHA-256 byte preservation for reports 43, 46, 48, 49 and 50. Intermediate replay failures were harness argument mistakes, corrected; typecheck caught introduced unknown-point typing, corrected using the XBRL parser. No source data, stamps, prompts or goldens changed.
@@ -82,7 +82,7 @@ The completion supersedes the earlier continuation-limit paragraphs above. All t
 
 Final consumer evidence: p5-final-focused (17 files, 648 tests), p5-final-consumers (14 files, 241 tests), p5-final-delta-docs (7 files, 186 tests), ai512-notice-green (6 files, 143 tests), and p5-complete-retained (2 files, 7 tests). All passed with maxWorkers=2. The final retained replay includes unchanged business tables versus starting-HEAD display code, unchanged stored hashes, AMZN period-mismatch/no-period claim controls, and MU enrichment/grouping.
 
-Typecheck p5-complete-typecheck and lint p5-complete-lint pass. Final docs gates: p5-complete-docs-final. Intermediate introduced fixture/unknown-point typing and replay argument mistakes were corrected. The existing stageC.releaseFiscalLabel suite has 12 missing-excerpt-title failures both before and after this work (ai512-baseline-controls versus ai512-green); no assertions were changed. All other executed tests pass. No full verify or network calls. Report 1.56.0, payload 1.60.0 and Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39 stay shared; pipeline stamp stays unchanged because prompt text did not change. No goldens changed.
+Correction (P5-B F1): AI-506 introduced 20 failures in five result-free release fixtures; these were not pre-existing at 007f4fcd. The earlier ai512-baseline-controls used modules from a commit already containing AI-506 and did not establish a base failure. The fix-round adds one GAAP results sentence per fixture, changes no assertion, and verifies OD-10 no-results withholding. Historical receipts remain available.
 
 Residual methodology limits: a recast first seen in a 10-K remains unproven until a later shared window; the cross-filing estimate remains explicitly computed under OD-11. Historical levels remain visible but their growth is withheld when their individual prior bases cannot be established. No owner questions.
 
@@ -130,3 +130,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F8 (AI-508) | Fixed: Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing. | This commit | fixround-a8-red / fixround-a8-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F1/B-F5 (AI-506) | Fixed: Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs. | This commit | fixround-b1-b5-red / fixround-b1-b5-green | No persisted rewrite |
