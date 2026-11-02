@@ -1,5 +1,5 @@
 import {it,expect} from "vitest";
-import {collectCurrentReports} from "@/providers/currentReports";
+import {collectCurrentReports,buildEarningsReleaseRecord,CURRENT_REPORTS_VERSION} from "@/providers/currentReports";
 import type {EdgarClient,EdgarFiling} from "@/providers/edgar";
 import {completeCurrencyBundle} from "./helpers/currencyBundle";
 import {buildFilingDisclosures} from "@/pipeline/filingDisclosures";
@@ -34,4 +34,14 @@ it("AI-506 newest operating update cannot displace results narrative or capital 
  expect(buildFilingDisclosures(b)?.capitalReturn?.dividendPerShare).toBe(1.3);
  const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
  expect(payload.filings.some(e=>e.title.includes("earnings release") && e.text.includes("net income was"))).toBe(true);
+});
+
+it.each(["monthly","annual","special",null] as const)("RPT-201 dividend pay-date note reflects %s frequency", frequency => {
+ const release=buildEarningsReleaseRecord({filing:{accessionNumber:"div",filingDate:"2026-10-30"},releaseUrl:"https://www.sec.gov/div",commentaryUrl:null,commentaryText:null,includeNarrative:true,
+  releaseText:`Net income was $10 million. The Board declared a ${frequency ?? "cash"} dividend of $1.00 per share, payable on November 30, 2026.`});
+ const b=completeCurrencyBundle({});
+ b.edgar!.companyFacts={ok:false,gap:{field:"edgar.companyFacts",reason:"not configured",severity:"info"}};
+ b.edgar!.currentReports=ok({version:CURRENT_REPORTS_VERSION,releases:[release],events:[],notes:[]},"fixture");
+ const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
+ expect(p.issuerFilings?.notes).toContain(`Next ${frequency ? frequency+" " : ""}dividend payable 2026-11-30 (8-K div).`);
 });

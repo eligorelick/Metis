@@ -3127,3 +3127,8 @@ Keep industrial revenue tags separate from the bank-extended revenue comparison 
 ### D-next (P5): A-F5 (DATA-114) review correction
 
 Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. Coordinator decision: later successful chunks must not create a mid-series hole that corrupts return or drawdown calculations. Stored report bytes are unchanged.
+
+
+### D-next (P5): A-F6 (RPT-201) review correction
+
+Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. Monthly, annual and special distributions no longer receive quarterly wording in analyst context. Stored report bytes are unchanged.

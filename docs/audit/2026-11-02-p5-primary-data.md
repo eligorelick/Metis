@@ -115,3 +115,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | A-F5 (DATA-114) | Fixed: Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure. | This commit | fixround-a5-red / fixround-a5-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| A-F6 (RPT-201) | Fixed: Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown. | This commit | fixround-a6-red2 / fixround-a6-green | No persisted rewrite |
