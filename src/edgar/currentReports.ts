@@ -1268,6 +1268,12 @@ export function releaseNarrative(rawText: string): string {
  */
 export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.freeze({
   "1.01": "Entry into a Material Definitive Agreement",
+  "1.03": "Bankruptcy or Receivership",
+  "1.05": "Material Cybersecurity Incidents",
+  "2.04": "Triggering Events That Accelerate or Increase a Direct Financial Obligation or an Obligation under an Off-Balance Sheet Arrangement",
+  "3.01": "Notice of Delisting or Failure to Satisfy a Continued Listing Rule or Standard; Transfer of Listing",
+  "3.03": "Material Modification to Rights of Security Holders",
+  "5.01": "Changes in Control of Registrant",
   "1.02": "Termination of a Material Definitive Agreement",
   "2.01": "Completion of Acquisition or Disposition of Assets",
   "2.03": "Creation of a Direct Financial Obligation or an Obligation under an Off-Balance Sheet Arrangement of a Registrant",
@@ -1282,21 +1288,16 @@ export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.fre
 });
 
 /** One immutable admission filter for candidate reads, retained sections and saved scope. */
+export const PRIORITY_EVENT_ITEMS: ReadonlySet<string> = new Set(["1.03","1.05","2.04","3.01"]);
+export const NON_EVENT_ITEMS: ReadonlySet<string> = new Set(["2.02","4.01","4.02","7.01","9.01"]);
 export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS));
 
 /** Official titles, for recognising a heading as opposed to a cross-reference. */
 const ITEM_TITLES: Readonly<Record<string, string>> = {
   ...MATERIAL_EVENT_ITEMS,
-  "1.03": "Bankruptcy or Receivership",
-  "1.05": "Material Cybersecurity Incidents",
   "2.02": "Results of Operations and Financial Condition",
-  "2.04": "Triggering Events",
-  "3.01": "Notice of Delisting",
-  "3.02": "Unregistered Sales of Equity Securities",
-  "3.03": "Material Modification to Rights of Security Holders",
   "4.01": "Changes in Registrant's Certifying Accountant",
   "4.02": "Non-Reliance on Previously Issued Financial Statements",
-  "5.01": "Changes in Control of Registrant",
   "5.03": "Amendments to Articles of Incorporation or Bylaws",
   "5.07": "Submission of Matters to a Vote of Security Holders",
   "7.01": "Regulation FD Disclosure",

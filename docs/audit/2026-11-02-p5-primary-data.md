@@ -12,7 +12,7 @@
 | DATA-113 | Fixed | Owning DATA-113 commit | data113-red / data113-green-2 | None |
 | DATA-111 | Fixed | Owning DATA-111 commit | data111-red / data111-green | None; recomputation corrected east of UTC |
 | AI-506 | Fixed | Owning AI-506 commit | ai506-red / ai506-green-3 | Old update-only narrative withheld at payload build |
-| DATA-107 | Not started | - | - | Not assessed |
+| DATA-107 | Fixed | Owning DATA-107 commit | data107-red / data107-green-3 | Existing saved scope semantics retained |
 | AI-512-V1 | Not started | - | - | Not assessed |
 | DATA-101 | Not started | - | - | Not assessed |
 | DATA-102 | Not started | - | - | Not assessed |
@@ -51,3 +51,5 @@ DATA-113: meta returning 150 then 165 previously produced two prices; both now r
 DATA-111: Berlin/Tokyo lost 24.55B remaining authorization as of 2026-08-28; all four explicit zones now retain it and the EPS basis. Announcement dateline matching also uses calendar arithmetic, including controls one day before/after publication.
 
 AI-506: newer monthly sales update lost Q4 narrative and $1.30 dividend; the retained Q4 results now supply both. Retention/order unchanged. No prompt text edited.
+
+DATA-107: six newly admitted item codes; 3.02 already admitted at this HEAD. Uses existing materialEventItems scope and legacy disclosure rather than the older plan's duplicate field.

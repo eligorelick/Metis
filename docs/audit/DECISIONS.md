@@ -3032,3 +3032,7 @@ DATA-111 uses calendar arithmetic for month-name dates in repurchase authorizati
 ### D-next (P5): Results own the earnings-release narrative
 
 AI-506 implements OD-10: newest retained results release owns narrative, capital return and issuer FCF; newer operating updates remain records with a leading note. Legacy records without reportsResults retain historical admission.
+
+### D-next (P5): Material 8-K eligibility
+
+DATA-107 adopts OD-2 additions and priority reads for bankruptcy, cyber, acceleration and delisting. Existing materialEventItems saved scope is reused instead of introducing duplicate eventItemScope metadata. Legacy missing scope remains explicitly unestablished.

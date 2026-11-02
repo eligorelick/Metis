@@ -2528,7 +2528,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
     out.push({
-      title: `8-K current report — Items ${event.items.join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+      title: `8-K current report — Items ${[...new Set(event.sections.map(s=>s.item))].join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
       text: cut.text,
       source: `edgar:8-K ${event.accession}`,
       asOf: event.filingDate,

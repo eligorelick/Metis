@@ -15,6 +15,6 @@ const originalTz=process.env.TZ;
 afterAll(()=>{if(originalTz===undefined)delete process.env.TZ;else process.env.TZ=originalTz;});
 it.each(["UTC","America/Denver","Europe/Berlin","Asia/Tokyo"])("DATA-111 prose dates in %s",tz=>{
  process.env.TZ=tz;
- expect(buildFilingDisclosures(adobeBundle()).capitalReturn).toMatchObject({authorizationRemaining:24.55e9,authorizationRemainingAsOf:"2026-08-28"});
+ expect(buildFilingDisclosures(adobeBundle())?.capitalReturn).toMatchObject({authorizationRemaining:24.55e9,authorizationRemainingAsOf:"2026-08-28"});
  expect(runStageB(adobeBundle()).projections?.series.find(s=>s.metric==="epsDiluted")?.capitalReturn?.authorizationRemaining).toBe(24.55e9);
 });

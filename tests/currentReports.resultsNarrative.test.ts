@@ -31,7 +31,7 @@ it("AI-506 newest operating update cannot displace results narrative or capital 
  expect(cr.value.data.releases.find(r=>r.accession==="monthly")!.releaseNarrative).toBeNull();
  expect(cr.value.data.releases.find(r=>r.accession==="q4")!.releaseNarrative).toContain("net income was");
  const b=completeCurrencyBundle({});b.edgar!.currentReports=cr;
- expect(buildFilingDisclosures(b).capitalReturn?.dividendPerShare).toBe(1.3);
+ expect(buildFilingDisclosures(b)?.capitalReturn?.dividendPerShare).toBe(1.3);
  const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
  expect(payload.filings.some(e=>e.title.includes("earnings release") && e.text.includes("net income was"))).toBe(true);
 });
