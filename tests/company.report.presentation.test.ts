@@ -1,3 +1,4 @@
+import { generateMetadata as printMetadata } from "@/app/company/[symbol]/report/[reportId]/print/page";
 import { readFileSync } from "node:fs";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import path from "node:path";
@@ -577,4 +578,9 @@ describe("persisted report presentation", () => {
     ]) expect(audit).toContain(sentinel);
     expect(JSON.stringify(rich)).toBe(before);
   });
+});
+
+it("RPT-001: print metadata identifies the saved report",async()=>{
+ harness.getReportByIdForSymbol.mockReturnValue({row:{id:7},report:{meta:{symbol:"DEMO",companyName:"Example"}}});
+ expect(await printMetadata({params:Promise.resolve({symbol:"demo",reportId:"7"})})).toEqual({title:"DEMO \u2014 Example \u2014 report #7"});
 });

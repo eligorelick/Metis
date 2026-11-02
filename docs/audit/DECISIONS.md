@@ -3135,3 +3135,49 @@ PERF-201 caches successes by exact bytes/path and returns clones; unchanged call
 ## D-next (P6): Effective legacy Fast speed
 
 SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+## D-next (P7) - Display and history (2026-11-02)
+
+AI-201: retain the core transform and merge relevance; identical stored rows merge for display only. Shared stamps already cover this repair.
+
+DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+
+RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+
+DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+
+RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+
+RPT-203: Use band-safe formatting for prose scores.
+
+RPT-205: Preserve the geographic scope actually named by the source row.
+
+RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+
+RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+
+RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+
+DB-003: Show observed API models as well as account models and name unrecorded passes.
+
+DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+
+RPT-001: Identify the symbol, company and saved report id in print page metadata.
+
+RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+
+RPT-204: Render the Beneish M score without a misleading m unit suffix.
+
+RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+
+RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+
+RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+
+RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+
+P7 verification follow-ups: RPT-217 also withholds the recorded n/a sentinel; RPT-503 successful retries appear once as completed, individual failures stay in run details, and requested-configuration reader labels share judge attempt names. RPT-215 adds a read-time clarification to the existing legacy scope section.
+
+P7 verification: a completed attempt with unknown model identity must keep its unknown-model disclosure; successful known retries suppress the header failure summary only. Detailed attempts remain available. The first scope-clarification sentence stays in its original position.
+
+P7 full-suite verification: the prior P3 records test pinned P3 as the first changelog heading. On integration that test is position-independent: it requires the P3 heading anywhere in the changelog, so later batches can head it; the methodology uniqueness and encoding assertions remain unchanged.

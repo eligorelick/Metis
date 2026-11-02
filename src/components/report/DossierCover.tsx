@@ -1,3 +1,4 @@
+import { withNeutral } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
@@ -12,13 +13,18 @@ import { ReportTrustSummary } from "./ReportTrustSummary";
 /** Composition only: its report has already passed ReportView's safety presenters. */
 export function DossierCover({ report, completeness }: { report: Report; completeness: ReportCompletenessPresentation }) {
   const recordedDimensions = report.scores?.assessments
-    ? scoreAuditTables(report.scores).find(table => table.heading === "Assessment dimensions")?.rows : undefined;
+    ? scoreAuditTables(report.scores).find(table => table.heading === "Assessment dimensions")?.rows.map(row => {
+      const a = row[0] === "Business quality" ? report.scores!.assessments!.businessQuality : row[0] === "Price attractiveness" ? report.scores!.assessments!.valuation : null;
+      if (!a) return row;
+      const shown = a.score === null ? "unavailable" : formatScore(a.score);
+      return [row[0], `${shown} / ${a.band === null ? "unavailable" : withNeutral(a.band, a.score === null ? null : Number(shown))}`, row[2]];
+    }) : undefined;
   const valuation = report.scores?.aspects.valuation;
   const assessments = report.scores?.assessments;
   const dimensions = recordedDimensions?.map(row => row[0] === "Business quality" && assessments && !businessQualityGraded(assessments)
-    ? [row[0], `${formatScore(assessments.businessQuality.score, 2)} / not graded: evidence ${evidencePercentText(assessments.businessQuality.evidenceCompleteness!)}`, row[2]]
+    ? [row[0], `${formatScore(assessments.businessQuality.score)} / not graded: evidence ${evidencePercentText(assessments.businessQuality.evidenceCompleteness!)}`, row[2]]
     : row[0] === "Price attractiveness" && valuation && hasLimitedEvidence(valuation)
-    ? [row[0], `${formatScore(report.scores!.assessments!.valuation.score, 2)} / limited evidence`, `${row[2]} Limited evidence: ${limitedEvidenceText(valuation)}.`]
+    ? [row[0], `${formatScore(report.scores!.assessments!.valuation.score)} / limited evidence`, `${row[2]} Limited evidence: ${limitedEvidenceText(valuation)}.`]
     : row);
   const rows = keyDataRows(report);
   const selected = rows.filter((row, index) => index === 0 || row.label === "Composite grade" || row.label.startsWith("Model fair value") || row.label.startsWith("Scenario range"));

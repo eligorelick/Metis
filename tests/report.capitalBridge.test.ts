@@ -1,3 +1,5 @@
+import { BalanceSheetSection } from "@/components/report/sections";
+import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -94,4 +96,35 @@ describe("recorded capital structure presentation", () => {
     expect(html.includes("data-capital-stage=")).toBe(false);
     expect(html.includes('aria-label="Recorded sensitivity cases"')).toBe(false);
   });
+});
+
+it("RPT-213: names excess return consistently in classic and exports", () => {
+ const report=loadTask28Fixture();
+ report.fairValue={status:"available",method:"excess-return",methodVersion:"test",perShare:report.valuation.dcf.perShare,upsidePct:20,basis:[],reasons:[]};
+ const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"classic"}));
+ expect(html).toContain("Excess-return"); expect(html).not.toContain("DCF provenance");
+ expect(reportToMarkdown(report)).toContain("### Excess-return value");
+ expect(reportToPrintBody(report)).toContain("<h3>Excess-return value</h3>");
+});
+
+it("RPT-215: legacy pipeline zeros read unavailable without rewriting the record", () => {
+ const r=loadTask28Fixture(); delete r.fairValue; r.meta.specVersion="1.1.0";
+ r.valuation.dcf.perShare={value:0,unit:"USD/share",source:"pipeline",asOf:null,verified:null};
+ for(const row of r.valuation.scenarios) row.priceTarget={...r.valuation.dcf.perShare};
+ const before=JSON.stringify(r), view=withLegacyScopeQualifications(r);
+ expect(view.valuation.dcf.perShare).toBeNull();
+ expect(view.valuation.scenarios.every(s=>s.priceTarget===null)).toBe(true);
+ expect(JSON.stringify(r)).toBe(before);
+ const current=structuredClone(r); current.meta.specVersion="1.56.0";
+ expect(withLegacyScopeQualifications(current).valuation.dcf.perShare?.value).toBe(0);
+});
+
+it("RPT-216: balance section deduplicates grade figures using metric identities",()=>{
+ const r=loadTask28Fixture();
+ const n={value:120,unit:"USD",currency:"USD",source:"computed.fixture.netDebt",sourceId:"computed.fixture.netDebt",asOf:"2025-12-31",verified:null};
+ r.balanceSheet.graded!.keyNumbers=[n]; r.balanceSheet.debtProfile.numbers=[];
+ const render=()=>renderToStaticMarkup(createElement(BalanceSheetSection,{balanceSheet:r.balanceSheet,index:3,report:r}));
+ const count=(s:string)=>(s.match(/120\.00/g)??[]).length;
+ const baseline=count(render()); expect(baseline).toBeGreaterThan(0); r.balanceSheet.debtProfile.numbers=[{...n}];
+ expect(count(render())).toBe(baseline);
 });

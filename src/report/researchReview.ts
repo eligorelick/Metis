@@ -51,14 +51,20 @@ export function peerCoverageSummary(peers: PeerCoverage, subject?: string): stri
   const capped = [...excluded.values()].filter((reasons) => reasons.every((reason) => CANDIDATE_CAP.test(reason)));
   const cap = capped.length > 0 ? CANDIDATE_CAP.exec(capped[0]![0]!)?.[1] : undefined;
   const unserved = [...excluded.values()].filter((reasons) => !reasons.every((reason) => CANDIDATE_CAP.test(reason)) && reasons.every(providerUnavailable));
-  const screenedOut = excluded.size - unserved.length - capped.length;
+  const sizeOnly = [...excluded.values()].filter(rs => rs.every(r => /^size screen: .*comparable-size band/i.test(r))).length;
+  const discoveryOnly = [...excluded.values()].filter(rs => rs.every(r => /^size screen: .*comparable-size band|^invalid candidate symbol|^self or duplicate candidate symbol/i.test(r))).length;
+  const requestedExcluded = Math.max(0, peers.candidates - eligible.size);
+  const notRequested = Math.min(discoveryOnly, Math.max(0, excluded.size - requestedExcluded));
+  const sizeNotRequested = Math.min(notRequested, sizeOnly);
+  const invalidNotRequested = notRequested - sizeNotRequested;
+  const screenedOut = excluded.size - unserved.length - capped.length - notRequested;
   const cause = unserved.some((reasons) => reasons.some((reason) => RATE_LIMITED.test(reason)))
     ? "the peer data provider hit its rate limit or quota" : "the peer data provider was unavailable or its deadline passed";
   const caveat = peers.methodology.some((line) => /comparability caveat/i.test(line))
     ? " Medians that are shown carry a comparability caveat: business-model, accounting and metric-definition evidence is not independently sourced."
     : "";
   return [
-    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${capped.length > 0 ? `; ${capped.length} beyond the ${cap}-candidate limit` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}.${caveat}`,
+    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${capped.length > 0 ? `; ${capped.length} beyond the ${cap}-candidate limit` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}${sizeNotRequested ? `; ${sizeNotRequested} discovered issuer${sizeNotRequested === 1 ? "" : "s"} outside the comparable-size band ${sizeNotRequested === 1 ? "was" : "were"} not requested` : ""}${invalidNotRequested ? `; ${invalidNotRequested} discovered symbol${invalidNotRequested === 1 ? " was" : "s were"} not requested (invalid or duplicate)` : ""}.${caveat}`,
     "The screen rules, the per-metric notes and each exclusion with its reason are in the audit export.",
   ];
 }

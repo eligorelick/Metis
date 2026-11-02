@@ -55,3 +55,9 @@ describe("stored report revision digest", () => {
     expect(wrong).toContain("report unavailable"); expect(wrong).not.toContain("Revision digest");
   });
 });
+
+it("DB-006: distinguishes a cost-only revision",()=>{
+ const html=digest(r=>{r.meta.costUsd+=1.25;});
+ expect(html).toContain("No changes in comparable report fields; only the recorded API charge differs.");
+ expect(html).not.toContain("Recorded research changed");
+});

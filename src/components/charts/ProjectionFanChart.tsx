@@ -128,7 +128,7 @@ interface FanDatum {
   bridge?: boolean;
 }
 
-function buildData(series: ProjectionSeries): { data: FanDatum[]; firstForward: string | null } {
+function buildData(series: ProjectionSeries): { data: FanDatum[]; firstForward: string | null; joined: boolean; firstWindowStart: string | null } {
   const data = projectionPeriodRows(series).map((row): FanDatum => {
     const value = (path: ProjectionPath): number | null =>
       projectionCellPoint(row, path, series.unit)?.value.value ?? null;
@@ -155,7 +155,15 @@ function buildData(series: ProjectionSeries): { data: FanDatum[]; firstForward: 
     }
   }
   const anchor = anchorIndex < 0 ? null : data[anchorIndex]!;
-  if (anchor && firstForwardIndex >= 0 && anchorIndex < firstForwardIndex) {
+  const firstPoint = [...series.weighted, ...series.base, ...series.bull, ...series.bear].find(p => p.period === firstForward);
+  const firstWindowStart = firstPoint?.periodStart ?? null;
+  const histPoint = series.historical.find(p => p.period === anchor?.period);
+  const end = histPoint?.periodEnd ?? /(?:FY|12M) ending (\d{4}-\d{2}-\d{2})$/.exec(anchor?.period ?? "")?.[1];
+  const year = /^FY(\d{4})$/.exec(anchor?.period ?? "");
+  const next = /^FY(\d{4})$/.exec(firstForward ?? "");
+  const adjacent = end && firstWindowStart ? Date.parse(firstWindowStart) - Date.parse(end) === 86400000 : !!(year && next && Number(next[1]) === Number(year[1]) + 1);
+  const joined = !!(anchor && firstForwardIndex >= 0 && anchorIndex < firstForwardIndex && adjacent);
+  if (joined && anchor) {
     const value = anchor.hist!;
     anchor.base = value;
     anchor.weighted = value;
@@ -167,7 +175,7 @@ function buildData(series: ProjectionSeries): { data: FanDatum[]; firstForward: 
     // 2026-09-06, F212).
     anchor.bridge = true;
   }
-  return { data, firstForward };
+  return { data, firstForward, joined, firstWindowStart };
 }
 
 function fanValue(data: FanDatum, path: ProjectionPath): number | null {
@@ -206,7 +214,7 @@ function tooltip(metric: ProjectionSeries["metric"]) {
 }
 
 export function ProjectionFanChart({ series }: { series: ProjectionSeries }) {
-  const { data, firstForward } = buildData(series);
+  const { data, firstForward, joined, firstWindowStart } = buildData(series);
   const ticks = projectionValueTicks(data.flatMap((row) =>
     [row.hist, row.bull, row.bear, row.base, row.weighted].filter((v): v is number => v !== null)));
   return (
@@ -258,6 +266,7 @@ export function ProjectionFanChart({ series }: { series: ProjectionSeries }) {
       </ResponsiveContainer>
       <p className="mt-1 text-[10px] text-muted">
         Gaps indicate missing observations; paths do not interpolate across them.
+        {firstForward && !joined && <><br />{firstWindowStart ? `History and forecast are not joined: the first 12-month forecast window begins ${firstWindowStart}, the day after the latest statement date the forecast grows from.` : "History and forecast are not joined: the period the forecast grows from is not plotted."}</>}
       </p>
     </div>
   );

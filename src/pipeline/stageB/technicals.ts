@@ -1493,12 +1493,12 @@ export function computeTechnicals(
   }
   if (range.pctFromHigh !== null && range.pctFromHigh >= -NEAR_HIGH_PCT && range.high52w !== null) {
     flags.push(
-      `Price within ${fmt1(range.pctFromHigh)}% of the 52-week high (${range.high52w} on ${range.highDate ?? "n/a"}).`,
+      `Price within ${fmt1(range.pctFromHigh)}% of the 52-week high (${Math.round(range.high52w! * 100) / 100} on ${range.highDate ?? "n/a"}).`,
     );
   }
   if (range.pctFromLow !== null && range.pctFromLow <= NEAR_LOW_PCT && range.low52w !== null) {
     flags.push(
-      `Price within ${fmt1(range.pctFromLow)}% of the 52-week low (${range.low52w} on ${range.lowDate ?? "n/a"}).`,
+      `Price within ${fmt1(range.pctFromLow)}% of the 52-week low (${Math.round(range.low52w! * 100) / 100} on ${range.lowDate ?? "n/a"}).`,
     );
   }
   const rsBest = bestRsPoint(rsBenchmark);

@@ -6011,3 +6011,23 @@ AI-104 review: decline/fall words in a bounded origin phrase (from, after, since
 AI-116 review: the historical title-check qualification requires an explicit parenthesized multi-role owner listing in the claim/check note, in either role order. Single officer titles, including internal title commas, do not qualify.
 
 RPT-207 review: when unique issuer endpoints cannot establish the subject, one price-history symbol outside SPY and the mapped sector ETFs establishes it. Several candidates remain ambiguous. Issuer price/statement provider failures then merge with their keyless verdicts.
+
+Data-only macro tables list each FRED series once, keeping the core transform and merging sector relevance (AI-201). Identical stored rows merge for display only.
+
+The live reverse-DCF growth solve is starting revenue growth that fades to terminal, with the base year-one rate alongside it; it is not the path CAGR (RPT-501).
+
+History withholds score and grade comparisons across score band-table versions: "Score band tables differ". Other families retain their own comparability (DB-005).
+
+The projection fan joins history to forecast only across adjacent periods; an open seam caption gives the first forecast window start (RPT-102).
+
+Band-safe score precision also applies to 0-100 scores written in analyst prose (RPT-203).
+
+Classic and exported excess-return values use model-value labels and omit DCF/WACC headings (RPT-213). Stored scenario sentences remain recorded prose. The Damodaran rationale is cited as summarised by the remediation decisions; no source fetch was performed in this offline batch.
+
+Before frozen report spec 1.56.0, a legacy report without fairValue reads pipeline zero placeholders (or a suppressed per-share zero) as unavailable. Zero pipeline scenario targets are likewise withheld, and all-placeholder data-only probabilities become unavailable. Recorded bytes stay unchanged (RPT-215).
+
+Near-52-week price flags round the recorded high or low to cents; computed levels remain unchanged (RPT-103).
+
+Peer coverage separates discoveries outside the size band from requested candidates. Requested candidates rejected on their own quote remain excluded at the screen (RPT-214).
+
+Report headers group failed attempts by pass and never present them as completed analysis. Reader pass names use judge, including retry suffixes; run details retain individual failed-attempt disclosures (RPT-503).

@@ -553,3 +553,8 @@ describe("manifest-driven real report consumers", () => {
     );
   });
 });
+
+it("RPT-204: Beneish m is a dimensionless score",()=>{
+ expect(formatFinancialValue(-2.68279,"m",null)).toBe("-2.68");
+ expect(formatFinancialValue(959,"M",null)).toBe("959.00 M");
+});

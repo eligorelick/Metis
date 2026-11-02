@@ -18,6 +18,28 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - P7 display and history (2026-11-02)
+
+- RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+- RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+- RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+- RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+- RPT-204: Render the Beneish M score without a misleading m unit suffix.
+- RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+- RPT-001: Identify the symbol, company and saved report id in print page metadata.
+- DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+- DB-003: Show observed API models as well as account models and name unrecorded passes.
+- RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+- RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+- RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+- RPT-205: Preserve the geographic scope actually named by the source row.
+- RPT-203: Use band-safe formatting for prose scores.
+- RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+- DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+- RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+- DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+- AI-201: merge repeated macro series and preserve transform labels.
+
 ## Unreleased - P6 local security (2026-11-02)
 
 - SEC-205: capture unsupported legacy Fast as Standard without rewriting saved selections.
