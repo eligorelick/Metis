@@ -1837,13 +1837,13 @@ export function computeRoic(
     entry.operatingLoss = normalizedEbit <= 0;
     const terminalTax = normalizedEbit > 0
       ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
-    if (t === null && terminalTax === null) {
+    if (t === null) {
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,
         severity: "warn",
       });
-      continue;
+      if (terminalTax === null) continue;
     }
     if (lossYearFloor !== null) {
       const basis = "pre-tax income is not positive while operating income is, so no effective tax rate exists: " +
