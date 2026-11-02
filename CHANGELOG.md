@@ -39,6 +39,11 @@ the filings. These fixes come from that audit:
   as not a results release, and it never takes the results narrative or
   supplies release figures. FIGR's October preliminary Q3 volume ($5,119
   million) was dropped because four results releases filled the four slots.
+  "After" is decided by filing date and acceptance time: on live data the
+  update states only its period end (September 30) and the results release
+  only its fiscal label (Q2 FY2026), and release order put the labelled
+  release first, so the first fix still dropped the update.
+  Current-report collection version: `current-reports-1.3.0`.
 - **Outlook statements.** Every retained release's unparsed outlook statement
   now reaches the passes with its filing and period, outside the
   diagnostic-note cap. FIGR's May "Q2 2026 Guidance … $3.8 - $4.1" was the

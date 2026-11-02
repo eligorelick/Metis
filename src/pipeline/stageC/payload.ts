@@ -1,6 +1,6 @@
 import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
-import {latestResultsRelease} from "@/providers/currentReports";
+import {latestResultsRelease, updatesFiledAfterResults} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
@@ -2515,10 +2515,11 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   // R1 (FIGR paid audit): the newest operating update filed after the results
   // release (preliminary operating data, monthly sales) is its own excerpt,
   // cited by its accession. AI-506: it is never the earnings-release narrative
-  // and supplies no release figures.
-  const releases = res.value.data.releases;
-  const update = releases.slice(0, latest === undefined ? releases.length : releases.indexOf(latest))
-    .find((record) => record.reportsResults === false && typeof record.releaseNarrative === "string" && record.releaseNarrative.trim() !== "" && isIsoDate(record.filingDate));
+  // and supplies no release figures. "After" is by filing (`filedAfter`):
+  // release order cannot place a period-end-only update against a
+  // fiscal-label-only results release.
+  const update = updatesFiledAfterResults(res.value.data.releases, latest)
+    .find((record) => typeof record.releaseNarrative === "string" && record.releaseNarrative.trim() !== "" && isIsoDate(record.filingDate));
   if (update !== undefined) {
     const cut = selectMaterialEvidence(update.releaseNarrative!, PAYLOAD_BUDGETS.operatingUpdateChars);
     const periodEnd = update.reported.periodEnd !== null && isIsoDate(update.reported.periodEnd) ? `; period ended ${update.reported.periodEnd}` : "";

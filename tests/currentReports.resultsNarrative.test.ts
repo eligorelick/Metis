@@ -104,6 +104,39 @@ it("R1 keeps the newest operating update even when four results releases fill th
  expect(payload.filings.some(e=>e.text.includes("$4,259 million"))).toBe(false);
 });
 
+it("R1 decides 'newer than the results release' by filing date when periods are stated differently (FIGR live data)",async()=>{
+ // FIGR's live releases: the 10-07 update states only a period end (September
+ // 30, 2026); the 08-13 results release states only a fiscal label (Q2 FY2026).
+ // Release order puts a labelled record before an unlabelled one, so the
+ // update sorted after the results release and was dropped again.
+ const filings:Fx[]=[
+ ["prelim","2026-10-07","Example Lending Reports Preliminary September 2026 Operating Data. Example Lending today reported select unaudited preliminary operating data for the month and quarter ended September 30, 2026. Consumer Loan Marketplace Volume for the quarter was $5,119 million."],
+ ["q2","2026-08-13","Example Lending Reports Second Quarter 2026 Results. Second quarter 2026 net income was $87.4 million, or $0.35 per diluted share."],
+ ["june","2026-07-07","Example Lending Reports Preliminary June and Q2 2026 Operating Data. Consumer Loan Marketplace Volume was $4,259 million."],
+ ["q1","2026-05-12","Example Lending Reports First Quarter 2026 Results. For the first quarter ended March 31, 2026, net income was $45.0 million, or $0.18 per diluted share."],
+ ["q4","2026-02-26","Example Lending Reports Fourth Quarter 2025 Results. For the fourth quarter ended December 31, 2025, net income was $23.0 million, or $0.10 per diluted share."],
+ ["q4pre","2026-02-13","Example Lending Reports Fourth Quarter 2025 Results. Fourth quarter 2025 net income was $22.9 million, or $0.10 per diluted share."],
+ ];
+ const reported=(text:string)=>buildEarningsReleaseRecord({filing:{accessionNumber:"x",filingDate:"2026-10-20"},releaseUrl:"https://www.sec.gov/x",commentaryUrl:null,commentaryText:null,includeNarrative:true,releaseText:text}).reported;
+ // Precondition: the fixture mixes the two period forms as FIGR's releases did.
+ expect(reported(filings[0]![2])).toEqual({fiscal:null,periodEnd:"2026-09-30"});
+ expect(reported(filings[1]![2])).toMatchObject({fiscal:{fiscalYear:2026,fiscalQuarter:2},periodEnd:null});
+ expect(reported(filings[2]![2])).toMatchObject({fiscal:{fiscalYear:2026,fiscalQuarter:2},periodEnd:null});
+ const cr=await collectCurrentReports(clientFor(filings),"1",filings.map(edgarFiling),"2026-10-20","submissions");
+ if(!cr.ok)throw new Error(cr.gap.reason);
+ const records=cr.value.data.releases;
+ expect(records.map(r=>r.accession).sort()).toEqual(["prelim","q1","q2","q4","q4pre"]);
+ expect(records.find(r=>r.accession==="prelim")!.releaseNarrative).toContain("$5,119 million");
+ expect(records.find(r=>r.accession==="q2")!.releaseNarrative).toContain("net income was $87.4 million");
+ expect(cr.value.data.notes.join(" ")).toContain("8-K prelim, 2026-10-07) is kept as its own excerpt");
+ const b=completeCurrencyBundle({});b.edgar!.currentReports=cr;
+ const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]} as unknown as ValidationReport);
+ const update=payload.filings.find(e=>e.source==="edgar:8-K prelim");
+ expect(update?.text).toContain("Consumer Loan Marketplace Volume for the quarter was $5,119 million");
+ expect(update?.title).toMatch(/operating update \(not a results release/);
+ expect(payload.filings.filter(e=>e.title.includes("earnings release")).map(e=>e.source)).toEqual(["edgar:8-K EX-99.1"]);
+});
+
 it("R1 passes every retained release's unparsed outlook statement to the model, beyond the diagnostic-note cap (FIGR paid audit)",async()=>{
  // FIGR: the May release's "Q2 2026 Guidance ... $3.8 - $4.1" was the seventh
  // current-report note and the first six were kept, so the passes could not

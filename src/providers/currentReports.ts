@@ -52,7 +52,9 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.2.2" as const;
+// 1.3.0 (R1, FIGR paid audit): the newest operating update filed after the
+// latest results release takes a fifth slot and keeps its release text.
+export const CURRENT_REPORTS_VERSION = "current-reports-1.3.0" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -379,15 +381,34 @@ export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):E
  return ordered.find(r=>r.reportsResults!==false);
 }
 
+/**
+ * R1 (FIGR live data): whether release `a` was filed after release `b` - the
+ * filing date, then the acceptance time when both carry one. Release order
+ * sorts by reported period, and a record stating only a period end cannot be
+ * placed against one stating only a fiscal label (FIGR's 10-07 update, period
+ * ended September 30, sorted after its 08-13 "Q2 FY2026" release). Whether an
+ * operating update is newer than the results release is a filing fact.
+ */
+export function filedAfter(a: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">, b: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">): boolean {
+  if (a.filingDate !== b.filingDate) return a.filingDate > b.filingDate;
+  return a.acceptedAt != null && b.acceptedAt != null && a.acceptedAt > b.acceptedAt;
+}
+
+/** R1: operating updates filed after the latest results release (all updates without one), newest filing first. */
+export function updatesFiledAfterResults(records: readonly EarningsReleaseRecord[], latestResults: EarningsReleaseRecord | undefined): EarningsReleaseRecord[] {
+  return records
+    .filter((r) => r.reportsResults === false && (latestResults === undefined || filedAfter(r, latestResults)))
+    .sort((a, b) => (filedAfter(a, b) ? -1 : filedAfter(b, a) ? 1 : 0));
+}
+
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
-  // R1 (FIGR paid audit): the newest operating update reported after the
-  // latest results release has its own slot. FIGR's four results releases
-  // filled the four slots, so its October preliminary Q3 data was dropped.
-  const latestResults = ordered.findIndex((r) => r.reportsResults !== false);
-  const newestUpdate = ordered.findIndex((r) => r.reportsResults === false);
-  if (newestUpdate >= 0 && (latestResults < 0 || newestUpdate < latestResults)) kept.add(ordered[newestUpdate]!);
+  // R1 (FIGR paid audit): the newest operating update filed after the latest
+  // results release has its own slot. FIGR's four results releases filled the
+  // four slots, so its October preliminary Q3 data was dropped.
+  const newestUpdate = updatesFiledAfterResults(ordered, latestResultsRelease(ordered))[0];
+  if (newestUpdate !== undefined) kept.add(newestUpdate);
   return ordered.filter((r) => kept.has(r));
 }
 
@@ -513,12 +534,13 @@ export async function collectCurrentReports(
   }
   const ordered = retainedEarningsReleases(releases);
   const holder=latestResultsRelease(ordered);
-  const newer=holder ? ordered.slice(0,ordered.indexOf(holder)) : ordered;
+  // R1: updates newer than the results release by filing (see `filedAfter`).
+  const newer=updatesFiledAfterResults(ordered,holder);
   // R1 (FIGR paid audit): the newest operating update newer than the results
   // release keeps its own release text (preliminary quarterly operating data,
   // monthly sales). It never takes the results narrative slot or supplies
   // release figures (AI-506); the payload prints it as its own excerpt.
-  const update = newer.find(r => r.reportsResults === false && r.releaseNarrative !== null && r.releaseNarrative.trim() !== "");
+  const update = newer.find(r => r.releaseNarrative !== null && r.releaseNarrative.trim() !== "");
   releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record
     : record === update ? { ...record, commentaryNarrative: null } : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   const updateNote = update ? ` The newest operating update's release text (8-K ${update.accession}, ${update.filingDate}) is kept as its own excerpt; it is not an earnings release and supplies no release figures.` : "";

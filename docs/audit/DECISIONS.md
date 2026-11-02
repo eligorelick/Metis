@@ -4013,6 +4013,15 @@ its accession. The rest of AI-506 is unchanged:
 With no results release retained, the newest update's text is that one
 excerpt, and release rows stay withheld (D-148).
 
+"Filed after" means the filing date, then the acceptance time when both
+records carry one. It is not the position in release order: that order sorts
+by reported period, and a record stating only a period end cannot be placed
+against one stating only a fiscal label. A data-only FIGR run on live data
+showed it: the October 7 update (period ended September 30, 2026, no label)
+sorted after the August 13 release ("Q2 FY2026", no date) and was dropped
+again. The retained slot, the kept text and the payload excerpt now share one
+rule (`updatesFiledAfterResults`). Release order itself is unchanged.
+
 ## D-next (R1) - Unparsed issuer outlook statements reach the passes (2026-11-02)
 
 An outlook statement the guidance parser cannot read is still the issuer's
