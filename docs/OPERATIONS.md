@@ -468,3 +468,7 @@ This contract reproduces Stage B calculations and preserves the evidence acquire
 P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
 
 Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
+
+Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
+
+Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).

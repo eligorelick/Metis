@@ -443,3 +443,7 @@ keeps its original freshness labels. The first request is still necessary to
 discover access, and source outages or unavailable endpoints remain disclosed
 gaps. Configure a real `EDGAR_CONTACT` even with a free FMP key so SEC statement
 fallbacks can run. Restrictions are held in memory and reset on server restart.
+
+Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
+
+Company landing pages accept only GET and HEAD; other methods return 405 with Allow: GET, HEAD (SEC-201).
