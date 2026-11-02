@@ -72,7 +72,9 @@ function boundSupports(claim: Quantity, source: Quantity): boolean {
 const SIGN_WORD = /\b(?:negative|minus)\s+$/i;
 
 function quantities(text: string): Quantity[] {
-  const masked = proseQuantityText(text.replace(/\b\d{4}-(?:0[1-9]|1[0-2])\b(?!-\d)/g, (match) => " ".repeat(match.length)))
+  const accountingPercents = [...text.matchAll(/\((\d[\d,]*(?:\.\d+)?)\)(\s*%)/g)];
+  const percentText = text.replace(/\((\d[\d,]*(?:\.\d+)?)\)(\s*%)/g, "($1 $2");
+  const masked = proseQuantityText(percentText.replace(/\b\d{4}-(?:0[1-9]|1[0-2])\b(?!-\d)/g, (match) => " ".repeat(match.length)))
     .replace(WINDOW_LABEL, (match) => " ".repeat(match.length))
     .replace(DURATION_MONTHS, (match) => " ".repeat(match.length));
   // TracedNumber excerpts declare their display scale before the metric,
@@ -90,6 +92,7 @@ function quantities(text: string): Quantity[] {
     const lead = groups.lead !== undefined && /\d\s$/.test(text.slice(Math.max(0, start - 2), start)) ? undefined : groups.lead;
     if (lead === undefined && groups.lead !== undefined) start += 1;
     let end = match.index + match[0].trimEnd().length;
+    if (accountingPercents.some(accounting => accounting.index + 1 === start && accounting.index + accounting[0].length === end)) start -= 1;
     // The "100" (and the "0") of a score's own scale were read already.
     if (scaled.some((range) => start >= range.start && start < range.end)) return [];
     const before = masked.slice(Math.max(0, start - 1), start);
@@ -132,7 +135,8 @@ function quantities(text: string): Quantity[] {
     const decimals = (groups.fraction ?? "").length > 0 ? groups.fraction.length - 1 : 0;
     // Accounting parentheses enclose the complete amount (including currency
     // and unit); they are part of its sign, not disposable prose punctuation.
-    const accountingNegative = /\(\s*$/.test(masked.slice(0, start)) && /^\s*\)/.test(masked.slice(end));
+    const accountingNegative = (/\(\s*$/.test(masked.slice(0, start)) && /^\s*\)/.test(masked.slice(end))) ||
+      accountingPercents.some(match => match.index === start && match.index + match[0].length === end);
     return [{ start, end, value: (/^[-−]$/.test(lead ?? "") || /^[-−]$/.test(groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
     step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
@@ -1297,6 +1301,22 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
+      // A complete two-level annual comparison states each period explicitly:
+      // "... for the year ended DATE was A, compared to B for the year ended
+      // DATE." Bind the two dated roles before the clause-wide period reader.
+      const annualLevels = found.filter(other => other.start >= own.start && other.end <= own.end);
+      if (annualLevels.length === 2 && annualLevels[0]!.unit !== null && annualLevels[0]!.unit === annualLevels[1]!.unit &&
+        /^\s*,\s*compared (?:to|with)\s*$/i.test(body.text.slice(annualLevels[0]!.end, annualLevels[1]!.start))) {
+        const prefix = periodLabels(body.text.slice(own.start, annualLevels[0]!.start));
+        let suffixText = body.text.slice(annualLevels[1]!.end, own.end);
+        const suffix = periodLabels(suffixText);
+        for (const period of suffix) suffixText = suffixText.replace(period.raw, " ");
+        const annualDate = (periods: PeriodReference[]): boolean => periods.length === 2 && periods.some(period => period.key === "annual") && periods.some(period => period.kind === "date");
+        if (annualDate(prefix) && annualDate(suffix) && /^[\s.,]*ended[\s.,]*$/i.test(suffixText)) {
+          own.periods = quantity === annualLevels[0] ? prefix : suffix;
+          own.bases = quantity === annualLevels[0] ? suffix : [];
+        }
+      }
       // AI-503: the end of "<direction word> from $A ... to $B" takes the move's metric and direction. The words between $A and "to"
       // ("last quarter", "a year ago") describe $A. Without a governing direction word the end figure keeps its own label.
       const previous = index > 0 ? found[index - 1]! : undefined;
@@ -1653,6 +1673,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       };
       const clauseMatches = (candidate: SourceBinding): boolean => {
         const ownPeriods = withoutTitleYearEnd(candidate, candidate.context.periods.find((period) => period.kind === "date")?.key);
+        const annualDate = candidate.context.periods.find(period => period.kind === "date");
+        if (ownPeriods.length === 1 && /^FY\d{4}$/.test(ownPeriods[0]!.key) && annualDate &&
+          new Set(candidate.context.periods.map(period => period.key)).size === 2 && candidate.context.periods.some(period => period.key === "annual") &&
+          candidate.inherited.some(period => period.key === annualDate.key) && candidate.inherited.some(period => period.key === ownPeriods[0]!.key)) return true;
         // "increased from $A" can name a uniquely bound comparison base
         // without dating it. This does not turn that base into a current value.
         if (own.base && candidate.context.base && ownPeriods.length === 0 &&
@@ -1724,7 +1748,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
       if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
         (candidate.column === undefined && (candidate.context.periods.filter((period) => period.kind !== "window").length > 1 ||
-          candidate.context.periods.filter((period) => period.kind === "window").length > 1)))) {
+          new Set(candidate.context.periods.filter((period) => period.kind === "window").map(period => period.key)).size > 1)))) {
         return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
       }
       const bound = matchingPeriods[0];

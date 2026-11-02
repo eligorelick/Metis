@@ -139,6 +139,11 @@ describe("R7 FIGR excerpt bindings", () => {
     expect(excerptCheck(id, text.replace(/57,572|556|27.0|77.8|8,395|4,676|119,379|2.9|95,887|49,068|561,006|65%|54.4/, "999999")).status).not.toBe("validated");
     expect(excerptCheck(id, text.replace(/2026|2025/g, "2024")).status).not.toBe("validated");
   });
+  it("reads an accounting negative percent with the sign and filed fiscal year intact", () => {
+    expect(excerptCheck(46).status).toBe("validated");
+    for (const text of [row(46).claim.replace("(18.1)%", "18.1%"), row(46).claim.replace("18.1", "19.1"), row(46).claim.replace("FY2025", "FY2024"), row(46).claim.replace("effective tax rate", "operating margin"), row(46).claim.replace("(18.1)%", "(18.1) percentage points")])
+      expect(excerptCheck(46, text).status).not.toBe("validated");
+  });
   it.each([40, 42, 49, 67, 68, 140])("withholds support when source dimensions or qualifiers cannot bind row %i", id => {
     expect(excerptCheck(id).status).not.toBe("validated");
   });
