@@ -11,6 +11,7 @@ import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import { buildMaterialEventFiling, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import { filingGovernanceTables } from "@/report/filingSupplementPresentation";
 import { FilingDisclosuresSchema } from "@/report/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -60,7 +61,7 @@ describe("officer agreement, announcement and filing dates have distinct meaning
     const table = filingGovernanceTables(report.filingDisclosures)[0]!;
     expect(table.headers).toContain("Agreement date");
     expect(table.rows[0]?.[table.headers.indexOf("Public announcement")]).toBe("Not recorded");
-    const text = render(report);
+    const text = withoutPrintTokens(render(report));
     for (const phrase of ["Agreement date", "2026-04-17", "filed 2026-04-23", "2026-05-11", "specified by filing", "completion unconfirmed"]) expect(text.includes(phrase), phrase).toBe(true);
     expect(text.includes("Effective 2026-05-11")).toBe(false);
   });

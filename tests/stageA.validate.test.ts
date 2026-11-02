@@ -144,6 +144,7 @@ interface BundleOverrides {
 }
 
 function makeBundle(overrides: BundleOverrides = {}): ValidatableBundle {
+  const facts = overrides.companyFacts ?? ok(aaplFacts(), "2026-07-05");
   return {
     symbol: "AAPL",
     quote: overrides.quote ?? ok({ rows: [{ price: 232.8 }] }, "2026-07-03"),
@@ -161,7 +162,9 @@ function makeBundle(overrides: BundleOverrides = {}): ValidatableBundle {
         positionsSummary: ok({ rows: [{ date: "2026-03-31" }] }, "2026-03-31"),
       },
     edgar: {
-      companyFacts: overrides.companyFacts ?? ok(aaplFacts(), "2026-07-05"),
+      // These cross-check fixtures represent SEC evidence for the requested issuer.
+      cik: ok({ cik: 320193, cik10: "0000320193", ticker: "AAPL", title: "Test Co" }, "2026-07-05", { source: "edgar" }),
+      companyFacts: facts.ok ? { ok: true, value: { ...facts.value, source: "edgar" } } : facts,
     },
   };
 }

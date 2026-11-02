@@ -1,10 +1,11 @@
-import { priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
 import { issuerReconciliationTables } from "@/report/reconciliationPresentation";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
 import { MaterialEventItemsSchema } from "@/report/schema";
+import { isLenderConvention, readerBaseUnits } from "@/report/readerConventions";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 
 /**
@@ -76,7 +77,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
       heading: `Management guidance${g.reportedPeriod ? ` (issued with ${g.reportedPeriod} results)` : ""}`,
       headers: ["Period", "Metric", "Basis", "Low", "Midpoint", "High", "Stated as", ...(revisions ? ["Previous guidance"] : []), ...(growth ? ["Current growth", "Previous growth"] : [])],
       rows: g.rows.map((row) => [
-        row.period,
+        /^(fiscal quarter|fiscal year)$/.test(row.period) ? `${row.period} (issuer label withheld: statement periods contradict it)` : row.period,
         METRIC_LABELS[row.metric],
         basis(row.basis),
         row.form === "range" || row.form === "plus-minus" ? value(row, row.low, d.currency) : DASH,
@@ -112,28 +113,54 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
   return tables;
 }
 
+/**
+ * Integration review of R2 + R3 (FIGR paid audit): the notes the quarterly-trend
+ * builder adds about its own rows and columns (rejected or currency-cut rows,
+ * derived cash flow, withheld operating amounts and the operating-expense
+ * basis). They are read beside the trend, never under management guidance.
+ */
+export function isQuarterlyTrendNote(note: string): boolean {
+  return /^Quarterly (?:(?:income|cash-flow) trend: |trend left out: |trend history stops before |cash-flow amounts for |operating cash flow for )/.test(note) ||
+    /^Operating (?:income and operating margin|expenses) for \d{4}-\d{2}-\d{2} withheld: /.test(note) ||
+    note.startsWith("Operating expenses not shown for ") ||
+    note.startsWith("Operating expenses are the provider's subtotal");
+}
+
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
-  if (d.quarterlyTrend.length > 0) {
+  const builderNotes = d.notes.filter(isQuarterlyTrendNote);
+  const showGrossMargin = !d.quarterlyGrossMarginNotApplicable;
+  // Final data-only FIGR run (2026-11-02): a quarter whose every shown value is
+  // withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating
+  // expenses) is named as a missing quarter, not printed as a row of dashes.
+  const trendRows = d.quarterlyTrend.filter((r) => [r.revenue, r.revenueYoyPct, r.revenueQoqPct, ...(showGrossMargin ? [r.grossMarginPct] : []),
+    r.operatingExpenses, r.operatingMarginPct, r.epsDiluted, r.nonGaapEpsDiluted, r.equitySecuritiesGains, r.operatingCashFlow, r.freeCashFlow].some((v) => v != null));
+  if (trendRows.length === 0 && builderNotes.length > 0) {
+    tables.push({ heading: "Quarterly trend", headers: ["Status"], rows: [["No quarterly rows are shown; see the note."]], note: readerBaseUnits(builderNotes.join(" ")) });
+  }
+  if (trendRows.length > 0) {
     // D-63 fields, rendered where present: the quarter's equity-securities
     // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
     // every quarter are dropped by the renderers).
     const trendNotes = [
-      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.`,
-      d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
+      `From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter${d.quarterlyTrendPresentationChecked === true ? "; where the filings show a re-presentation, each growth cell divides two quarters on one presentation or is not shown, with a note" : ""}.${trendRows.some(r => r.freeCashFlow !== null) ? " FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it." : ""}`,
+      missingQuarterNote(trendRows.map(r => r.periodEnd)),
+      trendRows.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
-      ...new Set(d.quarterlyTrend.flatMap((r) => r.revenueGrowthNotes ?? [])),
+      ...readerTrendNotes([...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])), ...builderNotes]),
     ].filter((n) => n !== "");
     tables.push({
-      heading: "Quarterly trend (last eight quarters)",
-      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", "Gross margin", "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO − capex)"],
-      rows: d.quarterlyTrend.map((r) => [
+      // FIGR extra-high audit B2-20: the caption counts the quarters shown
+      // (seven when two quarters inside the window are missing).
+      heading: `Quarterly trend (latest ${countWord(trendRows.length)} available ${trendRows.length === 1 ? "quarter" : "quarters"})`,
+      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", ...(showGrossMargin ? ["Gross margin"] : []), "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO \u2212 capex)"],
+      rows: trendRows.map((r) => [
         r.periodEnd,
         r.fiscalLabel ?? DASH,
         money(r.revenue, d.currency),
         pct(r.revenueYoyPct, true),
         pct(r.revenueQoqPct, true),
-        pct(r.grossMarginPct),
+        ...(showGrossMargin ? [pct(r.grossMarginPct)] : []),
         money(r.operatingExpenses, d.currency),
         pct(r.operatingMarginPct),
         r.epsDiluted === null ? DASH : money(r.epsDiluted, d.currency, true),
@@ -142,7 +169,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
         money(r.operatingCashFlow, d.currency),
         money(r.freeCashFlow, d.currency),
       ]),
-      note: trendNotes.join(" "),
+      note: readerBaseUnits(trendNotes.join(" ")),
     });
   }
   const fcf = d.freeCashFlow;
@@ -162,7 +189,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
-        rows.push([`Quarterly cash dividend per share${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
+        rows.push([`${cr.dividendFrequency === undefined ? "Quarterly" : cr.dividendFrequency === null ? "Cash" : cr.dividendFrequency[0]!.toUpperCase()+cr.dividendFrequency.slice(1)}${cr.dividendFrequency===null ? "" : " cash"} dividend per share${cr.dividendFrequency===null ? " (frequency not stated)":""}${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
       }
       if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) rows.push(["Dividend change (per share, quarterly)", `${money(cr.dividendChangeFrom, d.currency, true)} → ${money(cr.dividendChangeTo, d.currency, true)}`, src]);
     }
@@ -177,6 +204,69 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   }
   tables.push(...issuerReconciliationTables(d));
   return tables;
+}
+
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+function countWord(n: number): string {
+  return COUNT_WORDS[n] ?? String(n);
+}
+
+/* FIGR extra-high audit B2-18: one row's derivation per growth cell and per
+ * derived cash-flow quarter made the trend note run to hundreds of words. The
+ * reader gets one sentence for each kind; the audit export keeps every one. */
+const GROWTH_DERIVATION = /^(?:YoY|QoQ) at \d{4}-\d{2}-\d{2} uses filed revenue [^;]+; no vendor operand enters the rate\.$/;
+const CASH_FLOW_DERIVATION = /^Quarterly operating cash flow for (\d{4}-\d{2}-\d{2}) is derived \([^)]*\) from cumulative filed operands across filings: ([\s\S]*?)\. The canonical filing-lineage rule admits this derivation; it is not a directly filed standalone quarter\.$/;
+
+function dateList(dates: readonly string[]): string {
+  return dates.length <= 1 ? dates.join("") : `${dates.slice(0, -1).join(", ")} and ${dates.at(-1)}`;
+}
+
+/** Trend notes for readers: per-cell derivations summarized, every other note kept in order. */
+function readerTrendNotes(notes: readonly string[]): string[] {
+  const derived = notes.flatMap((note) => {
+    const m = CASH_FLOW_DERIVATION.exec(note);
+    // N4b: each derived quarter keeps the filings it comes from (filing dates stay in the audit export).
+    return m ? [{ quarter: m[1]!, filings: m[2]!.split(/;\s*/).map((f) => f.replace(/, filed \d{4}-\d{2}-\d{2}$/, "")).join(" and ") }] : [];
+  });
+  let growthSummarized = false;
+  let cashFlowSummarized = false;
+  return notes.flatMap((note) => {
+    if (GROWTH_DERIVATION.test(note)) {
+      if (growthSummarized) return [];
+      growthSummarized = true;
+      return ["Each growth rate shown divides filed revenue on one presentation; no vendor figure enters a rate."];
+    }
+    if (CASH_FLOW_DERIVATION.test(note)) {
+      if (cashFlowSummarized) return [];
+      cashFlowSummarized = true;
+      return [`Quarterly operating cash flow for ${dateList(derived.map((d) => d.quarter))} is derived as a difference of cumulative filed amounts across filings, not filed as ${derived.length > 1 ? "standalone quarters" : "a standalone quarter"} (${derived.map((d) => `${d.quarter} from ${d.filings}`).join("; ")}).`];
+    }
+    return [note];
+  });
+}
+
+/** Every growth-cell derivation recorded on the trend rows, for the audit export. */
+export function quarterlyTrendGrowthNotes(d: Pick<FilingDisclosures, "quarterlyTrend"> | undefined): string[] {
+  return [...new Set((d?.quarterlyTrend ?? []).flatMap((r) => r.revenueGrowthNotes ?? []))];
+}
+
+/** Identify holes inside the retained window; never manufacture a refused statement row. */
+function missingQuarterNote(ends: string[]): string {
+  const sorted = [...new Set(ends)].sort();
+  const missing: string[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prior = new Date(`${sorted[i - 1]}T00:00:00Z`);
+    const next = new Date(`${sorted[i]}T00:00:00Z`);
+    const months = (next.getUTCFullYear() - prior.getUTCFullYear()) * 12 + next.getUTCMonth() - prior.getUTCMonth();
+    // Week-based fiscal calendars may differ by a few days; a gap is at least five months.
+    for (let offset = 3; offset < months - 1; offset += 3) {
+      const target = new Date(Date.UTC(prior.getUTCFullYear(), prior.getUTCMonth() + offset + 1, 0));
+      const monthEnd = prior.getUTCDate() === new Date(Date.UTC(prior.getUTCFullYear(), prior.getUTCMonth() + 1, 0)).getUTCDate();
+      if (!monthEnd) target.setUTCDate(Math.min(prior.getUTCDate(), target.getUTCDate()));
+      missing.push(target.toISOString().slice(0, 10));
+    }
+  }
+  return missing.length ? `Missing quarter${missing.length > 1 ? "s" : ""} within the displayed window: ${missing.join(", ")}. No row is inferred for an unavailable or refused quarter.` : "";
 }
 
 /**
@@ -267,12 +357,13 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const rows = s.rows.map((r) => [
       r.childOf === null ? r.label : `  ↳ ${r.label}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
-      growth(r.values, quarterAgo),
-      growth(r.values, yearAgo),
+      sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
+      sameSegmentBasis(r.earlierPresentationAt,0,yearAgo) ? growth(r.values, yearAgo) : DASH,
       total !== null && total > 0 && r.values[0] !== null && r.values[0] !== undefined ? pct((r.values[0] / total) * 100) : DASH,
     ]);
-    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), growth(s.total, quarterAgo), growth(s.total, yearAgo), total !== null ? "100.0%" : DASH]);
+    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), sameSegmentBasis(s.totalEarlierPresentationAt,0,quarterAgo) ? growth(s.total, quarterAgo) : DASH, sameSegmentBasis(s.totalEarlierPresentationAt,0,yearAgo) ? growth(s.total, yearAgo) : DASH, total !== null ? "100.0%" : DASH]);
     const notes = [
+      crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
@@ -314,7 +405,7 @@ export function materialEventTables(d: FilingDisclosures | undefined): ReportAud
   return [{
     heading: "Material SEC current reports (Form 8-K, last 12 months)",
     headers: ["Filed", "Event date", "Items", "Summary", "Accession"],
-    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutLegacyPrincipalAnnotation(e.summary), e.accession]),
+    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutTocStubs(withoutLegacyPrincipalAnnotation(e.summary)), e.accession]),
     note: materialEventScopeNote(d) + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
   }];
 }
@@ -350,7 +441,7 @@ export function newerResultsSentence(n: Pick<NonNullable<FilingDisclosures["newe
 
 /** The report banner, when the report has a newer-results notice. */
 export function newerResultsBanner(d: FilingDisclosures | undefined): string | null {
-  return d?.newerResults ? newerResultsSentence(d.newerResults) : null;
+  return d?.newerResults ? newerResultsSentence(shownFilingDisclosures(d).newerResults!) : null;
 }
 
 /**
@@ -369,6 +460,7 @@ export function newerFilingBanner(d: FilingDisclosures | undefined): string | nu
 
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return section === "catalystsRisks" ? materialEventTables(d) : [];
+  d = shownFilingDisclosures(d);
   switch (section) {
     case "business": return [...segmentTables(d), ...segmentPerformanceTables(d)];
     case "fundamentals": return trendTables(d);
@@ -381,9 +473,104 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
-      return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No structured guidance rows were extracted; see separately sourced narrative guidance where available."]], note: notes }] : [];
+      const guidanceNotes = d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""));
+      // FIGR extra-high audit B2-18: the currency-reading convention and parser
+      // diagnostics are audit material (its diagnostics section lists them).
+      const notes = guidanceNotes.filter((n) => !isParserDiagnostic(n)).flatMap(readerGuidanceNote);
+      if (tables.length === 0 && [d.currencyBasis, ...guidanceNotes].flatMap(readerGuidanceNote).length > 0) tables.push({ heading: "Management guidance", headers: ["Status"], rows: [["A standardized guidance table is unavailable; separately sourced issuer statements may appear below."]] });
+      if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
+      return tables;
     }
     case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
   }
+}
+
+/** Notes about what a parser could not read, which tell a reader nothing about the company. */
+function isParserDiagnostic(note: string): boolean {
+  return /could not be read as rows/i.test(note) || /^no earnings, EPS or operating-income amount was read in /i.test(note) ||
+    /^Earnings inspection limited to /i.test(note);
+}
+
+function readerGuidanceNote(note: string): string[] {
+  const quoted = /^(.*?): outlook sentence not read as guidance: "([\s\S]+)"\.?$/i.exec(note);
+  if (quoted) return [`Issuer outlook statement (${quoted[1]}): “${quoted[2]}”`];
+  const statement = /^Issuer outlook statement not read as structured guidance \(([^)]*)\): "([\s\S]+)"\.?$/i.exec(note);
+  if (statement) return [`Issuer outlook statement (${statement[1]}): “${statement[2]}”`];
+  if (/no structured .*guidance.*(?:extract|read)|no structured guidance could be extracted|none of its sentences could be read as guidance|outlook sentence not read as guidance/i.test(note)) return [];
+  const text = readerBaseUnits(note.trim());
+  return text ? [/[.!?]$/.test(text) ? text : `${text}.`] : [];
+}
+
+export function withoutTocStubs(summary:string):string {
+ return summary.replace(/Item \d\.\d{2}: \d{1,3}(?: Table of Contents)?(?=\s+Item \d\.\d{2}:|\s*$)/g, "").replace(/\s+/g," ").trim();
+}
+
+export interface FiscalLabelledPeriod { end: string; label: string }
+const fiscalYearOf = (label: string) => /FY(\d{4})$/.exec(label)?.[1];
+export function fiscalLabelContradictedAt(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ return periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000 &&
+  (fiscalYearOf(p.label)!==fiscalYearOf(label) || (p.label.startsWith("Q") && label.startsWith("Q") && p.label!==label) || (/^FY/.test(p.label) && /^Q[1-3] /.test(label))));
+}
+export function fiscalLabelEndedBy(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ return periods.some(p=>p.label===label && p.end<=cutoff);
+}
+/** One completed-release rule for excerpt titles and deterministic tables. */
+export function fiscalLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, end: string): boolean {
+ if (fiscalLabelContradictedAt(periods,label,end)) return true;
+ if (periods.some(p=>Math.abs(Date.parse(p.end)-Date.parse(end))<=3*86400000)) return false;
+ if (periods.some(p=>p.label===label && Date.parse(end)-Date.parse(p.end)>45*86400000)) return true;
+ const q = /^Q([1-4]) FY(\d{4})$/.exec(label);
+ if (!q) return false;
+ const sorted=[...periods].sort((a,b)=>b.end.localeCompare(a.end));
+ const quarter=sorted.find(p=>/^Q[1-4] FY\d{4}$/.test(p.label));
+ if (quarter) {
+  const old=/^Q([1-4]) FY(\d{4})$/.exec(quarter.label)!;
+  const successor=old[1]==="4"?`Q1 FY${Number(old[2])+1}`:`Q${Number(old[1])+1} FY${old[2]}`;
+  const days=(Date.parse(end)-Date.parse(quarter.end))/86400000;
+  return !(days>=80 && days<=100 && label===successor);
+ }
+ const annual=sorted.find(p=>/^FY\d{4}$/.test(p.label));
+ if (!annual) return false;
+ const n=Number(q[1]),days=(Date.parse(end)-Date.parse(annual.end))/86400000;
+ return !(days>=91*n-11 && days<=Math.min(91*n+9,366) && Number(q[2])===Number(fiscalYearOf(annual.label))+1);
+}
+/** An outlook must follow the newest labelled statement available by filing date. */
+export function fiscalOutlookLabelContradicted(periods: readonly FiscalLabelledPeriod[], label: string, cutoff: string): boolean {
+ if (fiscalLabelEndedBy(periods,label,cutoff)) return true;
+ const order=(s:string):number|null=>{
+  const m=/^(?:Q([1-4]) )?FY(\d{4})$/.exec(s);
+  return m?Number(m[2])*4+Number(m[1]??4):null;
+ };
+ const target=order(label);
+ const newest=[...periods].filter(p=>p.end<=cutoff && order(p.label)!==null).sort((a,b)=>b.end.localeCompare(a.end) || order(b.label)!-order(a.label)!)[0];
+ return target!==null && newest!==undefined && target<=order(newest.label)!;
+}
+/** AI-512-V1: withhold disputed labels; never replace them with a guessed fiscal period. */
+export function withholdContradictedReleaseLabels<T extends FilingDisclosures>(d:T, periods: readonly FiscalLabelledPeriod[]):T {
+ const removed: string[]=[];
+ const completed=(label:string|null,end:string|null)=>label!==null && end!==null && fiscalLabelContradicted(periods,label,end);
+ let guidance=d.guidance;
+ if(guidance) {
+  const reported=completed(guidance.reportedPeriod,guidance.reportedPeriodEnd);
+  const rows=guidance.rows.map(r=>{
+   if(!fiscalOutlookLabelContradicted(periods,r.period,guidance!.source.filingDate)) return r;
+   removed.push("an outlook label");
+   return {...r,period:r.period.startsWith("Q")?"fiscal quarter":"fiscal year"};
+  });
+  if(reported) removed.push(`the issued-with label for quarter ended ${guidance.reportedPeriodEnd}`);
+  guidance={...guidance,reportedPeriod:reported?null:guidance.reportedPeriod,rows};
+ }
+ const guidanceChecks=d.guidanceChecks.filter(c=>{
+  if(!completed(c.period,c.periodEnd) && !fiscalLabelEndedBy(periods,c.period,c.guidance.filingDate)) return true;
+  removed.push(`results against prior guidance for quarter ended ${c.periodEnd}`);return false;
+ });
+ let newerResults=d.newerResults;
+ if(newerResults?.reportedPeriod && (completed(newerResults.reportedPeriod,newerResults.reportedPeriodEnd) || (!newerResults.reportedPeriodEnd && fiscalLabelEndedBy(periods,newerResults.reportedPeriod,newerResults.statementsEnd)))) {
+  removed.push("the newer-results label");newerResults={...newerResults,reportedPeriod:null};
+ }
+ if(!removed.length) return d;
+ return {...d,guidance,guidanceChecks,...(newerResults?{newerResults}:{}),notes:[...d.notes,`Issuer fiscal labels withheld because the statement periods contradict them: ${removed.join("; ")}. Results paired only by those labels are left out.`]};
+}
+export function shownFilingDisclosures<T extends FilingDisclosures>(d:T):T {
+ return withholdContradictedReleaseLabels(d,d.quarterlyTrend.flatMap(r=>r.fiscalLabel?[{end:r.periodEnd,label:r.fiscalLabel}]:[]));
 }

@@ -508,7 +508,9 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
       }) }));
     }
     expect(installed).toHaveLength(1);
-    expect(markup.match(/>n\/a<\/span>/g)).toHaveLength(7);
+    // Seven grade cells, plus the citation rate: this data-only summary completed
+    // no citation check, so its recorded rate is not shown (RPT-504).
+    expect(markup.match(/>n\/a<\/span>/g)).toHaveLength(8);
     expect(markup).not.toMatch(/var\(--grade-[abcdf]\)/);
     expect(markup).toContain("Not assessed");
   });
@@ -663,6 +665,7 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
       join(process.cwd(), "src", "app", "company", "[symbol]", "page.tsx"),
       "utf8",
     );
-    expect(page).toContain('<GenerateReport key={bundle.symbol} symbol={bundle.symbol} route={readRunRoute()} />');
+    // JOB-301: classic now receives read-only discovery, as dossier already did.
+    expect(page).toContain('initialJobId={await activeRunIdentity(bundle.symbol)} route={readRunRoute()}');
   });
 });

@@ -32,6 +32,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | U.S. Treasury (`home.treasury.gov`) | The year of the daily par yield curve CSV requested; no key, contact or identity header | Only when FRED `DGS10`, FMP treasury rates and the last cached `DGS10` observation all have no risk-free rate |
 | Finnhub (`finnhub.io`) | Symbol, endpoint/date parameters; `FINNHUB_API_KEY` in an `X-Finnhub-Token` header | `FINNHUB_API_KEY` is set |
 | FINRA (`api.finra.org`) | Partition requests; symbol and requested settlement cycles in short-interest queries. The production path configures no FINRA credential | Short-interest data is requested |
+| Issuer website for an EDGAR-confirmed issuer | Public home, investor-relations, news and release GET requests; `User-Agent: MetisResearch/1.0 (public investor-relations announcement discovery)`; no key, contact or cookie; up to six requests in 12 seconds to public addresses | Confirming a next earnings date when not already confirmed, or discovering official material-event statements |
 
 Cache hits may avoid these requests. Expired hits can trigger a background
 refresh even while the UI displays stored data. Opening a company page can
@@ -60,9 +61,8 @@ separately installed Gemini CLI.
 What the selected AI provider's research payload contains, precisely
 (`src/pipeline/stageC/payload.ts`, `src/pipeline/stageC/prompts.ts`):
 
-- Excerpts of the company's public SEC filings: 10-K Item 1A (or 20-F Item 3.D)
-  risk factors, 10-K Item 7 (or 20-F Item 5) MD&A, and 10-Q Part I Item 2 MD&A,
-  each truncated to a disclosed character budget.
+- Excerpts of public SEC filings: annual business description (10-K Item 1 or 20-F Item 4), risk factors (10-K Item 1A or 20-F Item 3.D), annual MD&A (10-K Item 7 or 20-F Item 5); quarterly MD&A (Part I Item 2), notes (Part I Item 1), Other Information including trading arrangements (Part II Item 5), controls conclusions (Part I Item 4), and dated officer signatures; the 10-K's notes to the consolidated financial statements; earnings releases (EX-99.1), CFO commentary (EX-99.2), reconciliation tables, material-event 8-K items, and XBRL segments.
+- Up to three official company statements from the issuer's investor-relations pages, labelled as issuer statements.
 - An excerpt of the latest earnings-call transcript, when one was retrieved.
 - The ticker context payload: the computed financial figures, ratios,
   valuation inputs, macro series, and public peer-company comparisons used
@@ -85,9 +85,7 @@ are researching. Public data for peers and market
 benchmarks can support the selected company's analysis. The payload is
 deterministic: the same inputs produce the same bytes.
 
-Text budgets are 18,000 characters for the latest transcript, 14,000 each for
-annual risk factors and MD&A, 8,000 for quarterly MD&A, and 6,000 for news
-snippets. Compact statement extracts keep five annual and four quarterly
+Text budgets, in characters: 18,000 for the latest transcript; risk factors 14,000, or 20% of a longer section up to 24,000; 12,000 for business; 14,000 for annual MD&A; 12,000 for quarterly MD&A; 14,000 for 10-Q notes; 10,000 for 10-K notes; 2,500 for Other Information; 6,000 for controls; 9,000 for earnings releases; 11,000 for CFO commentary; 1,200 per material-event item (1,800 for credit-support agreements), 8,600 total; and 6,000 for news. Signatures are sent whole at at most 2,500 characters, otherwise withheld. Compact statement extracts keep five annual and four quarterly
 periods, and list-shaped sources generally keep twelve rows. These are
 character/row limits, not a guaranteed overall prompt-token limit. Truncation
 is disclosed. The database can cache full provider responses beyond what the
@@ -159,12 +157,17 @@ company pages from the Metis home page, or serve Metis over HTTPS. Loopback is
 unchanged. Mutating
 routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
-reports and invoke actions. AI connection GET/POST additionally require the
-same-origin/token guard and strict localhost/127.0.0.1/[::1] access, even with
-a LAN allowlist. Local browser traffic uses HTTP under the default
+reports and invoke actions. Credential and AI connection GET/POST require the
+same-origin/token guard and loopback access; configured non-loopback LAN mode
+disables these management routes regardless of the supplied Host. Company landing pages accept only GET and HEAD.
+Local browser traffic uses HTTP under the default
 scripts; HTTPS to remote providers does not encrypt the local database.
 
 ## Where local data is kept
+
+Plan-run recovery lives in `<data dir>/recovery/sections`, following METIS_DATA_DIR independently of METIS_DB_PATH. Plain JSON `*.json` files hold completed model-written analyst/judge sections and writer evidence; `*.usage.jsonl` holds per-request usage journals. Metis never automatically deletes these files.
+
+Browser-local display storage includes `thesis-ui-design` and `metis-ui-density-v1` cookies. Local report notes use localStorage on this browser and origin; they are not sent to providers.
 
 **Settings → Appearance** stores only `current` or `workspace` in the browser's
 `thesis-ui-design` cookie for 180 days (`Path=/`, `SameSite=Lax`, and `Secure`
@@ -242,6 +245,10 @@ The v1 credential reader validates the fields connection code consumes before
 allowing a mutation. Malformed records produce a storage error and are left
 unchanged; they are never silently reset. Expired/signed-out registrations,
 historical valid model identifiers and unknown metadata remain compatible.
+While the store cannot be read, Metis withholds the Claude API and admin keys it
+holds, starts no new jobs and writes nothing to it; see "AI connection storage
+cannot be read" in [OPERATIONS](OPERATIONS.md). A new state that this build
+could not read back is refused before it is written.
 Credential mutations use a separate, permanent `connections.lock` SQLite file
 containing only a format marker. A native write reservation covers the read,
 awaited mutation and JSON save; waiting yields to other async work. Process exit
@@ -275,6 +282,11 @@ Connection lifecycle and inference operations claim one live Metis server
 per OS user; another server cannot connect, refresh or disconnect them until
 the owning server stops. Status reads and selection saves are not an
 authentication boundary and do not themselves claim that runtime ownership.
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
 Remove the CLI's remote authorization
 from Google Account connections if needed. ChatGPT disconnect clears local
 tokens and attempts to revoke the renewable session; an unconfirmed remote
@@ -292,6 +304,8 @@ was. The server prints the resolved path at every start:
 ```
 
 ## Retention
+
+Plan-run `recovery/sections` JSON text, writer evidence and usage journals have no expiry or automatic purge. They remain even after deleting the database, preserving retries and manual audit evidence.
 
 - Cached provider rows are deleted 30 days after their stored TTL expires
   (`src/cache/maintenance.ts`, `PURGE_EXPIRED_MARGIN_SECONDS`). The sweep runs
@@ -311,6 +325,8 @@ was. The server prints the resolved path at every start:
   reports, downloads or remote provider records.
 
 ## Deleting local data
+
+With Metis stopped, delete `<data dir>/recovery/sections` separately to remove section text, writer evidence and usage journals. Deleting the DB alone does not remove them. A later retry must request deleted sections again and consume plan allowance. Clear browser site data to remove localStorage report notes and the `thesis-ui-design` and `metis-ui-density-v1` display cookies.
 
 - Reports, cache and database settings: quit Metis and delete the database file together with its
   `-wal` and `-shm` siblings. Disable `METIS_IMPORT_LEGACY_DB` first if set,
@@ -414,7 +430,8 @@ choice is marked as access unconfirmed and can still be rejected by OpenAI.
 ChatGPT reasoning and Standard/Fast speed are saved with the connection.
 Fast is opt-in and offered only for the models OpenAI lists for it (GPT-6.1
 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna); any other model
-runs at Standard. Fast uses your plan or credits faster; check its current
+runs at Standard, including a Fast choice saved earlier for a model no longer
+on that list (stored reports are unchanged). Fast uses your plan or credits faster; check its current
 allowance/credit effects in
 [OpenAI's speed rules](https://learn.chatgpt.com/docs/agent-configuration/speed).
 Plan-usage errors follow OpenAI's documented recovery: a usage limit names
@@ -438,3 +455,9 @@ keeps its original freshness labels. The first request is still necessary to
 discover access, and source outages or unavailable endpoints remain disclosed
 gaps. Configure a real `EDGAR_CONTACT` even with a free FMP key so SEC statement
 fallbacks can run. Restrictions are held in memory and reset on server restart.
+
+R2 figure context also includes filed cash-flow operands for trailing CFO and
+SBC: the fiscal-year, current-YTD and prior-year-YTD amounts, tag names,
+intervals and filing identities already retained in SEC companyfacts. These
+are structured numeric records, not additional document excerpts or network
+requests, and carry no separate excerpt budget.

@@ -296,7 +296,9 @@ describe("guidance on a seasonal and period-comparable basis", () => {
     const bundle = withRelease("2025-12-31", "Q1 2026");
     bundle.builtAt = "2026-07-06T00:00:00.000Z"; // fixture's dated ERP observation must precede the analysis
     if (!bundle.statements.incomeQuarterly.ok || !bundle.statements.incomeAnnual.ok) throw new Error("missing fixture rows");
-    bundle.statements.incomeAnnual.value.data.rows[0].date = "2025-12-31";
+    // FIN-111: this is a full annual-base control, not a 339-day transition
+    // from the helper's January year end. Keep every annual duration whole.
+    bundle.statements.incomeAnnual.value.data.rows.forEach((row,i) => { row.date = `${2025-i}-12-31`; });
     bundle.statements.incomeQuarterly.value.data.rows = bundle.statements.incomeQuarterly.value.data.rows.filter((row, index, rows) => String(row.date) <= "2025-12-31" && row.date !== "2025-09-30" && index === rows.findIndex(r => r.date === row.date));
     const c = runStageB(bundle);
     if (c.valuation.kind !== "dcf") throw new Error("expected annual DCF");

@@ -390,3 +390,5 @@ never produced from partial operands.
 - Live verification: `FMP_API_KEY=""` end-to-end report for AAPL and one
   bank (JPM) in an isolated data directory; the audit fixture comparison
   stays byte-identical (fixtures resolve no CIK).
+
+DATA-113: reuse the actual successful five-day meta observation to construct the quote, rather than reading its cache key a second time. Profile and quote carry its stale state; failed meta still permits the independent quote retry.

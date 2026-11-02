@@ -62,6 +62,26 @@ export function lastUsSessionClose(now: Date): number {
  */
 export const CLOSE_SETTLE_MS = 30 * 60_000;
 
+/** The New York calendar date (YYYY-MM-DD) of an instant. */
+export function newYorkDate(ms: number): string {
+  return new Date(newYorkWallMs(ms)).toISOString().slice(0, 10);
+}
+
+/**
+ * The session whose daily bar is still forming at `at`: today's New York date
+ * until its 16:00 close has settled, else null. Holidays and early closes are
+ * not modelled (an early-close bar is treated as forming until 16:30).
+ */
+export function inProgressUsSessionDate(at: string): string | null {
+  const ms = Date.parse(at);
+  if (!Number.isFinite(ms)) return null;
+  const date = newYorkDate(ms);
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  if (weekday === 0 || weekday === 6) return null;
+  const close = newYorkInstant(Date.parse(`${date}T00:00:00Z`) + CLOSE_MINUTES * 60_000);
+  return ms < close + CLOSE_SETTLE_MS ? date : null;
+}
+
 /**
  * Cache TTL for a quote-driven value. Between sessions no newer price exists,
  * so a quote fetched after the last close (plus settle time) stays fresh until
@@ -72,4 +92,9 @@ export const CLOSE_SETTLE_MS = 30 * 60_000;
 export function quoteTtlMs(baseTtlMs: number, now: Date): number {
   if (isUsSessionOpen(now)) return baseTtlMs;
   return Math.max(baseTtlMs, now.getTime() - (lastUsSessionClose(now) + CLOSE_SETTLE_MS));
+}
+
+/** DATA-112: only the current-date history tail shares quote freshness. */
+export function sessionTailTtlMs(windowTo:string,now:Date,baseTtlMs=15*60_000):number|null {
+ return windowTo>=now.toISOString().slice(0,10)?quoteTtlMs(baseTtlMs,now):null;
 }

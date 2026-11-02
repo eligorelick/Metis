@@ -1,4 +1,58 @@
 import type { DataBundle } from "@/pipeline/types";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { identicalClassRights } from "@/edgar/economicShares";
+import { parseFactPoints } from "@/edgar/xbrl";
+import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
+
+/** R9: narrowly admit an explicitly combined EPS note with matching filed counts. */
+export function retainedCombinedClassEpsBasis(bundle: DataBundle, counts: WeightedShareCounts): CombinedClassEpsBasis | null {
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  if (!facts || !counts.periodEnd || counts.basic === null || counts.diluted === null) return null;
+  const cutoff = bundle.builtAt.slice(0, 10);
+  const labelPattern = /\b(?:Class [A-Z0-9]{1,8}|[A-Z][A-Z-]{0,30}) common stock\b/gi;
+  const labels = (text: string): string[] => [...text.matchAll(labelPattern)].map(m => m[0].toLowerCase());
+  const profile = bundle.profile.ok ? bundle.profile.value.data.rows[0] : null;
+  const quoted = labels(typeof profile?.companyName === "string" ? profile.companyName : "");
+  if (quoted.length !== 1) return null;
+  for (const member of [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes]) {
+    if (!member?.ok || member.value.source !== "edgar") continue;
+    const source = member.value.data;
+    if (source.reportDate !== counts.periodEnd || source.filingDate > cutoff || !/^10-[QK](?:\/A)?$/.test(source.form)) continue;
+    try {
+      const url = new URL(source.documentUrl);
+      if (url.protocol !== "https:" || !["sec.gov", "www.sec.gov"].includes(url.hostname) || url.search || url.hash || url.username || url.password ||
+        !new RegExp(`^/Archives/edgar/data/${Number(facts.cik)}/${source.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(url.pathname)) continue;
+    } catch { continue; }
+    const combined = /same for (.{1,500}?) on an individual or combined basis, and they have been combined as common shares below\./i.exec(source.text);
+    if (!combined) continue;
+    const names = labels(combined[1]!);
+    const remainder = combined[1]!.replace(labelPattern, "").replace(/\b(?:and|the)\b|[,\s]/gi, "");
+    if (remainder || names.length < 2 || new Set(names).size !== names.length || !names.includes(quoted[0]!)) continue;
+    const rights = source.text.slice(Math.max(0, combined.index - 1500), combined.index).split(/(?<=\.)\s+/).some(sentence => {
+      const related = identicalClassRights(sentence.trim());
+      return related && related.length === names.length && names.every(name => related.includes(name));
+    });
+    if (!rights) continue;
+    // Both counts must be primary facts from this exact filing and interval.
+    const points = (tag: string, value: number) => {
+      const concept = facts.facts["us-gaap"]?.[tag] as { units?: { shares?: unknown[] } } | undefined;
+      return parseFactPoints(concept?.units?.shares ?? []).filter(p => p.end === counts.periodEnd && p.val === value &&
+        p.start !== undefined && p.accn === source.accession && p.filed === source.filingDate && p.form === source.form);
+    };
+    const basic = points("WeightedAverageNumberOfSharesOutstandingBasic", counts.basic);
+    const diluted = points("WeightedAverageNumberOfDilutedSharesOutstanding", counts.diluted);
+    if (!basic.some(b => diluted.some(d => d.start === b.start))) continue;
+    const table = source.text.slice(combined.index + combined[0].length, combined.index + combined[0].length + 4000);
+    const row = (kind: string): number[] => {
+      const text = new RegExp(`\\b${kind} weighted[ -]average common shares[^\\d]{0,100}((?:[\\d,]+\\s*)+)`, "i").exec(table)?.[1];
+      return text?.trim().split(/\s+/).map(n => Number(n.replaceAll(",", ""))) ?? [];
+    };
+    const basicRow = row("Basic"), dilutedRow = row("Diluted");
+    if (!basicRow.some((value, i) => value === counts.basic && dilutedRow[i] === counts.diluted)) continue;
+    return { ...counts, classIds: names.map(name => name === quoted[0] ? bundle.symbol : name), source: `${source.form} ${source.accession}, filed ${source.filingDate}; ${source.documentUrl}` };
+  }
+  return null;
+}
 
 export interface CommonClassAmbiguity {
   reason: string;

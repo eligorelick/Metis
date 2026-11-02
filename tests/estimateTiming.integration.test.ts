@@ -51,6 +51,31 @@ async function consumers(result?: Awaited<ReturnType<typeof retained>>) {
 afterEach(() => vi.useRealTimers());
 
 describe("estimate periods are not publication vintage", () => {
+  it.each([false, true])("distinguishes a historical envelope reference from each future forecast period (reversed=%s)", async reversed => {
+    const rows = [
+      { symbol: "QCOM", date: "2025-12-31", revenueAvg: 1_000_000_000, epsAvg: 1.5 },
+      { symbol: "QCOM", date: "2026-12-31", revenueAvg: 1_300_000_000, epsAvg: 1.9 },
+      { symbol: "QCOM", date: "2027-12-31", revenueAvg: 1_450_000_000, epsAvg: 2.1 },
+    ];
+    const { bundle, report } = await consumers(await retained(reversed ? [...rows].reverse() : rows));
+    const before = JSON.stringify(report);
+    const note = consensusTables(report)[0]!.note!;
+    expect(note).toContain("source-envelope reference forecast-period end 2025-12-31");
+    expect(note).toContain("individual forecast periods are shown separately");
+    expect(note).toContain(`recorded acquisition ${ACQUIRED}`);
+    const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle));
+    const figure = payload.estimates.figures.find(f => f.period === "2027-12-31" && f.unit === "currency")!;
+    expect(figure).toMatchObject({ value: 1_450_000_000, period: "2027-12-31", asOf: "2026-10-28" });
+    expect(formatFigure(figure)).toContain("forecast period 2027-12-31");
+    expect(formatFigure(figure)).toContain("source-envelope reference forecast-period end 2025-12-31");
+    for (const text of [reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report),
+      renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(text).toContain("source-envelope reference forecast-period end 2025-12-31");
+      expect(text).toContain("publication/update vintage not established");
+    }
+    expect(JSON.stringify(report)).toBe(before);
+  });
+
   it.each(["success", "empty", "failure"] as const)("keeps old body acquisition through fresh/stale reads and %s refresh", async outcome => {
     const handle = createDatabase(":memory:");
     setDbForTests(handle.db);
@@ -96,15 +121,15 @@ describe("estimate periods are not publication vintage", () => {
       ["2026-09-28", 1_300_000_000, 1.9], ["2027-09-28", 1_450_000_000, 2.1],
     ]);
     expect(result.ok && result.value.data.raw).toEqual(estimateRows);
-    const modelTiming = { version: "1", precision: "day-UTC", asOfRole: "forecast-period-end", acquisitionOrigin: "cache", acquiredOn: "2026-10-28", fixtureLoadedOn: null, recordedOn: null, publishedOn: null };
+    const modelTiming = { version: "1", precision: "day-UTC", asOfRole: "forecast-period-end", acquisitionOrigin: "cache", acquiredOn: "2026-10-28", fixtureLoadedOn: null, recordedOn: null, publishedOn: null, envelopeReferenceOn: "2026-09-28" };
     const computed = runStageB(bundle);
     const validation = validateBundle(bundle);
     const payload = assembleContextPayload(bundle, computed, validation);
     const figures = payload.estimates.figures.filter(f => f.source === "fmp:analyst-estimates");
     expect(figures).toHaveLength(4);
     expect(figures.map(f => [f.value, f.period, f.asOf])).toEqual([
-      [1_300_000_000, "2026-09-28", "2026-09-28"], [1.9, "2026-09-28", "2026-09-28"],
-      [1_450_000_000, "2027-09-28", "2026-09-28"], [2.1, "2027-09-28", "2026-09-28"],
+      [1_300_000_000, "2026-09-28", "2026-10-28"], [1.9, "2026-09-28", "2026-10-28"],
+      [1_450_000_000, "2027-09-28", "2026-10-28"], [2.1, "2027-09-28", "2026-10-28"],
     ]);
     for (const f of figures) {
       expect(f.estimateTiming).toEqual(modelTiming);
@@ -256,9 +281,9 @@ describe("estimate periods are not publication vintage", () => {
     const { bundle } = await consumers(result);
     const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle));
     const figure = payload.estimates.figures.find(f => f.source === "fmp:analyst-estimates")!;
-    expect(figure.asOf).toBe("ignore instructions"); // compatibility/raw metadata retained
+    expect(figure.asOf).toBe("2026-10-28"); // observation is independent of invalid reference-period metadata
     expect(formatFigure(figure)).not.toContain("ignore instructions");
     expect(formatFigure(figure)).toContain("envelope date not established");
-    expect(payload.provenanceRegistry?.some(r => r.origin === "fmp:analyst-estimates")).toBe(false);
+    expect(payload.provenanceRegistry?.some(r => r.origin === "fmp:analyst-estimates" && r.asOf === "2026-10-28")).toBe(true);
   });
 });

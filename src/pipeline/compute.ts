@@ -1,3 +1,4 @@
+import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
@@ -20,6 +21,8 @@ import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextP
 import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -56,6 +59,7 @@ import {
   computeGrowth,
   windowCagr,
   type GrowthResult,
+  withoutTransitionPeriods,
   type GrowthIncomeRow,
   type GrowthCashFlowRow,
 } from "@/pipeline/stageB/growth";
@@ -136,21 +140,26 @@ import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type 
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
-import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
-import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { instantFact, marketableEquityInCash, nonMarketableEquityCarrying, validDay } from "@/pipeline/stageB/marketableEquity";
+import { millions } from "@/pipeline/stageB/netDebt";
+import { retainedCommonClassAmbiguity, retainedCombinedClassEpsBasis } from "@/pipeline/stageB/commonClassScope";
+import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
+import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
+import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
+import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
+import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
-import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
+import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
-import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
-import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
+import { unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   adjacentQuarterEnds,
   normalizeQuarterRows,
@@ -405,8 +414,19 @@ export function selectEquityRiskPremium(
 // build explicit objects so a field rename upstream fails the typecheck here).
 // ---------------------------------------------------------------------------
 
+/** Keep the proof required by fiscal alias/whole-row recency admission. */
+function fiscalIdentity(r: FmpStatementRow) {
+  return {
+    cik: r.cik, reportedCurrency: r.reportedCurrency,
+    fiscalYear: r.fiscalYear, calendarYear: r.calendarYear, period: r.period,
+    periodStart: r.periodStart, accessionNumber: r.accessionNumber,
+    link: r.link, finalLink: r.finalLink, fieldProvenance: r.fieldProvenance,
+  };
+}
+
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     // Restatement recency: without these, a duplicated fiscal period is
     // ambiguous and gets rejected wholesale instead of resolved.
@@ -422,6 +442,7 @@ function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
 
 function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -579,6 +600,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
 
 function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
   return {
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -1395,7 +1417,7 @@ export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: F
     const basis = `0% tax shield: ${why}, so no effective rate exists and the debt is given no tax shield (house rule, audit 2026-10-22 B-32)`;
     return { rate: 0, basis, fallback: basis };
   };
-  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeTaxExpense !== null) {
+  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeBeforeTax <= 0) {
     return zeroShield(`TTM pre-tax income is not positive (${ttm.incomeBeforeTax} through ${ttm.date})`);
   }
   const date = isoDay(latestAnnual?.date);
@@ -1424,6 +1446,24 @@ export function ttmCashFlow(
 ): TtmCashFlow | null {
   const normalized = normalizeStatementQuarters(quarterly, "cashFlow", gaps);
   return ttmCashFlowFromNormalized(normalized, gaps, siblings);
+}
+
+/**
+ * The window gates of ttmCashFlowFromNormalized (no rejected current period,
+ * four contiguous quarters, one known currency), without its manifest entries.
+ * A filed CFO identity establishes only CFO's twelve months; the other quarterly
+ * flows summed beside it still need their own admitted window (PR #83 review).
+ */
+function cashFlowQuarterWindowAdmitted(
+  normalized: NormalizedQuarterSet<FmpCashFlowRow>,
+  siblings: readonly CurrencyEvidenceRow[] = [],
+): boolean {
+  if (rejectedAffectsCurrentWindow(normalized) || normalized.rows.length < 4) return false;
+  const q = normalized.rows.slice(0, 4);
+  if (quarterWindowViolation(q, normalized.rows[4] ?? null) !== null) return false;
+  const windowCurrency = resolveQuarterCurrency(q, siblings);
+  return windowCurrency.state === "known" &&
+    windowCurrencyGap("cash-flow", windowCurrency, "fmp:/stable/cash-flow-statement?period=quarter") === null;
 }
 
 function ttmCashFlowFromNormalized(
@@ -1669,6 +1709,39 @@ function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | 
   });
 }
 
+/** N2: classify a proved fair-value servicing financial asset, never infer an absent intangible. */
+function withTangibleBookClassification(row: FmpBalanceSheetRow, bundle: DataBundle, facts: CompanyFacts | null): FmpBalanceSheetRow {
+  const date = isoDay(row.date), currency = str(row.reportedCurrency), vendor = num(row.intangibleAssets);
+  const registrant = bundle.edgar.registrant;
+  if (!date || !currency || vendor === null || vendor <= 0 || num(row.goodwill) !== 0 || !registrant || !/^\d{10}$/.test(registrant.cik10) ||
+    Number(firstRow(bundle.profile)?.cik) !== Number(registrant.cik10) ||
+    (row.cik != null && Number(row.cik) !== Number(registrant.cik10))) return row;
+  const intangibleTags = [...tagsFor("goodwill"), ...tagsFor("intangibleAssets"), ...tagsFor("intangibleAssetsParts"), "GoodwillAndIntangibleAssetsNet"];
+  if (facts && intangibleTags.some(tag => tagPoints(facts, tag, currency)?.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10)))) return row;
+  if (["goodwill", "intangibleAssets"].some(field => row.fieldProvenance?.[field]?.source === "edgar" || row.fieldConflicts?.[field]?.usable === false)) return row;
+  const source = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(s => s?.ok ? [s.value.data] : []).find(d =>
+    d.reportDate === date && /^(?:10-Q|10-K)(?:\/A)?$/.test(d.form) && /^\d{4}-\d{2}-\d{2}$/.test(d.filingDate) &&
+    d.reportDate <= d.filingDate && d.filingDate <= bundle.builtAt.slice(0, 10) && /^\d{10}-\d{2}-\d{6}$/.test(d.accession));
+  if (!source) return row;
+  try {
+    const url = new URL(source.documentUrl);
+    if (url.protocol !== "https:" || !["www.sec.gov", "sec.gov"].includes(url.hostname) || url.port || url.username || url.password || url.search || url.hash ||
+      !new RegExp(`^/Archives/edgar/data/${Number(registrant.cik10)}/${source.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(url.pathname)) return row;
+  } catch { return row; }
+  const sheet = (source.statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  if (/\b(?:goodwill|intangible assets?)\b/i.test(sheet)) return row;
+  const scale = /\bin thousands\b/i.test(sheet) ? 1000 : /\bin millions\b/i.test(sheet) ? 1_000_000 : null;
+  const servicing = /\b(?:loan |mortgage )?servicing assets?, at fair value\s*\$?\s*([\d,]+(?:\.\d+)?)/i.exec(sheet);
+  if (!scale || !servicing) return row;
+  const amount = Number(servicing[1]!.replaceAll(",", "")) * scale;
+  const filedServicing = facts ? tagPoints(facts, "ServicingAssetAtFairValueAmount", currency) : null;
+  const filedCurrency = filedServicing?.unit === currency && filedServicing.points.some(p => p.end === date && !p.start && p.filed <= bundle.builtAt.slice(0, 10) && Math.abs(p.val - amount) <= scale / 2);
+  const explicitCurrency = currency === "USD" && /\b(?:U\.S\.|US) dollars\b/i.test(sheet);
+  if ((!filedCurrency && !explicitCurrency) || /\b(?:euros|pounds sterling|Canadian dollars)\b/i.test(sheet) || Math.abs(vendor - amount) > scale / 2) return row;
+  return { ...row, intangibleAssets: 0,
+    tangibleBookDeductionBasis: `Filed servicing asset ${amount} ${currency} at fair value (${date}), not deducted: it is a financial asset, not goodwill or other intangible assets. No goodwill or intangible-asset fact is carried on this filed balance sheet; vendor intangibleAssets ${vendor} ties to that servicing asset. Source: ${source.documentUrl}.` };
+}
+
 /** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
 function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
   return rows.flatMap((row) => {
@@ -1733,7 +1806,7 @@ function bookDebtOnLeaseBasis(
 export function priorYearCostOfDebt(
   incomeAnnual: readonly FmpIncomeStatementRow[],
   balanceAnnual: readonly FmpBalanceSheetRow[],
-  options: { includeOperatingLeases?: boolean } = {},
+  options: { includeOperatingLeases?: boolean; unusualByYear?: ReadonlyMap<string, number> } = {},
 ): PriorYearCostOfDebt | null {
   const includeOperatingLeases = options.includeOperatingLeases === true;
   for (let index = 1; index < incomeAnnual.length && index <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK; index += 1) {
@@ -1759,7 +1832,8 @@ export function priorYearCostOfDebt(
       yearsBack: index,
       interestExpense,
       totalDebtAvg,
-      ebit: num(income?.operatingIncome),
+      ebit: num(income?.operatingIncome) === null ? null : num(income?.operatingIncome)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
+      coverageBasis: options.unusualByYear?.get(fiscalYearEnd) ? `FY ${fiscalYearEnd} operating income excluding tagged one-off items of ${options.unusualByYear.get(fiscalYearEnd)}` : undefined,
     };
   }
   return null;
@@ -1992,14 +2066,19 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))
     ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
-  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id));
-  const revenueEligibilityReason = revenueConflict
-    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
-
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
+  // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
+  // D-67: source bundles and stored reports stay byte-for-byte unchanged.
+  bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const quote = firstRow(bundle.quote);
+  const refusedAnnualRevenue = rowsOf(bundle.statements.incomeAnnual).find(row => row.fieldConflicts?.revenue?.usable === false);
+  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id)) ??
+    (refusedAnnualRevenue ? { id: `statements.income.${refusedAnnualRevenue.date}.revenue`, detail: refusedAnnualRevenue.fieldConflicts!.revenue!.reason } : null);
+  const revenueEligibilityReason = revenueConflict
+    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
 
   // The statements AS REPORTED. Calculations that combine rows read the
   // currency-compatible subsets below (rowsInModelCurrency) instead.
@@ -2007,7 +2086,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // D-60: marketable equity securities the filing places inside cash and
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
-  const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const admittedFacts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  const companyFacts = admittedFacts?.ok ? admittedFacts.value.data : null;
   const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
@@ -2016,6 +2096,30 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     "income",
     ttmGaps,
   );
+  // L2: a vendor quarter can omit a filed common numerator while retaining
+  // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
+  // never infer a common allocation from total income or rebuild IPO EPS.
+  let commonEarningsSupplemented = false;
+  const commonTagNames = tagsFor("netIncomeAvailableToCommon");
+  if (companyFacts && admittedFacts?.ok && incomeQuarterSet.rows.slice(0, 4).some(r => num(r.netIncomeAvailableToCommon) === null) &&
+    commonTagNames.some(tag => companyFacts.facts["us-gaap"]?.[tag] !== undefined) &&
+    Number.isFinite(Date.parse(admittedFacts.value.fetchedAt)) && Date.parse(admittedFacts.value.fetchedAt) <= Date.parse(bundle.builtAt)) {
+    const filed = buildStatementsFromCompanyFacts(companyFacts, { symbol: bundle.symbol, cik: String(companyFacts.cik), annualPeriods: 2, quarterlyPeriods: 5,
+      asOf: bundle.builtAt.slice(0, 10), factsObservedAt: admittedFacts.value.fetchedAt,
+      vendorSplits: { status: "unavailable", source: "retained-common-earnings", reason: "only additive common-income amounts are used; no share or EPS inference" } });
+    incomeQuarterSet.rows = incomeQuarterSet.rows.map((row, index) => {
+      if (index >= 4 || num(row.netIncomeAvailableToCommon) !== null || row.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || Number(row.cik) !== companyFacts.cik) return row;
+      const sec = filed.incomeQuarterly.rows.find(r => r.date === row.date && r.period === row.period && r.reportedCurrency === row.reportedCurrency);
+      const evidence = sec?.fieldProvenance?.netIncomeAvailableToCommon;
+      if (!sec || num(sec.netIncomeAvailableToCommon) === null || sec.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || !evidence ||
+        !evidence.tags.some(tag => commonTagNames.some(name => tag === `us-gaap/${name}`))) return row;
+      commonEarningsSupplemented = true;
+      notes.push(`Aggregate common earnings: ${row.date} uses filed net income available to common ${sec.netIncomeAvailableToCommon} ${evidence.unit}` +
+        ` (${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). No per-share EPS is inferred.`);
+      return { ...row, netIncomeAvailableToCommon: sec.netIncomeAvailableToCommon,
+        fieldProvenance: { ...row.fieldProvenance, netIncomeAvailableToCommon: evidence } };
+    });
+  }
   const balanceQuarterSet = normalizeStatementQuarters(
     withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
     "balance",
@@ -2033,7 +2137,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const todayIso = bundle.builtAt.slice(0, 10);
 
   // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
-  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null, { today: todayIso });
+  const routingEvidence = deriveRoutingEvidence(admittedFacts, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
   const inc0 = incomeAnnualReported[0];
@@ -2050,6 +2154,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
   ], bundle.builtAt);
+  if (commonEarningsSupplemented && num(ttmInc?.netIncomeAvailableToCommon) !== null) {
+    const components = incomeQuarterSet.rows.slice(0, 4);
+    const reason = `Aggregate TTM common earnings ${ttmInc!.netIncomeAvailableToCommon}: ` + components.map(row => {
+      const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
+      return `${row.date} ${row.netIncomeAvailableToCommon} (${evidence?.derivation ?? "direct filed flow"}; ${evidence?.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ") ?? "source unavailable"})`;
+    }).join(" + ") + ". Four contiguous common-income quarters; a derived Q4 is fiscal year less nine months, both operands filed. No per-share EPS is inferred and no FY-plus-YTD substitution is used.";
+    notes.push(reason);
+    ttmGaps.push({ field: "compute.ttmCommonEarnings.construction", reason, severity: "info", attemptedSources: ["edgar:companyfacts"] });
+  }
   const routingIncomeTtm: RoutingIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
@@ -2061,10 +2174,35 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const routingCashflowAnnual: RoutingCashflowRow | null = cf0
     ? { date: isoDay(cf0.date), operatingCashFlow: num(cf0.operatingCashFlow) }
     : null;
-  const ttmCf = ttmCashFlowFromNormalized(cashflowQuarterSet, ttmGaps, [
+  let ttmCf = ttmCashFlowFromNormalized(cashflowQuarterSet, ttmGaps, [
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
+  const cashFlowWindowAdmitted = cashFlowQuarterWindowAdmitted(cashflowQuarterSet, [
+    ...incomeQuarterSet.rows,
+    ...balanceQuarterSet.rows,
+  ]);
+  const latestCash = cashflowQuarterSet.rows[0];
+  const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));
+  const filedSbc = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCashFlowTtm(companyFacts, "ShareBasedCompensation", latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const filedAllocatedSbc = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCashFlowTtm(companyFacts, "AllocatedShareBasedCompensationExpense", latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  const filedCapex = companyFacts && latestCash?.date && latestCash.reportedCurrency
+    ? filedCapexTtm(companyFacts, cf0, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
+  if (useFiledCfo && latestCash?.date) {
+    ttmCf = { date: latestCash.date, reportedCurrency: latestCash.reportedCurrency ?? null,
+      capitalExpenditure: ttmCf?.capitalExpenditure ?? null, depreciationAndAmortization: ttmCf?.depreciationAndAmortization ?? null,
+      operatingCashFlow: filedCfo.value };
+    ttmGaps.push({ field: "compute.ttmCashFlow.filedYtd", reason: filedCfo.reason, severity: "info" });
+  }
+  if (filedCapex && ttmCf) {
+    ttmCf = { ...ttmCf, capitalExpenditure: -filedCapex.value };
+    for (let i = ttmGaps.length - 1; i >= 0; i--) if (ttmGaps[i]!.field === "compute.ttmCashFlow.capitalExpenditure") ttmGaps.splice(i, 1);
+    ttmGaps.push({ field: "compute.ttmCashFlow.capitalExpenditure", reason: filedCapex.reason, severity: "info" });
+  }
   const currencies = resolveStatementCurrencies(
     profile?.currency, inc0, ttmInc, ttmCf, incomeQuarterSet.rows[0],
     [...incomeQuarterSet.rows, ...balanceQuarterSet.rows, ...cashflowQuarterSet.rows], ttmGaps,
@@ -2093,6 +2231,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+    row = withTangibleBookClassification(row, bundle, companyFacts);
     if (companyFacts === null) return row;
     const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
     const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
@@ -2165,6 +2304,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }, ttmGaps, [], issuance);
   }
 
+  const lendingCashFlow = lenderCashFlowApplicability(bundle, route);
+  if (lendingCashFlow) {
+    route.cashFlowApplicability = lendingCashFlow;
+    route.notes.push(lendingCashFlow.reason);
+  }
   const policy = metricPolicy(route);
   const isSuppressed = (key: string): boolean => policy.suppress.includes(key);
   const suppress = (key: string, reason: string): void => {
@@ -2228,6 +2372,18 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.model,
     currencies.ttmIncomeUsable,
   );
+  if (lendingCashFlow) {
+    returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
+    returns.roicVsWacc = { spreadPctPts: null, note: lendingCashFlow.reason };
+    if (returns.rote.latestRotePct === null) {
+      const withheld = returns.rote.notes.filter(note => note.includes("ROTE withheld:"));
+      if (withheld.length) {
+        const reason = `Lender return on tangible common equity withheld: ${withheld.join("; ")}`;
+        returns.rote.gaps = [...returns.rote.gaps.filter(gap => gap.field !== "returns.rote"), { field: "returns.rote", reason, severity: "warn" }];
+        returns.gaps = [...returns.gaps.filter(gap => gap.field !== "returns.rote"), ...returns.rote.gaps.filter(gap => gap.field === "returns.rote")];
+      }
+    }
+  }
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [modelEligibilityReason], gaps: [] };
@@ -2244,7 +2400,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Capital ---------------------------------------------------------------
   // D-61: the price actually paid for repurchased shares, from the filer's own
   // equity-statement tags, on the statements' share basis.
-  const companyFactsResult = bundle.edgar?.companyFacts;
+  const companyFactsResult = admittedFacts;
   const repurchaseExecutions = repurchaseExecutionsFromFacts({
     companyFacts: companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
     shareBasis: bundle.edgar?.shareBasis ?? null,
@@ -2270,6 +2426,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       quoteCurrency: str(profile?.currency),
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
       repurchaseExecutions: repurchaseExecutions.rows,
+      companyFacts,
+      asOf: bundle.builtAt,
       // AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA on the EV's lease basis.
       evIncludeLeases,
     },
@@ -2279,13 +2437,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   }
 
   const sumCurrentFlow = (field: keyof FmpCashFlowRow): number | null => {
-    if (!ttmCf || !currencies.ttmCashFlowUsable || cashflowQuarterly.length < 4) return null;
+    if (!ttmCf || !currencies.ttmCashFlowUsable || !cashFlowWindowAdmitted) return null;
     const values = cashflowQuarterly.slice(0,4).map(row => num(row[field]));
     return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
   };
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   const capital = attachCurrentCapital(annualCapital, {
+    trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
+    periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
     route: route.base,
     modelEligibilityReason,
     evIncludeLeases,
@@ -2294,7 +2454,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, ebit: ttmInc.operatingIncome } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
-      stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),
+      stockBasedCompensation: filedSbc?.value ?? sumCurrentFlow("stockBasedCompensation"),
       financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
     } : null,
     balance: currentBalance ? toCapitalBalance(currentBalance, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
@@ -2302,6 +2462,32 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     annualCashFlow: cashflowAnnual[0] ? toCapitalCashFlow(cashflowAnnual[0]) : null,
     annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0], leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null,
   });
+
+  if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
+  if (lendingCashFlow?.debtPerimeter && capital.current?.asOf === lendingCashFlow.asOf) {
+    const p = lendingCashFlow.debtPerimeter;
+    Object.assign(capital.current.debtBridge, { providerDebtPerimeterLabel: p.label, filedBorrowings: p.borrowings, loanOwnerPayables: p.loanOwnerPayables });
+    Object.assign(capital.current.debtBridge, {
+      filedCurrentDebt: p.components.find(c => /^Debt, current$/i.test(c.name))?.value,
+      filedCurrentRelatedPartyDebt: p.components.find(c => /^Debt, current to related parties$/i.test(c.name))?.value,
+      filedNoncurrentDebt: p.components.find(c => /^Debt, non-current$/i.test(c.name))?.value,
+    });
+    capital.current.debtBridge.compositionNote += ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`;
+  }
+  if (capital.current?.basis === "ttm") {
+    const cfo = filedCfo?.end === capital.current.asOf && filedCfo?.value === capital.current.cashBridge.operatingCashFlow ? filedCfo : null;
+    const sbc = filedSbc?.end === capital.current.asOf && filedSbc?.value === capital.current.cashBridge.stockBasedCompensation ? filedSbc : null;
+    const capex = filedCapex?.end === capital.current.asOf && -filedCapex.value === capital.current.cashBridge.cashCapitalExpenditure ? filedCapex : null;
+    const allocated = filedAllocatedSbc?.end === capital.current.asOf && latestCash?.reportedCurrency === capital.current.currency ? filedAllocatedSbc : null;
+    if (cfo) capital.current.cashBridge.definition += ` ${cfo.reason}`;
+    if (sbc) capital.current.cashBridge.definition += ` ${sbc.reason}`;
+    if (capex) capital.current.cashBridge.definition += ` ${capex.reason} Cash-flow capex is displayed as a negative outflow on this same tag basis.`;
+    if (allocated) { capital.current.allocatedSbcExpense = allocated.value; capital.current.cashBridge.definition += ` ${allocated.reason} Allocated expense and cash-flow add-back are distinct bases; neither is substituted for the other.`; }
+    if (cfo || sbc || capex || allocated) capital.current.filedCashFlows = {
+      ...(cfo ? { operatingCashFlow: cfo } : {}), ...(sbc ? { stockBasedCompensation: sbc } : {}),
+      ...(capex ? { capitalExpenditure: capex } : {}), ...(allocated ? { allocatedSbcExpense: allocated } : {}),
+    };
+  }
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a
@@ -2425,6 +2611,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
+    revenueEligibilityReason,
     // FIN-121: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
@@ -2458,6 +2645,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     quote,
   });
 
+  const sbcConcentration = capital.current?.sbcConcentration;
+  if (sbcConcentration) {
+    capital.notes.push(sbcConcentration.basis);
+    if (valuation.kind === "dcf-suppressed") {
+      valuation.suppressionReason = `${valuation.suppressionReason ?? "FCFF DCF suppressed under the unprofitable overlay."} ${sbcConcentration.basis}`;
+      valuation.notes.push(sbcConcentration.basis);
+      valuation.gaps = valuation.gaps.map(gap => gap.field === "valuation.dcf" ? {...gap,reason:`${gap.reason} ${sbcConcentration.basis}`} : gap);
+    }
+  }
   // --- Route metrics for financial companies (WS5, D-17) --------------------
   // The bank, insurer and mortgage-REIT routes have led with NIM, the
   // efficiency ratio, the combined ratio, book value per share, the spread and
@@ -2465,8 +2661,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // them. Each is now computed from the filer's own XBRL tags where its
   // definition allows, and withheld with a stated reason where it does not.
   const financialMetrics = computeFinancialMetrics(route.base, {
-    companyFacts: bundle.edgar?.companyFacts ?? null,
+    companyFacts: admittedFacts,
     balance: balanceAnnual.map((r) => ({
+      ...fiscalIdentity(r),
       date: String(r.date ?? ""),
       acceptedDate: str(r.acceptedDate),
       filingDate: str(r.filingDate),
@@ -2479,6 +2676,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       preferredStock: num(r.preferredStock),
     })),
     income: incomeAnnual.map((r) => ({
+      ...fiscalIdentity(r),
       date: String(r.date ?? ""),
       acceptedDate: str(r.acceptedDate),
       filingDate: str(r.filingDate),
@@ -2545,6 +2743,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     }
   }
 
+  if (lendingCashFlow) {
+    if (runway) runway = { ...runway, burning: null, avgQuarterlyBurn: null, burnWindowQuarters: 0, burnWindowDates: [],
+      runwayQuarters: null, estimatedExhaustionDate: null, notes: [lendingCashFlow.reason],
+      gaps: runway.gaps.filter(gap => gap.field === "runway.liquidAssets" || gap.field.startsWith("runway.dilution")) };
+    for (const key of ["fcf", "fcfGrowth", "fcfYield", "priceToFcf", "cashRunway", "fcfConversion", "sbcPctOfFcf", "netDebt", "netDebtToEbitda", "interestCoverage", "grossMargin", "roic", "roicVsWacc"]) suppress(key, lendingCashFlow.reason);
+    degradation.items.push({ target: "cashFlow.ownerEconomics", action: "suppress", disclosure: lendingCashFlow.reason });
+  }
+
   // --- Scores + projections (deterministic; feature 1.1.0) ------------------
   // Every upside (the grade's DCF signal, the fair value, the scenario targets)
   // sets a model value against the quote. Without one known currency on both
@@ -2586,7 +2792,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       totalDebt: balance === null ? null : current?.debtBridge.totalDebtIncludingLeases ?? null,
       totalEquity: equity,
       deferredIncomeTaxes: balance === null ? null : deferredIncomeTaxesAt(
-        bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+        companyFacts,
         isoDay(balance.date), currencies.model, bundle.builtAt),
     });
   })() : null;
@@ -2615,7 +2821,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // zero-for-undisclosed share counts treated as missing), and net debt from
   // the shared components-only resolver. Disclosures are emitted once from the
   // valuation block (identical underlying rows).
-  const inc0Proj = incomeAnnual[0];
+  const inc0Proj = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const projRowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // FIN-404: the same divisor as the valuation block (a loss period keeps its award dilution).
@@ -2628,7 +2834,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Removing the irregular-spacing veto left scenarioDispersion with no
   // protection against a duplicated period, which contributes a zero-length
   // interval and a repeated observation to the volatility estimate.
-  const projNorm = normalizeQuarterRows(incomeAnnualForRevenue);
+  const projNorm = normalizeQuarterRows(withoutTransitionPeriods(normalizeQuarterRows(incomeAnnualForRevenue).rows).rows);
   const projectionPeriodGaps: ManifestEntry[] = projNorm.rejected.map(({ period, reason }) => ({
     field: "projections.incomeStatement.period",
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
@@ -2645,6 +2851,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   };
   const projectionIncomeHistory = projNorm.rows.map(
     (r): ProjectionIncomeRow => ({
+      fiscalYear: str(r.fiscalYear),
       date: String(r.date ?? ""),
       revenue: num(r.revenue),
       // Projections and their EPS conversion use the DCF's operating EBIT.
@@ -2718,13 +2925,13 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." }
       : projectionTemporaryClaim ? { forecastEpsWithheldReason: "Temporary equity (redeemable preferred or redeemable noncontrolling interests) is filed, or refused, at the operating forecast anchor, but a future common-earnings allocation is unestablished. Its carrying amount is not a dividend or earnings forecast and is not subtracted from forecast operating earnings." } : {}),
     incomeHistory: projectionIncomeHistory,
-    fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf })),
+    fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf, fiscalYear: str(normalizeQuarterRows(cashflowAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) ?? str(normalizeQuarterRows(incomeAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
     currency: projectionCurrency,
     asOf: asOfDay,
     // D-60: the remaining repurchase authorization for the EPS capital-return disclosure.
     capitalReturn: (() => {
-      const capitalReturn = buildFilingDisclosures(bundle)?.capitalReturn ?? null;
+      const capitalReturn = buildFilingDisclosures(bundle, route.cashFlowApplicability)?.capitalReturn ?? null;
       return capitalReturn === null ? null : {
         authorizationRemaining: capitalReturn.authorizationRemaining,
         source: (() => { const source=capitalReturn.authorizationRemainingSource ?? capitalReturn.source;
@@ -2768,6 +2975,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       asOf: asOfDay,
     }),
     degradedInputsReason({
+      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression/.test(returns.wacc.betaSource ?? ""),
       riskFree: riskFreePct(bundle),
       waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
       bundleGaps: bundle.gaps,
@@ -2785,19 +2993,19 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("fcfDcf")) {
     suppress(
       "valuation.dcf",
-      modelEligibilityReason ?? (route.overlays.includes("unprofitable")
+      modelEligibilityReason ?? lendingCashFlow?.reason ?? (route.overlays.includes("unprofitable")
         ? "FCFF DCF not meaningful — free cash flow is structurally negative (unprofitable overlay); see multiples for relative valuation"
         : `FCFF DCF not meaningful for ${route.base} - book/excess-return model used`),
     );
   }
-  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
+  if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", lendingCashFlow?.reason ?? `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
   // Audit 2026-10-22 B-24: a results release later than every statement.
   const newer = newerResultsRelease(bundle);
   const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
-    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
+    reportedPeriod: newer.reportedPeriod, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
   // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.
@@ -2811,6 +3019,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const gaps = mergeManifest(
     newerResultsGaps,
     bundle.gaps,
+    admittedFacts?.ok === false && bundle.edgar?.companyFacts?.ok ? [admittedFacts.gap] : [],
     ttmGaps,
     route.gaps,
     degradation.gaps,
@@ -3091,6 +3300,19 @@ function computeReturns(
       );
     }
   }
+  const annualUnusual = unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+    fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: modelCurrency, observedAt: bundle.builtAt,
+  });
+  const coverageUnusual = ebitTtm !== null && ebitForWacc === ebitTtm
+    ? unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+      ttmEnd: ttmInc!.date, fiscalYearEnd: incomeAnnual.map(r => isoDay(r.date) ?? "").find(d => d <= ttmInc!.date) ?? null, unit: modelCurrency, observedAt: bundle.builtAt,
+    }) : annualUnusual.get(annualDate);
+  if (ebitForWacc !== null && coverageUnusual && coverageUnusual.value !== 0) {
+    ebitForWacc -= coverageUnusual.value;
+    coverageBasis += ` operating income excluding tagged one-off items of ${coverageUnusual.value}: ${coverageUnusual.basis}`;
+  }
+  const historyUnusual = withoutRecurringFamilies(annualUnusual, withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map(r => isoDay(r.date) ?? ""));
+  const recurrenceBasis = recurringOperatingItemsBasis(historyUnusual.recurring);
   const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt));
 
   // D-60: the beta's regression window, frequency and fit. A vendor beta
@@ -3114,7 +3336,8 @@ function computeReturns(
   };
   const equityScope = resolveEconomicEquityScope(equityQuote, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
-  const vendorTaxRate = num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
+  const taxWindowPretax = ttmInc === null ? num(incomeAnnual[0]?.incomeBeforeTax) : ttmInc.incomeBeforeTax;
+  const vendorTaxRate = taxWindowPretax !== null && taxWindowPretax <= 0 ? null : num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
   if (vendorTaxRate === null && statementTax.fallback !== null) {
     gaps.push({ field: "returns.wacc.effectiveTaxRate.basis", reason: `WACC tax rate: ${statementTax.fallback}`, severity: "info" });
@@ -3124,6 +3347,7 @@ function computeReturns(
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
     erpPct: usErpPct,
+    ...(erpSelection.basis === "domicile" && erpSelection.country && !US_COUNTRY_KEYS.has(countryKeyOf(erpSelection.country)) ? { erpCountry: erpSelection.country } : {}),
     interestExpenseTtm: interestExpenseForWacc,
     // Never inferred on ANY financial route — bank, insurer and mortgage REIT
     // alike — and on keyed plans as well as keyless ones.
@@ -3140,7 +3364,7 @@ function computeReturns(
     // equity carried" outcome.
     priorYearCostOfDebt:
       !isFinancial && (interestExpenseForWacc === null || interestExpenseForWacc <= 0)
-        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases })
+        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases, unusualByYear: new Map([...annualUnusual].map(([date, value]) => [date, value.value])) })
         : null,
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
@@ -3157,12 +3381,12 @@ function computeReturns(
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
     // suppress a levered WACC unnecessarily.
-    effectiveTaxRate: num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate) ?? statementTax.rate,
+    effectiveTaxRate: vendorTaxRate ?? statementTax.rate,
     // WS6 (D-19): name which tax-rate source actually supplied it.
     effectiveTaxRateBasis:
-      num(ratiosTtm?.effectiveTaxRateTTM) !== null
+      vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRateTTM) !== null
         ? "FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)"
-        : num(ratiosTtm?.effectiveTaxRate) !== null
+        : vendorTaxRate !== null && num(ratiosTtm?.effectiveTaxRate) !== null
           ? "FMP ratios effectiveTaxRate (observed effective rate)"
           : statementTax.basis,
     riskFreeSeriesId: rf.seriesId,
@@ -3194,6 +3418,21 @@ function computeReturns(
     },
   });
 
+  if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
+    wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
+    const populatedPeers = Object.keys(bundle.peerFundamentals?.candidates ?? {}).length;
+    const peerBasis = populatedPeers === 0
+      ? `No peer candidate was populated (${bundle.peerFundamentals?.candidateCount ?? 0} discovered; see exclusions); the peer collection would retain profiles, quotes and quarterly statements only, without peer price histories, a common regression window or validated unlever/relever operands. `
+      : `The peer collection retains ${populatedPeers} candidate(s), with profiles, quotes and quarterly statements, without peer price histories, a common regression window or validated unlever/relever operands. `;
+    const reason = `Recent IPO: the retained issuer/SPY history supplies ${betaFit.months} usable monthly return observations; ${BETA_MIN_MONTHS} are required for the issuer regression. ` +
+      peerBasis +
+      "Bottom-up beta was not substituted. No sourced industry asset-beta dataset is retained; a sector ETF beta measures fund exposure, not an issuer asset beta. " +
+      "Cost of equity remains withheld; any WACC needing it remains withheld. No fallback point estimate or sensitivity is presented.";
+    wacc.notes.push(reason);
+    wacc.betaRegressionUnavailable = `${wacc.betaRegressionUnavailable ?? "Issuer regression unavailable."} ${reason}`;
+    for (const gap of wacc.gaps) if (gap.field === "returns.wacc.beta") gap.reason += `. ${reason}`;
+  }
+
   if (equityScope.status === "unresolved") {
     wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
   }
@@ -3212,12 +3451,21 @@ function computeReturns(
     }
   }
 
+  // L9: the evidenced non-bank lender has neither an applicable FCFF DCF
+  // nor an excess-return model. A refused, unconsumed rate is disclosure.
+  if (route.base === "general" && route.cashFlowApplicability?.status === "not-applicable") {
+    for (const gap of wacc.gaps) if (gap.severity === "critical") {
+      gap.severity = "info";
+      gap.reason += ". Disclosure only: no applicable model consumes this discount rate; the evidenced lender's FCFF DCF is not applicable and no excess-return model is used.";
+    }
+  }
+
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of
   // its numerator because its denominator already excludes preferred.
   const preferredByDate = new Map<string, FmpCashFlowRow>(
     cashflowAnnual.map((r: FmpCashFlowRow) => [String(r.date ?? ""), r]),
   );
-  const returnsIncome = incomeAnnual.map((r) => toReturnsIncome(r, preferredByDate,
+  const returnsIncome = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => toReturnsIncome(r, preferredByDate,
     [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
     [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt));
   const returnsBalance = balanceAnnual.map(toReturnsBalance);
@@ -3226,6 +3474,7 @@ function computeReturns(
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
     : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country),
+        unusualByYear: new Map([...historyUnusual.byYear].map(([date, value]) => [date, value.value])),
         // FIN-119-V1: the annual balance dates whose temporary-equity enrichment was withheld (the M11 matcher Task 2 uses for the bridge).
         temporaryEquityUnknownDates: balanceAnnual.flatMap((r) => {
           const unknown = temporaryEquityUnknownAt(r, isoDay(r.date), bundle.gaps);
@@ -3234,6 +3483,7 @@ function computeReturns(
         // Fix round 1, I-1: the balance whose debt refusal withheld the WACC; ROIC's entry is critical only when
         // that same balance refusal withholds the latest fiscal year's ROIC.
         waccRefusal: wacc.waccPct === null && debtSnapshot.refusedBalanceDate !== undefined ? { date: debtSnapshot.refusedBalanceDate } : null });
+  if (recurrenceBasis) roic.notes.push(recurrenceBasis);
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
@@ -3312,6 +3562,7 @@ function computeReturns(
 
 interface ValuationCtx {
   route: CompanyRouteResult;
+  revenueEligibilityReason: string | null;
   /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
   finOtherOcfExemption: boolean;
   incomeAnnual: FmpIncomeStatementRow[];
@@ -3397,6 +3648,7 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     totalEquity: num(row.totalEquity),
     goodwill: num(row.goodwill),
     intangibleAssets: num(row.intangibleAssets),
+    tangibleBookDeductionBasis: str(row.tangibleBookDeductionBasis) ?? undefined,
     minorityInterest: num(row.minorityInterest),
     preferredStock: num(row.preferredStock),
     // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
@@ -3458,6 +3710,20 @@ function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs[
   return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 
+/** FIN-401 / OD-5: only a complete measured window permits an income subtraction. */
+function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement: "in-operating-income" | "below-operating-income" | "undetermined" | null; income: number | null } {
+  const placements = rows.map(row => row.equityMethodIncomePlacement);
+  // FIN-401 review R-5: no filed placement is distinct from ambiguous evidence.
+  if (placements.every(p => p === undefined)) return { placement: null, income: null };
+  if (placements.some(p => p?.placement === "in-operating-income" && p.income === null)) return { placement: "in-operating-income", income: null };
+  if (placements.length > 0 && placements.every(p => p !== undefined && (p.placement === "in-operating-income" || p.placement === "immaterial") && p.income !== null)
+    && placements.some(p => p?.placement === "in-operating-income")) {
+    return { placement: "in-operating-income", income: placements.reduce((sum, p) => sum + p!.income!, 0) };
+  }
+  return { placement: placements.length > 0 && placements.every(p => p?.placement === "below-operating-income" || p?.placement === "immaterial")
+    && placements.some(p => p?.placement === "below-operating-income") ? "below-operating-income" : "undetermined", income: null };
+}
+
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
@@ -3465,7 +3731,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const waccByYear = new Map(ctx.waccHistory.points.map((point) => [point.date, point]));
 
   const bal0 = balanceAnnual[0];
-  const inc0 = incomeAnnual[0];
+  const inc0 = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows[0];
   const rowDate = (r: { date?: unknown } | null | undefined): string =>
     typeof r?.date === "string" ? r.date : "";
   // Point-in-time balance anchor (2026-07-09 audit M4): whole-row preference
@@ -3548,13 +3814,85 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         .filter((r) => r.date.length > 0)
     : null;
 
+  const equityWindowRows = ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : [];
+  const equityWindow = equityMethodWindow(equityWindowRows);
+
+  // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
+  // date (D-65), not the newest row the market EV uses.
+  const bridge = dcfBridgeRow(isoDay(ttmInc?.date ?? inc0?.date), ttmInc ? "ttm" : inc0 ? "annual" : null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
+  const bridgePoint = bridge.row;
+  const bridgePointBasis = bridge.basis;
+  const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
+  const equityMethodFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const equityMethodStakeAt = (row: FmpBalanceSheetRow): number => {
+    const lti = num(row.longTermInvestments);
+    const date = isoDay(row.date);
+    if (lti === null || lti <= 0 || date === null) return 0;
+    const tags = row.fieldProvenance?.longTermInvestments?.tags ?? [];
+    if (tags.length > 0 && tags.every(tag => tag === "us-gaap/EquityMethodInvestments")) return lti;
+    const stake = equityMethodFacts === null || ctx.modelCurrency === null ? null : instantFact(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency, date, bundle.builtAt.slice(0, 10));
+    return stake === null ? 0 : Math.min(lti, Math.max(0, stake.val));
+  };
+  const equityMethodStakeValue = bridgePoint === null ? 0 : equityMethodStakeAt(bridgePoint);
+  // FIN-401-V1 / review R-2: a recent breakout can establish placement inside
+  // the added-back LTI, but cannot supply a bridge-date stake amount.
+  const priorStakePlacement = (() => {
+    const date = isoDay(bridgePoint?.date), lti = num(bridgePoint?.longTermInvestments);
+    if (equityMethodFacts === null || ctx.modelCurrency === null || date === null || lti === null || lti <= 0) return null;
+    const stakes = tagPoints(equityMethodFacts, "EquityMethodInvestments", ctx.modelCurrency);
+    const investments = tagPoints(equityMethodFacts, "LongTermInvestments", ctx.modelCurrency);
+    if (stakes?.unit !== ctx.modelCurrency || investments?.unit !== ctx.modelCurrency) return null;
+    const observedDay = bundle.builtAt.slice(0, 10);
+    const stake = stakes.points.filter(p => p.start === undefined && validDay(p.end) && p.end < date &&
+      CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed <= observedDay && Number.isFinite(p.val) && p.val >= 0)
+      .sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn) || b.end.localeCompare(a.end))[0];
+    if (stake === undefined || stake.val <= 0 || lti < stake.val) return null;
+    const cutoff = new Date(`${date}T00:00:00Z`);
+    cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
+    // Clamp February 29 to February 28 when the preceding year is not a leap year.
+    if (cutoff.getUTCMonth() !== Number(date.slice(5, 7)) - 1) cutoff.setUTCDate(0);
+    if (stake.end < cutoff.toISOString().slice(0, 10)) return null;
+    const priorLti = investments.points.find(p => p.start === undefined && p.end === stake.end &&
+      p.accn === stake.accn && p.filed === stake.filed && p.form === stake.form && Number.isFinite(p.val) && p.val >= stake.val);
+    return priorLti === undefined ? null : `${stake.form} ${stake.accn} filed ${stake.filed}, balance ${stake.end}, places the equity-method stake inside long-term investments; the bridge uses only its filed ${date} LTI amount, with no prior stake amount carried forward`;
+  })();
+  const incomeExcludedFromEbit = equityWindow.placement === "in-operating-income" && equityWindow.income !== null &&
+    (equityMethodStakeValue > 0 || priorStakePlacement !== null);
+  const equityMethodStake: DcfAssumptionInputs["equityMethodStake"] = bridgePoint === null ? null : {
+    value: equityMethodStakeValue, treatment: equityMethodStakeValue > 0 && equityWindow.placement === "in-operating-income" && equityWindow.income === null ? "operating" : "added-back",
+    incomePlacement: equityWindow.placement,
+    incomeExcludedFromEbit,
+    basis: equityWindow.placement === "in-operating-income" && equityMethodStakeValue <= 0 && !incomeExcludedFromEbit
+      ? "equity-method income stays in EBIT because its stake could not be located in long-term investments; the existing investment add-back is retained without establishing a separate stake amount"
+      : equityWindow.placement === "in-operating-income" && equityWindow.income !== null
+      ? `equity-method income ${millions(equityWindow.income)} inside operating income is taken out of the EBIT seed and measured history before the stake is added back${equityMethodStakeValue <= 0 && priorStakePlacement !== null ? `; placement evidence: ${priorStakePlacement}` : ""}`
+      : equityWindow.placement === "in-operating-income"
+        ? "equity-method income is inside operating income but unmeasured; its stake stays in operating capital and is not added back"
+        : equityWindow.placement === "below-operating-income" ? "equity-method income is below operating income; its stake is added back once"
+          : equityWindow.placement === null ? "no equity-method income placement is filed; the existing investment treatment is retained"
+          : "equity-method income is assumed below operating income under Regulation S-X Rule 5-03; placement is undetermined and the existing stake treatment is retained",
+  };
+
+  // FIN-401 review R-1/R-6: the window's treatment also governs its quarters
+  // and all history years. Restore only income already removed from EBIT.
+  const adjustEbit = (value: number | null, rows: readonly FmpIncomeStatementRow[]): number | null => {
+    // R-2 needs evidence that added-back LTI holds the measured-income stake.
+    // R-4's operating capital split still requires a same-date stake amount.
+    if (value === null || (equityMethodStakeValue <= 0 && !incomeExcludedFromEbit)) return value;
+    if (equityMethodStake?.treatment === "operating") return value + rows.reduce((sum, row) => {
+      const p = row.equityMethodIncomePlacement;
+      return sum + (p?.placement === "below-operating-income" && p.income !== null ? p.income : 0);
+    }, 0);
+    const reading = equityMethodWindow(rows);
+    return reading.placement === "in-operating-income" && reading.income !== null ? value - reading.income : value;
+  };
   const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
         days: ttmInc.days,
         basis: "ttm",
         revenue: ttmInc.revenue,
-        operatingIncome: ttmInc.operatingIncome,
+        operatingIncome: adjustEbit(ttmInc.operatingIncome, equityWindowRows),
         grossProfit: ttmInc.grossProfit ?? null,
         incomeBeforeTax: ttmInc.incomeBeforeTax,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
@@ -3565,27 +3903,24 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
           basis: "annual",
           revenue: num(inc0.revenue),
-          operatingIncome: num(inc0.operatingIncome),
+          operatingIncome: adjustEbit(num(inc0.operatingIncome), equityWindowRows),
           grossProfit: num(inc0.grossProfit),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
         }
       : null;
 
-  // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
-  // date (D-65), not the newest row the market EV uses.
-  const bridge = dcfBridgeRow(isoDay(dcfIncomeTtm?.date), dcfIncomeTtm?.basis ?? null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
-  const bridgePoint = bridge.row;
-  const bridgePointBasis = bridge.basis;
-  const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
-
   // Same deduped rows the projection history uses: the DCF's near-term growth
   // path is fitted to this series, so a restated fiscal year appearing twice
   // biases the base case exactly as it biased the dispersion.
-  const dcfIncomeHistory: DcfIncomeRow[] = normalizeQuarterRows(incomeAnnual).rows.map((r) => ({
+  const guardedAnnualUnusual = withoutRecurringFamilies(unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+    fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: ctx.modelCurrency, observedAt: bundle.builtAt,
+  }), withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map(r => isoDay(r.date) ?? ""));
+  const dcfIncomeHistory: DcfIncomeRow[] = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => ({
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: adjustEbit(num(r.operatingIncome), [r]),
+    unusualOperatingItems: guardedAnnualUnusual.byYear.get(rowDate(r))?.value ?? null,
     grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
@@ -3612,7 +3947,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   });
   const dcfBalance: DcfBalanceRow | null = bridgePoint && bridgePointBasis ? toDcfBalance(bridgePoint, bridgePointBasis) : null;
   // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
-  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => toDcfBalance(row, "annual"));
+  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => {
+    const result = toDcfBalance(row, "annual");
+    if (equityMethodStake?.treatment === "operating" && result.longTermInvestments != null) result.longTermInvestments -= equityMethodStakeAt(row);
+    return result;
+  });
 
   // D-58: the run-rate quarters — the TTM window's newest quarter and the same
   // fiscal quarter a year earlier, the latter only when its own currency
@@ -3741,7 +4080,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
                 afterSbc: ctx.capital.current.cashBridge.afterSbcStandardizedFcf,
                 sbc: ctx.capital.current.cashBridge.stockBasedCompensation,
                 asOf: ctx.capital.current.asOf,
-                basis: `TTM ${ctx.capital.current.periodStart ?? "?"} to ${ctx.capital.current.asOf ?? "?"}: operating cash flow minus cash capital expenditure, before and after stock-based compensation`,
+                basis: `TTM ${ctx.capital.current.periodStart ?? "?"} to ${ctx.capital.current.asOf ?? "?"}: operating cash flow minus cash capital expenditure, before and after stock-based compensation${ctx.capital.current.sbcConcentration ? `; ${ctx.capital.current.sbcConcentration.basis}` : ""}`,
               }
             : {
                 beforeSbc: ctx.capital.fcf.latestFcfBeforeSbc,
@@ -3757,6 +4096,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          equityMethodStake,
           // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
           unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
             ttmEnd: dcfIncomeTtm.date,
@@ -3765,6 +4105,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             observedAt: bundle.builtAt,
           }),
           incomeHistory: dcfIncomeHistory,
+          recurringOperatingItemsBasis: recurringOperatingItemsBasis(guardedAnnualUnusual.recurring),
           fiscalCalendar: fiscalYearRule(normalizeQuarterRows(incomeAnnual).rows.map(row => String(row.date))),
           balance: dcfBalance,
           // FIN-303: the existing lease switch (no new config read) reaches sales-to-capital and its A-2 history.
@@ -3780,7 +4121,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             const point = waccByYear.get(y.date);
             return {
               date: y.date,
-              roicPct: y.roicPct,
+              roicPct: y.terminalEvidenceRoicPct ?? y.roicPct,
+              operatingLoss: y.operatingLoss,
               waccPct: point?.waccPct ?? null,
               waccAsOf: point?.riskFreeAsOf ?? null,
             };
@@ -3838,6 +4180,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
+        ...(ttmInc.netIncomeAvailableToCommon != null && !ttmInc.commonIncomeWithheldReason ? {
+          commonIncomeQuarters: incomeQuarterly.slice(0, 4).map(row => {
+            const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
+            return { period: String(row.date), periodStart: evidence?.periodStart ?? null,
+              value: Number(row.netIncomeAvailableToCommon),
+              derivation: evidence?.derivation ?? null,
+              filings: evidence ? evidence.filings.map(f => ({ form: f.form, filed: f.filed })) : null };
+          }),
+        } : {}),
         commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,
         netIncomeWithheldReason: ttmInc.netIncomeWithheldReason,
         netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis,
@@ -3892,6 +4243,18 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           depreciationAndAmortization: num(ctx.cashflowAnnual[0].depreciationAndAmortization),
         }
       : null;
+  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
+  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
+    confirmedIssuerFacts(bundle.symbol, bundle.edgar),
+    { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
+    isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
+    bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
+    { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
+  // F2: market and historical EV use the same dated, overlap-aware preferred claim.
+  const preferredForEv = (row: FmpBalanceSheetRow | null | undefined) => {
+    const read = readConvertibles(row);
+    return foldConvertiblePreferred(num(row?.preferredStock), read.convertiblePreferredClaim, read.preferredSeriesDistinct).preferred;
+  };
   const multiplesBalance: MultiplesBalance | null = balPoint ? toMultiplesBalance(balPoint, balPointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
   // FIN-103: the DCF bridge's own row, mapped the same way.
   const bridgeBalance: MultiplesBalance | null = bridgePoint ? toMultiplesBalance(bridgePoint, bridgePointBasis, leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)) : null;
@@ -3950,7 +4313,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // trailing fallbacks are refused; the REIT block carries the computed as-of
   // and the note below states the basis.
   const nareitFfo = computeNareitFfo({
-    companyFacts: bundle.edgar?.companyFacts ?? null,
+    companyFacts: admittedIssuerFacts(bundle.symbol, bundle.edgar),
     periodEnd: isoDay(ctx.incomeAnnual[0]?.date),
     reportedCurrency: str(ctx.incomeAnnual[0]?.reportedCurrency),
     netIncome: num(ctx.incomeAnnual[0]?.netIncome),
@@ -3961,14 +4324,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const affoApprox = nareitFfo.affo;
 
   const multiples: MultiplesFrameworkInputs = {
+    revenueEligibilityReason: ctx.revenueEligibilityReason,
     quote: multiplesQuote,
     economicShareEvidence: bundle.economicShareEvidence,
     securityBasisAsOf: bundle.builtAt.slice(0, 10),
     reportedCurrency: ctx.modelCurrency,
     incomeTtm: multiplesIncomeTtm,
     cashFlowTtm: multiplesCashFlowTtm,
-    balance: multiplesBalance,
-    quarterlyFundamentals,
+    balance: multiplesBalance === null ? null : { ...multiplesBalance, preferredStock: preferredForEv(balPoint) },
+    quarterlyFundamentals: quarterlyFundamentals.map(row => ({ ...row, preferredStock: preferredForEv({ date: row.date, preferredStock: row.preferredStock ?? undefined, totalDebt: row.totalDebt ?? undefined }) })),
     enterpriseValuesHistory,
     reitSubmap: route.reitSubmap,
     ffoApprox: route.base === "reit" ? ffoApprox : null,
@@ -3985,8 +4349,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
   Object.assign(multiples, comparePeerFundamentals({
     symbol: bundle.symbol, profile: bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined, quote: bundle.quote, route: route.base,
+    subjectCashFlowApplicability: route.cashFlowApplicability,
     subject: multiples, now: new Date(bundle.peerFundamentals?.collectedAt ?? bundle.builtAt), collection: bundle.peerFundamentals,
-    subjectIncomeQuarterly: bundle.statements.incomeQuarterly,
+    subjectIncomeQuarterly: bundle.statements.incomeQuarterly.ok
+      ? { ...bundle.statements.incomeQuarterly, value: { ...bundle.statements.incomeQuarterly.value, data: { ...bundle.statements.incomeQuarterly.value.data, rows: ctx.incomeQuarterly } } }
+      : bundle.statements.incomeQuarterly,
     subjectBalanceQuarterly: bundle.statements.balanceQuarterly,
   }));
 
@@ -4029,15 +4396,25 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // is the per-share denominator only when the basic count from the same row
   // spans every class (`issuerEconomicDilutedShares`); it is then restated in
   // quoted-share units.
-  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
   const economicDiluted = issuerEconomicDilutedShares(
     resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
     // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
-    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic") },
+    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic"),
+      combinedClassEps: retainedCombinedClassEpsBasis(bundle, { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) }) },
   );
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
+  const bridgeConvertibles = readConvertibles(bridgePoint);
+  const financialConvertibles = readConvertibles(balPoint);
+  const instrumentsOnEconomicBasis = (read: typeof bridgeConvertibles) => {
+    // A substituted loss count already excludes conversion shares. An unresolved class count cannot be repaired here.
+    if (dilutedShareDivisor && dilutedShareDivisor.basis !== "filed") return [];
+    const factor = economicDiluted?.shares != null && dilutedShares ? economicDiluted.shares / dilutedShares : 1;
+    return read.instruments.map(i => ({ ...i, conversionShares: i.conversionShares * factor,
+      conversionPrice: i.conversionPrice === null ? null : i.conversionPrice / factor }));
+  };
+
 
   const ttmReturn = ctx.commonReturnTtm;
   const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
@@ -4048,6 +4425,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const combinationYears = financialRoute
     ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
     : new Map<string, string>();
+  const fiscalYearBalance = ctx.balanceAnnual.find(row => isoDay(row.date) === commonReturns.asOf);
+  const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
@@ -4057,7 +4436,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
           currentRoeAsOf: ttmStart?.asOf ?? commonReturns.asOf,
           startAlternative: ttmStart !== null && commonReturns.latestRotePct !== null && commonReturns.latestTangibleCommonEquity !== null && commonReturns.latestTangibleCommonEquity > 0
-            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity }
+            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity,
+              convertiblePreferredClaim: fiscalYearConvertibles.convertiblePreferredClaim,
+              permanentPreferred: num(fiscalYearBalance?.preferredStock), preferredSeriesDistinct: fiscalYearConvertibles.preferredSeriesDistinct }
             : null,
           // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
@@ -4066,9 +4447,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
+          convertibles: instrumentsOnEconomicBasis(financialConvertibles),
+          convertiblePreferredClaim: financialConvertibles.convertiblePreferredClaim,
+          permanentPreferred: num(balPoint?.preferredStock),
+          preferredSeriesDistinct: financialConvertibles.preferredSeriesDistinct,
+          totalDebt: num(balPoint?.totalDebt),
           marketCap,
           price: currentPrice,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
+          valuationDate: quotePriceObservationDay(quote),
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
@@ -4150,6 +4537,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     bridgeBalance,
     netDebt: bridgeNetDebtInfo.value,
     dilutedShares: valuationDilutedShares,
+    convertibles: instrumentsOnEconomicBasis(bridgeConvertibles),
+    convertiblePreferredClaim: bridgeConvertibles.convertiblePreferredClaim,
+    preferredSeriesDistinct: bridgeConvertibles.preferredSeriesDistinct,
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
@@ -4221,6 +4611,24 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   void ratiosTtm; // reserved for future ratio cross-checks
   let result = valueCompany(route, bundleInputs);
+  // F8 / VAL-14: disclosure only. C2 does not admit filing-note text as placement evidence.
+  if (!financialRoute && ownCompanyFacts !== null && bridgePoint && ctx.modelCurrency !== null) {
+    const tag = "AvailableForSaleSecuritiesDebtSecurities";
+    const date = isoDay(bridgePoint.date);
+    const observed = bundle.edgar.companyFacts.ok
+      ? bundle.edgar.companyFacts.value.fetchedAt.slice(0, 10) : bundle.builtAt.slice(0, 10);
+    const fact = date === null ? null : instantFact(ownCompanyFacts, tag, ctx.modelCurrency, date,
+      [observed, bundle.builtAt.slice(0, 10)].sort()[0]);
+    const counted = ["cashAndShortTermInvestments", "shortTermInvestments", "longTermInvestments"] as const;
+    const alreadyCounted = counted.some(field => (num(bridgePoint[field]) ?? 0) > 0 &&
+      (bridgePoint.fieldProvenance?.[field]?.tags ?? []).includes(`us-gaap/${tag}`));
+    if (fact !== null && fact.val > 0 && !fact.dimensions && !fact.segment && !alreadyCounted) {
+      const reason = `${tag} ${millions(fact.val)} (${ctx.modelCurrency}, ${date}, filed ${fact.filed}) is left out of a separate fair-value financial-asset add-back: admitted structured facts do not establish placement outside cash and short-term investments without overlap with existing investments. Filing-note text is not admitted as placement evidence under C2. Existing cash and investment amounts remain counted; this total is not added again (VAL-14).`;
+      result.gaps.push({ field: "valuation.dcf.fairValueFinancialAssets", severity: "warn", reason });
+      result.notes.push(reason);
+    }
+  }
+  result.gaps.push(...(financialRoute ? financialConvertibles.gaps : bridgeConvertibles.gaps));
   // FIN-121 pre-flight ruling: a newly applicable DCF must not newly Block a
   // report main published. Retain its prior withheld valuation only when the
   // new attempt fails critically and the actual prior treatment did not.

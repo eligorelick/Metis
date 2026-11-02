@@ -10,7 +10,7 @@ import { routeCompany } from "@/pipeline/stageB/sectorRouting";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import type { SectorRoute } from "@/types/core";
+import type { CompanyRoute, SectorRoute } from "@/types/core";
 
 // FMP discovery returns about ten names; six cut real competitors (NVDA report
 // 34 never requested MRVL or QCOM). The deadline grows with the SEC fallback.
@@ -315,13 +315,14 @@ function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheet
 export function comparePeerFundamentals(opts: {
   symbol: string; profile: FmpProfileRow | undefined; quote: FmpFetch<FmpQuoteRow>;
   route: SectorRoute; subject: MultiplesFrameworkInputs; now: Date; collection?: PeerCollection;
+  subjectCashFlowApplicability?: CompanyRoute["cashFlowApplicability"];
   subjectIncomeQuarterly?: FmpFetch<FmpIncomeStatementRow>; subjectBalanceQuarterly?: FmpFetch<FmpBalanceSheetRow>;
 }): { peers: PeerMultiples[]; peerCoverage: PeerCoverage } & Pick<MultiplesFrameworkInputs, "subjectEconomicEvidence" | "peerComparisonAsOf"> {
   const peers: PeerMultiples[] = [];
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
     methodology: [
-      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
+      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
@@ -389,6 +390,10 @@ export function comparePeerFundamentals(opts: {
       exclude(peerSymbol, subjectProfileRoute !== opts.route && candidateRoute === subjectProfileRoute
         ? "valuation route unconfirmed: the subject's route rests on SEC routing evidence (SIC and XBRL facts) that the peer screen does not have for this peer"
         : "valuation route differs from subject's resolved route");
+      continue;
+    }
+    if (opts.subjectCashFlowApplicability?.status === "not-applicable") {
+      exclude(peerSymbol, "lender cash-flow applicability unconfirmed: the subject's held-for-sale lending treatment rests on SEC cash-flow evidence that the profile-only peer screen cannot confirm for this peer");
       continue;
     }
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;

@@ -886,7 +886,7 @@ describe("request-wide proxy", () => {
     }
   });
 
-  it("guards GET and HEAD heavy landings but leaves mutation metadata to route guards", async () => {
+  it("guards GET and HEAD and refuses company-page mutations (SEC-201)", async () => {
     const loadedModule = await loadProxyModule();
     const runProxy = proxyFunction(loadedModule);
     if (runProxy === undefined) return;
@@ -898,11 +898,14 @@ describe("request-wide proxy", () => {
     };
     expect((await runProxy(proxyRequest("/company/AAPL", metadata, "GET"))).status).toBe(403);
     expect((await runProxy(proxyRequest("/company/AAPL", metadata, "HEAD"))).status).toBe(403);
-    expect(
-      (await runProxy(proxyRequest("/company/AAPL", metadata, "POST"))).headers.get(
-        "x-middleware-next",
-      ),
-    ).toBe("1");
+    for (const method of ["POST", "PUT", "OPTIONS", "DELETE"]) {
+      for (const site of ["same-origin", "same-site", "cross-site"]) {
+        const response = await runProxy(proxyRequest("/company/AAPL/?view=live&_rsc=1", { ...metadata, "sec-fetch-site": site }, method));
+        expect(response.status).toBe(405);
+        expect(response.headers.get("allow")).toBe("GET, HEAD");
+        expect(response.headers.get("x-frame-options")).toBe("DENY");
+      }
+    }
   });
 
   describe("on a plain-HTTP LAN host (F-8)", () => {

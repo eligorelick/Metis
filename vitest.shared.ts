@@ -1,3 +1,4 @@
+import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const DB_CLI_TEST = "tests/db.cli.test.ts";
@@ -37,6 +38,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/ai/fingerprint.ts",
   "src/ai/gemini.ts",
   "src/ai/mutex.ts",
+  "src/ai/providerFailure.ts",
   "src/components/charts/plotData.ts",
   "src/components/report/evidenceIdentity.ts",
   "src/ai/store.ts",
@@ -55,10 +57,14 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/splitEvents.ts",
   // Decides how long a cached quote stays fresh, so a slip serves an old price.
   "src/providers/usSession.ts",
+  "src/providers/historyCache.ts",
+  "src/edgar/dividendFrequency.ts",
   "src/edgar/extract.ts",
   "src/edgar/xbrl.ts",
   "src/edgar/statements.ts",
+  "src/edgar/filedPresentation.ts",
   "src/edgar/instanceFacts.ts",
+  "src/edgar/retainedClassEconomics.ts",
   "src/edgar/cashInvestment.ts",
   // The element names and the successor hop moved OUT of the audited
   // statements.ts, taking logic with them; the reserved-symbol rule is the
@@ -78,6 +84,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/companyLoad.ts",
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
+  "src/pipeline/incomeBasis.ts",
+  "src/pipeline/cashFlowBasis.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",
   "src/pipeline/riskFreeSeries.ts",
@@ -92,6 +100,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageC/payload.ts",
   "src/pipeline/stageC/prompts.ts",
   "src/pipeline/stageC/provenance.ts",
+  "src/pipeline/companyJobIdentity.ts",
   "src/pipeline/jobArtifacts.ts",
   "src/pipeline/jobRunner.ts",
   "src/pipeline/sectionLimits.ts",
@@ -108,11 +117,13 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/gapResolution.ts",
   "src/report/assessment.ts",
   "src/report/earningsReferences.ts",
+  "src/report/earningsSchedule.ts",
   "src/report/evidenceTiming.ts",
   "src/report/estimateTiming.ts",
   "src/report/sourceFactPresentation.ts",
   "src/report/sourceFactSchema.ts",
   "src/report/sourceFacts.ts",
+  "src/report/technicalTrend.ts",
   "src/types/periodContext.ts",
   "src/report/execution.ts",
   "src/report/modelEvidence.ts",
@@ -138,6 +149,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/markdownEscape.ts",
   "src/report/export/printHtml.ts",
   "src/report/format.ts",
+  "src/report/cagrPresentation.ts",
   "src/report/scoreText.ts",
   "src/report/fairValueText.ts",
   "src/report/providerFallback.ts",
@@ -220,6 +232,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageC/evidenceSelection.ts",
   "src/report/auditTables.ts",
   "src/report/financialDiagnostics.ts",
+  "src/report/executiveAssessment.ts",
   "src/evaluation/evaluationContract.ts",
   "src/evaluation/evaluation.ts",
   "src/evaluation/targetDefinition.ts",
@@ -259,6 +272,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",
   "src/report/filingDisclosurePresentation.ts",
+  "src/report/readerConventions.ts",
   "src/report/reconciliationPresentation.ts",
   "src/report/filingSupplementPresentation.ts",
   // Added 2026-10-15 (D-62): the shared presentation rules, the audit export
@@ -267,3 +281,18 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
 ];
+
+/** TEST-201: one glob-free key per core file preserves the aggregate gate. */
+export const PER_FILE_FLOOR = { statements: 85, branches: 75, functions: 85, lines: 85 };
+export function perFileFloorThresholds(root: string, entries: readonly string[] = ["src/pipeline/stageB", "src/report/schema.ts"]): Record<string, typeof PER_FILE_FLOOR> {
+ const result: Record<string, typeof PER_FILE_FLOOR> = {};
+ const visit=(file: string): void=>{
+  const absolute=path.join(root,file);
+  if(statSync(absolute).isDirectory()) { for(const name of readdirSync(absolute)) visit(`${file}/${name}`); return; }
+  if(!file.endsWith(".ts") || file.endsWith(".d.ts")) return;
+  if(/[*?\[\]{}()!+@]/.test(file)) throw new Error(`coverage floor key must be a glob-free path: ${file}`);
+  result[file.replaceAll("\\","/")]={...PER_FILE_FLOOR};
+ };
+ for(const entry of entries) visit(entry);
+ return result;
+}

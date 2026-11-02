@@ -41,8 +41,8 @@ import { getConcept, type ChainStep, type CompanyFacts } from "@/edgar/xbrl";
 import { belowComponentFloor } from "@/edgar/synonymFloor";
 import { DEPRECIATION_COMPONENT_TAGS, tagFloorsFor } from "@/edgar/tagSynonyms";
 import { shareCountOnBasis, type StockSplits } from "@/edgar/splits";
-import { tangibleCommonEquity } from "@/pipeline/stageB/returns";
-import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { tangibleCommonEquity, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
+import { normalizeQuarterRows, type FiscalDatedRow } from "@/pipeline/stageB/quarterWindows";
 import type { FetchResult, ManifestEntry, SectorRoute } from "@/types/core";
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,8 @@ export interface FinancialMetricsResult {
 }
 
 /** Balance-sheet slice (FMP field names; the same rows Stage B already builds). */
-export interface FinancialMetricsBalanceRow {
+export interface FinancialMetricsBalanceRow extends FiscalDatedRow {
+  fieldProvenance?: ReturnsBalanceRow["fieldProvenance"];
   date: string;
   acceptedDate?: string | null;
   filingDate?: string | null;
@@ -104,7 +105,7 @@ export interface FinancialMetricsBalanceRow {
 }
 
 /** Income slice (FMP field names). */
-export interface FinancialMetricsIncomeRow {
+export interface FinancialMetricsIncomeRow extends FiscalDatedRow {
   date: string;
   acceptedDate?: string | null;
   filingDate?: string | null;

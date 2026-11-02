@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-11-01",
+  "generatedAt": "2026-11-02",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -2961,11 +2961,6 @@
           }
         },
         {
-          "path": "report.leadership.executives.0.assessmentReason",
-          "beforeMissing": true,
-          "after": "Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."
-        },
-        {
           "path": "report.leadership.executives.0.credibilityGrade",
           "before": "A",
           "after": "not-assessed"
@@ -2974,11 +2969,6 @@
           "path": "report.leadership.executives.0.grade",
           "before": "A",
           "after": "not-assessed"
-        },
-        {
-          "path": "report.leadership.executives.1.assessmentReason",
-          "beforeMissing": true,
-          "after": "Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."
         },
         {
           "path": "report.leadership.executives.1.credibilityGrade",
@@ -4234,6 +4224,25 @@
       ]
     },
     {
+      "name": "figr-xhigh-executive-assessment-reason-20261102",
+      "decisions": [
+        "D-163"
+      ],
+      "reason": "FIGR extra-high audit B2-09 (2026-11-02): the executive evidence gate names which assessment it withheld. Neither officer in this fixture has admitted execution or guidance-versus-actual evidence, so the generic 'execution and/or guidance-versus-actual evidence is absent' sentence becomes the specific no-record reason; grades and every other value are unchanged.",
+      "deltas": [
+        {
+          "path": "report.leadership.executives.0.assessmentReason",
+          "beforeMissing": true,
+          "after": "No attributable, validated execution or guidance-versus-actual record. A citation, rejected claim, compensation or job title alone cannot establish an assessment."
+        },
+        {
+          "path": "report.leadership.executives.1.assessmentReason",
+          "beforeMissing": true,
+          "after": "No attributable, validated execution or guidance-versus-actual record. A citation, rejected claim, compensation or job title alone cannot establish an assessment."
+        }
+      ]
+    },
+    {
       "name": "audit-reliability-integration-2026-10-14",
       "decisions": [
         "D-51",
@@ -4400,20 +4409,6 @@
           "path": "stageB.valuation.multiples.notes.9",
           "beforeMissing": true,
           "after": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
-        }
-      ]
-    },
-    {
-      "name": "evidence-common-ownership-labels",
-      "decisions": [
-        "D-53"
-      ],
-      "reason": "P/E, common P/B and P/TBV basis text names the actual common-holder earnings and equity deductions under D-53; the fixture's numeric outputs and grading weights do not change. The later report version stamp is separately tracked under D-54.",
-      "deltas": [
-        {
-          "path": "stageB.valuation.multiples.multiples.5.basis",
-          "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
-          "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
         }
       ]
     },
@@ -5528,11 +5523,6 @@
             "minOpexRatioPeriod": "FY 2025-12-31",
             "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)"
           }
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.3",
-          "beforeMissing": true,
-          "after": "reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"
         }
       ]
     },
@@ -5555,11 +5545,6 @@
           "path": "report.scores.aspects.valuation.drivers.0.period",
           "beforeMissing": true,
           "after": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus"
-        },
-        {
-          "path": "report.thesisTriggers",
-          "beforeMissing": true,
-          "after": []
         },
         {
           "path": "report.valuation.dcf.assumptions.9",
@@ -5694,16 +5679,6 @@
           "path": "report.valuation.dcf.sensitivityGrid.24.waccPct",
           "before": 10.255946000000002,
           "after": 11.257246428985505
-        },
-        {
-          "path": "report.valuation.reverseDcf.impliedMetric",
-          "before": "constant revenue growth (explicit horizon)",
-          "after": "n/a"
-        },
-        {
-          "path": "report.valuation.reverseDcf.impliedValue",
-          "before": -17.24609375,
-          "after": null
         },
         {
           "path": "stageB.capital.netDebtToEbitda.resolution.version",
@@ -5844,16 +5819,6 @@
           "path": "stageB.valuation.notes.4",
           "beforeMissing": true,
           "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.26% — no per-year risk-free observation was available to recompute a year-specific WACC"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.method",
-          "before": "growth",
-          "after": "none"
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.2",
-          "beforeMissing": true,
-          "after": "no sign change of f(terminal margin) on the pre-scan grid"
         },
         {
           "path": "stageB.valuation.sensitivity.waccPcts.0",
@@ -6623,73 +6588,6 @@
           "path": "stageB.valuation.notes.1",
           "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
           "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
-        }
-      ]
-    },
-    {
-      "name": "nvda-review-evidence-2026-10-16",
-      "decisions": [
-        "D-72"
-      ],
-      "reason": "D-72: report 1.19.1 distinguishes source-bound financial evidence and conservative missing-data conventions. The audited DEMO input retains every financial value; its report-version stamp and filing-disclosure currency-basis wording change. New current currency and source-period guards require established evidence for implicit dollars. Saved historical reports are not rewritten.",
-      "deltas": [
-        {
-          "path": "report.filingDisclosures",
-          "beforeMissing": true,
-          "after": {
-            "version": "1.0.0",
-            "currency": "USD",
-            "currencyBasis": "Amounts printed with \"$\" in issuer filings are shown only when the source period's statement currency is established as current USD; explicit currency labels are checked separately. XBRL amounts carry their own ISO unit.",
-            "guidance": null,
-            "guidanceChecks": [],
-            "freeCashFlow": [],
-            "freeCashFlowDefinition": null,
-            "capitalReturn": null,
-            "events": [],
-            "segments": [],
-            "quarterlyTrend": [
-              {
-                "periodEnd": "2025-12-31",
-                "fiscalLabel": null,
-                "revenue": 12500000000,
-                "revenueYoyPct": 8.6957,
-                "revenueQoqPct": null,
-                "grossMarginPct": 60,
-                "operatingExpenses": 5000000000,
-                "operatingMarginPct": 20,
-                "epsDiluted": 8.536585365853659,
-                "operatingCashFlow": 2400000000,
-                "freeCashFlow": 1800000000
-              },
-              {
-                "periodEnd": "2024-12-31",
-                "fiscalLabel": null,
-                "revenue": 11500000000,
-                "revenueYoyPct": 9.5238,
-                "revenueQoqPct": null,
-                "grossMarginPct": 59,
-                "operatingExpenses": 4600000000,
-                "operatingMarginPct": 19,
-                "epsDiluted": 7.246376811594203,
-                "operatingCashFlow": 2100000000,
-                "freeCashFlow": 1550000000
-              },
-              {
-                "periodEnd": "2023-12-31",
-                "fiscalLabel": null,
-                "revenue": 10500000000,
-                "revenueYoyPct": null,
-                "revenueQoqPct": null,
-                "grossMarginPct": 58,
-                "operatingExpenses": 4200000000,
-                "operatingMarginPct": 18,
-                "epsDiluted": 6.028708133971292,
-                "operatingCashFlow": null,
-                "freeCashFlow": null
-              }
-            ],
-            "notes": []
-          }
         }
       ]
     },
@@ -7702,11 +7600,6 @@
           "path": "report.valuation.multiples.4.basis",
           "beforeMissing": true,
           "after": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness"
-        },
-        {
-          "path": "report.valuation.multiples.5.basis",
-          "beforeMissing": true,
-          "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
         }
       ]
     },
@@ -9005,11 +8898,6 @@
           }
         },
         {
-          "path": "stageB.valuation.notes.7",
-          "beforeMissing": true,
-          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
-        },
-        {
           "path": "stageB.valuation.notes.8",
           "beforeMissing": true,
           "after": "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost."
@@ -9579,25 +9467,6 @@
       ]
     },
     {
-      "name": "audit-batch5-trust-signals-20261022",
-      "decisions": [
-        "D-110"
-      ],
-      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
-      "deltas": [
-        {
-          "path": "report.balanceSheet.coverage.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "JUDGMENT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        }
-      ]
-    },
-    {
       "name": "audit-batch6-provider-failures-20261026",
       "decisions": [
         "D-111"
@@ -9620,6 +9489,25 @@
             "field": "valuation.fairValue.degradedInputs",
             "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
             "severity": "warn"
+          }
+        }
+      ]
+    },
+    {
+      "name": "audit-batch5-trust-signals-20261022",
+      "decisions": [
+        "D-110"
+      ],
+      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.coverage.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
           }
         }
       ]
@@ -9708,35 +9596,6 @@
       ]
     },
     {
-      "name": "equity-bridge-b4a-2026-10-27",
-      "decisions": [
-        "D-135"
-      ],
-      "reason": "Audit 2026-10-27 B4a (the equity bridge, the market EV and invested capital count every claim once), as it reaches this provider-free DEMO control. Only version stamps move, all from Task 16: the report spec to 1.50.0 and the fair-value and scenario-target method stamps to ..._D135, each in the report and in the Stage B result. This DEMO balance carries no covered operating lease, no redeemable equity, no pension or OPEB deficit, no loss contingency and no earn-out, and it is not in a loss period, so no DCF per share, sales-to-capital, scenario, grid, reverse-DCF or bridge leaf, and no EV-basis or lease wording, moves. The previously classified leaves of these five paths (D-102's stamps and B13's spec stamp) are reclassified here because the regenerator assigns each path to one group, its latest.",
-      "deltas": [
-        {
-          "path": "report.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D135"
-        },
-        {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D135"
-        },
-        {
-          "path": "stageB.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_10_D135"
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D135"
-        }
-      ]
-    },
-    {
       "name": "audit-b6-financial-routes-d137-20261027",
       "decisions": [
         "D-137"
@@ -9768,30 +9627,6 @@
           "after": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE"
         },
         {
-          "path": "report.valuation.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
-        },
-        {
           "path": "stageB.scores.assessments",
           "beforeMissing": true,
           "after": {
@@ -9816,11 +9651,6 @@
           "after": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE"
         },
         {
-          "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made."
-        },
-        {
           "path": "stageB.valuation.multiples.notes.3",
           "beforeMissing": true,
           "after": "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8)."
@@ -9829,30 +9659,6 @@
           "path": "stageB.valuation.multiples.notes.4",
           "beforeMissing": true,
           "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E."
-        },
-        {
-          "path": "stageB.valuation.multiples.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
-              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
         }
       ]
     },
@@ -10001,64 +9807,6 @@
           "path": "report.valuation.multiplesBasis",
           "beforeMissing": true,
           "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
-        },
-        {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "leaseEvidence": {
-                "operating": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "finance": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "combined": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "observedLeaseLine": "positive"
-              },
-              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            }
-          }
         },
         {
           "path": "stageB.capital.netDebtToEbitda.note",
@@ -10313,7 +10061,9 @@
     },
     {
       "name": "research-reliability-d139-20261031",
-      "decisions": ["D-139"],
+      "decisions": [
+        "D-139"
+      ],
       "reason": "The retained fixture has 40 valid cells out of 50 requested cells. D-139 withholds its former robust-above conclusion because the growth/margin grid is incomplete; status and explanation change while every valuation, grade, provenance value and observed grid extremum remains pinned.",
       "deltas": [
         {
@@ -10336,16 +10086,375 @@
       ]
     },
     {
-      "name": "current-main-integrity-d140-20261101",
+      "name": "current-main-and-fig-integrity-d140-d141-20261101",
       "decisions": [
-        "D-140"
+        "D-140",
+        "D-141"
       ],
-      "reason": "Report stamp 1.54.0 identifies mandatory workflow completion and generation/source-scope conventions. This audited fixture changes only the report version; every financial value and other provenance field remains pinned.",
+      "reason": "D-140 established workflow/source-scope conventions. the FIGR extra-high audit fixes advance the report to 1.58.0 (D-163 to D-167), after the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.54.0"
+          "after": "1.58.0"
+        },
+        {
+          "path": "report.technicals.read.trend",
+          "before": "SYNTHETIC demonstration text for technicals read trend; it describes fictional inputs and is not a current market observation.",
+          "after": "House SMA trend: uptrend as of 2025-12-31. Last close USD 40.00 is above both averages (50-day USD 39.2628; 200-day USD 36.5237)."
+        }
+      ]
+    },
+    {
+      "name": "n2-review-tangible-book-basis-20261101",
+      "decisions": [
+        "D-67"
+      ],
+      "reason": "N2 P/TBV review, owner delegated 2026-11-01: name the actual goodwill and intangible amounts deducted; financial values stay unchanged in this control. D-149 (N2) owns the convention, with D-67 preserving stored reports.",
+      "deltas": [
+        {
+          "path": "report.valuation.multiples.5.basis",
+          "beforeMissing": true,
+          "after": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.5.basis",
+          "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
+          "after": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
+        }
+      ]
+    },
+    {
+      "name": "p1-b4b-equity-method-fin401-20261102",
+      "decisions": [
+        "D-60",
+        "D-65"
+      ],
+      "reason": "FIN-401 / FIN-401-V1: the fair-value/scenario method stamps move with the corrected equity-method reading, and again with the FIGR paid-run operating-income and SBC bases (D-159); the report 1.56.0 stamp delta is owned by the D-140/D-141 group, where P0 moved it first on integration. Review R-5: DEMO has no placement evidence, so its long-term-investment note keeps the prior wording without an undetermined-placement claim; every numeric valuation and score remains pinned. Only these five owned leaves are re-pinned. The raw audit:deltas command already differs at report.balanceSheet.coverage.commentary.1 and stageB.capital.current at eecd2703; the exact fixture test restores those two reviewed capex descriptions, so their pins remain unchanged; see docs/audit/2026-11-02-b4b-equity-bridge.md.",
+      "deltas": [
+        {
+          "path": "report.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_11_FIGR_XHIGH_AUDIT_41"
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_11_FIGR_XHIGH_AUDIT_41"
+        },
+        {
+          "path": "stageB.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_11_FIGR_XHIGH_AUDIT_41"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_11_FIGR_XHIGH_AUDIT_41"
+        },
+        {
+          "path": "stageB.valuation.notes.7",
+          "beforeMissing": true,
+          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+        }
+      ]
+    },
+    {
+      "name": "p2-dcf-inputs-fin102-fin113-fin104-fin501-20261102",
+      "decisions": [
+        "D-58",
+        "D-60",
+        "D-99",
+        "D-136"
+      ],
+      "reason": "D-153 (P2): FIN-102/FIN-402-V1 add separately asserted terminal evidence; FIN-113 marks the reconstructed current-capital start as approximate. FIN-104 withholds reverse-growth candidates outside the DCF domain, and FIN-501 solves the prescribed shifted margin family with its implied path and matching trigger horizon. Only these owned leaves move. Existing capex-basis restorations and all valuation/score operands outside the reverse solve retain prior pins. The removed no-root note is replaced by the now available in-domain margin solve. Shared stamps do not move.",
+      "deltas": [
+        {
+          "path": "report.thesisTriggers",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "reverse-margin",
+              "metric": "Supported terminal operating margin",
+              "comparator": "below",
+              "threshold": {
+                "value": 2.933349609375,
+                "unit": "%",
+                "source": "computed.valuation.reverseDcf",
+                "asOf": null,
+                "verified": null
+              },
+              "horizon": "Base margin path shifted by the terminal-margin delta, with its shift ramp reaching the full delta by 5 years and held thereafter",
+              "fixedAssumptions": [
+                "Discount rate, terminal growth and reinvestment conventions remain at the model's base case.",
+                "The current quote, net debt, other senior claims and diluted share count remain fixed.",
+                "The revenue growth path remains at the base case; the operating-margin path is the reverse solver's fade."
+              ],
+              "consequence": "If revised evidence supports a terminal margin below this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target."
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedMetric",
+          "before": "constant revenue growth (explicit horizon)",
+          "after": "terminal EBIT margin"
+        },
+        {
+          "path": "report.valuation.reverseDcf.impliedValue",
+          "before": -17.24609375,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "leaseEvidence": {
+                "operating": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "finance": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "combined": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "observedLeaseLine": "positive"
+              },
+              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            },
+            "periodStartIsApproximate": true
+          }
+        },
+        {
+          "path": "stageB.returns.roic.series.0.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.1.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 36.33592017738359
+        },
+        {
+          "path": "stageB.returns.roic.series.2.operatingLoss",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.returns.roic.series.2.terminalEvidenceRoicPct",
+          "beforeMissing": true,
+          "after": 40.06410256410257
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedMarginPathPct",
+          "beforeMissing": true,
+          "after": [
+            20,
+            15.73333740234375,
+            11.4666748046875,
+            7.20001220703125,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375,
+            2.933349609375
+          ]
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.impliedTerminalMarginPct",
+          "before": null,
+          "after": 2.933349609375
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.marginPathFamily",
+          "beforeMissing": true,
+          "after": "base-shift-to-terminal"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.method",
+          "before": "growth",
+          "after": "margin"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.notes.2",
+          "beforeMissing": true,
+          "after": "market-implied steady-state (terminal) EBIT margin, shifting the base margin path by the terminal-margin delta times its own fade weights (current 20% unchanged); growth path frozen at base case"
+        }
+      ]
+    },
+    {
+      "name": "n4a-l6-lender-peer-methodology-20261102",
+      "decisions": [
+        "D-137"
+      ],
+      "reason": "L6 extends D-137 under D-154 (N4a): L6: the SEC-route same-evidence peer screen also excludes profile-only peers whose held-for-sale lender cash-flow applicability is unconfirmed. Only the peer methodology wording changes in the DEMO fixture; all numerical outputs and earlier pins are retained. Shared stamps are unchanged. See docs/audit/2026-11-02-n4a-figr-cap.md.",
+      "deltas": [
+        {
+          "path": "report.valuation.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.1",
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made."
+        },
+        {
+          "path": "stageB.valuation.multiples.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within 100× of the subject's either way, compared only between established equal currencies or same-market listings; known CIK deduplicates issuers/share classes; non-ADR equities only. When the subject's route rests on SEC evidence, same-label peers whose route or held-for-sale lender cash-flow applicability the profile-only screen cannot confirm are excluded as unconfirmed; no additional SEC routing request is made.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / common equity: explicit common equity when disclosed, otherwise parent stockholders equity less preferred; consolidated equity also requires a disclosed noncontrolling-equity allocation. Undisclosed preferred reads as zero, as for the subject; the positive reported-equity admission gate remains. P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions. The company figure's market capitalization is the issuer-common one the multiples use: the class sum where the share classes are established, the provider's cap where its scope is only unverified, and none where the scope is unresolved; the peer median is then still shown as context (B-8).",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value. A peer whose four trailing quarters' non-operating income (pre-tax less operating income) exceeds 25% of positive pre-tax income is left out of the common-earnings and P/E medians, and a subject that fails the same test gets no company figure (house rule D-98); the test runs only where every quarter carries pre-tax and operating income, as for the subject's own P/E.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "R2 FIGR figure bases and timing",
+      "decisions": [
+        "D-72",
+        "D-159"
+      ],
+      "reason": "R2 (FIGR paid audit, trend operating expenses) as reviewed at integration. On this fixture every provider operating-expense amount bridges its row's gross profit to its operating income, so the amounts stay and the quarterly trend states their basis once: \"Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total.\" The delegate's first rule withheld every provider amount without a filed OperatingExpenses total (three annual subtotals here, 21 shifted manifest entries; 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots). The reviewed rule withholds only an amount that does not bridge (FIGR Q1 2026 once the filed operating income replaces the provider's pre-interest numerator) or a provider cell beside rows built from SEC filings in the trend. The path is the whole filing-disclosures block D-72 introduced (absent from the audited baseline; it was blessed under nvda-review-evidence-2026-10-16, which this regrouping retires); its only change here is that one basis note. No financial amount changes. The integrator replaces D-155 with the final R2 decision number.",
+      "deltas": [
+        {
+          "path": "report.filingDisclosures",
+          "beforeMissing": true,
+          "after": {
+            "version": "1.0.0",
+            "currency": "USD",
+            "currencyBasis": "Amounts printed with \"$\" in issuer filings are shown only when the source period's statement currency is established as current USD; explicit currency labels are checked separately. XBRL amounts carry their own ISO unit.",
+            "guidance": null,
+            "guidanceChecks": [],
+            "freeCashFlow": [],
+            "freeCashFlowDefinition": null,
+            "capitalReturn": null,
+            "events": [],
+            "segments": [],
+            "quarterlyTrend": [
+              {
+                "periodEnd": "2025-12-31",
+                "fiscalLabel": null,
+                "revenue": 12500000000,
+                "revenueYoyPct": 8.6957,
+                "revenueQoqPct": null,
+                "grossMarginPct": 60,
+                "operatingExpenses": 5000000000,
+                "operatingMarginPct": 20,
+                "epsDiluted": 8.536585365853659,
+                "operatingCashFlow": 2400000000,
+                "freeCashFlow": 1800000000
+              },
+              {
+                "periodEnd": "2024-12-31",
+                "fiscalLabel": null,
+                "revenue": 11500000000,
+                "revenueYoyPct": 9.5238,
+                "revenueQoqPct": null,
+                "grossMarginPct": 59,
+                "operatingExpenses": 4600000000,
+                "operatingMarginPct": 19,
+                "epsDiluted": 7.246376811594203,
+                "operatingCashFlow": 2100000000,
+                "freeCashFlow": 1550000000
+              },
+              {
+                "periodEnd": "2023-12-31",
+                "fiscalLabel": null,
+                "revenue": 10500000000,
+                "revenueYoyPct": null,
+                "revenueQoqPct": null,
+                "grossMarginPct": 58,
+                "operatingExpenses": 4200000000,
+                "operatingMarginPct": 18,
+                "epsDiluted": 6.028708133971292,
+                "operatingCashFlow": null,
+                "freeCashFlow": null
+              }
+            ],
+            "notes": [
+              "Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total."
+            ]
+          }
         }
       ]
     }

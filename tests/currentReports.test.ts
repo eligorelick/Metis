@@ -128,6 +128,7 @@ describe("XBRL segment revenue by quarter", () => {
     ]);
     // Q4 FY2026 is the 10-K's year less the Q3 10-Q's nine months.
     expect(series.total[2]).toBe(68_127e6);
+    expect(series.axes[0]!.totalCrossFilingAt).toEqual([2, 6]);
     const platform = series.axes.find((a) => a.axis === "srt:ProductOrServiceAxis")!;
     const row = (label: string) => platform.rows.find((r) => r.label === label)!;
     // Q1 on the recast basis: the Q2 10-Q's six months less its Q2. The CFO
@@ -266,7 +267,7 @@ describe("bounded EDGAR collection", () => {
     const notes = reports.value.data.notes.join("\n");
     expect(notes).toMatch(/0001045810-26-000073 EX-99\.2 \(missing\.htm\) unreadable/);
     expect(notes).toMatch(/0001045810-26-000030 \(2026-03-01\): Item 2\.02 filing furnishes no EX-99 exhibit/);
-    expect(notes).toMatch(/0001045810-26-000040 \(2026-04-01\): no outlook section was found/);
+    expect(notes).toMatch(/0001045810-26-000040 \(2026-04-01\): no structured guidance could be extracted/);
     expect(notes).toMatch(/0001045810-26-000065 \(2026-08-01\) lists Items 8\.01 but no item heading could be read/);
     expect(notes).toMatch(/0001045810-26-000078 \(2026-09-03\) not read: unsafe primary document/);
     // Nothing is requested for the unsafe row or for 8-Ks outside the one-year window.
@@ -407,7 +408,7 @@ describe("filing disclosures through the payload and the report tables", () => {
     expect(headings).toEqual(expect.arrayContaining([
       "Management guidance (issued with Q2 FY2027 results)",
       "Segment revenue by quarter — Product / market platform",
-      "Quarterly trend (last eight quarters)",
+      "Quarterly trend (latest eight available quarters)",
       "Issuer-reported free cash flow and capital return",
       "Material SEC current reports (Form 8-K, last 12 months)",
     ]));

@@ -1,10 +1,15 @@
+import {quoteFromMetaResult} from "@/providers/yahoo";
 /**
  * Keyless fallback orchestration — fills the bundle members FMP could not
  * serve from the public sources (SEC EDGAR + Yahoo) that need no API key.
  *
  * Three rules govern everything below:
  *
- *  1. FMP VALUES ARE NEVER OVERWRITTEN. Missing security classification may be
+ *  1. FMP rows normally win. In auto mode a proved filed-total conflict may
+ *     replace a whole reconciled statement row (N3). No row mixes sources.
+ *     Contradicted share/EPS fields may be
+ *     withheld with their original observations retained as conflicts.
+ *     Missing security classification may be
  *     augmented from confirmed-issuer public metadata with field-level evidence.
  *     Otherwise only a member that is a gap, or an ok result
  *     carrying zero rows (`needsFallback`), is eligible for replacement. A
@@ -45,9 +50,11 @@ import {
   type StatementBuildOptions,
   type StatementRowsResult,
 } from "@/edgar/statements";
-import { conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import { tagsFor } from "@/edgar/tagSynonyms";
-import { describeSplits, sameShareBasis, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
+import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import { COSTS_AND_EXPENSES_TAG, FILED_REVENUE_TOTAL_TAGS, tagsFor } from "@/edgar/tagSynonyms";
+import { factsForFilings } from "@/edgar/filedPresentation";
+import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { describeSplits, sameShareBasis, shareBasisFactor, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
 import { mergeSplitEvidence, unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   SUCCESSOR_FORM,
@@ -73,10 +80,12 @@ import type {
   FmpQuoteRow,
   FmpRawRow,
   FmpSharesFloatRow,
+  FmpStatementRow,
+  StatementFieldProvenance,
 } from "@/providers/fmp";
 import type { YahooClient, YahooMeta } from "@/providers/yahoo";
 import type { StatementSource } from "@/config/env";
-import type { DataSource, FetchResult, ManifestEntry } from "@/types/core";
+import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -316,8 +325,9 @@ function sourced<T extends FmpRawRow>(
   endpoint: string,
   asOf: string,
   fetchedAt: string,
+  flags: {stale?:boolean;staleReason?:Sourced<unknown>["staleReason"]} = {},
 ): FetchResult<FmpPayload<T>> {
-  return { ok: true, value: { data: { rows, raw: null }, asOf, source, endpoint, fetchedAt } };
+  return { ok: true, value: { data: { rows, raw: null }, asOf, source, endpoint, fetchedAt,...flags } };
 }
 
 /**
@@ -374,7 +384,7 @@ export function sharesOnOrBefore(
   return sharePointOnOrBefore(points, date)?.value ?? null;
 }
 
-/** The vendor income-statement fields whose split basis is checked (and withheld when unestablished). */
+/** Vendor income fields checked for split basis and independently demonstrated primary conflicts. */
 export const VENDOR_SHARE_FIELDS = ["eps", "epsDiluted", "weightedAverageShsOut", "weightedAverageShsOutDil"] as const;
 
 /** A vendor share count or EPS agrees with the filer's when within this relative tolerance. */
@@ -388,10 +398,145 @@ const VENDOR_SHARE_FIELD_LABELS: Record<(typeof VENDOR_SHARE_FIELDS)[number], st
   eps: "eps",
 };
 
+interface PrimaryShareReconciliation {
+  companyFacts: CompanyFacts;
+  observedAt?: string;
+  /** An ADR's quoted unit is not established by the filer's ordinary-share facts. */
+  isAdr: boolean | null;
+  registrantTickers?: readonly string[];
+  fiscalYearEnd: string | null;
+  period: "annual" | "quarter";
+  /** Several listed symbols: whether any of the vendor's statement series showed
+   * its share unit (`vendorShareUnitShown`). Absent: the guarded rows decide alone. */
+  shareUnitShown?: boolean;
+}
+
+function validSharePeriodDay(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+}
+
+/** Use an explicit interval first. A missing start can be established only for
+ * an exactly matching month-end fiscal calendar; 52/53-week and transition
+ * intervals need their own start evidence and are never rounded to a calendar quarter. */
+function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareReconciliation): string | null {
+  if (row.periodStart != null) return validSharePeriodDay(row.periodStart) ? row.periodStart : null;
+  const starts = [...new Set(Object.values(row.fieldProvenance ?? {}).filter(proof => proof.source === "edgar" && proof.periodEnd === row.date && proof.periodStart !== null).map(proof => proof.periodStart!))];
+  if (starts.length > 0) return starts.length === 1 && validSharePeriodDay(starts[0]) ? starts[0]! : null;
+  if (!/^\d{4}$/.test(String(row.fiscalYear)) || !/^\d{4}$/.test(context.fiscalYearEnd ?? "")) return null;
+  const year = Number(row.fiscalYear), month = Number(context.fiscalYearEnd!.slice(0, 2));
+  const annualEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  if (annualEnd.replaceAll("-", "").slice(4) !== context.fiscalYearEnd) return null;
+  const quarter = context.period === "annual" ? 4 : Number(String(row.period).slice(1));
+  const endMonth = month - (4 - quarter) * 3;
+  const end = new Date(Date.UTC(year, endMonth, 0)).toISOString().slice(0, 10);
+  if (row.date !== end) return null;
+  return new Date(Date.UTC(year, endMonth - (context.period === "annual" ? 12 : 3), 1)).toISOString().slice(0, 10);
+}
+
+/** What the registrant's SEC ticker list says about the vendor's share unit
+ * (review M-1). One listed symbol: the vendor's ordinary-share unit is the
+ * filer's. Several symbols (a second class such as BRK.A beside BRK.B, FIGR's
+ * FGRS, or preferred series): the unit must first be shown by the data. An
+ * ADR, an unknown listing or a blank symbol: not established. */
+function registrantShareUnit(context: PrimaryShareReconciliation | undefined): "listed" | "to-establish" | null {
+  if (!context || context.isAdr !== false) return null;
+  const tickers = (context.registrantTickers ?? []).map(ticker => typeof ticker === "string" ? ticker.trim().toUpperCase() : "");
+  if (tickers.length === 0 || tickers.includes("")) return null;
+  return new Set(tickers).size === 1 ? "listed" : "to-establish";
+}
+
+/** Only direct, unambiguous filed facts with the same issuer, interval, currency
+ * and ordinary-share unit can contradict a vendor field without a known split.
+ * For a registrant with several listed symbols the caller first establishes
+ * that unit (`guardVendorShareFields`). */
+function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR_SHARE_FIELDS)[number],
+  context: PrimaryShareReconciliation | undefined, splits: StockSplits, basisDay: string): { value: number; evidence: StatementFieldProvenance; superseded?: boolean } | null {
+  if (!context || registrantShareUnit(context) === null) return null;
+  const cik = (value: unknown): string | null => /^\d{1,10}$/.test(String(value)) && Number(value) > 0 ? String(Number(value)) : null;
+  const issuer = cik(context.companyFacts.cik);
+  if (issuer === null || cik(row.cik) !== issuer) return null;
+  if (!validSharePeriodDay(row.date) || row.date > splits.asOf ||
+    !(context.period === "annual" ? row.period === "FY" : /^Q[1-4]$/.test(row.period ?? "")) ||
+    !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "")) return null;
+  const start = vendorSharePeriodStart(row, context);
+  const expectedUnit = field === "eps" || field === "epsDiluted" ? `${row.reportedCurrency}/shares` : "shares";
+  if (start === null) return null;
+  const days = (Date.parse(row.date) - Date.parse(start)) / DAY_MS;
+  const [minDays, maxDays] = context.period === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  if (days < minDays! || days > maxDays!) return null;
+  // Share facts do not name a currency. Independently establish the row's
+  // reporting currency on the SAME exact interval before comparing counts.
+  const currencyEstablished = [...tagsFor("revenue"), ...tagsFor("netIncome")].some(tag => {
+    const concept = conceptFactsSchema.safeParse(context.companyFacts.facts["us-gaap"]?.[tag]);
+    return concept.success && parseFactPoints(concept.data.units[row.reportedCurrency!] ?? []).some(point => point.start === start && point.end === row.date &&
+      CORE_FACT_FORMS.has(point.form) && validSharePeriodDay(point.filed) && point.filed <= splits.asOf);
+  });
+  if (!currencyEstablished) return null;
+  let selected: { value: number; evidence: StatementFieldProvenance; superseded?: boolean } | null = null;
+  for (const tag of tagsFor(field)) {
+    const concept = conceptFactsSchema.safeParse(context.companyFacts.facts["us-gaap"]?.[tag]);
+    if (!concept.success) continue;
+    const points = parseFactPoints(concept.data.units[expectedUnit] ?? []).filter(point => point.start === start && point.end === row.date &&
+      CORE_FACT_FORMS.has(point.form) && validSharePeriodDay(point.filed) && point.filed <= splits.asOf);
+    const latest = points.map(point => point.filed).sort().at(-1);
+    const current = points.filter(point => point.filed === latest);
+    if (current.length === 0) continue;
+    if (current.some(point => point.val !== current[0]!.val)) return null;
+    const point = current.toSorted((a, b) => b.accn.localeCompare(a.accn))[0]!;
+    const basis = shareBasisFactor(splits, point.filed, null, basisDay);
+    if ("withheld" in basis) return null;
+    const value = expectedUnit === "shares" ? point.val * basis.factor : point.val / basis.factor;
+    if (!isFiniteNumber(value) || (expectedUnit === "shares" && value <= 0)) return null;
+    if (selected !== null && selected.value !== value) return null;
+    const superseded = points.some(earlier => {
+      if (earlier.filed >= point.filed) return false;
+      const earlierBasis = shareBasisFactor(splits, earlier.filed, null, basisDay);
+      if ("withheld" in earlierBasis) return false;
+      return (expectedUnit === "shares" ? earlier.val * earlierBasis.factor : earlier.val / earlierBasis.factor) === row[field];
+    });
+    selected ??= { value, superseded, evidence: { source: "edgar", unit: expectedUnit, periodStart: start, periodEnd: row.date,
+      observedAt: context.observedAt ?? "", tags: [`us-gaap/${tag}`], filings: [{ accn: point.accn, filed: point.filed, form: point.form }] } };
+  }
+  return selected;
+}
+
+/** A split the report knows of that `date` precedes, on the `basisDay` basis. */
+function splitAfter(splits: StockSplits, basisDay: string, date: string) {
+  return splits.events.find((e) => date < e.sessionWindow.to && e.sessionWindow.from <= basisDay);
+}
+
+/** An unresolved split window that `date` precedes, on the `basisDay` basis. */
+function splitOpen(splits: StockSplits, basisDay: string, date: string) {
+  return splits.unresolved.find((u) => date < u.to && u.from <= basisDay);
+}
+
+/**
+ * True when some comparable no-split period of `rows` shows the vendor's
+ * weighted-average count (basic or diluted) in the filer's unit, within
+ * `VENDOR_SHARES_TOLERANCE` (review M-1). A class-unit difference such as
+ * Berkshire's 1,500-to-1 never agrees, so such an issuer is not compared.
+ */
+function vendorShareUnitShown(rows: readonly FmpRawRow[], splits: StockSplits, basisDay: string,
+  reconciliation: PrimaryShareReconciliation | undefined): boolean {
+  return rows.some((row) => {
+    const date = isoDay(row["date"]);
+    if (date === null || row["source"] === "edgar" || splitAfter(splits, basisDay, date) !== undefined ||
+      splitOpen(splits, basisDay, date) !== undefined) return false;
+    return (["weightedAverageShsOut", "weightedAverageShsOutDil"] as const).some((field) => {
+      const vendorValue = row[field];
+      if (!isFiniteNumber(vendorValue) || vendorValue <= 0) return false;
+      const primary = comparablePrimaryShareField(row as FmpStatementRow, field, reconciliation, splits, basisDay);
+      return primary !== null && Math.abs(vendorValue - primary.value) <= primary.value * VENDOR_SHARES_TOLERANCE;
+    });
+  });
+}
+
 /**
  * Keep a vendor income row's share and per-share fields only where their split
- * basis on `basisDay` is established. A row that no split the report knows of
- * postdates needs nothing. For a row for a period before such a split (or
+ * basis on `basisDay` is established. Independently comparable primary facts
+ * also reject a demonstrated vendor conflict when there is no known split;
+ * absent or incomparable coverage alone never rejects that vendor field.
+ * For a row for a period before such a split (or
  * before an unresolved one) EACH field is tested on its own against the
  * filer's same field for the same period — put on the `basisDay` basis by
  * src/edgar/statements.ts — within `VENDOR_SHARES_TOLERANCE`: a matching diluted
@@ -408,6 +553,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
   edgarRows: readonly FmpRawRow[],
   splits: StockSplits,
   basisDay: string,
+  reconciliation?: PrimaryShareReconciliation,
 ): { rows: TRow[]; withheld: { date: string; field: (typeof VENDOR_SHARE_FIELDS)[number]; reason: string }[] } {
   const filed = new Map<string, FmpRawRow>();
   for (const r of edgarRows) {
@@ -415,22 +561,31 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
     if (day !== null) filed.set(day, r);
   }
   const withheld: { date: string; field: (typeof VENDOR_SHARE_FIELDS)[number]; reason: string }[] = [];
+  // Several listed symbols: compare without a split only once the vendor's
+  // share unit is shown (`vendorShareUnitShown`), by these rows or by another
+  // of the vendor's series for the issuer (`shareUnitShown`).
+  const unit = registrantShareUnit(reconciliation);
+  const compareUnsplit = unit === "listed" || (unit === "to-establish" &&
+    (reconciliation?.shareUnitShown ?? vendorShareUnitShown(rows, splits, basisDay, reconciliation)));
   const out = rows.map((row) => {
     const date = isoDay(row["date"]);
     if (date === null || row["source"] === "edgar") return row;
     const present = VENDOR_SHARE_FIELDS.filter((f) => row[f] !== undefined && row[f] !== null);
     if (present.length === 0) return row;
-    const later = splits.events.find((e) => date < e.sessionWindow.to && e.sessionWindow.from <= basisDay);
-    const open = splits.unresolved.find((u) => date < u.to && u.from <= basisDay);
-    if (later === undefined && open === undefined) return row;
-    const against = later !== undefined ? `the ${describeSplits({ ...splits, events: [later] })}` : `an unresolved split (${open!.reason})`;
+    const later = splitAfter(splits, basisDay, date);
+    const open = splitOpen(splits, basisDay, date);
+    const splitCheck = later !== undefined || open !== undefined;
+    const against = later !== undefined ? `the ${describeSplits({ ...splits, events: [later] })}` : open !== undefined ? `an unresolved split (${open.reason})` : "independent same-period filed facts";
     const filer = filed.get(date);
     let copy: Record<string, unknown> | null = null;
     for (const field of present) {
+      const primary = splitCheck || !compareUnsplit ? null : comparablePrimaryShareField(row as FmpStatementRow, field, reconciliation, splits, basisDay);
+      const proof = primary?.evidence ?? null;
+      if (!splitCheck && primary === null) continue;
       const label = VENDOR_SHARE_FIELD_LABELS[field];
       const isEps = field === "eps" || field === "epsDiluted";
       const vendorValue = row[field];
-      const filerValue = filer?.[field];
+      const filerValue = splitCheck ? filer?.[field] : primary!.value;
       let reason: string | null = null;
       if (!isFiniteNumber(vendorValue) || (!isEps && vendorValue <= 0)) {
         reason = `the vendor's ${label} for ${date} (${String(vendorValue)}) is not a usable figure to test against ${against}`;
@@ -438,15 +593,28 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
         reason = `no filed ${label} for ${date} on the ${basisDay} basis to test the vendor's ${vendorValue} against ${against}`;
       } else {
         const diff = Math.abs(vendorValue - filerValue);
-        const agrees = vendorValue === filerValue || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
+        // A no-split conflict must be distinguishable from the report's cent
+        // rounding of filed EPS (e.g. 0.0017 vs 0.00). This does not establish
+        // split basis: the original strict split check keeps its zero rule.
+        const roundingOnly = !splitCheck && isEps && ((Number(filerValue.toFixed(2)) === filerValue && Number(vendorValue.toFixed(2)) === filerValue) ||
+          (Number(vendorValue.toFixed(2)) === vendorValue && Number(filerValue.toFixed(2)) === vendorValue));
+        const agrees = vendorValue === filerValue || roundingOnly || diff <= Math.abs(filerValue) * VENDOR_SHARES_TOLERANCE;
         if (!agrees) {
-          reason = `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis, across ${against}`;
+          reason = (primary?.superseded
+            ? `the vendor's ${label} for ${date} (${vendorValue}) matches an earlier filing for the exact interval, superseded by a later filing (${filerValue}) on the ${basisDay} basis`
+            : `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis`) +
+            (splitCheck ? `, across ${against}` : `; exact ${proof!.periodStart} through ${proof!.periodEnd} ${proof!.unit}; field unavailable until reconciled`);
         }
       }
       if (reason === null) continue;
       withheld.push({ date, field, reason });
       copy ??= { ...row };
       delete copy[field];
+      if (!splitCheck && proof !== null) {
+        copy.fieldConflicts = { ...(copy.fieldConflicts as FmpStatementRow["fieldConflicts"]), [field]: {
+          vendorValue: isFiniteNumber(vendorValue) ? vendorValue : null, secValue: isFiniteNumber(filerValue) ? filerValue : null, usable: false, reason, secEvidence: proof,
+        } };
+      }
     }
     return copy === null ? row : (copy as TRow);
   });
@@ -807,13 +975,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     wantProfile || wantInstrumentType ? attempt(`yahoo.meta(${inputs.symbol})`, () => inputs.yahoo.meta(inputs.symbol)) : null,
     wantSplitList ? attempt(`yahoo.splitHistory(${inputs.symbol})`, () => inputs.yahoo.splitHistory(inputs.symbol)) : null,
   ]);
-  // `quote()` is `meta()` plus a row mapping: both read the SAME chart request
-  // (range=5d&interval=1d), so issuing them together would race two identical
-  // requests to an unofficial endpoint. Sequencing the quote AFTER the meta
-  // lets it resolve from the durable cache the first one just populated. The
-  // three history series stay concurrent above — they are distinct requests.
+  // Reuse the successful meta observation for both prices. If meta failed,
+  // the quote retains its independent retry and disclosed failure path.
   const quoteResult = wantQuote
-    ? await attempt(`yahoo.quote(${inputs.symbol})`, () => inputs.yahoo.quote(inputs.symbol))
+    ? metaResult?.ok ? quoteFromMetaResult(inputs.symbol,metaResult) : await attempt(`yahoo.quote(${inputs.symbol})`, () => inputs.yahoo.quote(inputs.symbol))
     : null;
 
   // The vendor's split events: the full list, the daily history's and the
@@ -1246,10 +1411,12 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         .filter((day): day is string => day !== null);
       // Only periods strictly older than anything the successor filed: a
       // period both entities reported would otherwise appear twice.
-      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => (a < b ? a : b));
+      const comparableQuarterHistory = member === "incomeQuarterly" && continuity !== null;
+      const cutoff = currentDates.length === 0 ? null : currentDates.reduce((a, b) => comparableQuarterHistory ? (a > b ? a : b) : (a < b ? a : b));
       const older = result.rows.filter((row) => {
         const day = isoDay(row["date"]);
-        return day !== null && (cutoff === null || day < cutoff);
+        return day !== null && (cutoff === null || day < cutoff) &&
+          (!comparableQuarterHistory || !currentRows.some(current => isoDay(current["date"]) === day || compatibleFiscalAlias(current, row)));
       });
       if (older.length === 0) return;
       const tagged = older.map(
@@ -1316,22 +1483,42 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   }
 
 
-  // --- Vendor statement rows across a known split ---------------------------
+  // --- Vendor per-share fields: split basis and independent primary tie-out --
   //
   // FMP's FAQ documents that historical prices and shares outstanding are
   // split-adjusted; it says nothing specific about the income statement's
   // weighted-average share counts and EPS. A vendor row for a period before a
   // split the report knows of keeps each share or per-share field only where
   // the filer's same field for that period, on the same basis, agrees with it.
+  // Without such a split, direct same-period primary facts can still establish
+  // a conflict. They need not form a whole statement row: missing Assets
+  // anchors do not invalidate an independently filed quarterly EPS fact.
   // Other fields stand, and the manifest says which were withheld and why.
   if (built !== null) {
-    for (const [member, edgarRows] of [
+    const incomeMembers = [
       ["incomeAnnual", built.incomeAnnual.rows],
       ["incomeQuarterly", built.incomeQuarterly.rows],
-    ] as const) {
+    ] as const;
+    const reconciliationFor = (member: (typeof incomeMembers)[number][0]): PrimaryShareReconciliation | undefined =>
+      inputs.edgar.companyFacts.ok && Number(inputs.edgar.companyFacts.value.data.cik) === Number(cik10) ? { companyFacts: inputs.edgar.companyFacts.value.data, observedAt: inputs.edgar.companyFacts.value.fetchedAt,
+        registrantTickers: registrant?.tickers,
+        isAdr: typeof vendorProfile?.isAdr === "boolean" ? vendorProfile.isAdr : null,
+        fiscalYearEnd: registrant?.fiscalYearEnd ?? null, period: member === "incomeAnnual" ? "annual" : "quarter" } : undefined;
+    // With several listed symbols, the vendor's share unit is its convention for
+    // the listing, not for one period type: a series that shows it governs the
+    // other too. (FIGR's FY2025 vendor counts are twice the 10-K's, while its
+    // 2026 quarters match the 10-Qs.)
+    const shareUnitShown = registrantShareUnit(reconciliationFor("incomeQuarterly")) === "to-establish" && incomeMembers.some(([member]) => {
+      const current = members[member];
+      return current.ok && current.value.source !== "edgar" &&
+        vendorShareUnitShown(current.value.data.rows, built.splits, basisDay, reconciliationFor(member));
+    });
+    for (const [member, edgarRows] of incomeMembers) {
       const current = members[member];
       if (!current.ok || current.value.source === "edgar") continue;
-      const guarded = guardVendorShareFields(current.value.data.rows, edgarRows, built.splits, basisDay);
+      const reconciliation = reconciliationFor(member);
+      const guarded = guardVendorShareFields(current.value.data.rows, edgarRows, built.splits, basisDay,
+        reconciliation && { ...reconciliation, shareUnitShown });
       if (guarded.withheld.length === 0) continue;
       members[member] = { ok: true, value: { ...current.value, data: { ...current.value.data, rows: guarded.rows } } };
       const dates = [...new Set(guarded.withheld.map((w) => w.date))].sort();
@@ -1341,11 +1528,123 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         field: `keyless.${member}.shareBasis`,
         reason:
           `${guarded.withheld.length} field(s) in ${dates.length} vendor row(s) (${dates[0]} … ${dates[dates.length - 1]}; ${fields.join(", ")}) withheld: ` +
-          `each period precedes a split the report knows of, and its split basis on ${basisDay} could not be established — ${reasons.slice(0, 3).join("; ")}` +
+          `the share basis or agreement with independently comparable filed facts on ${basisDay} could not be established — ${reasons.slice(0, 3).join("; ")}` +
           (reasons.length > 3 ? `; and ${reasons.length - 3} more reason(s)` : ""),
         severity: "warn",
-        attemptedSources: [current.value.endpoint, `edgar:companyfacts us-gaap/${SPLIT_RATIO_TAG}`, built.splits.vendor.source],
+        attemptedSources: [current.value.endpoint, ...fields.flatMap(field => tagsFor(field).map(tag => `edgar:companyfacts us-gaap/${tag}`)),
+          `edgar:companyfacts us-gaap/${SPLIT_RATIO_TAG}`, built.splits.vendor.source],
       });
+    }
+  }
+
+  // N3: a conflict is resolved only by an entire canonical SEC row, including
+  // its per-share fields. The original vendor response remains in data.raw.
+  if (inputs.statementSource === "auto" && built !== null && inputs.edgar.companyFacts.ok) {
+    const facts = inputs.edgar.companyFacts.value.data;
+    const totalTags: readonly string[] = FILED_REVENUE_TOTAL_TAGS.map(tag => `us-gaap/${tag}`);
+    const filingRows = new Map<string, FmpIncomeStatementRow[]>();
+    const proofFor = (row: FmpStatementRow, field: string) => row.fieldProvenance?.[field];
+    const sameScope = (a: StatementFieldProvenance, b: StatementFieldProvenance) =>
+      a.unit === b.unit && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
+      a.filings.map(f => f.accn).sort().join() === b.filings.map(f => f.accn).sort().join();
+    const reconciles = (row: FmpIncomeStatementRow): boolean => {
+      const revenue = proofFor(row, "revenue"), operating = proofFor(row, "operatingIncome");
+      if (!revenue || !operating || !sameScope(revenue, operating) || !isFiniteNumber(row.revenue) || !isFiniteNumber(row.operatingIncome)) return false;
+      const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[COSTS_AND_EXPENSES_TAG]);
+      const points = parsed.success ? parseFactPoints(parsed.data.units[revenue.unit] ?? []).filter(p =>
+        CORE_FACT_FORMS.has(p.form) && p.filed <= inputs.today && revenue.filings.some(f => f.accn === p.accn)) : [];
+      let costs = points.find(p => p.start === revenue.periodStart && p.end === row.date)?.val;
+      if (costs === undefined && revenue.derivation && revenue.periodStart) {
+        const priorEnd = new Date(Date.parse(revenue.periodStart) - 86_400_000).toISOString().slice(0, 10);
+        const total = points.find(p => p.end === row.date && p.start && p.start < revenue.periodStart!);
+        const prior = points.find(p => p.end === priorEnd && p.start === total?.start);
+        if (total && prior) costs = total.val - prior.val;
+      }
+      if (costs !== undefined && vendorAgreesWithDerived(row.operatingIncome, row.revenue - costs, [row.revenue, costs])) return true;
+      // An issuer's presented gross-profit / operating-expense subtotal path
+      // is also admissible, but every operand must have the same filing scope.
+      const gross = proofFor(row, "grossProfit"), expense = proofFor(row, "operatingExpenses");
+      return !!gross && !!expense && sameScope(revenue, gross) && sameScope(revenue, expense) &&
+        gross.tags.includes("us-gaap/GrossProfit") && expense.tags.includes("us-gaap/OperatingExpenses") &&
+        isFiniteNumber(row.grossProfit) && isFiniteNumber(row.operatingExpenses) &&
+        vendorAgreesWithDerived(row.operatingIncome, row.grossProfit - row.operatingExpenses, [row.grossProfit, row.operatingExpenses]);
+    };
+    // D-155 review: the standard derived quarter (fiscal year less nine months, or
+    // a year-to-date difference) is a whole filed row on its canonical lineage:
+    // each operand is the current period of its own filing and the earlier
+    // year-to-date was filed no later than the total. A quarter derived from
+    // later comparatives stays refused under the one-filing rule.
+    const canonicalDerivedQuarter = (proof: StatementFieldProvenance, date: string): boolean => {
+      if ((proof.derivation !== "fy-minus-ytd" && proof.derivation !== "ytd-difference") || proof.filings.length !== 2 ||
+        !proof.periodStart || proof.tags.length !== 1) return false;
+      const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[proof.tags[0]!.replace(/^us-gaap\//, "")]);
+      if (!parsed.success) return false;
+      const points = parseFactPoints(parsed.data.units[proof.unit] ?? []).filter(p =>
+        CORE_FACT_FORMS.has(p.form) && p.filed <= inputs.today && proof.filings.some(f => f.accn === p.accn));
+      const priorEnd = new Date(Date.parse(proof.periodStart) - 86_400_000).toISOString().slice(0, 10);
+      const total = points.find(p => p.end === date && p.start && p.start < proof.periodStart!);
+      const prior = total && points.find(p => p.end === priorEnd && p.start === total.start);
+      if (!total || !prior || total.accn === prior.accn || prior.filed > total.filed) return false;
+      const latestEnd = (accn: string) => points.filter(p => p.accn === accn).reduce((latest, p) => p.end > latest ? p.end : latest, "");
+      return latestEnd(total.accn) === total.end && latestEnd(prior.accn) === prior.end;
+    };
+    for (const member of ["incomeAnnual", "incomeQuarterly", "cashflowQuarterly"] as const) {
+      const current = members[member];
+      if (!current.ok || current.value.source === "edgar") continue;
+      const field = member === "cashflowQuarterly" ? "operatingCashFlow" : "revenue";
+      const rows = current.value.data.rows.map(row => {
+        const vendorFields = member === "cashflowQuarterly" ? ["operatingCashFlow", "netCashProvidedByOperatingActivities"] : [field];
+        if (row.source === "edgar") return row;
+        let sec = built[member].rows.find(candidate => candidate.date === row.date);
+        const proof = sec && proofFor(sec, field);
+        let operands: number[] | null = null;
+        if (proof?.derivation && proof.periodStart && proof.tags.length === 1) {
+          const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[proof.tags[0]!.replace(/^us-gaap\//, "")]);
+          const points = parsed.success ? parseFactPoints(parsed.data.units[proof.unit] ?? []).filter(p => proof.filings.some(f => f.accn === p.accn)) : [];
+          const priorEnd = new Date(Date.parse(proof.periodStart) - 86_400_000).toISOString().slice(0, 10);
+          const total = points.find(p => p.end === row.date && p.start && p.start < proof.periodStart!);
+          const prior = points.find(p => p.end === priorEnd && p.start === total?.start);
+          if (total && prior) operands = [total.val, prior.val];
+        }
+        const conflictField = sec && isFiniteNumber(sec[field]) ? vendorFields.find(key => isFiniteNumber(row[key]) && !(operands
+          ? vendorAgreesWithDerived(row[key], sec![field] as number, operands)
+          : vendorAgreesWithFiled(row[key], sec![field] as number))) : undefined;
+        if (!sec || !proof || !conflictField ||
+          proof.unit !== row.reportedCurrency || !proof.periodStart || proof.filings.length === 0 ||
+          (row.periodStart != null && row.periodStart !== proof.periodStart) ||
+          (row.cik != null && Number(row.cik) !== Number(facts.cik))) return row;
+        const canonicalDerived = member === "incomeQuarterly" && proof.filings.length !== 1 && canonicalDerivedQuarter(proof, String(row.date));
+        if (member !== "cashflowQuarterly") {
+          if (bankStatementRouting(registrant) || !proof.tags.some(tag => totalTags.includes(tag))) return row;
+          if (member === "incomeQuarterly" && proof.filings.length === 1) {
+            const accn = proof.filings[0]!.accn;
+            if (!filingRows.has(accn)) filingRows.set(accn, buildStatementsFromCompanyFacts(factsForFilings(facts, [accn]), buildOptions(cik10)).incomeQuarterly.rows);
+            sec = filingRows.get(accn)!.find(candidate => candidate.date === row.date) ?? sec;
+          }
+          if (!reconciles(sec) || member === "incomeQuarterly" && proof.filings.length !== 1 && !canonicalDerived) {
+            if (member === "incomeAnnual") return row;
+            const reason = `Vendor quarterly revenue ${row.revenue} conflicts with filed-operand revenue ${sec.revenue} ${proof.unit} at ${row.date}; a reconciled whole income row from one filing is unavailable. Revenue and dependent gross-margin fields withheld; vendor observations retained.`;
+            gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "warn" });
+            return { ...row, revenue: null, grossProfit: null, grossProfitRatio: null, grossProfitMargin: null,
+              fieldConflicts: { ...row.fieldConflicts, revenue: { usable: false as const, vendorValue: row.revenue as number, secValue: sec.revenue as number, secEvidence: proof, reason } } };
+          }
+        }
+        // Canonical CFO derivation rejects incompatible YTD lineages. Require
+        // its actual operating-cash-flow tag, not a proxy or a vendor alias.
+        if (member === "cashflowQuarterly" && !proof.tags.includes("us-gaap/NetCashProvidedByUsedInOperatingActivities")) return row;
+        const reason = `Vendor ${conflictField} ${row[conflictField]} conflicts with filed ${sec[field]} ${proof.unit} for ${proof.periodStart} through ${row.date}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}. Whole SEC-built row replaced the vendor row in auto mode; ${member === "cashflowQuarterly" ? "quarterly CFO resolved on the canonical filing lineage" : canonicalDerived ? `filed operating statement reconciles; quarter derived (${proof.derivation}) on the canonical filing lineage, each operand the current period of its own filing` : "filed operating statement reconciles"}; no fields or EPS mixed with the vendor row.`;
+        gaps.push({ field: `statements.sourceSwitch.${member}.${row.date}`, reason, severity: "info", attemptedSources: [current.value.endpoint, STATEMENT_ENDPOINTS[member]] });
+        const capexRefusal = member === "cashflowQuarterly" && !isFiniteNumber(sec.capitalExpenditure)
+          ? { capitalExpenditure: { usable: false as const, vendorValue: isFiniteNumber(row.capitalExpenditure) ? row.capitalExpenditure : null, secValue: null,
+            reason: "Whole SEC-built cash-flow row has no canonical quarterly cash-capex amount; vendor capex is set aside with the vendor row. Older-quarter burn cannot substitute for this unresolved investment scope." } } : {};
+        return { ...sec, ...(Object.keys(capexRefusal).length ? { fieldConflicts: { ...sec.fieldConflicts, ...capexRefusal } } : {}),
+          source: "edgar", sourceEndpoint: STATEMENT_ENDPOINTS[member], sourceFetchedAt: factsFetchedAt, sourceAsOf: factsAsOf };
+      });
+      members[member] = { ...current, value: { ...current.value, data: { ...current.value.data, rows } } } as KeylessMembers[typeof member];
+      const window = [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 4);
+      if (member !== "incomeAnnual" && window.length === 4 && new Set(window.map(row => row.source ?? current.value.source)).size > 1) {
+        gaps.push({ field: `statements.sourceSwitch.ttm.${member}`, reason: `Latest four ${member} rows use mixed whole-row sources: ${window.map(row => `${row.date} ${row.source ?? current.value.source}`).join(", ")}. Existing TTM contiguity, currency, field completeness and EPS rules still apply; no row mixes sources.`, severity: "info" });
+      }
     }
   }
 
@@ -1608,7 +1907,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       const profileRow = row as FmpProfileRow;
       const asOf = metaResult !== null && metaResult.ok ? metaResult.value.asOf : inputs.today;
       const profileEp = profileEndpoint(outstanding?.basis ?? null);
-      members.profile = sourced([profileRow], "computed", profileEp, asOf, fetchedAt);
+      members.profile = sourced([profileRow], "computed", profileEp, asOf, metaResult?.ok ? metaResult.value.fetchedAt : fetchedAt, metaResult?.ok ? {stale:metaResult.value.stale,staleReason:metaResult.value.staleReason}:{});
       record("profile", "computed", profileEp);
     }
   }
@@ -2027,7 +2326,7 @@ function describePublicFloatAge(
  * net-interest-income line to protect, and forcing the bank chain there would
  * discard a correct ASC-606 revenue.
  */
-export function bankStatementRouting(registrant: EdgarRegistrant | null): boolean {
+export function bankStatementRouting(registrant: Pick<EdgarRegistrant, "sic"> | null): boolean {
   const industry = sectorIndustryForSic(registrant?.sic ?? null).industry;
   return industry !== null && industry.toLowerCase().startsWith("banks");
 }

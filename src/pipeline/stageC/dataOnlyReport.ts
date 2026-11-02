@@ -39,6 +39,7 @@ import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
+import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
@@ -322,7 +323,7 @@ function cagrRow(
         : "";
     values.push({ period: `${point.windowYears}y CAGR${spanNote}`, value });
   }
-  return values.length > 0 ? { label, values } : null;
+  return values.length > 0 ? { label, values: collapseMeasuredCagrValues(values) } : null;
 }
 
 function seriesRow(
@@ -645,7 +646,7 @@ function technicalsSection(computed: ComputedMetrics, graded: GradeBlock, curren
   return {
     graded,
     read: {
-      trend: `${t.read.trend} (deterministic SMA50/SMA200 read; no completed analyst assessment is available)`,
+      trend: technicalTrendText(t, currency),
       momentum: `${t.read.momentum} (deterministic RSI/MACD read)`,
       keyLevels: `${px("SMA50", t.read.keyLevels.sma50)} · ${px("SMA200", t.read.keyLevels.sma200)} · ${px("52-week high", t.read.keyLevels.high52w)} · ${px("52-week low", t.read.keyLevels.low52w)}`,
       relativeStrength: t.read.relativeStrength,
@@ -713,13 +714,18 @@ function macroSection(bundle: DataBundle, stub: Report["macro"]): Report["macro"
     for (const seriesId of Object.keys(record).sort()) {
       const result = record[seriesId];
       if (!result?.ok) continue;
+      const existing = rows.find(row => row.seriesId === seriesId);
+      if (existing) {
+        existing.relevance += bundle.macro.gicsSector ? ` Also sector-routed for ${bundle.macro.gicsSector}.` : " Also sector-routed.";
+        continue;
+      }
       const observations = result.value.data;
       const last = observations[observations.length - 1];
       if (!last) continue;
       const latest = macroTraced(seriesId, unitsOf(seriesId), last.value, last.date);
       if (latest === null) continue;
       const figureUnit = fredFigureUnit(seriesId, unitsOf(seriesId));
-      const rawLabel = labels.get(seriesId) ?? seriesId;
+      const rawLabel = coreUnits.get(seriesId) === unitsOf(seriesId) ? (labels.get(seriesId) ?? seriesId) : seriesId;
       const name = figureUnit.scale === 1 ? rawLabel : rawLabel.replace(/\s*\(thous\.\)/g, "");
       rows.push({ seriesId, name, latest, relevance: figureUnit.qualifier ? `${relevance} Displayed in ${figureUnit.qualifier}.` : relevance });
     }
@@ -895,7 +901,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const candidate: Report = {
     ...stub,
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
-    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle))),
+    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
       gradeStrip: {
@@ -940,10 +946,10 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   };
   // Guidance, 8-K events, XBRL segments and the quarterly trend are filing
   // facts, not analyst judgment, so the data-only report carries them too.
-  const filingDisclosures = buildFilingDisclosures(bundle);
+  const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
-  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps });
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps, cashFlowApplicability: computed.route?.cashFlowApplicability });
   if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild
@@ -963,3 +969,4 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     calculationAsOf: computed.builtAt ?? null, reportGeneratedAt: enriched.meta.generatedAt,
   }) }, appendix };
 }
+import { technicalTrendText } from "@/report/technicalTrend";

@@ -1,3 +1,4 @@
+import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,8 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
+import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
   const bundle = completeCurrencyBundle({ sic: "3571" });
@@ -38,7 +41,14 @@ const flagOf = (c: ComputedMetrics) => c.forensics.flags.find(f => f.id === "rec
 // Freeze the entire Stage B result, permitting only two Task 8 descriptions at three exact output paths.
 // Values are measured on pre-fix 6cf2de24, not derived from the implementation.
 function invariantHash(c: ComputedMetrics) {
-  const pinned = structuredClone(c);
+  const pinned = restoreN4aPeerWordingGolden(restoreCapexBasisGolden(c, 1), 2);
+  // N2 P/TBV review changes only this deduction disclosure in the control.
+  // Pin its exact text once, then preserve the complete historical hash.
+  const tbv = pinned.valuation.multiples!.multiples.find(row => row.key === "priceToTbv")!;
+  const current = "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (";
+  const prior = "marketCap / (common equity - goodwill - intangibleAssets) (";
+  expect(tbv.basis.split(current)).toHaveLength(2);
+  tbv.basis = tbv.basis.replace(current, prior);
   flagOf(pinned)!.message = "TASK8_DISCONTINUED_CONTEXT";
   pinned.scores.aspects.quality.signals!.find(s => s.id === "altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";
   pinned.scores.aspects.quality.drivers.find(d => d.source === "computed.scores.quality.altmanZOriginalScale")!.period = "TASK8_ALTMAN_DATE_CONTEXT";
@@ -143,6 +153,18 @@ describe("retained forensic observation context on real data-only exports", () =
   });
 
   it("pins complete pre-fix Stage B output apart from the owned context", () => {
-    expect(invariantHash(runStageB(fixture(), { evIncludeLeases: false }))).toBe("50ef4b29f0195312a3f9231860ea9b799ae8b1a495a183c89fcf277f30fd0d8e");
+    const computed = runStageB(fixture(), { evIncludeLeases: false });
+    // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
+    // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
+    // stamps and no value, so the hash is re-pinned for them alone.
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_FIGR_XHIGH_AUDIT_41");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_FIGR_XHIGH_AUDIT_41");
+    // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
+    // them so the pin keeps checking every value byte.
+    const restored = restoreP2ComputedGolden(computed);
+    restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
+    restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
+    // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
+    expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
 });

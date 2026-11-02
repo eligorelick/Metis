@@ -1,3 +1,4 @@
+import { executionModelSummary } from "@/report/execution";
 import { describe, expect, it } from "vitest";
 
 import { annotateSharedModelFamily, buildExecutionMetadataEntry, executionCompleted, failedPassNote, formatExecutionMetadata, sharedModelFamilyOf, subscriptionExecutionModels, type ProviderExecution } from "@/report/execution";
@@ -197,4 +198,10 @@ describe("per-step execution metadata", () => {
     // The report schema accepts the new adjustment.
     expect(ExecutionMetadataEntrySchema.parse(rejected)).toEqual(rejected);
   });
+});
+
+it("DB-003: names recorded API models and unknown judge steps",()=>{
+ const e=(step:string,effectiveModel:string)=>buildExecutionMetadataEntry({step,requestedModel:"claude-opus-5-5",effectiveModel,requestedEffort:null,fallbackUsed:false});
+ expect(executionModelSummary([e("bull","claude-opus-5-5"),e("synthesize","unknown"),e("verify","deterministic")])).toEqual({models:["claude-opus-5-5"],unrecordedSteps:["judge"]});
+ expect(executionModelSummary(undefined)).toEqual({models:[],unrecordedSteps:[]});
 });

@@ -1,3 +1,6 @@
+import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
+import {isTableOfContentsStub} from "@/edgar/currentReports";
+import {latestResultsRelease, updatesFiledAfterResults} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
  * Stage C — Context payload assembly.
@@ -27,11 +30,13 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
  * touches provider clients.
  */
 
-import type { ManifestEntry } from "@/types/core";
+import type { ManifestEntry, CompanyRoute } from "@/types/core";
 import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
@@ -46,7 +51,7 @@ import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
-import { buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
+import { statementFiscalPeriods, buildFilingDisclosures, outlookCaveats, residualNote } from "@/pipeline/filingDisclosures";
 import { peerDiscoveryScreen, type PeerCoverage } from "@/pipeline/peers";
 import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
@@ -74,9 +79,9 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { admittedGeography, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { admittedGeography, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
+import { operatingMeasuresStated, selectMaterialEvidence, selectGovernanceEvidence, selectEventLifecycleEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -151,10 +156,22 @@ export const PAYLOAD_BUDGETS = {
    * quarter's operating-cash-flow drop.
    */
   cfoCommentaryChars: 11_000,
+  /**
+   * R1 (FIGR paid audit): the newest operating update filed after the results
+   * release (FIGR's preliminary Q3 marketplace volume of $5,119 million was
+   * read only from a news headline).
+   */
+  operatingUpdateChars: 2_500,
   /** One ordinary material-event 8-K's item text. */
   eightKEventChars: 1_200,
   /** Credit-support agreements retain named parties, caps, options and contractual offsets. */
   eightKCreditEventChars: 1_800,
+  /**
+   * R1 (FIGR paid audit): an acquisition's completion (Item 2.01) or a merger
+   * or purchase agreement (Item 1.01) keeps its dated lead, the consideration
+   * and how it was funded; at 1,200 the completion 8-K's consideration was cut.
+   */
+  eightKTransactionEventChars: 1_800,
   /** All material-event 8-K excerpts together. */
   eightKEventsTotalChars: 8_600,
 } as const;
@@ -439,7 +456,16 @@ export interface ContextPayload {
 // 1.54.0 (D-137, B6): financial-route currency and evidence, buyback coverage, revenue refusals,
 // common-equity/gain/scope peer comparisons and same-construction P/E ranking alter admitted context.
 // D-138 report-53 batch: source-scope qualifications and neutral debt captions change model context.
-export const PAYLOAD_VERSION = "1.56.0" as const;
+// F-01/F-02/F-03: admitted facts, annual operands and numeric evidence semantics
+// require fresh model/checkpoint identity; historical report bytes are unchanged.
+// FIG report review: primary EPS/share refusals, dated guidance, estimate-period
+// and Form 4 venue scope. Accepted model work from earlier payloads is incompatible.
+// FIN-401 / FIN-401-V1 (B4b): corrected DCF operands and placement notes invalidate prior payload checkpoints.
+// 1.61.0 (D-156, D-158, D-159, FIGR paid-run audit): transaction terms, the newest operating update, outlook statements,
+// governance passages, insider coverage, the aggregate P/E construction and filed figure bases alter admitted context.
+// 1.62.0 (D-163 to D-167, FIGR extra-high audit): the settled-session price history and the evidence and figure bases
+// that round added alter admitted context.
+export const PAYLOAD_VERSION = "1.62.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -580,7 +606,8 @@ export function formatFigure(f: PayloadFigure): string {
   const currency = monetary && canonical?.currency === null
     ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
     : "";
-  const estimateDates = f.estimateTiming === undefined ? "" : `; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
+  const estimatePeriod = f.estimateTiming?.asOfRole === "forecast-period-end" ? `; forecast period ${estimateDay(f.period) ?? "not established"}` : "";
+  const estimateDates = f.estimateTiming === undefined ? "" : `${estimatePeriod}; estimate timing: ${estimateModelTimingText(f.estimateTiming, f.asOf)}`;
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
   return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.estimateTiming === undefined ? f.asOf : estimateDay(f.asOf))}${periodContext}${estimateDates}`;
 }
@@ -629,6 +656,15 @@ function quoteSection(bundle: DataBundle, currency: string | null, equityScope?:
     { label: "yearHigh", value: numOrNull(q?.yearHigh), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "volume", value: numOrNull(q?.volume), unit: "shares", source: "fmp:quote", asOf },
   ];
+  if (equityScope?.status === "resolved") {
+    figures[1] = { ...figures[1]!, label: "provider market cap (raw observation; issuer-common scope not assumed)" };
+    figures.push({ label: `issuer-common capitalization${equityScope.approximate ? " (economic-price approximation)" : ""}`, value: equityScope.marketCap,
+      unit: "currency", currency: equityScope.currency ?? currency, source: "computed.valuation.equityScope.marketCap", asOf: equityScope.priceAsOf ?? null });
+    figures.push({ label: "outstanding economic share units (filed inventory date)", value: equityScope.economicShares,
+      unit: "shares", source: "computed.valuation.equityScope.economicShares", asOf: equityScope.shareCountAsOf });
+    classScopeNote.push("The issuer-common capitalization above is the selected equity numerator for aggregate multiples. The provider cap remains a separate raw observation. Dated outstanding counts are not current-day shares. " + equityScope.basis,
+      `Economic scope evidence hashes: ${equityScope.sourceHashes.join(", ")}.`);
+  }
   return payloadSection({ title: "Quote", figures, notes: [...(q && asOf === null ? ["Price observation date unavailable; source retrieval time does not establish the quote session."] : []), ...classScopeNote] });
 }
 
@@ -830,8 +866,8 @@ function computedSections(
     { label: "capex/D&A (latest)", value: cap.maintenanceVsGrowthCapex.capexToDALatest, unit: "x", source: "computed.capital.maintenanceVsGrowthCapex", asOf: cap.asOf, ...capexYear },
     { label: "net debt/EBITDA", value: cap.netDebtToEbitda.value, unit: "x", source: "computed.capital.netDebtToEbitda", asOf: cap.netDebtToEbitda.asOf },
     { label: "interest coverage", value: cap.interestCoverage.value, unit: "x", source: "computed.capital.interestCoverage", asOf: cap.asOf },
-    { label: "SBC % revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
-    { label: "SBC % FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
+    { label: "SBC, cash-flow add-back / revenue", value: cap.sbc.pctOfRevenue, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
+    { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
@@ -1042,26 +1078,48 @@ function computedSections(
   if (currentCapital) {
     const figures: PayloadFigureInput[] = [];
     const add = (key: string, value: number | null, unit: string): void => {
-      const period = key.startsWith("debtBridge.") ? currentCapital.asOf
+      const construction = key === "cashBridge.operatingCashFlow" ? currentCapital.filedCashFlows?.operatingCashFlow
+        : key === "cashBridge.stockBasedCompensation" ? currentCapital.filedCashFlows?.stockBasedCompensation
+        : key === "cashBridge.cashCapitalExpenditure" ? currentCapital.filedCashFlows?.capitalExpenditure
+        : key === "allocatedSbcExpense" ? currentCapital.filedCashFlows?.allocatedSbcExpense : undefined;
+      const period = construction ? `TTM to ${construction.end} (${construction.start} to ${construction.end})` : key.startsWith("debtBridge.") ? currentCapital.asOf
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
       // The bridge group is structure, not the metric: "total debt including
       // leases", never "debt Bridge total Debt Including Leases", which no
       // prose naming the metric could match (NVDA report 34).
-      const label = (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      const label = (key === "cashBridge.stockBasedCompensation" ? "SBC, cash-flow add-back" : key === "allocatedSbcExpense" ? "SBC, allocated expense" : undefined)
+        ?? (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
-        source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
+        source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
+        ...(construction ? {
+          periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
+        } : {}),
+      });
     };
     for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
     add("sbcPctOfFcf", currentCapital.sbcPctOfFcf, "%");
+    if (currentCapital.sbcConcentration) {
+      for (const key of ["quarterSbc", "otherQuarterMedianSbc", "runRateAfterSbc", "runRateBeforeSbc", "runRateSbc"] as const) add(`sbcConcentration.${key}`, currentCapital.sbcConcentration[key], "currency");
+    }
     for (const key of ["netDebt", "ebitda"] as const) add(key, currentCapital[key], "currency");
     for (const [key, value] of Object.entries(currentCapital.cashBridge)) {
       if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
     }
     for (const [key, value] of Object.entries(currentCapital.debtBridge)) if (typeof value === "number" || value === null) add(`debtBridge.${key}`, value, "currency");
+    if (currentCapital.allocatedSbcExpense !== undefined) add("allocatedSbcExpense", currentCapital.allocatedSbcExpense, "currency");
+    for (const [field, construction] of Object.entries(currentCapital.filedCashFlows ?? {})) {
+      for (const [i, operand] of construction.points.entries()) figures.push({
+        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
+        value: operand.val, unit: "currency", currency: currentCapital.currency, period: `${operand.start} to ${operand.end}`,
+        periodContext: { kind: "duration", start: operand.start!, end: operand.end },
+        source: `edgar:companyfacts/us-gaap/${construction.tag}; ${operand.form} ${operand.accn}, filed ${operand.filed}`,
+        asOf: operand.filed,
+      });
+    }
     figures.push({ label: "capital basis", value: `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`,
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
-      `Current capital basis: ${currentCapital.basis}; exact window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
+      `Current capital basis: ${currentCapital.basis}; ${currentCapital.periodStartIsApproximate ? "approximate" : "exact"} window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
       // AI-511: only the figure grading.ts graded is called graded, and its window is named.
       ...(computed.scores?.aspects.balanceSheet.signals?.some((s) => s.id === "fcfConversionBeforeSbc")
         ? [`The balance-sheet score grades "fcf conversion before sbc" from this section (${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}); ${currentCapital.basis === "annual"
@@ -1069,6 +1127,7 @@ function computedSections(
           : '"FCF conversion (latest fiscal year, before SBC)" under "Capital & cash (computed)" is the fiscal-year ratio, reported beside it and not graded.'}`]
         : []),
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
+      ...(currentCapital.sbcConcentration ? [currentCapital.sbcConcentration.basis] : []),
       ...(currentCapital.debtBridge.compositionNote ? [currentCapital.debtBridge.compositionNote] : []),
       ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
       ...(currentCapital.debtBridge.leaseEvidenceNote ? [currentCapital.debtBridge.leaseEvidenceNote] : []),
@@ -1129,7 +1188,7 @@ function computedSections(
     // one number from a model whose horizon, discount rate and opening book
     // value were only inferable from prose.
     valFigures.push(
-      { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: null },
+      { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf },
       { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
@@ -1152,12 +1211,12 @@ function computedSections(
     const grid = val.excessReturn.startCoeGrid;
     grid?.rows.forEach((row, i) => grid.costOfEquityPcts.forEach((c, j) => {
       valFigures.push({ label: `excess-return per share, start ${row.label} × cost of equity ${c.toFixed(1)}%`, value: grid.perShare[i]?.[j] ?? null,
-        unit: "currency/share", currency: currencies.model, source: `computed.valuation.excessReturn.startCoeGrid.r${i + 1}c${j + 1}`, asOf: val.excessReturn.asOf });
+        unit: "currency/share", currency: currencies.model, source: `computed.valuation.excessReturn.startCoeGrid.r${i + 1}c${j + 1}`, asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf });
     }));
     const alt = val.excessReturn.startAlternative;
     if (alt !== undefined) {
       valFigures.push({ label: `excess-return per share from the ${alt.label}`, value: alt.perShare, unit: "currency/share", currency: currencies.model,
-        source: "computed.valuation.excessReturn.startAlternative", asOf: alt.asOf });
+        source: "computed.valuation.excessReturn.startAlternative", asOf: val.excessReturn.valuationDate?.value ?? alt.asOf });
     }
   } else if (val.kind === "reit") {
     valFigures.push(
@@ -1180,6 +1239,15 @@ function computedSections(
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });
+    if (m.key === "peTtm" && m.earningsDenominator) {
+      const d = m.earningsDenominator;
+      valFigures.push({ label: "P/E common-income denominator", value: d.value, unit: d.currency, currency: d.currency,
+        period: d.period, source: "computed.valuation.multiples.peTtm.denominator", asOf: d.period });
+      for (const q of d.quarters) valFigures.push({ label: `P/E common-income quarter ended ${q.period}`, value: q.value,
+        unit: d.currency, currency: d.currency, period: q.period,
+        ...(q.periodStart ? { periodContext: { kind: "duration" as const, start: q.periodStart, end: q.period, basis: "fiscal-quarter" as const } } : {}),
+        source: `computed.valuation.multiples.peTtm.denominator.${q.period}`, asOf: q.period });
+    }
     if (m.peers) {
       valFigures.push({
         label: `${m.key} peer median`,
@@ -1460,7 +1528,7 @@ const CASHFLOW_LINE_ITEMS: { key: keyof FmpCashFlowRow; label: string; unit: str
   { key: "netCashProvidedByInvestingActivities", label: "cash flow from investing activities (CFI)", unit: "currency" },
   { key: "capitalExpenditure", label: "capex (negative)", unit: "currency" },
   { key: "freeCashFlow", label: "free cash flow", unit: "currency" },
-  { key: "stockBasedCompensation", label: "stock-based comp", unit: "currency" },
+  { key: "stockBasedCompensation", label: "SBC, cash-flow add-back", unit: "currency" },
   { key: "commonStockRepurchased", label: "buybacks (negative)", unit: "currency" },
 ];
 
@@ -1634,7 +1702,7 @@ function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: numbe
   };
 }
 
-function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
+function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRoute["cashFlowApplicability"]): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
@@ -1657,12 +1725,23 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const balQ = oneRowPerPeriod(rowsOf(bundle.statements.balanceQuarterly), Q);
   const cash = oneRowPerPeriod(rowsOf(bundle.statements.cashflowAnnual), A);
   const cashQ = oneRowPerPeriod(rowsOf(bundle.statements.cashflowQuarterly), Q);
+  const cashItems = cashFlowApplicability ? CASHFLOW_LINE_ITEMS.filter(item => item.key !== "freeCashFlow") : CASHFLOW_LINE_ITEMS;
+  if (cashFlowApplicability) {
+    cash.notes.push(cashFlowApplicability.reason);
+    cashQ.notes.push(cashFlowApplicability.reason);
+  }
   push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
   push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
   push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
   push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
-  push(extractStatement("Cash flow — annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
-  push(extractStatement("Cash flow — quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
+  push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
+  push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
+  if (cashFlowApplicability?.debtPerimeter) {
+    for (const block of blocks.filter(b => b.title.startsWith("Balance sheet"))) {
+      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = cashFlowApplicability.debtPerimeter.label;
+      block.notes.push(`${cashFlowApplicability.debtPerimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
+    }
+  }
   return blocks;
 }
 
@@ -1729,8 +1808,9 @@ function targetReconciliationNote(bundle: DataBundle, computed: ComputedMetrics,
 function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, computed: ComputedMetrics): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
-  const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
-  const estimateTiming = estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined));
+  const estimateTiming = { ...estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined)),
+    envelopeReferenceOn: estimateDay(bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null) };
+  const estAsOf = estimateTiming.acquiredOn ?? estimateTiming.fixtureLoadedOn ?? estimateTiming.recordedOn;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
@@ -1794,9 +1874,10 @@ function gradesConsensusWord(value: unknown): string {
  * is assembler-controlled — the source is allowlisted and both dates must be
  * real ISO days — so no provider text can forge the trailing tag.
  */
-function nextEarningsNote(bundle: DataBundle): string | null {
+export function nextEarningsNote(bundle: DataBundle): string | null {
   const next = bundle.earningsCalendarNext;
-  if (!next.ok) return null;
+  if (!next?.ok) return null;
+  if (next.value.data.confirmation === "company_confirmed") return null;
   const source = next.value.source;
   if (source !== "fmp" && source !== "finnhub") return null;
   const date = typeof next.value.data.date === "string" ? next.value.data.date.slice(0, 10) : "";
@@ -1860,7 +1941,7 @@ function peersSection(bundle: DataBundle): PayloadSection {
 
 /**
  * AI-117: FMP's insider statistics are calendar-quarter rows whose
- * `totalPurchases`/`totalSales` are open-market transaction counts (Form 4
+ * `totalPurchases`/`totalSales` are open-market or private transaction counts (Form 4
  * codes P and S), not shares. The window is the trailing four complete
  * calendar quarters; the quarter containing `asOf` is left out, and a gap in
  * the served quarters ends the window.
@@ -1871,8 +1952,8 @@ export interface InsiderStatisticsWindow {
   /** First day of the oldest quarter, last day of the newest. */
   start: string;
   end: string;
-  openMarketPurchases: number | null;
-  openMarketSales: number | null;
+  purchases: number | null;
+  sales: number | null;
   acquiredTransactions: number | null;
   disposedTransactions: number | null;
   sharesAcquired: number | null;
@@ -1942,8 +2023,8 @@ export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatistics
     quarters: taken.map((row) => ({ year: row.year, quarter: row.quarter })),
     start: `${oldest.year}-${String((oldest.quarter - 1) * 3 + 1).padStart(2, "0")}-01`,
     end: quarterEnd(newest.year, newest.quarter),
-    openMarketPurchases: sum("totalPurchases"),
-    openMarketSales: sum("totalSales"),
+    purchases: sum("totalPurchases"),
+    sales: sum("totalSales"),
     acquiredTransactions: sum("acquiredTransactions"),
     disposedTransactions: sum("disposedTransactions"),
     sharesAcquired: sum("totalAcquired"),
@@ -1974,8 +2055,8 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       ? round(win.acquiredTransactions / win.disposedTransactions, 4)
       : null;
     figures.push(
-      { label: `insider open-market purchase transactions (Form 4 code P), ${w}`, value: win.openMarketPurchases, unit: "count", ...common },
-      { label: `insider open-market sale transactions (Form 4 code S), ${w}`, value: win.openMarketSales, unit: "count", ...common },
+      { label: `insider purchase transactions (Form 4 code P), ${w}`, value: win.purchases, unit: "count", ...common },
+      { label: `insider sale transactions (Form 4 code S), ${w}`, value: win.sales, unit: "count", ...common },
       { label: `insider shares acquired, all reported acquisitions incl. awards, option exercises and gifts received, ${w}`, value: win.sharesAcquired, unit: "shares", ...common },
       { label: `insider shares disposed, all reported dispositions incl. open-market sales, tax withholding and gifts, ${w}`, value: win.sharesDisposed, unit: "shares", ...common },
       { label: `insider acquired/disposed transaction-count ratio (all acquisition and disposition codes), ${w}`, value: ratio, unit: "x", ...common },
@@ -1984,7 +2065,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
     notes.push(
       `Insider statistics: FMP calendar quarters ${list} (${win.start} to ${win.end}) summed` +
         `${win.inProgress ? `; ${win.inProgress.year} Q${win.inProgress.quarter} is in progress at ${statsAsOf} and is left out (its Form 4 rows are listed below)` : ""}. ` +
-        "Purchase and sale figures count open-market transactions (Form 4 codes P and S), not shares; the share volumes cover every reported acquisition or disposition.",
+        "Purchase and sale figures count open-market or private transactions (Form 4 codes P and S), not shares; their venue and motive are not established. Per-code share totals for the aggregate window are not available; selected F-code rows do not establish the tax-withholding share of total dispositions. The provider's acquired-share subtotal can be incomplete, including option exercises; these are provider aggregates, not a complete SEC transaction inventory.",
     );
   } else if (statsAsOf !== null) {
     const current = insiderQuarterContaining(statsAsOf);
@@ -1993,12 +2074,53 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       notes.push(`Insider statistics: FMP serves only ${only.year} Q${only.quarter}, which is in progress at ${statsAsOf}; no complete calendar quarter is summed.`);
     }
   }
-  const trades = rowsOf(bundle.insiderTrades).slice(0, PAYLOAD_BUDGETS.listRows);
+  const observed = rowsOf(bundle.insiderTrades).filter(tr => tr.formType === undefined || /^4(?:\/A)?$/.test(tr.formType));
+  const trades = observed.slice(0, PAYLOAD_BUDGETS.listRows);
+  const transactionSpan = (rows: typeof observed): string => {
+    const days = rows.map(tr => isoDay(tr.transactionDate)).filter((day): day is string => day !== null && isIsoDate(day)).sort();
+    return days.length > 0 ? `${days[0]} to ${days.at(-1)}` : "unavailable";
+  };
+  const filingDates = observed.filter(tr => tr.formType !== undefined).map(tr => isoDay(tr.filingDate))
+    .filter((day): day is string => day !== null && isIsoDate(day) && day <= bundle.builtAt.slice(0, 10)).sort();
+  const lastFiling = filingDates.at(-1) ?? null;
+  // Integration review (R6): one citable figure; the same words as a note too
+  // printed the statement twice in every payload.
+  const coverage = `Last Form 4 filing date inspected: ${lastFiling ?? "unavailable"}. ` +
+    `${observed.length} selected provider rows cover transaction dates ${transactionSpan(observed)}; ${trades.length} detailed rows shown cover only ${transactionSpan(trades)}. Neither span establishes coverage outside those dates or a complete aggregate-window code breakdown. ` +
+    "This is the latest filing date among selected provider rows, not proof of a complete SEC filing review; transaction dates and filing dates differ. " +
+    "Form 144 proposed-sale notices are not collected by the current providers and were not inspected. Proposed sales and Rule 10b5-1 plan capacity are not executed sales.";
+  figures.push({ label: "Insider filing coverage", value: coverage, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0, 10) });
+  if (win) {
+    const after = observed.filter(tr => {
+      const transaction = isoDay(tr.transactionDate), filed = isoDay(tr.filingDate);
+      return tr.formType !== undefined && transaction !== null && isIsoDate(transaction) && transaction > win.end &&
+        transaction <= bundle.builtAt.slice(0, 10) && filed !== null && isIsoDate(filed) && filed <= bundle.builtAt.slice(0, 10);
+    });
+    if (after.length > 0) {
+      const codes = [...new Set(after.map(tr => (tr.transactionType ?? "unknown").split("-")[0]))].sort();
+      notes.push(`Form 4 activity after ${win.end} in selected provider rows, through filing date ${lastFiling}: ` + codes.map(code => {
+        const rows = after.filter(tr => (tr.transactionType ?? "unknown").split("-")[0] === code);
+        const shares = rows.every(tr => numOrNull(tr.securitiesTransacted) !== null)
+          ? `${rows.reduce((sum, tr) => sum + tr.securitiesTransacted!, 0)} shares` : "share total unavailable";
+        const period = after.map(tr => isoDay(tr.transactionDate)!).sort().at(-1)!;
+        const periodStart = new Date(Date.parse(`${win.end}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+        const context = { source: "fmp:insider-trades", asOf: lastFiling, period,
+          periodContext: { kind: "duration" as const, start: periodStart, end: period } };
+        figures.push(
+          { label: `Post-window Form 4 code ${code} reported transaction rows`, value: rows.length, unit: "count", ...context },
+          { label: `Post-window Form 4 code ${code} reported shares (selected rows, may overlap)`,
+            value: shares === "share total unavailable" ? null : rows.reduce((sum, tr) => sum + tr.securitiesTransacted!, 0), unit: "shares", ...context },
+        );
+        return `${code}: ${rows.length} reported transaction row${rows.length === 1 ? "" : "s"}, ${shares}`;
+      }).join("; ") + ". Codes S/P are reported sales/purchases; F is not a sale code. These row totals are not a complete post-window aggregate and may overlap across joint owners or amendments; do not infer unique shares sold or motive.");
+    } else notes.push(`No dated post-window Form 4 rows are available in the selected provider rows after ${win.end}; this does not establish no activity.`);
+  }
   for (const tr of trades) {
     const d = isoDay(tr.transactionDate) ?? isoDay(tr.filingDate) ?? "unknown";
     notes.push(
       `${d} ${strOrNull(tr.reportingName) ?? "?"} (${strOrNull(tr.typeOfOwner) ?? "?"}): ` +
-        `${strOrNull(tr.transactionType) ?? "?"} ${numOrNull(tr.securitiesTransacted) ?? "?"} @ ${numOrNull(tr.price) ?? "?"} [fmp:insider-trades · ${d}]`,
+        `${strOrNull(tr.transactionType) ?? "?"} ${numOrNull(tr.securitiesTransacted) ?? "?"} @ ${numOrNull(tr.price) ?? "?"}` +
+        `; filed ${isoDay(tr.filingDate) ?? "unknown"}${tr.formType ? `, Form ${tr.formType}` : ", form unavailable"} [fmp:insider-trades · ${d}]`,
     );
   }
   // Finnhub MSPR insider sentiment.
@@ -2141,6 +2263,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
 function macroSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const conversions: string[] = [];
+  const transforms: string[] = [];
   // Core series carry the transform the dashboard fetched them with (CPI is
   // YoY %); sector series are fetched as levels (dataBundle: units "lin").
   const coreUnits = new Map(CORE_SERIES.map((spec) => [spec.id, spec.units]));
@@ -2169,6 +2292,7 @@ function macroSection(bundle: DataBundle): PayloadSection {
             asOf: last.date,
           });
           if (figureUnit.qualifier !== null) conversions.push(`${seriesId}: ${figureUnit.qualifier}`);
+          if (unitsOf(seriesId) === "pc1") transforms.push(`${seriesId}: year-over-year %`);
         }
       }
     }
@@ -2182,7 +2306,10 @@ function macroSection(bundle: DataBundle): PayloadSection {
   return payloadSection({
     title: "Macro (FRED latest values)",
     figures,
-    notes: [bundle.macro.attribution, ...(conversions.length > 0 ? [`Units: ${conversions.join("; ")}`] : [])],
+    notes: [bundle.macro.attribution,
+      "FRED monthly series use the first day to label the observation month, not the release date; daily series retain their observation day.",
+      ...(transforms.length > 0 ? [`Transforms: ${transforms.join("; ")}`] : []),
+      ...(conversions.length > 0 ? [`Units: ${conversions.join("; ")}`] : [])],
   });
 }
 
@@ -2260,57 +2387,9 @@ const FISCAL_DAY_MS = 86_400_000;
 const fiscalDayMs = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
 /** The tolerance between a release's quarter end and a statement row's period end (fiscalLabelOf, releaseFiscalLabelContradicted). */
 const sameFiscalPeriodEnd = (a: string, b: string): boolean => Math.abs(fiscalDayMs(a) - fiscalDayMs(b)) <= 3 * FISCAL_DAY_MS;
-/** "Q1 FY2025" -> "Q2 FY2025"; "Q4 FY2025" -> "Q1 FY2026"; null for any other label. */
-function successorQuarterLabel(label: string): string | null {
-  const m = /^Q([1-4]) FY(\d{4})$/.exec(label);
-  if (m === null) return null;
-  return m[1] === "4" ? `Q1 FY${Number(m[2]) + 1}` : `Q${Number(m[1]) + 1} FY${m[2]}`;
-}
-
-/**
- * AI-512: a release label the run's own statement rows do not support.
- * (1) An annual or quarterly income-statement row ending within three days of
- * `periodEnd` (fiscalLabelOf's tolerance) carries an issuer label
- * (issuerFiscalLabel) of another fiscal year, or, for a quarter label, another
- * quarter; an annual row's "FY2025" agrees with a release's "Q4 FY2025" and
- * contradicts a "Q1" to "Q3" label, because an annual period that ends at the
- * quarter end makes that quarter the fiscal fourth.
- * (2) No labelled row lies within three days, but labelled quarterly rows
- * exist (the release is newer than every statement row, or older): the label
- * is supported only when the quarter end falls 80 to 100 days after the newest
- * labelled quarterly row's end and the label is that row's successor quarter.
- * (3) No labelled quarterly row but labelled annual rows: the label is supported only when the label's fiscal year is the
- * newest labelled annual row's fiscal year + 1 and the quarter end falls 91n-11 to 91n+9 days (at most 366) after that row's
- * end, n being the label's quarter number.
- * (4) No labelled income row at all: nothing contradicts the label, so it stays (a stated limit).
- */
+/** AI-512-V1: titles and tables share the same statement comparison. */
 function releaseFiscalLabelContradicted(bundle: DataBundle, label: string, periodEnd: string): boolean {
-  const fy = (s: string): string | undefined => /FY(\d{4})$/.exec(s)?.[1];
-  let near = false;
-  let newest: { end: string; own: string } | null = null;
-  let newestAnnual: { end: string; own: string } | null = null;
-  const annual = rowsOf(bundle.statements.incomeAnnual);
-  const quarterly = rowsOf(bundle.statements.incomeQuarterly);
-  for (const row of [...annual, ...quarterly]) {
-    const end = isoDay(row.date);
-    const own = issuerFiscalLabel(row);
-    if (end === null || !isIsoDate(end) || own === null) continue;
-    if (quarterly.includes(row) && own.startsWith("Q") && (newest === null || end > newest.end)) newest = { end, own };
-    if (!quarterly.includes(row) && /^FY\d{4}$/.test(own) && (newestAnnual === null || end > newestAnnual.end)) newestAnnual = { end, own };
-    if (!sameFiscalPeriodEnd(end, periodEnd)) continue;
-    near = true;
-    if (fy(own) !== fy(label) || (own.startsWith("Q") && label.startsWith("Q") && own !== label)) return true;
-    if (!quarterly.includes(row) && /^Q[1-3]/.test(label)) return true;   // an annual period ending here makes this quarter the fiscal fourth
-  }
-  if (near) return false;
-  if (newest === null) {
-    if (newestAnnual === null) return false;
-    const days = (fiscalDayMs(periodEnd) - fiscalDayMs(newestAnnual.end)) / FISCAL_DAY_MS;
-    const n = Number(/^Q([1-4])/.exec(label)?.[1] ?? 0);   // the quarter number fixes the days after a fiscal year end: Q1 80-100, Q2 171-191, Q3 262-282, Q4 353-366
-    return !(n >= 1 && days >= 91 * n - 11 && days <= Math.min(91 * n + 9, 366) && Number(fy(label)) === Number(fy(newestAnnual.own)) + 1);
-  }
-  const gap = (fiscalDayMs(periodEnd) - fiscalDayMs(newest.end)) / FISCAL_DAY_MS;
-  return !(gap >= 80 && gap <= 100 && successorQuarterLabel(newest.own) === label);
+ return fiscalLabelContradicted(statementFiscalPeriods(bundle), label, periodEnd);
 }
 
 /**
@@ -2352,12 +2431,14 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     title: (form: string) => string,
     budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
-    profile: EvidenceProfile = "financial",
+    profile: EvidenceProfile | "governance" = "financial",
     superseding: readonly OperatingMeasure[] = [],
   ): void => {
     if (!res?.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
+    const chars = typeof budget === "number" ? budget : budget(sec.text.length);
+    const cut = profile === "governance" ? selectGovernanceEvidence(sec.text, chars) : selectMaterialEvidence(sec.text, chars, profile, superseding);
+    if (cut === null) return;
     const kept = cut.superseded ?? [];
     const reportingPeriod = isoDay(sec.reportDate);
     // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
@@ -2419,6 +2500,17 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
   add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
+  // A separate bounded reading stops financially scored prose displacing
+  // class votes, controllers and the issuer's actual exemption election.
+  let governanceRemaining = 16_000;
+  for (const [section, item] of [[bundle.edgar.item1a, "item1A"], [bundle.edgar.tenKNotes, "notes"],
+    [bundle.edgar.tenQNotes, "notes"], [bundle.edgar.business, "item1"]] as const) {
+    const before = out.length;
+    const filedItem = (form: string) => form === "20-F" ? item === "item1A" ? "item3D" : item === "item1" ? "item4" : item : item;
+    add(section, form => `Governance: filed voting rights and control (${filedItem(form)})`, Math.min(10_000, governanceRemaining),
+      form => `edgar:${form} ${filedItem(form)} governance`, "governance");
+    if (out.length > before) governanceRemaining -= out.at(-1)!.text.length;
+  }
   const signatures = periodicPrimaryExcerpt(bundle, "signatures");
   if (signatures !== null) out.push(signatures);
   const controls = periodicPrimaryExcerpt(bundle, "controls");
@@ -2476,9 +2568,23 @@ function companyIrMaterialExcerpts(bundle: DataBundle): TextExcerpt[] {
   });
 }
 
+const TRANSACTION_AGREEMENT = /\b(?:Agreement and Plan of Merger|merger agreement|(?:stock|share|asset|equity|unit|membership interests?) purchase agreement|purchase and sale agreement|business combination agreement)\b/i;
+
+/**
+ * One material-event 8-K excerpt's budget: credit-support agreements and
+ * transactions (an acquisition's completion, Item 2.01, or a merger or
+ * purchase agreement under Item 1.01) keep more of their operative terms.
+ */
+export function eightKEventBudget(items: readonly string[], body: string): number {
+  if (materialCreditSupportClauses(body).length > 0) return PAYLOAD_BUDGETS.eightKCreditEventChars;
+  if (items.includes("2.01") || (items.includes("1.01") && TRANSACTION_AGREEMENT.test(body))) return PAYLOAD_BUDGETS.eightKTransactionEventChars;
+  return PAYLOAD_BUDGETS.eightKEventChars;
+}
+
 /**
  * The latest earnings release and CFO commentary narratives, and one excerpt
- * per material-event 8-K (audit work package 3). Each 8-K excerpt has its own
+ * per material-event 8-K, with omitted financing status funded from the shared
+ * event pool (R8). Each 8-K excerpt has its own
  * source (the accession) and as-of (its filing date), so a sentence citing it
  * is read against that filing's text only (D-45 excerpt matching).
  */
@@ -2486,7 +2592,7 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
   const res = bundle.edgar?.currentReports;
   if (!res?.ok) return [];
   const out: TextExcerpt[] = [];
-  const latest = res.value.data.releases[0];
+  const latest = latestResultsRelease(res.value.data.releases);
   const narrative = (text: string | null, title: string, source: string, budget: number): void => {
     if (latest === undefined || text === null || text.trim() === "" || !isIsoDate(latest.filingDate)) return;
     const cut = selectMaterialEvidence(text, budget);
@@ -2507,21 +2613,41 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
+  // R1 (FIGR paid audit): the newest operating update filed after the results
+  // release (preliminary operating data, monthly sales) is its own excerpt,
+  // cited by its accession. AI-506: it is never the earnings-release narrative
+  // and supplies no release figures. "After" is by filing (`filedAfter`):
+  // release order cannot place a period-end-only update against a
+  // fiscal-label-only results release.
+  const update = updatesFiledAfterResults(res.value.data.releases, latest)
+    .find((record) => typeof record.releaseNarrative === "string" && record.releaseNarrative.trim() !== "" && isIsoDate(record.filingDate));
+  if (update !== undefined) {
+    const cut = selectMaterialEvidence(update.releaseNarrative!, PAYLOAD_BUDGETS.operatingUpdateChars);
+    const periodEnd = update.reported.periodEnd !== null && isIsoDate(update.reported.periodEnd) ? `; period ended ${update.reported.periodEnd}` : "";
+    const exhibit = update.releaseExhibit ?? "primary document";
+    out.push({
+      title: `8-K ${exhibit} — operating update (not a results release: no earnings, EPS or operating-income amount was read${periodEnd}; 8-K ${update.accession}; filed ${update.filingDate})`,
+      text: cut.text, source: `edgar:8-K ${update.accession}`, asOf: update.filingDate,
+      truncated: cut.truncated, originalChars: cut.originalChars, spans: cut.spans, coverage: cut.coverage,
+    });
+  }
   let used = 0;
   for (const event of res.value.data.events) {
     if (!isIsoDate(event.filingDate) || event.sections.length === 0) continue;
     if (used >= PAYLOAD_BUDGETS.eightKEventsTotalChars) break;
     const body = event.sections
+      .filter(s=>!isTableOfContentsStub(s.text))
       .map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`)
       .join("\n\n");
+    if(!body.trim())continue;
     // D-63: the operative paragraph's dated lead, named parties and amounts
     // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
-    const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;
+    const eventBudget = eightKEventBudget([...new Set(event.sections.map((s) => s.item))], body);
     const cut = selectMaterialEvidence(body, Math.min(eventBudget, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
     out.push({
-      title: `8-K current report — Items ${event.items.join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+      title: `8-K current report — Items ${[...new Set(event.sections.map(s=>s.item))].join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
       text: cut.text,
       source: `edgar:8-K ${event.accession}`,
       asOf: event.filingDate,
@@ -2530,6 +2656,13 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
       spans: cut.spans,
       coverage: cut.coverage,
     });
+    const status = selectEventLifecycleEvidence(body, Math.min(PAYLOAD_BUDGETS.eightKEventChars, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), cut.spans);
+    if (status !== null) {
+      used += status.text.length;
+      out.push({ title: `8-K financing lifecycle (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+        source: `edgar:8-K ${event.accession}`, asOf: event.filingDate,
+        text: status.text, truncated: status.truncated, originalChars: status.originalChars, spans: status.spans, coverage: status.coverage });
+    }
   }
   return out;
 }
@@ -2648,9 +2781,9 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
         label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
     }
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
-    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
+    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: cr.dividendFrequency === null ? "cash dividend per share (frequency not stated)" : `${cr.dividendFrequency ?? "quarterly"} cash dividend per share`, value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
-    if (cr.dividendPayDate !== null) notes.push(`Next quarterly dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
+    if (cr.dividendPayDate !== null) notes.push(`Next ${cr.dividendFrequency ? `${cr.dividendFrequency} ` : ""}dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
   }
   for (const check of disclosures.guidanceChecks) {
     notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
@@ -2800,21 +2933,23 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
       for (const i of columns) {
         const q = axis.quarters[i]!;
         const value = row.values[i] ?? null;
-        if (value === null) continue;
+        if (value === null || row.earlierPresentationAt?.includes(i)) continue;
+        const cross = row.crossFilingAt?.includes(i) === true;
         // D-63: a cell filled as the total less the other rows says so.
         const residual = row.residualAt?.includes(i) === true;
         figures.push({
-          label: `${axis.axisLabel}: ${row.label} revenue${residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
+          label: `${axis.axisLabel}: ${row.label} revenue${cross ? " (derived across two filings)" : residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
           value,
           unit: "currency",
           currency: axis.currency,
           period: q.end,
           periodContext: { kind: "duration", start: q.start, end: q.end, basis: "fiscal-quarter" },
-          source: residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
+          source: cross ? "computed:xbrl segment cross-filing difference" : residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
           asOf,
         });
       }
     }
+    notes.push(crossFilingClause(axis.quarters.filter((_,i)=>axis.totalCrossFilingAt?.includes(i)||axis.rows.some(r=>r.crossFilingAt?.includes(i))).map(q=>q.end)));
     const children = axis.rows.filter((r) => r.childOf !== null);
     if (children.length > 0) notes.push(`${axis.axisLabel}: ${children.map((c) => c.label).join(" and ")} are components of ${axis.rows.find((r) => r.member === children[0]!.childOf)?.label ?? "another row"} (they sum to it in the latest quarter).`);
     if (axis.priorPresentation.length > 0) notes.push(`${axis.axisLabel}: members tagged only in earlier quarters (a prior presentation) are not shown: ${axis.priorPresentation.join(", ")}.`);
@@ -2860,19 +2995,20 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
       const latestEnd = ends[0]!;
       for (const row of axis.rows) {
         const latest = row.values[0];
-        if (latest === null || latest === undefined) continue;
+        if (latest === null || latest === undefined || row.earlierPresentationAt?.includes(0)) continue;
         const growth = (i: number | undefined): number | null => {
-          const prior = i === undefined ? null : row.values[i] ?? null;
+          const prior = i === undefined || !sameSegmentBasis(row.earlierPresentationAt,0,i) ? null : row.values[i] ?? null;
           return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
         };
         const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
+        const sourceFor = (i: number | null, share = false) => row.crossFilingAt?.includes(0) || (i !== null && row.crossFilingAt?.includes(i)) || (share && axis.totalCrossFilingAt?.includes(0)) ? "computed:xbrl segment cross-filing difference" : base.source;
         // AI-406: a rate is computed only against the quarter its label names.
         const qoq = growth(priorQuarterIndex(ends, QOQ_WINDOW_DAYS) ?? undefined);
         const yoy = growth(priorQuarterIndex(ends, YOY_WINDOW_DAYS) ?? undefined);
-        if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
-        if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
+        if (qoq !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, QOQ_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
+        if (yoy !== null) figures.push({ ...base, source: sourceFor(priorQuarterIndex(ends, YOY_WINDOW_DAYS)), label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
         const total = axis.total[0];
-        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
+        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, source: sourceFor(null, true), label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
       }
     }
   }
@@ -2891,6 +3027,7 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
   ];
   // FIN-511-V1: the basis note of every growth cell that uses a first-reported copy or is dashed.
   for (const note of new Set(disclosures.quarterlyTrend.flatMap((row) => row.revenueGrowthNotes ?? []))) notes.push(note);
+  notes.push(...disclosures.notes.filter(note => note.startsWith("Quarterly operating cash flow")));
   // D-63: the company's guidance track record, one citable figure per metric:
   // the share of the guided quarters whose result landed above (below) the
   // range the preceding release gave. The CEO and CFO issue that outlook, so
@@ -3156,7 +3293,7 @@ function attachProvenanceRegistry(
 
     // Display-only lease captions must not rename existing numeric citations.
     const leaseField = /^computed\.capital\.current\.debtBridge\.(\w+)$/.exec(figure.source)?.[1];
-    const registryLabel = leaseField && LEASE_DEBT_LABELS[leaseField] ? leaseField.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : figure.label;
+    const registryLabel = leaseField && LEASE_DEBT_LABELS[leaseField] && !figure.label.startsWith("Provider debt perimeter") ? leaseField.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : figure.label;
     const id = uniqueId(`${prefix}.${semanticSlug(registryLabel)}`);
     figure.provenanceId = id;
     figure.currency = resolvedCurrency;
@@ -3455,6 +3592,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.
@@ -3486,7 +3624,7 @@ export function assembleContextPayload(
   // — surfacing them here keeps the prompt and the rendered appendix in agreement.
   const transcript = transcriptExcerpt(bundle);
   const filings = filingExcerpts(bundle);
-  const disclosures = buildFilingDisclosures(bundle);
+  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
   const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
   const latestEnd = anchor?.runRate?.latestQuarterEnd;
@@ -3520,7 +3658,7 @@ export function assembleContextPayload(
     },
     quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
     computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle), peerCollectionNotes, annualFiscalLabels(bundle), caveats),
-    statements: statementExtracts(bundle),
+    statements: statementExtracts(bundle, computed.route?.cashFlowApplicability),
     ...(peerScreen === undefined ? {} : { peerScreen }),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),

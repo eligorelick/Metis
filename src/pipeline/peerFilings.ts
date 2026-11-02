@@ -1,3 +1,4 @@
+import { bankStatementRouting } from "@/pipeline/keyless";
 /**
  * Peer fundamentals from SEC filings for a candidate FMP refuses by symbol
  * (NVDA report 34: AVGO, HTTP 402). Statements come from companyfacts, the
@@ -24,8 +25,11 @@ function required<T>(result: FetchResult<T>): Sourced<T> {
   if (!result.ok) throw new Error(result.gap.reason);
   return result.value;
 }
-const sourced = <T extends FmpRawRow>(rows: T[], source: "edgar" | "yahoo", endpoint: string, asOf: string, fetchedAt: string): FmpFetch<T> =>
-  ({ ok: true, value: { data: { rows, raw: null }, source, endpoint, asOf, fetchedAt } });
+const sourced = <T extends FmpRawRow>(rows: T[], source: "edgar" | "yahoo", endpoint: string, asOf: string, fetchedAt: string, dependencies: Sourced<unknown>[]): FmpFetch<T> =>
+  ({ ok: true, value: { data: { rows, raw: null }, source, endpoint, asOf, fetchedAt,
+    ...(dependencies.some((value) => value.stale) ? { stale: true } : {}),
+    ...(dependencies.find((value) => value.staleReason)?.staleReason ? { staleReason: dependencies.find((value) => value.staleReason)!.staleReason } : {}),
+  } });
 
 export async function loadPeerFromFilings(symbol: string, subject: FmpProfileRow, clients: PeerFilingClients, now: Date): Promise<PeerFundamentals | { reason: string }> {
   try {
@@ -41,7 +45,7 @@ export async function loadPeerFromFilings(symbol: string, subject: FmpProfileRow
     const vendorSplits = mergeSplitEvidence([splits.data, quote.data.splitEvents].filter((answer): answer is VendorSplitEvidence => answer !== undefined));
     const built = buildStatementsFromCompanyFacts(facts.data, {
       symbol, cik, annualPeriods: 2, quarterlyPeriods: 6, asOf: now.toISOString().slice(0, 10),
-      factsObservedAt: facts.fetchedAt, vendorSplits, basisDay: quote.asOf,
+      bankRevenue: bankStatementRouting(own.data), factsObservedAt: facts.fetchedAt, vendorSplits, basisDay: quote.asOf,
     });
     const shares = built.shares.outstanding;
     if (!shares) return { reason: "no SEC share count established on the quote's split basis" };
@@ -53,10 +57,10 @@ export async function loadPeerFromFilings(symbol: string, subject: FmpProfileRow
     };
     const quoteRow: FmpQuoteRow = { ...price, symbol, marketCap: price.price * shares.value };
     return {
-      profile: sourced([profile], "edgar", "submissions", own.asOf, own.fetchedAt),
-      quote: sourced([quoteRow], "yahoo", `${quote.endpoint} × SEC shares ${shares.asOf}`, quote.asOf, quote.fetchedAt),
-      incomeQuarterly: sourced(built.incomeQuarterly.rows, "edgar", "companyfacts→income-statement(quarter)", facts.asOf, facts.fetchedAt),
-      balanceQuarterly: sourced(built.balanceQuarterly.rows, "edgar", "companyfacts→balance-sheet(quarter)", facts.asOf, facts.fetchedAt),
+      profile: sourced([profile], "edgar", "submissions", own.asOf, own.fetchedAt, [own]),
+      quote: sourced([quoteRow], "yahoo", `${quote.endpoint} × SEC shares ${shares.asOf}`, quote.asOf, quote.fetchedAt, [quote, splits, facts]),
+      incomeQuarterly: sourced(built.incomeQuarterly.rows, "edgar", "companyfacts→income-statement(quarter)", facts.asOf, facts.fetchedAt, [facts]),
+      balanceQuarterly: sourced(built.balanceQuarterly.rows, "edgar", "companyfacts→balance-sheet(quarter)", facts.asOf, facts.fetchedAt, [facts]),
     };
   } catch (err) {
     return { reason: `SEC fallback unavailable: ${err instanceof Error ? err.message : String(err)}` };

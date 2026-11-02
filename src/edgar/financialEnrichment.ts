@@ -5,14 +5,14 @@ import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
-import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
-import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT } from "@/edgar/statements";
+import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -162,6 +162,70 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
   return filedFlow(facts, OPERATING_CASH_FLOW_TAG, unit, end, scope, observedAt, true, ctx);
 }
 
+/** Refutation only: a later comparative cannot create a canonical standalone quarter. */
+function crossFilingCfoQuarter(facts: CompanyFacts, unit: string, end: string, observedAt: string, tag = OPERATING_CASH_FLOW_TAG): Resolved | null {
+  const ps = points(facts, tag, unit, observedAt);
+  const total = unambiguousNewest(ps.filter(p => p.end === end && span(p) !== null && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
+  if (!total) return null;
+  const prior = unambiguousNewest(ps.filter(p => p.start === total.start && p.end < end &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
+  if (!prior || prior.filed <= total.filed) return null;
+  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
+  return { ...resolved(total.val - prior.val, [tag], [total, prior], unit, observedAt, start, end), operands: [total, prior] };
+}
+
+export interface FiledCashFlowTtm {
+  value: number; operands: number[]; reason: string; start: string; end: string;
+  tag: string; points: FactPoint[];
+}
+/** FY + current YTD - prior YTD; both YTD values must be in the same current 10-Q. */
+export function filedCashFlowTtm(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  const ps = points(facts, tag, unit, observedAt);
+  const currentCopies = ps.filter(p => p.end === end && p.form.replace(/\/A$/, "") === "10-Q" && span(p) !== null && span(p)! >= 70 && span(p)! <= 300);
+  const latest = newest(currentCopies);
+  // Expense tags can carry both a standalone Q2/Q3 and a cumulative YTD in
+  // the same filing. The longest duration is the YTD; distinct values for
+  // that same duration still fail closed.
+  const newestCopies = currentCopies.filter(p => p.filed === latest?.filed && p.accn === latest?.accn);
+  const longest = Math.max(...newestCopies.map(p => span(p)!));
+  const current = unambiguousNewest(newestCopies.filter(p => span(p) === longest));
+  if (!current?.start) return null;
+  const annualEnd = new Date(Date.parse(current.start) - DAY).toISOString().slice(0, 10);
+  const annual = unambiguousNewest(ps.filter(p => p.end === annualEnd && p.filed <= current.filed && span(p) !== null && span(p)! >= 350 && span(p)! <= 380));
+  if (!annual?.start) return null;
+  const prior = unambiguousNewest(ps.filter(p => p.accn === current.accn && p.filed === current.filed && p.form === current.form &&
+    p.start === annual.start && p.end < annualEnd && span(p) !== null && Math.abs(span(p)! - span(current)!) <= 7 &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY >= 350 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 380));
+  if (!prior) return null;
+  const value = annual.val + current.val - prior.val;
+  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
+  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
+    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
+    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
+    : `cash capital expenditure (${tag})`;
+  return { value, operands: [annual.val, current.val, prior.val], start, end, tag, points: [annual, current, prior],
+    reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity does not establish standalone quarters or any other accounting/tag basis.` };
+}
+export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
+}
+
+/** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
+export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  if (!annualRow || annualRow.fieldConflicts?.capitalExpenditure?.usable === false || annualRow.reportedCurrency !== unit || typeof annualRow.capitalExpenditure !== "number" || !Number.isFinite(annualRow.capitalExpenditure)) return null;
+  const provenance = annualRow.fieldProvenance?.capitalExpenditure;
+  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag =>
+    !provenance || provenance.source === "edgar" && provenance.unit === unit && provenance.tags.length === 1 && provenance.tags[0] === `us-gaap/${tag}`)
+    .flatMap(tag => {
+      const ttm = filedCashFlowTtm(facts, tag, unit, end, observedAt);
+      return ttm && ttm.points[0]!.end === annualRow.date && ttm.points.every(p => p.val >= 0) && ttm.value >= 0 &&
+        vendorAgreesWithFiled(Math.abs(annualRow.capitalExpenditure!), ttm.points[0]!.val) ? [ttm] : [];
+    });
+  // Equal numeric values on different tags do not prove an interchangeable basis.
+  return candidates.length === 1 ? candidates[0]! : null;
+}
+
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
  * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
  * compatible instants. The interval comes from the filing, not an invented
@@ -217,11 +281,12 @@ function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatement
 }
 
 /** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
-function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow", ctx: DerivationContext): { row: T; gaps: ManifestEntry[] } {
-  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt, ctx) : {};
+function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow", ctx: DerivationContext, onlySbc = false): { row: T; gaps: ManifestEntry[] } {
+  const cashAmounts = kind === "cashflow" && !onlySbc ? filedCashAmounts(facts, unit, row, scope, observedAt, ctx) : {};
   const specifications: [string, string, boolean, number][] = kind === "balance"
     ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
     : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
+      ["stockBasedCompensation", "ShareBasedCompensation", true, 1],
       ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
       ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
       ["cashAtBeginningOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
@@ -229,7 +294,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       ["netChangeInCash", "CashAndCashEquivalentsAtCarryingValue", true, 1]];
   let out = row;
   const gaps: ManifestEntry[] = [];
-  if (kind === "cashflow") {
+  if (kind === "cashflow" && !onlySbc) {
     const unavailable: Record<string, null> = {};
     const fieldConflicts = { ...out.fieldConflicts };
     for (const field of ["cashAtBeginningOfPeriod", "cashAtEndOfPeriod", "netChangeInCash"]) {
@@ -244,10 +309,12 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     out = { ...out, ...unavailable, fieldConflicts };
   }
   for (const [field, tag, signed, sign] of specifications) {
+    if (onlySbc && field !== "stockBasedCompensation") continue;
     const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
-        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx);
+        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
+          (field === "stockBasedCompensation" && scope === "quarter" ? crossFilingCfoQuarter(facts, unit, row.date!, observedAt, tag) : null);
     // A prior-quarter filing is a calculation dependency, not authority for
     // comparing the current vendor row. All three cash fields share the
     // ending/current-flow filing anchor; retain every dependency in secEvidence.
@@ -284,12 +351,21 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
   return { row: out, gaps };
 }
 
+/** Same field admission at replay boundaries; never re-open other cash-flow scopes. */
+export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
+    (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
+    { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
+}
+
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
 function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string, ctx: DerivationContext): { row: T; gaps: ManifestEntry[] } {
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
   const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt, ctx);
+  const canonical = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt, ctx);
+  const sec = canonical ?? (scope === "quarter" ? crossFilingCfoQuarter(facts, currency, row.date!, observedAt) : null);
   if (!sec && fields.some((field) => finite(row[field]))) keptUnverified(ctx, "operatingCashFlow", row.date!, [OPERATING_CASH_FLOW_TAG]);
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
@@ -298,7 +374,9 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
     : `filed ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}`;
-  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
+  const reason = canonical === null
+    ? `Vendor operating cash flow at ${row.date} is refuted by YTD operands ${sec.operands![0]!.val} - ${sec.operands![1]!.val} = ${sec.value} ${currency} across two filings (${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). Standalone quarter withheld under the canonical filing-lineage rule; both vendor CFO aliases and dependent FCF withheld; vendor observations retained.`
+    : `vendor/SEC operating cash-flow conflict at ${row.date}: ${secText}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
   for (const field of [...fields, "freeCashFlow"]) {
     if (fieldConflicts[field]?.usable === false) continue;
@@ -826,16 +904,6 @@ function admitEquityStatementNci<T extends FmpStatementRow>(row: T, filings: rea
       `its consolidated total equals the row's total equity, and parent equity is that total less the NCI` }] };
 }
 
-/** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
-/** The first tag of an ordered list with an instant at `end` (a `first` step of the statements chain). */
-function firstInstant(facts: CompanyFacts, tags: readonly string[], unit: string, end: string, observedAt: string): Resolved | null {
-  for (const tag of tags) {
-    const hit = instant(facts, tag, unit, end, observedAt);
-    if (hit) return hit;
-  }
-  return null;
-}
-
 /**
  * Audit 2026-10-29, AMZN #51 (VAL-3, FIG-4; D-133): a vendor long-term
  * investments of 0 or absent is undisclosed, not zero, when the same-period
@@ -856,36 +924,16 @@ export function admitVendorLongTermInvestments<T extends FmpStatementRow>(row: T
   if (!validDay(row.date) || currency === null || row.fieldProvenance?.longTermInvestments !== undefined || row.fieldConflicts?.longTermInvestments !== undefined
     || (vendor != null && vendor !== 0)) return { row, admissions: [] };
   const date = row.date;
-  const at = (tags: readonly string[]) => firstInstant(facts, tags, currency, date, observedAt);
-  const present: { label: string; r: Resolved }[] = [];
-  const absent: string[] = [];
-  const total = at(tagsFor("longTermInvestments"));
-  if (total) present.push({ label: "long-term investments", r: total });
-  else {
-    const debtSecurities = at(tagsFor("noncurrentDebtSecurities"));
-    if (debtSecurities) present.push({ label: "non-current debt securities", r: debtSecurities });
-    else absent.push("non-current debt securities");
-    const other = at(tagsFor("otherLongTermInvestments"));
-    if (other) present.push({ label: "other long-term investments", r: other });
-    else {
-      const pieces = ([["non-marketable equity securities", at(tagsFor("nonMarketableEquitySecurities"))], ["equity-method investments", at(tagsFor("equityMethodInvestments"))]] as const);
-      if (pieces.every(([, r]) => r === null)) absent.push("other long-term investments");
-      for (const [label, r] of pieces) {
-        if (r) present.push({ label, r });
-        else if (pieces.some(([, hit]) => hit !== null)) absent.push(label);
-      }
-    }
-  }
-  const value = present.reduce((sum, { r }) => sum + r.value, 0);
-  if (present.length === 0 || !(value > 0)) return { row, admissions: [] };
-  const filings = present.flatMap(({ r }) => r.evidence.filings).filter((filing, i, all) => all.findIndex((f) => f.accn === filing.accn) === i);
-  const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: date, observedAt,
-    tags: present.flatMap(({ r }) => r.evidence.tags), filings };
+  const resolved = longTermInvestmentsChainAt(facts, date, currency, observedAt);
+  if (resolved === null || !(resolved.value > 0)) return { row, admissions: [] };
+  const { value, evidence } = resolved;
   const out = { ...row, longTermInvestments: value, fieldProvenance: { ...row.fieldProvenance, longTermInvestments: evidence } } as T;
-  const parts = present.map(({ label, r }) => `${label} ${millions(r.value)} (${r.evidence.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")})`).join(" + ");
+  const parts = resolved.components.map(c => `${c.label} ${millions(c.value)} (${c.tags.join(", ")})`).join(" + ");
+  const floorNotes = resolved.notes.filter(note => note.includes("not used"));
   return { row: out, admissions: [{ kind: "stakes", date, summary: `${millions(value)}${vendor == null ? " (vendor absent)" : ""}`,
     detail: `vendor longTermInvestments ${vendor == null ? "absent" : millions(vendor)} at ${date} read as undisclosed: the same-period filing shows noncurrent investments, filled with the D-98 chain: ` +
-      `${parts} = ${millions(value)} ${currency}${absent.length > 0 ? `; absent and excluded: ${absent.join(", ")}` : ""}; vendor value retained in the raw row`,
+      `${parts} = ${millions(value)} ${currency}${resolved.absent.length > 0 ? `; absent and excluded: ${resolved.absent.join(", ")}` : ""}` +
+      `${floorNotes.length > 0 ? `; ${floorNotes.join("; ")}` : ""}; vendor value retained in the raw row`,
     attemptedSources: evidence.tags.map((tag) => `edgar:companyfacts/${tag.replace(/^us-gaap\//, "")}`) }] };
 }
 
@@ -893,6 +941,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
   const gaps: ManifestEntry[] = [];
   // Review m6: merged into one entry per kind by the caller, across the annual and quarterly families.
   const admissions: BalanceAdmission[] = [];
+  const filedTemporaryEnds = temporaryEquityFiledEnds(facts);
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
@@ -958,7 +1007,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {
-          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik);
+          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik, filedTemporaryEnds);
           out = temporary.row;
           gaps.push(...temporary.gaps);
         }

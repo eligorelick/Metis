@@ -97,8 +97,12 @@ describe("source-bound financial composition disclosures", () => {
   it("keeps recognized and capitalized SBC separate without inventing a comprehensive service cost", () => {
     const { bundle } = fixture();
     const facts = composition(bundle).filter(f => f.key.startsWith("composition-sbc-"));
-    expect(facts.map(f => f.value)).toEqual([217 * M, 49 * M]);
+    // R9 retains the allocated expense and cash-flow add-back as separate bases, even when equal.
+    expect(facts.map(f => f.value)).toEqual([217 * M, 217 * M, 49 * M]);
     expect(facts[0]?.sourceTag).toContain("AllocatedShareBasedCompensationExpense");
+    expect(facts[1]?.sourceTag).toContain("ShareBasedCompensation");
+    expect(facts[0]?.label).toBe("SBC, allocated expense");
+    expect(facts[1]?.label).toBe("SBC, cash-flow add-back");
     for (const fact of facts) {
       expect(fact.period).toBe("2026-01-01 to 2026-06-30");
       expect(fact.text).toMatch(/not additive/i);
@@ -136,13 +140,13 @@ describe("source-bound financial composition disclosures", () => {
     gaap.EmployeeServiceShareBasedCompensationAllocationOfRecognizedPeriodCostsCapitalizedAmount.units.USD = [];
     gaap.IncreaseDecreaseInOtherOperatingAssets.units.USD = [];
     const facts = composition(bundle);
-    expect(facts.filter(f => f.key.startsWith("composition-sbc-")).map(f => f.value)).toEqual([217 * M]);
+    expect(facts.filter(f => f.key.startsWith("composition-sbc-")).map(f => f.value)).toEqual([217 * M, 217 * M]);
     expect(facts.some(f => f.key === "composition-working-capital-subtotal")).toBe(false);
   });
   it("admits exact annual SEC metadata and matching XBRL without claiming the unavailable notes were read", () => {
     const bundle = annualMetadataFixture();
     const facts = composition(bundle).filter(f => f.key.startsWith("composition-sbc-"));
-    expect(facts.map(f => f.value)).toEqual([398 * M, 99 * M]);
+    expect(facts.map(f => f.value)).toEqual([398 * M, 217 * M, 99 * M]);
     expect(facts[0]?.source.url).toBe("https://www.sec.gov/Archives/edgar/data/1/000000000126000001/annual.htm");
     expect(facts[0]?.sourceTag).toContain("edgar:xbrl");
     expect(bundle.edgar.tenKNotes).toBeUndefined();
@@ -189,4 +193,14 @@ describe("source-bound financial composition disclosures", () => {
     expect(wc).toHaveLength(5);
     expect(wc.every(f => /merchant payables and deferred merchant bookings remain unresolved/i.test(f.text))).toBe(true);
   });
+});
+
+
+it("DATA-110 discloses present but unparsed arrangements", () => {
+  const { bundle } = fixture();
+  const text = "Item 5. Other Information A director adopted a Rule 10b5-1 plan as described in our proxy.";
+  const notes = bundle.edgar.tenQNotes;
+  if (!notes?.ok) throw new Error("missing test notes");
+  bundle.edgar.tenQOther = { ok: true, value: { ...notes.value, data: { ...notes.value.data, sectionName: "tenQItem5", text, chars: text.length } } };
+  expect(buildFilingDisclosures(bundle)?.notes.join(" ")).toMatch(/mentions Rule 10b5-1 arrangements that could not be read as rows/);
 });

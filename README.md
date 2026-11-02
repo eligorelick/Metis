@@ -9,8 +9,8 @@ Metis is a local-first equity research app with financial calculations and optio
 ## What it does
 
 - Fetches typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance,
-  FINRA, FRED, Finnhub and the U.S. Treasury (risk-free fallback), and validates
-  freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
+  FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website,
+  and validates freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
 - Computes growth, returns, capital structure, valuation, scenarios,
   technicals, grades and forensic indicators in deterministic TypeScript, on a
   sector route drawn from the industry label and SIC code and checked against
@@ -56,11 +56,11 @@ Connections have offline test coverage, and complete reports have run live throu
 
 <!-- BEGIN GENERATED: config -->
 
-Every key is optional. This table is generated from `.env.example`, which
-carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;
-explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).
+Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
+Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy
+`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).
 
-| Key | Shipped value / opt-in example | What it does |
+| Key | Shipped value, built-in default or opt-in example | What it does |
 | --- | --- | --- |
 | `FMP_API_KEY` | unset | Financial Modeling Prep key — any plan. |
 | `ANTHROPIC_API_KEY` | unset | Anthropic key enables Claude analyst/judge passes when Claude API is selected. |
@@ -135,6 +135,7 @@ coefficients, estimation populations and limits; the source cites it by section.
 
 With AI off or unavailable, reports retain deterministic results and disclose
 missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
+Plan-run recovery files in `<data dir>/recovery/sections` stay until deleted with Metis stopped. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. Settings follows a saved Claude key unless a connection was chosen explicitly. LAN mode disables credential and connection management.
 ## AI analysis
 
 Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.
@@ -175,9 +176,9 @@ Analyst requests also reserve eight $0.01 searches; the judge never searches.
 | Claude Opus 5.5 | $52.64 | $7.56 | $1,895.04 | $1.28 → $2.56 | $1.85 |
 | Claude Opus 5 | $65.78 | $9.45 | $2,368.08 | $1.60 → $3.20 | $2.34 |
 | Claude Opus 4.8 | $65.78 | $9.45 | $2,368.08 | $1.60 → $3.20 | $2.34 |
-| Claude Sonnet 5.5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.98 |
+| Claude Sonnet 5.5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.97 |
 | Claude Sonnet 5 | $26.36 | $3.78 | $948.96 | $0.64 → $1.28 | $0.98 |
-| Claude Haiku 4.5 | $2.90 | $3.78 | $104.40 | $0.32 | $0.69 |
+| Claude Haiku 4.5 | $2.90 | $3.78 | $104.40 | $0.32 | $0.68 |
 
 The worst case is every request one pass could make (36: six transport attempts,
 each able to pause and resume five times); in the default request mode it is
@@ -202,7 +203,7 @@ end-to-end costs have not been measured in live Metis runs for this update.
 ## Running it safely
 
 Metis has no telemetry, analytics or update check;
-its own outbound traffic goes only to the providers you configure. The Next.js
+its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js
 CLI has separate anonymous telemetry, off when the shipped
 `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`).
 [Privacy and safety](docs/PRIVACY.md) names what each receives, where the local

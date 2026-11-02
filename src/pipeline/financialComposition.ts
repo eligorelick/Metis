@@ -79,11 +79,8 @@ export function financialCompositionFacts(bundle: DataBundle, currency: string |
 
     // The capitalized tag specifically describes SBC awards. General
     // internal-use software capex/amortization cannot establish that amount.
-    const expense = new Map<string | null, Point>();
-    for (const tag of ["AllocatedShareBasedCompensationExpense", "ShareBasedCompensation"]) {
-      for (const p of points(tag, true)) if (!expense.has(p.start)) expense.set(p.start, p);
-    }
-    for (const p of expense.values()) add("sbc-recognized", "SBC recognized expense / amortization (as tagged)", p, SBC_NOTE);
+    for (const p of points("AllocatedShareBasedCompensationExpense", true)) add("sbc-recognized", "SBC, allocated expense", p, SBC_NOTE);
+    for (const p of points("ShareBasedCompensation", true)) add("sbc-cash-flow-add-back", "SBC, cash-flow add-back", p, SBC_NOTE);
     for (const p of points("EmployeeServiceShareBasedCompensationAllocationOfRecognizedPeriodCostsCapitalizedAmount", true)) add("sbc-capitalized", "SBC costs capitalized (separately reported)", p, SBC_NOTE);
 
     const narrow = points("CashAndCashEquivalentsAtCarryingValue", false)[0];

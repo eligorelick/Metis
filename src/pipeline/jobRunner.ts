@@ -30,13 +30,14 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
 import { requestedAnalysisModel } from "@/ai/analysisRoute";
 import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
 import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/schema";
 import { getConfig } from "@/config/env";
@@ -93,7 +94,7 @@ import {
 import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
-import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { captureRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
 import { getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
@@ -151,6 +152,8 @@ import {
   stepSettledTotals,
   PaidPassOverReservationError,
   isTransientWriterLock,
+  renewalFailureTolerable,
+  connectionBusyTimeoutMs,
   type JobClaim,
   type PaidPassLease,
   type SchedulerLimits,
@@ -531,8 +534,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). */
-export const PIPELINE_VERSION = "stage-c-1.6.14" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). 1.6.19 (R1/R4, FIGR paid audit 2026-11-02): blank claim and number dates are read as no date, a FACT keeps only its sourced statement (an embedded "In our judgment" sentence becomes its own JUDGMENT), and the analysts and judge get the evidence-reading, valuation-stance, unassessed-grade, business-model, insider-motive and voting-control rules. 1.6.20 (D-163 to D-167, FIGR extra-high audit 2026-11-02): the analysts and judge get the accounting-scope, multiple-direction, return-basis, matched-window, share-of-total, met-versus-beat, post-transaction liquidity, attribution and specialist-term rules; a catalyst or risk reasoning is one claim; a rejected structured answer records how it ended; the verifier reads producer-bound metric paraphrases, complete table headers and footnotes (R7, D-167); filing excerpts keep qualifying context and the MD&A primary tables (R8, D-167). */
+export const PIPELINE_VERSION = "stage-c-1.6.20" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -978,7 +981,7 @@ function successSettlement<T>(pass: PassResultLike<T>, billable = true): PassSet
 function failureSettlement(
   error: unknown,
   telemetry: PassTelemetry,
-  details: { kind?: string; retryable?: boolean } = {},
+  details: { kind?: string; retryable?: boolean; providerFailure?: import("@/ai/providerFailure").ProviderFailure } = {},
 ): PassSettlement<never> {
   return {
     outcome: "failure",
@@ -1108,12 +1111,14 @@ export function withPlainIssueList(text: string): string {
 }
 
 /** The kind and retryability a pass error carries (PassRunError), for its fallback settlement. */
-function passErrorDetails(error: unknown): { kind?: string; retryable?: boolean } {
+function passErrorDetails(error: unknown): { kind?: string; retryable?: boolean; providerFailure?: import("@/ai/providerFailure").ProviderFailure } {
   if (error === null || typeof error !== "object") return {};
-  const { kind, retryable } = error as { kind?: unknown; retryable?: unknown };
+  const { kind, retryable, providerFailure } = error as { kind?: unknown; retryable?: unknown; providerFailure?: unknown };
+  const diagnostic = ProviderFailureSchema.safeParse(providerFailure);
   return {
     ...(typeof kind === "string" ? { kind } : {}),
     ...(typeof retryable === "boolean" ? { retryable } : {}),
+    ...(diagnostic.success ? { providerFailure: diagnostic.data } : {}),
   };
 }
 
@@ -1293,7 +1298,9 @@ function createSettlementCheckpoint<T>(
       );
       if (acquired.acquired) {
         lease = acquired.lease;
+        const beatMs = Math.max(1, Math.floor(state.schedulerLimits.paidPassLeaseTtlMs / 4));
         renewal = setInterval(() => {
+          const beatStartedMs = Date.now();
           try {
             if (lease !== null && !renewPaidPassLease(lease, undefined, state.schedulerLimits)) {
               stopRenewal();
@@ -1320,11 +1327,20 @@ function createSettlementCheckpoint<T>(
                 return;
               }
             }
+            const expiresAt = new Date(beatStartedMs + state.schedulerLimits.paidPassLeaseTtlMs).toISOString();
+            if (lease !== null) lease.leaseExpiresAt = expiresAt;
+            for (const requestLease of requestLeases.values()) requestLease.leaseExpiresAt = expiresAt;
           } catch (error) {
+            const knownLeaseExpiresAtMs = Math.min(
+              Date.parse(lease!.leaseExpiresAt),
+              ...Array.from(requestLeases.values(), row => Date.parse(row.leaseExpiresAt)),
+            );
+            if (renewalFailureTolerable({ error, knownLeaseExpiresAtMs,
+              nowMs: Date.now(), beatMs, busyTimeoutMs: connectionBusyTimeoutMs() })) return;
             stopRenewal();
             controller.abort(error);
           }
-        }, Math.max(1, Math.floor(state.schedulerLimits.paidPassLeaseTtlMs / 4)));
+        }, beatMs);
         renewal.unref?.();
         return;
       }
@@ -1724,6 +1740,10 @@ function rawTextOfError(err: unknown): string {
  */
 export const MAX_ANALYST_REPAIRS = 1;
 
+/** OD-10: the same provider class controls both backoff and explanation. */
+export const PROVIDER_BUSY_PATTERN = /server_is_overloaded|server_error|subscription_sharing_(?:usage|user)_unavailable|HTTP (?:429|5\d\d)\b|rate_limit_exceeded/i;
+export function providerWasBusy(error: unknown): boolean { return PROVIDER_BUSY_PATTERN.test(errMessage(error)); }
+
 /** True when a pass failed in transit (dropped stream), not on a rejected output. */
 function isTransportFailure(err: unknown): boolean {
   return err !== null && typeof err === "object" && (err as { kind?: unknown }).kind === "transport";
@@ -1796,7 +1816,7 @@ export function getOrCreateJobForSymbol(
     const active = tx
       .select({ id: jobs.id, status: jobs.status, updatedAt: jobs.updatedAt })
       .from(jobs)
-      .where(and(eq(jobs.symbol, sym), inArray(jobs.status, ["queued", "running"])))
+      .where(and(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym.replaceAll("-", ".")), inArray(jobs.status, ["queued", "running"])))
       .orderBy(desc(jobs.updatedAt), desc(jobs.id))
       .get();
     if (active && isReusableStatus(active.status)) {
@@ -1856,7 +1876,7 @@ export function getReusableActiveJobForSymbol(
       leaseExpiresAt: jobs.leaseExpiresAt,
     })
     .from(jobs)
-    .where(eq(jobs.symbol, sym))
+    .where(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym.replaceAll("-", ".")))
     .all()
     .filter((row): row is typeof row & { status: ReusableActiveJob["status"] } =>
       row.status === "queued" ||
@@ -1880,6 +1900,18 @@ export function getReusableActiveJobForSymbol(
  * is active (409); POST /api/report never rejects a duplicate — it attaches to
  * the active job through getOrCreateJobForSymbol instead.
  */
+/** Read-only terminal discovery; reuse eligibility is the same durable fold as Retry. */
+export function getLatestResumableJobForSymbol(symbol: string): string | null {
+  const sym = symbol.trim().toUpperCase().replaceAll("-", ".");
+  return getDb().transaction(db => {
+    const row = db.select({ id: jobs.id }).from(jobs)
+      .where(eq(sql`upper(replace(${jobs.symbol}, '-', '.'))`, sym))
+      .orderBy(desc(jobs.updatedAt), desc(jobs.id)).limit(1).get();
+    if (row !== undefined && readStoredJobResumeInTransaction(db, row.id)?.plan.state.resumable) return row.id;
+    return null;
+  });
+}
+
 export function isSymbolJobActive(symbol: string): boolean {
   return getReusableActiveJobForSymbol(symbol) !== null;
 }
@@ -2526,8 +2558,8 @@ export interface RunJobOptions<TPayload = unknown> {
   /**
    * Resume from persisted bull/bear snapshots (2026-07 audit item 1): skip the
    * analyst passes entirely — they are the expensive part — and re-run only
-   * synthesize/verify/assemble. fetch/validate/compute still re-run (cheap and
-   * cache-served) to rebuild the judge payload. A payload-fingerprint mismatch
+   * synthesize/verify/assemble. Compatible frozen inputs rebuild the judge
+   * payload; legacy or version-incompatible inputs are fetched again. A payload-fingerprint mismatch
    * makes the prepared artifacts incompatible and aborts before paid work.
    * On a terminal (done/error) row, resume requires a resumable durable plan
    * (`claimJobForResume`) and otherwise REJECTS with "is not resumable"; on a
@@ -2900,22 +2932,29 @@ export async function runJob<TPayload = unknown>(
   // Process-local cancellation registration plus durable exact-claim renewal.
   liveJobIds().add(jobId);
   liveJobControllers().set(jobId, jobController);
+  const heartbeatBeatMs = Math.max(1, Math.floor(state.schedulerLimits.jobLeaseTtlMs / JOB_LEASE_RENEWAL_DIVISOR));
+  let jobLeaseKnownExpiresAtMs = Date.parse(state.claim.leaseExpiresAt);
   const heartbeat = setInterval(() => {
+    const beatStartedMs = Date.now();
     try {
       if (!renewJobLease(state.claim, undefined, state.schedulerLimits)) {
         jobController.abort(new SupersededRunError(state.jobId, state.runGeneration));
+      } else {
+        jobLeaseKnownExpiresAtMs = beatStartedMs + state.schedulerLimits.jobLeaseTtlMs;
       }
     } catch (error) {
+      if (renewalFailureTolerable({ error, knownLeaseExpiresAtMs: jobLeaseKnownExpiresAtMs,
+        nowMs: Date.now(), beatMs: heartbeatBeatMs, busyTimeoutMs: connectionBusyTimeoutMs() })) return;
       jobController.abort(error);
     }
-  }, Math.max(1, Math.floor(state.schedulerLimits.jobLeaseTtlMs / JOB_LEASE_RENEWAL_DIVISOR)));
+  }, heartbeatBeatMs);
   heartbeat.unref?.();
 
   const now = opts.now ?? ((): Date => new Date());
   const overloadBackoffMs = Math.max(0, opts.overloadBackoffMs ?? OVERLOAD_BACKOFF_MS);
   /** Wait out a provider overload before retrying; returns early if the job is canceled. */
   const backOffIfOverloaded = async (err: unknown, attemptNumber: number, step: PipelineStep): Promise<void> => {
-    if (!/server_is_overloaded|server_error/.test(errMessage(err)) || overloadBackoffMs === 0) return;
+    if (!providerWasBusy(err) || overloadBackoffMs === 0) return;
     const wait = overloadBackoffMs * attemptNumber;
     updateRunningStepDetail(state, step, `provider reported it is overloaded or failing; waiting ${Math.round(wait / 1000)}s before retrying`);
     await new Promise<void>((resolve) => {
@@ -2992,9 +3031,18 @@ export async function runJob<TPayload = unknown>(
       throwIfJobAborted(jobSignal);
     }
     let bundle: DataBundle;
-    const stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
+    let stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
+    let frozenInputDetail: string | null = null;
     try {
+      const sourceRef = opts.resume === true && preparedResume !== null &&
+        (preparedResume.bull !== null || preparedResume.bear !== null || preparedResume.synthesize !== null)
+        ? readJobRunSnapshotRef(state.jobId, preparedResume.sourceGeneration) : null;
+      const sourceSnapshot = sourceRef === null ? null : readRunInputSnapshot(sourceRef.hash);
+      const frozen = sourceSnapshot !== null && Object.entries(CURRENT_SNAPSHOT_VERSIONS)
+        .every(([key, value]) => sourceSnapshot.content.versions[key as keyof typeof CURRENT_SNAPSHOT_VERSIONS] === value)
+        ? sourceSnapshot : null;
       bundle =
+        frozen?.content.bundle ??
         opts.bundle ??
         (await awaitJobStage(buildDataBundle(state.symbol, {
           ...opts.bundleOptions,
@@ -3009,10 +3057,12 @@ export async function runJob<TPayload = unknown>(
           },
         }), jobSignal, jobController, "fetch", fetchDeadlineMs));
       throwIfJobAborted(jobSignal);
-      const inputSnapshot = captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
+      if (frozen !== null) stageBConfig = frozen.content.stageBConfig;
+      const inputSnapshot = frozen ?? captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
       const captured = withLiveRunAuthority(state, null, (db, _row, authorityAt) =>
-        persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, authorityAt, db));
+        persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, frozen !== null ? sourceRef!.capturedAt : authorityAt, db));
       if (!captured.authorized) throw new SupersededRunError(state.jobId, state.runGeneration);
+      if (frozen !== null) frozenInputDetail = `reused frozen inputs of generation ${preparedResume!.sourceGeneration} (captured ${sourceRef!.capturedAt}) \u2014 ${bundle.gaps.length} gap(s)`;
       // The snapshot is the authority actually consumed, including redacted raw
       // envelopes and normalized JSON semantics, not a later cache reconstruction.
       bundle = inputSnapshot.content.bundle;
@@ -3026,7 +3076,7 @@ export async function runJob<TPayload = unknown>(
       state,
       "fetch",
       "done",
-      `data bundle for ${state.symbol} (${bundle.gaps.length} gap(s))`,
+      frozenInputDetail ?? `data bundle for ${state.symbol} (${bundle.gaps.length} gap(s))`,
     );
 
     // -- validate -------------------------------------------------------------
@@ -3336,6 +3386,11 @@ export async function runJob<TPayload = unknown>(
       let repairRejectedComplete = false;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
+      let judgeAttemptsBusy = 0;
+      let lastJudgeBusy = false;
+      let judgeAttemptsInTransit = 0;
+      let lastJudgeInTransit = false;
+      let judgeAttemptsSeen = 0;
       // AI-112: the issue key of the previous attempt's assembly failure. The same
       // failure twice means the judge cannot repair it, so it is not bought again.
       let previousAssemblyIssueKey: string | null = null;
@@ -3343,6 +3398,7 @@ export async function runJob<TPayload = unknown>(
       let pendingReusableJudge = reusableJudge;
 
       for (let attempt = 0; attempt <= maxJudgeRetries; attempt++) {
+        judgeAttemptsSeen = attempt + 1;
         // 1) Judge pass. A throw here is a synthesis failure (schema-invalid
         //    structured output in the real facade, or a mock rejection). It is
         //    retryable — feed the error back by re-invoking the judge,
@@ -3425,6 +3481,10 @@ export async function runJob<TPayload = unknown>(
             if (err instanceof PassSettlementHookError) throw err;
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
+            lastJudgeInTransit = isTransportFailure(err);
+            lastJudgeBusy = providerWasBusy(err);
+            if (lastJudgeBusy) judgeAttemptsBusy++;
+            else if (lastJudgeInTransit) judgeAttemptsInTransit++;
             lastValidationDetail = errMessage(err);
             repairRejectedComplete = false;
             if (err !== null && typeof err === "object") {
@@ -3650,6 +3710,8 @@ export async function runJob<TPayload = unknown>(
           // was spent (it used to read "after 3 attempt(s)" for a single
           // provider-free attempt).
           const reusedArtifact = bull === null || bear === null;
+          lastJudgeInTransit = false;
+          lastJudgeBusy = false;
           lastValidationDetail = reusedArtifact
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
@@ -3701,7 +3763,13 @@ export async function runJob<TPayload = unknown>(
       // "skipped" — same convention as the bull/bear-failure path.
       if (assembled === null) {
         const plainDetail = withPlainIssueList(lastValidationDetail);
-        const detail = lastJudgeFailureRetryable
+        const detail = lastJudgeBusy
+          ? `judge provider was busy or unavailable ${judgeAttemptsBusy === judgeAttemptsSeen ? "on all" : "after"} ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeInTransit && judgeAttemptsBusy > 0
+          ? `judge requests were cut off or the provider was busy or unavailable across ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeInTransit
+          ? `judge request was cut off ${judgeAttemptsInTransit === judgeAttemptsSeen ? "on all" : "after"} ${judgeAttemptsSeen} attempt(s): ${plainDetail}`
+          : lastJudgeFailureRetryable
           ? `report failed schema validation after ${maxJudgeRetries + 1} attempt(s): ${plainDetail}`
           : `synthesize failed: ${plainDetail}`;
         finishStep(state, "synthesize", "error", detail);
@@ -3784,6 +3852,182 @@ export async function runJob<TPayload = unknown>(
       return await runSynthesisAndFinish(null, null, reusableSynthesize);
     }
 
+    const repairQueued = new Set<"bull" | "bear">();
+    const rejectedOutput = (failure: SerializedPassFailure): boolean =>
+      failure.retryable === true && (failure.kind === "schema" || failure.kind === "parse");
+    const queueRepairNote = (side: "bull" | "bear") => (failure: SerializedPassFailure) => {
+      if (!rejectedOutput(failure) || passes.runAnalystPass === undefined || !(MAX_ANALYST_REPAIRS > 0)) return null;
+      repairQueued.add(side);
+      return {
+        detail: `${side} attempt 1/${MAX_ANALYST_REPAIRS + 1} rejected (${plainRejectionNote(failure.detail ?? failure.message)}); repair queued`,
+        repairQueued: true,
+      };
+    };
+    const closeQueuedRepairs = (why: string): void => {
+      for (const side of repairQueued) {
+        const step = findStep(state, side);
+        if (step.status === "running") {
+          finishStep(state, side, "error", (step.detail ?? `${side} output rejected`).replace(/; repair queued$/, `; ${why}`));
+        }
+      }
+      repairQueued.clear();
+    };
+    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh" | "resume";
+    const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
+      repair: "repairing schema-invalid output",
+      retry: "retrying after a dropped connection",
+      continue: "continuing from the completed sections of the cut-off response",
+      resume: "running the missing side of a resumed run",
+      fresh: "running now that its sibling pass is being retried",
+    };
+    const RECOVERY_GAP: Record<AnalystRecovery, string> = {
+      repair: "repair attempt after schema-invalid output also failed",
+      retry: "retry after a dropped connection also failed",
+      continue: "continuation of the cut-off response also failed",
+      resume: "resumed side failed",
+      fresh: "pass launched after its sibling's retry also failed",
+    };
+    const runAnalystRepairAttempt = async (
+      side: "bull" | "bear",
+      mode: AnalystRecovery,
+      feedback: string | undefined,
+      failureDetail: string,
+      continuation: PassContinuation | undefined,
+      attemptLabel: string,
+    ): Promise<{ ok: true; value: PassResultLike<AnalystCase> } | { ok: false; error: unknown; launched: boolean }> => {
+      startStep(state, side);
+      repairQueued.delete(side);
+      updateRunningStepDetail(
+        state,
+        side,
+        `${side} attempt ${attemptLabel}: ${mode === "retry" && providerWasBusy(failureDetail) ? "retrying after the provider was busy or unavailable" : RECOVERY_LABEL[mode]} — ${mode === "repair" ? plainRejectionNote(failureDetail) : failureDetail}`,
+      );
+      const checkpoint = createSettlementCheckpoint<AnalystCase>(
+        state,
+        side,
+        fingerprint,
+        passReservationUsd(analysisModel, side),
+        jobSignal,
+        jobController,
+        analysisModel,
+        (failure) => rejectedOutput(failure)
+          ? { detail: `${side} attempt ${attemptLabel} rejected (${plainRejectionNote(failure.detail ?? failure.message)})`, repairQueued: false }
+          : null,
+      );
+      try {
+        await passes.preflightPass?.(deps, { pass: side });
+        passAdmissions.set(side, checkpoint.admission);
+        passAttemptIds.set(side, checkpoint.attemptId);
+        await checkpoint.beforeLaunch();
+        const fresh = await awaitJobStage(
+          passes.runAnalystPass!(
+            deps,
+            side,
+            checkpoint.hook,
+            () => {
+              checkpoint.authorizeLaunch(false);
+            },
+            feedback,
+            continuation,
+          ),
+          jobSignal,
+          jobController,
+          side,
+          modelStageDeadlineMs,
+        );
+        throwIfJobAborted(jobSignal);
+        if (!checkpoint.wasCalled() && checkpoint.hasLease()) {
+          await checkpoint.hook(successSettlement(fresh));
+        }
+        return { ok: true, value: fresh };
+      } catch (repairErr) {
+        throwIfJobAborted(jobSignal);
+        if (repairErr instanceof PassSettlementHookError) throw repairErr;
+        const billedAttempt = billedAttemptFromError(repairErr);
+        if (
+          !checkpoint.wasCalled() &&
+          (checkpoint.wasLaunched() || billedAttempt !== null)
+        ) {
+          await checkpoint.hook(
+            failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel), passErrorDetails(repairErr)),
+          );
+        }
+        return { ok: false, error: repairErr, launched: checkpoint.wasLaunched() || billedAttempt !== null };
+      } finally {
+        checkpoint.releaseIfPrelaunch();
+        checkpoint.stopRenewal();
+      }
+    };
+    const recoverAnalystSide = async (
+      side: "bull" | "bear", initialMode: AnalystRecovery, detail: string,
+      raw = "", partial = "", initialRequest = false,
+    ): Promise<PassResultLike<AnalystCase> | null> => {
+      const plan = parseSubscriptionModel(analysisModel) !== null;
+      let repairs = MAX_ANALYST_REPAIRS;
+      let resends = plan ? SUBSCRIPTION_ANALYST_ATTEMPTS : 0;
+      let mode = initialMode;
+      let currentDetail = detail;
+      let feedback = mode === "repair" ? `${detail}${raw ? `\n\n${previousOutputBlock(raw)}` : ""}` : undefined;
+      const checked = mode === "retry" ? checkCarried(passes, side, completedTopLevelFields(partial)) : { kept: {}, dropped: [] };
+      let dropped = checked.dropped;
+      let continuation: PassContinuation | undefined = mode === "retry" && (plan || Object.keys(checked.kept).length > 0)
+        ? { completed: checked.kept, ...(plan ? { sectionRetryCount: 1 } : {}) } : undefined;
+      if (Object.keys(checked.kept).length > 0) mode = "continue";
+      let sent = initialRequest ? 0 : 1;
+      let anyLaunched = !initialRequest;
+      // Fresh sends and rejected-output repair are distinct from zero-cost plan resends.
+      // The facade never admits a billed/uncertain transport failure as retryable.
+      let first = true;
+      while (true) {
+        if (mode === "repair") {
+          if (repairs-- <= 0) return null;
+        } else if (mode !== "fresh" && mode !== "resume") {
+          if (!first && !plan) return null;
+          resends--;
+          startStep(state, side);
+          await backOffIfOverloaded(new Error(currentDetail), plan ? SUBSCRIPTION_ANALYST_ATTEMPTS - resends : 1, side);
+        }
+        first = false;
+        sent++;
+        const maximum = sent + repairs + Math.max(0, resends);
+        const out = await runAnalystRepairAttempt(side, mode, feedback,
+          `${currentDetail}${carriedDetail(continuation, dropped)}`, continuation, `${sent}/${maximum}`);
+        if (out.ok) return out.value;
+        anyLaunched ||= out.launched;
+        const failure = passErrorDetails(out.error);
+        const canRepair = isRetryableJudgeError(out.error) &&
+          (failure.kind === "schema" || failure.kind === "parse") && repairs > 0;
+        const canResend = plan && resends > 0 && isTransportFailure(out.error) && isRetryableJudgeError(out.error);
+        if (!canRepair && !canResend) {
+          computed.gaps.push({ field: `llm.${side}`,
+            reason: `${mode === "retry" && providerWasBusy(currentDetail) ? "retry after the provider was busy or unavailable also failed" : RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
+            severity: "critical", attemptedSources: anyLaunched ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [] });
+          closeQueuedRepairs(`not repaired: the ${side} repair failed`);
+          markSkipped(state, "synthesize", "upstream bull/bear pass failed");
+          markSkipped(state, "verify", "upstream bull/bear pass failed");
+          return null;
+        }
+        if (canRepair) {
+          mode = "repair";
+          const rejected = capRawOutput((out.error as { rawText?: string }).rawText ?? "");
+          feedback = `${errMessage(out.error)}${rejected ? `\n\n${previousOutputBlock(rejected)}` : ""}`;
+          continuation = undefined;
+        } else if (mode !== "repair") {
+          const next = checkCarried(passes, side, { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) });
+          dropped = next.dropped;
+          continuation = { completed: next.kept, sectionRetryCount: (continuation?.sectionRetryCount ?? 0) + 1 };
+          mode = Object.keys(next.kept).length > 0 ? "continue" : "retry";
+          feedback = undefined;
+        } else {
+          // Resending a dropped repair consumes a resend, not another repair.
+          resends--;
+          await backOffIfOverloaded(out.error, SUBSCRIPTION_ANALYST_ATTEMPTS - resends, side);
+          repairs++;
+        }
+        currentDetail = errMessage(out.error);
+      }
+    };
+
     // -- resume: reuse persisted analyst passes --------------------------------
     const resumeSnapshots = opts.resume === true && preparedResume !== null
       ? {
@@ -3828,69 +4072,10 @@ export async function runJob<TPayload = unknown>(
       let resumedBull = resumeSnapshots.bull;
       let resumedBear = resumeSnapshots.bear;
       for (const side of resumeMissingSides) {
-        startStep(state, side);
-        const analystCheckpoint = createSettlementCheckpoint<AnalystCase>(
-          state,
-          side,
-          fingerprint,
-          passReservationUsd(analysisModel, side),
-          jobSignal,
-          jobController,
-          analysisModel,
-        );
-        try {
-          await passes.preflightPass?.(deps, { pass: side });
-          passAdmissions.set(side, analystCheckpoint.admission);
-          passAttemptIds.set(side, analystCheckpoint.attemptId);
-          await analystCheckpoint.beforeLaunch();
-          const fresh = await awaitJobStage(
-            passes.runAnalystPass!(
-              deps,
-              side,
-              analystCheckpoint.hook,
-              () => {
-                analystCheckpoint.authorizeLaunch(false);
-              },
-            ),
-            jobSignal,
-            jobController,
-            side,
-            modelStageDeadlineMs,
-          );
-          throwIfJobAborted(jobSignal);
-          if (!analystCheckpoint.wasCalled() && analystCheckpoint.hasLease()) {
-            await analystCheckpoint.hook(successSettlement(fresh));
-          }
-          if (side === "bull") resumedBull = fresh;
-          else resumedBear = fresh;
-        } catch (err) {
-          throwIfJobAborted(jobSignal);
-          if (err instanceof PassSettlementHookError) throw err;
-          // Same degradation contract as the fresh-run analyst catch: record
-          // billed spend, disclose the failure in the manifest, data-only.
-          const billedAttempt = billedAttemptFromError(err);
-          if (
-            !analystCheckpoint.wasCalled() &&
-            (analystCheckpoint.wasLaunched() || billedAttempt !== null)
-          ) {
-            await analystCheckpoint.hook(
-              failureSettlement(err, telemetryFromAttempt(billedAttempt, analysisModel)),
-            );
-          }
-          computed.gaps.push({
-            field: `llm.${side}`,
-            reason: withPlainIssueList(errMessage(err)),
-            severity: "critical",
-            attemptedSources:
-              analystCheckpoint.wasLaunched() || billedAttempt !== null ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [],
-          });
-          markSkipped(state, "synthesize", "upstream bull/bear pass failed");
-          markSkipped(state, "verify", "upstream bull/bear pass failed");
-          return persistDataOnly(state, bundle, validation, computed, now, hasKey);
-        } finally {
-          analystCheckpoint.releaseIfPrelaunch();
-          analystCheckpoint.stopRenewal();
-        }
+        const fresh = await recoverAnalystSide(side, "resume", "running missing resumed side", "", "", true);
+        if (fresh === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+        if (side === "bull") resumedBull = fresh;
+        else resumedBear = fresh;
       }
       // `await` so a rejection is caught by the outer catch (error recording).
       return await runSynthesisAndFinish(resumedBull!, resumedBear!);
@@ -3907,26 +4092,6 @@ export async function runJob<TPayload = unknown>(
     // sibling can continue; a run that gives up closes the step with the reason.
     // A dropped plan connection is retryable too, but it is retried, not
     // repaired, on its own attempt count: its row is unchanged.
-    const repairQueued = new Set<"bull" | "bear">();
-    const rejectedOutput = (failure: SerializedPassFailure): boolean =>
-      failure.retryable === true && (failure.kind === "schema" || failure.kind === "parse");
-    const queueRepairNote = (side: "bull" | "bear") => (failure: SerializedPassFailure) => {
-      if (!rejectedOutput(failure) || passes.runAnalystPass === undefined || !(MAX_ANALYST_REPAIRS > 0)) return null;
-      repairQueued.add(side);
-      return {
-        detail: `${side} attempt 1/${MAX_ANALYST_REPAIRS + 1} rejected (${plainRejectionNote(failure.detail ?? failure.message)}); repair queued`,
-        repairQueued: true,
-      };
-    };
-    const closeQueuedRepairs = (why: string): void => {
-      for (const side of repairQueued) {
-        const step = findStep(state, side);
-        if (step.status === "running") {
-          finishStep(state, side, "error", (step.detail ?? `${side} output rejected`).replace(/; repair queued$/, `; ${why}`));
-        }
-      }
-      repairQueued.clear();
-    };
     const bullCheckpoint = createSettlementCheckpoint<AnalystCase>(
       state,
       "bull",
@@ -3980,90 +4145,6 @@ export async function runJob<TPayload = unknown>(
      * `retry`: the connection dropped, so the same request is simply re-run.
      * `fresh`: the side never launched because its sibling failed first.
      */
-    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh";
-    const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
-      repair: "repairing schema-invalid output",
-      retry: "retrying after a dropped connection",
-      continue: "continuing from the completed sections of the cut-off response",
-      fresh: "running now that its sibling pass is being retried",
-    };
-    const RECOVERY_GAP: Record<AnalystRecovery, string> = {
-      repair: "repair attempt after schema-invalid output also failed",
-      retry: "retry after a dropped connection also failed",
-      continue: "continuation of the cut-off response also failed",
-      fresh: "pass launched after its sibling's retry also failed",
-    };
-    const runAnalystRepairAttempt = async (
-      side: "bull" | "bear",
-      mode: AnalystRecovery,
-      feedback: string | undefined,
-      failureDetail: string,
-      continuation: PassContinuation | undefined,
-      attemptLabel: string,
-    ): Promise<{ ok: true; value: PassResultLike<AnalystCase> } | { ok: false; error: unknown }> => {
-      startStep(state, side);
-      repairQueued.delete(side);
-      updateRunningStepDetail(
-        state,
-        side,
-        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${mode === "repair" ? plainRejectionNote(failureDetail) : failureDetail}`,
-      );
-      const checkpoint = createSettlementCheckpoint<AnalystCase>(
-        state,
-        side,
-        fingerprint,
-        passReservationUsd(analysisModel, side),
-        jobSignal,
-        jobController,
-        analysisModel,
-        (failure) => rejectedOutput(failure)
-          ? { detail: `${side} attempt ${attemptLabel} rejected (${plainRejectionNote(failure.detail ?? failure.message)})`, repairQueued: false }
-          : null,
-      );
-      try {
-        await passes.preflightPass?.(deps, { pass: side });
-        passAdmissions.set(side, checkpoint.admission);
-        passAttemptIds.set(side, checkpoint.attemptId);
-        await checkpoint.beforeLaunch();
-        const fresh = await awaitJobStage(
-          passes.runAnalystPass!(
-            deps,
-            side,
-            checkpoint.hook,
-            () => {
-              checkpoint.authorizeLaunch(false);
-            },
-            feedback,
-            continuation,
-          ),
-          jobSignal,
-          jobController,
-          side,
-          modelStageDeadlineMs,
-        );
-        throwIfJobAborted(jobSignal);
-        if (!checkpoint.wasCalled() && checkpoint.hasLease()) {
-          await checkpoint.hook(successSettlement(fresh));
-        }
-        return { ok: true, value: fresh };
-      } catch (repairErr) {
-        throwIfJobAborted(jobSignal);
-        if (repairErr instanceof PassSettlementHookError) throw repairErr;
-        const billedAttempt = billedAttemptFromError(repairErr);
-        if (
-          !checkpoint.wasCalled() &&
-          (checkpoint.wasLaunched() || billedAttempt !== null)
-        ) {
-          await checkpoint.hook(
-            failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel), passErrorDetails(repairErr)),
-          );
-        }
-        return { ok: false, error: repairErr };
-      } finally {
-        checkpoint.releaseIfPrelaunch();
-        checkpoint.stopRenewal();
-      }
-    };
     try {
       await passes.preflightPass?.(deps, { pass: "bull" });
       await passes.preflightPass?.(deps, { pass: "bear" });
@@ -4209,75 +4290,9 @@ export async function runJob<TPayload = unknown>(
           const detail =
             (side === "bull" ? partial?.bullError : partial?.bearError) ?? errMessage(err);
           const raw = capRawOutput((side === "bull" ? partial?.bullRawText : partial?.bearRawText) ?? "");
-          // A dropped side that had already completed some sections keeps them:
-          // the retry asks only for the rest instead of starting over.
-          const firstCheck = recoveryOf(side) === "retry"
-            ? checkCarried(passes, side, completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? ""))
-            : { kept: {}, dropped: [] };
-          const kept = firstCheck.kept;
-          let dropped = firstCheck.dropped;
-          const subscriptionRetry = recoveryOf(side) === "retry" && parseSubscriptionModel(analysisModel) !== null;
-          let continuation: PassContinuation | undefined =
-            Object.keys(kept).length > 0 || subscriptionRetry ? { completed: kept, ...(subscriptionRetry ? { sectionRetryCount: 1 } : {}) } : undefined;
-          let mode: AnalystRecovery = Object.keys(kept).length > 0 ? "continue" : recoveryOf(side);
-          let feedback = mode !== "repair"
-            ? undefined
-            : raw.length > 0
-              ? `${detail}\n\n${previousOutputBlock(raw)}`
-              : detail;
-          let currentDetail = detail;
-          // A rejected output gets one repair. A dropped plan-connection request
-          // costs nothing to re-send, and the provider's transient faults
-          // (overload, server_error) cluster, so it gets a few backed-off tries.
-          const attempts = mode !== "repair" && parseSubscriptionModel(analysisModel) !== null
-            ? SUBSCRIPTION_ANALYST_ATTEMPTS
-            : MAX_ANALYST_REPAIRS;
-          let repaired: PassResultLike<AnalystCase> | null = null;
-          for (let n = 1; n <= attempts; n++) {
-            if (mode !== "repair") {
-              startStep(state, side);
-              await backOffIfOverloaded(new Error(currentDetail), n, side);
-            }
-            const out = await runAnalystRepairAttempt(
-              side,
-              mode,
-              feedback,
-              `${currentDetail}${carriedDetail(continuation, dropped)}`,
-              continuation,
-              `${n + 1}/${attempts + 1}`,
-            );
-            if (out.ok) {
-              repaired = out.value;
-              break;
-            }
-            const again = n < attempts && mode !== "repair" && isTransportFailure(out.error) && isRetryableJudgeError(out.error);
-            if (!again) {
-              computed.gaps.push({
-                field: `llm.${side}`,
-                reason: `${RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
-                severity: "critical",
-                attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
-              });
-              closeQueuedRepairs(`not repaired: the ${side} repair failed`);
-              markSkipped(state, "synthesize", "upstream bull/bear pass failed");
-              markSkipped(state, "verify", "upstream bull/bear pass failed");
-              return persistDataOnly(state, bundle, validation, computed, now, hasKey);
-            }
-            // Keep whatever this attempt finished, beside what was kept before.
-            const checkedNow = checkCarried(passes, side, { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) });
-            const keptNow = checkedNow.kept;
-            dropped = checkedNow.dropped;
-            const sectionRetryCount = parseSubscriptionModel(analysisModel) !== null ? (continuation?.sectionRetryCount ?? 0) + 1 : 0;
-            continuation = Object.keys(keptNow).length > 0 || sectionRetryCount > 0
-              ? { completed: keptNow, ...(sectionRetryCount > 0 ? { sectionRetryCount } : {}) } : undefined;
-            mode = Object.keys(keptNow).length > 0 ? "continue" : "retry";
-            feedback = undefined;
-            currentDetail = errMessage(out.error);
-          }
-          if (repaired === null) {
-            closeQueuedRepairs(`not repaired: the ${side} pass could not be recovered`);
-            return persistDataOnly(state, bundle, validation, computed, now, hasKey);
-          }
+          const repaired = await recoverAnalystSide(side, recoveryOf(side), detail, raw,
+            (side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "");
+          if (repaired === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
           if (side === "bull") repairedBull = repaired;
           else repairedBear = repaired;
         }
@@ -4562,28 +4577,19 @@ function persistDataOnly(
     // Provider/model error strings and source metadata are untrusted. Never use
     // a failed parse as permission to persist an invalid report. Rebuild one
     // sterile, fully disclosed data-only shell without the rejected metadata.
-    const fallback = buildDataOnlyReport({
+    const sterileInput: DataOnlyInput = {
       ...dataOnlyInput,
       companyName: state.symbol,
-      reason:
-        "Analysis and unsafe degraded-path metadata were withheld because the final report safety schema rejected them.",
-    });
-    fallback.meta.asOfMap = {};
-    fallback.appendix.sources = [];
-    fallback.appendix.missingData = [
-      {
-        field: "analysis.llm",
-        reason:
-          "Analysis unavailable; degraded-path metadata failed the final report safety schema and was withheld.",
-        severity: "critical",
-        attemptedSources: ["pipeline"],
-      },
-      // The presumed-spend line is generated here from durable pass names and
-      // numbers, never from provider prose, so it survives the sterile rebuild
-      // — the shell still shows a cost total that it must qualify.
-      ...(dataOnlyInput.presumed == null ? [] : [dataOnlyInput.presumed.entry]),
-    ];
-    validatedReport = ReportSchema.parse(fallback);
+      reason: "Analysis unavailable; degraded-path metadata failed the final report safety schema and was withheld.",
+      sterileManifest: true,
+    };
+    // Keep deterministic content only after rechecking it. Enrichment itself
+    // can contain rejected provider prose, so the final tier omits enrichment.
+    const kept = ReportSchema.safeParse(buildDataOnlyReport(sterileInput));
+    validatedReport = kept.success ? kept.data : ReportSchema.parse(buildDataOnlyReport({
+      ...sterileInput, computed: null, execution: [],
+      costBreakdown: dataOnlyInput.costBreakdown.map(row => ({ ...row, model: "withheld" })),
+    }));
   }
   const reportId = persistReport(
     state,
@@ -4628,6 +4634,7 @@ function reconcilePersistedCostBreakdown(
         ...previous,
         // cost_log is the durable per-attempt fallback source of truth.
         fallbackUsed: entry.fallbackUsed,
+        ...ledgerTokens(entry),
       };
     }
     matchingPrefix = false;
@@ -4636,6 +4643,7 @@ function reconcilePersistedCostBreakdown(
       model: entry.model,
       costUsd: entry.costUsd,
       fallbackUsed: entry.fallbackUsed,
+      ...ledgerTokens(entry),
     };
   });
 }
@@ -4653,22 +4661,17 @@ function persistReport(
     // A settled verification resume skips fetch/compute. Carry the exact input
     // association from its durable source generation, never today's cache.
     if (runSnapshot === null && _row.resumeSourceGeneration !== null) {
-      const sourceRef = readJobRunSnapshotRef(state.jobId, _row.resumeSourceGeneration, db);
+      const verifyGeneration = readStoredJobResumeInTransaction(db, state.jobId)?.artifacts.currentArtifacts
+        .find(artifact => artifact.pass === "verify" && artifact.envelope.outcome === "success")?.runGeneration;
+      const sourceRef = readJobRunSnapshotRef(state.jobId, verifyGeneration ?? _row.resumeSourceGeneration, db);
       if (sourceRef !== null) {
         const source = readRunInputSnapshot(sourceRef.hash, db)!;
         runSnapshot = persistRunInputSnapshot(state.jobId, state.runGeneration, source, sourceRef.capturedAt, db);
       }
     }
-    const ledger = db.select({
-      step: costLog.step,
-      model: costLog.model,
-      costUsd: costLog.costUsd,
-      fallbackUsed: costLog.fallbackUsed,
-      attemptId: costLog.attemptId,
-    }).from(costLog)
-      .where(eq(costLog.jobId, state.jobId))
-      .orderBy(costLog.id)
-      .all();
+    // R1: the same reader as every other ledger join, inside this authority
+    // transaction, so a row reconciled here keeps its settled token counts.
+    const ledger = readCostLedger(state.jobId, db);
     const authoritativeCostUsd = ledger.reduce((total, entry) => total + entry.costUsd, 0);
     const parsed = ReportSchema.safeParse(report);
     const reportForPersistence: Report | unknown = parsed.success
@@ -4913,6 +4916,7 @@ function costBreakdownRows(
       // This is the only execution option cost_log persists per attempt.
       ...(options.keepFallbackUsed ? { fallbackUsed: row.fallbackUsed } : {}),
       ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
+      ...ledgerTokens(row),
     };
   });
   return [...entries, ...readPlanCostBreakdown(jobId)];
@@ -4986,17 +4990,34 @@ interface CostLedgerRow {
   costUsd: number;
   fallbackUsed: boolean;
   attemptId: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  settlementKind: string;
+}
+
+/**
+ * R1 (FIGR paid audit): a settled request's own token counts. A presumed charge
+ * reports none, and a row whose counts are both the column default of zero was
+ * written without usage (no real request reports zero tokens both ways).
+ */
+function ledgerTokens(row: CostLedgerRow): Pick<CostBreakdownEntry, "inputTokens" | "outputTokens"> {
+  const counted = (value: number) => Number.isInteger(value) && value >= 0;
+  return row.settlementKind === "actual" && counted(row.inputTokens) && counted(row.outputTokens) && row.inputTokens + row.outputTokens > 0
+    ? { inputTokens: row.inputTokens, outputTokens: row.outputTokens } : {};
 }
 
 /** Ordered immutable accounting rows used to rebuild persisted report metadata. */
-function readCostLedger(jobId: string): CostLedgerRow[] {
-  return getDb()
+function readCostLedger(jobId: string, db: ThesisDb = getDb()): CostLedgerRow[] {
+  return db
     .select({
       step: costLog.step,
       model: costLog.model,
       costUsd: costLog.costUsd,
       fallbackUsed: costLog.fallbackUsed,
       attemptId: costLog.attemptId,
+      inputTokens: costLog.inputTokens,
+      outputTokens: costLog.outputTokens,
+      settlementKind: costLog.settlementKind,
     })
     .from(costLog)
     .where(eq(costLog.jobId, jobId))
@@ -5286,6 +5307,9 @@ function reconcileRecoveredVerifyReport(
   );
   return ReportSchema.parse({
     ...reconciled,
+    // Linking accepted work is not a rerun under today's financial/verifier
+    // rules. Reconcile accounting, but keep the methods that produced it.
+    meta: { ...reconciled.meta, specVersion: report.meta.specVersion, pipelineVersion: report.meta.pipelineVersion },
     appendix: {
       ...reconciled.appendix,
       // reconcileMeta's normal path enriches one row per pass. Recovery instead
@@ -5333,6 +5357,8 @@ function collectSources(bundle: DataBundle): Report["appendix"]["sources"] {
 }
 
 interface DataOnlyInput {
+  /** Withhold untrusted provider metadata before calculating completeness. */
+  sterileManifest?: boolean;
   symbol: string;
   companyName: string;
   generatedAt: string;
@@ -5368,7 +5394,7 @@ interface DataOnlyInput {
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
   const { symbol, bundle, validation, computed } = input;
-  const asOfMap = { ...bundle.asOf };
+  const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
   // 2026-09-06 audit, F170) contradicted the band shown next to it.
@@ -5387,7 +5413,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     keyNumbers: [],
   });
 
-  const missingData = collectMissingData(bundle, validation, computed, input.gaps ?? []);
+  const missingData: ManifestEntry[] = input.sterileManifest ? [] : collectMissingData(bundle, validation, computed, input.gaps ?? []);
   const attemptedAnalysisSources = [
     ...new Set(
       missingData
@@ -5548,7 +5574,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
       fredAttribution: FRED_ATTRIBUTION_TEXT,
     },
     appendix: {
-      sources: collectSources(bundle),
+      sources: input.sterileManifest ? [] : collectSources(bundle),
       missingData,
       verificationRate: null,
       provenanceCoverage: emptyCoverage,

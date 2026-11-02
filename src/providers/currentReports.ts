@@ -1,3 +1,4 @@
+import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
 /**
  * Bounded EDGAR reads behind the 8-K and quarterly-segment ingestion (NVDA
  * report #34 audit, work package 3 and the data-depth part of 9).
@@ -51,7 +52,10 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.2.1" as const;
+// 1.3.0 (R1, FIGR paid audit): the newest operating update filed after the
+// latest results release takes a fifth slot and keeps its release text. The
+// same unreleased version ends an outlook block at a webcast notice (D-162).
+export const CURRENT_REPORTS_VERSION = "current-reports-1.3.0" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -374,9 +378,38 @@ export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[
  * covers a year of results. An update fills a slot only when fewer results
  * releases were read. Records stored before `reportsResults` count as results.
  */
+export function latestResultsRelease(ordered:readonly EarningsReleaseRecord[]):EarningsReleaseRecord|undefined {
+ return ordered.find(r=>r.reportsResults!==false);
+}
+
+/**
+ * R1 (FIGR live data): whether release `a` was filed after release `b` - the
+ * filing date, then the acceptance time when both carry one. Release order
+ * sorts by reported period, and a record stating only a period end cannot be
+ * placed against one stating only a fiscal label (FIGR's 10-07 update, period
+ * ended September 30, sorted after its 08-13 "Q2 FY2026" release). Whether an
+ * operating update is newer than the results release is a filing fact.
+ */
+export function filedAfter(a: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">, b: Pick<EarningsReleaseRecord, "filingDate" | "acceptedAt">): boolean {
+  if (a.filingDate !== b.filingDate) return a.filingDate > b.filingDate;
+  return a.acceptedAt != null && b.acceptedAt != null && a.acceptedAt > b.acceptedAt;
+}
+
+/** R1: operating updates filed after the latest results release (all updates without one), newest filing first. */
+export function updatesFiledAfterResults(records: readonly EarningsReleaseRecord[], latestResults: EarningsReleaseRecord | undefined): EarningsReleaseRecord[] {
+  return records
+    .filter((r) => r.reportsResults === false && (latestResults === undefined || filedAfter(r, latestResults)))
+    .sort((a, b) => (filedAfter(a, b) ? -1 : filedAfter(b, a) ? 1 : 0));
+}
+
 function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const ordered = orderedEarningsReleases(records);
   const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
+  // R1 (FIGR paid audit): the newest operating update filed after the latest
+  // results release has its own slot. FIGR's four results releases filled the
+  // four slots, so its October preliminary Q3 data was dropped.
+  const newestUpdate = updatesFiledAfterResults(ordered, latestResultsRelease(ordered))[0];
+  if (newestUpdate !== undefined) kept.add(newestUpdate);
   return ordered.filter((r) => kept.has(r));
 }
 
@@ -495,20 +528,32 @@ export async function collectCurrentReports(
       }
     }
     const guidance = record.guidance;
-    if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no outlook section was found in the release or commentary`);
+    if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no structured guidance could be extracted from the release or commentary`);
     else if (guidance.items.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): an outlook section was found but none of its sentences could be read as guidance`);
     for (const sentence of guidance?.unparsed ?? []) notes.push(`8-K ${filing.accessionNumber}: outlook sentence not read as guidance: "${sentence}"`);
     releases.push(record);
   }
   const ordered = retainedEarningsReleases(releases);
-  releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const holder=latestResultsRelease(ordered);
+  // R1: updates newer than the results release by filing (see `filedAfter`).
+  const newer=updatesFiledAfterResults(ordered,holder);
+  // R1 (FIGR paid audit): the newest operating update newer than the results
+  // release keeps its own release text (preliminary quarterly operating data,
+  // monthly sales). It never takes the results narrative slot or supplies
+  // release figures (AI-506); the payload prints it as its own excerpt.
+  const update = newer.find(r => r.releaseNarrative !== null && r.releaseNarrative.trim() !== "");
+  releases.splice(0, releases.length, ...ordered.map(record => record === holder ? record
+    : record === update ? { ...record, commentaryNarrative: null } : { ...record, releaseNarrative: null, commentaryNarrative: null }));
+  const updateNote = update ? ` The newest operating update's release text (8-K ${update.accession}, ${update.filingDate}) is kept as its own excerpt; it is not an earnings release and supplies no release figures.` : "";
+  if (newer.length) notes.unshift(`${newer.map(r=>`no earnings, EPS or operating-income amount was read in 8-K ${r.accession} (${r.filingDate}); treated as an operating update`).join(". ")}. ${holder ? `The earnings-release narrative and release figures are read from 8-K ${holder.accession} (${holder.filingDate}).` : "With no results release retained, no earnings-release narrative is kept."}${updateNote}`);
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)
     .sort((a, b) => b.filingDate.localeCompare(a.filingDate))[0];
   const eventWindow = annual === undefined ? EVENT_WINDOW_DAYS : daysBetween(annual.filingDate, today);
-  const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items));
-  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS);
+  const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items)).sort((a,b)=>Number(itemsOf(b.items).some(i=>PRIORITY_EVENT_ITEMS.has(i)))-Number(itemsOf(a.items).some(i=>PRIORITY_EVENT_ITEMS.has(i))) || b.filingDate.localeCompare(a.filingDate));
+  for(const f of recentEightKs(filings,today,eventWindow,f=>!hasMaterialEventItem(f.items) && itemsOf(f.items).some(i=>!NON_EVENT_ITEMS.has(i)))) notes.push(`8-K ${f.accessionNumber} (${f.filingDate}; Items ${f.items}) is outside the material-event item filter and was not read.`);
+  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS).sort((a,b)=>b.filingDate.localeCompare(a.filingDate) || a.accessionNumber.localeCompare(b.accessionNumber));
   if (eventCandidates.length > eventFilings.length) notes.unshift(`Material-event reads limited to ${MAX_EVENT_FILINGS} of ${eventCandidates.length} filings since ${annual?.filingDate ?? `${EVENT_WINDOW_DAYS} days before ${today}`}; omitted unread evidence: ${eventCandidates.slice(MAX_EVENT_FILINGS).map((f) => `${f.accessionNumber} (${f.filingDate}; Items ${f.items ?? "unknown"})`).join("; ")}.`);
   for (const filing of eventFilings) {
     attempted += 1;

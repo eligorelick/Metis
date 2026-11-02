@@ -512,6 +512,15 @@ describe("stream keepalive", () => {
   });
 });
 
+it("PERF-202 builds one snapshot for an unchanged revision across four polls", async () => {
+  vi.useFakeTimers(); const { jobId } = createJob("AAPL");
+  const response = await streamGET(...requestArgs(jobId));
+  await vi.advanceTimersByTimeAsync(4300);
+  const calls = snapshotHook.calls;
+  await response.body!.cancel();
+  expect(calls).toBe(1);
+});
+
 describe("stream resource cleanup", () => {
   it("request abort invokes unsubscribe and clears each timer once", async () => {
     vi.useFakeTimers();
@@ -574,6 +583,8 @@ describe("stream resource cleanup", () => {
 
     const response = await streamGET(...requestArgs(jobId));
     const body = readBody(response);
+    // PERF-202: a full snapshot is retried only after a committed revision moves.
+    handle.db.update(jobs).set({ revision: 1 }).where(eq(jobs.id, jobId)).run();
     await vi.advanceTimersByTimeAsync(3_001);
 
     await expect(body).resolves.toBeTypeOf("string");

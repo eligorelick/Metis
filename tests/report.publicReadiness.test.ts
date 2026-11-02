@@ -39,11 +39,13 @@ describe("public-readiness regressions", () => {
       window.document.body.innerHTML = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
       const dimension = [...window.document.querySelectorAll(".assessment-dimensions dl > div")].find(row => row.querySelector("dt")?.textContent === "Price attractiveness");
       const value = dimension?.querySelector(".assessment-value")?.textContent;
-      expect(value).toContain("85.00");
+      // RPT-208: reader precision; audit remains two decimals.
+      expect(value).toContain("85");
+      expect(value).not.toContain("85.00");
       if (limited) {
         expect(value).toContain("limited evidence");
         expect(value).not.toMatch(/\bA\b/);
-      } else expect(value).toBe("85.00 / A");
+      } else expect(value).toBe("85 / A");
       expect(dimension?.textContent).toContain("Saved valuation basis");
       expect(scoreAuditTables(scores).find(t => t.heading === "Assessment dimensions")?.rows[1][1]).toBe("85.00 / A");
       expect(reportDigest(report)).toBe(before);
@@ -106,4 +108,11 @@ describe("public-readiness regressions", () => {
     expect(trustHeadline(coverage)).toContain("no factual claim states a figure");
     expect(trustHeadline(coverage)).not.toContain("denominator unknown");
   });
+});
+
+it("RPT-208: cover assessment scores use reader precision",()=>{
+ const report=loadTask28Fixture(); report.scores!.assessments={businessQuality:{score:78.8,band:"B",basis:"Quality"},valuation:{score:85,band:"A",basis:"Value"},evidenceCompleteness:1,calibration:"unbacktested-house-rules"};
+ const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier"}));
+ expect(html).not.toContain("78.80");
+ expect(scoreAuditTables(report.scores!).find(t=>t.heading==="Assessment dimensions")!.rows[0]![1]).toContain("78.80");
 });

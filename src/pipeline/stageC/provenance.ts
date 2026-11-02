@@ -282,7 +282,8 @@ export function canonicalizeTracedUnit(
   // stockholders equity", "% Standardized CET1"): the model sometimes writes the
   // figure label into the unit slot. The first token still has to be a canonical
   // unit, and id, value, currency, period and as-of are all matched separately,
-  // so the description cannot change what is verified. "% points" is excluded:
+  // so canonicalization reads only the unit. AI-407 separately checks the
+  // printed description for conflicts with the matched record in the verifier. "% points" is excluded:
   // it would silently turn percentage points into a percent.
   const tail = /^(\S+)\s+(.+)$/.exec(raw);
   if (tail && !/^(points?|pts?|pp)\b/i.test(tail[2]!)) {
@@ -500,6 +501,26 @@ export function periodsAgree(
     return identity.explicit || closesCalendarPeriod(record.iso, identity);
   };
   return named.every(agrees);
+}
+
+/** A complete ordered interval must be established by the record, never just its end date. */
+export function recordEstablishesInterval(supplied: string, record: NumericProvenanceRecord): boolean {
+  const prefix = /^(ttm|ltm|ytd):\s*/i.exec(supplied.trim());
+  const interval = /^(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})$/.exec(supplied.trim().replace(/^(?:ttm|ltm|ytd):\s*/i, ""));
+  if (!interval || !isIsoDate(interval[1]) || !isIsoDate(interval[2]) || interval[1] > interval[2]) return false;
+  const registered = /^(?:(?:ttm|ltm|ytd):\s*)?(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})$/i.exec(record.period ?? "");
+  const parsed = record.periodContext === undefined ? undefined : PeriodContextSchema.safeParse(record.periodContext);
+  if (parsed?.success === false) return false;
+  if (parsed?.success && (parsed.data.kind !== "duration" || parsed.data.start !== interval[1] || parsed.data.end !== interval[2])) return false;
+  if (prefix) {
+    const basis = prefix[1]!.toLowerCase() === "ytd" ? "year-to-date" : "rolling-12-month";
+    if (!parsed?.success || parsed.data.kind !== "duration" || parsed.data.basis !== basis) return false;
+  }
+  const bridge = /^TTM to (\d{4}-\d{2}-\d{2}) \((\d{4}-\d{2}-\d{2}) to \1\)$/.exec(record.period ?? "");
+  if (bridge && parsed?.success && parsed.data.kind === "duration" && parsed.data.basis === "rolling-12-month")
+    return bridge[2] === interval[1] && bridge[1] === interval[2];
+  return registered !== null ? registered[1] === interval[1] && registered[2] === interval[2]
+    : parsed?.success === true && record.period === interval[2];
 }
 
 /** Match every numeric dimension against the exact named registry record. */

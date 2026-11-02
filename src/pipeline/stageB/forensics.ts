@@ -1475,6 +1475,8 @@ export interface PiotroskiOptions {
 }
 
 export interface PiotroskiResult {
+  /** FIN-306: tests excluded by route design, independently of missing supported data. Absent on legacy results. */
+  routeWithheld?: number;
   score: number | null;
   /** Number of evaluable signals (9 with 3 fiscal years, 7 with 2, 3 on a financial route). */
   outOf: number;
@@ -1772,6 +1774,9 @@ export function computePiotroski(
   return {
     score,
     outOf,
+    ...(!eligibilityUnresolved && (finSuppressed || balanceSheetFunded)
+      ? { routeWithheld: (finSuppressed ? 4 : 0) + (balanceSheetFunded ? 2 : 0) }
+      : {}),
     signals,
     variant,
     label,
@@ -2239,6 +2244,8 @@ export interface SupportFlagsInputs {
 }
 
 export interface SupportFlagsOptions {
+  /** The same applicability refusal that withholds Beneish, whose DSRI reads this relation. */
+  receivablesSuppressionReason?: string;
   receivablesPair?: ReceivablesPair;
   filedReceivables?: FiledReceivablesCandidates;
   /** Base-year revenue floor below which growth flags are suppressed. */
@@ -2311,34 +2318,40 @@ export function computeSupportFlags(
     if (revGrowth === null && revBaseGap !== null) {
       gaps.push(gapEntry("forensics.flags.revenueBase", revBaseGap, "info"));
     }
-    const receivables = options?.receivablesPair ?? selectReceivablesPair(balT, balP, { filedCandidates: options?.filedReceivables });
-    notes.push(...receivables.notes);
-    const arT = receivables.status === "selected" ? receivables.current.value : null;
-    const arP = receivables.status === "selected" ? receivables.prior.value : null;
-    const arGrowth = growthPct(arT, arP);
-    if (arGrowth !== null && revGrowth !== null) {
-      const gapPp = arGrowth - revGrowth;
-      if (gapPp > H.growthGapWarnPp && arGrowth > H.minGrowthPct) {
-        flags.push({
-          id: "receivables-vs-revenue",
-          severity: gapPp > H.growthGapFlagPp ? "flag" : "warn",
-          message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% — ${receivables.status === "selected" && receivables.basis === "vendor-unverified" ? "scope comparability is unverified; review the underlying receivables definitions before drawing an accounting conclusion" : "possible channel stuffing or loosened credit terms"}.`,
-          metrics: { receivablesGrowthPct: arGrowth, revenueGrowthPct: revGrowth, gapPp },
-          rule: `house rule: receivables growth − revenue growth > ${H.growthGapWarnPp}pp (warn) / > ${H.growthGapFlagPp}pp (flag), with receivables growth > ${H.minGrowthPct}%`,
-          heuristic: true,
-          asOf: growthDates,
-        });
+    if (options?.receivablesSuppressionReason) {
+      const reason = `Receivables-versus-revenue flag withheld under the same financial-forensics applicability rule as Beneish DSRI: ${options.receivablesSuppressionReason}`;
+      notes.push(reason);
+      gaps.push(gapEntry("forensics.flags.receivablesApplicability", reason, "info"));
+    } else {
+      const receivables = options?.receivablesPair ?? selectReceivablesPair(balT, balP, { filedCandidates: options?.filedReceivables });
+      notes.push(...receivables.notes);
+      const arT = receivables.status === "selected" ? receivables.current.value : null;
+      const arP = receivables.status === "selected" ? receivables.prior.value : null;
+      const arGrowth = growthPct(arT, arP);
+      if (arGrowth !== null && revGrowth !== null) {
+        const gapPp = arGrowth - revGrowth;
+        if (gapPp > H.growthGapWarnPp && arGrowth > H.minGrowthPct) {
+          flags.push({
+            id: "receivables-vs-revenue",
+            severity: gapPp > H.growthGapFlagPp ? "flag" : "warn",
+            message: `Receivables grew ${fmt1(arGrowth)}% while revenue grew ${fmt1(revGrowth)}% \u2014 ${receivables.status === "selected" && receivables.basis === "vendor-unverified" ? "scope comparability is unverified; review the underlying receivables definitions before drawing an accounting conclusion" : "possible channel stuffing or loosened credit terms"}.`,
+            metrics: { receivablesGrowthPct: arGrowth, revenueGrowthPct: revGrowth, gapPp },
+            rule: `house rule: receivables growth \u2212 revenue growth > ${H.growthGapWarnPp}pp (warn) / > ${H.growthGapFlagPp}pp (flag), with receivables growth > ${H.minGrowthPct}%`,
+            heuristic: true,
+            asOf: growthDates,
+          });
+        }
+      } else if (arT === null || arP === null) {
+        gaps.push(
+          gapEntry(
+            "forensics.flags.receivables",
+            receivables.status === "unavailable" && receivables.cause === "incomparable" ? `${receivables.reason} Receivables-vs-revenue flag not evaluated.` : "accountsReceivables/netReceivables missing \u2014 receivables-vs-revenue flag not evaluated",
+            "info",
+          ),
+        );
       }
-    } else if (arT === null || arP === null) {
-      gaps.push(
-        gapEntry(
-          "forensics.flags.receivables",
-          receivables.status === "unavailable" && receivables.cause === "incomparable" ? `${receivables.reason} Receivables-vs-revenue flag not evaluated.` : "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
-          "info",
-        ),
-      );
-    }
 
+    }
     // --- Inventory vs revenue (DIO trend / overhang) ---
     const invT = nv(balT.inventory);
     const invP = nv(balP.inventory);
@@ -2940,7 +2953,8 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       income: periods.map((period) => period.income ?? null),
       balance: periods.map((period) => period.balance ?? null),
     },
-    { receivablesPair, periodsConsecutive: priorConsecutive, revenueFloor: inputs.revenueFloor },
+    { receivablesPair, periodsConsecutive: priorConsecutive, revenueFloor: inputs.revenueFloor,
+      receivablesSuppressionReason: suppressed ? gaps.find(g => g.field === "forensics.beneishM")?.reason : undefined },
   );
   const flags = [...support.flags];
   // Mirror the gaps aggregation below. `notes` is the ONLY notes channel the

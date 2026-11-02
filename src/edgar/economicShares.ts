@@ -18,6 +18,26 @@ const classLabels = (text: string): string[] => [...text.toLowerCase().matchAll(
 const classLabel = (text: string): string | null => { const labels = classLabels(text); return labels.length === 1 ? labels[0] : null; };
 const validDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
+/** Whole-sentence equality only; class labels never establish economics on their own. */
+export function identicalClassRights(sentence: string): string[] | null {
+  const label = "(?:Class [A-Z0-9]{1,8}|[A-Z][A-Z-]{0,30}) common stock";
+  const fullyNamed = /^The rights, including the (?:liquidation and dividend|dividend and liquidation) rights(?: and sharing of losses)?, of the (.+) are identical, (?:other than|except with respect to) voting rights\.$/i.exec(sentence);
+  if (fullyNamed) {
+    const named = [...fullyNamed[1]!.matchAll(new RegExp(`\\b(${label})\\b`, "gi"))].map(m => m[1]!.toLowerCase());
+    const remainder = fullyNamed[1]!.replace(new RegExp(label, "gi"), "").replace(/\b(?:and|the)\b|[,\s]/gi, "");
+    return !remainder && named.length >= 2 && new Set(named).size === named.length ? named : null;
+  }
+  const list = "Class [A-Z][A-Z0-9]{0,3}(?:(?:,? and |, )Class [A-Z][A-Z0-9]{0,3})*";
+  const stock = "(?:common )?(?:stock|shares)";
+  const rights = "(?:liquidation and dividend|dividend and liquidation) rights";
+  const forms = [
+    new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
+    new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
+  ];
+  const matched = forms.map(form => form.exec(sentence)?.[1]).find(Boolean);
+  return matched ? [...matched.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`) : null;
+}
+
 /** Deliberately narrow cover inventory parser. No class-name-to-economic-rights inference. */
 export function parsePrimaryEconomicShares(html: string, identity: FilingIdentity, cutoff: string, parsed?: ParsedDocument): FilingEconomicShares {
   const source = { form: identity.form, accession: identity.accession, filingDate: identity.filingDate, documentUrl: identity.documentUrl,
@@ -117,19 +137,12 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     const sentences = (parsed?.pre ?? html).replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, "")
       .split(/<\/(?:p|div|h[1-6]|td|th|tr|li)>|<br\s*\/?>/i).map(block => htmlToText(block))
       .flatMap(block => block.split(/(?<=\.)\s+(?=[A-Z])/)).map(sentence => sentence.trim()).filter(Boolean);
-    const list = "Class [A-Z][A-Z0-9]{0,3}(?:(?:,? and |, )Class [A-Z][A-Z0-9]{0,3})*";
-    const stock = "(?:common )?(?:stock|shares)";
-    const rights = "(?:liquidation and dividend|dividend and liquidation) rights";
-    const equalForms = [
-      new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
-      new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
-    ];
     const ratioForm = /^(?:Each share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?) possess(?:es)? dividend and distribution rights equal to [a-z-]+ \(1\/(\d{1,3}(?:,\d{3})+|\d+)\) of (?:such|the) rights of (?:a share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?)\.$/i;
     const listed = (value: string): string[] => [...value.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(match => match[1]!.toUpperCase());
     const relations: { sentence: string; equal?: string[]; ratio?: { cls: string; per: number; of: string } }[] = [];
     for (const sentence of sentences) {
-      const equal = equalForms.map(form => form.exec(sentence)?.[1]).find(Boolean);
-      if (equal) { relations.push({ sentence, equal: listed(equal) }); continue; }
+      const equal = identicalClassRights(sentence);
+      if (equal) { relations.push({ sentence, equal: equal.map(name => /^class ([a-z0-9]+) /.exec(name)?.[1]?.toUpperCase() ?? name) }); continue; }
       const ratio = ratioForm.exec(sentence);
       if (ratio) relations.push({ sentence, ratio: { cls: ratio[1]!.toUpperCase(), per: Number(ratio[2]!.replaceAll(",", "")), of: ratio[3]!.toUpperCase() } });
     }

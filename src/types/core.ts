@@ -17,7 +17,9 @@ export interface Sourced<T> {
   /** True when served past its TTL (stale-while-revalidate) */
   stale?: boolean;
   /** Why stale data was retained, when the cache knows a specific condition. */
-  staleReason?: "empty-refresh-preserved";
+  staleReason?: "empty-refresh-preserved" | "window-fallback" | "refresh-failed";
+  servedEndpoint?: string;
+  staleDetail?: string;
 }
 
 export type DataSource =
@@ -105,6 +107,9 @@ export interface CompanyRoute {
   evidence: { sector: string | null; industry: string | null; sic?: string | null };
   /** Strong conflicting funding evidence leaves model applicability unresolved, without guessing a route. */
   modelEligibility?: { status: "unresolved"; reason: string; sources: string[] };
+  /** Filed non-bank lending makes industrial owner-FCF measures inapplicable. */
+  cashFlowApplicability?: { status: "not-applicable"; reason: string; sourceIds: string[]; asOf: string; evDebtBasis?: string;
+    debtPerimeter?: { label: string; borrowings: number; loanOwnerPayables: number; components: { name: string; value: number }[]; currency: string; source: string } };
 }
 
 /** Grades used across the report. */

@@ -57,7 +57,7 @@
  * no environment. The companyfacts JSON comes from src/providers/edgar.ts.
  */
 
-import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
+import type { EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
@@ -72,15 +72,17 @@ import {
   type PairChoice,
 } from "@/edgar/presentationLineage";
 import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
-import type { VendorSplitEvidence } from "@/providers/splitEvents";
+import { unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
+  COSTS_AND_EXPENSES_TAG,
   COMBINED_CURRENT_DEBT_TAG,
   EBIT_AGGREGATE_MAY_HOLD_INTEREST,
   EBIT_OTHER_MAY_HOLD_INTEREST,
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
+  PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
   DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS, EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
@@ -431,6 +433,8 @@ export type ChainSpec =
    * null and records a refusal; the chain falls to its next step.
    */
   | { kind: "first"; tags: string[]; unit: UnitKind; sign?: -1; disclose?: string; unlessBelow?: readonly string[];
+      /** FIN-510-V1: siblings without evidenced containment must agree to serve the field. */
+      requireAgreement?: boolean;
       /** Extra floors for one synonym only (a component that contains that synonym but not the others). */
       unlessBelowTag?: Readonly<Record<string, readonly string[]>> }
   | { kind: "sum"; tags: string[]; unit: "money"; disclose?: string }
@@ -572,6 +576,7 @@ function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): Cha
   const floors = floorsFor(item);
   const tagFloors = tagFloorsFor(item);
   const own: ChainSpec = { kind: "first", tags: tagsFor(item), unit, ...(floors.length === 0 ? {} : { unlessBelow: floors }),
+    ...(item === "deferredRevenue" ? { requireAgreement: true } : {}),
     ...(Object.keys(tagFloors).length === 0 ? {} : { unlessBelowTag: tagFloors }) };
   return standIns.length === 0 ? own : { kind: "chain", unit, steps: [own, ...standInSteps(standIns, unit)] };
 }
@@ -1396,6 +1401,7 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
 const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
   const tags = new Set<string>(FY_ANCHOR_DURATION_TAGS);
   tags.add("Assets");
+  tags.add(COSTS_AND_EXPENSES_TAG); // FIN-401: arithmetic scope of a before-equity-method pretax base.
   // Not in any chain: the share-count fallback below reads it directly.
   tags.add(BALANCE_SHEET_SHARES_TAG);
   for (const table of [INCOME_CHAINS, BALANCE_CHAINS, CASHFLOW_CHAINS]) {
@@ -1501,6 +1507,43 @@ function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext, asOf: strin
   return index;
 }
 
+/** DATA-104: prefer the newest annual filing's broadest anchor coverage. */
+function presentationCurrency(index: FactIndex): string | null {
+  const anchors = [...new Set([...FY_ANCHOR_DURATION_TAGS, "Assets"])];
+  const cells = anchors.flatMap(tag => (index.get(tag) ?? []).filter(up => unitMatches(up.unit, "money"))
+    .flatMap(up => up.all.filter(p => ANNUAL_FORMS.has(p.form.trim())).map(p => ({ unit: up.unit, point: p }))));
+  if (cells.length === 0) return null;
+  const newest = cells.map(c => `${c.point.filed}|${c.point.accn}`).sort().at(-1)!;
+  const units = [...new Set(cells.map(c => c.unit))];
+  const coverage = (unit: string) => new Set(cells.filter(c => c.unit === unit && `${c.point.filed}|${c.point.accn}` === newest).map(c => c.point.end)).size;
+  const total = (unit: string) => cells.filter(c => c.unit === unit).length;
+  return units.sort((a, b) => coverage(b) - coverage(a) || total(b) - total(a) || (a === "USD" ? -1 : b === "USD" ? 1 : a.localeCompare(b)))[0]!;
+}
+
+function otherUnitAnnualNotes(index: FactIndex, unit: string): string[] {
+  const ends = new Map<string, Set<string>>();
+  for (const tag of [...new Set([...FY_ANCHOR_DURATION_TAGS, "Assets"])]) {
+    for (const up of index.get(tag) ?? []) {
+      if (!unitMatches(up.unit, "money")) continue;
+      const dates = ends.get(up.unit) ?? new Set<string>();
+      for (const p of up.all) {
+        const duration = durationDays(p);
+        if (ANNUAL_FORMS.has(p.form.trim()) && (tag === "Assets" || (duration !== null && duration >= ANNUAL_MIN_DAYS && duration <= ANNUAL_MAX_DAYS))) dates.add(p.end);
+      }
+      ends.set(up.unit, dates);
+    }
+  }
+  const own = ends.get(unit) ?? new Set<string>();
+  const notes: string[] = [];
+  for (const [other, dates] of ends) {
+    if (other === unit || dates.size === 0) continue;
+    const shared = [...dates].filter(end => own.has(end)).sort();
+    if (shared.length) notes.push(`convenience_unit: ${other} amounts for ${shared.join(", ")} sit beside the ${unit} statements (a convenience translation, Regulation S-X 3-20(b)) and are not used`);
+    for (const end of [...dates].filter(end => !own.has(end)).sort()) notes.push(`mixed_unit: fiscal year ending ${end} is filed only in ${other}; the statements are in ${unit}; the year is withheld without a currency conversion`);
+  }
+  return notes;
+}
+
 function pickUnitPoints(index: FactIndex, tag: string, kind: UnitKind, currency?: string): UnitPoints | null {
   const entries = index.get(tag);
   if (entries === undefined) return null;
@@ -1593,6 +1636,9 @@ interface Resolved {
   tags: string[];
   /** For a `sumAnyOf`, each resolved part by label (the lease split needs it). */
   parts?: Record<string, number>;
+  /** FIN-401: the actual sumAll subtraction pass, retained before its prose is rendered. */
+  adjustments?: { amounts: Record<string, number>; baseTags: string[] };
+  componentDetails?: { present: { label: string; value: number; tags: string[] }[]; absent: string[] };
   derivation?: Derivation;
   derivedFrom?: string[];
   /**
@@ -1881,6 +1927,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
           notes.add(`${label}: ${subset}`);
           skipped.push(subset);
           continue;
+        }
+        if (spec.requireAgreement) {
+          const siblings = spec.tags.filter(sibling => sibling !== tag).flatMap(sibling => {
+            const resolved = notes.quietly(() => resolve(sibling, spec.unit));
+            return resolved === null ? [] : [{ tag: sibling, resolved }];
+          });
+          if (siblings.some(s => s.resolved.unit !== r.unit || s.resolved.value !== r.value)) {
+            notes.refuse(`${at?.field ?? label} withheld: ambiguous siblings ${tag} ${r.value} ${r.unit}; ${siblings.map(s => `${s.tag} ${s.resolved.value} ${s.resolved.unit}`).join("; ")} disagree and no definitional containment is evidenced`);
+            return null;
+          }
         }
         if (spec.sign === undefined) return disclosed(r);
         const decimals = spec.unit === "perShare" ? PER_SHARE_DECIMALS : MONEY_DECIMALS;
@@ -2175,7 +2231,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
         const text = spec.discloseAdjusted({ subtracted, unavailable, unusable, alreadyInside, notInBase, parts: partTags, notAdded, amounts });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
-        return combined;
+        return { ...combined, adjustments: { amounts, baseTags: partTags.find(p => p.label === "pretax income")?.tags ?? [] } };
       }
       return disclosed(combined);
     }
@@ -2218,6 +2274,8 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       return {
         ...combine(tidy(total, MONEY_DECIMALS), present.map((p) => p.r)),
         parts: Object.fromEntries(present.map((p) => [p.label, p.r.value])),
+        componentDetails: { present: present.flatMap(p => p.r.componentDetails?.present ?? [{ label: p.label, value: p.r.value, tags: p.r.tags }]),
+          absent: [...absent, ...present.flatMap(p => p.r.componentDetails?.absent ?? [])] },
       };
     }
     case "diff": {
@@ -2418,6 +2476,76 @@ function instantResolver(index: FactIndex, end: string): TagResolver {
     const p = findInstant(up.points, end);
     return p === null ? null : resolvedPoint(tag, up, p, p.val);
   };
+}
+
+/** The builder and provider fill evaluate the identical D-98 chain, including its component floor (FIN-401 / I5). */
+function resolveLongTermInvestments(resolve: TagResolver, notes: NoteSink, label: string, at?: ResolveAt): Resolved | null {
+  return resolveSpec(BALANCE_CHAINS.longTermInvestments!, resolve, notes, label, at);
+}
+
+export function longTermInvestmentsChainAt(facts: CompanyFacts, date: string, unit: string, observedAt: string): {
+  value: number; evidence: StatementFieldProvenance; notes: string[];
+  components: { label: string; value: number; tags: string[] }[]; absent: string[];
+} | null {
+  const cutoff = observedAt.slice(0, 10);
+  const index = buildFactIndex(facts, { splits: discoverStockSplits(facts, { asOf: cutoff, vendor: unavailableSplitEvidence("investment chain", "no share fields consumed") }), day: cutoff, withheld: [] }, cutoff, []);
+  const notes = createNoteSink();
+  const resolve = instantResolver(index, date);
+  const hit = resolveLongTermInvestments((tag, kind) => resolve(tag, kind, unit), notes, `longTermInvestments ${date}`);
+  if (hit === null) return null;
+  const filings = [...new Map((hit.evidencePoints ?? [hit.point]).map(p => [p.accn, filingRef(p)])).values()];
+  return { value: hit.value, evidence: { source: "edgar", unit: hit.unit, periodStart: null, periodEnd: date,
+    observedAt, tags: hit.tags.map(tag => `us-gaap/${tag}`), filings }, notes: notes.notes,
+    components: hit.componentDetails?.present ?? [{ label: "long-term investments", value: hit.value, tags: hit.tags }], absent: hit.componentDetails?.absent ?? [] };
+}
+
+/** House arithmetic tolerance, not an accounting materiality threshold (FIN-401; OD-5). */
+export const EQUITY_METHOD_PLACEMENT_TOLERANCE = { relative: 0.001, absolute: 1_000_000 } as const;
+
+function equityMethodPlacement(
+  resolutions: ReadonlyMap<string, Resolved>, resolve: TagResolver, instant: TagResolver | undefined, notes: NoteSink,
+): EquityMethodIncomePlacement | undefined {
+  const operating = resolutions.get("operatingIncome");
+  if (operating === undefined) return undefined; // A presentation-refused OI must not be re-derived.
+  const income = resolutions.get("equityMethodIncomeLoss")?.value ?? null;
+  const pretax = resolutions.get("incomeBeforeTax")?.value ?? null;
+  let refused = false;
+  const money = (tag: string): number | null => {
+    const before = notes.presentationRefusals.length;
+    const attempts = notes.withholdAttempts.length;
+    const hit = notes.quietly(() => resolve(tag, "money"));
+    refused ||= notes.presentationRefusals.length > before || notes.withholdAttempts.length > attempts;
+    notes.presentationRefusals.length = before;
+    notes.withholdAttempts.length = attempts;
+    return hit?.value ?? null;
+  };
+  const result = (placement: EquityMethodIncomePlacement["placement"], basis: string): EquityMethodIncomePlacement => ({ placement, income, basis });
+  const tolerance = Math.max(EQUITY_METHOD_PLACEMENT_TOLERANCE.absolute, EQUITY_METHOD_PLACEMENT_TOLERANCE.relative * Math.abs(pretax ?? 0));
+  if (income !== null && Math.abs(income) <= tolerance) return result("immaterial", "Filed equity-method income is within the placement tolerance of zero; it takes the base window's measured placement.");
+  if (operating.adjustments !== undefined) {
+    const { amounts, baseTags } = operating.adjustments;
+    if (amounts.IncomeLossFromEquityMethodInvestments !== undefined) return result("below-operating-income", "The EBIT derivation subtracted the filed equity-method income.");
+    if (baseTags.includes(PRETAX_EXCLUDING_EQUITY_METHOD_TAG)) {
+      const revenue = money("Revenues");
+      const costs = money(COSTS_AND_EXPENSES_TAG);
+      return result(!refused && income !== null && revenue !== null && costs !== null && pretax !== null && Math.abs(revenue - costs - pretax) <= tolerance
+        ? "in-operating-income" : "below-operating-income", "Pretax element excludes equity-method income by definition; revenue less costs is tested for income already inside revenue.");
+    }
+    const stake = instant?.("EquityMethodInvestments", "money", operating.unit)?.value ?? null;
+    if (income === null && stake !== null && stake > 0) return result("in-operating-income", "Derived EBIT could not subtract untagged equity-method income; its filed stake stays in operating capital.");
+    return income === null ? undefined : result("undetermined", "The EBIT derivation did not establish the equity-method income's scope.");
+  }
+  if (income === null) return undefined;
+  const aggregate = money("NonoperatingIncomeExpense");
+  const below = aggregate ?? ((money("OtherNonoperatingIncomeExpense") ?? 0) + (money("InvestmentIncomeInterest") ?? 0));
+  const interest = money("InterestExpense") ?? money("InterestAndDebtExpense") ?? 0;
+  if (refused || pretax === null) return result("undetermined", "A placement operand is unavailable or withheld for presentation; its absence is not a zero.");
+  const rest = pretax - operating.value - below + interest;
+  if (Math.abs(rest) <= tolerance) return result(aggregate === null ? "in-operating-income" : "undetermined", aggregate === null
+    ? "Component arithmetic reconciles pretax to operating income without a separate equity-method result."
+    : "The nonoperating aggregate can itself hold equity-method income; a reconciliation cannot establish inclusion in operating income.");
+  if (Math.abs(rest - income) <= tolerance) return result("below-operating-income", "Pretax less operating income and the other filed components reconciles to equity-method income.");
+  return result("undetermined", "Filed components do not establish the equity-method income's placement.");
 }
 
 function decimalsFor(kind: UnitKind): number {
@@ -3209,6 +3337,7 @@ interface PeriodSlot {
   date: string;
   resolve: TagResolver;
   quarter: QuarterContext | null;
+  instant?: TagResolver;
   /** Every deduped-away and winning companyfacts copy of `tag` in `unit` (quarterly slots only). */
   copiesOf?: (tag: string, unit: string) => readonly FactPoint[] | null;
 }
@@ -3412,7 +3541,9 @@ function buildStatementRows<TRow>(
     for (const [field, spec] of Object.entries(def.chains)) {
       resolvingField = field;
       const refusalsBefore = notes.refusals.length;
-      const r = resolveSpec(spec, sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
+      const r = def.statement === "balance" && field === "longTermInvestments"
+        ? resolveLongTermInvestments(sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date })
+        : resolveSpec(spec, sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
       values[field] = r === null ? null : tidy(r.value, decimalsFor(spec.unit));
       if (r !== null) resolutions.set(field, r);
       // A refusal becomes a withholding only when the field ends null; if a later chain step served, it stays a note.
@@ -3497,6 +3628,10 @@ function buildStatementRows<TRow>(
       acceptedDate: anchor.reporter.filed,
     };
     for (const field of fieldNames) row[field] = values[field] ?? null;
+    if (def.statement === "income") {
+      const placement = equityMethodPlacement(resolutions, sameRowEvidence, slot.instant, notes);
+      if (placement !== undefined) row.equityMethodIncomePlacement = placement;
+    }
     const fieldProvenance: Record<string, StatementFieldProvenance> = {};
     if (opts.factsObservedAt === undefined) notes.add(`${def.statement} ${ctxLabel}: SEC field acquisition timestamp unavailable; filing dates establish the analytical cutoff, while observedAt remains unknown`);
     for (const [field, resolved] of resolutions) {
@@ -4056,6 +4191,11 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
+  const presentationUnit = presentationCurrency(index);
+  if (presentationUnit !== null) {
+    for (const entries of index.values()) entries.sort((a, b) => Number(b.unit === presentationUnit || b.unit === `${presentationUnit}/shares`) - Number(a.unit === presentationUnit || a.unit === `${presentationUnit}/shares`));
+  }
+  const currencyNotes = presentationUnit === null ? [] : otherUnitAnnualNotes(index, presentationUnit);
   const state: BuildState = { filesTwentyF: false, filesForm20F: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
@@ -4063,17 +4203,25 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const annualYears = allFiscalYears.slice(0, Math.max(0, opts.annualPeriods));
 
   const quarterEnds = discoverQuarterEnds(index, fiscalYearEnds);
+  // N4b: income comparatives need no balance-sheet instant for that quarter.
+  const incomeQuarterEnds = mergeEndsDesc(new Set([...quarterEnds, ...REVENUE_TAGS.flatMap(tag =>
+    pickUnitPoints(index, tag, "money")?.points.filter(p => {
+      const days = durationDays(p);
+      return days !== null && days >= QUARTER_MIN_DAYS && days <= QUARTER_MAX_DAYS;
+    }).map(p => p.end) ?? [])]), fiscalYearEnds);
+  const incomeContexts = buildQuarterContexts(index, incomeQuarterEnds, fiscalYearEnds).slice(0, Math.max(0, opts.quarterlyPeriods) + 1);
   const quarterContexts = buildQuarterContexts(index, quarterEnds, fiscalYearEnds);
   // One quarter of headroom: the oldest requested quarter still needs its
   // predecessor to resolve a year-to-date difference.
   const quarterSlotContexts = quarterContexts.slice(0, Math.max(0, opts.quarterlyPeriods) + 1);
 
   const annualSlots = (resolverFor: (fy: FiscalYear) => TagResolver): PeriodSlot[] =>
-    annualYears.map((fy) => ({ date: fy.end, resolve: resolverFor(fy), quarter: null }));
+    annualYears.map((fy) => ({ date: fy.end, resolve: resolverFor(fy), instant: instantResolver(index, fy.end), quarter: null }));
   const quarterSlots = (ytdOnly: boolean, notes: NoteSink): PeriodSlot[] =>
-    quarterSlotContexts.map((ctx) => ({
+    (ytdOnly ? quarterSlotContexts : incomeContexts).map((ctx) => ({
       date: ctx.end,
-      resolve: quarterResolver(index, ctx, quarterEnds, ytdOnly, notes),
+      resolve: quarterResolver(index, ctx, ytdOnly ? quarterEnds : incomeQuarterEnds, ytdOnly, notes),
+      instant: instantResolver(index, ctx.end),
       quarter: ctx,
       copiesOf: (tag, unit) => index.get(tag)?.find((e) => e.unit === unit)?.all ?? null,
     }));
@@ -4089,6 +4237,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     : "revenue resolved through the bank revenue chain (the issuer is classified as a bank; its ASC-606 revenue tags carry fee revenue only and are tried last)";
 
   const incomeAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) incomeAnnualNotes.add(note);
   const incomeQuarterlyNotes = createNoteSink();
   if (bankRevenue) {
     incomeAnnualNotes.add(bankNote);
@@ -4098,6 +4247,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   // weighted shares on the income rows, CommonStockSharesOutstanding on the
   // balance rows.
   const balanceAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) balanceAnnualNotes.add(note);
   const balanceQuarterlyNotes = createNoteSink();
   const withheldSummary = describeShareBasisWithheld(shareBasisWithheld, basisDay);
   for (const text of [...splits.notes.map((n) => n.text), ...(withheldSummary === null ? [] : [withheldSummary])]) {
@@ -4187,13 +4337,15 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
       notes.withhold("commonDividendsPaid", date, reason);
     },
   };
+  const cashflowAnnualNotes = createNoteSink();
+  for (const note of currencyNotes) cashflowAnnualNotes.add(note);
   const cashflowAnnual = buildStatementRows<FmpCashFlowRow>(
     cashflowDef,
     annualSlots((fy) => annualResolver(index, fy)),
     "annual",
     opts,
     state,
-    createNoteSink(),
+    cashflowAnnualNotes,
   );
   const cashflowQuarterlyNotes = createNoteSink();
   const cashflowQuarterly = buildStatementRows<FmpCashFlowRow>(

@@ -10,7 +10,7 @@ export function FactorAttribution({ scores }: { scores: Scoring }) {
   const magnitude = available ? Math.max(1, Math.ceil(Math.max(...table.rows.map(row => Math.abs(Number(row[2])))))) : 1;
   return <section className="factor-attribution" aria-label="Composite factor attribution">
     <div className="analysis-visual-heading"><h3>{table.heading}</h3>
-      {available && <p>Neutral baseline <span className="mono">50</span> → recorded composite <span className="mono">{formatScore(scores.composite.score, 2)}</span></p>}
+      {available && <p>Neutral baseline <span className="mono">50</span> → recorded composite <span className="mono">{formatScore(scores.composite.score)}</span></p>}
     </div>
     {available ? <>
       <p className="analysis-visual-description">Signed contributions to the recorded house-rule score. The center line is zero contribution; effective family weights retain route applicability and missingness.</p>

@@ -11,6 +11,7 @@ import { normalizeSymbol } from "@/symbol";
 import type { DataBundle } from "@/pipeline/types";
 import type { YahooMeta } from "@/providers/yahoo";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 // These are controlled business-model probes, NOT financial captures of the
 // named securities. Every financial row comes from the same synthetic fixture.
@@ -86,9 +87,8 @@ describe("cross-company safety invariants", () => {
     Object.assign(b.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Credit Services" });
     const point = (val: number) => ({ units: { USD: [{ end: "2025-12-31", val,
       accn: "0000000001-26-000001", form: "10-K", filed: "2026-02-15", fy: 2025, fp: "FY" }] } });
-    b.edgar.companyFacts = { ok: true, value: { data: { cik: 1, entityName: "Synthetic deposit-funded credit company",
-      facts: { "us-gaap": { Deposits: point(1_000_000_000), LoansAndLeasesReceivableNetReportedAmount: point(1_200_000_000) } } },
-      source: "edgar", endpoint: "synthetic-companyfacts", asOf: "2026-02-15", fetchedAt: b.builtAt } };
+    withIssuerFacts(b, { cik: 1, entityName: "Synthetic deposit-funded credit company",
+      facts: { "us-gaap": { Deposits: point(1_000_000_000), LoansAndLeasesReceivableNetReportedAmount: point(1_200_000_000) } } });
     const conflicted = runStageB(b);
     expect(conflicted.route.gaps.some(g => g.field === "route.evidence.conflict")).toBe(true);
     b.profile.value.data.rows[0]!.industry = "Capital Markets";

@@ -253,6 +253,9 @@ describe("risk runtime behavior coverage", () => {
     vi.doMock("@/pipeline/events", () => ({
       getJobSnapshot,
       jobExists: () => true,
+      // PERF-202: polls read the canonical revision first; a new revision then
+      // reads the snapshot, which has disappeared after admission.
+      readJobRevision: () => 1,
       subscribeJob,
     }));
     const { GET } = await import("@/app/api/report/[jobId]/stream/route");

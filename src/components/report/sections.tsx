@@ -1,3 +1,8 @@
+import { reverseDcfValueText } from "@/report/presentation";
+import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
+import { shownDataState } from "@/report/completeness";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, unavailableModelInputTables } from "@/report/readerConventions";
+import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
  * consistent, and provenance-first: figures render as {@link TracedFigure}s
@@ -40,13 +45,16 @@ import {
   gapSummary,
   geographyLabel,
   geographicBasisNote,
+  cashFlowGroupHeading,
   indicatorLabel,
   keyDataRows,
+  technicalsFigureLabel,
   methodologyNotes,
   metricRowsWithoutTabled,
   moatSourceLabel,
   passLine,
-  priceTiming,
+  provisionalBarNote,
+  provisionalSessionBar,
   pruneTable,
   qualityAccrualClarifications,
   reportIdentityNote,
@@ -56,6 +64,10 @@ import {
   gradeReliabilityTable,
   seeAlsoText,
   splitCommonLines,
+  qualitativeScenarioConditions,
+  QUALITATIVE_SCENARIO_HEADING,
+  peerTableColumns,
+  scenarioListItem,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -104,6 +116,7 @@ import type {
   Scoring,
   SourcedClaim,
   FairValue,
+  Scenario,
   ScenarioTargets,
   Technicals,
   TracedNumber,
@@ -134,6 +147,7 @@ import { CapitalBridge } from "./CapitalBridge";
 import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
 
 import {
   ClaimList,
@@ -220,6 +234,33 @@ function SubBlock({
       </div>
       {children}
     </div>
+  );
+}
+
+/** No cash-flow model: each case's stated conditions, without target or probability scaffolding. */
+function QualitativeScenarios({ scenarios }: { scenarios: readonly Scenario[] }) {
+  const view = qualitativeScenarioConditions(scenarios);
+  if (view === null) return null;
+  const list = (title: string, items: readonly string[]) => items.length === 0 ? null : (
+    <div>
+      <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">{title}</div>
+      <ul className="flex flex-col gap-0.5">{items.map((text, i) => <li key={i} className="text-[11px] leading-snug text-fg">→ {displayProse(text)}</li>)}</ul>
+    </div>
+  );
+  return (
+    <SubBlock label={QUALITATIVE_SCENARIO_HEADING}>
+      {list("what would have to be true in every case", view.commonConditions)}
+      {list("qualitative commentary common to every case (not valuation inputs)", view.commonCommentary)}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {view.cases.map((c) => (
+          <div key={c.name} className="flex flex-col gap-2 border border-edge bg-panel px-2.5 py-2">
+            <div className="text-[11px] font-semibold">{c.name.charAt(0).toUpperCase() + c.name.slice(1)}</div>
+            {list("what would have to be true", c.conditions)}
+            {list("qualitative commentary (not valuation inputs)", c.commentary)}
+          </div>
+        ))}
+      </div>
+    </SubBlock>
   );
 }
 
@@ -655,6 +696,9 @@ function MetricRowsTable({ rows }: { rows: readonly MetricRow[] }) {
   );
 }
 
+/** Sub-block labels are lower-case; acronyms after the first word keep their case. */
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
+
 export function FundamentalsSection({
   fundamentals,
   sourceFactSummary,
@@ -694,7 +738,7 @@ export function FundamentalsSection({
           { label: "growth", split: metricRowsWithoutTabled(report, fundamentals.growthTable) },
           { label: "margin trend", split: metricRowsWithoutTabled(report, fundamentals.marginTrend) },
           { label: "returns", split: metricRowsWithoutTabled(report, fundamentals.returns) },
-          { label: "free cash flow", split: metricRowsWithoutTabled(report, fundamentals.fcf) },
+          { label: lowerFirst(cashFlowGroupHeading(fundamentals.fcf)), split: metricRowsWithoutTabled(report, fundamentals.fcf) },
         ];
         const homes = [...new Set(groups.flatMap((group) => group.split.homes))];
         const also = seeAlsoText(homes);
@@ -748,7 +792,8 @@ export function BalanceSheetSection({
 }) {
   // One identity map per section: the capital bridge registers each figure twice.
   const seen = new Map<string, FigureRow>();
-  for (const row of figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept)) seen.set(`${row.trace.value}|${row.trace.unit}`, row);
+  // RPT-216: register the same metric/basis identities the subsequent rows use.
+  figureRows(withoutTabled(report, balanceSheet.graded?.keyNumbers ?? []).kept, seen);
   const blocks: Array<{
     label: string;
     data: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] };
@@ -955,7 +1000,8 @@ export function ValuationSection({
   presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
-  const modelLabel = presentation === "classic" ? "DCF · intrinsic value / share"
+  const noModel = report ? unavailableCashFlowModel(report) : false;
+  const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
     : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
       : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
   return (
@@ -971,7 +1017,7 @@ export function ValuationSection({
       />
 
       {/* DCF headline + reverse-DCF callout */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p><ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
             {modelLabel}
@@ -995,7 +1041,7 @@ export function ValuationSection({
           {dcf.perShare && fairValueDegradedText(fairValue) && (
             <p className="text-[11px] leading-snug text-warn">{displayProse(fairValueDegradedText(fairValue)!)}</p>
           )}
-          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" ? "Model value provenance" : "DCF provenance"} />}
+          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance"} />}
           {fairValue ? (
             <p className="text-[10px] leading-snug text-faint">
               {fairValue.status === "available"
@@ -1008,9 +1054,9 @@ export function ValuationSection({
               {presentation === "dossier" ? "Reverse valuation — market-implied assumptions" : "reverse DCF — market is pricing"}
             </div>
             <div className="mono mt-0.5 text-[13px] text-warn">
-              {reverseDcf.impliedValue === null
+              {reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue) === "\u2014"
                 ? "n/a"
-                : `~${reverseDcf.impliedValue.toFixed(1)}% ${reverseDcf.impliedMetric}`}
+                : `~${reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue)} ${reverseDcf.impliedMetric}`}
             </div>
             <p className="mt-1 text-[11px] leading-snug text-muted">
               {displayProse(reverseDcf.narrative)}
@@ -1018,7 +1064,7 @@ export function ValuationSection({
           </div>
         </div>
 
-        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : "DCF assumptions"}>
+        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : fairValue?.method === "excess-return" ? "Valuation assumptions" : "DCF assumptions"}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
@@ -1053,13 +1099,13 @@ export function ValuationSection({
             </table>
           </div>
         </SubBlock>
-      </div>
+      </div>}
 
-      {presentation === "dossier" && <CapitalBridge dcf={dcf} />}
-      <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
+      {!noModel && presentation === "dossier" && <CapitalBridge dcf={dcf} />}
+      {!noModel && <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
         {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} />}
         {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} /> : <ExtraAuditTables tables={valuationAuditTables(dcf)} />}
-      </SubBlock>
+      </SubBlock>}
 
       <SubBlock label="multiples vs peers & own 5-yr history">
         <MultiplesTable rows={valuation.multiples} />
@@ -1067,9 +1113,9 @@ export function ValuationSection({
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
-      <ValuationReview valuation={valuation} scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
+      <ValuationReview valuation={valuation} scenarioPresentation={noModel ? undefined : scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
-      <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
+      {!noModel && <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
         <p className="mb-2 text-[11px] leading-snug text-faint">
           {scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable."}
         </p>
@@ -1106,14 +1152,15 @@ export function ValuationSection({
                 priceTarget={s.priceTarget}
                 horizon={s.horizon}
                 assumptions={specific}
-                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue}
+                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
                 weightLabel={scenarioPresentation ? "Display weight" : "p"}
-                qualitativeCommentary={s.qualitativeCommentary}
+                qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
               />
             );
           })}
         </div>
-      </SubBlock>
+      </SubBlock>}
+      {noModel && <QualitativeScenarios scenarios={valuation.scenarios} />}
 
       {routeMetrics ? (
         <SubBlock
@@ -1313,6 +1360,7 @@ export function TechnicalsSection({
   chart?: ReactNode;
 }) {
   const read = technicals.read;
+  const bar = report ? provisionalSessionBar(report) : null;
   const readRows: Array<{ label: string; value: string }> = [
     { label: "trend", value: read.trend },
     { label: "momentum", value: read.momentum },
@@ -1326,8 +1374,10 @@ export function TechnicalsSection({
         block={technicals.graded}
         defaultOpen={openReasoning}
         report={report ?? {}}
+        labelFor={(n) => technicalsFigureLabel(n, bar)}
         {...grading}
       />
+      {bar && <p className="text-[11px] text-muted">{provisionalBarNote(bar)}</p>}
 
       {chart !== undefined && (
         <div className="border border-edge bg-bg">{chart}</div>
@@ -1353,7 +1403,7 @@ export function TechnicalsSection({
             {figureRows(technicals.indicators).map((row, i) => (
               <TracedStat
                 key={i}
-                label={indicatorLabel(row.trace, report ? priceTiming(report) : { intraday: false, detail: null })}
+                label={indicatorLabel(row.trace, bar)}
                 n={row.trace}
               />
             ))}
@@ -1417,7 +1467,7 @@ function ExecutiveCard({ exec }: { exec: Executive }) {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
-        {exec.assessmentReason && <p className="text-[11px] text-muted">{displayProse(exec.assessmentReason)}</p>}
+        {executiveAssessmentNote(exec) && <p className="text-[11px] text-muted">{displayProse(executiveAssessmentNote(exec)!)}</p>}
         <ClaimList claims={exec.reasoning} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
           descriptor,
@@ -1502,13 +1552,8 @@ function PeerTable({ peers }: { peers: Competitive["peerTable"] }) {
   if (peers.length === 0) {
     return <div className="text-[11px] text-faint">no peers resolved</div>;
   }
-  // Columns keyed by the metric (peerMetricKey), never one column per peer.
-  const metricKeys: string[] = [];
-  for (const p of peers) {
-    for (const key of peerColumnKeys(p.metrics)) {
-      if (!metricKeys.includes(key)) metricKeys.push(key);
-    }
-  }
+  // Columns keyed by the metric (peerMetricKey), never one column per peer; reader headings.
+  const { keys: metricKeys, headings } = peerTableColumns(peers);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[11px]">
@@ -1517,9 +1562,9 @@ function PeerTable({ peers }: { peers: Competitive["peerTable"] }) {
             <th className="px-2 py-1 text-left text-[9px] uppercase tracking-[0.1em] text-faint">
               peer
             </th>
-            {metricKeys.map((k) => (
+            {metricKeys.map((k, i) => (
               <th key={k} className="px-2 py-1 text-right text-[9px] text-faint">
-                {k}
+                {headings[i]}
               </th>
             ))}
           </tr>
@@ -1566,12 +1611,13 @@ export function CompetitiveSection({
   report = {},
   grading = {},
 }: {
-  report?: Pick<Report, "filingDisclosures">;
+  report?: Pick<Report, "filingDisclosures"> & Partial<Pick<Report, "valuation" | "meta">>;
   grading?: SectionGrading;
   competitive: Competitive;
   index: number;
   openReasoning?: boolean;
 }) {
+  const peerList = providerPeerListPresentation({ competitive, valuation: report.valuation, meta: report.meta });
   return (
     <SectionFrame id="competitive" index={index} title="Competitive · Moat">
       <GradeReasoning
@@ -1600,7 +1646,8 @@ export function CompetitiveSection({
         </div>
       </SubBlock>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <SubBlock label="peer table">
+        <SubBlock label={peerList.heading}>
+          {peerList.note && <p className="text-[11px] leading-snug text-muted">{peerList.note}</p>}
           <PeerTable peers={competitive.peerTable} />
         </SubBlock>
         <SubBlock label="market-share direction">
@@ -1860,7 +1907,7 @@ export function OutlookSection({
  * ======================================================================== */
 
 export function MacroSection({ macro, index }: { macro: Macro; index: number }) {
-  const cols: Column<Macro["relevantSeries"][number]>[] = [
+  const cols: Column<MacroDisplayRow>[] = [
     {
       key: "id",
       header: "series",
@@ -1878,6 +1925,11 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
       render: (s) => <TracedFigure n={s.latest} className="text-[11px]" />,
     },
     {
+      key: "observation",
+      header: "observation",
+      render: (s) => <span className="mono text-[10px] text-muted">{s.observation}</span>,
+    },
+    {
       key: "rel",
       header: "relevance",
       render: (s) => (
@@ -1890,8 +1942,8 @@ export function MacroSection({ macro, index }: { macro: Macro; index: number }) 
       <SubBlock label="relevant FRED series">
         <DataTable
           columns={cols}
-          rows={macro.relevantSeries}
-          rowKey={(s) => s.seriesId}
+          rows={macroDisplayRows(macro)}
+          rowKey={(s) => `${s.seriesId}|${s.latest.unit}|${s.latest.asOf}|${s.latest.value}`}
           empty="no macro series mapped"
         />
       </SubBlock>
@@ -2005,7 +2057,7 @@ export function AppendixSection({
   const rate = appendix.verificationRate;
   const dataOnly = appendix.missingData.some((gap) => gap.field === "analysis.llm");
   const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
-  const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage, appendix.verificationLog);
+  const trust = trustRows(displayedProvenanceCoverage(report, "appendix"), appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const checks = appendix.consistencyChecks; // WS7 (D-20)
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
@@ -2042,8 +2094,8 @@ export function AppendixSection({
 
       <SubBlock label="run details">
         <ul className="flex flex-col gap-0.5 text-[11px] text-muted">
-          {(m.execution ?? []).map((entry, i) => <li key={`${entry.step}-${i}`} className="mono">{passLine(entry)}</li>)}
-          {m.judgeProtocol && <li>{m.judgeProtocol.note}</li>}
+          {(m.execution ?? []).map((entry, i) => <li key={`${entry.step}-${i}`} className="mono">{passLine(entry, report.appendix.costBreakdown)}</li>)}
+          {m.judgeProtocol && <li>{displayProse(m.judgeProtocol.note)}</li>}
           {m.verifyModel !== undefined && <li>verify model {m.verifyModel}</li>}
           <li>{usageSummary(report)}</li>
           {evidenceScope !== null && <li>evidence · {evidenceScope}</li>}
@@ -2126,8 +2178,8 @@ export function ReportMetaStrip({
     report.appendix.missingData,
     report.appendix.sources,
   );
-  const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
-  const provenance = provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog);
+  const verification = trustHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
+  const provenance = provenanceHeadline(displayedProvenanceCoverage(report, "header"), report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const identityNote = reportIdentityNote(report,{selectedReportId});
   return (
@@ -2159,9 +2211,9 @@ export function ReportMetaStrip({
         </span>
         <span className="mono">spec {m.specVersion}</span>
         <span
-          className={presentation.state === "blocked"
+          className={shownDataState(presentation) === "blocked"
             ? "font-semibold text-red-500"
-            : presentation.state === "degraded" || presentation.state === "unknown"
+            : shownDataState(presentation) === "degraded" || shownDataState(presentation) === "unknown"
               ? "font-semibold text-amber-500"
               : "text-muted"}
           title="Data state; metadata agreement is a separate reconciliation check."

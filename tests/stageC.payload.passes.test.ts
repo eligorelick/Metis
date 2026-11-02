@@ -1,3 +1,6 @@
+import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
+import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
+import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
 /**
  * Stage C tests — payload assembly determinism + provenance, prompt rule blocks,
  * verify-pass tracing, report assembly + schema validation + retry-on-zod, and a
@@ -12,6 +15,135 @@ import { describe, expect, it } from "vitest";
 import placeholderCase from "./fixtures/analyst-placeholder-case.json";
 
 describe("current-main report generation integrity regressions", () => {
+  it.each(["array", "invalid known section"])("retains rejected %s bytes separately from accepted section recovery", async (kind) => {
+    const { payload } = buildInputs();
+    const thesis = analystCase("bull").thesis;
+    const rejected = kind === "array" ? ["REJECTED_SECTION_SENTINEL"] : { evidence: "REJECTED_SECTION_SENTINEL" };
+    let calls = 0;
+    let settled: unknown;
+    const runPass: PassDeps["runPass"] = async () => {
+      calls++;
+      const usage = { input_tokens: 10, output_tokens: 5 };
+      return { ok: true, value: { data: { model: "claude-sonnet-5-5", usage, costUsd: 0.1, fallbackUsed: false,
+        message: { content: [{ type: "text", text: JSON.stringify(calls === 1 ? { thesis } : rejected) }], usage, model: "claude-sonnet-5-5" },
+      } } };
+    };
+    const run = await runBullPass({ model: "claude-sonnet-5-5", sectionedOutput: true, runPass }, payload, value => { settled = value; });
+    expect(run.ok).toBe(false);
+    expect(settled).toMatchObject({ outcome: "failure", failure: {
+      partialText: JSON.stringify({ thesis }), rejectedText: expect.stringContaining("REJECTED_SECTION_SENTINEL"),
+    }, telemetry: { inputTokens: calls * 10, outputTokens: calls * 5, costUsd: calls * 0.1 } });
+    if (!run.ok) {
+      const kept = checkCarriedAnalystSections(JSON.parse(run.error.partialText!)).kept;
+      expect(kept).toEqual({ thesis });
+    }
+  });
+  it("uses a real legacy citation when the duplicate sourceId is only a placeholder", async () => {
+    const { payload } = buildInputs();
+    const raw = analystCase("bear");
+    raw.evidence[0]!.sourceId = "x";
+    const mock = new MockRunPass();
+    mock.onJson("llm.bear", raw);
+    const run = await runBearPass(makeDeps(mock), payload);
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.evidence[0]?.sourceId).toBeUndefined();
+      expect(run.result.output.evidence[0]?.source).toBe(raw.evidence[0]?.source);
+      expect(run.result.output.evidence[0]?.verified).toBeNull();
+    }
+    expect(raw.evidence[0]?.sourceId).toBe("x");
+  });
+  it("does not turn a normalized but unregistered citation into verified evidence", async () => {
+    const { payload } = buildInputs();
+    const raw = judgeOutput();
+    raw.business.whatTheySell = [{ text: "Revenue was USD 123 million.", label: "FACT", source: "", sourceId: "invented.source", asOf: "2026-06-30" }];
+    const normalized = normalizeJudgeOutput(raw) as JudgeOutput;
+    const verified = await runVerifyPass(makeDeps(new MockRunPass()), payload, normalized, { fetchedUrls: [] });
+    const entry = verified.log.find(item => item.source === "invented.source");
+    expect(entry).toBeDefined();
+    expect(entry?.outcome).toBe("unverified");
+    expect(entry?.validationStatus).not.toBe("validated");
+  });
+  it.each([true, false])("allows a withheld analyst target only with a reason (reason=%s)", async (reason) => {
+    const { payload } = buildInputs();
+    const raw = { ...analystCase("bear"), priceTarget: { value: null, horizon: "not modeled", assumptions: reason ? ["Per-share value is withheld because economic share-class scope is unresolved."] : [] } };
+    const mock = new MockRunPass();
+    mock.onJson("llm.bear", raw);
+    const run = await runBearPass(makeDeps(mock), payload);
+    expect(run.ok).toBe(reason);
+    if (run.ok) expect(run.result.output.priceTarget.value).toBeNull();
+    expect(checkCarriedAnalystSections(raw).dropped.includes("priceTarget")).toBe(!reason);
+  });
+  it("asks for evidence limitations instead of fabricated analyst targets", () => {
+    for (const prompt of [buildBullFraming(), buildBearFraming()]) {
+      expect(prompt).toContain("`priceTarget.value` to null");
+      expect(prompt).toContain("Do not substitute a historical high/low");
+    }
+  });
+  it.each(["bull", "bear"] as const)("accepts a blank legacy source when the %s claim supplies its canonical sourceId", async (side) => {
+    const { payload } = buildInputs();
+    const original = analystCase(side);
+    const claim = { ...original.thesis[0]!, source: "", sourceId: original.thesis[0]!.source };
+    const raw = { ...original, thesis: [claim] };
+    const before = structuredClone(raw);
+    const mock = new MockRunPass();
+    mock.onJson(`llm.${side}`, raw);
+    const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload);
+    expect(run.ok).toBe(true);
+    if (run.ok) expect(run.result.output.thesis[0]).toEqual({ ...claim, source: claim.sourceId });
+    // Recovery keeps the writer's bytes; parsing the assembled case applies
+    // the same normalization again.
+    expect(checkCarriedAnalystSections(raw).kept.thesis).toEqual([claim]);
+    expect(raw).toEqual(before);
+  });
+  it.each(["", "  ", "[fmp:profile · 2026-07-06]", "x"])("does not manufacture a usable citation from sourceId %j", async (sourceId) => {
+    const { payload } = buildInputs();
+    const raw = analystCase("bull");
+    raw.thesis[0] = { ...raw.thesis[0]!, source: "", sourceId };
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", raw);
+    expect((await runBullPass(makeDeps(mock), payload)).ok).toBe(false);
+  });
+  it("normalizes the same citation alias in judge claims without replacing nonblank legacy sources", () => {
+    const raw = judgeOutput();
+    const claim = raw.business.whatTheySell[0]!;
+    raw.business.whatTheySell = [{ ...claim, source: "", sourceId: "fmp:profile" }, { ...claim, source: "legacy", sourceId: "fmp:profile" }];
+    const result = normalizeJudgeOutput(raw) as JudgeOutput;
+    expect(result.business.whatTheySell[0]?.source).toBe("fmp:profile");
+    expect(result.business.whatTheySell[1]?.source).toBe("legacy");
+    expect(raw.business.whatTheySell[0]?.source).toBe("");
+  });
+  it.each(["bull", "bear"] as const)("retains a rejected %s response for durable diagnosis without admitting its invalid sections", async (side) => {
+    const { payload } = buildInputs();
+    const rejected = { ...analystCase(side), evidence: [{ value: 2, unit: "x", source: "x", asOf: null, verified: null }] };
+    const mock = new MockRunPass();
+    mock.onJson(`llm.${side}`, rejected);
+    let retained: string | undefined;
+    let partial: string | undefined;
+    const run = await (side === "bull" ? runBullPass : runBearPass)(makeDeps(mock), payload, (settlement) => {
+      if (settlement.outcome === "failure") { retained = settlement.failure.rejectedText; partial = settlement.failure.partialText; }
+    });
+    expect(run.ok).toBe(false);
+    expect(retained).toBe(JSON.stringify(rejected));
+    expect(partial).toBeUndefined(); // L-4: complete schema rejection cannot claim recovered sections.
+    const checked = checkCarriedAnalystSections(JSON.parse(retained!));
+    expect(checked.dropped).toContain("evidence");
+    expect(checked.kept.thesis).toEqual(rejected.thesis);
+  });
+  it("records how a rejected analyst response ended (FIGR extra-high bull skeleton, 2026-11-02)", async () => {
+    // Both paid FIGR runs' first bull answer was one FACT and empty lists (38,666
+    // output tokens and seven searches at extra-high); nothing durable said how
+    // the response ended, so the cause could not be established afterwards.
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", placeholderCase);
+    let shape: string | undefined;
+    const run = await runBullPass(makeDeps(mock), payload, (settlement) => {
+      if (settlement.outcome === "failure") shape = settlement.failure.responseShape;
+    });
+    expect(run.ok).toBe(false);
+    expect(shape).toMatch(/^stop reason end_turn; content blocks: text 1; text \d+ chars; output \d+ tokens$/);
+  });
   it.each(["bull", "bear"] as const)("rejects retained placeholder %s content during generation and checkpoint reuse", async (side) => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
@@ -52,10 +184,14 @@ describe("current-main report generation integrity regressions", () => {
     expect(checkCarriedJudgeSections(output).dropped).toContain(section);
   });
 });
+import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreB6Golden } from "./helpers/b6PayloadGolden";
 import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
 import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
 import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityPayloadGolden";
+import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
+import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
+import { restoreR8EvidenceBasisGolden } from "./helpers/r8EvidenceBasisGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -600,8 +736,19 @@ describe("payload determinism + provenance", () => {
     expect(payloadFingerprint(a.payload).startsWith(`${PAYLOAD_VERSION}:`)).toBe(true);
   });
 
+  // N4a L6 adds only these 48 methodology characters in this general fixture.
+  // Count the exact changed text, then preserve every earlier byte/numeric pin.
+  // This helper owns no stamp transition.
+  const restoreN4aGolden = <T extends ReturnType<typeof buildInputs>>(input: T): T => {
+    const r2 = restoreR2FigurePayloadGolden(input);
+    return { ...input, computed: restoreN4aPeerWordingGolden(r2.computed, 2), payload: restoreN4aPeerWordingGolden(r2.payload, 1) };
+  };
   it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(buildInputs()))));
+    // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
+    // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
+    // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
+    // R8 restores only its reviewed evidence qualifications before the R6 pin.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(buildInputs()))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1510,7 +1657,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.56.0");
+    expect(first.payloadVersion).toBe("1.62.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1721,7 +1868,7 @@ describe("payload determinism + provenance", () => {
     )!;
 
     expect(fy2027.period).toBe("2027-09-30");
-    expect(fy2027.asOf).toBe("2026-07-01");
+    expect(fy2027.asOf).toBe("2026-07-06");
   });
 
   it("uses the first day of a Finnhub observation month instead of builtAt", () => {
@@ -1740,6 +1887,8 @@ describe("payload determinism + provenance", () => {
       throw new Error("fixture requires analyst estimates and price targets");
     }
     bundle.analystEstimates.value.asOf = "2026-02-30";
+    bundle.analystEstimates.value.fetchedAt = "2026-02-30T00:00:00Z";
+    delete bundle.analystEstimates.value.data.estimateTiming;
     bundle.priceTargetConsensus.value.asOf = "";
     const validation = validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") });
     const payload = assembleContextPayload(bundle, computed, validation);
@@ -2443,8 +2592,7 @@ describe("verify-pass tracing", () => {
     // tag. A live haiku run (2026-09-02) filled `period` with the as-of date on
     // 40 such numbers and every one failed period-mismatch, capping citation
     // coverage at 71% for figures whose id, value and as-of all matched exactly.
-    // A dimension the registry does not carry cannot be wrong: it is adopted
-    // from the record (null) and the number traces.
+    // AI-408: the matching as-of decoration traces; FY1999 is not established.
     const { payload } = buildInputs();
     const deps = makeDeps(new MockRunPass());
     const record = payload.provenanceRegistry!.find(
@@ -2458,11 +2606,11 @@ describe("verify-pass tracing", () => {
       ],
     };
     const { verificationRate, log, verifiedReport } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
-    expect(verificationRate).toBe(1);
-    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(false);
-    // The decoration is normalised away so the persisted number carries the
-    // registry's (absent) period, not an invented one.
-    for (const number of collectTracedNumbers(verifiedReport)) expect(number.period ?? null).toBeNull();
+    expect(verificationRate).toBe(0.5); // AI-408: formerly 1, falsely accepting FY1999.
+    expect(log.some((entry) => entry.reason === "period-mismatch")).toBe(true);
+    const numbers = collectTracedNumbers(verifiedReport);
+    expect(numbers[0].period ?? null).toBeNull();
+    expect(numbers[1].period).toBe("FY1999");
   });
 
   it("reads a fiscal spelling of a registered ISO period as that period, and still rejects another year", async () => {
@@ -2650,7 +2798,7 @@ describe("verify-pass tracing", () => {
     const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
     expect(log.filter((entry) => entry.outcome === "unverified" && entry.validationStatus !== "cited").map((entry) => entry.reason))
-      .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
+      .toEqual(["earnings-date-qualified", "earnings-date-qualified", "value-mismatch", "value-mismatch", "earnings-date-qualified"]); // R9 also qualifies the natural-language date.
   });
 
   it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
@@ -2948,6 +3096,95 @@ describe("final assembled report verification", () => {
 });
 
 describe("assembleReport", () => {
+  it("qualifies an unconfirmed earnings date in sourced and plain prose without treating it as validated", async () => {
+    const { bundle, computed } = buildInputs();
+    bundle.earningsCalendarNext = { ok: true, value: { source: "fmp", endpoint: "/stable/earnings-calendar", asOf: "2026-07-06", fetchedAt: GENERATED_AT,
+      data: { symbol: "AAPL", date: "2026-11-04", confirmation: "vendor_estimate" } } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
+    const output = judgeOutput();
+    output.verdict.executiveSummary = [{ text: "Third-quarter results are due 2026-11-04; guidance indicates slower growth.", label: "FACT", source: "fmp:earnings-calendar", asOf: "2026-07-06" }];
+    output.disagreements = [{ topic: "Growth", bullView: "Growth accelerated", bearView: "Guidance slows", kind: "interpretation", judgeResolution: "Results on 2026-11-04 will clarify the trend." }];
+    const original = JSON.stringify(output);
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.verifiedReport.verdict.executiveSummary![0]).toMatchObject({ label: "ESTIMATE" });
+    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toContain("FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release");
+    expect(result.verifiedReport.disagreements[0]!.judgeResolution).toContain("FMP calendar estimate; not confirmed by an SEC filing or a company-hosted release");
+    const log = result.log.filter(e => e.path === "verdict.executiveSummary[0]");
+    expect(log.some(e => e.reason === "earnings-date-qualified" && e.claim === output.verdict.executiveSummary![0]!.text)).toBe(true);
+    expect(log.find(e => e.outcome !== "removed")?.claimSupportStatus).toBe("cited");
+    expect(log.every(e => e.validationStatus !== "validated" && e.numericSupportStatus !== "validated")).toBe(true);
+    const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: result.verifiedReport,
+      verify: result, costEntries: [], model: "none" }, GENERATED_AT);
+    expect(report.verdict.executiveSummary![0]!.text).toBe(result.verifiedReport.verdict.executiveSummary![0]!.text);
+    const repeated = await runVerifyPass(makeDeps(new MockRunPass()), payload, result.verifiedReport, { fetchedUrls: [] });
+    expect(repeated.verifiedReport.verdict.executiveSummary).toEqual(result.verifiedReport.verdict.executiveSummary);
+    expect(repeated.verifiedReport.disagreements).toEqual(result.verifiedReport.disagreements);
+    expect(repeated.log.filter(e => e.path === "verdict.executiveSummary[0]").every(e => e.validationStatus !== "validated")).toBe(true);
+    expect(JSON.stringify(output)).toBe(original);
+  });
+
+  it.each(["company_confirmed", "vendor_estimate"] as const)("does not qualify unrelated dates or override a %s event", async confirmation => {
+    const { bundle, computed } = buildInputs();
+    bundle.earningsCalendarNext = { ok: true, value: { source: confirmation === "company_confirmed" ? "edgar" : "fmp", endpoint: "retained", asOf: "2026-07-06", fetchedAt: GENERATED_AT,
+      data: { date: "2026-11-04", confirmation } } };
+    const output = judgeOutput();
+    output.verdict.executiveSummary = [{ text: confirmation === "company_confirmed" ? "Results are scheduled for 2026-11-04." : "The filing was signed on 2026-11-04.", label: "FACT", source: "fmp:profile", asOf: "2026-07-01" }];
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.verifiedReport.verdict.executiveSummary![0]!.text).toBe(output.verdict.executiveSummary[0]!.text);
+    expect(result.log.some(e => e.reason === "earnings-date-qualified")).toBe(false);
+  });
+
+  it.each([
+    [21.65, 23.3598, 23.087, "below both"],
+    [25, 23, 24, "above both"],
+    [23.5, 23, 24, "between"],
+    [23.5, 24, 23, "between"],
+    [23, 23, 24, "equal to the 50-day"],
+    [23, 24, 23, "equal to the 200-day"],
+    [23, 23, 23, "equal to both"],
+    [23, null, 24, "50-day average unavailable"],
+    [null, 23, 24, "Last close unavailable"],
+  ] as const)("grounds the technical trend relation for close %s / SMA50 %s / SMA200 %s", (close, sma50, sma200, relation) => {
+    const { bundle, computed } = buildInputs();
+    computed.technicals.lastClose = close;
+    computed.technicals.smaCross.sma50 = sma50;
+    computed.technicals.smaCross.sma200 = sma200;
+    computed.technicals.read.trend = "sideways";
+    computed.technicals.asOf = "2026-10-30";
+    const output = judgeOutput();
+    output.technicals.read.trend = "Sideways: the close sits between both averages.";
+    const original = JSON.stringify(output);
+    const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: output,
+      verify: { verificationRate: null, log: [] }, costEntries: [], model: "none" }, GENERATED_AT);
+    expect(report.technicals.read.trend).toContain(relation);
+    expect(report.technicals.read.trend).toContain("sideways");
+    expect(report.technicals.read.trend).toContain("2026-10-30");
+    expect(report.technicals.read.momentum).toBe(output.technicals.read.momentum);
+    expect(JSON.stringify(output)).toBe(original);
+  });
+
+  it("keeps compound executive titles and rejects listed-as title mismatches through full verification", async () => {
+    const { payload } = buildInputs();
+    payload.leadership.notes = [
+      "Dylan Field — Chief Executive Officer, President & Chairman [fmp:key-executives]",
+      "Praveer Melwani — Chief Financial Officer & Treasurer [fmp:key-executives]",
+    ];
+    payload.citationRegistry = [...(payload.citationRegistry ?? []).filter(r => r.id !== "fmp:key-executives"),
+      { id: "fmp:key-executives", kind: "payload-text", origin: "fmp:key-executives", asOf: null }];
+    const output = judgeOutput();
+    output.fundamentals.commentary = [
+      { text: "Dylan Field is listed as Chief Executive Officer, President & Chairman.", label: "FACT", source: "fmp:key-executives", asOf: null },
+      { text: "Praveer Melwani is listed as Chief Executive Officer.", label: "FACT", source: "fmp:key-executives", asOf: null },
+    ];
+    const result = await runVerifyPass(makeDeps(new MockRunPass()), payload, output, { fetchedUrls: [] });
+    expect(result.checks?.namedIndividual).toMatchObject({ checked: 2, passed: 1, failed: 1 });
+    const checks = result.log.filter(entry => entry.check === "named-individual");
+    expect(checks).toHaveLength(1);
+    expect(checks[0]).toMatchObject({ reason: "named-individual-title-mismatch", path: "fundamentals.commentary[1]" });
+    expect(JSON.stringify(result.log)).not.toContain("names Officer");
+  });
+
   it("keeps final fallback executive assessments strict when verification produced no log", () => {
     const {bundle,computed}=buildInputs();
     const output=judgeOutput();
@@ -3039,7 +3276,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.54.0");
+    expect(report.meta.specVersion).toBe("1.58.0"); // the FIGR extra-high audit round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -5505,8 +5742,9 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
     if (!bull.ok) {
       expect(bull.error.kind).toBe("schema");
       expect(bull.validationError).toBe(
-        "the case is incomplete: `thesis` contains placeholder content; supply supported content or an explicit evidence limitation; " +
-          "`keyDrivers` is empty: give it at least one sourced claim; " +
+        // The real legacy citation survives a placeholder duplicate ID;
+        // the empty sections and zero target still fail independently.
+        "the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim; " +
           "`risksToCase` is empty: give it at least one sourced claim; " +
           "`priceTarget.value` must be a positive price; `priceTarget.horizon` is empty: state the horizon; " +
           "`priceTarget.assumptions` must explain the target or explicitly qualify insufficient valuation evidence",
@@ -5564,6 +5802,44 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
 
     expect(run.ok).toBe(false);
     if (!run.ok) expect(run.validationError).toContain('"source"');
+  });
+
+  /**
+   * FIGR paid run (2026-11-02): the bear's first attempt (15,653 output tokens,
+   * $0.37) was rejected because two claims sent `asOf: ""`. The field is
+   * nullable and null is the schema's "no date": a blank date is no date.
+   */
+  it("treats a blank asOf on a claim or number as no date instead of failing the case", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", {
+      ...bear,
+      keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "" }, ...bear.keyDrivers.slice(1)],
+      evidence: [{ ...bear.evidence[0]!, asOf: "  " }, ...bear.evidence.slice(1)],
+    });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.keyDrivers[0]).toEqual({ ...bear.keyDrivers[0]!, asOf: null });
+      expect(run.result.output.evidence[0]?.asOf).toBeNull();
+    }
+  });
+
+  it("still rejects a claim whose asOf is a malformed, non-blank date", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", { ...bear, keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "Q3 2026" }, ...bear.keyDrivers.slice(1)] });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(false);
+    if (!run.ok) expect(run.validationError).toContain("Invalid ISO date");
   });
 
   /**
@@ -5970,6 +6246,11 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
 });
 
 describe("macro figures carry their units", () => {
+  it("names monthly observation dates and CPI year-over-year transforms beside the series (R8)", () => {
+    const { payload } = buildInputs();
+    expect(payload.macro.notes.join(" ")).toMatch(/monthly.*first day.*observation month.*not.*release date/i);
+    expect(payload.macro.notes.join(" ")).toContain("CPIAUCSL: year-over-year %");
+  });
   it("shows FRED rates in percent and registers them so a cited yield traces", () => {
     const { payload } = buildInputs();
     const dgs10 = payload.macro.figures.find((f) => f.source === "fred:DGS10");

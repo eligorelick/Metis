@@ -8,6 +8,38 @@ import { parsePassArtifactEnvelope, serializePassFailure } from "@/pipeline/jobA
 const directories: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const dir of directories.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 describe("durable section checkpoints", () => {
+  it("round-trips bounded rejected diagnostics independently of recovery text", () => {
+    const partialText = '{"thesis":[]}';
+    const failure = serializePassFailure(new Error("invalid section"), { kind: "schema", partialText, rejectedText: "x".repeat(1_000_001) });
+    expect(failure.partialText).toBe(partialText);
+    expect(failure.rejectedText).toHaveLength(1_000_000);
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const rejectedText of [17, "x".repeat(1_000_001)]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, rejectedText } })).toThrow("invalid failure");
+    }
+  });
+  it("round-trips a bounded response shape for a rejected answer", () => {
+    const failure = serializePassFailure(new Error("invalid case"), { kind: "schema", responseShape: "s".repeat(2_000) });
+    expect(failure.responseShape).toHaveLength(1_024);
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const responseShape of [17, "", "s".repeat(1_025)]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, responseShape } })).toThrow("invalid failure");
+    }
+  });
+  it("round-trips terminal provider diagnostics without changing legacy failures or partial recovery text", () => {
+    const providerFailure = { disposition: "terminal" as const, code: "subscription_sharing_usage_limit_exceeded", httpStatus: 429,
+      requestId: "req-offline", param: "model", bodyShape: "error" as const };
+    const failure = serializePassFailure(new Error("plan limit"), { kind: "transport", retryable: false, providerFailure, partialText: '{"thesis":[]}' });
+    const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "evidence" };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(envelope))).toEqual(envelope);
+    for (const changed of [{ disposition: "unknown" }, { httpStatus: 999 }, { code: "unsafe\ncode" }, { requestId: "Bearer secret" }, { body: "secret" }]) {
+      expect(() => parsePassArtifactEnvelope("bull", { ...envelope, failure: { ...failure, providerFailure: { ...providerFailure, ...changed } } })).toThrow();
+    }
+    const legacy = { ...envelope, failure: { name: "Error", message: "cut off", kind: "transport", retryable: true } };
+    expect(parsePassArtifactEnvelope("bull", JSON.stringify(legacy))).toEqual(legacy);
+  });
   it("round-trips bounded recovery text through a durable failure artifact", () => {
     const failure = serializePassFailure(new Error("cut off"), { kind: "transport", partialText: '{"verdict":{"synthesis":"saved"}}' });
     const envelope = { artifactVersion: 1, outcome: "failure", failure, payloadFingerprint: "v1:evidence" };

@@ -10,6 +10,8 @@ const eslintConfig = [
     // including inside gitignored `.worktrees/` or `.claude/` checkouts a contributor may
     // have; a root-relative `.next/**` misses those and floods `npm run lint`.
     ignores: [
+      "*", "!src/", "!tests/", "!scripts/", "!public/",
+      "!*.ts", "!*.mjs", "!*.cjs", "!*.js",
       "**/node_modules/**",
       "**/.next/**",
       "**/out/**",

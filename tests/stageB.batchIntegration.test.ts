@@ -18,6 +18,13 @@ describe("B5 period scaling with B6 annual-revenue refusal", () => {
       fieldProvenance: { revenue: { source: "edgar", unit: "USD", periodStart: String(start),
         periodEnd: String(date), observedAt: "2026-10-01T00:00:00.000Z", tags: ["Revenues"], filings: [] } },
     }));
+    // R2: a filed revenue interval cannot authorize an unverified provider
+    // operating numerator. Establish the same synthetic filed basis for both.
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) {
+      const proof = row.fieldProvenance!.revenue!;
+      proof.filings = [{ accn: "0000000042-26-000001", filed: "2026-10-01", form: "10-Q" }];
+      row.fieldProvenance!.operatingIncome = { ...proof, tags: ["us-gaap/OperatingIncomeLoss"] };
+    }
     const bytes = JSON.stringify(bundle);
     const clean = runStageB(bundle, { evIncludeLeases: false });
     const refused = runStageB(bundle, { evIncludeLeases: false }, { checks: [{

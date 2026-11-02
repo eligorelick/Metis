@@ -59,7 +59,7 @@ describe("same-definition income classification", () => {
   });
   it.each(["date", "unknown-currency", "no-anchor", "no-facts"])("retains unknown observations without invented classification (%s)", change => {
     const f = facts();
-    if (change === "no-anchor") delete f.facts["us-gaap"]!.Assets;
+    if (change === "no-anchor") { delete f.facts["us-gaap"]!.Assets; delete f.facts["us-gaap"]!.Revenues; } // L3: revenue is an independent income anchor.
     if (change === "no-facts") f.facts = {};
     const row = admit(change === "date" ? { date: undefined } : change === "unknown-currency" ? { reportedCurrency: null } : {}, f).row;
     expect(row.fieldConflicts?.grossProfit).toBeUndefined();
@@ -122,4 +122,19 @@ describe("same-definition income classification", () => {
     expect(result.forensics.beneish.neutralized).toContain("GMI");
     expect(result.forensics.piotroski.signals.marginUp.value).toBeNull();
   });
+});
+
+it("DATA-103 bank total revenue cannot prove industrial gross-profit compatibility", () => {
+ const f = facts();
+ delete f.facts["us-gaap"]!.GrossProfit;
+ delete f.facts["us-gaap"]!.CostOfRevenue;
+ f.facts["us-gaap"]!.RevenuesNetOfInterestExpense=f.facts["us-gaap"]!.Revenues!;
+ delete f.facts["us-gaap"]!.Revenues;
+ const result=enrichIncomeClassification(input({costOfRevenue:0,grossProfit:6618}),f,"quarter",at,{bankRevenue:true});
+ if (!result.income.ok) throw Error("fixture");
+ const row=result.income.value.data.rows[0]!;
+ expect(row.revenue).toBe(6618);
+ expect(row.fieldProvenance?.revenue?.tags).toContain("us-gaap/RevenuesNetOfInterestExpense");
+ expect(row.grossProfit).toBeNull();
+ expect(row.fieldConflicts?.grossProfit?.reason).toContain("not independently compatible with industrial gross-profit arithmetic");
 });

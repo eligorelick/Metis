@@ -14,8 +14,13 @@ export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
  * together with the sentence that introduces that person, and an award of
  * shares ranks like a dollar amount. Not -3: that numeral was the notes/risk
  * selector until D-99, and a version string must not change its method.
+ * section-evidence-6 (FIGR paid audit R1): the operative passages are kept in
+ * tiers, the dated lead first, then the amounts, then the passages that only
+ * define a party; a dated lead may follow an item sub-heading ("Merger
+ * Agreement On June 10, 2026"), a defined term may be printed with spaces inside
+ * its quotes, and an amount may be written out in digits ("$532,426,000").
  */
-export const EVENT_SELECTION_VERSION = "section-evidence-5";
+export const EVENT_SELECTION_VERSION = "section-evidence-6";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
@@ -78,7 +83,7 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   investments: /\b(?:publicly[- ]held|privately[- ]held|non[- ]marketable|marketable equity|equity (?:securities|method|investments?)|lock[- ]up|strategic investments?|investments? in)\b/i,
   "commitments-guarantees": /\b(?:purchase obligations?|supply commitments?|commitments?|guarantee(?:s|d)?|guarant(?:y|ies)|obligations? to purchase|capacity agreements?|cloud service agreements?)\b/i,
   "customer-concentration": /\b(?:direct customers?|indirect customers?|concentration|(?:customers?|distributors?|partners?)\b[^.]{0,80}\b(?:represented|accounted for)\b)|\d\s?%[^.]{0,60}\bof (?:our )?(?:total )?(?:net )?(?:revenue|sales)\b/i,
-  debt: /\b(?:senior (?:unsecured )?notes|notes due|commercial paper|credit (?:facility|agreement)|revolving|borrowings?|term loans?|debt issuance|issued an aggregate)\b/i,
+  debt: /\b(?:senior (?:unsecured )?notes|notes due|commercial paper|credit (?:facility|agreement)|warehouse|revolving|borrowings?|term loans?|debt (?:issuance|components|at fair value|carried)|issued an aggregate)\b/i,
   "capital-return": /\b(?:repurchase(?:d|s)?|buybacks?|dividends?)\b/i,
   contingencies: /\b(?:litigation|lawsuits?|legal proceedings|contingen(?:t|cy|cies)|indemnit(?:y|ies|ification))\b/i,
   "internal-controls": /\b(?:material weaknesses?|internal control over financial reporting|segregation of duties|remediat(?:e|ion|ing))\b/i,
@@ -124,6 +129,11 @@ interface ProfileSpec {
   critical?: (passage: string) => boolean;
   /** Passages that are always kept first, within the budget (in source order). */
   priority?: (passage: string) => boolean;
+  /**
+   * R1: the priority passages' tiers, lower first (source order within a
+   * tier); null is not a priority passage. Overrides `priority` when present.
+   */
+  priorityTier?: (passage: string) => number | null;
   /** D-66: the share of the budget priority passages may take (all of it when absent). */
   priorityShare?: number;
   /**
@@ -142,9 +152,29 @@ interface ProfileSpec {
  * (each a “Trigger Event”)" and "guaranties (collectively, the “Agreements”)" —
  * defined terms that are not parties — are not kept for that alone.
  */
-const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"][A-Z][^“”"]{0,40}[”"]\)/;
-/** An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …"). */
-const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
+// R1: some filings print the defined term with spaces inside its quotes ("(the “ Company ”)").
+const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"]\s?[A-Z][^“”"]{0,40}[”"]\)/;
+/**
+ * An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …").
+ * R1: a short title-case sub-heading may sit between the item title and the
+ * date ("Item 1.01 (…): Merger Agreement On June 10, 2026, …").
+ */
+const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:(?:[A-Z][A-Za-z&'’-]*|and|of|the|for|to)\s+){0,5}?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
+/** R1: a dollar amount with a scale word, or one written out in digits to the millions ("$532,426,000"). */
+const EVENT_AMOUNT = /(?:US)?\$\s?(?:\d[\d,.]*\s*(?:billion|million|trillion)\b|\d{1,3}(?:,\d{3}){2,}(?:\.\d+)?(?![\d,]))/;
+/**
+ * R1 (FIGR paid audit): the event profile's priority tiers. The dated lead says
+ * who did what and when; the amounts are the deal's terms; a passage that only
+ * defines a party ("Northwind (the “Merger”)") comes last. In source order,
+ * that defined-term passage used the room and the completion 8-K's
+ * consideration ("approximately $590 million") was cut.
+ */
+function eventPriorityTier(passage: string): number | null {
+  if (DATED_LEAD.test(passage)) return 0;
+  if (materialCreditSupportClauses(passage).length > 0 || EVENT_AMOUNT.test(passage)) return 1;
+  if (isFinancingLifecycle(passage)) return 1;
+  return DEFINES_PARTY.test(passage) ? 2 : null;
+}
 const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:previously\s+)?identified material weaknesses?|material weaknesses? identified pertained|material weaknesses? (?:continued|continue) to exist|(?:deficiencies|material weaknesses?)\b[^.]{0,160}\b(?:did not|have not|has not)\b[^.]{0,100}\bmaterial misstatement|insufficient segregation of duties|lack of (?:a )?sufficient\b[^.]{0,120}\b(?:qualified|expertise))\b/i;
 const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
 const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
@@ -217,7 +247,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // names and the amounts it commits (a cap, a purchase price).
   event: {
     categories: MATERIAL_CATEGORIES,
-    priority: (passage) => DATED_LEAD.test(passage) || DEFINES_PARTY.test(passage) || materialCreditSupportClauses(passage).length > 0 || /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)\b/.test(passage),
+    priorityTier: eventPriorityTier,
     abbreviations: true,
   },
 };
@@ -248,6 +278,16 @@ export function operatingMeasuresStated(text: string): OperatingMeasure[] {
 }
 /** The share of a budget that passages restating a 10-K operating figure may take. */
 const SUPERSEDING_SHARE = 0.15;
+/**
+ * Integration of R8 (FIGR extra-high audit): R8 made flattened tables atomic,
+ * and a table never takes a family's turn, so the MD&A's results-of-operations
+ * table (FIGR: gain on sale of loans, gain on servicing asset) and its non-GAAP
+ * reconciliation left the evidence; the old 1,100-character chunks had carried
+ * them. An interim excerpt reserves a bounded share for these primary tables,
+ * read from the table's own lead, before the qualifying contexts rotate.
+ */
+const PRIMARY_TABLE = /\b(?:Results of Operations|statements? of (?:operations|income|earnings)|reconciliation of\b[^.]{0,160}\b(?:adjusted|non-GAAP))/i;
+const PRIMARY_TABLE_SHARE = 0.4;
 
 interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number; table: boolean }
 
@@ -293,16 +333,177 @@ function eventReferent(all: readonly Passage[], index: number): Passage | undefi
 }
 const TABLE_TOKEN = /^(?:[$(]?[\d,.]+\)?%?|\$|%|\(|\)|—|–|-)$/;
 
+// R8: a number is evidence only together with the definition, scope and later
+// status that qualify it. These are source relationships, not issuer rules.
+const FOOTNOTE = /^\s*\(([A-Z]|\d{1,2})\)\s+/;
+const DEFINITION = /\b(?:we define|is (?:defined|derived|calculated)|definition of|added\b[^.]{0,180}\bdefinition|retrospectively)\b/i;
+const LIFECYCLE = /\b(?:(?:no|not any) (?:outstanding )?borrowings|terminated|repaid (?:in full|all|by)|fully repaid|no longer (?:controlled|consolidated)|ceased to be (?:controlled|consolidated))\b/i;
+const FINANCING = /\b(?:debt|loans?|borrowings?|credit|facilit(?:y|ies)|warehouse|repurchase agreement|financing|notes|consolidated|merger)\b/i;
+const CAUSE = /\b(?:primarily (?:driven|due|consisted)|driven by|largely due to|due to (?:the recognition|awards)|because of)\b/i;
+const RELATED_DEBT = /\b(?:debt[^.]{0,65}related parties|related.part(?:y|ies)[^.]{0,65}(?:debt|liabilities|certificates))\b/i;
+const THIRD_PARTY_CASH = /^(?=[\s\S]*\b(?:cash|payments|funds)\b)(?=[\s\S]*\b(?:third.part(?:y|ies)|on behalf of|for (?:our )?customers)\b)(?=[\s\S]*\b(?:held|holds?|due to|payables|custodial)\b)/i;
+const SENSITIVITY = /\b(?:sensitivity|sensitivities)\b/i;
+const KPI_TABLE = /\b(?:key (?:performance|operating|business) (?:measures|metrics|indicators)|operating (?:metrics|statistics)|KPIs?)\b/i;
+function isFinancingLifecycle(body: string): boolean {
+  const match = LIFECYCLE.exec(body);
+  return match !== null && FINANCING.test(body) &&
+    !/\b(?:if|unless|may|could|might|would|will|can|right to)\b[^.;]*$/i.test(body.slice(0, match.index));
+}
+const CONTEXT_BOUNDARY = new RegExp([
+  PROSE_BOUNDARY.source
+    .replace(String.raw`(?<=[.!?])`, String.raw`(?<=[.!?])(?<!\bn\.m\.)(?<!\bn\.a\.)`)
+    .replace(String.raw`(?<=[\d)%])`, String.raw`(?<=[\d)%])(?<!\([A-Z0-9]{1,2}\))`),
+  String.raw`\s+(?=\([A-Z]\)\s+[A-Z])`,
+  String.raw`\s+(?=NOTE\s+\d{1,2}\s*[-–—:.])`,
+  String.raw`(?<=[.!?])\s+(?=\d{1,3}\s+Table of Contents)`,
+  String.raw`\s+(?=As of\s+\([Ii]n thousands)`,
+  String.raw`(?<=[\d)%])\s+(?=(?:Three|Six|Nine|Twelve) [Mm]onths [Ee]nded)`,
+  // A flattened table ends before the introduction to the next table.
+  String.raw`(?<=[\d)%])\s+(?=[A-Z][A-Za-z &()—-]{0,80}The following table)`,
+].join("|"), "g");
+
+function isTable(body: string, headers = false): boolean {
+  const tokens = body.trim().split(/\s+/);
+  const numbers = tokens.filter((token) => TABLE_TOKEN.test(token)).length;
+  return tokens.length >= 12 && (numbers / tokens.length > 0.35 ||
+    (headers && numbers >= 8 && numbers / tokens.length > 0.18 && /\b(?:[Ii]n thousands|[Cc]arrying [Vv]alue|Three Months Ended)\b/.test(body)));
+}
+
+type ContextKind = "definition" | "lifecycle" | "sensitivity" | "components" | "cause" | "custodial-cash" | "capital-return";
+function contextKind(passage: Passage): ContextKind | null {
+  const body = passage.text;
+  if (DEFINITION.test(body)) return "definition";
+  if (isFinancingLifecycle(body)) return "lifecycle";
+  if (SENSITIVITY.test(body) && /\b(?:fair value|valuation|assumption|hypothetical|illustrative)\b/i.test(body)) return "sensitivity";
+  if (RELATED_DEBT.test(body) || (passage.table && /^\s*(?:\d{1,3}\s+Table of Contents\s+)?Other (?:income|expense)\b/i.test(body))) return "components";
+  if (CAUSE.test(body) && /\b(?:expense|compensation|income|revenue|gain|loss|increase|decrease)\b/i.test(body) && /\d/.test(body)) return "cause";
+  if (THIRD_PARTY_CASH.test(body) && /\d/.test(body)) return "custodial-cash";
+  if (/\b(?:remaining authori[sz]|(?:no|not) shares[^.]{0,65}repurchas)/i.test(body)) return "capital-return";
+  return null;
+}
+
+/** Atomic dependencies. Traversal in add() also binds shared table footnotes. */
+function contextLinks(all: readonly Passage[], profile: EvidenceProfile): Map<Passage, Set<Passage>> {
+  const links = new Map<Passage, Set<Passage>>();
+  const bind = (a: Passage, b: Passage): void => {
+    if (!links.has(a)) links.set(a, new Set());
+    if (!links.has(b)) links.set(b, new Set());
+    links.get(a)!.add(b);
+    links.get(b)!.add(a);
+  };
+  for (let i = 0; i < all.length; i++) {
+    const passage = all[i]!;
+    const kind = contextKind(passage);
+    const marker = FOOTNOTE.exec(passage.text);
+    if (marker) {
+      // A metric's referenced footnote may be several other footnotes away.
+      // Stop at the nearest table so repeated (A)/(B) labels do not cross tables.
+      for (let j = i - 1; j >= 0 && passage.start - all[j]!.start < 8_000; j--) {
+        if (!all[j]!.table) continue;
+        if (all[j]!.text.includes(`(${marker[1]})`) && (KPI_TABLE.test(all[j]!.text) ||
+          (kind === "definition" && /\b(?:we define|is (?:defined|derived|calculated))\b/i.test(passage.text)))) bind(all[j]!, passage);
+        break;
+      }
+    }
+    if (kind === "definition") {
+      for (let j = i + 1; j < Math.min(all.length, i + 6); j++) {
+        const next = all[j]!;
+        if (next.table || FOOTNOTE.test(next.text) || !(/^\s*(?:These|This|Such|Valuation changes|Additionally|We believe|The (?:net|resulting|measure|metric))\b/i.test(next.text) ||
+          /\b(?:deducted|excluded|divided|denominator|numerator)\b/i.test(next.text))) break;
+        bind(passage, next);
+      }
+    }
+    if (kind === "cause" && /^\s*(?:This|The (?:increase|decrease|change))\b/i.test(passage.text) && i > 0) bind(all[i - 1]!, passage);
+    if (kind === "lifecycle") {
+      // Preserve the preceding facility/transaction terms and following closure
+      // qualifications. A bounded local chain cannot consume another note.
+      for (let j = i - 1; profile !== "event" && j >= Math.max(0, i - 3); j--) {
+        const previous = all[j]!;
+        if (previous.table || passage.end - previous.start > 2_400 || !FINANCING.test(previous.text)) break;
+        bind(previous, passage);
+      }
+      const next = all[i + 1];
+      if (next && /^\s*(?:Upon such|Prior to|Concurrently|As a result)\b/i.test(next.text)) bind(passage, next);
+    }
+    if (kind === "sensitivity") {
+      // Scope, independence/ownership caveats, shock headers and table rows are
+      // one reading. Stop before the next ordinary table or note, not mid-row.
+      for (let j = i + 1; j < all.length && all[j]!.start - passage.start <= 6_000; j++) {
+        const next = all[j]!;
+        if (/\b(?:The following table|NOTE\s+\d|Note\s+\d\s*[-—–])\b/.test(next.text) && !SENSITIVITY.test(next.text)) break;
+        bind(passage, next);
+        if (next.table) break;
+      }
+    }
+    if (passage.table && contextKind(passage) === "components") {
+      const next = all[i + 1];
+      if (next && contextKind(next) === "cause") bind(passage, next);
+    }
+  }
+  return links;
+}
+
+/** R6: voting economics are independent of dividend/liquidation economics.
+ * Keep the filed words, including adjacent definitions and elected/available
+ * exemption qualifiers. Never derive present ownership from an IPO event.
+ */
+/**
+ * Class votes, a holder's share of the vote, or controlled-company status.
+ * Integration review (R6): "voting power" alone also names regulatory
+ * ownership thresholds ("10% or more of the outstanding interests or voting
+ * power of our Company" in a state-licensing change-of-control rule), which
+ * brought unrelated licensing passages into FIGR's governance excerpt.
+ */
+const GOVERNANCE_TRIGGER = new RegExp([
+  String.raw`\bvotes? per share\b`,
+  String.raw`\bvoting (?:rights|ratio)\b`,
+  String.raw`\bcontrolled.company\b`,
+  String.raw`\b(?:combined|aggregate|total) voting power\b`,
+  String.raw`\bvoting power of (?:all )?(?:our |the )?(?:outstanding )?(?:capital|common|ordinary) (?:stock|shares)\b`,
+  String.raw`\d+(?:\.\d+)?\s?%\s+of\s+(?:the\s+|our\s+)?(?:combined\s+|aggregate\s+|total\s+|outstanding\s+)?voting power\b`,
+].join("|"), "i");
+
+export function selectGovernanceEvidence(text: string, maxChars: number): SelectedEvidence | null {
+  const all = passages(text, "risk");
+  const indices = new Set<number>();
+  for (const [i, passage] of all.entries()) {
+    if (!GOVERNANCE_TRIGGER.test(passage.text)) continue;
+    for (let j = Math.max(0, i - 1); j <= Math.min(all.length - 1, i + 2); j++) indices.add(j);
+  }
+  const separator = "\n\n[OMITTED SOURCE PASSAGES]\n\n";
+  const marker = "\n\n…[TRUNCATED: governance selection is incomplete; other source passages omitted]";
+  let remaining = Math.max(0, Math.floor(maxChars)) - marker.length;
+  const spans: EvidenceSpan[] = [];
+  for (const i of [...indices].sort((a, b) => a - b)) {
+    const passage = all[i]!;
+    const cost = passage.text.length + (spans.length > 0 && spans.at(-1)!.end !== passage.start ? separator.length : 0);
+    if (cost > remaining) continue;
+    spans.push({ start: passage.start, end: passage.end, text: passage.text });
+    remaining -= cost;
+  }
+  if (spans.length === 0) return null;
+  const retainedChars = spans.reduce((sum, span) => sum + span.text.length, 0);
+  const omittedChars = text.length - retainedChars;
+  const joined = spans.map((span, i) => (i > 0 && spans[i - 1]!.end !== span.start ? separator : "") + span.text).join("");
+  return { text: joined + (omittedChars > 0 ? marker : ""), spans, originalChars: text.length, truncated: omittedChars > 0,
+    coverage: { version: "governance-evidence-1", retainedChars, omittedChars, categories: [] } };
+}
+
 function passages(text: string, profile: EvidenceProfile): Passage[] {
   const { categories: families, prose, abbreviations } = PROFILES[profile];
-  const split = prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
+  const contextual = profile === "notes" || profile === "interim" || profile === "event";
+  // Numbered clauses in an 8-K sentence are not table footnotes.
+  const split = profile === "event" ? new RegExp(CONTEXT_BOUNDARY.source.replace(String.raw`\s+(?=\(\d{1,2}\)\s+[A-Z])|`, ""), "g")
+    : contextual ? CONTEXT_BOUNDARY : prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
   const boundaries = [0, ...[...text.matchAll(split)].map((match) => match.index + match[0].length), text.length];
   const out: Passage[] = [];
   for (let i = 1; i < boundaries.length; i++) {
     let start = boundaries[i - 1];
     const stop = boundaries[i];
     while (start < stop) {
-      let end = Math.min(stop, start + 1_100);
+      // Whole sentences and flattened tables are atomic in the filing reading.
+      // Oversized units are omitted with coverage, never printed as half a row.
+      let end = contextual ? stop : Math.min(stop, start + 1_100);
       if (end < stop) {
         const space = text.lastIndexOf(" ", end);
         if (space > start + 700) end = space;
@@ -315,13 +516,12 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
           (profile === "event" ? (body.match(/\b\d[\d,]*\s+shares\b/g) ?? []).length : 0);
         let score = Math.min(quantities, 8) * 3 + categories.length * 2 +
           (/\b(?:expect|outlook|guidance|tax charge|valuation allowance|severance|free cash flow)\b/i.test(body) ? 8 : 0);
-        let table = false;
+        let table = contextual && isTable(body, true);
         if (prose) {
           // Named counterparties are the point of a business or notes passage;
           // a flattened table (mostly numbers) is not prose evidence.
           score += Math.min((body.match(ENTITY) ?? []).length, 4) * 2 + (prose.bonus.test(body) ? 8 : 0);
-          const tokens = body.split(/\s+/).filter((token) => token !== "");
-          table = tokens.length >= 12 && tokens.filter((token) => TABLE_TOKEN.test(token)).length / tokens.length > 0.35;
+          table = isTable(body, contextual);
           if (table) score -= 12;
         }
         out.push({ start, end, text: body, categories, score, table });
@@ -342,6 +542,8 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   const budget = Math.max(0, Math.floor(maxChars));
   const spec = PROFILES[profile];
   const all = passages(text, profile);
+  const contextual = profile === "notes" || profile === "interim" || profile === "event";
+  const links = contextual ? contextLinks(all, profile) : new Map<Passage, Set<Passage>>();
   const selected: Passage[] = [];
   const superseded = new Set<string>();
   const separator = "\n[…source passage omitted…]\n";
@@ -350,10 +552,15 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
     const ordered = [...list].sort((a, b) => a.start - b.start);
     return ordered.reduce((sum, passage, i) => sum + passage.text.length + (i > 0 && ordered[i - 1]!.end !== passage.start ? separator.length : 0), 0);
   };
-  // Counts/disclosure are never evidence and have a fixed reservation.
-  const reserve = text.length > budget ? Math.min(budget, 210) : 0;
+  // Coverage travels in the serialized excerpt too. Pay for its metadata with
+  // lower-ranked source text, rather than increasing the payload caps. Limit
+  // that reservation to a tenth so tiny standalone callers retain useful room.
+  const coverageCost = contextual && profile !== "event" ? Math.min(Math.floor(budget / 10), JSON.stringify({
+    categories: spec.categories.map(category => ({ category, status: "retained", availablePassages: all.length, retainedPassages: all.length })),
+  }).length) : 0;
+  const reserve = text.length > budget ? Math.min(budget, 210 + coverageCost) : 0;
   let remaining = budget - reserve;
-  const add = (passage: Passage): boolean => {
+  const add = (passage: Passage, limit = remaining): boolean => {
     if (selected.includes(passage)) return true;
     // A remaining commitment often refers to the investment in the preceding
     // sentence. Keep that adjacent, bounded context atomically with its funding
@@ -382,12 +589,17 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         chain.unshift(referent);
       }
     }
-    const additions = (needsContext ? [previous, passage] : chain).filter((candidate) => !selected.includes(candidate));
+    const additions = [...(needsContext ? [previous, passage] : chain)].filter((candidate) => !selected.includes(candidate));
+    for (let i = 0; i < additions.length; i++) {
+      for (const linked of links.get(additions[i]!) ?? []) {
+        if (!selected.includes(linked) && !additions.includes(linked)) additions.push(linked);
+      }
+    }
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
         separator.length * (selected.length > 0 ? additions.length : additions.length - 1)
       : joinedLength([...selected, ...additions]) - joinedLength(selected);
-    if (cost > remaining) return false;
+    if (cost > remaining || cost > limit) return false;
     selected.push(...additions);
     remaining -= cost;
     return true;
@@ -422,11 +634,63 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         });
       }
     }
-    // Priority passages (a named party in an 8-K's operative paragraph) first.
-    if (spec.priority !== undefined) {
+    // Primary statement tables first (see PRIMARY_TABLE); a table split across
+    // passages keeps its directly following row passages with it.
+    if (profile === "interim") {
+      const cap = Math.floor(budget * PRIMARY_TABLE_SHARE);
+      let used = 0;
+      for (const passage of all.filter((candidate) => candidate.table && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))) {
+        const group = [passage];
+        for (let i = all.indexOf(passage) + 1; i < all.length && all[i]!.table && all[i]!.start === group.at(-1)!.end &&
+          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)); i++) group.push(all[i]!);
+        const size = group.reduce((sum, member) => sum + member.text.length, 0);
+        if (selected.includes(passage) || used + size > cap) continue;
+        const before = remaining;
+        const kept = selected.length;
+        if (!group.every((member) => add(member))) {
+          // Atomic: a primary table without its rows is not kept.
+          selected.splice(kept);
+          remaining = before;
+          continue;
+        }
+        used += before - remaining;
+      }
+    }
+    // R8: rotate through qualifying contexts before numeric density can fill
+    // the budget. Related tables are eligible here even in a prose profile.
+    // Bound these contexts to three quarters before the remaining families run.
+    if (contextual && profile !== "event") {
+      const kinds: ContextKind[] = ["definition", "lifecycle", "sensitivity", "components", "cause", "custodial-cash", "capital-return"];
+      const rank = (passage: Passage): number => {
+        if (/\bretrospectively\b/i.test(passage.text)) return -1;
+        if (/\b(?:retrospectively|added[^.]{0,180}definition|is (?:derived|calculated))\b/i.test(passage.text)) return 0;
+        if (/\b(?:no longer|ceased to be|no (?:outstanding )?borrowings)\b/i.test(passage.text)) return 0;
+        if (/\b(?:stock.based compensation|other income|other expense)\b/i.test(passage.text)) return 0;
+        return 1;
+      };
+      const queues = kinds.map((kind) => all.filter((passage) => contextKind(passage) === kind).sort((a, b) => rank(a) - rank(b) || a.start - b.start));
+      let used = 0;
+      const cap = Math.floor(budget * 0.75);
+      for (let round = 0; queues.some((queue) => queue.length > round); round++) {
+        for (const queue of queues) {
+          const passage = queue[round];
+          if (!passage || selected.includes(passage) || used >= cap) continue;
+          const before = remaining;
+          if (add(passage, cap - used)) used += before - remaining;
+        }
+      }
+    }
+    // Priority passages (a named party in an 8-K's operative paragraph) first:
+    // by tier where the profile ranks them (R1), else in source order.
+    const tier = spec.priorityTier ?? (spec.priority === undefined ? undefined : (passage: string) => spec.priority!(passage) ? 0 : null);
+    if (tier !== undefined) {
       const cap = spec.priorityShare === undefined ? Number.POSITIVE_INFINITY : Math.floor(budget * spec.priorityShare);
       let used = 0;
-      for (const passage of all.filter((candidate) => !candidate.table && spec.priority!(candidate.text))) {
+      const tiered = all.flatMap((candidate) => {
+        const rank = candidate.table ? null : tier(candidate.text);
+        return rank === null ? [] : [{ candidate, rank }];
+      }).sort((a, b) => a.rank - b.rank || a.candidate.start - b.candidate.start).map(({ candidate }) => candidate);
+      for (const passage of tiered) {
         if (spec.priorityShare !== undefined && used + passage.text.length > cap) continue;
         const before = remaining;
         if (add(passage)) used += before - remaining;
@@ -443,11 +707,46 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       }
     }
     if (all[0]) add(all[0]);
-    // Generic risk/business narrative can be useful even without a keyword or
-    // amount. Only skip unscored forward-looking-statement boilerplate here.
-    for (const passage of all.filter((candidate) => candidate.score > 0 || !/\bforward[- ]looking statements\b/i.test(candidate.text))
+    // Generic risk/business narrative can be useful without a keyword or
+    // amount. Notes/interim fillers need a score or qualifying context; event
+    // fallback skips agreement recitals but still admits named-person context.
+    for (const passage of all.filter(candidate => !(profile === "notes" && HYPOTHETICAL_CLAIM.test(candidate.text) && LEGAL_CONTEXT.test(candidate.text) && !criticalDisclosure(candidate.text)))
+      .filter((candidate) => candidate.score > 0 || (profile === "event"
+      ? !/\b(?:foregoing description|incorporated by reference|previously reported|capitalized terms|representations, warranties)\b/i.test(candidate.text)
+      : contextual ? contextKind(candidate) !== null : !/\bforward[- ]looking statements\b/i.test(candidate.text)))
       .sort((a, b) => b.score - a.score || a.start - b.start)) add(passage);
   }
+  return renderSelection(text, budget, profile, all, selected, superseding, superseded);
+}
+
+/** R8: missing financing status uses the existing shared 8-K pool, displacing
+ * lower-value event text. Every supplemental excerpt still has the ordinary
+ * event cap; the primary transaction excerpt keeps its dated lead and price. */
+export function selectEventLifecycleEvidence(text: string, maxChars: number, retained: readonly EvidenceSpan[]): SelectedEvidence | null {
+  const budget = Math.max(0, Math.floor(maxChars));
+  const all = passages(text, "event");
+  const links = contextLinks(all, "event");
+  const selected: Passage[] = [];
+  const covered = (passage: Passage): boolean => retained.some(span => span.start <= passage.start && span.end >= passage.end);
+  for (const passage of all.filter(candidate => contextKind(candidate) === "lifecycle")) {
+    const group = [passage];
+    for (let i = 0; i < group.length; i++) for (const linked of links.get(group[i]!) ?? []) if (!group.includes(linked)) group.push(linked);
+    if (group.every(covered)) continue;
+    const additions = group.filter(candidate => !selected.includes(candidate));
+    const cost = [...selected, ...additions].reduce((sum, candidate) => sum + candidate.text.length + 30, 210);
+    if (cost <= budget) selected.push(...additions);
+  }
+  if (selected.length === 0) return null;
+  const result = renderSelection(text, budget, "event", all, selected);
+  // This is supplementary status evidence, not a second reading of every
+  // financial family. Its original spans/omission count remain available.
+  result.coverage.categories = [];
+  return result;
+}
+
+function renderSelection(text: string, budget: number, profile: EvidenceProfile, all: readonly Passage[], selected: Passage[], superseding: readonly OperatingMeasure[] = [], superseded = new Set<string>()): SelectedEvidence {
+  const spec = PROFILES[profile];
+  const separator = "\n[…source passage omitted…]\n";
   const spans = selected.sort((a, b) => a.start - b.start).map(({ start, end, text: body }) => ({ start, end, text: body }));
   const retainedChars = spans.reduce((sum, span) => sum + span.end - span.start, 0);
   const omittedChars = text.length - retainedChars;

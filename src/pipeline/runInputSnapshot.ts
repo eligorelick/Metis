@@ -36,7 +36,14 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-137 (B6): financial-route currency/eligibility, admitted reverse-return share basis, buyback coverage,
 // revenue refusal, ADR Altman scope, common-equity/gain/scope peer comparisons and same-construction P/E ranking.
 // D-138 report-53 batch: receivables continuity and descriptive lease evidence on the retained debt basis.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_35" as const;
+// F-01/F-02: issuer admission and fiscal identity change deterministic operands.
+// FIG live test: current cash-flow bridge discloses unestablished vendor capex
+// scope instead of asserting the mixed series is cash PP&E only. Values unchanged.
+// FIG report audit: source admission now withholds independently contradicted
+// historical EPS/share fields and admits dated compact guidance. Older input
+// snapshots require their original engine; do not relabel their materialized rows.
+// FIN-401 / FIN-401-V1 (B4b): an old Stage B result used the earlier equity-method reading and must be recomputed.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FIGR_XHIGH_AUDIT_41" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -6,6 +6,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { residualNote } from "@/pipeline/filingDisclosures";
 import { completeCurrencyBundle, currencyBundle, M } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 function noInterest(debt: number) {
   const bundle = currencyBundle({ debt, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
@@ -102,7 +103,8 @@ function acquisitionBundle(acquisitionsNet: number | null, primary: number | nul
     PaymentsToAcquireBusinessTwoNetOfCashAcquired: tagged(13 * M),
     ...(primary === null ? {} : { PaymentsToAcquireBusinessesNetOfCashAcquired: tagged(primary) }),
   } } }, asOf: "2026-02-15", source: "edgar", endpoint: "test", fetchedAt: bundle.builtAt } } };
-  return bundle;
+  if (!bundle.edgar.companyFacts.ok) throw new Error("facts fixture missing");
+  return withIssuerFacts(bundle, bundle.edgar.companyFacts.value.data);
 }
 const acquisition = (line: number | null, primary: number | null = 2 * M) => runStageB(acquisitionBundle(line, primary)).forensics.accruals;
 

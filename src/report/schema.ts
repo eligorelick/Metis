@@ -150,7 +150,14 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // and Company withholding reason. Stored reports retain their own stamps and view-only safeguards.
 // D-138 report-53 batch: comparable receivables and descriptive lease scope; legacy cutoffs stay frozen.
 // D-140: source-compatible fiscal aliases, refused-CFO runway, and mandatory-stage outcome.
-export const REPORT_SPEC_VERSION = "1.54.0" as const;
+// FIN-401 / FIN-401-V1 (B4b): equity-method income and its stake are valued once; older reports keep their bytes.
+// 1.57.0 (D-156 to D-161, FIGR paid-run audit): deal terms, the newest operating update, outlook and governance
+// passages in evidence; filed operating-income, SBC, CFO and debt bases; usage over every recorded request; named
+// earnings-date confirmers; verifier readings of producer-declared names, intervals and release tables. Stored reports keep their bytes.
+// 1.58.0 (D-163 to D-167, FIGR extra-high audit): read-time labels for an unfinished session bar, executive assessment
+// reasons, shared table qualifications stated once, parser diagnostics in the audit companion, and the evidence and
+// deterministic bases that round added. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.58.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -267,9 +274,14 @@ const RATING_PATTERNS: readonly RegExp[] = [
   /^(?:strong\s+)?(?:buy|sell|hold)[.!]?$/i,
 ];
 
+/** OD-5: closed abbreviation exceptions; rating patterns remain intact. */
+function maskNamePeriods(text: string): string {
+  return text.replace(/\b([A-Z][a-z]+\s+(?:[A-Z]\.\s+)*[A-Z])\.(?=\s+(?:Buy|Sell|Hold)(?:\s*[\u2014\u2013(]|,\s+(?:the|a|an|our|its|who|whose)\b|['\u2019]s\b))/g, "$1")
+    .replace(/\b(Mr|Ms|Mrs|Mx|Dr|Prof|Rev|Hon|Sen|Rep|Gov|Gen|Col|Capt|Lt)\.(?=\s+[A-Z])(?!\s+(?:Strong\s+)?(?:Buy|Sell|Hold)\s*(?:[.!?]|$))/g, "$1");
+}
 export function noBuySellHold(text: string): boolean {
   if (typeof text !== "string" || text.length === 0) return true;
-  return !RATING_PATTERNS.some((re) => re.test(text));
+  return !RATING_PATTERNS.some((re) => re.test(maskNamePeriods(text)));
 }
 
 /**
@@ -1075,6 +1087,8 @@ export const DcfSchema = z
     sensitivityNotes: z.array(z.string()).optional(),
     upsidePct: z.number().nullable(),
     bridge: z.object({
+      convertibles: z.array(z.object({ kind: z.enum(["notes", "preferred"]), conversionShares: z.number(), claim: z.number().nullable(),
+        reading: z.enum(["claim", "converted", "net-share", "unresolved"]), sharesRemoved: z.number(), restored: z.number(), basis: z.string() }).strict()).optional(),
       enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
       preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
       presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),
@@ -1227,6 +1241,7 @@ export const ValuationSchema = z
       currency: z.string().nullable(), shareCountAsOf: z.string().nullable(),
       priceAsOf: z.string().nullable().optional(),
       approximate: z.boolean(), basis: z.string(),
+      multiClass: z.literal(true).optional(),
       classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
       /** Unresolved because the issuer has more than one common class (audit 2026-10-22 B-8). */
       classAmbiguity: z.literal(true).optional(),
@@ -1569,6 +1584,7 @@ export const VerificationLogEntrySchema = z
         "supported",
         "unsupported-report-reference",
         "report-reference-normalized",
+        "earnings-date-qualified",
         "unknown-source",
         "text-source",
         "value-mismatch",
@@ -1700,6 +1716,13 @@ export const CostBreakdownEntrySchema = z
     discarded: z.boolean().optional(),
     /** Why it was discarded, in the words the failure was recorded under. */
     discardedReason: z.string().optional(),
+    /**
+     * R1 (FIGR paid audit): the tokens this request's settled usage reported
+     * (uncached input and output). Absent on presumed rows, plan-allowance rows
+     * and reports saved before the field existed.
+     */
+    inputTokens: z.number().int().nonnegative().optional(),
+    outputTokens: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type CostBreakdownEntry = z.infer<typeof CostBreakdownEntrySchema>;
@@ -2004,6 +2027,8 @@ export const ScenarioTargetsSchema = z
     dispersion: z
       .object({
         growthSigmaPp: z.number(),
+        uncappedGrowthSigmaPp: z.number().optional(),
+        uncappedMarginSigmaPp: z.number().optional(),
         marginSigmaPp: z.number(),
         /** "own-history" = measured; "house-default" = heuristic fallback (thin history). */
         sigmaSource: z.enum(["own-history", "house-default"]),
@@ -2155,6 +2180,7 @@ const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
 
 export const GuidanceRowSchema = z
   .object({
+    /** Issuer fiscal label, or fiscal quarter/year when contradicted (AI-512-V1). */
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
@@ -2213,7 +2239,7 @@ export const CommitmentPaymentTimingSchema = z.object({
 }).strict();
 
 /** Controlled scope codes, independent of today's collector membership. Legacy absence stays unknown. */
-export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "2.01", "2.03", "2.05", "2.06", "3.02", "5.02", "5.07", "8.01"])).min(1).max(10);
+export const MaterialEventItemsSchema = z.array(z.enum(["1.01", "1.02", "1.03", "1.05", "2.01", "2.03", "2.04", "2.05", "2.06", "3.01", "3.02", "3.03", "5.01", "5.02", "5.07", "8.01"])).min(1).max(16);
 
 export const FilingDisclosuresSchema = z
   .object({
@@ -2253,6 +2279,8 @@ export const FilingDisclosuresSchema = z
         authorizationRemainingSource: FilingRefSchema.optional(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
+        dividendFrequency: z.enum(["quarterly","monthly","semi-annual","annual","special","supplemental","variable"]).nullable().optional(),
+        dividendFrequencyBasis: z.enum(["release","xbrl"]).optional(),
         dividendPayDate: IsoDaySchema.nullable(),
         dividendRecordDate: IsoDaySchema.nullable(),
         dividendChangeFrom: z.number().nullable(),
@@ -2294,11 +2322,13 @@ export const FilingDisclosuresSchema = z
           quarters: z.array(IsoDaySchema),
           rows: z.array(
             z
-              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()) })
+              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()), earlierPresentationAt: z.array(z.number().int().nonnegative()).optional(), crossFilingAt: z.array(z.number().int().nonnegative()).optional() })
               .strict(),
           ),
           total: z.array(z.number().nullable()),
           priorPresentation: z.array(z.string()),
+          totalEarlierPresentationAt: z.array(z.number().int().nonnegative()).optional(),
+          totalCrossFilingAt: z.array(z.number().int().nonnegative()).optional(),
           derivedCells: z.number().int().nonnegative(),
           /** D-63: cells filled as the quarter's total less the other top-level rows. Optional on older reports. */
           residualCells: z.number().int().nonnegative().optional(),
@@ -2320,6 +2350,8 @@ export const FilingDisclosuresSchema = z
      * one-presentation growth check ran. Omitted otherwise (FMP-route and older reports).
      */
     quarterlyTrendPresentationChecked: z.literal(true).optional(),
+    /** N4b: the evidenced lender applicability reason; absent on older reports. */
+    quarterlyGrossMarginNotApplicable: z.string().optional(),
     quarterlyTrend: z.array(
       z
         .object({
@@ -2695,7 +2727,9 @@ export type Report = z.infer<typeof ReportSchema>;
 
 export const AnalystPriceTargetSchema = z
   .object({
-    value: z.number(),
+    // Withhold when no supportable price can be modeled; assumptions explain
+    // the missing evidence. A zero or a historical price is not a refusal.
+    value: z.number().nullable(),
     horizon: z.string(),
     assumptions: z.array(ratingSafeString()),
   })

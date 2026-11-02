@@ -30,15 +30,15 @@ describe("operating expense total completeness", () => {
     const d = buildFilingDisclosures(b);
     expect(d?.quarterlyTrend.map((r) => r.operatingExpenses)).toEqual([null, null]);
     expect(d?.notes.join(" ")).toMatch(/operating expenses.*2026-06-30.*withheld.*complete/i);
-    const table = filingDisclosureTables(d, "fundamentals").find((t) => t.heading === "Quarterly trend (last eight quarters)");
+    const table = filingDisclosureTables(d, "fundamentals").find((t) => t.heading.startsWith("Quarterly trend ("));
     expect(table?.rows.map((r) => r[6])).toEqual(["—", "—"]);
     if (b.statements.incomeQuarterly.ok) expect(b.statements.incomeQuarterly.value.data.rows[0]?.operatingExpenses).toBe(2323e6);
   });
-  it("preserves vendor totals and synthetic explicit standard-tag totals", () => {
+  it("withholds unproved vendor subsets and preserves synthetic explicit standard-tag totals", () => {
     const b = legacyBundle();
     if (!b.statements.incomeQuarterly.ok) throw new Error("fixture missing");
     b.statements.incomeQuarterly.value.source = "fmp";
-    expect(buildFilingDisclosures(b)?.quarterlyTrend[0]?.operatingExpenses).toBe(2323e6);
+    expect(buildFilingDisclosures(b)?.quarterlyTrend[0]?.operatingExpenses).toBeNull();
     const tagged = structuredClone(source);
     // Positive control only: the actual retained filing has no such tag.
     tagged.facts["us-gaap"]!.OperatingExpenses = { label: "Operating expenses", units: { USD: [{ start: "2026-04-01", end: "2026-06-30", val: 3112e6, accn: "0001324424-26-000053", filed: "2026-08-06", form: "10-Q", fp: "Q2", fy: 2026 }] } };

@@ -60,3 +60,14 @@ describe("explicit account selection", () => {
     expect(s.selection).toEqual({ ...choice, model: "gpt-5.5", serviceTier: "default" });
   });
 });
+
+it.each(["gpt-5.5", "historical-model"])("normalizes legacy unsupported Fast without rewriting storage: %s (SEC-205)", (model) => {
+  const saved = store(); saved.selection = { provider: "chatgpt", connectionId: "p", model, effort: "high", serviceTier: "fast" };
+  expect(captureAiSelection()).toEqual({ ...saved.selection, serviceTier: "default" });
+  expect(connectionsView().selection).toEqual(captureAiSelection());
+  expect(saved.selection.serviceTier).toBe("fast");
+});
+it("preserves Fast on supported models (SEC-205 control)", () => {
+  const saved = store(); saved.selection = { provider: "chatgpt", connectionId: "p", model: "gpt-6.1-sol", serviceTier: "fast" };
+  expect(captureAiSelection()).toEqual(saved.selection);
+});

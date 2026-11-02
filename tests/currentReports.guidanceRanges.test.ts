@@ -168,3 +168,27 @@ describe("a revenue outlook far from the statements (audit 2026-10-22 B-25)", ()
     expect(checks.find((c) => c.metric === "revenue")).toMatchObject({ period: "Q2 FY2026", guidedMid: 1.2e9, actual: 1.1e9, position: "below" });
   });
 });
+
+describe("AI-202-V1 guidance sign",()=>{
+ const pick=(s:string)=>parseGuidanceSentence(s,q(2027,3));
+ it("keeps a symbol-adjacent minus",()=>expect(moneyMentions("approximately -$40 million").map(m=>m.value)).toEqual([-40e6]));
+ it("negates expense wording",()=>expect(pick("GAAP and non-GAAP other income and expense are expected to be an expense of approximately $40 million.").map(i=>i.mid)).toEqual([-40e6,-40e6]));
+ it("orders a loss range",()=>expect(pick("GAAP EPS is expected to be a loss of $0.10 to $0.12.")[0]).toMatchObject({low:-0.12,mid:-0.11,high:-0.1}));
+ it("keeps a zero-crossing range",()=>expect(pick("GAAP diluted EPS is expected to be in the range of -$0.05 to $0.05.")[0]).toMatchObject({low:-0.05,mid:0,high:0.05}));
+ it("refuses conflicting signs",()=>expect(pick("GAAP EPS is expected to be a loss of -$0.10.")).toEqual([]));
+ it("refuses an ambiguous dash",()=>expect(pick("GAAP other income and expense are expected to be approximately \u2013$40 million.")).toEqual([]));
+ it("refuses negative revenue",()=>expect(pick("Revenue is expected to be -$5 million.")).toEqual([]));
+ it("keeps positive income and range/list separators",()=>{
+  expect(pick("GAAP other income and expense are expected to be an income of approximately $250 million.")[0]!.mid).toBe(250e6);
+  expect(moneyMentions("Highlights - $40 million share repurchase").map(m=>m.value)).toEqual([40e6]);
+  expect(moneyMentions("revenue of $73-76 billion").map(m=>m.value)).toEqual([73e9,76e9]);
+ });
+});
+
+it.each([
+ ["GAAP and non-GAAP EPS are expected to be a loss of $0.10 and $0.12, respectively.", -0.10, -0.12],
+ ["GAAP and non-GAAP other income and expense are expected to be an expense of approximately $30 million and $40 million, respectively.", -30e6, -40e6],
+])("AI-202-V1 keeps respectively amounts on their stated basis: %s", (sentence, gaap, nonGaap) => {
+ const rows = parseGuidanceSentence(sentence as string, q(2026,3));
+ expect(rows.map(r => [r.basis,r.mid])).toEqual([["gaap",gaap],["non-gaap",nonGaap]]);
+});

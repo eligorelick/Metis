@@ -1690,3 +1690,18 @@ describe("applyKeylessFallbacks — restatements and multi-class share counts", 
     expect(out.gaps.some((g) => g.field.startsWith("keyless.sharesOutstanding.classes.caveat"))).toBe(false);
   });
 });
+
+it("DATA-113 profile and quote share one stale meta observation",async()=>{
+ const yahoo=fakeYahoo(); const original=yahoo.meta.bind(yahoo);
+ let calls=0;
+ vi.spyOn(yahoo,"meta").mockImplementation(async(symbol)=>{
+  const result=await original(symbol);calls++;
+  if(result.ok) {result.value.data.regularMarketPrice=calls===1?150:165;result.value.stale=true;}
+  return result;
+ });
+ const result=await applyKeylessFallbacks(inputs({yahoo}));
+ const p=result.members.profile,q=result.members.quote;
+ expect(p.ok && q.ok && p.value.data.rows[0]!.price===q.value.data.rows[0]!.price).toBe(true);
+ expect(p.ok && p.value.stale).toBe(true);
+ expect(calls).toBe(1);
+});

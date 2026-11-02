@@ -1,3 +1,5 @@
+import { displayedProvenanceCoverage } from "@/report/presentation";
+import { legacyCheckNote } from "@/report/claimMatching";
 /**
  * reportToAuditMarkdown — the machine-checkable audit trail that accompanies a
  * research report (D-62). The report body is written for a reader; this file
@@ -25,7 +27,7 @@ import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTimin
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
 import { peerCoverageAuditLines } from "@/report/researchReview";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
-import { filingDisclosureTables, materialEventTables } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, materialEventTables, quarterlyTrendGrowthNotes } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
@@ -36,6 +38,7 @@ import { figureCitationStatus, indexVerificationMarks } from "@/report/verificat
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   markdownBlockquote,
+  markdownListItem,
   markdownHeading,
   markdownProse,
   markdownTable as table,
@@ -63,6 +66,7 @@ import { verificationEntryOutcomeLabel } from "@/report/schema";
 import type {
   CheckRate,
   ConsistencyChecks,
+  GradeBlock,
   Projections,
   ProvenanceCoverage,
   Report,
@@ -146,12 +150,14 @@ function renderRun(report: Report, context: ReportPresentationContext): string {
 function renderVerification(report: Report): string {
   const a = report.appendix;
   const lines: string[] = ["## Verification", ""];
-  const coverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
+  const storedCoverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
+  const coverage = displayedProvenanceCoverage(report, "appendix");
   const rows = trustRows(coverage, a.verificationLog);
   if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   const detail = factualValidationText(coverage, a.verificationLog);
   if (detail) lines.push(markdownProse(detail), "");
-  if (coverage) lines.push(provenanceCoverageTable(coverage), "");
+  if (!coverage && storedCoverage) lines.push("No citation-check pass ran on this data-only report. The counts below were stored with it and record source paths, not checked citations; the report does not show them.", "");
+  if (storedCoverage) lines.push(provenanceCoverageTable(storedCoverage), "");
   lines.push(
     `Citation coverage: **${a.verificationRate === null ? "—" : `${(a.verificationRate * 100).toFixed(1)}%`}** — share of report figures traceable to a citation or payload value; a provenance check, not a correctness check.`,
     "",
@@ -183,6 +189,10 @@ function renderVerification(report: Report): string {
                 : field.key === "numericSupportStatus" && entry.numericSupportStatus === "contradicted" ? "unchecked"
                   : field.key === "claimSupportStatus" && entry.claimSupportStatus === "contradicted" ? "cited" : undefined;
               if (reread !== undefined) return `${auditValue(reread)} (recorded contradicted; period or unit not established; value not rechecked)`;
+            }
+            if (field.key === "note") {
+              const qualification = legacyCheckNote(entry, a.verificationLog!, report.meta.specVersion);
+              if (qualification) return `${auditValue(entry.note)} (${auditValue(qualification)})`;
             }
             return auditValue(entry[field.key]);
           })),
@@ -247,6 +257,9 @@ function renderScores(scores: Scoring): string {
 function renderFigureRegistry(report: Report): string {
   const groups: Array<[string, readonly TracedNumber[]]> = [
     ["Fundamentals", report.fundamentals.graded.keyNumbers],
+    ["Fundamentals tables", [...report.fundamentals.growthTable, ...report.fundamentals.marginTrend, ...report.fundamentals.returns, ...report.fundamentals.fcf].flatMap(row => row.values.map(cell => cell.value))],
+    ["Valuation model", [...(report.valuation.dcf.perShare ? [report.valuation.dcf.perShare] : []), ...report.valuation.scenarios.flatMap(scenario => scenario.priceTarget ? [scenario.priceTarget] : [])]],
+    ["Macro", report.macro.relevantSeries.map(series => series.latest)],
     ["Balance sheet", [
       ...(report.balanceSheet.graded?.keyNumbers ?? []),
       ...report.balanceSheet.debtProfile.numbers,
@@ -264,7 +277,7 @@ function renderFigureRegistry(report: Report): string {
   return [
     "## Figure registry",
     "",
-    "Every traced figure in the report body, with its registry id and stored value. The body shows these under reader labels, rounded, with exact duplicates removed.",
+    `Traced figures the report body shows under ${groups.map(([name]) => name).join(", ")}, with registry id, period and stored value. The body shows them under reader labels, rounded, with exact duplicates removed.`,
     "",
     table(["Section", ...TRACED_NUMBER_FIELDS.map((field) => field.label)], rows),
   ].join("\n");
@@ -469,6 +482,35 @@ function renderOwnHistory(report: Report): string {
 }
 
 /** The full audit trail for one report, as Markdown. */
+/*
+ * FIGR extra-high audit B2-18 (2026-11-02): the reader exports no longer print
+ * the currency-reading convention, parser diagnostics, per-cell trend
+ * derivations or grade-contract enums; this companion keeps all of them.
+ */
+function renderFilingDiagnostics(report: Report): string {
+  const d = report.filingDisclosures;
+  const notes = d ? [d.currencyBasis, ...d.notes].filter((note) => note.trim() !== "") : [];
+  return notes.length ? `## Filing disclosure and guidance diagnostics\n\n${notes.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "";
+}
+
+function renderTrendGrowthDerivations(report: Report): string {
+  const notes = quarterlyTrendGrowthNotes(report.filingDisclosures);
+  return notes.length ? `## Quarterly trend growth-cell derivations\n\n${notes.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "";
+}
+
+function renderGradeContracts(report: Report): string {
+  const blocks: Array<[string, GradeBlock | undefined]> = [
+    ["Fundamentals", report.fundamentals.graded], ["Balance Sheet & Capital", report.balanceSheet.graded], ["Valuation", report.valuation.graded],
+    ["Quality", report.quality.graded], ["Technicals", report.technicals.graded], ["Leadership (capital-stewardship proxy)", report.leadership.graded],
+    ["Moat", report.competitive.moatGraded],
+  ];
+  const rows = blocks.flatMap(([label, block]) => {
+    const c = block?.gradeContract;
+    return c ? [[label, c.originalBand ?? "none", c.proposedGrade, c.status, c.reason]] : [];
+  });
+  return rows.length ? `## Grade contracts\n\n${table(["Section", "Deterministic band", "Proposed grade", "Status", "Reason"], rows)}` : "";
+}
+
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);
@@ -491,6 +533,11 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
+    report.filingDisclosures?.quarterlyGrossMarginNotApplicable ? `## Lender conventions (full recorded explanation)\n\n${markdownProse(report.filingDisclosures.quarterlyGrossMarginNotApplicable)}` : "",
+    report.valuation.marketValueScope?.enterpriseValueBasis ? `## Market enterprise-value basis (full recorded explanation)\n\n${markdownProse(report.valuation.marketValueScope.enterpriseValueBasis)}` : "",
+    renderFilingDiagnostics(report),
+    renderTrendGrowthDerivations(report),
+    renderGradeContracts(report),
     report.valuation.multiplesBasis ? `## Current multiple equity and enterprise-value basis\n\n${markdownProse(report.valuation.multiplesBasis)}` : "",
     report.valuation.multiples.some(row => row.basis) ? `## Current multiple row bases and limitations\n\n${table(["Multiple", "Current (unrounded)", "Basis and limitations"], report.valuation.multiples.filter(row => row.basis).map(row => [row.name, row.current === null ? "unavailable" : String(row.current), row.basis!]))}` : "",
     renderOwnHistory(report),

@@ -223,9 +223,9 @@ export function getJobSnapshot(jobId: string): JobSnapshot | null {
         dataOnly = reportJsonIsDataOnly(reportRow.reportJson);
       }
     }
-    const resume = readStoredJobResumeInTransaction(db, jobId);
     const terminal = row.status === "done" || row.status === "error" ||
       row.status === "unsupported" || row.status === "canceled";
+    const resume = terminal ? readStoredJobResumeInTransaction(db, jobId) : null;
     // Retained rows, including expired rows not yet pruned by the scheduler,
     // are durable pending-settlement truth. Never derive this wire field from
     // wall clock: pruning/deletion commits the revision that changes it.
@@ -263,6 +263,14 @@ export function getJobSnapshot(jobId: string): JobSnapshot | null {
           : null,
     };
   });
+}
+
+/** Cheap polling gate; every wire-visible mutation advances this revision. */
+export function readJobRevision(jobId: string): number | null {
+  const row = getDb().select({ revision: jobs.revision }).from(jobs).where(eq(jobs.id, jobId)).get();
+  if (row === undefined) return null;
+  assertSafeJobRevision(row.revision);
+  return row.revision;
 }
 
 /** Lightweight existence probe used before allocating an SSE stream. */

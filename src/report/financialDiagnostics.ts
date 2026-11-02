@@ -3,6 +3,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "@/report/schema";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
+import { executiveAssessmentReason } from "@/report/executiveAssessment";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -47,8 +48,11 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
       ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
     const credibility = kinds.includes("guidance-track-record");
     const execution = credibility || kinds.includes("execution");
-    return {...executive, grade:execution ? executive.grade : "not-assessed", credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
-      ...(!execution || !credibility ? {assessmentReason:"Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."} : {}),
+    const grade = execution ? executive.grade : "not-assessed";
+    // FIGR extra-high audit B2-09: name which assessment is missing.
+    const reason = executiveAssessmentReason({ execution, credibility }, grade);
+    return {...executive, grade, credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
+      ...(reason ? {assessmentReason:reason} : {}),
     };
   })};
 }
@@ -80,7 +84,11 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     }
     for (const [field,value] of Object.entries(current.debtBridge)) {
       if (typeof value !== "number") continue;
-      append(next.balanceSheet.debtProfile.numbers, numeric(`computed.capital.current.debtBridge.${field}`, value, "currency", current.asOf, current.currency));
+      const source = field === "totalDebtIncludingLeases" && current.debtBridge.providerDebtPerimeterLabel
+        ? "computed.current-capital.provider-debt-perimeter-includes-payables-to-third-party-loan-owners"
+        : field.startsWith("filed") || field === "loanOwnerPayables" ? `computed.current-capital.${field.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`
+          : `computed.capital.current.debtBridge.${field}`;
+      append(next.balanceSheet.debtProfile.numbers, numeric(source, value, "currency", current.asOf, current.currency));
     }
     for (const field of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf"] as const) {
       append(next.balanceSheet.coverage.numbers, numeric(`computed.capital.current.${field}`, current[field], field === "sbcPctOfFcf" ? "%" : "x", current.asOf, null, period));
@@ -91,6 +99,29 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: [current.debtBridge.compositionNote, current.debtBridge.leaseScopeNote ?? "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.", current.debtBridge.leaseEvidenceNote]
         .filter((text): text is string => text !== undefined).join(" ") });
+  }
+  const concentration = current?.sbcConcentration;
+  if (concentration) {
+    const qualify = (value: unknown): void => {
+      if (value === null || typeof value !== "object") return;
+      for (const [key, child] of Object.entries(value)) {
+        if (["text", "label", "basis", "reason"].includes(key) && typeof child === "string" &&
+            (/(?:FCF|free cash flow).*after[ -]SBC|after[ -]SBC.*(?:FCF|free cash flow)|structurally negative/i.test(child)) && !child.includes(concentration.basis)) {
+          (value as Record<string,unknown>)[key] = `${child} ${concentration.basis}`;
+        } else if (typeof child === "object") qualify(child);
+      }
+    };
+    qualify(next);
+    const source = "computed.capital.current.sbcConcentration.runRateAfterSbc";
+    if (!next.fundamentals.fcf.some(row => row.values.some(v => v.value.source === source))) {
+      const value = numeric(source, concentration.runRateAfterSbc, "currency", current!.asOf, current!.currency,
+        `run-rate companion; excludes quarter ending ${concentration.quarterEnd}; other three quarters x 4/3`)!;
+      next.fundamentals.fcf.push({label:`After-SBC FCF run-rate companion. ${concentration.basis}`,values:[{period:"Run-rate companion (other three quarters x 4/3)",value}]});
+    }
+    if (!next.catalystsRisks.risks.some(r => r.reasoning.text.includes(concentration.basis))) {
+      next.catalystsRisks.risks.push({title:"SBC concentration in trailing cash flow",severity:"medium",probability:"unknown",source:"computed.capital.current.sbcConcentration",
+        reasoning:{label:"JUDGMENT",source:"computed.capital.current.sbcConcentration",asOf:current!.asOf,text:concentration.basis}});
+    }
   }
   const accrual = computed.forensics?.accruals;
   if (accrual) {

@@ -16,6 +16,7 @@ import {
   PROJECTION_HORIZON_YEARS,
   PROJECTION_WEIGHTS_VERSION,
   scenarioDispersion,
+  sigmaCapPhrases,
   type ProjectionIncomeRow,
   type ProjectionsInputs,
 } from "@/pipeline/stageB/projections";
@@ -405,7 +406,11 @@ describe("projections — EPS derivation", () => {
   });
 
   it("skips EPS (no crash) when diluted shares are missing", () => {
-    const p = computeProjections(makeInputs({ dilutedShares: null }));
+    // FIN-407: the admitted bridge is now authoritative. This missing-count control
+    // must remove both the bridge count and the non-DCF fallback (previously only the latter).
+    const inputs = makeInputs({ dilutedShares: null });
+    if (inputs.valuation.kind === "dcf" && inputs.valuation.dcf) inputs.valuation.dcf.bridge.dilutedShares = null;
+    const p = computeProjections(inputs);
     expect(p.series.some((s) => s.metric === "epsDiluted")).toBe(false);
     // The other three series still project.
     expect(p.series.length).toBe(3);
@@ -520,4 +525,16 @@ describe("projections — provenance wording (audit 2026-09-06)", () => {
     expect(entry?.reason).toMatch(/1 nonconsecutive fiscal interval excluded/);
     expect(entry?.reason).not.toMatch(/suppressed/);
   });
+});
+
+it("retains raw dispersion and discloses binding growth/margin caps (FIN-512)",()=>{
+  const rows=[100,200,210,500,510,1600].map((revenue,i)=>({date:`${2020+i}-12-31`,revenue,ebit:revenue*[.05,.1,.2,.3,.5,.6][i]!,netIncome:1,epsDiluted:1}));
+  const d=scenarioDispersion(rows);
+  expect(d.sigmaGrowth).toBe(25);expect(d.sigmaMargin).toBe(12);
+  expect(d.rawSigmaGrowth).toBeGreaterThan(25);expect(d.rawSigmaMargin).toBeGreaterThan(12);
+  expect(d.growthCapped).toBe(true);expect(d.marginCapped).toBe(true);
+  expect(sigmaCapPhrases(d).growth).toMatch(/capped.*25pp.*sample sigma/);
+  expect(sigmaCapPhrases(d).marginLine).toMatch(/capped.*12pp.*sample sigma/);
+  const p=computeProjections(makeInputs({incomeHistory:rows}));
+  expect(p.series[0]?.assumptions.join(" ")).toMatch(/capped.*25pp/);
 });

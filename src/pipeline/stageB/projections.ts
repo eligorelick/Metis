@@ -61,8 +61,8 @@ export const PROJECTION_WEIGHTS = { bull: 0.25, base: 0.5, bear: 0.25 } as const
 /** Dispersion multiplier: bull/bear = base ± DISPERSION_K · σ. */
 export const DISPERSION_K = 1.0;
 /** Upper sanity bounds only; stable firms are no longer forced to show a band. */
-const SIGMA_GROWTH_MAX = 25; // pp
-const SIGMA_MARGIN_MAX = 12; // pp
+export const SIGMA_GROWTH_MAX = 25; // pp
+export const SIGMA_MARGIN_MAX = 12; // pp
 
 const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
@@ -101,6 +101,7 @@ function correlation(pairs: Array<{ x: number; y: number }>): number | null {
  * ------------------------------------------------------------------------ */
 
 export interface ProjectionIncomeRow {
+  fiscalYear?: string | null;
   date: string;
   revenue: number | null;
   /** EBIT (operating income), FMP names — used for the net-income/EBIT ratio. */
@@ -114,6 +115,7 @@ export interface ProjectionIncomeRow {
 }
 
 export interface ProjectionFcfRow {
+  fiscalYear?: string | null;
   date: string;
   fcf: number | null;
 }
@@ -147,7 +149,7 @@ export interface ProjectionsInputs {
    * NVDA's FY2026 $0.26B predates $25B of notes issued in Q2 FY2027. Absent:
    * the latest annual interest expense.
    */
-  interestRunRate?: { value: number; basis: string } | null;
+  interestRunRate?: { value: number; basis: string; ratePct?: number | null } | null;
   /** Established financing debt at the DCF statement anchor; zero can establish a debt-free interest assumption. */
   debtAtAnchor?: { date: string; debt: number | null } | null;
 }
@@ -161,7 +163,7 @@ export interface ProjectionsInputs {
  * quarter × 4. Null without a nonnegative disclosed quarterly interest figure.
  */
 export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean; days?: number | null } | null,
-  closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string } | null {
+  closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string; ratePct: number | null } | null {
   if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense < 0) return null;
   if (quarter.interestExpense === 0 && quarter.interestExpenseDisclosed !== true) return null;
   const q = quarter.interestExpense * thirteenWeekFactor(quarter.days ?? null);
@@ -174,10 +176,10 @@ export function interestRunRate(quarter: { date: string; interestExpense: number
     const average = (closing.debt + opening.debt) / 2;
     const rate = (q / average) * 4;
     if (average > 0 && rate > 0 && rate < 0.25) {
-      return { value: rate * closing.debt, basis: `${quarterBasis}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
+      return { value: rate * closing.debt, ratePct: rate * 100, basis: `${quarterBasis}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
     }
   }
-  return { value: q * 4, basis: `${quarterBasis}'s interest ${b(q)} × 4` };
+  return { value: q * 4, ratePct: null, basis: `${quarterBasis}'s interest ${b(q)} × 4` };
 }
 
 /* ------------------------------------------------------------------------ *
@@ -199,9 +201,10 @@ function point(period: string, value: number, unit: string, metric: ProjectionMe
 }
 
 /** Fiscal-year label from an ISO date; falls back to the raw string. */
-function fyLabel(dateIso: string): string {
-  const y = Number.parseInt(dateIso.slice(0, 4), 10);
-  return Number.isFinite(y) ? `FY${y}` : dateIso;
+function fyLabel(row: {date:string;fiscalYear?:string|null}, history: readonly {date:string;fiscalYear?:string|null}[]): string {
+  const year = (r: typeof row) => typeof r.fiscalYear === "string" && /^\d{4}$/.test(r.fiscalYear) ? r.fiscalYear : null;
+  const y = year(row);
+  return y === null || history.some(other => other.date !== row.date && year(other) === y) ? `FY ending ${row.date}` : `FY${y}`;
 }
 
 /** Weighted blend of three same-length scenario paths. */
@@ -251,6 +254,10 @@ function annualizedGrowthPct(revenues: Array<{ date: string; value: number }>): 
  * ------------------------------------------------------------------------ */
 
 export interface ScenarioDispersion {
+  rawSigmaGrowth: number | null;
+  rawSigmaMargin: number | null;
+  growthCapped: boolean;
+  marginCapped: boolean;
   /** Revenue-growth sample σ, percentage points; null when evidence is too thin. */
   sigmaGrowth: number | null;
   /** Operating-margin sample σ, percentage points; null when evidence is too thin. */
@@ -340,6 +347,9 @@ export function scenarioDispersion(incomeHistory: ProjectionIncomeRow[]): Scenar
     }
   }
   return {
+    rawSigmaGrowth: rawSigmaG, rawSigmaMargin: rawSigmaM,
+    growthCapped: rawSigmaG !== null && rawSigmaG > SIGMA_GROWTH_MAX,
+    marginCapped: rawSigmaM !== null && rawSigmaM > SIGMA_MARGIN_MAX,
     sigmaGrowth: rawSigmaG === null ? null : clamp(rawSigmaG, 0, SIGMA_GROWTH_MAX),
     sigmaMargin: rawSigmaM === null ? null : clamp(rawSigmaM, 0, SIGMA_MARGIN_MAX),
     // `paired` now contains only annual steps, so the correlation no longer
@@ -413,6 +423,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       "At least four consecutive annual revenue observations and three margin observations are required for sample dispersion; scenario fan suppressed rather than using house defaults.",
     );
   }
+  const caps = sigmaCapPhrases(rawDisp);
   const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
     // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
@@ -509,7 +520,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth${laterText}` +
         `${revenueAnchor.source === "run-rate" || revenueAnchor.source === "ttm" ? `, carried at the near-term growth rate ${anchorText}` : ""}${consensusText}; ` +
         `then a convergent fade to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
+    `Bull/bear shift year-one growth by \u00b1${round2(dg)}pp${caps.growth} and the year-one margin by \u00b1${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; ${caps.marginLine} the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
     `Forward periods are 12-month windows ending on anniversaries of the latest statement date${anchorWindowEnd === null ? "" : ` (${anchorWindowEnd})`}, not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.`,
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
     `Weighted path = ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear, the fixed display prior.`,
@@ -529,7 +540,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
     buildSeries(
       "revenue",
       revUnit,
-      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r.date), value: r.revenue as number })),
+      histTail(incomeAsc.filter((r) => isNum(r.revenue))).map((r) => ({ period: fyLabel(r, incomeAsc), value: r.revenue as number })),
       bullRows.slice(0, H).map((r) => r.revenue),
       baseRows.slice(0, H).map((r) => r.revenue),
       bearRows.slice(0, H).map((r) => r.revenue),
@@ -543,7 +554,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // Operating margin (percent)
   const marginHist = incomeAsc
     .filter((r) => isNum(r.ebit) && isNum(r.revenue) && (r.revenue as number) > 0)
-    .map((r) => ({ period: fyLabel(r.date), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
   series.push(
     buildSeries(
       "operatingMargin",
@@ -560,12 +571,12 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   );
 
   // Free cash flow (unlevered / FCFF)
-  const fcfAsc = inputs.fcfHistory.filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
+  const fcfAsc = inputs.fcfHistory.map(row => ({...row, fiscalYear: row.fiscalYear ?? incomeAsc.find(r => r.date === row.date)?.fiscalYear})).filter((r) => r.date.length > 0 && isNum(r.fcf)).sort((a, b) => a.date.localeCompare(b.date));
   series.push(
     buildSeries(
       "fcf",
       revUnit,
-      histTail(fcfAsc).map((r) => ({ period: fyLabel(r.date), value: r.fcf as number })),
+      histTail(fcfAsc).map((r) => ({ period: fyLabel(r, fcfAsc), value: r.fcf as number })),
       bullRows.slice(0, H).map((r) => r.fcff),
       baseRows.slice(0, H).map((r) => r.fcff),
       bearRows.slice(0, H).map((r) => r.fcff),
@@ -683,10 +694,10 @@ function buildEpsSeries(
 ): AuditableProjectionSeries | null {
   const unit = perShareUnit(inputs.currency);
   const historical = incomeAsc.filter(r => isNum(r.epsDiluted)).slice(-4)
-    .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
+    .map(r => point(fyLabel(r, incomeAsc), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
   // Pure callers inherit the valuation's refusal too. A positive raw count
   // cannot restore a denominator that the shared valuation already rejected.
-  const scopeGap = inputs.valuation.gaps.find(g => ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
+  const scopeGap = inputs.valuation.gaps.find(g => g.severity !== "info" && ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
     "valuation.dcf.noncontrollingOwnership", "valuation.multiples.peTtm.commonIncome"].includes(g.field));
   const nci = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.minorityInterest : null;
   const preferred = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.preferred : null;
@@ -698,7 +709,10 @@ function buildEpsSeries(
     assumptions: [...assumptionLines, "Reported historical diluted EPS is retained. Future operating EPS and every share-count alternative are withheld; consolidated/entity revenue, operating margin and FCFF do not establish common-holder per-share earnings."],
     disclosures: [{ field: "projections.eps.ownershipScope", reason: `Forecast operating EPS withheld: ${reason}`, severity: "warn" }],
   };
-  const shares0 = inputs.dilutedShares;
+  const bridge = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge : undefined;
+  const readings = bridge?.convertibles ?? [];
+  // FIN-302-V2: the reading's actual divisor also anchors every EPS alternative.
+  const shares0 = isNum(bridge?.dilutedShares) && bridge.dilutedShares > 0 ? bridge.dilutedShares : inputs.dilutedShares;
   // EPS requires a positive share anchor.
   if (!isNum(shares0) || shares0 <= 0) {
     return null;
@@ -717,7 +731,14 @@ function buildEpsSeries(
   const debtFree = inputs.valuation.kind === "dcf" && inputs.debtAtAnchor?.debt === 0 &&
     inputs.debtAtAnchor.date === inputs.valuation.assumptions?.asOf.statements;
   if (runRate === null && latestInterest === undefined && !debtFree) return null;
-  const interest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
+  const baseInterest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
+  const convertedNotes = readings.filter(r => r.kind === "notes" && r.reading === "converted").reduce((sum, r) => sum + r.restored, 0);
+  const rate = isNum(runRate?.ratePct) && runRate.ratePct >= 0 ? runRate.ratePct : null;
+  const removedInterest = convertedNotes > 0 && rate !== null ? Math.min(baseInterest, convertedNotes * rate / 100) : 0;
+  const interest = baseInterest - removedInterest;
+  const conversionText = convertedNotes <= 0 ? "" : rate === null
+    ? "; convertible notes treated as converted, interest retained because the effective rate is unavailable"
+    : `; convertible notes treated as converted: interest reduced by ${round2(removedInterest / 1e9)}B using the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back), ${round2(rate)}% on the restored claim`;
   const interestText = runRate
     ? `interest expense ${round2(interest / 1e9)}B a year at the latest quarter's run-rate (${runRate.basis})`
     : latestInterest ? `latest annual interest expense ${round2(interest / 1e9)}B`
@@ -743,7 +764,7 @@ function buildEpsSeries(
   const histEps = incomeAsc
     .filter((r) => isNum(r.epsDiluted))
     .slice(-4)
-    .map((r) => ({ period: fyLabel(r.date), value: r.epsDiluted as number }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: r.epsDiluted as number }));
 
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
@@ -790,9 +811,18 @@ function buildEpsSeries(
     // not repeated here.
     assumptions: [
       ...assumptionLines,
+      ...(conversionText ? [conversionText.slice(2)] : []),
       `Operating EPS = (forward operating EBIT − ${interestText}, held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change ${round2(g * 100)}%/yr ` +
         `(year-one net income / EBIT ${round2(conversion)}). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS.`,
     ],
     disclosures: [],
   };
+}
+
+/** FIN-512: distinguish the measured sample from the bounded model shock. */
+export function sigmaCapPhrases(d: ScenarioDispersion): {growth:string;marginBasis:string;marginLine:string} {
+  const margin = d.marginCapped ? `sigma capped at the house ${SIGMA_MARGIN_MAX}pp bound (sample sigma ${round2(d.rawSigmaMargin!)}pp)` : "sample sigma";
+  return {growth:d.growthCapped ? ` (sigma capped at the house ${SIGMA_GROWTH_MAX}pp bound; sample sigma ${round2(d.rawSigmaGrowth!)}pp)` : "",
+    marginBasis:d.marginCapped ? `margin ${margin} is scaled by` : "margin sample \u03c3 is scaled by",
+    marginLine:d.marginCapped ? `the margin shift is ${margin} scaled by` : "the margin shift is sample \u03c3 scaled by"};
 }

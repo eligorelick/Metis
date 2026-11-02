@@ -1,4 +1,8 @@
 "use client";
+import { shownDataState } from "@/report/completeness";
+
+
+import { sameEntitySymbol } from "@/symbol";
 
 /**
  * GenerateReport — the "generate report" client interaction for /company/[symbol].
@@ -219,7 +223,7 @@ export function createJobStreamSnapshotFence(): JobStreamSnapshotFence {
         decoded === null ||
         candidateSource !== source ||
         decoded.jobId !== jobId ||
-        decoded.symbol !== symbol ||
+        (symbol === null || !sameEntitySymbol(symbol, decoded.symbol)) ||
         decoded.revision <= revision
       ) return null;
       revision = decoded.revision;
@@ -233,7 +237,7 @@ export function createJobStreamSnapshotFence(): JobStreamSnapshotFence {
     acceptsToken(token) {
       return token.source === source &&
         token.jobId === jobId &&
-        token.symbol === symbol &&
+        symbol !== null && sameEntitySymbol(symbol, token.symbol) &&
         token.revision === revision &&
         token.sequence === sequence;
     },
@@ -383,7 +387,7 @@ function decodeReportSummary(
 ): ReportSummary | null {
   if (value === null || typeof value !== "object") return null;
   const summary = value as Partial<ReportSummary>;
-  if (summary.reportId !== reportId || summary.symbol !== symbol) return null;
+  if (summary.reportId !== reportId || (typeof summary.symbol !== "string" || !sameEntitySymbol(symbol, summary.symbol))) return null;
   if (
     typeof summary.companyName !== "string" ||
     typeof summary.model !== "string" ||
@@ -669,12 +673,17 @@ export function RunsOn({ route }: { route?: RunRoute | null }) {
   );
 }
 
-export function GenerateReport({ symbol, initialJobId = null, route = null }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null }) {
+/**
+ * `renderedReportId` is the saved report the server rendered beside this
+ * control. A server-reported active run can finish before the first snapshot
+ * arrives; the saved page refreshes when that run saved a different report.
+ */
+export function GenerateReport({ symbol, initialJobId = null, route = null, liveView = false, renderedReportId = null }: { symbol: string; initialJobId?: string | null; route?: RunRoute | null; liveView?: boolean; renderedReportId?: number | null }) {
   const initial = decodeAcceptedJobId({ jobId: initialJobId });
-  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} />;
+  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} route={route} liveView={liveView} renderedReportId={renderedReportId} />;
 }
 
-function GenerateReportController({ symbol, initialJobId, route }: { symbol: string; initialJobId: string | null; route: RunRoute | null }) {
+function GenerateReportController({ symbol, initialJobId, route, liveView, renderedReportId }: { symbol: string; initialJobId: string | null; route: RunRoute | null; liveView: boolean; renderedReportId: number | null }) {
   const router = useRouter();
   const dossier = useUiDesign().layout === "dossier";
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
@@ -692,12 +701,23 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
   const [acceptedStatus, setAcceptedStatus] = useState<string | null>(null);
   const [observedAt, setObservedAt] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
 
+  const sawLiveRef = useRef(new Set<string>());
+  const refreshedJobsRef = useRef(new Set<string>());
+  // Read inside the stream callback without reopening the stream when it changes.
+  const renderedReportRef = useRef(renderedReportId);
+  useEffect(() => { renderedReportRef.current = renderedReportId; }, [renderedReportId]);
   const esRef = useRef<EventSource | null>(null);
+  const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reopenAttemptRef = useRef(0);
+  const observedRevisionsRef = useRef(new Map<string, number>());
   const streamFenceRef = useRef<JobStreamSnapshotFence>(createJobStreamSnapshotFence());
   const requestFenceRef = useRef<JobRequestFence>(createJobRequestFence());
 
   const closeCurrentStream = useCallback(() => {
+    if (reopenTimerRef.current !== null) clearTimeout(reopenTimerRef.current);
+    reopenTimerRef.current = null;
     esRef.current?.close();
     esRef.current = null;
     streamFenceRef.current.invalidate();
@@ -709,17 +729,26 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
   }, [closeCurrentStream, symbol]);
 
   const openStream = useCallback(
-    (jobId: string) => {
+    function openJobStream(jobId: string): void {
       closeCurrentStream();
       const es = new EventSource(`/api/report/${jobId}/stream`);
       esRef.current = es;
+      let fallbackRequested = false;
       streamFenceRef.current.activate(es, jobId, symbol);
 
-      es.addEventListener("snapshot", (ev) => {
+      es.addEventListener("open", () => {
+        if (esRef.current !== es) return;
+        reopenAttemptRef.current = 0;
+        setReconnecting(false);
+        setConnectionLost(false);
+      });
+      const applySnapshot = (raw: unknown) => {
         try {
-          const raw = JSON.parse((ev as MessageEvent).data) as unknown;
+          const decoded = decodeSnapshot(raw);
+          if (decoded === null || decoded.revision < (observedRevisionsRef.current.get(jobId) ?? -1)) return;
           const snap = streamFenceRef.current.accept(es, raw);
           if (snap === null) return;
+          observedRevisionsRef.current.set(jobId, snap.revision);
           setAcceptedStatus(snap.status);
           setObservedAt(snap.updatedAt);
           setReconnecting(false);
@@ -730,6 +759,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
           const terminal = terminalStateFromSnapshot(snap);
           if (terminal !== null) requestFenceRef.current.invalidate();
           if (terminal === null) {
+            sawLiveRef.current.add(jobId);
             setPhase("running");
             return;
           }
@@ -740,12 +770,15 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
           } else if (terminal === "done") {
             setPhase("done");
             setError(null);
-            // The server tree around this panel (the "full report" tab, its
-            // "#id · date" label, the sidebar grades) was rendered from the
-            // PREVIOUS report; re-run it so the page shows the one just
-            // persisted (audit 2026-09-06, F213). The company-load coordinator
-            // caches the pipeline, so the refresh is cheap.
-            startTransition(() => router.refresh());
+            // A run first observed already done refreshes only a saved page that
+            // shows an older report; a done-but-resumable attachment stays put.
+            const rendered = renderedReportRef.current;
+            const savedPageIsStale = !liveView && rendered !== null && snap.reportId !== null && snap.reportId !== rendered;
+            if ((sawLiveRef.current.has(jobId) || savedPageIsStale) && !refreshedJobsRef.current.has(jobId)) {
+              refreshedJobsRef.current.add(jobId);
+              if (liveView) router.replace(`/company/${encodeURIComponent(symbol)}`, { scroll: false });
+              else startTransition(() => router.refresh());
+            }
             if (snap.reportId !== null) {
               const token = streamFenceRef.current.token(es, jobId);
               if (token !== null) {
@@ -771,14 +804,42 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
         } catch {
           /* ignore malformed frame */
         }
+      };
+      es.addEventListener("snapshot", (ev) => {
+        try { applySnapshot(JSON.parse((ev as MessageEvent).data)); } catch { /* malformed frame */ }
       });
       es.addEventListener("error", () => {
         // Transport hiccups are nonterminal; EventSource auto-reconnects and
         // the next validated snapshot catches up by canonical revision.
-        if (esRef.current === es) setReconnecting(true);
+        if (esRef.current !== es || fallbackRequested) return;
+        setReconnecting(true);
+        if (es.readyState === 2 && reopenTimerRef.current === null) {
+          const delays = [1000, 2000, 5000, 10000, 30000];
+          if (reopenAttemptRef.current >= delays.length) {
+            fallbackRequested = true;
+            es.close();
+            setReconnecting(false);
+            setConnectionLost(true);
+            void (async () => {
+              try {
+                const response = await fetch(`/api/report/${jobId}`, { method: "GET" });
+                if (!response.ok) return;
+                const raw: unknown = await response.json();
+                if (esRef.current === es) applySnapshot(raw);
+              } catch { /* Keep the last validated state and lost-connection message. */ }
+              finally { if (esRef.current === es) closeCurrentStream(); }
+            })();
+            return;
+          }
+          const delay = delays[reopenAttemptRef.current++]!;
+          reopenTimerRef.current = setTimeout(() => {
+            reopenTimerRef.current = null;
+            if (esRef.current === es) openJobStream(jobId);
+          }, delay);
+        }
       });
     },
-    [closeCurrentStream, router, symbol],
+    [closeCurrentStream, router, symbol, liveView],
   );
 
   // The server supplies a read-only active-job identity using its existing
@@ -802,6 +863,8 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
     setAcceptedStatus(null);
     setObservedAt(null);
     setReconnecting(false);
+    setConnectionLost(false);
+    reopenAttemptRef.current = 0;
     setSteps(PIPELINE_STEPS.map((step) => ({ step, status: "pending" as const })));
 
     try {
@@ -820,6 +883,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
           setPhase("error");
           return;
         }
+        sawLiveRef.current.add(newJobId);
         setJobId(newJobId);
         openStream(newJobId);
         return;
@@ -863,7 +927,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
 
   const canResume = shouldShowServerRetry({ busy, jobId, phase, resumable });
   const resumeHint =
-    "durable prior work is available — retry continues from server-validated artifacts without re-billing reusable passes.";
+    "durable prior work is available — retry continues from server-validated artifacts without re-billing reusable passes. Generate starts a new run that runs every pass again, at full cost on a paid connection.";
 
   const retrySynthesis = useCallback(async () => {
     if (jobId === null) return;
@@ -877,10 +941,13 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
     setAcceptedStatus(null);
     setObservedAt(null);
     setReconnecting(false);
+    setConnectionLost(false);
+    reopenAttemptRef.current = 0;
     try {
       const res = await fetch(`/api/report/${jobId}/retry`, { method: "POST" });
       if (!requestFenceRef.current.accepts(requestToken)) return;
       if (res.status === 202) {
+        sawLiveRef.current.add(jobId);
         openStream(jobId);
         return;
       }
@@ -936,6 +1003,7 @@ function GenerateReportController({ symbol, initialJobId, route }: { symbol: str
         </button>
       </div>
 
+      {connectionLost && <p role="status" className="text-[12px] text-warn">Live connection lost. Reload the page to reconnect; the run may still be active.</p>}
       <RunDisclosure dossier={dossier} phase={phase} totalCost={totalCost} reportId={summary?.reportId ?? null}>
       {phase !== "idle" ? (
         <Panel
@@ -1059,7 +1127,7 @@ export function ReportReadyPanel({
     { totalCostUsd: totalCost, dataOnly },
     summary,
   );
-  const rate = summary?.verificationRate ?? null;
+  const rate = summary?.missingData?.some(gap => gap.field === "analysis.llm") ? null : summary?.verificationRate ?? null;
   const missingData = summary?.missingData ?? [];
   const completeness = deriveReportCompletenessPresentation(
     summary?.dataCompleteness ?? undefined,
@@ -1067,7 +1135,7 @@ export function ReportReadyPanel({
     summary?.retainedSources ?? [],
   );
   const completenessText = completeness.metadataStatus === "confirmed"
-    ? `completeness confirmed · ${completeness.state} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
+    ? `completeness confirmed · ${shownDataState(completeness)} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
     : completeness.statusText.replace(/^Completeness/, "completeness");
   const persistedDataOnlyText = summary !== null ? completeness.bannerText : null;
 

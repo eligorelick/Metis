@@ -129,7 +129,10 @@ describe("temporary equity enrichment of compatible successful vendor balances",
     ["conflicting liabilities", { totalLiabilities: 16_000_000_000 }], ["conflicting equity", { totalStockholdersEquity: -400_000_000 }],
     ["unknown assets", { totalAssets: undefined }], ["conflicting consolidated scope", { totalEquity: 100 }],
   ] satisfies [string, Partial<FmpBalanceSheetRow>][])("refuses a %s join", (_label, override) => {
-    const out = enrich({ ...row(), ...override });
+    // DATA-101: exercise a refused filed period, rather than an absent period.
+    const input = facts();
+    if (_label === "different period") input.facts["us-gaap"][TAG] = concept(1_722_111_000, { end: "2023-12-31" });
+    const out = enrich({ ...row(), ...override }, input);
     expect(out.row.temporaryEquityAttributableToParent).toBeUndefined();
     expect(out.gaps.some(g => /temporary|currency/i.test(g.reason))).toBe(true);
   });
@@ -148,4 +151,13 @@ describe("temporary equity enrichment of compatible successful vendor balances",
     expect(out.row.temporaryEquityAttributableToParent).toBeUndefined();
     expect(out.gaps.some(g => /temporary/i.test(g.reason))).toBe(true);
   });
+});
+
+it("DATA-101: a historic zero does not warn for a later absent period",()=>{
+ const input=facts();input.facts["us-gaap"][TAG]=concept(0,{end:"2019-12-31",filed:"2020-02-01",fy:2019});
+ expect(enrich(row(),input).gaps.filter(g=>g.severity==="warn" && /temporary/i.test(g.reason))).toEqual([]);
+});
+it("DATA-101: a filed amount after cutoff remains a refusal",()=>{
+ const input=facts();input.facts["us-gaap"][TAG]=concept(1_722_111_000,{filed:"2027-01-01"});
+ expect(enrich(row(),input).gaps.some(g=>g.severity==="warn" && /temporary/i.test(g.reason))).toBe(true);
 });

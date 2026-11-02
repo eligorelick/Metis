@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterAll } from "vitest";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "metis-test-credentials-"));
-const keys = ["LOCALAPPDATA", "XDG_CONFIG_HOME", "HOME", "USERPROFILE"] as const;
+const keys = ["XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME", "HOME", "USERPROFILE"] as const;
 const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 for (const key of keys) process.env[key] = directory;
 afterAll(() => {

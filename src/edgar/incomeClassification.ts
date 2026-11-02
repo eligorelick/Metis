@@ -1,3 +1,4 @@
+import { tagsFor } from "@/edgar/tagSynonyms";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
@@ -8,10 +9,10 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 const same = vendorAgreesWithFiled;
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
-export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { income: typeof income; gaps: ManifestEntry[] } {
+export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, opts: { bankRevenue?: boolean } = {}): { income: typeof income; gaps: ManifestEntry[] } {
   if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
   const built = buildStatementsFromCompanyFacts(facts, { symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
-    annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
+    ...opts, annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
   const filed = scope === "annual" ? built.incomeAnnual.rows : built.incomeQuarterly.rows;
   const gaps: ManifestEntry[] = [];
@@ -20,6 +21,8 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     costOfRevenue: ["us-gaap/CostOfRevenue", "us-gaap/CostOfGoodsAndServicesSold"],
     grossProfit: ["us-gaap/GrossProfit"], operatingExpenses: ["us-gaap/OperatingExpenses"],
   };
+  const industrialRevenue = [...allowed.revenue!];
+  if (opts.bankRevenue === true) allowed.revenue!.push(...[...tagsFor("bankRevenueTotal"), ...tagsFor("bankRevenueComponents")].map(tag => `us-gaap/${tag}`));
   const rows = income.value.data.rows.map(row => {
     if (!row.date || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, ""))) return row;
     const sec = filed.find(candidate => candidate.date === row.date);
@@ -28,7 +31,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       const proof = sec.fieldProvenance?.[field];
       if (field === "grossProfit" && proof === undefined) {
         const revenue = evidenceFor("revenue"), cost = evidenceFor("costOfRevenue");
-        if (revenue && cost && revenue.tags.some(tag => allowed.revenue!.includes(tag)) && cost.tags.some(tag => allowed.costOfRevenue!.includes(tag)) &&
+        if (revenue && cost && revenue.tags.some(tag => industrialRevenue.includes(tag)) && cost.tags.some(tag => allowed.costOfRevenue!.includes(tag)) &&
           revenue.periodStart === cost.periodStart && revenue.periodEnd === cost.periodEnd && revenue.unit === cost.unit &&
           JSON.stringify(revenue.filings) === JSON.stringify(cost.filings) && finite(sec.revenue) && finite(sec.costOfRevenue)) {
           return { ...revenue, tags: [...revenue.tags, ...cost.tags], calculation: "revenue-minus-cost" };
@@ -58,7 +61,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       else refuse(field, sec[field], proof, `Income classification conflict for ${field}: vendor ${row[field]}, filed ${sec[field]} ${proof.unit}, ${proof.periodStart} through ${row.date}; a reconciled EBIT does not establish expense placement`);
     }
     const unsupportedOperand = (["revenue", "costOfRevenue"] as const).map(field => ({ field, proof: evidenceFor(field) }))
-      .find(({ field, proof }) => proof && !proof.tags.some(tag => allowed[field]!.includes(tag)));
+      .find(({ field, proof }) => proof && !proof.tags.some(tag => (field === "revenue" ? industrialRevenue : allowed[field]!).includes(tag)));
     if (finite(out.grossProfit) && !out.fieldProvenance?.grossProfit && unsupportedOperand) {
       refuse("grossProfit", null, unsupportedOperand.proof, `Gross-profit classification unavailable: filed ${unsupportedOperand.field} definition is not independently compatible with industrial gross-profit arithmetic; no comparable filed subtotal established`);
     }

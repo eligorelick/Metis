@@ -18,7 +18,8 @@
  *    it as too large; the schema is included as prompt text instead.
  *  - runVerifyPass: measures CITATION COVERAGE (provenance, NOT correctness).
  *    Every TracedNumber must resolve an exact registry ID and match value, unit,
- *    currency, period, and as-of. Prose citations must resolve an exact payload
+ *    currency, period, and as-of. Its printed description must not conflict with
+ *    the cited metric (AI-407). Prose citations must resolve an exact payload
  *    source/date or an observed fetched URL; this is counted separately from
  *    numeric prose support. Prose numbers additionally require a typed value
  *    or an unambiguous metric/unit/period binding to retained source spans.
@@ -48,7 +49,9 @@ import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
+import { guardEarningsSchedule } from "@/report/earningsSchedule";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
+import { technicalTrendText } from "@/report/technicalTrend";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
@@ -89,6 +92,7 @@ import {
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
   guidanceLowCitation,
+  nextEarningsNote,
   previousOutputBlock,
   renderUntrustedJson,
   type ContextPayload,
@@ -100,13 +104,16 @@ import {
   matchProvenanceRecord,
   namedUnitMatchesRecord,
   periodsAgree,
+  recordEstablishesInterval,
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
-import { reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { unitLabel } from "@/report/format";
+import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
+  parseCitationRef,
   citationAsOf,
   citationSourceId,
   serializeCitationRef,
@@ -201,6 +208,19 @@ export interface PassUsage {
   server_tool_use?: { web_search_requests?: number } | null;
 }
 
+/**
+ * How a response ended, for a rejected answer's durable record: stop reason,
+ * content-block counts, text size and output tokens. Block types only (text,
+ * thinking, server_tool_use, ...), never block contents.
+ */
+export function responseShapeText(message: PassMessage, usage: PassUsage | undefined): string {
+  const counts = new Map<string, number>();
+  for (const block of message.content) counts.set(block.type, (counts.get(block.type) ?? 0) + 1);
+  const blocks = [...counts].map(([type, n]) => `${type} ${n}`).join(", ") || "none";
+  const textChars = message.content.reduce((sum, block) => sum + (block.type === "text" ? block.text?.length ?? 0 : 0), 0);
+  return `stop reason ${message.stop_reason ?? "not recorded"}; content blocks: ${blocks}; text ${textChars} chars; output ${usage?.output_tokens ?? "unknown"} tokens`;
+}
+
 /** Minimal message shape: content blocks (text carries the structured JSON). */
 export interface PassMessage {
   content: ReadonlyArray<{ type: string; text?: string }>;
@@ -224,6 +244,7 @@ export interface PassOutcomeLike {
 /** Structural mirror of the provider's typed PassError (kinds incl. the
  * Stage-C-fabricated parse/schema/transport — see PassErrorKind docs). */
 export interface PassErrorLike {
+  providerFailure?: import("@/ai/providerFailure").ProviderFailure;
   presumed?: boolean;
   execution?: ProviderExecution;
   kind:
@@ -430,6 +451,10 @@ export type PassRun<T> =
        * between converging and re-rolling the dice on weaker models.
        */
       rawText?: string;
+      /** Section response bytes retained for diagnosis, separately from accepted recovery. */
+      rejectedText?: string;
+      /** How a received-but-rejected response ended ({@link responseShapeText}). */
+      responseShape?: string;
       presumed?: boolean;
       execution?: ProviderExecution;
       usage?: PassUsage;
@@ -959,6 +984,12 @@ async function runPassInSections<T>(a: {
     lastCheckpoint = json;
   };
   const observations: RequestObservation[] = [];
+  // Keep a bounded diagnostic trail even when section validation drops a known
+  // field. It is attached only to failures and never fed to checkpoint recovery.
+  let responseText = "";
+  const retainResponse = (text: string): void => {
+    responseText = (responseText + (responseText ? "\n--- section response ---\n" : "") + text).slice(-1_000_000);
+  };
   if (rejectedComplete) checkpoint(completed);
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
@@ -971,12 +1002,13 @@ async function runPassInSections<T>(a: {
     sectionProgress: Object.keys(completed).some(key => !initialKeys.has(key)) } : {};
   const failure = (error: PassErrorLike, gap?: ManifestEntry): PassRun<T> => {
     checkpoint(completed);
-    return finishStructuredPass({ ok: false,
+    const failed = finishStructuredPass({ ok: false,
       gap: gap ?? { field: a.field, reason: error.message, severity: "critical" },
       error: { ...error, ...counters(), usage, costUsd, fallbackUsed, ...(presumed ? { presumed: true } : {}),
         ...sectionExecution(a.requestedModel, observations, carried),
         ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) },
     }, a.parse, a.field, a.requestedModel);
+    return failed.ok ? failed : { ...failed, ...(responseText ? { rejectedText: responseText } : {}) };
   };
   const account = (data: { model?: string; execution?: ProviderExecution; usage?: PassUsage; costUsd?: number; presumed?: boolean; fallbackUsed?: boolean }): void => {
     observations.push(data);
@@ -1018,6 +1050,7 @@ async function runPassInSections<T>(a: {
       }
       if (!outcome.ok) {
         account(outcome.error);
+        if (outcome.error.partialText) retainResponse(outcome.error.partialText);
         accept(completedTopLevelFields(outcome.error.partialText ?? ""), [...a.allKeys], outcome.error);
         if (api && outcome.error.kind === "max_tokens") {
           maxKeys = Math.min(maxKeys, keys.length);
@@ -1034,6 +1067,7 @@ async function runPassInSections<T>(a: {
         usageReported: outcome.value.data.execution?.usageReported ?? outcome.value.data.presumed !== true,
       } } : outcome.value.data;
       account(data);
+      retainResponse(extractText(data.message));
       for (const url of data.fetchedUrls ?? []) fetchedUrls.add(url);
       let json: unknown;
       try { json = parseJsonSalvaging(extractText(data.message)); }
@@ -1086,7 +1120,7 @@ async function runPassInSections<T>(a: {
   } } }, a.parse, a.field, a.requestedModel);
   if (!finished.ok) {
     checkpoint(completed);
-    return { ...finished, error: { ...finished.error, ...counters(), ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) } };
+    return { ...finished, ...(responseText ? { rejectedText: responseText } : {}), error: { ...finished.error, ...counters(), ...(Object.keys(completed).length ? { partialText: JSON.stringify(completed) } : {}) } };
   }
   return finished;
 }
@@ -1164,6 +1198,7 @@ function finishStructuredPass<T>(
       error: { kind: "parse", message: `unparseable structured output for ${field}` },
       validationError: reason,
       rawText: text,
+      responseShape: responseShapeText(data.message, data.usage),
       ...billedAttempt,
     };
   }
@@ -1185,6 +1220,7 @@ function finishStructuredPass<T>(
       error: { kind: "schema", message: `schema-invalid structured output for ${field}` },
       validationError: parsed.error,
       rawText: text,
+      responseShape: responseShapeText(data.message, data.usage),
       ...billedAttempt,
     };
   }
@@ -1327,13 +1363,34 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
  * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
  * the parse and cost a repair on all four analyst first attempts.
  */
-function dropBlankSourceIds(raw: unknown): unknown {
+function normalizeCitationFields(raw: unknown): unknown {
   if (raw === null || typeof raw !== "object") return raw;
-  if (Array.isArray(raw)) return raw.map(dropBlankSourceIds);
+  if (Array.isArray(raw)) return raw.map(normalizeCitationFields);
   const next: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
-    next[key] = dropBlankSourceIds(value);
+    next[key] = normalizeCitationFields(value);
+  }
+  // FIG / Sonnet 5.5: a canonical sourceId with source:"" is already a
+  // citation, but the required legacy field rejected the whole paid answer.
+  // Copy only a syntactically valid ID on a claim/number; provenance and truth
+  // still require verification. Preserve any nonblank legacy source verbatim.
+  const carrier = (typeof next.text === "string" && typeof next.label === "string") ||
+    (typeof next.value === "number" && typeof next.unit === "string");
+  // FIGR paid run (2026-11-02): a claim or number's `asOf` is nullable and
+  // null is its "no date"; a blank string rejected a whole $0.37 bear case.
+  // Only a blank is read as no date: a malformed date still fails.
+  if (carrier && typeof next.asOf === "string" && next.asOf.trim() === "") next.asOf = null;
+  if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
+      typeof next.sourceId === "string") {
+    const id = citationSourceId({ sourceId: next.sourceId });
+    if (id !== null) next.source = id;
+  }
+  // A placeholder duplicate ID conveys no citation. Keep the independently
+  // supplied legacy citation, which the verifier will still have to resolve.
+  if (carrier && hasPlaceholderContent(next.sourceId, "sourceId") && typeof next.source === "string" &&
+      !hasPlaceholderContent(next.source, "source") && citationSourceId({ source: next.source }) !== null) {
+    delete next.sourceId;
   }
   return next;
 }
@@ -1361,7 +1418,7 @@ function normalizeAnalystCase(raw: unknown): unknown {
   // fillNullableGaps: the request schema lets the model OMIT a nullable field
   // instead of sending null (collapseNullableComplexity, report/schema.ts) —
   // restore the null before validating against the still-strict Zod schema.
-  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(dropBlankSourceIds(raw))));
+  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(normalizeCitationFields(raw))));
 }
 
 /**
@@ -1447,10 +1504,14 @@ function settlementFromPassRun<T>(
     failure: serializePassFailure(new Error(run.error.message), {
       kind: run.error.kind,
       retryable: isRetryablePassFailure(run),
+      providerFailure: run.error.providerFailure,
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
+      // Complete rejected bytes are diagnostic evidence, not recovered sections.
       partialText: run.error.partialText,
+      rejectedText: run.rejectedText ?? run.rawText,
+      responseShape: run.responseShape,
     }),
     telemetry,
   };
@@ -1736,11 +1797,11 @@ function endsTheRun(run: PassRun<AnalystCase>): boolean {
 
 /**
  * A dropped stream on a plan-billed (zero-cost) subscription connection is
- * safe to retry: nothing was billed and the caller bounds the attempts. Paid
+ * eligible for bounded retries unless the provider refused it terminally. Paid
  * API transport failures stay non-retryable so a retry can never double-spend.
  */
 export function isTransientSubscriptionFailure<T>(run: PassRun<T>): boolean {
-  if (run.ok || run.error.kind !== "transport" || run.error.notLaunched === true) return false;
+  if (run.ok || run.error.kind !== "transport" || run.error.notLaunched === true || run.error.providerFailure?.disposition === "terminal") return false;
   const { model, costUsd } = run.error;
   return (
     costUsd === 0 &&
@@ -2166,6 +2227,16 @@ function entityConflictsForCases(
   );
 }
 
+/** OD-4: payload membership and issuer origin are both required. */
+export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
+  return id => {
+    if (id.startsWith("edgar:")) return (payload.filings ?? []).some(row => row.source === id) || (payload.citationRegistry ?? []).some(row => row.id === id);
+    if (id === "fmp:earning-call-transcript") return payload.transcript != null;
+    if (id === "fmp:press-release") return (payload.citationRegistry ?? []).some(row => row.id === id);
+    return /^(?:payload\.(?:statements|issuer-filings|filing-facts|segments|segment-revenue|leadership|insiders|computed)\.|computed\.)/.test(id) && (payload.provenanceRegistry ?? []).some(row => row.id === id);
+  };
+}
+
 function unresolvedJudgeEntityConflicts(
   payload: ContextPayload,
   bull: AnalystCase,
@@ -2182,7 +2253,7 @@ function unresolvedJudgeEntityConflicts(
   const walk = (node: unknown, structuredSource: string | null = null): void => {
     if (typeof node === "string") {
       reportIssues.push(
-        ...validateEntityText(node, registry, structuredSource).issues.filter(
+        ...validateEntityText(node, registry, structuredSource, issuerPrimarySource(payload)).issues.filter(
           (issue) => structuredSource !== null || issue.code !== "primary-source-required",
         ),
       );
@@ -2197,7 +2268,7 @@ function unresolvedJudgeEntityConflicts(
     if (typeof record.text === "string" && typeof record.label === "string") {
       const rawSource = citationSourceId(record);
       const primarySource = rawSource?.startsWith("web:") ? rawSource.slice(4) : rawSource;
-      reportIssues.push(...validateEntityText(record.text, registry, primarySource).issues);
+      reportIssues.push(...validateEntityText(record.text, registry, primarySource, issuerPrimarySource(payload)).issues);
       for (const [key, value] of Object.entries(record)) {
         if (key !== "text") walk(value);
       }
@@ -2249,8 +2320,42 @@ function cleanRatingSafeArray(value: unknown): unknown {
     : value;
 }
 
+/** A sentence that opens as the analyst's own interpretation. */
+const JUDGMENT_OPENER = /^(?:In our (?:judgment|view)|We (?:judge|think|believe|read|consider))\b/;
+const EMBEDDED_JUDGMENT = /(?<=[.!?])\s+(?=(?:In our (?:judgment|view)|We (?:judge|think|believe|read|consider))\b)/;
+
+function isClaimCarrier(value: unknown): value is Record<string, unknown> & { text: string; label: string } {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).text === "string" && typeof (value as Record<string, unknown>).label === "string" &&
+    typeof (value as Record<string, unknown>).source === "string";
+}
+
+/**
+ * FIGR paid audit (2026-11-02, AUDIT-B B-17): a FACT holds only its sourced
+ * statement. In a list of claims, a FACT's sentences from the first one that
+ * opens as an interpretation ("In our judgment …") on become a JUDGMENT claim
+ * with the same citation, and a FACT that opens that way is a JUDGMENT. A claim
+ * outside a list is left whole: its slot holds one claim.
+ */
+function splitEmbeddedJudgments(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (!isClaimCarrier(item) || item.label !== "FACT") return [splitEmbeddedJudgments(item)];
+      const text = item.text.trim();
+      if (JUDGMENT_OPENER.test(text)) return [{ ...item, label: "JUDGMENT" }];
+      const at = EMBEDDED_JUDGMENT.exec(text);
+      if (at === null) return [item];
+      const factText = text.slice(0, at.index).trim();
+      const judgmentText = text.slice(at.index + at[0].length).trim();
+      return factText === "" || judgmentText === "" ? [item] : [{ ...item, text: factText }, { ...item, label: "JUDGMENT", text: judgmentText }];
+    });
+  }
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, splitEmbeddedJudgments(child)]));
+}
+
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = normalizeKnownEnumCasing(dropBlankSourceIds(raw));
+  const enumNormalized = splitEmbeddedJudgments(normalizeKnownEnumCasing(normalizeCitationFields(raw)));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }
@@ -2749,9 +2854,27 @@ interface TracedNumberRef {
   /**
    * The label of the metric row the number sits in ({label, values[]}), the
    * only description a TracedNumber has besides its unit. Read by the
-   * excerpt-text match (D-45); never by the registry match.
+   * excerpt-text match (D-45) and registry description conflict check (AI-407).
    */
   rowLabel?: string;
+  rowKind?: "metric-row" | "named-row";
+  cellPeriod?: string;
+}
+
+/** OD-3: null means the spelling/window is outside this cell check. */
+function recordPeriodAgreement(label: string, record: NumericProvenanceRecord): boolean | null {
+  if (/\b(?:ttm|12m|ending|ended|to)\b/i.test(label)) return null;
+  const date = label.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
+  if (date) {
+    if (record.period !== null) return /^\d{4}-\d{2}-\d{2}$/.test(record.period) ? date === record.period : null;
+    const context = record.periodContext;
+    return date === record.asOf || date === (context?.kind === "instant" ? context.at : context?.end);
+  }
+  if (/\b(?:Q[1-4]\s*)?FY\s*\d{4}\b/i.test(label)) {
+    const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel;
+    return fiscal ? periodsAgree(label, fiscal, fiscal) : false;
+  }
+  return null;
 }
 
 function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
@@ -2762,17 +2885,17 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     (typeof o.sourceId === "string" || typeof o.source === "string") &&
     ("asOf" in o) &&
     ("verified" in o);
-  const walk = (node: unknown, path: string, rowLabel: string | undefined): void => {
+  const walk = (node: unknown, path: string, rowLabel: string | undefined, rowKind?: TracedNumberRef["rowKind"], cellPeriod?: string): void => {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (let index = 0; index < node.length; index++) {
-        walk(node[index], `${path}[${index}]`, rowLabel);
+        walk(node[index], `${path}[${index}]`, rowLabel, rowKind, cellPeriod);
       }
       return;
     }
     const obj = node as Record<string, unknown>;
     if (isTraced(obj)) {
-      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel }) });
+      out.push({ number: obj as unknown as TracedNumber, path: path || "$", cellPeriod, ...(rowLabel === undefined ? {} : { rowLabel, rowKind }) });
       return; // a TracedNumber has no nested TracedNumbers
     }
     // A MetricRow ({label, values: [{period, value}]}) labels the numbers
@@ -2788,7 +2911,9 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
       const childLabel = ownRowLabel !== undefined
         ? key === "values" ? ownRowLabel : undefined
         : ownName ?? rowLabel;
-      walk(obj[key], path ? `${path}.${key}` : key, childLabel);
+      walk(obj[key], path ? `${path}.${key}` : key, childLabel,
+        ownRowLabel !== undefined ? key === "values" ? "metric-row" : undefined : ownName !== undefined ? "named-row" : rowKind,
+        rowKind === "metric-row" && key === "value" && typeof obj.period === "string" ? obj.period : cellPeriod);
     }
   };
   walk(root, "", undefined);
@@ -3010,6 +3135,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   }
   const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
+  const guardedSchedule = guardEarningsSchedule(verifiedReport, payload.estimates?.notes ?? [], payload.citationRegistry, (payload.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source),
+    { issuerName: payload.companyName, newsNotes: payload.news?.notes ?? [], passages: payload.filings ?? [] });
+  Object.assign(verifiedReport, guardedSchedule.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
   const fetchedUrls = new Set(
@@ -3050,7 +3178,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     personRows,
   });
 
-  const log: VerificationLogEntry[] = [...guardedReferences.log];
+  const log: VerificationLogEntry[] = [...guardedReferences.log, ...guardedSchedule.log];
   let traced = 0;
 
   // D-45: the excerpts a number may be read against, and the one currency a
@@ -3069,7 +3197,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
   const seriesLatest = reportedSeriesLatest(registry);
 
-  for (const { number, path, rowLabel } of numbers) {
+  for (const { number, path, rowLabel, rowKind, cellPeriod } of numbers) {
     const sourceId = citationSourceId(number);
     const sourceAsOf = citationAsOf(number);
     if (sourceId !== null) number.sourceId = sourceId;
@@ -3176,16 +3304,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         // drops one, adopt the record's value — the registry id already pins the
         // exact record (and hence its period/currency). A SUPPLIED-but-wrong
         // period or currency still mismatches, so a genuine error is not masked.
-        // A dimension the registry does not carry cannot be wrong. Aspect
-        // scores, CAGRs, technicals and returns are registered with NO period
-        // (their labels name none) and the prompt never renders one, yet a
-        // model that fills `period` with the as-of date — haiku did, on 40
-        // numbers in one live run (2026-09-02) — failed every one of them as
-        // period-mismatch while id, value and as-of matched exactly, capping
-        // citation coverage at 71%. Adopt the record's null and drop the
-        // decoration so the stored figure carries the registry's period, not
-        // an invented one. A registered period is still compared exactly.
-        if (record.period === null && number.period != null) number.period = null;
+        // AI-408 / OD-3: retain decidable conflicts before erasing the
+        // period-less as-of decoration used by the historical haiku output.
+        const suppliedPeriodConflict = record.period === null && number.period != null &&
+          recordPeriodAgreement(number.period, record) === false;
+        if (record.period === null && number.period != null && !suppliedPeriodConflict) number.period = null;
         // A spelling of the registered period ("total debt 2025-12-31", or
         // "FY2025" when the issuer's own label for the row is FY2025) is the
         // same period; adopt the registry's spelling and say so in the log.
@@ -3194,7 +3317,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           record.period !== null &&
           number.period != null &&
           number.period !== record.period &&
-          periodsAgree(number.period, record.period, record.fiscalPeriod ?? null)
+          (periodsAgree(number.period, record.period, record.fiscalPeriod ?? null) || recordEstablishesInterval(number.period, record))
         ) {
           periodNote = `period "${number.period}" read as ${record.period}`;
           number.period = record.period;
@@ -3215,6 +3338,30 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
+        const filedFiscal = record.fiscalPeriod === undefined && record.periodContext?.fiscalLabel === undefined
+          ? filedCalendarFiscalLabel(record, excerpts) : undefined;
+        const columnAgreement = cellPeriod === undefined ? null : recordPeriodAgreement(cellPeriod,
+          filedFiscal === undefined ? record : { ...record, fiscalPeriod: filedFiscal });
+        if (cellPeriod !== undefined && columnAgreement === null) {
+          periodNote = [periodNote, `column "${cellPeriod}" not period-checked`].filter(Boolean).join("; ");
+        }
+        if (ok && (suppliedPeriodConflict || columnAgreement === false)) {
+          ok = false;
+          reason = "period-mismatch";
+        }
+        if (ok) {
+          const words = unitLabel(number.unit) ?? "";
+          const conflict = descriptionConflictsWithRecord({
+            metric: `${rowKind === "metric-row" ? (rowLabel ?? "").replace(/^(?:FACT|ESTIMATE|JUDGMENT)\s*[:\u2010-\u2014-]\s*/i, "") : ""} ${words}`,
+            segment: `${rowLabel ?? ""} ${words}`,
+          }, record, issuerWords);
+          const printed = typeof number.source === "string" ? parseCitationRef(number.source)?.sourceId : undefined;
+          if (conflict || (printed && printed !== sourceId && registry.some(entry => entry.id === printed))) {
+            ok = false;
+            reason = "text-context-mismatch";
+            excerptNote = conflict ? `the printed description names another metric: ${conflict}` : "the printed source names another record";
+          }
+        }
         // Exact matching validates any registry context before it can pass.
         // Fresh AI output omits this source-owned metadata; retain the trusted
         // window on the verified number without sharing the payload object.
@@ -3295,6 +3442,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // the URL still carried it, the coverage number would say the opposite of
     // the finding sitting next to it in the same appendix.
     const rejected = consistency.rejectedClaimPaths.has(path);
+    const scheduleQualified = guardedSchedule.qualifiedClaimPaths.has(path);
     const supported = match.supported && !rejected;
     const judgment = claim.label === "JUDGMENT";
     const registryRecord = sourceId === null
@@ -3308,7 +3456,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
-    const validation = supported && sourceId !== null
+    const validation = supported && !scheduleQualified && sourceId !== null
       ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
@@ -3323,7 +3471,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     // A period or unit word the check could not establish against the cited
     // record is a metadata gap: the claim is unverified, never validated, and
     // contradicted only when its value conflicts as well.
-    const validationStatus = semanticFailure === undefined ? validation.status
+    const validationStatus = scheduleQualified ? "unchecked" : semanticFailure === undefined ? validation.status
       : semanticFailure.check === "direction" || validation.status === "contradicted" ? "contradicted" : "unchecked";
     // The recorded reason names the conflict, so a contradicted entry never
     // carries a metadata reason (presentation reads such legacy entries as
@@ -3355,7 +3503,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       // Matching quantities does not adjudicate the entire prose proposition.
       // Keep numeric validation/counts while exposing the narrower claim scope.
       outcome: "unverified",
-      note: supported
+      note: scheduleQualified ? "Provider-only event date qualified; the original citation does not establish company confirmation or validate the surrounding claim." : supported
         ? statusFinding?.note ?? validation.note
         : rejected
           ? rejection?.check === "named-individual"
@@ -3367,12 +3515,12 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           ? "computed-derived"
           : validated && registryRecord
             ? "payload-match"
-            : "source-cited"
+            : validated && validation.spans.length > 0 ? "excerpt-match" : "source-cited"
         : "untraced",
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
+      reason: scheduleQualified ? "earnings-date-qualified" : rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
@@ -3731,6 +3879,7 @@ export function applyMultiples(
     currency: scope.currency ?? null, shareCountAsOf: scope.shareCountAsOf,
     priceAsOf: scope.priceAsOf ?? null,
     approximate: scope.approximate, basis: scope.basis,
+    ...(scope.multiClass ? { multiClass: true as const } : {}),
     ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
     ...(scope.classAmbiguity ? { classAmbiguity: true as const } : {}),
     enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: readerBridge ?? mr.enterpriseValue.basis,
@@ -4043,7 +4192,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
   // cite its guidance records.
-  const filingDisclosures = buildFilingDisclosures(args.bundle);
+  const filingDisclosures = buildFilingDisclosures(args.bundle, args.computed.route?.cashFlowApplicability);
 
   const candidate: Report = {
     meta,
@@ -4053,7 +4202,10 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     balanceSheet: args.judgeOutput.balanceSheet,
     valuation,
     quality,
-    technicals: args.judgeOutput.technicals,
+    technicals: args.computed.technicals ? {
+      ...args.judgeOutput.technicals,
+      read: { ...args.judgeOutput.technicals.read, trend: technicalTrendText(args.computed.technicals, statementCurrencies(args.bundle).trading) },
+    } : args.judgeOutput.technicals,
     leadership: args.judgeOutput.leadership,
     competitive: args.judgeOutput.competitive,
     catalystsRisks: args.judgeOutput.catalystsRisks,
@@ -4080,7 +4232,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
   // consensus, price targets, grade counts, short interest) for the page-1
   // key-data box. Copied as served; the payload the model saw is unchanged.
-  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true, stageBGaps: args.computed.gaps });
+  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true, stageBGaps: args.computed.gaps, cashFlowApplicability: args.computed.route?.cashFlowApplicability });
   if (marketData) candidate.marketData = marketData;
 
   // A failed verification pass still persists final assembly. Establish the
@@ -4100,8 +4252,13 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
       candidate.sourceFactSummary = buildSourceFactSummary(payload);
     }
     const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
-    guarded.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log];
-    assembled = guarded.report;
+    const scheduleNote = nextEarningsNote(args.bundle);
+    const schedulePayload = payloadContextReady ? assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] }) : undefined;
+    const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote], schedulePayload?.citationRegistry,
+      (schedulePayload?.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source),
+      schedulePayload ? { issuerName: schedulePayload.companyName, newsNotes: schedulePayload.news?.notes ?? [], passages: schedulePayload.filings ?? [] } : undefined);
+    scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
+    assembled = scheduleGuard.report;
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
   if (!parsed.success) {

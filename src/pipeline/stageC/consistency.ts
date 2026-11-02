@@ -695,7 +695,8 @@ export function quantityDirection(
 }
 
 /**
- * A registry record is a SIGNED DELTA when its unit is a change in a percentage,
+ * A registry record is a SIGNED DELTA when its unit is percentage-points-per-year,
+ * or its final slug names a change (percentage-point differences excluded),
  * or when its own NAME names a change series. Level records (a revenue, a
  * margin, an ROIC) are excluded on purpose: "margin rose to 30%" says nothing
  * about the sign of 30, so there is no delta to disagree with.
@@ -712,19 +713,29 @@ export function quantityDirection(
  * negative: `computed.returns.*` in this pipeline is ROIC/ROE (levels), and
  * misreading those as deltas would fail correct sentences.
  */
+export interface LabelOperands { left: string; right: string; kind: "difference" | "ratio" }
+/** D-66 / AI-504: operand order is part of a formula's identity. */
+export function labelOperands(label: string): LabelOperands | null {
+  const text = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bP\s*\/\s*E\b/gi, "pe")
+    .replace(/\byear[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+year\b/gi, "yoy")
+    .replace(/\bquarter[\s\u2010-\u2014-]+over[\s\u2010-\u2014-]+quarter\b/gi, "qoq")
+    .replace(/[\u2010\u2011]/g, "-");
+  if (/^absolute\s/i.test(text)) return null;
+  const difference = /\s+[\u2212\u2013]\s+|(?<=[A-Za-z)])\s+-\s+(?=[A-Za-z(])|(?<=[A-Za-z)])\s+(?:minus|vs\.?|versus|over)\s+(?=[A-Za-z(])/i.exec(text);
+  const ratio = /(?<=[A-Za-z&)])\s*\/\s*(?=[A-Za-z(])|(?<=[A-Za-z)])(?<!\b(?:attributable|related|relating|due|prior|subject|up|according))\s+to\s+(?=[A-Za-z(])/i.exec(text);
+  const match = !difference ? ratio : !ratio || difference.index <= ratio.index ? difference : ratio;
+  return match ? { left: text.slice(0, match.index).trim(), right: text.slice(match.index + match[0].length).trim(), kind: match === difference ? "difference" : "ratio" } : null;
+}
+
 export function isDeltaRecord(record: NumericProvenanceRecord): boolean {
-  if (
-    record.unit === "percentage-points" ||
-    record.unit === "percentage-points-per-year"
-  ) {
-    return true;
-  }
+  if (record.unit === "percentage-points-per-year") return true;
   const segments = record.id.toLowerCase().split(".");
   while (segments.length > 1 && /^\d+$/.test(segments[segments.length - 1])) segments.pop();
   const name = segments[segments.length - 1] ?? "";
-  return /(?:^|-)(growth|cagr|change|delta|chg|yoy|qoq|expansion|contraction|revision)(?:-|$)/.test(
-    name,
-  );
+  const change = /(?:^|-)(growth|cagr|change|delta|chg|yoy|qoq|expansion|contraction|revision)(?:-|$)/.test(name);
+  // OD-6 / AI-502: pp alone does not establish a temporal change.
+  return change && (record.unit !== "percentage-points" || labelOperands(record.label ?? "")?.kind !== "difference");
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1094,6 +1105,10 @@ export function namedIndividuals(
       // Barnum, the CFO") is not part of the name.
       const swept = (groups.name ?? groups.surname ?? candidate).trim().split(/\s+/);
       while (swept.length > 1 && NOT_A_NAME_WORDS.has(swept[0].toLowerCase())) swept.shift();
+      // A compound title can match the comma-name pattern ("Chief Executive
+      // Officer, President"). After trimming it still is a role, not a person.
+      // Known names were collected above; explicit honorific surnames remain names.
+      if (groups.surname === undefined && swept.every(word => NOT_A_NAME_WORDS.has(word.toLowerCase()))) continue;
       const name = swept.join(" ");
       const start = (match.index ?? 0) + Math.max(0, match[0].indexOf(name));
       const end = start + name.length;
@@ -1313,10 +1328,13 @@ export function collectPersonRows(sources: {
     const match = /^\S+ (.+?) \(([^)]*)\): .* \[fmp:insider-trades · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
     const name = usable(match?.[1]);
     if (match === null || name === null) continue;
-    // The owner type reads "director" or "officer: Chief Financial Officer".
+    // AI-116: split role prefixes, preserving commas inside an officer title.
     const owner = usable(match[2]);
-    const title = owner === null ? null : usable(owner.split(":").pop());
-    rows.push({ tag: "fmp:insider-trades", asOf: match[3], name, title, anyOrder: true });
+    const roles = owner?.split(/,\s*(?=(?:director|officer|other|10\s*percent\s+owner|ten\s+percent\s+owner)\b)/i) ?? [""];
+    for (const role of roles) {
+      const title = usable(role.replace(/^(?:officer|other)\s*:\s*/i, ""));
+      rows.push({ tag: "fmp:insider-trades", asOf: match[3], name, title, anyOrder: true });
+    }
   }
   for (const figure of sources.leadershipFigures ?? []) {
     if (figure.source !== "fmp:executive-compensation") continue;
@@ -1495,7 +1513,7 @@ function titleOf(sentence: string, start: number, end: number): Pick<NamedIndivi
  */
 function titlesAfterName(sentence: string, end: number): string[] {
   const rest = sentence.slice(end);
-  const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
+  const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:(?:is|was)\s+listed\s+as|as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
   if (lead === null) return [];
   const tail = rest.slice(lead[0].length);
   const stop = TITLE_STOP.exec(tail);

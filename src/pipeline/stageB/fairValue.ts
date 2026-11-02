@@ -35,7 +35,8 @@ import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/prov
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
 // D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D135" as const;
+// FIN-401 / FIN-401-V1: the DCF bridge and its operating margin/capital inputs now share the stake reading.
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_FIGR_XHIGH_AUDIT_41" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */
@@ -91,6 +92,7 @@ function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
 }
 
 export interface DegradedInputs {
+  betaUsesRegression?: boolean;
   /** `riskFreePct(bundle)`: the rate and the series it came from. */
   riskFree: { pct: number | null; asOf: string | null; seriesId: string | null };
   /**
@@ -115,7 +117,7 @@ export interface DegradedInputs {
  * not a degradation and is not named. Null when nothing was substituted.
  */
 /** Keyless members no fair-value model reads: the sector ETF feeds technicals only, the float nothing in Stage B. */
-const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat"]);
+const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat", "keyless.marketCapHistory", "keyless.enterpriseValues"]);
 
 export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | null {
   const parts: string[] = [];
@@ -125,7 +127,7 @@ export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | nu
   if (inputs.waccHistoryCurrentOnly === true) {
     parts.push("the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates");
   }
-  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field)));
+  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field) && (inputs.betaUsesRegression === true || !["keyless.spy", "keyless.eodPrices"].includes(g.field))));
   if (keyless !== null) parts.push(`${keyless}, not FMP`);
   if (inputs.valuationGaps.some((g) => g.field === "valuation.dcf.analystGrowth" && g.severity === "warn")) {
     parts.push("the analyst-consensus growth method was left out because the provider refused the analyst estimates");
@@ -256,7 +258,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     // not correctness). verified:true == "traced to computed inputs", the same
     // convention projections/scenarioTargets use — NOT a factual claim.
     source,
-    asOf,
+    asOf: valuation.kind === "excess-return" ? valuation.excessReturn.valuationDate?.value ?? valuation.excessReturn.asOf : asOf,
     verified: true,
   };
   const upsidePct =
@@ -270,6 +272,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
   let alternative: FairValue["alternative"];
   if (valuation.kind === "excess-return") {
     const er = valuation.excessReturn;
+    startLines.push(...er.notes.filter(n => n.startsWith("Valuation date:")));
     startLines.push(`Excess-return path: ${er.roePathPct.basis}.`);
     const alt = er.startAlternative;
     if (alt?.besideHeadline === true && isNum(alt.perShare)) {
@@ -439,6 +442,7 @@ export interface DcfDisplay {
   sensitivityGrid: SensitivityCell[];
   sensitivityNotes?: string[];
   bridge?: {
+    convertibles?: DcfBridge["convertibles"];
     enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
     equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
     currency: string | null; asOf: string | null; nonOperatingAssets?: number;
@@ -524,6 +528,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
   return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.noncontrollingDeducted ?? dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
+    ...(dcf.bridge.convertibles ? { convertibles: dcf.bridge.convertibles } : {}),
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
     ...(dcf.bridge.nonOperatingAssets !== undefined ? { nonOperatingAssets: dcf.bridge.nonOperatingAssets } : {}),

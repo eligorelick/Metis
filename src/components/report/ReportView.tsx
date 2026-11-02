@@ -1,3 +1,4 @@
+import { RunNotices } from "./RunNotices";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
  * (src/report/schema.ts). Renders the full report (report sections 1–14)
@@ -45,14 +46,14 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, presentationReportId, syntheticNotice, routeMetricsForDisplay } from "@/report/presentation";
-import { providerFallbackNotice } from "@/report/providerFallback";
+import { dataStateText, presentationReportId, routeMetricsForDisplay } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
+import { withReaderConventions, unavailableCashFlowModel, lenderConventionTables } from "@/report/readerConventions";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -178,15 +179,18 @@ export function ReportView({
   /** Optional chart node mounted inside the Fundamentals section. */
   fundamentalsChart,
   layout = "classic",
+  headerNotices = false,
   selectedReportId,
 }: {
   report: Report;
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
   layout?: "classic" | "dossier";
+  headerNotices?: boolean;
   selectedReportId?: number;
 }) {
-  const report = withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))))))));
+  const report = withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))));
+  const lenderTables = lenderConventionTables(sourceReport);
   const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.
   indexVerificationMarks(report);
@@ -215,7 +219,7 @@ export function ReportView({
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
-    fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
+    fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={[...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables]} />,
     balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
     valuation: <ValuationSection presentation={layout} report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={routeMetricsForDisplay(report)} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
@@ -224,7 +228,7 @@ export function ReportView({
     competitive: <CompetitiveSection report={report} grading={grading("moat")} competitive={report.competitive} index={reportSection("competitive").index} />,
     catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
-    projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : layout === "dossier" ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame> : null,
+    projections: unavailableCashFlowModel(report) ? null : report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : layout === "dossier" ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
     appendix: <AppendixSection report={report} selectedReportId={reportId} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
   };
@@ -244,8 +248,7 @@ export function ReportView({
       </div>
 
       {report.meta && (layout === "dossier" ? <details className="report-snapshot-details"><summary>Run, usage &amp; provenance details</summary><ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} /></details> : <ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} />)}
-      {layout === "classic" && syntheticNotice(report) && <p className="text-warn">{syntheticNotice(report)}</p>}
-      {layout === "classic" && providerFallbackNotice(report) && <p className="text-warn">{providerFallbackNotice(report)}</p>}
+      {!headerNotices && <RunNotices report={report} notices="body" />}
 
       {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
 

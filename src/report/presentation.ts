@@ -1,5 +1,12 @@
+import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
+import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
+import { shownDataState } from "@/report/completeness";
+import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
+import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
+import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
+import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so
@@ -33,6 +40,8 @@ export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
 import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
+import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import { inProgressUsSessionDate } from "@/providers/usSession";
 import {
   decimalRound,
   formatCostUsd,
@@ -44,16 +53,19 @@ import {
   formatNumber,
   formatPct,
   numericCitationTraceLabel,
+  peerColumnKeys,
   tracedPeriodLabel,
   unitLabel,
   establishedCurrency,
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import type {
+  MetricRow,
   MoatAssessment,
   ProvenanceCoverage,
   Report,
   RouteMetrics,
+  Scenario,
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
@@ -92,6 +104,9 @@ const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(short|long) term\b/gi, "$1-term"],
   [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
   [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
+  // FIGR extra-high audit: statement-row ids ("capex-negative") read as the outflow they record.
+  [/\bcapex negative\b/gi, "capital expenditure (cash outflow)"],
+  [/\bbuybacks negative\b/gi, "share repurchases (cash outflow)"],
   [/\b(operating cash flow) issuer reconciliation\b/gi, "$1, issuer reconciliation,"],
   [/,? ((?:quarter|year|three months|six months|nine months|\d+ months) ended \d{4}-\d{2}-\d{2}|as of \d{4}-\d{2}-\d{2})$/, " ($1)"],
   [/,$/, ""],
@@ -221,12 +236,55 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.piotroski-f-9-signals": "Piotroski F-score (nine signals)",
   "computed.forensics.accrual-operand-operating-investing-cash-flow-cfi-without-financial-asset-flows": "Operating investing cash flow (excluding financial-asset flows)",
   "manifest.valuation.multiples.ownHistory": "Data-gap record: own-history multiple ranks",
+  // FIGR extra-high audit (2026-11-02): ids the report printed as run-together words.
+  "computed.suppressed": "Route-suppressed metrics",
+  "computed.capital-cash.capex-d-a-latest": "Capex / D&A (latest fiscal year)",
+  "computed.capital-cash.capex-revenue-latest": "Capex as % of revenue (latest fiscal year)",
+  "computed.capital-cash.capex-revenue-slope": "Capex-to-revenue slope",
+  // FIGR extra-high audit A2-02: the ratio divides the cash-flow add-back, not allocated SBC expense.
+  "computed.capital-cash.sbc-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
+  // R9 names the SBC basis in the ids too; older reports keep the ids above.
+  "computed.capital-cash.sbc-cash-flow-add-back-revenue": "SBC (cash-flow add-back) as % of revenue (latest fiscal year)",
+  "computed.capital-cash.sbc-cash-flow-add-back-fcf": "SBC (cash-flow add-back) as % of FCF (latest fiscal year)",
+  "computed.current-capital.sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
+  "computed.current-capital.sbc-allocated-expense": "SBC (allocated expense)",
+  "computed.capital.current.allocatedSbcExpense": "SBC (allocated expense)",
+  "computed.returns.roe-latest-dupont": "ROE (DuPont, latest fiscal year)",
+  "computed.valuation.p-e-common-income-denominator": "P/E common-income denominator (TTM)",
+  "computed.comparable-peers.market-cap-ttm-common-earnings-eligible-peer-count-after-filtering": "Eligible peers for market cap / TTM common earnings (after screening)",
+  "payload.quote.issuer-common-capitalization-economic-price-approximation": "Issuer-common capitalization",
+  "payload.insiders.post-window-form-4-code-f-reported-transaction-rows": "Form 4 code F transactions reported after the window",
+  "payload.insiders.post-window-form-4-code-f-reported-shares-selected-rows-may-overlap": "Form 4 code F shares reported after the window (selected rows; may overlap)",
 };
+
+/** FIGR extra-high audit: the filed operands behind a TTM identity (`<metric>-filed-<window>-operand-<xbrl tag>`). */
+const FILED_OPERAND_METRIC: Readonly<Record<string, string>> = {
+  stockbasedcompensation: "Stock-based compensation",
+  operatingcashflow: "Operating cash flow",
+  capitalexpenditure: "Capital expenditure",
+  // R9: the two SBC bases are separate figures, each with its own filed operands.
+  "sbc-cash-flow-add-back": "SBC (cash-flow add-back)",
+  "sbc-allocated-expense": "SBC (allocated expense)",
+};
+/** FIGR extra-high audit A2-02 (R9): the SBC basis an id slug names. */
+const SBC_BASIS_LABEL: Readonly<Record<string, string>> = {
+  "cash-flow-add-back": "SBC (cash-flow add-back)",
+  "allocated-expense": "SBC (allocated expense)",
+};
+const FILED_OPERAND_WINDOW: Readonly<Record<string, string>> = {
+  "prior-year-ytd": "prior-year year-to-date",
+  "current-ytd": "current year-to-date",
+  "fiscal-year": "fiscal-year",
+};
+/** Piotroski signal ids whose words alone name the wrong thing ("Turnover up"). */
+const PIOTROSKI_SIGNAL: Readonly<Record<string, string>> = { turnoverUp: "asset turnover up" };
 
 /** AI-117: reader labels for the insider-statistics ids (the generic fallback reads "form 4 code s"). */
 const INSIDER_STAT_LABEL: Readonly<Record<string, string>> = {
-  "open-market-purchase-transactions": "Insider open-market purchase transactions (Form 4 code P)",
-  "open-market-sale-transactions": "Insider open-market sale transactions (Form 4 code S)",
+  "purchase-transactions": "Insider purchase transactions (Form 4 code P; open-market or private)",
+  "sale-transactions": "Insider sale transactions (Form 4 code S; open-market or private)",
+  "open-market-purchase-transactions": "Insider purchase transactions (Form 4 code P; open-market or private)",
+  "open-market-sale-transactions": "Insider sale transactions (Form 4 code S; open-market or private)",
   "shares-acquired": "Insider shares acquired (all reported acquisitions)",
   "shares-disposed": "Insider shares disposed (all reported dispositions)",
   "acquired-disposed-transaction-count-ratio": "Insider acquired/disposed transaction-count ratio",
@@ -237,7 +295,7 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^computed\.scores\.([a-zA-Z]+)$/, (m) => `${ASPECT_LABEL[m[1]!] ?? sentence(segmentWords(m[1]!))} score`],
   [/^computed\.scores\.([a-zA-Z]+)\.([a-zA-Z0-9]+)$/, (m) => signalLabel(m[2]!)],
   [/^payload\.statements\.(income-statement|cash-flow|balance-sheet)-(quarterly|annual)\.(\d{4}-\d{2}-\d{2})\.(.+)$/, (m) =>
-    `${sentence(segmentWords(m[4]!))} (${m[1] === "balance-sheet" ? "at" : m[2] === "quarterly" ? "quarter ended" : "year ended"} ${m[3]})`],
+    `${m[4] === "sbc-cash-flow-add-back" ? SBC_BASIS_LABEL["cash-flow-add-back"] : sentence(segmentWords(m[4]!))} (${m[1] === "balance-sheet" ? "at" : m[2] === "quarterly" ? "quarter ended" : "year ended"} ${m[3]})`],
   [/^computed\.weighted-projections\.([a-z]+)-weighted-12m-ending-(\d{4}-\d{2}-\d{2})$/, (m) => `Weighted ${segmentWords(m[1]!).join(" ")}, 12M ending ${m[2]}`],
   [/^payload\.computed\.projections\.([a-z]+)\.([a-z]+)\.(.+)$/, (m) => `${sentence([m[2]!, "case", ...segmentWords(m[1]!)])}, ${segmentWords(m[3]!).join(" ")}`],
   [/^payload\.computed\.scenario-targets\.([a-z]+)\.per-share$/, (m) => `${sentence([m[1]!])} scenario value per share`],
@@ -251,8 +309,15 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.peers\.([a-z0-9]+)-.+$/, (m) => `${m[1]!.toUpperCase()} market cap`],
   [/^payload\.macro\.([a-z0-9]+)-change-from-prior-observation-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}, change from prior observation`],
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
-  [/^payload\.insiders\.insider-(open-market-purchase-transactions|open-market-sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
+  [/^payload\.insiders\.insider-((?:open-market-)?purchase-transactions|(?:open-market-)?sale-transactions|shares-acquired|shares-disposed|acquired-disposed-transaction-count-ratio)-.*?(one|two|three|four)-calendar-quarters?-ended-(\d{4}-\d{2}-\d{2})$/, (m) => `${INSIDER_STAT_LABEL[m[1]!]}, ${m[2]} calendar quarter${m[2] === "one" ? "" : "s"} ended ${m[3]}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
+  [/^computed\.current-capital\.([a-z-]+?)-filed-(prior-year-ytd|current-ytd|fiscal-year)-operand-[a-z]+$/, (m) =>
+    `${FILED_OPERAND_METRIC[m[1]!] ?? sentence(segmentWords(m[1]!))} (filed ${FILED_OPERAND_WINDOW[m[2]!]} operand)`],
+  // FIGR extra-high audit A2-02 (R9): a filing fact names its SBC basis and window.
+  [/^payload\.filing-facts\.sbc-(allocated-expense|cash-flow-add-back)-(\d{4}-\d{2}-\d{2})-to-(\d{4}-\d{2}-\d{2})$/, (m) =>
+    `${SBC_BASIS_LABEL[m[1]!]}, ${m[2]} to ${m[3]}`],
+  [/^computed\.forensics\.piotroski\.signals\.([A-Za-z]+)$/, (m) =>
+    `Piotroski signal: ${PIOTROSKI_SIGNAL[m[1]!] ?? segmentWords(m[1]!).join(" ").toLowerCase()}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
   // D-67: "Pricetobook current", "Beneish index aqi", "Product market platform data center share of revenue …".
   [/^computed\.valuation\.([a-z]+)-(current|peer-median)$/, (m) => `${multipleName(m[1]!)}${m[2] === "peer-median" ? " peer median" : ""}`],
@@ -312,8 +377,13 @@ function genericRegistryLabel(source: string): string {
  * unchanged, so a label the pipeline already wrote is never rewritten.
  */
 export function metricLabel(source: string, unit = ""): string {
+  if (source === "computed.current-capital.provider-debt-perimeter-includes-payables-to-third-party-loan-owners") return LENDER_DEBT_PERIMETER_LABEL;
   const fromUnit = unitLabel(unit);
-  if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
+  if (fromUnit) return readerMetricLabel(fromUnit);
+  const piotroski = /^computed\.forensics\.piotroski-f-(financial-variant|eligibility-unresolved)-(\d+)-of-9-signals/.exec(source);
+  if (piotroski) return `Piotroski F (${piotroski[1]!.replaceAll("-", " ")}, ${piotroski[2]} of 9 signals)`;
+  const outflow = /^(?:payload|computed)\..*\b(capex|buybacks)-negative-(year-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
+  if (outflow) return `${outflow[1] === "capex" ? "Capital expenditure" : "Share repurchases"} (cash outflow) (${outflow[2]!.replace("year-ended-", "year ended ")})`;
   // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
   // suppressed) names that year in its payload label, so in its id too.
   const annual = /^computed\.valuation\.(p-e|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
@@ -330,6 +400,13 @@ export function metricLabel(source: string, unit = ""): string {
   if (/^(computed|payload)\.[^\s]+$/.test(source)) return genericRegistryLabel(source);
   if (/^edgar:/.test(source)) return sourceLabel(source);
   return source;
+}
+
+/** Prefer the supplied record label, keeping long signal diagnostics out of tables. */
+export function readerMetricLabel(label: string): string {
+  const cleaned = label.replace(/^(capex|buybacks) \(negative\)/i, (_, name: string) => `${name.toLowerCase() === "capex" ? "Capital expenditure" : "Share repurchases"} (cash outflow)`)
+    .replace(/(Piotroski F \([^)]*?\d+ of 9 signals)[ —;]+\d+ withheld:[^)]*\)/, "$1)");
+  return cleaned.length ? cleaned[0]!.toUpperCase() + cleaned.slice(1) : cleaned;
 }
 
 /** B-4: the risk-free citation, `computed.returns.wacc.riskFree(<series id>)`. */
@@ -360,6 +437,9 @@ export function sourceLabel(source: string): string {
   const riskFree = RISK_FREE_CITATION.exec(source);
   if (riskFree) return `Risk-free rate (${riskFreeSourceLabel(riskFree[1]!)})`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
+  // FIGR extra-high audit: pipeline-owned notes printed their raw ids.
+  const pipeline = /^pipeline:([a-z-]+)$/.exec(source);
+  if (pipeline) return ({ "insider-coverage": "Insider-filing coverage", "report-reference": "Report cross-reference" } as Record<string, string>)[pipeline[1]!] ?? sentence(segmentWords(pipeline[1]!));
   return source;
 }
 
@@ -402,6 +482,7 @@ export function citedMark(n: TracedNumber): string {
  */
 export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "currency" | "source">): string {
   const unit = n.unit.trim().toLowerCase();
+  if (/evidence-completeness$/.test(n.source) && ["fraction", "frac", "ratio", "number", ""].includes(unit)) return ratioPercentText(n.value);
   if (isRatioAsPercent(n.source) && ["x", "×", "multiple", "fraction", "frac", "ratio"].includes(unit)) return ratioPercentText(n.value);
   if (/piotroski-f-9-signals$/.test(n.source) && Number.isInteger(n.value)) return `${n.value}/9`;
   return formatFinancialAmount(n.value, n.unit, n.currency);
@@ -548,12 +629,65 @@ export function splitCommonLines(lists: readonly (readonly string[])[]): { commo
   return { common, specific: lists.map((list) => list.filter((line) => !commonSet.has(line))) };
 }
 
+/** Heading of the qualitative scenario block shown when no cash-flow model exists. */
+export const QUALITATIVE_SCENARIO_HEADING = "Scenario conditions (qualitative)";
+
+/**
+ * FIGR extra-high audit (2026-11-02): the model opened each case's first
+ * commentary bullet with "Qualitative commentary:", under a heading that already
+ * says so. A list item states its list's heading once; stored text is unchanged.
+ */
+export function scenarioListItem(text: string): string {
+  const stripped = text.replace(/^\s*(?:qualitative commentary|what would have to be true)\s*:\s*/i, "");
+  return stripped === text || stripped.length === 0 ? text : stripped[0]!.toUpperCase() + stripped.slice(1);
+}
+
+/**
+ * Peer-table columns keyed by metric (peerColumnKeys) with reader headings:
+ * the key of a registry figure is its id's last segment ("pettm-current"),
+ * which the FIGR extra-high report printed as a column heading.
+ */
+export function peerTableColumns(peers: readonly { metrics: readonly TracedNumber[] }[]): { keys: string[]; headings: string[] } {
+  const keys: string[] = [];
+  const headings: string[] = [];
+  for (const peer of peers) {
+    const rowKeys = peerColumnKeys(peer.metrics);
+    rowKeys.forEach((key, i) => {
+      if (keys.includes(key)) return;
+      const source = peer.metrics[i]!.source;
+      const occurrence = / \((\d+)\)$/.exec(key)?.[1];
+      const base = /^(computed|payload)\.[^\s]+$/.test(source) && !/^payload\.peers\.[^.]+$/.test(source) ? metricLabel(source) : key.replace(/ \(\d+\)$/, "");
+      keys.push(key);
+      headings.push(occurrence === undefined ? base : `${base} (${occurrence})`);
+    });
+  }
+  return { keys, headings };
+}
+
+/**
+ * Integration review of R3 (FIGR paid audit): with no cash-flow model the
+ * target, probability and deterministic-assumption scaffolding is withheld,
+ * but each case's stated conditions and qualitative commentary are still the
+ * analysis. Lines every case shares are stated once (D-62); null when no case
+ * states anything.
+ */
+export function qualitativeScenarioConditions(scenarios: readonly Pick<Scenario, "name" | "whatWouldHaveToBeTrue" | "qualitativeCommentary">[]): {
+  commonConditions: string[]; commonCommentary: string[];
+  cases: { name: Scenario["name"]; conditions: string[]; commentary: string[] }[];
+} | null {
+  const conditions = splitCommonLines(scenarios.map((sc) => sc.whatWouldHaveToBeTrue.map(scenarioListItem)));
+  const commentary = splitCommonLines(scenarios.map((sc) => (sc.qualitativeCommentary ?? []).map(scenarioListItem)));
+  const cases = scenarios.map((sc, i) => ({ name: sc.name, conditions: conditions.specific[i] ?? [], commentary: commentary.specific[i] ?? [] }))
+    .filter((c) => c.conditions.length > 0 || c.commentary.length > 0);
+  return conditions.common.length === 0 && commentary.common.length === 0 && cases.length === 0
+    ? null : { commonConditions: conditions.common, commonCommentary: commentary.common, cases };
+}
+
 /** Display name for a geographic segment ("TAIWAN, PROVINCE OF CHINA" → "Taiwan"). */
 export function geographyLabel(name: string): string {
   const fixed: Record<string, string> = {
     "TAIWAN, PROVINCE OF CHINA": "Taiwan",
     "TAIWAN": "Taiwan",
-    "CHINA": "China (incl. Hong Kong)",
     "UNITED STATES": "United States",
     "KOREA, REPUBLIC OF": "South Korea",
     "UNITED KINGDOM": "United Kingdom",
@@ -615,7 +749,7 @@ export function executiveGroups(executives: readonly ExecutiveRecord[]): Executi
   const assessed = executives.filter((e) => !notAssessed.includes(e));
   const byReason = new Map<string, ExecutiveRecord[]>();
   for (const e of notAssessed) {
-    const reason = e.assessmentReason?.trim() ?? "";
+    const reason = executiveAssessmentNote(e) ?? "";
     byReason.set(reason, [...(byReason.get(reason) ?? []), e]);
   }
   const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
@@ -658,15 +792,74 @@ export function geographicBasisNote(rows: readonly { revenue: TracedNumber }[]):
     rows.every(row => row.revenue.source === first.source && row.revenue.verificationNote === note) ? note : null;
 }
 
-/** A technical indicator's label, naming an intraday quote "latest price" rather than "last close". */
-export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; detail: string | null }): string {
-  if (n.source === "computed.technicals.last-close" && timing.intraday) return `Latest price (${timing.detail})`;
-  return metricLabel(n.source, n.unit);
+/** A daily bar from a US session that was still open when the subject's price history was fetched. */
+export interface ProvisionalSessionBar { date: string; fetchedAt: string; clock: string }
+
+/** Is this appendix source the subject's own daily price history (FMP end-of-day or Yahoo chart)? */
+function isDailyHistoryFor(source: Report["appendix"]["sources"][number], symbol: string): boolean {
+  const same = (value: string) => {
+    let decoded = value;
+    try { decoded = decodeURIComponent(value); } catch { /* keep the raw text */ }
+    return decoded.toUpperCase().replace(/-/g, ".") === symbol.replace(/-/g, ".");
+  };
+  if (source.provider === "fmp" && /^\/(?:stable\/historical-price-eod\/|api\/v3\/historical-price-full\/)/.test(source.endpoint)) {
+    const query = /[?&]symbol=([^&\s]+)/.exec(source.endpoint)?.[1] ?? /historical-price-full\/([^?\s/]+)/.exec(source.endpoint)?.[1];
+    return query !== undefined && same(query);
+  }
+  if (source.provider === "yahoo") {
+    const path = /^\/v8\/finance\/chart\/([^?\s/]+)/.exec(source.endpoint)?.[1];
+    return path !== undefined && same(path);
+  }
+  return false;
+}
+
+/**
+ * FIGR extra-high audit B2-17 (2026-11-02): a daily price history fetched while
+ * a session is open can end in that session's still-forming bar, and reports
+ * built before Stage B began excluding it call that bar's latest trade the
+ * "last close". The bar is provisional when the technicals' last close is
+ * dated on the session in progress when the subject's daily history was
+ * fetched (or, when no history fetch is recorded, when the quote was taken).
+ */
+export function provisionalSessionBar(report: Pick<Report, "meta" | "technicals"> & { appendix?: Pick<Report["appendix"], "sources"> }): ProvisionalSessionBar | null {
+  const lastClose = [...report.technicals.graded.keyNumbers, ...report.technicals.indicators].find((n) => n.source === "computed.technicals.last-close");
+  if (!lastClose?.asOf) return null;
+  const symbol = report.meta.symbol.toUpperCase();
+  const history = (report.appendix?.sources ?? []).filter((s) => isDailyHistoryFor(s, symbol)).map((s) => s.fetchedAt);
+  const quote = report.meta.evidenceTiming?.quote;
+  const candidates = history.length > 0 ? history : [quote?.acquiredAt ?? quote?.observedAt ?? null];
+  const fetchedAt = candidates.find((at): at is string => typeof at === "string" && inProgressUsSessionDate(at) === lastClose.asOf);
+  const clock = fetchedAt === undefined ? null : newYorkClock(fetchedAt);
+  return fetchedAt === undefined || clock === null ? null : { date: lastClose.asOf, fetchedAt, clock: clock.hhmm };
+}
+
+/** The reader label for a last close that is really a still-forming session bar. */
+export function provisionalBarLabel(bar: ProvisionalSessionBar): string {
+  return `Price in the unfinished ${bar.date} session (fetched ${bar.clock} ET)`;
+}
+
+/** The technicals note that keeps the session status beside every level read from that bar. */
+export function provisionalBarNote(bar: ProvisionalSessionBar): string {
+  return `Price-history timing: the daily price history was fetched at ${bar.clock} ET on ${bar.date}, while that session was still open, so its ${bar.date} bar is unfinished. The price this section calls the last close is the latest trade at fetch time, not a settled closing price, and the moving averages, RSI, 52-week range and drawdown include that partial session.`;
+}
+
+/** A technicals figure's label: the last close of an unfinished session is named as such. */
+export function technicalsFigureLabel(n: TracedNumber, bar: ProvisionalSessionBar | null): string | undefined {
+  return bar !== null && n.source === "computed.technicals.last-close" && n.asOf === bar.date ? provisionalBarLabel(bar) : undefined;
+}
+
+/**
+ * A technical indicator's label. The last close comes from the daily bars, not
+ * from the quote: an intraday quote time says nothing about whether that bar
+ * was settled (after the admission fix it is the previous session's close).
+ */
+export function indicatorLabel(n: TracedNumber, bar: ProvisionalSessionBar | null): string {
+  return technicalsFigureLabel(n, bar) ?? metricLabel(n.source, n.unit);
 }
 
 /** The reverse-DCF implied value with the unit its metric names. */
 export function reverseDcfValueText(metric: string, value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
+  if (value === null || !Number.isFinite(value) || /not applicable|unavailable|^n\/a\b/i.test(metric)) return "\u2014";
   return /growth|margin|rate|return|cagr/i.test(metric) ? formatPct(value) : formatNumber(value, 1);
 }
 
@@ -782,6 +975,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const traces = collectTraces(report);
   const md = report.marketData;
   const rows: KeyDataRow[] = [];
+  const perimeter = firstTrace(traces, /^computed\.current-capital\.provider-debt-perimeter-includes-payables-to-third-party-loan-owners$/);
+  if (perimeter) rows.push({ label: LENDER_DEBT_PERIMETER_LABEL, value: money(perimeter.value, perimeter.currency ?? null), note: `at ${perimeter.asOf}; filed borrowings and loan-owner payables are shown separately in the debt profile` });
   const bridge = report.valuation.dcf.bridge;
   const dcf = report.valuation.dcf.perShare;
   const modelCurrency = dcf ? establishedCurrency(dcf.unit, dcf.currency) : bridge?.currency ?? null;
@@ -790,12 +985,20 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const timing = priceTiming(report);
   const price = md?.quote?.price ?? priceTrace?.value ?? null;
   const priceAsOf = md?.quote ? md.quote.asOf : priceTrace?.asOf ?? null;
+  // The quote's observation time names a quote. Without one the box falls back to
+  // the technicals' last close, which is named by its own daily bar (B2-17).
+  const fromLastClose = md?.quote?.price == null && priceTrace?.source === "computed.technicals.last-close";
+  const priceLabel = fromLastClose
+    ? technicalsFigureLabel(priceTrace!, provisionalSessionBar(report)) ?? "Last close"
+    : `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`;
   if (price !== null) {
-    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
+    rows.push({ label: priceLabel, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
   }
-  const high = md?.quote?.yearHigh ?? firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
-  const low = md?.quote?.yearLow ?? firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
-  if (high !== null && low !== null) rows.push({ label: "52-week range", value: `${money(low, priceCurrency, true)} – ${money(high, priceCurrency, true)}` });
+  const quoteRange = md?.quote?.yearHigh != null && md.quote.yearLow != null;
+  const high = quoteRange ? md!.quote!.yearHigh : firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
+  const low = quoteRange ? md!.quote!.yearLow : firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
+  if (high !== null && low !== null) rows.push({ label: `52-week range (${quoteRange ? "quote" : "computed"})`, value: `${money(low, priceCurrency, true)} – ${money(high, priceCurrency, true)}`,
+    note: quoteRange ? "Provider quote range; it may use a different window or price basis than the computed technical range." : "Range from the retained price history used for technical calculations." });
 
   const quotedCap = md?.quote?.marketCap ?? firstTrace(traces, /^payload\.quote\.market-?cap$/)?.value ?? null;
   const dilutedShares = bridge?.dilutedShares ?? null;
@@ -812,7 +1015,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
       ? { label: scope ? "Derived market cap (scope unverified)" : "Market cap (derived)", value: money(marketCap, priceCurrency), note: `quote price × filed share count, computed by Métis${scope ? "; complete issuer-common coverage unverified" : ""}${priceAsOf ? `; as of ${priceAsOf}` : ""}` }
       : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
   if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
-    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });
+    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: "Issuer-common market capitalization plus the disclosed net claims; full bridge in the companion audit export." });
   } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
     // Legacy reports retain their stored bridge convention; new reports use
     // the admitted Stage B EV, including its NCI, cash and lease scope guards.
@@ -829,7 +1032,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
   // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
-  const newer = report.filingDisclosures?.newerResults;
+  const newer = report.filingDisclosures ? shownFilingDisclosures(report.filingDisclosures).newerResults : undefined;
   if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
     rows.push({
       label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,
@@ -844,10 +1047,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const quotedCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) : null);
     const dividendCurrency = report.filingDisclosures?.currency;
     const yieldCurrency = comparePriceCurrency(dividendCurrency, quotedCurrency);
-    rows.push(yieldCurrency.comparable ? {
+    const f=capitalReturn.dividendFrequency;
+    const multiplier=f===undefined?4:f==="quarterly"?4:f==="monthly"?12:f==="semi-annual"?2:f==="annual"?1:null;
+    const amount=money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true);
+    rows.push(yieldCurrency.comparable ? multiplier===null ? {
+      label:"Dividend yield",value:"withheld",note:f===null?"the release does not state the dividend's frequency":`a ${f} dividend is not annualized`,
+    } : {
       label: "Dividend yield",
-      value: formatPct(((capitalReturn.dividendPerShare * 4) / price) * 100, 2),
-      note: `${money(capitalReturn.dividendPerShare, report.filingDisclosures?.currency ?? priceCurrency, true)} quarterly, annualized`,
+      value: formatPct(((capitalReturn.dividendPerShare * multiplier) / price) * 100, 2),
+      note: f===undefined ? `${amount} annualized x4 as a quarterly dividend; this report did not record the release's stated frequency` : `${amount} ${f}${capitalReturn.dividendFrequencyBasis==="xbrl"?" (from the issuer's XBRL dividend facts)":""}${multiplier===1?"":", annualized"}`,
     } : {
       label: "Dividend yield", value: "withheld",
       note: yieldCurrency.mismatch
@@ -929,10 +1137,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const si = md?.shortInterest;
   if (si) {
     const float = comparableFloatShares(md?.shares);
-    const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null;
+    const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float (derived using float observed ${md?.shares?.floatAsOf ?? md?.shares?.asOf ?? "date unestablished"})` : null;
     rows.push({
       label: "Short interest",
-      value: `${formatLargeNumber(si.shares)} shares${ofFloat ? ` (${ofFloat})` : ""}`,
+      // A semicolon, not a second parenthesis: the ratio already carries its float date in one.
+      value: `${formatLargeNumber(si.shares)} shares${ofFloat ? `; ${ofFloat}` : ""}`,
       note: [`settled ${si.settlementDate}`, si.daysToCover !== null ? `${formatNumber(si.daysToCover, 1)} days to cover` : null].filter(Boolean).join("; "),
     });
   }
@@ -1024,14 +1233,15 @@ export function consensusTables(report: Report): BodyTable[] {
     const float = comparableFloatShares(md.shares);
     rows.push(["Short interest", [
       `${formatLargeNumber(si.shares)} shares at settlement ${si.settlementDate}`,
-      float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null,
+      float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float (derived using float observed ${md.shares?.floatAsOf ?? md.shares?.asOf ?? "date unestablished"}; not a FINRA-reported percentage)` : null,
       si.daysToCover !== null ? `${formatNumber(si.daysToCover, 1)} days to cover` : null,
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);
   }
+  const resolvedMultiClass = report.valuation?.marketValueScope?.status === "resolved" && report.valuation.marketValueScope.multiClass === true;
   const oneClassOnly = report.valuation?.marketValueScope?.status === "unresolved" && report.valuation.marketValueScope.classAmbiguity === true ? "; may cover one share class only" : "";
-  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
-  if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
+  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : resolvedMultiClass ? "Provider market cap (quoted class only; not issuer-common)" : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
+  if (md.shares?.outstanding != null) rows.push([resolvedMultiClass ? "Provider shares (quoted class only)" : "Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
   if (md.enterpriseValue) rows.push([evLabel, `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
@@ -1206,18 +1416,18 @@ export function withoutTabled(report: Pick<Report, "filingDisclosures">, numbers
 }
 
 /** MetricRow groups with tabled values removed (rows left empty are dropped). */
-export function metricRowsWithoutTabled<T extends { label: string; values: readonly { value: TracedNumber }[] }>(
+export function metricRowsWithoutTabled<T extends { label: string; values: readonly { period?: string; value: TracedNumber }[] }>(
   report: Pick<Report, "filingDisclosures">,
   rows: readonly T[],
 ): { kept: T[]; homes: string[] } {
   const homes: string[] = [];
   const kept = rows.flatMap((row) => {
-    const values = row.values.filter((v) => {
+    const values = collapseMeasuredCagrValues(row.values).filter((v) => {
       const home = filingTableHome(report, v.value.source);
       if (home !== null && !homes.includes(home)) homes.push(home);
       return home === null;
     });
-    return values.length === 0 ? [] : [{ ...row, values }];
+    return values.length === 0 ? [] : [{ ...row, label: readerMetricLabel(row.label), values }];
   });
   return { kept, homes };
 }
@@ -1317,7 +1527,7 @@ export function readerPrecision(text: string, source?: string): string {
   // identify which operand carries the ratio. Preserve these claims as written.
   if (source !== undefined && isRatioAsPercent(source)) return text;
   const out = text
-    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
+    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${formatScore(Number(value))}${tail}`)
     // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
     .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
   return out.replace(
@@ -1343,7 +1553,10 @@ export function readerPrecision(text: string, source?: string): string {
 
 /** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
 export function displayProse(text: string, source?: string): string {
-  return readerPrecision(humanizeInlineCitations(text), source);
+  const readable = readerBaseUnits(readerConventionText(text, source))
+    .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
+    .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
+  return readerPrecision(humanizeInlineCitations(readable), source);
 }
 
 /**
@@ -1441,26 +1654,34 @@ export function runSummary(report: Pick<Report, "meta">): string {
     : evidence.analysisCompletion === "not-completed"
       ? "Data-only snapshot; no usable analysis was completed; model execution unknown"
       : "Saved model request and execution unknown";
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   const byModel = new Map<string, string[]>();
   const attemptParts: string[] = [];
+  const unfinished = new Map<string, typeof execution>();
   for (const entry of execution) {
     const step = stepName(entry.step);
     if (entry.completion === "not-called") {
-      attemptParts.push(`${step}: ${entry.adjustments.includes("model-rejected") ? "rejected before a model call" : "no model call recorded"}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
-    const model = entry.models.join(" + ");
     if (entry.modelEvidence === "unknown" || entry.completion === "failed") {
-      attemptParts.push(`${step}: ${entry.modelEvidence === "unknown" ? "model observation unknown" : `recorded attempt on ${model}`}${entry.completion === "failed" ? "; no usable analysis was completed" : ""}`);
+      unfinished.set(step, [...(unfinished.get(step) ?? []), entry]);
       continue;
     }
     const key = `${entry.effectiveModel}${entry.effectiveEffort ? ` (${entry.effectiveEffort} effort)` : ""}`;
-    byModel.set(key, [...(byModel.get(key) ?? []), stepName(entry.step)]);
+    byModel.set(key, [...new Set([...(byModel.get(key) ?? []), stepName(entry.step)])]);
   }
   const list = (items: string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  const done = new Set(execution.filter(e => e.completion === "completed" && e.modelEvidence === "recorded").map(e => passBaseName(e.step)));
+  for (const [step, attempts] of unfinished) {
+    if (done.has(step)) continue;
+    const failed = attempts.filter(e => e.completion === "failed");
+    const unknown = attempts.some(e => e.modelEvidence === "unknown");
+    attemptParts.push(failed.length ? `${step} failed${failed.length > 1 ? ` after ${failed.length} attempts` : ""}: no usable analysis was completed${unknown ? "; model observation unknown" : `; recorded attempts on ${[...new Set(attempts.flatMap(e => e.models))].join(" + ")}`}` : `${step}: ${unknown ? "model observation unknown" : attempts.some(e => e.adjustments.includes("model-rejected")) ? "rejected before a model call" : "no model call recorded"}`);
+  }
+  if (execution.every(e => e.completion !== "completed")) attemptParts.unshift("no pass completed");
   const parts = [...byModel.entries()].map(([model, steps]) => `${list(steps)} on ${model}`).concat(attemptParts);
-  const adjusted = execution.filter((entry) => entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
+  const adjusted = execution.filter((entry) => entry.completion === "completed" && entry.adjustments.length > 0).map((entry) => `${stepName(entry.step)}: ${entry.adjustments.join(", ")}`);
   if (adjusted.length > 0) parts.push(`adjusted — ${adjusted.join("; ")}`);
   if (m.judgeProtocol?.sharedModelFamily.shared) parts.push("the judge shares the analysts' model family");
   return parts.join("; ");
@@ -1473,7 +1694,7 @@ export function runSummary(report: Pick<Report, "meta">): string {
  * Null when no pass ran on a plan allowance.
  */
 export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
-  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const stepName = passBaseName;
   // Codex review of PR #41: failed and never-sent attempts are listed in a
   // data-only report's run details, but they used no evidence at all.
   const steps = modelPasses(report.meta.execution)
@@ -1489,6 +1710,32 @@ function total(values: readonly (number | undefined)[]): number | null {
   return present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
 }
 
+type LedgerRow = Report["appendix"]["costBreakdown"][number];
+interface LedgerUsage { requests: number; discarded: number; input: number; output: number }
+
+/**
+ * R1 (FIGR paid audit): token totals over the same ledger rows the cost is
+ * summed from, when every row carries its settled tokens. Earlier reports'
+ * rows carry none, and keep the per-pass execution totals.
+ */
+function ledgerUsage(rows: readonly LedgerRow[]): LedgerUsage | null {
+  if (rows.length === 0 || rows.some((row) => typeof row.inputTokens !== "number" || typeof row.outputTokens !== "number")) return null;
+  return {
+    requests: rows.length,
+    discarded: rows.filter((row) => row.discarded === true).length,
+    input: rows.reduce((sum, row) => sum + row.inputTokens!, 0),
+    output: rows.reduce((sum, row) => sum + row.outputTokens!, 0),
+  };
+}
+
+function requestCountText(usage: LedgerUsage): string {
+  return `${usage.requests} ${usage.requests === 1 ? "request" : "requests"}${usage.discarded > 0 ? ` (${usage.discarded} discarded)` : ""}`;
+}
+
+function tokenText(input: number | null, output: number | null): string {
+  return `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
+}
+
 /**
  * Tokens for plan-allowance runs, dollars for API runs (audit P3: "Cost
  * $0.000000" on a ChatGPT-plan run read as a free run).
@@ -1499,7 +1746,7 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
   const output = total(execution.map((entry) => entry.outputTokens));
   const tokens = input === null && output === null ? null
     : `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
-  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => entry.step === "synthesize" ? "judge" : entry.step);
+  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => passAttemptName(entry.step));
   const usageLimit = unreported.length ? `; usage incomplete for ${unreported.join(", ")}` : "";
   const plan = execution.length > 0 && execution.every((entry) => parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel));
   // The same figure the audit ledger totals: the sum of the displayed rows.
@@ -1509,6 +1756,8 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
     return `${tokens ?? "token usage not reported"} on the ${provider} allowance (no API charge recorded)${usageLimit}`;
   }
   const dollars = `${formatCostUsd(cost)} recorded API cost`;
+  const ledger = ledgerUsage(report.appendix.costBreakdown);
+  if (ledger !== null) return `${dollars} across ${requestCountText(ledger)}; ${tokenText(ledger.input, ledger.output)}`;
   return `${tokens ? `${dollars}; ${tokens}` : dollars}${usageLimit}`;
 }
 
@@ -1525,13 +1774,13 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
   // contradiction: the data state follows the data counts, and the sentence
   // says that it is the analysis that is blocked.
   const processBlocked = c.state === "blocked" && c.dataCriticalCount === 0 && c.processDisclosureCount > 0;
-  const shown = processBlocked ? (c.dataWarningCount > 0 ? "degraded" : "complete") : c.state;
+  const shown = shownDataState(c);
   const state = shown === "complete" ? "Complete" : shown === "degraded" ? "Degraded" : shown === "blocked" ? "Blocked" : "Unknown";
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // D-67: one count per underlying data gap; how the passes ran is counted apart.
   const blocks = processBlocked ? (c.processDisclosureCount === 1 ? ", which blocks the analysis" : ", which block the analysis") : "";
   const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)${blocks}` : "";
-  return `${c.dataOnly ? "Data-only · " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
+  return `${c.dataOnly ? "Data-only \u00b7 " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrlLabel ?? c.xbrl}; forensics ${c.forensicValidation}.`;
 }
 
 /**
@@ -1649,6 +1898,7 @@ export function gapCountText(gaps: readonly ManifestEntry[], c?: Pick<ReportComp
 
 const DATASET_LABEL: Record<string, string> = {
   marketCapHistory: "Market-cap history",
+  eodPrices: "Issuer price history", spy: `${SPY_BENCHMARK} benchmark price history`, sectorEtf: "Sector ETF price history",
 };
 
 const STATEMENT_LABEL: Record<string, string> = {
@@ -1667,6 +1917,15 @@ const PROCESS_LABEL: ReadonlyArray<readonly [RegExp, (m: RegExpExecArray) => str
 export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const field = gap.fields[0] ?? gap.key;
   if (DATASET_LABEL[gap.key] !== undefined) return DATASET_LABEL[gap.key]!;
+  const price = /^historicalPriceEodFull\(([^)]+)\)$/.exec(gap.key);
+  if (price) return `Price history (${price[1]})`;
+  const statementField = gap.fields.map(f => /^fmp\.(incomeStatement|balanceSheet|cashFlow)\(([^,]+),(annual|quarter)\)$/.exec(f)).find(Boolean);
+  if (statementField) {
+    const [, endpoint, symbol, period] = statementField;
+    const key = `${({ incomeStatement: "income", balanceSheet: "balance", cashFlow: "cashflow" } as Record<string,string>)[endpoint]}${period === "annual" ? "Annual" : "Quarterly"}`;
+    const label = STATEMENT_LABEL[key];
+    return label[0].toUpperCase() + label.slice(1) + (gap.key.startsWith(`${endpoint}(${symbol}`) ? ` (${symbol})` : "");
+  }
   for (const [pattern, label] of PROCESS_LABEL) {
     const match = pattern.exec(field);
     if (match) return label(match);
@@ -1674,7 +1933,10 @@ export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   const withheld = /^keyless\.([A-Za-z]+)\.backfill\.withheld\.([A-Za-z]+)$/.exec(field);
   if (withheld) return `${sentence(segmentWords(withheld[2]!))} withheld from the ${STATEMENT_LABEL[withheld[1]!] ?? segmentWords(withheld[1]!).join(" ")} backfill`;
   const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
-  if (fmp) return `${sentence(segmentWords(fmp[1]!))} (FMP)`;
+  if (fmp) {
+    const symbol = /^fmp\.[A-Za-z]+\(([^,)]+)/.exec(field)?.[1];
+    return `${sentence(segmentWords(fmp[1]!))} (FMP${symbol && gap.key.startsWith(`${fmp[1]}(${symbol}`) ? `, ${symbol}` : ""})`;
+  }
   if (field === "analysis.llm") return "Analysis not completed";
   return sentence(segmentWords(field.replace(/\([^)]*\)/g, "").replace(/[.:]/g, " ")));
 }
@@ -1685,7 +1947,8 @@ function shortReason(reason: string): string {
   if (reason.length <= limit) return reason;
   const cut = reason.slice(0, limit);
   const stop = Math.max(cut.lastIndexOf("; "), cut.lastIndexOf(". "));
-  return `${(stop > 120 ? cut.slice(0, stop) : cut).trimEnd()} … (full text in the audit export)`;
+  const word = cut.lastIndexOf(" ");
+  return `${(stop > 120 ? cut.slice(0, stop) : word > 0 ? cut.slice(0, word) : "Reason withheld").trimEnd()} … (full text in the audit export)`;
 }
 
 /**
@@ -1702,14 +1965,14 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
     tables.push({
       heading: "Data warnings and critical gaps",
       headers: ["Gap", "Severity", "Reason"],
-      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(gap.reason)}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.key))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
     });
   }
   if (k.processDisclosures.length > 0) {
     tables.push({
       heading: "Analysis-process disclosures",
       headers: ["Disclosure", "Detail"],
-      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(gap.reason)]),
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.key))]),
       note: "How the analysis passes ran and what verification found; they are not missing data.",
     });
   }
@@ -1728,10 +1991,13 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
  * every table: what the grades, targets, weights, projections, citations and
  * forensic screens are and are not.
  */
-export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix">>): string[] {
+export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix" | "fairValue">>): string[] {
   const notes = [
     "Grades and the composite score are deterministic house rules (bands, weights and signal transforms published in docs/METHODOLOGY.md). They have not been backtested against outcomes; a grade is a summary of the evidence shown, not a forecast.",
-    "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
+    // FIGR extra-high audit B2-19: do not describe model outputs a route does not produce.
+    unavailableCashFlowModel(report)
+      ? "This report models no intrinsic value, scenario value or projection (see Valuation). Its scenarios are qualitative conditions, not price targets, guidance, predictions or probabilities."
+      : "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
     "FACT, ESTIMATE and JUDGMENT labels mark what a statement is. A citation shows where a figure came from; it is a provenance check, not proof that a sentence's interpretation is correct.",
     "Forensic screens (Altman, Beneish, Piotroski, accruals) flag items to investigate. A flag is not a finding of misstatement, and a clean screen is not an audit.",
     "Peer, own-history and consensus comparisons are shown only where enough comparable observations exist; a dash means the comparison was withheld, not that it is neutral.",
@@ -1750,6 +2016,27 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
 export function auditExportPath(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
   const id = presentationReportId(report,context);
   return typeof id === "number" && Number.isSafeInteger(id) ? `/api/export/${id}?format=audit` : null;
+}
+
+/**
+ * FIGR extra-high audit B2-19: the fundamentals cash-flow group is headed
+ * "Free cash flow" only when it holds a free-cash-flow measure. A lender's
+ * group holds operating cash flow and SBC observations, which are not FCF.
+ */
+export function cashFlowGroupHeading(rows: readonly MetricRow[]): string {
+  const sources = (row: MetricRow) => row.values.map((v) => v.value.sourceId ?? v.value.source);
+  if (rows.length === 0 || rows.some((row) => /free cash flow|\bfcf\b/i.test(row.label) || sources(row).some((s) => /(?:^|[.-])fcf(?:$|[.-])|free-cash-flow/i.test(s)))) return "Free cash flow";
+  const ocf = rows.some((row) => /operating cash flow/i.test(row.label));
+  const sbc = rows.some((row) => /stock-based compensation|\bSBC\b/i.test(row.label));
+  return ocf && sbc ? "Operating cash flow and SBC observations" : "Cash flow observations";
+}
+
+/** Same basename as the download route, usable after the report leaves the app. */
+export function auditExportFilename(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
+  const id = presentationReportId(report, context);
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) return null;
+  const symbol = report.meta.symbol.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+  return `${symbol}-report-${id}-audit.md`;
 }
 
 /** A signal's raw value in its own unit ("66.9%", "426.7×", "0.66 frac" → "65.8%"). */
@@ -1796,7 +2083,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   return {
     heading: "Scorecard",
-    headers: ["Aspect", "Score", "Band", "Weight", "Evidence", "What it measures"],
+    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
       const weight = scores.composite.weights[key];
@@ -1810,8 +2097,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         aspect.notApplicableReason ?? aspect.note,
       ];
     }),
-    ...(limited.length === 0 ? {} : {
-      note: `${limited.map((key) => {
+    note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {
         const signals = scores.aspects[key].signals ?? [];
         const effective = signals.length > 0
           ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)
@@ -1821,8 +2107,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
           ? `below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter`
           : "all from one signal, and a letter needs a second";
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
-      }).join(" ")}`,
-    }),
+      }).join(" ")}`.trim(),
   };
 }
 
@@ -1879,15 +2164,22 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   ].join(" · ");
 }
 
-/** A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export). */
-export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]): string {
-  const step = entry.step === "synthesize" ? "judge" : entry.step;
+/**
+ * A pass in one line: model, effort, tokens and any adjustment (the full record is in the audit export).
+ * R1: given the cost ledger, the tokens are every request the pass made (with how many there were and
+ * were discarded) when its rows carry tokens, not only the accepted attempt's.
+ */
+export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number], costLedger?: readonly LedgerRow[]): string {
+  const step = passAttemptName(entry.step);
   const effort = entry.effectiveEffort ? `, ${entry.effectiveEffort} effort` : "";
-  const tokens = entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
-    : `; ${entry.inputTokens === undefined ? "unknown" : formatNumber(entry.inputTokens, 0)} input / ${entry.outputTokens === undefined ? "unknown" : formatNumber(entry.outputTokens, 0)} output tokens`;
+  const ledger = costLedger === undefined ? null : ledgerUsage(costLedger.filter((row) => row.step === entry.step));
+  const tokens = ledger !== null
+    ? `; ${ledger.requests > 1 ? `${requestCountText(ledger)}; ` : ""}${tokenText(ledger.input, ledger.output)}`
+    : entry.inputTokens === undefined && entry.outputTokens === undefined ? ""
+      : `; ${tokenText(entry.inputTokens ?? null, entry.outputTokens ?? null)}`;
   const requested = entry.requestedModel !== entry.effectiveModel ? ` (requested ${entry.requestedModel})` : "";
   const adjusted = entry.adjustments.length > 0 ? `; ${entry.adjustments.join(", ")}` : "";
-  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}`;
+  return `${step}: ${entry.effectiveModel}${requested}${effort}${tokens}${adjusted}${(entry.note ?? "").includes(FAILED_PASS_NOTE) ? `; failed: ${FAILED_PASS_NOTE}` : ""}`;
 }
 
 /** Score drivers with reader labels, values in their own units and the points each adds. */
@@ -1926,4 +2218,52 @@ export function factorExposureTable(scores: NonNullable<Report["scores"]>): Body
     headers: ["Factor family", "Weight", "Points vs 50"],
     rows: scores.factorExposure.map((x) => [sentence(segmentWords(x.family)), formatPct(x.weightPct, 1), signedPoints(x.aboveNeutralPoints)]),
   };
+}
+
+/** OD-11: data-only runs performed no citation-check pass. */
+export function displayedProvenanceCoverage(report: Pick<Report, "meta" | "appendix">, scope: "header" | "appendix"): ProvenanceCoverage | undefined {
+  if (report.appendix.missingData.some(gap => gap.field === "analysis.llm")) return undefined;
+  return scope === "header" ? report.meta.provenanceCoverage : report.appendix.provenanceCoverage ?? report.meta.provenanceCoverage;
+}
+
+/** AI-201: merge identical stored macro rows without altering the record. */
+/**
+ * FIGR extra-high audit A2-26 (2026-11-02): the pipeline fetches these FRED
+ * series as transforms (CPI as year-over-year %, payrolls as a monthly change),
+ * but the model names the row, and "Core consumer price index ... 2.6%" read as
+ * an index level. Transformed rows take a fixed name for what is measured.
+ */
+const MACRO_TRANSFORM_NAMES: Readonly<Record<string, { unit: RegExp; name: string }>> = {
+  CPIAUCSL: { unit: /^%$|percent/i, name: "CPI inflation (all items), year over year" },
+  CPILFESL: { unit: /^%$|percent/i, name: "Core CPI inflation (excluding food and energy), year over year" },
+  PAYEMS: { unit: /thousand/i, name: "Nonfarm payrolls, monthly change" },
+};
+
+/** FRED keys monthly and quarterly observations to the period's first day; that date is not a release date. */
+const MONTHLY_MACRO_SERIES = new Set(["CPIAUCSL", "CPILFESL", "UNRATE", "PAYEMS", "FEDFUNDS", "CPIMEDSL", "CES6562000001", "INDPRO", "IPUTIL",
+  "PPIACO", "WPU101", "PCOPPUSDM", "RSAFS", "UMCSENT", "TOTALSA", "PCEDG", "PCE", "PCEND", "HOUST", "CSUSHPINSA", "CUSR0000SEHA",
+  "APU000072610", "DGORDER", "TSIFRGHT"]);
+const QUARTERLY_MACRO_SERIES = new Set(["DRTSCILM"]);
+const MONTH_ABBREVIATIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The observation period a macro row's date stands for: "Sep 2026", "Q3 2026" or the date itself. */
+export function macroObservationLabel(seriesId: string, asOf: string | null): string {
+  if (asOf === null) return "—";
+  const m = /^(\d{4})-(\d{2})-01$/.exec(asOf);
+  if (m && MONTHLY_MACRO_SERIES.has(seriesId)) return `${MONTH_ABBREVIATIONS[Number(m[2]) - 1]} ${m[1]}`;
+  if (m && QUARTERLY_MACRO_SERIES.has(seriesId) && ["01", "04", "07", "10"].includes(m[2]!)) return `Q${(Number(m[2]) + 2) / 3} ${m[1]}`;
+  return asOf;
+}
+
+export type MacroDisplayRow = Report["macro"]["relevantSeries"][number] & { observation: string };
+
+export function macroDisplayRows(macro: Report["macro"]): MacroDisplayRow[] {
+  const rows: MacroDisplayRow[] = [];
+  for (const row of macro.relevantSeries) {
+    const existing = rows.find(r => r.seriesId === row.seriesId && r.latest.unit === row.latest.unit && r.latest.value === row.latest.value && r.latest.asOf === row.latest.asOf);
+    if (existing) { if (!existing.relevance.includes(row.relevance)) existing.relevance += ` ${row.relevance}`; continue; }
+    const transform = MACRO_TRANSFORM_NAMES[row.seriesId];
+    rows.push({ ...row, name: transform && transform.unit.test(row.latest.unit) ? transform.name : row.name, observation: macroObservationLabel(row.seriesId, row.latest.asOf) });
+  }
+  return rows;
 }

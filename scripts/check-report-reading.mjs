@@ -1,5 +1,6 @@
 // Read-only rendered regression check against an explicitly isolated preview.
 // Supply --playwright, --chrome, --dossier, --classic, --symbol and --report-id.
+import { readingCheckFailures } from "./lib/report-reading-bounds.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
@@ -25,10 +26,13 @@ try {
       assert.equal(await page.locator("body").getAttribute("data-ui-layout"),layout);
       for (const section of sections) assert.equal(await page.locator(`#report-${section}`).count(),1,section);
       const jump=page.locator(`${layout === "dossier" ? ".dossier-grade-navigation" : ".report-grade-strip"} a[href="#report-valuation"]`);
+      const scrollBefore=await page.evaluate(()=>(document.getElementById("main-content")?.scrollTop ?? 0)+window.scrollY);
       await jump.focus(); await jump.press("Enter"); await page.waitForTimeout(100);
-      const bounds=await page.evaluate(()=>({top:document.getElementById("report-valuation").getBoundingClientRect().top,stickyBottom:document.querySelector(".report-grade-strip").getBoundingClientRect().bottom,client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
-      assert(bounds.top>=bounds.stickyBottom-2,JSON.stringify({layout,theme,width,...bounds}));
-      assert(bounds.scroll<=bounds.client+1,JSON.stringify({layout,theme,width,...bounds}));
+      const bounds=await page.evaluate(()=>{
+        const main=document.getElementById("main-content");
+        return {top:document.getElementById("report-valuation").getBoundingClientRect().top,stickyBottom:document.querySelector(".report-grade-strip").getBoundingClientRect().bottom,doc:{client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth},main:main?{client:main.clientWidth,scroll:main.scrollWidth}:null,hashAfter:location.hash,scrollAfter:(main?.scrollTop ?? 0)+window.scrollY};
+      });
+      assert.deepEqual(readingCheckFailures({...bounds,scrollBefore}),[],JSON.stringify({layout,theme,width,...bounds,scrollBefore}));
       checks.push({layout,theme,width,...bounds});
     }
     await context.close();

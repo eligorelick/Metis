@@ -1458,3 +1458,14 @@ describe("report schema — 1.1.0 additions", () => {
     expect(ReportSchema.safeParse(r).success).toBe(false);
   });
 });
+
+it.each(["William J. Hold \u2014 Chief Scientist.", "Ms. Hold said gross margin expanded.", "Dr. Sell leads the research group.", "Mr. Buy joined the board in 2021.", "William J. Hold, the CTO, said margins expanded."])("AI-111 permits a name: %s", text => {
+ expect(noBuySellHold(text)).toBe(true);
+});
+it.each(["Sell the stock.", "Strong Buy", "Class B. Hold.", "Plan B. Buy before earnings.", "on Main St. Buy before earnings.", "William J. Hold said margins expanded.", "We met Ms. Hold."])("AI-111 retains rating refusal: %s", text => {
+ expect(noBuySellHold(text)).toBe(false);
+});
+
+it.each(["Class B. Hold, given the discount to peers.", "Plan B. Buy, ahead of earnings."])("AI-111 refuses comma rating directive: %s", text => {
+ expect(noBuySellHold(text)).toBe(false);
+});

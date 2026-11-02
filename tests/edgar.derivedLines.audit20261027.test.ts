@@ -30,6 +30,29 @@ const M = 1_000_000;
 const K25: Filing = { filed: "2026-02-24", form: "10-K", fp: "FY", fy: 2025, accn: "0000000099-26-000001" };
 const fy25 = (val: number) => [fact(K25, "2025-01-01", "2025-12-31", val)];
 
+describe("FIN-510-V1 P9: deferred-revenue siblings", () => {
+  const instant = (v: number) => [fact(K25, undefined, "2025-12-31", v)];
+  const tags = { Assets: instant(100_000 * M), ContractWithCustomerLiabilityCurrent: instant(1_500 * M), DeferredRevenueCurrent: instant(2_575 * M) };
+  it("withholds HD-shaped conflicting siblings with both tags and values named", () => {
+    const b = build(tags);
+    expect(b.balanceAnnual.rows[0]!.deferredRevenue).toBeNull();
+    expect(b.balanceAnnual.rows[0]!.fieldProvenance?.deferredRevenue).toBeUndefined();
+    expect(b.balanceAnnual.withheld).toContainEqual(expect.objectContaining({ field: "deferredRevenue",
+      text: expect.stringMatching(/ContractWithCustomerLiabilityCurrent 1500000000.*DeferredRevenueCurrent 2575000000.*no definitional containment/i) }));
+  });
+  it("keeps a single sibling and agrees on equal siblings, including a filed zero", () => {
+    expect(build({ ...tags, DeferredRevenueCurrent: [] }).balanceAnnual.rows[0]!.deferredRevenue).toBe(1_500 * M);
+    expect(build({ ...tags, ContractWithCustomerLiabilityCurrent: [] }).balanceAnnual.rows[0]!.deferredRevenue).toBe(2_575 * M);
+    expect(build({ ...tags, DeferredRevenueCurrent: instant(1_500 * M) }).balanceAnnual.rows[0]!.deferredRevenue).toBe(1_500 * M);
+    expect(build({ ...tags, ContractWithCustomerLiabilityCurrent: instant(0), DeferredRevenueCurrent: instant(0) }).balanceAnnual.rows[0]!.deferredRevenue).toBe(0);
+    expect(build({ ...tags, ContractWithCustomerLiabilityCurrent: instant(0) }).balanceAnnual.rows[0]!.deferredRevenue).toBeNull();
+  });
+  it("does not compare a sibling from another period", () => {
+    const b = build({ ...tags, DeferredRevenueCurrent: [fact(K25, undefined, "2024-12-31", 2_575 * M)] });
+    expect(b.balanceAnnual.rows[0]!.deferredRevenue).toBe(1_500 * M);
+  });
+});
+
 describe("component floors", () => {
   const mcd = {
     Revenues: fy25(26_000 * M),

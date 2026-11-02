@@ -28,7 +28,8 @@ describe("compact issuer free cash flow reconciliation", () => {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
     if (bundle.statements.incomeQuarterly.ok) bundle.statements.incomeQuarterly.value.data.rows.unshift({ date: "2026-06-30", reportedCurrency: "USD", revenue: 4e9 });
     const url = "https://www.sec.gov/issuer-fcf.htm";
-    const record = buildEarningsReleaseRecord({ filing: { accessionNumber: "fcf-source", filingDate: "2026-08-05" }, releaseUrl: url, commentaryUrl: null, releaseText: `Financial Results for Second Quarter 2026. Quarter ended June 30, 2026. ${body}`, commentaryText: null, includeNarrative: true });
+    // AI-506/OD-10: a release that states no earnings amount is an operating update.
+    const record = buildEarningsReleaseRecord({ filing: { accessionNumber: "fcf-source", filingDate: "2026-08-05" }, releaseUrl: url, commentaryUrl: null, releaseText: `Net income was $10.0 million, or $0.10 per diluted share. Financial Results for Second Quarter 2026. Quarter ended June 30, 2026. ${body}`, commentaryText: null, includeNarrative: true });
     bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [record], events: [], notes: [] }, source: "edgar", asOf: "2026-08-05", endpoint: url, fetchedAt: "2026-10-13T00:00:00Z" } };
     const d = buildFilingDisclosures(bundle);
     expect(d?.freeCashFlow).toHaveLength(4);

@@ -7,6 +7,7 @@ import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdow
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { ReportSchema, type Report, type TracedNumber } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
+import { withoutPrintTokens } from "./helpers/printTokens";
 
 // D-62: an explicit-scale excerpt figure reads as the compact amount it states,
 // and an absent measurement window is omitted rather than printed as "not supplied".
@@ -19,7 +20,7 @@ const cases = [
 
 const exports = [
   { name: "Markdown", render: reportToMarkdown },
-  { name: "print", render: reportToPrintBody },
+  { name: "print", render: (report: Report) => withoutPrintTokens(reportToPrintBody(report)) },
 ];
 const surfaces = [
   { name: "live", render: (report: Report) => renderToStaticMarkup(createElement(ReportView, { report })) },

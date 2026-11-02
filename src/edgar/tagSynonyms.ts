@@ -98,6 +98,15 @@ export const GROSS_PROFIT_COST_TAGS: readonly string[] = ["CostOfRevenue", "Cost
 export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments";
 
+/**
+ * FIN-401: total costs and expenses, read only to test whether revenue less
+ * costs reconciles to a pretax base that excludes equity-method income (the
+ * equity-method result then sits inside revenue). Never a chain line item.
+ */
+export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
+/** Direct consolidated totals eligible for an N3/N4b whole-row switch. */
+export const FILED_REVENUE_TOTAL_TAGS = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"] as const;
+
 export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
@@ -298,6 +307,11 @@ export const MATURITIES_STAND_IN: TagStandIn = {
 /** The all-classes share count a per-class reporter files instead of the dei cover count. */
 export const BALANCE_SHEET_SHARES_TAG = "CommonStockSharesOutstanding";
 
+/** Filed conversion/IPO evidence shared by annual dilution and awards attribution. */
+export const COMMON_CONVERSION_TAGS = ["StockIssuedDuringPeriodSharesConversionOfConvertibleSecurities", "ConversionOfStockSharesConverted"] as const;
+export const IPO_PROCEEDS_TAG = "ProceedsFromIssuanceInitialPublicOffering";
+export const PARTICIPATING_SECURITY_ALLOCATION_TAGS = ["UndistributedEarningsLossAllocatedToParticipatingSecuritiesBasic", "UndistributedEarningsLossAllocatedToParticipatingSecuritiesDiluted"] as const;
+
 export const LINE_ITEM_TAGS = {
   // --- income statement -----------------------------------------------------
   revenue: entry(REVENUE_TAGS),
@@ -451,7 +465,7 @@ export const LINE_ITEM_TAGS = {
    * `AvailableForSaleSecuritiesDebtSecurities` total usually also holds
    * current and cash-equivalent securities, so it is never one.
    */
-  longTermInvestments: entry(["LongTermInvestments"]),
+  longTermInvestments: entry(["LongTermInvestments"], undefined, ["EquityMethodInvestments"]),
   noncurrentDebtSecurities: entry(["MarketableSecuritiesNoncurrent", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"]),
   /** A filed "other investments" line, which holds the two pieces after it when it is tagged. */
   otherLongTermInvestments: entry(["OtherLongTermInvestments"]),
@@ -552,7 +566,8 @@ export const LINE_ITEM_TAGS = {
 
   // --- cash flow ------------------------------------------------------------
   cashflowNetIncome: entry([...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLoss"]),
-  stockBasedCompensation: entry(["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"]),
+  // R9: allocated GAAP expense is a separate basis, never a cash-flow add-back fallback.
+  stockBasedCompensation: entry(["ShareBasedCompensation"]),
   changeInWorkingCapital: entry(["IncreaseDecreaseInOperatingCapital"]),
   operatingCashFlow: entry([
     "NetCashProvidedByUsedInOperatingActivities",
@@ -608,3 +623,12 @@ export function floorsFor(item: LineItem): string[] {
   const entryFor: TagSynonymEntry = LINE_ITEM_TAGS[item];
   return [...(entryFor.unlessBelow ?? [])];
 }
+
+// P2: admitted operating one-offs; total wins over components.
+export const UNUSUAL_OPERATING_GAIN_TAGS = ["InsuredEventGainLoss"] as const;
+export const UNUSUAL_OPERATING_CHARGE_TOTAL_TAG = "AssetImpairmentCharges";
+export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
+  "GoodwillImpairmentLoss",
+  "ImpairmentOfLongLivedAssetsHeldForUse",
+  "ImpairmentOfIntangibleAssetsExcludingGoodwill",
+] as const;

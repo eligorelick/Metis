@@ -24,6 +24,26 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
+  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
+  "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
+  "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
+  "docs/audit/2026-11-02-r1-figr-paid-audit.md",
+  "docs/audit/2026-11-02-r2-figr-figures.md",
+  "docs/audit/2026-11-02-r5-figr-verifier.md",
+  "docs/audit/2026-11-02-r3-figr-readability.md",
+  "docs/audit/2026-11-02-n4b-figr-qtr.md",
+  "docs/audit/2026-11-02-n4a-figr-cap.md",
+  "docs/audit/2026-11-02-p2-dcf-inputs.md",
+  "docs/audit/2026-11-02-p8-docs-tests.md",
+  "docs/audit/2026-11-02-n3-sec-rows.md",
+  "docs/audit/2026-11-02-p9-methodology.md",
+  "docs/audit/2026-11-02-n2-figr-readiness.md",
+  "docs/audit/2026-11-02-p7-display.md",
+  "docs/audit/2026-11-02-p0-review-fixes.md",
+  "docs/audit/2026-11-02-p5-primary-data.md",
+  "docs/audit/2026-11-02-p5-primary-data-lows.md",
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   ".github/workflows/ci.yml",
   "docs/superpowers/specs/2026-08-07-audit-remediation-design.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
@@ -56,6 +76,30 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  // R9's requested audit record is part of the tracked release documentation.
+  "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
+  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
+  "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
+  "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
+  "docs/audit/2026-11-02-r1-figr-paid-audit.md",
+  "docs/audit/2026-11-02-r2-figr-figures.md",
+  "docs/audit/2026-11-02-r5-figr-verifier.md",
+  "docs/audit/2026-11-02-r3-figr-readability.md",
+  "docs/audit/2026-11-02-n4b-figr-qtr.md",
+  "docs/audit/2026-11-02-n4a-figr-cap.md",
+  "docs/audit/2026-11-02-p2-dcf-inputs.md",
+  "docs/audit/2026-11-02-p8-docs-tests.md",
+  "docs/audit/2026-11-02-n3-sec-rows.md",
+  "docs/audit/2026-11-02-p9-methodology.md",
+  "docs/audit/2026-11-02-n2-figr-readiness.md",
+  "docs/audit/2026-11-02-b4b-equity-bridge.md",
+  "docs/audit/2026-11-02-p7-display.md",
+  "docs/audit/2026-11-02-p6-local-security.md",
+  "docs/audit/2026-11-02-p0-review-fixes.md",
+  "docs/audit/2026-11-02-p5-primary-data.md",
+  "docs/audit/2026-11-02-p5-primary-data-lows.md",
+  "docs/audit/2026-11-02-paid-work-lifecycle.md",
+  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   "docs/audit/2026-11-01-current-main-integration.md",
   "README.md",
   "CHANGELOG.md",
@@ -655,6 +699,8 @@ describe("public release contract", () => {
       // D-87: public restriction and debt-carrying reconciliations.
       read("tests/financialComposition.cashScope.test.ts"),
       read("tests/edgar.debtNoteCarrying.test.ts"),
+      // R8: the public acquisition-closing item exercises bounded lifecycle context.
+      read("tests/stageC.eventContextBudget.test.ts"),
         // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
         read("tests/edgar.operatingExpenseScope.test.ts"),
       // Independent audit 2026-10-19: five trimmed live-run companyfacts payloads.
@@ -663,7 +709,8 @@ describe("public release contract", () => {
 
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
-    expect(edgarFixtures).toHaveLength(51);
+    // R8 adds one referenced public 8-K item; no private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(52);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
@@ -784,4 +831,24 @@ describe("public release contract", () => {
 
     expect(reportFixtures).toEqual(["fixtures/report/DEMO-sample.json"]);
   });
+});
+
+it("P4-8 keeps lifecycle decisions and operating notes under their owning headings", () => {
+  const read = (file: string) => readFileSync(path.join(ROOT, file), "utf8");
+  const blockBetween = (text: string, start: string, end: string) => text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)));
+  const decisions = read("docs/audit/DECISIONS.md");
+  expect(decisions.indexOf("Entries are dated design history")).toBeLessThan(decisions.indexOf("## D-143 - P4:"));
+  expect(decisions).toMatch(/## D-143 - P4:.*2026-11-02/);
+  const ops = read("docs/OPERATIONS.md");
+  expect(blockBetween(ops, "## Report lifecycle and recovery", "## Local HTTP API")).toContain("JOB-301:");
+  expect(blockBetween(ops, "## Verification and troubleshooting", "## Immutable run inputs")).toContain("runtime.lock");
+  const privacy = read("docs/PRIVACY.md");
+  expect(privacy.indexOf("AI-115:")).toBeLessThan(privacy.indexOf("## Limited FMP access"));
+  const methodology = read("docs/METHODOLOGY.md");
+  expect(blockBetween(methodology, "## Stage A checks and report verification", "## Disclaimer scope")).toContain("AI-110:");
+  const scheduler = read("src/pipeline/jobScheduler.ts");
+  expect(scheduler).toMatch(/transient[^]*?\*\/\s*export function isTransientWriterLock/);
+  const frozenLine = read("src/pipeline/jobRunner.ts").split("\n").find(line => line.includes("frozenInputDetail = `reused frozen inputs"));
+  expect(frozenLine).not.toContain("\u2014");
+  expect(frozenLine).toContain("\\u2014");
 });

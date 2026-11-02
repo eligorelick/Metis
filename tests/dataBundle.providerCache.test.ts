@@ -273,3 +273,26 @@ describe("dataBundle provider cache wrappers", () => {
     expect(cacheRows()[0]?.provider).toBe("finnhub");
   });
 });
+
+
+it("DATA-115 a page client survives a canceled peer client sharing the miss", async () => {
+  const control = new AbortController();
+  let started!: () => void;
+  const ready = new Promise<void>((resolve) => { started = resolve; });
+  const peerFetch: typeof fetch = async (_url, init) => {
+    started();
+    return new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true }));
+  };
+  const peer = createFmpClient({ apiKey: "cancel-integration", signal: control.signal, fetchImpl: peerFetch, cachedFetch: makeFmpCachedFetch(), limiter: makeLimiter(1000, 1000) });
+  const pageFetch = vi.fn(async () => jsonResponse([{ symbol: "TST", price: 100 }]));
+  const page = createFmpClient({ apiKey: "cancel-integration", fetchImpl: pageFetch, cachedFetch: makeFmpCachedFetch(), limiter: makeLimiter(1000, 1000) });
+  const leader = peer.quote("TST");
+  await ready;
+  const follower = page.quote("TST");
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  control.abort(new Error("peer deadline"));
+  const results = await Promise.allSettled([leader, follower]);
+  expect(results[0].status).toBe("rejected");
+  expect(results[1]).toMatchObject({ status: "fulfilled", value: { ok: true } });
+  expect(pageFetch).toHaveBeenCalledTimes(1);
+});

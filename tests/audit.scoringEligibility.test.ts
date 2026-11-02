@@ -25,6 +25,18 @@ describe('validation eligibility reaches deterministic consumers',()=>{
   expect(clean.forensics.beneish?.indices.sgi??null).not.toBeNull();
   expect(clean.growth.margins.operating.series.some(p=>p.pct!==null)).toBe(true);
  });
+ it.each(['validation','row'] as const)('N3 withholds EV/Sales while annual revenue eligibility is open (%s)',evidence=>{
+  const bundle=completeCurrencyBundle({});
+  const clean=runStageB(bundle,{evIncludeLeases:false});
+  expect(clean.valuation.multiples?.multiples.find(m=>m.key==='evToSales')?.current).toBeGreaterThan(0);
+  if(evidence==='row'&&bundle.statements.incomeAnnual.ok){
+   const row=bundle.statements.incomeAnnual.value.data.rows[0]!;
+   row.fieldConflicts={revenue:{usable:false,vendorValue:row.revenue??null,secValue:1200e6,reason:'unreconciled revenue definitions'}};
+   delete row.revenue;
+  }
+  const flagged=runStageB(bundle,{evIncludeLeases:false},evidence==='validation'?revenueFailure:undefined);
+  expect(flagged.valuation.multiples?.multiples.find(m=>m.key==='evToSales')).toMatchObject({current:null,ownHistory:null,peers:null,basis:expect.stringMatching(/unreconciled/i)});
+ });
  it.each([false,true])('FIN-110 preserves independent capital, returns and route metrics (bank=%s)',bank=>{
   const bundle=completeCurrencyBundle({bank}),clean=runStageB(bundle,{evIncludeLeases:false});
   const flagged=runStageB(bundle,{evIncludeLeases:false},revenueFailure);

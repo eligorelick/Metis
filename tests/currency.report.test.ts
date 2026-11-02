@@ -24,6 +24,7 @@ vi.mock("server-only", () => ({}));
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
+import { withoutPrintTokens } from "./helpers/printTokens";
 import { formatTracedValue } from "@/report/format";
 import { ReportSchema, type Report, type TracedNumber } from "@/report/schema";
 
@@ -74,7 +75,7 @@ function viewGrid(html: string): string[] {
 function renderAll(report: Report): { md: string; html: string; view: string } {
   return {
     md: reportToMarkdown(report),
-    html: reportToPrintHtml(report),
+    html: withoutPrintTokens(reportToPrintHtml(report)),
     view: renderToStaticMarkup(createElement(ReportView, { report })),
   };
 }

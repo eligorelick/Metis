@@ -17,11 +17,44 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { BRIDGE_METHOD_SINCE_SPEC_VERSION, LEGACY_BRIDGE_CLAUSES, withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
-import type { Report } from "@/report/schema";
+import { ReportSchema, type Report } from "@/report/schema";
 
 import { cloneTask28, loadTask28Fixture } from "./helpers/task28Report";
 
 const NOTE = /Valued under the equity-bridge method before report spec .*Re-run the report for the current method/;
+it("FIN-309 qualifies legacy financial value dates without rewriting the stored date", () => {
+  const report = base("1.55.0", "excess-return");
+  const view = withLegacyBridgeMethod(report);
+  expect(view.fairValue!.basis.join(" ")).toMatch(/opening-book date.*stored headline date may show the run date/);
+  expect(view.fairValue!.perShare).toEqual(report.fairValue!.perShare);
+  expect(withLegacyBridgeMethod(view)).toEqual(view);
+});
+it("FIN-407 explains the earlier admission withholding without changing stored EPS", () => {
+  const report = base("1.55.0");
+  const series = report.projections!.series.find(s => s.metric === "epsDiluted")!;
+  series.disclosures.push({ field: "projections.eps.ownershipScope", severity: "warn",
+    reason: "Forecast operating EPS withheld: Diluted shares on the issuer-economic basis admitted" });
+  const bytes = JSON.stringify(report);
+  const view = withLegacyBridgeMethod(report);
+  const after = view.projections!.series.find(s => s.metric === "epsDiluted")!;
+  expect(after.disclosures.at(-1)!.reason).toMatch(/sentence admits the diluted count; it was not a refusal/);
+  expect(after.base).toEqual(series.base);
+  expect(withLegacyBridgeMethod(view)).toEqual(view);
+  expect(JSON.stringify(report)).toBe(bytes);
+});
+it("FIN-302 legacy convertibles are conditional, idempotent and keep every stored figure", () => {
+  for (const method of ["fcff-dcf", "excess-return"] as const) {
+    const report = base("1.55.0", method);
+    const bytes = JSON.stringify(report);
+    const view = withLegacyBridgeMethod(report);
+    expect(view.fairValue!.basis.join(" ")).toMatch(/if a convertible's if-converted shares/);
+    expect(view.fairValue!.perShare).toEqual(report.fairValue!.perShare);
+    expect(view.valuation).toEqual(report.valuation);
+    expect(withLegacyBridgeMethod(view)).toEqual(view);
+    expect(JSON.stringify(report)).toBe(bytes);
+    expect(withLegacyBridgeMethod(base("1.56.0", method))).toEqual(base("1.56.0", method));
+  }
+});
 const CLAIMS = /so any the issuer filed were not deducted/;
 const E7 = /deducted the filed retirement and environmental obligations shown in its bridge at their full amount, before the tax relief a settlement earns/;
 const LEASE = /sales-to-capital kept the 5,494M operating lease the EV left out in invested capital/;
@@ -95,11 +128,49 @@ const bridgeWith = (nonOperatingComponents: { label: string; value: number }[]):
   presentValueExplicit: null, presentValueTerminal: null, currency: "USD", asOf: null, nonOperatingComponents,
 });
 
+describe("FIN-401 / FIN-401-V1: stored equity-method readings", () => {
+  const readingNote = /Valued before report spec 1\.56\.0 under the earlier equity-method reading/;
+  const old = (version: string) => {
+    const report = base(version);
+    report.valuation.dcf.bridge = bridgeWith([{ label: "long-term investments (filed carrying value)", value: 300 }]);
+    report.valuation.dcf.assumptions = [{ name: "sales-to-capital", value: "2.0", basis:
+      "TTM revenue / operating invested capital - longTermInvestments 300M; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value" }];
+    return report;
+  };
+  it("marks only a stored old stake reading, at the frozen cutoff, without rewriting figures or bytes", () => {
+    const report = old("1.55.0");
+    expect(() => ReportSchema.parse(report)).not.toThrow();
+    const bytes = JSON.stringify(report);
+    const view = withLegacyBridgeMethod(report);
+    expect(view.fairValue!.basis.join(" ")).toMatch(readingNote);
+    expect(view.fairValue!.basis.join(" ")).toMatch(/if its income was inside operating income, that stake was valued twice/);
+    expect(view.valuation).toEqual(report.valuation);
+    expect(view.fairValue!.perShare).toBe(report.fairValue!.perShare);
+    expect(withLegacyBridgeMethod(view)).toEqual(view);
+    expect(JSON.stringify(report)).toBe(bytes);
+    for (const version of ["1.56.0", "9.0.0"]) expect(withLegacyBridgeMethod(old(version))).toEqual(old(version));
+    const noComponent = old("1.55.0");
+    noComponent.valuation.dcf.bridge = bridgeWith([]);
+    expect(withLegacyBridgeMethod(noComponent).fairValue!.basis.join(" ")).not.toMatch(readingNote);
+    const noBasis = old("1.55.0");
+    noBasis.valuation.dcf.assumptions = [];
+    expect(withLegacyBridgeMethod(noBasis).fairValue!.basis.join(" ")).not.toMatch(readingNote);
+  });
+  it("composes the two parts in order and reaches classic, dossier, Markdown and print", () => {
+    const report = old("1.44.0");
+    const view = withLegacyBridgeMethod(report);
+    const notes = view.fairValue!.basis;
+    expect(notes.findIndex(line => readingNote.test(line))).toBeGreaterThan(notes.findIndex(line => NOTE.test(line)));
+    for (const surface of surfaces(report)) expect(count(surface, readingNote)).toBe(1);
+  });
+});
+
 const count = (text: string, re: RegExp): number => (text.replace(/\s+/g, " ").match(new RegExp(re.source, `${re.flags.replace("g", "")}g`)) ?? []).length;
 const surfaces = (report: Report): string[] => [
   reportToMarkdown(report),
   reportToPrintBody(report),
   renderToStaticMarkup(createElement(ReportView, { report })),
+  renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
 ];
 
 describe("legacy equity-bridge method note", () => {
@@ -112,7 +183,9 @@ describe("legacy equity-bridge method note", () => {
     for (const surface of surfaces(report)) expect(count(surface, NOTE)).toBe(1);
     const view = withLegacyBridgeMethod(report);
     expect(view.fairValue!.basis[0]).toBe("Stored fair value basis line.");
-    expect(view.fairValue!.basis).toHaveLength(2);
+    // FIN-302 adds one conditional B4b note beside the B4a note (2 -> 3).
+    expect(view.fairValue!.basis).toHaveLength(3);
+    expect(view.fairValue!.basis[2]).toMatch(/earlier convertible reading/);
   });
 
   it("applying the rule twice adds the note once", () => {
@@ -127,12 +200,14 @@ describe("legacy equity-bridge method note", () => {
   it("a report at or after the batch's spec carries no note", () => {
     for (const version of [BRIDGE_METHOD_SINCE_SPEC_VERSION, "9.0.0"]) {
       const report = base(version);
-      expect(withLegacyBridgeMethod(report)).toBe(report);
+      const view = withLegacyBridgeMethod(report);
+      expect({ ...view, fairValue: report.fairValue }).toEqual(report);
+      expect(view.fairValue!.basis).toHaveLength(version === "9.0.0" ? 1 : 2);
       for (const surface of surfaces(report)) expect(surface).not.toMatch(NOTE);
       const reitReport = reit(version);
       expect(withLegacyBridgeMethod(reitReport)).toBe(reitReport);
       const fin = financeOnly(version);
-      expect(withLegacyBridgeMethod(fin)).toBe(fin);
+      expect({ ...withLegacyBridgeMethod(fin), fairValue: fin.fairValue }).toEqual(fin);
     }
     // Control: B13's spec is below the cutoff, and the comparison is numeric.
     for (const version of ["1.44.0", "1.49.0", "1.9.0"]) {
@@ -201,10 +276,14 @@ describe("legacy equity-bridge method note", () => {
       const view = withLegacyBridgeMethod(atCutoff);
       expect(view.quality.notes).toContain("LATER-PART-CLAUSE");
       // This part's clauses add nothing at its own cutoff.
-      expect(view.fairValue).toEqual(atCutoff.fairValue);
+      // FIN-302: B4b now adds its conditional note at the older B4a cutoff.
+      expect({ ...view.fairValue, basis: atCutoff.fairValue!.basis }).toEqual(atCutoff.fairValue);
+      expect(view.fairValue!.basis).toHaveLength(2);
+      expect(view.fairValue!.basis[1]).toMatch(/earlier convertible reading/);
       // A report at or after the later clause's cutoff gets neither.
       const later = base("1.51.0");
-      expect(withLegacyBridgeMethod(later)).toBe(later);
+      expect(withLegacyBridgeMethod(later).quality).toBe(later.quality);
+      expect(withLegacyBridgeMethod(later).fairValue!.basis).toHaveLength(2);
     } finally {
       LEGACY_BRIDGE_CLAUSES.pop();
     }

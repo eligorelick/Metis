@@ -45,6 +45,8 @@ export interface EconomicShareEvidence {
   effectiveTo: string | null;
   /** The source establishes that every economically participating common class is included. */
   complete: boolean;
+  /** Additional admission limits, retained in every resolved scope disclosure. */
+  basis?: string;
   sourceHash: string;
   sourceIds: string[];
   classes: {
@@ -69,6 +71,7 @@ export interface EconomicEquityScope {
   sourceHashes: string[];
   shareCountAsOf: string | null;
   currency?: string | null;
+  multiClass?: true;
   classPriceDates?: { classId: string; asOf: string }[];
   /** Admitted main quote valuation day, independent of report build/fetch day. */
   priceAsOf?: string | null;
@@ -139,7 +142,7 @@ export function resolveEconomicEquityScope(
     if (!finite(totals[0]) || totals[0] <= 0 || active.some(item => item.asOf !== row.asOf || signature(item) !== signature(row))) return unresolved();
     const approximate = active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy"));
     const weighted = active.some(item => item.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1));
-    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
+    return { status: "resolved", ...(row.classes.length > 1 ? { multiClass: true as const } : {}), marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
       currency: quote.currency ?? null,
       priceAsOf: priceDay,
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),
@@ -149,9 +152,10 @@ export function resolveEconomicEquityScope(
         (!approximate ? "quoted common-class price basis. "
           : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
             ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
-            : "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. ") +
+            : "same-price approximation for equivalent classes without an admitted quote (a separately traded class's own price was not used). ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
-        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` };
+        `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` +
+        active.flatMap(item => item.basis ? [` ${item.basis}`] : []).join("") };
   }
   if (quote.marketCapSecurityBasis === "quoted-security" || quote.marketCapSecurityBasis === "unresolved" ||
     (quote.isAdr === true && quote.marketCapSecurityBasis !== "issuer-common")) return unresolved();
@@ -166,6 +170,11 @@ export interface WeightedShareCounts {
   basic: number | null;
   diluted: number | null;
   periodEnd: string | null;
+}
+/** Same-period primary EPS note, not inferred from a later cover count. */
+export interface CombinedClassEpsBasis extends WeightedShareCounts {
+  classIds: string[];
+  source: string;
 }
 
 const ECONOMIC_COUNT_TOLERANCE = 0.03;
@@ -183,7 +192,7 @@ export function issuerEconomicDilutedShares(
   evidence: readonly EconomicShareEvidence[],
   counts: WeightedShareCounts,
   /** `countNotFiled`: the count was substituted or is a loss period's basic count (FIN-404), so it is not called the filed count. A kept filed count (not restored) is filed. */
-  options: { countNotFiled?: boolean } = {},
+  options: { countNotFiled?: boolean; combinedClassEps?: CombinedClassEpsBasis | null } = {},
 ): { shares: number; basis: string } | { shares: null; reason: string } | null {
   if (scope.status !== "resolved" || !evidence.some(row => row.classes.length > 1)) return null;
   const refuse = (why: string) => ({ shares: null, reason: `The ${options.countNotFiled === true ? "" : "filed "}diluted count is not established on the all-class economic basis: ${why}.` });
@@ -212,8 +221,18 @@ export function issuerEconomicDilutedShares(
   const matches = units.filter(unit => Math.abs(basic * unit / total - 1) <= tolerance);
   const count = (v: number): string => Math.round(v).toLocaleString("en-US");
   const pct = `${(tolerance * 100).toFixed(1)}%`;
+  const combined = options.combinedClassEps;
+  if (combined && combined.source && combined.basic === basic && combined.diluted === diluted && combined.periodEnd === periodEnd &&
+    combined.classIds.length === classes.size && new Set(combined.classIds).size === classes.size &&
+    combined.classIds.every(id => classes.has(id)) && units.length === 1 && units[0] === 1 &&
+    evidence.every(row => row.classes.length === new Set(row.classes.map(cls => cls.classId)).size)) {
+    return { shares: diluted,
+      basis: `Diluted shares on the issuer-economic basis: the issuer's same-period EPS note explicitly combines all ${classes.size} equally participating common classes. ` +
+        `Combined basic weighted-average shares ${count(basic)} and diluted weighted-average shares ${count(diluted)} for the period ending ${periodEnd} are in quoted-share units. ` +
+        `A period average need not equal the later outstanding cover count at ${countDay}; no equality to that point-in-time count is required. Source: ${combined.source}.` };
+  }
   if (matches.length !== 1) {
-    return refuse(`the basic weighted-average count ${count(basic)} (period ending ${periodEnd}) does not match the all-class economic share total of ${count(total)} quoted-share units at ${countDay} on exactly one class's unit basis within ${pct}`);
+    return refuse(`the basic weighted-average count ${count(basic)} (period ending ${periodEnd}) does not match the all-class economic share total of ${count(total)} quoted-share units at ${countDay} on exactly one class's unit basis within ${pct}; this average-versus-point-in-time difference does not itself establish unresolved class units, but a same-period issuer statement combining every class on a known economic unit basis has not been established`);
   }
   const unit = matches[0];
   const scaled = unit === 1 ? "" : ` × ${unit} units per share`;

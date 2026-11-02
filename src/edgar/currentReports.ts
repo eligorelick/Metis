@@ -73,6 +73,7 @@ export function splitSentences(text: string): string[] {
 }
 
 export interface MoneyMention {
+  signAmbiguous?: boolean;
   /** Base units (e.g. 108_000_000_000 for "$108.0 billion"). */
   value: number;
   /** Printed symbol: "$", "US$", "€", "£", "¥". */
@@ -100,6 +101,8 @@ const amount = (printed: string): number => Number(printed.replace(/,/g, ""));
 export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
   const out: MoneyMention[] = [];
   const spans: [number, number][] = [];
+  const sign = (index: number) => /(?:^|[\s(])[-\u2212]$/.test(text.slice(0,index)) ? -1 : 1;
+  const ambiguous = (index: number) => /(?:^|[\s(])[\u2013\u2014]$/.test(text.slice(0,index));
   for (const m of text.matchAll(MONEY_RANGE_RE)) {
     const scale = SCALE[m[5]!.toLowerCase()]!;
     const [low, high] = [amount(m[2]!) * scale, amount(m[4]!) * scale];
@@ -107,14 +110,14 @@ export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
     if (low > high) continue;
     const symbol = m[1]!.toUpperCase();
     const highStart = m.indices![4]![0];
-    out.push({ value: round(low, 2), symbol, raw: text.slice(m.index, m.indices![3]![0]), index: m.index },
+    out.push({ value: round(low * sign(m.index), 2), ...(ambiguous(m.index) ? {signAmbiguous:true}:{}), symbol, raw: text.slice(m.index, m.indices![3]![0]), index: m.index },
       { value: round(high, 2), symbol, raw: text.slice(highStart, m.index + m[0].length), index: highStart });
     spans.push([m.index, m.index + m[0].length]);
   }
   for (const m of text.matchAll(MONEY_RE)) {
     if (spans.some(([from, to]) => m.index >= from && m.index < to)) continue;
     const scale = m[3] ? SCALE[m[3].toLowerCase()]! : defaultScale;
-    out.push({ value: round(amount(m[2]!) * scale, 2), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index });
+    out.push({ value: round(amount(m[2]!) * scale * sign(m.index), 2), ...(ambiguous(m.index) ? {signAmbiguous:true}:{}), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index });
   }
   return out.sort((a, b) => a.index - b.index);
 }
@@ -316,17 +319,31 @@ const METRIC_RULES: { metric: GuidanceMetric; pattern: RegExp; unit: GuidanceIte
 ];
 
 const OUTLOOK_HEADING = /\b(?:Business |Financial |Fiscal \d{4} )?(?:Outlook|Guidance)\b/g;
-const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
+// "Webcast Information" (FIGR's Q1 and Q2 2026 releases) heads the call notice
+// that follows a one-row guidance table; case-sensitive like the others, so a
+// webcast mentioned inside an outlook sentence does not end the block.
+const OUTLOOK_STOP = /\b(?:Highlights|CFO Commentary|Conference Call|Webcast Information|Webcast and Conference Call|Non-GAAP Measures|For further information|Forward-Looking Statements|Certain statements in this|About [A-Z][A-Za-z]+|Data Center •|Reconciliation of)\b/;
 const EXPECTATION = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|outlook|guid(?:e|ance)|project(?:s|ed)|forecast)\b/i;
+// Some releases introduce compact bullets with a dated heading, not an
+// expectation verb. A combined heading detects outlook scope but cannot bind
+// a value to either period until a subsequent, unambiguous heading does so.
+const DATED_OUTLOOK_HEADING = /\b(?:(?:first|second|third|fourth)[ -]quarter(?: and full[ -]year)?(?: of)?(?: (?:fiscal|fiscal year|FY))? ?'?\d{4}|full[ -](?:fiscal )?year(?: of)?(?: fiscal)?(?: year)? \d{4})\s+(?:Outlook|Guidance)\s*:/gi;
+const COMPACT_GUIDANCE_METRIC = /^(?:(?:non-GAAP|GAAP)\s+)?(?:revenue|operating income)\b/i;
+const EXPECTATION_VERB = /\b(?:expect(?:s|ed)?|anticipat(?:e|es|ed)|project(?:s|ed)|forecast)\b/i;
+const SCALED_MONEY = String.raw`(?:${MONEY_SYMBOL})\s?(?:${MONEY_NUMBER})\s*(?:thousand|million|billion|trillion)\b`;
+const COMPACT_GUIDANCE_RANGE = new RegExp(String.raw`^(?:(non-GAAP|GAAP)\s+)?(revenue|operating income)\s+between\s+(${SCALED_MONEY}\s+and\s+${SCALED_MONEY})(?=\s*(?:[,.;•]|$))`, "i");
 
-/** The outlook block: the first Outlook/Guidance heading followed by an expectation sentence. */
+/** The first dated outlook heading or one followed by an expectation sentence. */
 export function outlookBlock(text: string): string | null {
+  const dated = [...text.matchAll(DATED_OUTLOOK_HEADING)];
   for (const heading of text.matchAll(OUTLOOK_HEADING)) {
-    const from = heading.index;
+    const datedHeading = dated.find((match) => match.index <= heading.index && match.index + match[0].length > heading.index);
+    const from = datedHeading?.index ?? heading.index;
     const window = text.slice(from, from + 3_000);
-    if (!/\bexpect/i.test(window.slice(0, 1_500))) continue;
-    const stop = OUTLOOK_STOP.exec(window.slice(heading[0].length + 20));
-    const end = stop ? heading[0].length + 20 + stop.index : window.length;
+    if (datedHeading === undefined && !/\bexpect/i.test(window.slice(0, 1_500))) continue;
+    const afterHeading = heading.index + heading[0].length - from + (datedHeading === undefined ? 20 : 0);
+    const stop = OUTLOOK_STOP.exec(window.slice(afterHeading));
+    const end = stop ? afterHeading + stop.index : window.length;
     return window.slice(0, end).trim();
   }
   return null;
@@ -340,6 +357,30 @@ function basesOf(sentence: string): GuidanceBasis[] {
 }
 
 type Bound = { low: number; mid: number; high: number; form: GuidanceItem["form"]; symbol: string | null };
+
+/** Only called inside a dated outlook: no period or expectation is inferred from the bullet itself. */
+function compactGuidanceRange(sentence: string, period: FiscalPeriod | null): GuidanceItem[] {
+  const match = COMPACT_GUIDANCE_RANGE.exec(sentence);
+  if (match === null || period === null) return [];
+  // A heading cannot overrule an explicit period attached to the range.
+  // Comparison bases after "compared with/to" or "versus" are not its target.
+  const attribution = sentence.slice(match[0].length).split(/\b(?:compared\s+(?:with|to)|versus|vs\.?)\b/i)[0]!;
+  for (const explicit of [fullYearPhrase(attribution), quarterPhrase(attribution)]) {
+    if (explicit !== null && explicit.label !== period.label) return [];
+  }
+  // Read only the attached range, excluding growth rates, prior-guide changes
+  // and secondary metrics such as a margin printed after operating income.
+  const values = moneyMentions(match[3]!);
+  const [low, high] = values;
+  if (values.length !== 2 || low!.symbol !== high!.symbol || low!.value > high!.value) return [];
+  return [{
+    metric: match[2]!.toLowerCase() === "revenue" ? "revenue" : "operating-income",
+    basis: match[1]?.toLowerCase() === "non-gaap" ? "non-gaap" : match[1] === undefined ? "unspecified" : "gaap",
+    period, unit: "currency", symbol: low!.symbol,
+    low: low!.value, mid: round((low!.value + high!.value) / 2), high: high!.value, form: "range",
+    sentence: sentence.length > 400 ? `${sentence.slice(0, 399)}…` : sentence,
+  }];
+}
 
 /**
  * Read one guidance sentence. Values come only from the clause after the
@@ -367,10 +408,18 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const valueClause = clause.replace(/,?\s*plus or minus [^,;.]*(?:basis points|%)/gi, " ");
   const approximate = /\b(?:approximately|about|around|roughly)\b/i.test(valueClause);
 
-  const values: { value: number; symbol: string | null }[] = rule.unit === "%"
+  const values: { value: number; symbol: string | null; signAmbiguous?: boolean }[] = rule.unit === "%"
     ? percentMentions(valueClause).map((p) => ({ value: p.value, symbol: null }))
-    : moneyMentions(valueClause).map((m) => ({ value: m.value, symbol: m.symbol }));
-  if (values.length === 0) return [];
+    : moneyMentions(valueClause).map((m) => ({ value: m.value, symbol: m.symbol, signAmbiguous: m.signAmbiguous }));
+  if (values.length === 0 || values.some(v=>v.signAmbiguous)) return [];
+  const signed = ["other-income", "eps", "operating-income"].includes(rule.metric);
+  const negativeWords = /\ban? (?:net )?(?:expense|loss) of\s+(?:(?:approximately|about|around|roughly)\s+)?(?:(?:between|in the range of)\s+)?(?:US)?[$\u20ac\u00a3\u00a5]/i.test(valueClause);
+  const anySignWords = /\ban? (?:net )?(?:expense|loss) of\b/i.test(valueClause);
+  if (anySignWords && values.some(v=>v.value<0)) return [];
+  if (rule.unit !== "%" && !signed && values.some(v=>v.value<0)) return [];
+  if (signed && negativeWords) {
+    for(const value of values) value.value=-value.value;
+  }
 
   const pointBound = (v: { value: number; symbol: string | null }): Bound => {
     if (tolBp && rule.unit === "%") {
@@ -400,6 +449,8 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const isRange =/\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
   // B-25: one end of a stated range is never published as a point.
   if (isRange && values.length < 2) return [];
+  // Sort only one signed range; respectively pairs retain the printed basis order.
+  if (signed && negativeWords && values.length === 2 && isRange && !respectively) values.sort((a,b)=>a.value-b.value);
 
   let bounds: Bound[] = [];
   if (respectively && bases.length === 2) {
@@ -441,8 +492,22 @@ export function parseGuidance(rawText: string, document?: ParsedDocument): Issue
   const items: GuidanceItem[] = [];
   const qualifiers: string[] = [];
   const unparsed: string[] = [];
+  let datedScope = false;
+  let datedPeriod: FiscalPeriod | null = null;
   for (const sentence of splitSentences(block)) {
-    const parsed = parseGuidanceSentence(sentence, period);
+    const heading = [...sentence.matchAll(DATED_OUTLOOK_HEADING)].at(-1);
+    if (heading !== undefined) {
+      datedScope = true;
+      datedPeriod = /\bquarter and\b/i.test(heading[0]) ? null : fullYearPhrase(heading[0]) ?? quarterPhrase(heading[0]);
+    }
+    const body = (heading === undefined ? sentence : sentence.slice(heading.index + heading[0].length)).trim();
+    if (datedScope && COMPACT_GUIDANCE_METRIC.test(body) && !EXPECTATION_VERB.test(body)) {
+      const parsed = compactGuidanceRange(body, datedPeriod);
+      items.push(...parsed);
+      if (parsed.length === 0 && /\d/.test(body) && /[$%€£¥]/.test(body)) unparsed.push(body.slice(0, 300));
+      continue;
+    }
+    const parsed = parseGuidanceSentence(datedScope ? body : sentence, datedScope ? datedPeriod : period);
     if (parsed.length > 0) {
       items.push(...parsed);
     } else if (/\b(?:not assuming|assumes?|excludes?|excluding|does not include)\b/i.test(sentence) && sentence.length <= 400) {
@@ -615,7 +680,7 @@ const OUTLOOK_OR_DIVIDEND = /\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es
  */
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
-  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
+  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US\$|\$|USD|EUR|GBP|JPY|CNY|RMB|\u20ac|\u00a3|\u00a5)\s?\(?\d|(?:US\$|\$|USD|EUR|GBP|JPY|CNY|RMB|\u20ac|\u00a3|\u00a5)\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
     .some((m) => !OUTLOOK_OR_DIVIDEND.test(sentencePrefix(text, m.index) +
       text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }
@@ -1116,12 +1181,13 @@ export function parseCommitmentTables(rawText: string): CommitmentTable[] {
   return out;
 }
 
+export type DividendFrequency = "quarterly" | "monthly" | "semi-annual" | "annual" | "special" | "supplemental" | "variable";
 export interface CapitalReturnFacts {
   /** "$26.0 billion" returned via repurchases + dividends, with the period phrase it was stated for. */
   returned: { value: number; symbol: string; periodText: string | null; approximate?: boolean } | null;
   authorizationRemaining: { value: number; symbol: string } | null;
   authorizationAdded: { value: number; symbol: string } | null;
-  dividendPerShare: { value: number; symbol: string; payDate: string | null; recordDate: string | null } | null;
+  dividendPerShare: { value: number; symbol: string; payDate: string | null; recordDate: string | null; frequency?: DividendFrequency | null } | null;
   dividendChange: { from: number; to: number; symbol: string } | null;
   sentences: string[];
 }
@@ -1129,6 +1195,7 @@ export interface CapitalReturnFacts {
 export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
   const text = normalizeFilingText(rawText);
   const narrative = text.slice(0, narrativeEnd(text));
+  const dividends: NonNullable<CapitalReturnFacts["dividendPerShare"]>[] = [];
   const out: CapitalReturnFacts = { returned: null, authorizationRemaining: null, authorizationAdded: null, dividendPerShare: null, dividendChange: null, sentences: [] };
   for (const sentence of splitSentences(narrative)) {
     let used = false;
@@ -1154,21 +1221,27 @@ export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
       out.dividendChange = { from: Number(change[2]), to: Number(change[3]), symbol: change[1]!.toUpperCase() };
       used = true;
     }
-    const dividend = /(?:quarterly (?:cash )?dividend of|dividend (?:of|to)) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/i.exec(sentence) ??
-      (change ? /(?:to) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/i.exec(sentence.slice(sentence.search(/\bfrom\b/i))) : null);
-    if (dividend && out.dividendPerShare === null && /\bdividend\b/i.test(sentence)) {
-      const pay = /paid on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
-      const record = /of record (?:on |as of )?([A-Z][a-z]+ \d{1,2}, \d{4})/i.exec(sentence);
-      out.dividendPerShare = {
-        value: Number(dividend[2]),
-        symbol: dividend[1]!.toUpperCase(),
-        payDate: pay ? isoFromMonthDate(pay[1] ?? pay[2]!) : null,
-        recordDate: record ? isoFromMonthDate(record[1]!) : null,
-      };
-      used = true;
+    const matches = [...sentence.matchAll(/(?:(quarterly|monthly|semi-annual|semiannual|annual|special|extra|supplemental|variable)\s+)?(?:cash )?dividend (?:of|to) ((?:US)?\$)\s?(\d+(?:\.\d+)?) per share/gi)];
+    // The sentence's payment and record dates apply to the dividend it states,
+    // whether as a plain declaration or as an increase "from $x to $y".
+    const pay = /(?:paid|payable) on ([A-Z][a-z]+ \d{1,2}, \d{4})|\bon ([A-Z][a-z]+ \d{1,2}, \d{4}),? to (?:all )?(?:share|stock)holders/i.exec(sentence);
+    const record = /of record (?:on |as of )?([A-Z][a-z]+ \d{1,2}, \d{4})/i.exec(sentence);
+    const payDate = pay ? isoFromMonthDate(pay[1] ?? pay[2]!) : null;
+    const recordDate = record ? isoFromMonthDate(record[1]!) : null;
+    if(change && matches.length===0) {
+      dividends.push({value:Number(change[3]),symbol:change[1]!.toUpperCase(),frequency:"quarterly",payDate,recordDate});
+    }
+    for(const dividend of matches) {
+      const word=dividend[1]?.toLowerCase();
+      const frequency: DividendFrequency | null = /in four (?:equal )?quarterly install?ments/i.test(sentence) ? "annual" : word === "semiannual" ? "semi-annual" : word === "extra" ? "special" : (word as DividendFrequency | undefined) ?? null;
+      dividends.push({value:Number(dividend[3]),symbol:dividend[2]!.toUpperCase(),frequency,payDate,recordDate});
+      used=true;
     }
     if (used) out.sentences.push(sentence.length > 400 ? `${sentence.slice(0, 399)}…` : sentence);
   }
+  for(const d of dividends) if(d.frequency==null) d.frequency=dividends.find(other=>other.value===d.value && other.symbol===d.symbol && other.frequency!=null)?.frequency ?? null;
+  const rank=(d:NonNullable<CapitalReturnFacts["dividendPerShare"]>)=>d.frequency==null?1:["special","supplemental","variable"].includes(d.frequency)?2:0;
+  out.dividendPerShare=dividends.sort((a,b)=>rank(a)-rank(b))[0]??null;
   return out;
 }
 
@@ -1203,6 +1276,12 @@ export function releaseNarrative(rawText: string): string {
  */
 export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.freeze({
   "1.01": "Entry into a Material Definitive Agreement",
+  "1.03": "Bankruptcy or Receivership",
+  "1.05": "Material Cybersecurity Incidents",
+  "2.04": "Triggering Events That Accelerate or Increase a Direct Financial Obligation or an Obligation under an Off-Balance Sheet Arrangement",
+  "3.01": "Notice of Delisting or Failure to Satisfy a Continued Listing Rule or Standard; Transfer of Listing",
+  "3.03": "Material Modification to Rights of Security Holders",
+  "5.01": "Changes in Control of Registrant",
   "1.02": "Termination of a Material Definitive Agreement",
   "2.01": "Completion of Acquisition or Disposition of Assets",
   "2.03": "Creation of a Direct Financial Obligation or an Obligation under an Off-Balance Sheet Arrangement of a Registrant",
@@ -1217,21 +1296,16 @@ export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = Object.fre
 });
 
 /** One immutable admission filter for candidate reads, retained sections and saved scope. */
-export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS));
+export const PRIORITY_EVENT_ITEMS: ReadonlySet<string> = new Set(["1.03","1.05","2.04","3.01"]);
+export const NON_EVENT_ITEMS: ReadonlySet<string> = new Set(["2.02","4.01","4.02","7.01","9.01"]);
+export const MATERIAL_EVENT_ITEM_CODES: readonly string[] = Object.freeze(Object.keys(MATERIAL_EVENT_ITEMS).sort());
 
 /** Official titles, for recognising a heading as opposed to a cross-reference. */
 const ITEM_TITLES: Readonly<Record<string, string>> = {
   ...MATERIAL_EVENT_ITEMS,
-  "1.03": "Bankruptcy or Receivership",
-  "1.05": "Material Cybersecurity Incidents",
   "2.02": "Results of Operations and Financial Condition",
-  "2.04": "Triggering Events",
-  "3.01": "Notice of Delisting",
-  "3.02": "Unregistered Sales of Equity Securities",
-  "3.03": "Material Modification to Rights of Security Holders",
   "4.01": "Changes in Registrant's Certifying Accountant",
   "4.02": "Non-Reliance on Previously Issued Financial Statements",
-  "5.01": "Changes in Control of Registrant",
   "5.03": "Amendments to Articles of Incorporation or Bylaws",
   "5.07": "Submission of Matters to a Vote of Security Holders",
   "7.01": "Regulation FD Disclosure",
@@ -1260,16 +1334,20 @@ export function hasMaterialEventItem(items: string | undefined): boolean {
  * "Item N.NN" followed by bounded title words. References to a titled item
  * inside prose are not headings; 3.02 accepts both Sale and Sales.
  */
+export function isTableOfContentsStub(text:string):boolean {
+ return /^\d{1,3}$/.test(text.replace(/Table of Contents\s*$/i, "").trim());
+}
+
 export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocument): EightKItemSection[] {
   const text = normalizeFilingText(rawText);
   const { boundaries, tagText } = itemHeadingBoundaries(rawText, sourceDocument);
   const heads: { item: string; start: number; bodyStart: number }[] = [];
-  for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})\s*[.:–—-]?\s*/gi)) {
+  for (const m of text.matchAll(/\bItem\s+(\d\.\d{2})(?:\s*[(][a-f][)])?\s*[.:–—-]?\s*/gi)) {
     const item = m[1]!;
     const officialTitle = ITEM_TITLES[item];
     if (!officialTitle) continue;
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 200);
-    const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle];
+    const variants = item === "3.02" ? [officialTitle, "Unregistered Sale of Equity Securities"] : [officialTitle, ...officialTitle.split(";").map(c=>c.trim())];
     const title = variants.find(t => {
       const words = item === "3.02" ? t.split(/\s+/) : t.split(/\s+/).slice(0, 2);
       return new RegExp(`^${words.join("\\s+")}\\b`, "i").test(after);
@@ -1278,7 +1356,19 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     // Skip the official title as printed, up to its end or the first sentence start.
     let bodyStart = m.index + m[0].length;
     const printed = text.slice(bodyStart, bodyStart + title.length + 40);
-    const titleEnd = matchTitleEnd(printed, title);
+    let titleEnd = matchTitleEnd(printed, title);
+    // A clause-only heading may print several applicable official-title clauses.
+    if (title !== officialTitle && item !== "3.02") {
+      for (;;) {
+        const tail = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 240);
+        const separator = /^\s*;\s*/.exec(tail);
+        if (!separator) break;
+        const next = tail.slice(separator[0].length);
+        const clause = officialTitle.split(";").map(c=>c.trim()).find(c=>new RegExp(`^${c.split(/\s+/).slice(0,2).join("\\s+")}\\b`,"i").test(next));
+        if (!clause) break;
+        titleEnd += separator[0].length + matchTitleEnd(next,clause);
+      }
+    }
     const following = text.slice(bodyStart + titleEnd, bodyStart + titleEnd + 160);
     const separator = /^\s*[.:–—-]+/.exec(following)?.[0].length ?? 0;
     const titleAt = bodyStart + titleEnd;
@@ -1286,6 +1376,7 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     // fallback would admit it. These spans exist only for an exact projection.
     if (tagText.some(([start, end]) => m.index < end && titleAt > start)) continue;
     const standaloneHeading = boundaries.has(m.index) && (boundaries.has(titleAt) || boundaries.has(titleAt + separator));
+    if (title !== officialTitle && item !== "3.02" && !standaloneHeading && !/^\s*(?:[.:]|$)/.test(following)) continue;
     if (!standaloneHeading) {
       const before = text.slice(Math.max(0, m.index - 120), m.index);
       if (/["“‘]\s*$/.test(before)) continue;
@@ -1313,7 +1404,7 @@ export function splitEightKItems(rawText: string, sourceDocument?: ParsedDocumen
     body = body.replace(/^[\s.:–—-]+/, "").trim();
     const incorporates = /^The information (?:set forth|contained|included) (?:in|under) Item (\d\.\d{2})[^.]{0,120}\bincorporated (?:herein )?by reference/i.exec(body)?.[1] ?? null;
     return { item: head.item, title: ITEM_TITLES[head.item]!, text: body, incorporates: incorporates !== null && body.length < 400 ? incorporates : null };
-  });
+  }).filter(section=>!isTableOfContentsStub(section.text));
 }
 
 /** Same-text line/block coordinates, used only as optional standalone-heading proof. */

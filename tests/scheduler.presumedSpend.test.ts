@@ -42,6 +42,7 @@ import {
   type SchedulerLimits,
 } from "@/pipeline/jobScheduler";
 import type { AnalystCase } from "@/report/schema";
+import { computeCostUsd } from "@/providers/anthropic";
 
 function requestSettlement(costUsd: number, presumed = false): Parameters<typeof settleRequestCost>[1] {
   return {
@@ -164,6 +165,16 @@ function sweepAt(db: ThesisDb, at: Date): void {
 }
 
 describe("a paid lease that expires without settling", () => {
+  it("settles Sonnet 5.5 cache reads at ten cents and returns the correct spent-cap headroom", () => {
+    seedJob(first.db, "job-sonnet-cache", "AAPL", 1);
+    const { claim, lease } = reserve(first.db, "job-sonnet-cache", "cache#r1", 0.5);
+    const costUsd = computeCostUsd({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000 }, "claude-sonnet-5-5", 0, new Date("2026-11-01"));
+    settleRequestCost(lease, { ...requestSettlement(costUsd), model: "claude-sonnet-5-5", inputTokens: 0, outputTokens: 0, cacheReadTokens: 1_000_000 }, NOW, first.db);
+    expect(first.db.select().from(costLog).all()[0]?.costUsd).toBeCloseTo(0.1, 10);
+    // A new 85-cent reservation fits beneath the $1 cap only at the correct rate.
+    expect(acquirePaidPassLease(claim, "bear", "next", 0.85, NOW, LIMITS, first.db, "claude-sonnet-5-5").acquired).toBe(true);
+    expect(getJobSnapshot("job-sonnet-cache")?.totalCostUsd).toBeCloseTo(0.1, 10);
+  });
   it("records the whole reservation as presumed spend instead of returning it to the caps", () => {
     seedJob(first.db, "job-a", "AAPL");
     const { lease } = reserve(first.db, "job-a", "attempt-1", 12.5);

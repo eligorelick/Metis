@@ -1,3 +1,4 @@
+import { reverseDcfValueText } from "@/report/presentation";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -28,7 +29,8 @@ describe("reader labels for registry ids", () => {
     ["payload.peers.avgo-broadcom-inc", "AVGO market cap"],
     ["payload.macro.dgs10-core", "FRED DGS10"],
     ["payload.macro.payems-change-from-prior-observation-core", "FRED PAYEMS, change from prior observation"],
-    ["payload.insiders.insider-open-market-sale-transactions-form-4-code-s-four-calendar-quarters-ended-2026-09-30", "Insider open-market sale transactions (Form 4 code S), four calendar quarters ended 2026-09-30"],
+    ["payload.insiders.insider-open-market-sale-transactions-form-4-code-s-four-calendar-quarters-ended-2026-09-30", "Insider sale transactions (Form 4 code S; open-market or private), four calendar quarters ended 2026-09-30"],
+    ["payload.insiders.insider-sale-transactions-form-4-code-s-four-calendar-quarters-ended-2026-09-30", "Insider sale transactions (Form 4 code S; open-market or private), four calendar quarters ended 2026-09-30"],
     ["payload.insiders.insider-acquired-disposed-transaction-count-ratio-all-acquisition-and-disposition-codes-two-calendar-quarters-ended-2026-06-30", "Insider acquired/disposed transaction-count ratio, two calendar quarters ended 2026-06-30"],
     ["payload.insiders.mspr-2026-10", "Insider sentiment (MSPR), 2026-10"],
     ["payload.statements.income-statement-quarterly.2026-07-26.net-income", "Net income (quarter ended 2026-07-26)"],
@@ -67,7 +69,8 @@ describe("reader text helpers", () => {
 
   it("names geographies and moat sources for readers", () => {
     expect(geographyLabel("TAIWAN, PROVINCE OF CHINA")).toBe("Taiwan");
-    expect(geographyLabel("CHINA")).toBe("China (incl. Hong Kong)");
+    // RPT-205: the source name does not establish Hong Kong scope.
+    expect(geographyLabel("CHINA")).toBe("China");
     expect(geographyLabel("OTHER COUNTRIES")).toBe("Other Countries");
     expect(geographyLabel("Other Americas")).toBe("Other Americas");
     expect(moatHeading({ source: "scale", strength: "wide" })).toBe("Scale — wide");
@@ -79,4 +82,16 @@ describe("reader text helpers", () => {
     expect(annualSegmentHeading("Product", rows, false)).toBe("Product segments");
     expect(annualSegmentHeading("Geographic", rows, true)).toBe("Geographic segments — annual, fiscal year ended 2026-01-25 (prior presentation)");
   });
+});
+
+it("RPT-205: geographic labels add no unrecorded scope", () => {
+ expect(geographyLabel("CHINA")).toBe("China");
+ expect(geographyLabel("China including Hong Kong")).toBe("China including Hong Kong");
+});
+
+it("RPT-217: reverse values use the metric unit and unavailable sentinels", () => {
+ expect(reverseDcfValueText("Forward FCF/share",11)).toBe("11.0");
+ expect(reverseDcfValueText("n/a (not computed in payload)",0)).toBe("\u2014");
+ expect(reverseDcfValueText("not applicable",0)).toBe("\u2014");
+ expect(reverseDcfValueText("unavailable (data-only payload)",0)).toBe("\u2014");
 });

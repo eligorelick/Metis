@@ -247,6 +247,16 @@ function expectUnknownScopes(scopes: CompletenessScopes): void {
 }
 
 describe("Task 28 completeness across live, Markdown, and print report surfaces", () => {
+  it.each(["refused", "replaced"])("N3 shows the revenue conflict disposition on each surface: %s", action => {
+    const gap: ManifestEntry = { field: action === "refused" ? "statements.income.2025-12-31.revenue" : "statements.sourceSwitch.incomeAnnual.2025-12-31", severity: "warn",
+      reason: "Income classification conflict for revenue: vendor 457211000, filed 506865000 USD" };
+    const report=reportWithCompleteness([gap],buildDataCompleteness([gap]));
+    eachSurface(renderWithoutMutation(report),(text,surface)=>{
+      expect(text,surface).toContain(`XBRL conflict found; vendor revenue ${action}`);
+      expect(text,surface).not.toContain("XBRL skipped");
+    });
+    expect(reportToAuditMarkdown(report)).toContain(`XBRL conflict found; vendor revenue ${action}`);
+  });
   it("routes multiline persisted analysis reasons through one Markdown blockquote boundary", () => {
     const gap: ManifestEntry = {
       ...ANALYSIS_GAP,
@@ -321,7 +331,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("1 additional data gap");
+      expect(text, surface).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
       expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
       expect(text, surface).not.toMatch(/blocked: 0 critical/i);
       expect(text, surface).not.toContain("1 additional data gaps");

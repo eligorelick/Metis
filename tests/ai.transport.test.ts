@@ -16,6 +16,55 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("provider dispatch and catalog lifecycle", () => {
+  it.each(["model", "reasoning.effort", "service_tier"])("treats a rejected SSE option %s as terminal", async param => {
+    remote.mockResolvedValueOnce(event({ type: "error", error: { code: "invalid_request_error", param } }));
+    const result = await runSubscriptionPass(args, "account");
+    if (result.ok) throw new Error("expected refusal");
+    expect(result.error).toMatchObject({ providerFailure: { disposition: "terminal", code: "invalid_request_error", param } });
+  });
+  it("records post-dispatch cancellation without marking the attempt not launched", async () => {
+    const controller = new AbortController();
+    remote.mockImplementationOnce(async () => { controller.abort(); throw new DOMException("canceled", "AbortError"); });
+    const result = await runSubscriptionPass({ ...args, signal: controller.signal }, "account");
+    if (result.ok) throw new Error("expected cancellation");
+    expect(remote).toHaveBeenCalledTimes(1);
+    expect(result.error.aborted).toBe(true);
+    expect(result.error.notLaunched).not.toBe(true);
+    expect(result.error.costUsd).toBe(0);
+  });
+  it.each([
+    [403, "subscription_sharing_user_not_eligible", "terminal"],
+    [429, "subscription_sharing_usage_limit_exceeded", "terminal"],
+    [401, "subscription_sharing_invalid_user", "terminal"],
+    [400, "subscription_sharing_unsupported_capability", "terminal"],
+    [404, "model_not_found", "terminal"],
+    [403, "subscription_sharing_route_not_supported", "terminal"],
+    [403, "chatpass_v2_scope_not_authorized", "terminal"],
+    [403, "chatpass_v2_invalid_authorization_context", "terminal"],
+    [503, "subscription_sharing_usage_unavailable", "transient"],
+    [503, "subscription_sharing_user_unavailable", "transient"],
+    [429, "rate_limit_exceeded", "transient"],
+  ] as const)("preserves HTTP and SSE retry disposition for %s %s", async (status, code, disposition) => {
+    for (const streamed of [false, true]) {
+      remote.mockResolvedValueOnce(streamed
+        ? new Response(`data: ${JSON.stringify({ type: "response.failed", response: { model: "example", usage: { input_tokens: 3, output_tokens: 2 }, error: { code } } })}\n\n`, { headers: { "x-request-id": "req-offline" } })
+        : Response.json({ error: { code } }, { status, headers: { "x-request-id": "req-offline" } }));
+      const result = await runSubscriptionPass(args, "account");
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected refusal");
+      expect(result.error).toMatchObject({ providerFailure: { disposition, code, httpStatus: streamed ? 200 : status, requestId: "req-offline", bodyShape: streamed ? "stream-error" : "error" } });
+      expect(result.error.notLaunched).not.toBe(true);
+      expect(result.error.fallbackUsed).toBe(false);
+      if (streamed) expect(result.error.usage).toEqual({ input_tokens: 3, output_tokens: 2 });
+    }
+  });
+  it.each([401, 403, 503, 429])("keeps unstructured admission status %s without treating diagnostic prose as a code", async status => {
+    remote.mockResolvedValueOnce(Response.json({ detail: "secret-token arbitrary diagnostic" }, { status }));
+    const result = await runSubscriptionPass(args, "account");
+    if (result.ok) throw new Error("expected refusal");
+    expect(result.error).toMatchObject({ providerFailure: { httpStatus: status, bodyShape: "detail", disposition: status === 401 || status === 403 ? "terminal" : "transient" } });
+    expect(JSON.stringify(result)).not.toContain("secret-token");
+  });
   it("discloses the local runtime ownership conflict instead of suggesting a dropped subscription transport", async () => {
     const thrown = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
     // Audit 2026-10-22 F-12: the reason sends the operator to the troubleshooting row that matches it.

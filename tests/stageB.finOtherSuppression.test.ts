@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { isFinancialForensicsSuppressed } from "@/pipeline/stageB/forensics";
 import type { CompanyRoute } from "@/types/core";
+import { runStageB } from "@/pipeline/compute";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 /**
  * FIN-OTHER: a financial company that is not a bank, insurer or mortgage REIT.
@@ -32,6 +34,19 @@ const finRoute = (
 const FORENSIC_SIGNALS = ["altmanZ", "beneishM", "accrualsRatio"] as const;
 
 describe("FIN-OTHER forensic suppression agrees with the forensics classifier", () => {
+  it.each([true, false])("L8 uses Beneish applicability for the receivables flag (financial=%s)", financial => {
+    const b = completeCurrencyBundle({});
+    if (!b.profile.ok || !b.statements.balanceAnnual.ok) throw Error("fixture");
+    if (financial) Object.assign(b.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Financial - Capital Markets" });
+    Object.assign(b.statements.balanceAnnual.value.data.rows[0]!, { accountsReceivables: 400e6, netReceivables: 400e6 });
+    Object.assign(b.statements.balanceAnnual.value.data.rows[1]!, { accountsReceivables: 100e6, netReceivables: 100e6 });
+    const c = runStageB(b);
+    expect(c.forensics.flags.some(f => f.id === "receivables-vs-revenue")).toBe(!financial);
+    if (financial) {
+      expect(c.forensics.beneish).toBeNull();
+      expect(c.forensics.gaps.find(g => g.field === "forensics.flags.receivablesApplicability")?.reason).toMatch(/Beneish.*DSRI|DSRI.*Beneish/i);
+    }
+  });
   it("suppresses the three forensic signals for a general-route asset manager", () => {
     const route = finRoute("general", "Financial Services");
 

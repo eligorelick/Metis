@@ -255,6 +255,17 @@ describe("resolveModel", () => {
  * ------------------------------------------------------------------------ */
 
 describe("computeCostUsd", () => {
+  it("prices Sonnet 5.5 cache reads at the documented 2026-11-01 rate, preserving other components and reservations", () => {
+    const model = "claude-sonnet-5-5";
+    const at = new Date("2026-11-01T00:00:00Z");
+    expect(computeCostUsd({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000 }, model, 0, at)).toBeCloseTo(0.10, 10);
+    expect(computeCostUsd({ input_tokens: 1_000_000, output_tokens: 0 }, model, 0, at)).toBe(2);
+    expect(computeCostUsd({ input_tokens: 0, output_tokens: 1_000_000 }, model, 0, at)).toBe(10);
+    expect(computeCostUsd({ input_tokens: 100_000, output_tokens: 50_000, cache_creation_input_tokens: 200_000,
+      cache_read_input_tokens: 1_000_000 }, model, 3, at)).toBeCloseTo(0.2 + 0.5 + 0.5 + 0.1 + 0.03, 10);
+    // Full-context cache WRITE reservation + maximum output, without search.
+    expect(maximumRequestCostUsd(model, "synthesize")).toBe(3.78);
+  });
   it("prices plain input/output tokens (opus-4-8: $5/$25 per MTok)", () => {
     const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 };
     expect(computeCostUsd(usage, "claude-opus-4-8")).toBeCloseTo(30, 10);
@@ -273,7 +284,7 @@ describe("computeCostUsd", () => {
   });
 
   // Cache reads are priced per model, not by one flat ratio: every model
-  // reads at 0.1x input except Fable 5.1, which reads at $0.25/MTok (0.025x).
+  // can have different discounts; do not derive reads from one input ratio.
   it("bills a cache read at the registry per-model cache-read price", () => {
     const usage = {
       input_tokens: 0,

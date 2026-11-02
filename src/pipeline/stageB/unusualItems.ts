@@ -8,13 +8,8 @@ import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } f
  * income. `AssetImpairmentCharges` is the total when filed; the three
  * component tags stand in only when it is not, so nothing is counted twice.
  */
-export const UNUSUAL_OPERATING_GAIN_TAGS = ["InsuredEventGainLoss"] as const;
-export const UNUSUAL_OPERATING_CHARGE_TOTAL_TAG = "AssetImpairmentCharges";
-export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
-  "GoodwillImpairmentLoss",
-  "ImpairmentOfLongLivedAssetsHeldForUse",
-  "ImpairmentOfIntangibleAssetsExcludingGoodwill",
-] as const;
+import { UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
+export { UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
 
 export interface UnusualOperatingItems {
   /** Net amount the items added to operating income: gains positive, charges negative. */
@@ -112,4 +107,35 @@ export function unusualOperatingItemsTtm(
     basis: `tagged one-off items inside operating income over the TTM ending ${q.ttmEnd} (fiscal year ending ${fiscalYearEnd} plus year to date less prior year to date; ${unit}): ` +
       [removed || "none removed", kept].filter(Boolean).join("; "),
   };
+}
+
+/** The same admission rule at each filed fiscal-year end. */
+export function unusualOperatingItemsByFiscalYear(facts: CompanyFacts | null | undefined,
+  q: { fiscalYearEnds: readonly string[]; unit: string | null; observedAt: string }): Map<string, UnusualOperatingItems> {
+  const result = new Map<string, UnusualOperatingItems>();
+  for (const date of q.fiscalYearEnds) {
+    const value = unusualOperatingItemsTtm(facts, { ...q, ttmEnd: date, fiscalYearEnd: date });
+    if (value !== null) result.set(date, { ...value, basis: `tagged one-off items inside operating income for the fiscal year ending ${date}: ${value.components.map(c => `us-gaap/${c.tag} ${c.value}`).join(", ")}` });
+  }
+  return result;
+}
+
+/** Repeated tag families are operating costs in the five-year history. */
+export function withoutRecurringFamilies(byYear: ReadonlyMap<string, UnusualOperatingItems>, lastFiveFiscalYearEnds: readonly string[]) {
+  const window = [...new Set(lastFiveFiscalYearEnds)].sort().reverse().slice(0, 5);
+  const tags = [...new Set(window.flatMap(date => byYear.get(date)?.components.map(c => c.tag) ?? []))];
+  const recurring = tags.flatMap(tag => {
+    const years = window.filter(date => byYear.get(date)?.components.some(c => c.tag === tag));
+    return years.length >= 3 ? [{ tag, years }] : [];
+  });
+  const excluded = new Set(recurring.map(r => r.tag));
+  const result = new Map<string, UnusualOperatingItems>();
+  for (const [date, value] of byYear) {
+    const components = value.components.filter(c => !excluded.has(c.tag));
+    if (components.length > 0 || value.withheld.length > 0) result.set(date, { ...value, components, value: components.reduce((sum, c) => sum + c.value, 0) });
+  }
+  return { byYear: result, recurring };
+}
+export function recurringOperatingItemsBasis(recurring: { tag: string; years: string[] }[]): string {
+  return recurring.map(r => `${r.tag} in ${r.years.length} of the last 5 fiscal years (${r.years.join(", ")}); not added back`).join("; ");
 }

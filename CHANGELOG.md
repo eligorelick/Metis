@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.54.0** and
-payload **1.56.0** (the D-140 current-main integration; local release checks passed). The
+Current source declares application **0.1.0**, report spec **1.58.0** and
+payload **1.62.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair and the FIGR paid-run and extra-high audit fixes). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,514 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - PR #83 review fixes (2026-11-02)
+
+- A dividend increase stated with its payment and record dates ("from $0.10 to $0.12 per share, to be paid on November 12, 2026 to stockholders of record on November 5, 2026") keeps both dates.
+- A filed CFO identity recovers only operating cash flow's twelve months. Stock-based compensation, issuer free cash flow and other quarterly flows are summed only over four contiguous, single-currency quarters.
+- A saved page attached to a run that finishes before its first status update refreshes when that run saved a different report. A done-but-resumable attachment still stays put.
+
+## Unreleased - FIGR extra-high run audit fixes (2026-11-02)
+
+- The owner's one extra-high FIGR run (report #1, $12.27, 7 requests) was audited by a fact review and a reasoning and
+  presentation review; stored prose and verification marks stay as written (D-67), and the fixes below apply to the
+  stored report when it is re-rendered or to future runs. See D-163 to D-167.
+- Read-time: reader labels for peer-table columns, pipeline citations and registry ids; the excluded-provider caption
+  survives a subject row; scenario bullets drop a repeated heading; executive cards name the missing assessment;
+  shared table qualifications are stated once, with XBRL tags, parser diagnostics, per-cell trend derivations and
+  no-news grade contracts moved to the audit companion; templates no longer describe absent model outputs; the trend
+  caption counts its quarters; CPI rows are named as year-over-year inflation and dated by month; the SBC ratio names
+  its add-back basis; a last close from a session still open at the history fetch is labelled as such.
+- Stage B: a still-forming US session bar is left out of observed price history, so technicals end at the last
+  settled close.
+- Future runs: one claim object in each catalyst and risk `reasoning` (both FIGR judges paid a repair for a list), and
+  generic analysis rules for each error the reviews found (operating income versus revenue marks, ratio direction,
+  return and SBC bases, matched windows, share-of-total attribution, scoped absence claims, met versus beat,
+  post-transaction liquidity, causal and superlative claims, executive attribution, valuation anchors versus multiples,
+  every retained guidance period, KPI causes, specialist terms).
+- Deterministic (R9): Resolve earnings-date status from retained passages across claims, catalyst cells and scenarios, including natural-language dates. Name issuer newswire announcements and their announcement date; keep vendor-only qualifications and reject unrelated SEC citations and third-party articles as confirmation.
+- Deterministic (R9): Admit explicitly combined, equal-economic-class EPS denominators using same-period filed evidence instead of requiring a weighted average to equal a later cover count; retain unresolved-class protections.
+- Deterministic (R9): Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
+- Deterministic (R9): Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
+- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+- Evidence (R8): Keep complete filing sentences, referenced KPI definitions and footnotes,
+  financing lifecycle qualifications, material component and sensitivity tables,
+  expense drivers, dated repurchase capacity and third-party cash context.
+- Evidence (R8): Retain omitted acquisition-facility closures from the existing shared 8-K
+  pool. Reserve coverage overhead from lower-ranked source text; no caps rise.
+- Evidence (R8): Bound insider row coverage separately from aggregate windows, disclose absent
+  per-code share totals and potentially incomplete acquisitions, and explain
+  FRED monthly observation dates and CPI year-over-year transforms.
+- Evidence (R8): Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
+  341,152 characters (−1,003). Stored data are unchanged.
+  See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
+- Verifier (R7): Match conservative producer-bound metric paraphrases, simple inflections, explicit fraction annotations, percentage-point slopes and signed distances below the 52-week high.
+- Verifier (R7): Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
+- Verifier (R7): Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
+- Verifier (R7): The frozen full-report replay recovers 73 numeric validations (62 prose and 11 figures); every prior validation remains. The complete 189-row sweep and retained limitations are recorded in `docs/audit/2026-11-02-r7-figr-xhigh-verifier.md`.
+- Integration (D-167): only a provider-only earnings date holds a claim back from verification; the 10-Q MD&A excerpt
+  keeps a bounded slot for its results-of-operations and non-GAAP reconciliation tables (FIGR must-keep evidence 17 of
+  24, against 16 before the round and 15 with R8 alone); a lettered table footnote kept as its own passage still reads
+  as a footnote; R7's stock-based compensation readings cover R9's basis-named labels.
+- Stamps: report spec 1.58.0, payload 1.62.0, pipeline stage-c-1.6.20, Stage B, fair value and scenario targets
+  FIGR_XHIGH_AUDIT_41 (D-163 to D-167). Stored reports keep their bytes and stamps.
+
+## Unreleased - Pre-run check for the FIGR Opus 5.5 extra-high run (2026-11-02)
+
+- End an issuer outlook block at a "Webcast Information" or "Webcast and Conference Call" heading: FIGR's Q1 and Q2 2026
+  outlook statements no longer run on into the webcast notice ("... $4.8 - $5.2 Webcast Information Figure will host a conference call and webca st at 8:30 a.m.").
+- Qualify a provider earnings date that the prose already encloses in parentheses after a comma
+  ("(scheduled for 2026-11-12, an FMP calendar estimate not confirmed by an SEC filing or a company-hosted release)") instead of nesting a second parenthesis.
+- Read-time wording: a lender reason after a "not applicable:" lead-in is stated once, and the key-data short-interest ratio follows a semicolon rather than a second parenthesis.
+- Checked with the stored high-effort FIGR report re-rendered by the integrated code and the real Q1/Q2 2026 release text; no stamp change (the round's unreleased 1.57.0/1.61.0 stamps cover it). See D-162.
+
+## Unreleased - R3 FIGR report readability (2026-11-02)
+
+- Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.
+- Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
+- Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
+- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+- Integration review: when no cash-flow model exists, keep each case's "What would have to be true" and qualitative commentary under "Scenario conditions (qualitative)" on every reader surface (R3 had dropped the scenario cards with the scaffolding; on the paid FIGR report they are the analysis's own bull/base/bear conditions); lines every case shares are stated once.
+- Integration review: print the quarterly trend's own notes (rejected or currency-cut rows, derived cash flow, withheld operating amounts and R2's operating-expense basis) beside the trend, with a status row when no quarter is shown, instead of under management guidance.
+- Integration review (final data-only FIGR run): a quarter whose every shown value is withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating expenses) is named as a missing quarter instead of printed as a row of dashes.
+
+## Unreleased - R5 FIGR verifier false negatives (2026-11-02)
+
+- Recover supported numeric prose through producer-bound score/grade, fraction,
+  Piotroski coverage, signed cash-flow and metric-name readings. Accept complete
+  registered date intervals on traced figures without discarding either endpoint.
+- Bind the release's explicit quarter/year columns and compare two dated levels
+  only in the same table row. Numeric prose matched to an excerpt now records
+  `excerpt-match`; the surrounding proposition remains unchecked. Broad ambiguous
+  multi-quantity excerpt matches remain refused.
+- Frozen paid FIGR replay: numeric validations 108 to 149, unchecked 116 to 75;
+  traced figures 79/84 to 82/84. Record ids, payload labels, shared stamps and saved
+  reports are unchanged. See [R5 evidence](docs/audit/2026-11-02-r5-figr-verifier.md).
+
+## Unreleased - R2 FIGR figure fixes (2026-11-02)
+
+- Reconcile operating-income/revenue bases before quarterly, annual and TTM calculations; withhold unmatched margins and unproved operating-expense subtotals with dated explanations. Integration review: a provider operating-expense amount that bridges its row's gross profit to its operating income stays (the first rule removed 10-34 amounts per issuer on the owner's saved QCOM, AMZN, NVDA and META snapshots), and the quarterly trend states one basis per column.
+- Refuse SBC quarters contradicted by filed cash-flow operands, and construct trailing SBC using filed fiscal year plus current YTD less prior-year YTD. Register the filed CFO/SBC operands and exact trailing windows.
+- Name the provider debt perimeter that includes loan-owner payables and separately register filed borrowings; retain context-EV arithmetic and lender exclusions. Mark P/TBV applicable for evidenced lenders on its existing tangible-common-equity basis.
+- Date the vendor float operand beside derived short-interest percentages. Estimate figure/registry as-of dates now identify the retained observation, keeping forecast-period references separate and publication vintage unestablished.
+- Shared payload, report, prompt and Stage B stamps are unchanged; stored report/input bytes are not rewritten.
+
+## Unreleased - R6 FIGR paid-run audit: governance control, P/E denominator and insider coverage (2026-11-02)
+
+- B-05: a separate, bounded filing reading admits voting rights, dated controllers
+  and controlled-company disclosures with adjacent exemption qualifications.
+  Economic class equality does not establish voting equality, and IPO conversion
+  counts are not current balances.
+- B-09: aggregate P/E carries its selected common-income denominator and the
+  four admitted quarterly amounts, intervals and filing bases into the payload
+  and the multiple's displayed basis. The filed Basic EPS convention,
+  participating-security caveat and no-second-deduction rule remain intact.
+- B-21: insider evidence states the aggregate window, latest inspected Form 4
+  filing date, bounded activity after that window, and the uncollected Form 144
+  limit. Selected rows may overlap across owners; plan capacity and proposed
+  sales are never called executed sales.
+
+- Integration review: the P/E bridge reads as amounts, quarter ends, derivations
+  and filing forms and dates ("Common income 199.2M USD, TTM ended 2026-06-30 =
+  43.78M (quarter ended 2025-09-30; 10-Q filed 2025-11-13) + ..."); the basis is
+  the reader's table cell, so XBRL tag names and accession numbers stay out of
+  it. "Voting power" admits governance text only as a holder's share of the
+  vote or a class's voting power; a regulatory ownership threshold (FIGR's
+  state-licensing "10% or more of the outstanding interests or voting power of
+  our Company") no longer brings licensing passages in. The insider coverage
+  statement is one citable figure; it was also printed as an identical note.
+
+Fictional regression tests and a read-only replay of the paid snapshot are
+recorded in [the R6 disposition](docs/audit/2026-11-02-r6-figr-governance-bridge.md).
+Stored reports are unchanged. Shared version stamps are reserved for the integrator.
+
+## Unreleased - R1/R4 FIGR paid-run audit: evidence, run accounting and analysis rules (2026-11-02)
+
+The paid FIGR report (claude-opus-5-5, high effort, $4.71) was audited against
+the filings. These fixes come from that audit:
+
+- **8-K transactions.** An acquisition's completion or a merger agreement now
+  keeps its dated lead, the consideration and the funding. The excerpt rules:
+  - the dated lead comes first, then amounts, then passages that only define
+    a party;
+  - a dated lead may follow an item sub-heading;
+  - defined terms may have spaces inside their quotes;
+  - amounts written out in digits count as amounts;
+  - transactions get a 1,800-character budget.
+
+  FIGR's Kiavi completion lost "approximately $590 million". Coverage version:
+  `section-evidence-6/event`.
+- **Operating updates.** The newest operating update filed after the latest
+  results release now has its own retained slot and excerpt. It is labelled
+  as not a results release, and it never takes the results narrative or
+  supplies release figures. FIGR's October preliminary Q3 volume ($5,119
+  million) was dropped because four results releases filled the four slots.
+  "After" is decided by filing date and acceptance time: on live data the
+  update states only its period end (September 30) and the results release
+  only its fiscal label (Q2 FY2026), and release order put the labelled
+  release first, so the first fix still dropped the update.
+  Current-report collection version: `current-reports-1.3.0`.
+- **Outlook statements.** Every retained release's unparsed outlook statement
+  now reaches the passes with its filing and period, outside the
+  diagnostic-note cap. FIGR's May "Q2 2026 Guidance … $3.8 - $4.1" was the
+  seventh note.
+- **Blank dates.** A blank `asOf` on a claim or number is read as no date.
+  Two blank dates cost a whole $0.37 bear case.
+- **Earnings-date qualifier.** The qualifier now names the confirming sources
+  ("not confirmed by an SEC filing or a company-hosted release").
+- **Usage and run details.** These count every recorded request: tokens, the
+  number of requests and how many were discarded. Earlier they counted only
+  each pass's accepted attempt, while the cost counted all requests.
+- **FACT claims.** A FACT keeps only its sourced statement; an embedded
+  "In our judgment …" sentence becomes its own JUDGMENT.
+- **New analysis rules.** Analysts and judge get rules on:
+  - metric identity and issuer KPI definitions;
+  - share arithmetic;
+  - derivative notionals;
+  - the period of a change;
+  - deconsolidated facilities;
+  - third-party cash;
+  - market-share direction;
+  - consensus remainders;
+  - conflicting passages;
+  - guidance records;
+  - citation binding;
+  - a valuation stance when no suited measure exists;
+  - unassessed grades;
+  - the plain-language business model;
+  - insider-sale attribution;
+  - voting control.
+- Pipeline version is now **stage-c-1.6.19**. Report spec and payload versions
+  are set at batch integration. Stored reports are unchanged.
+
+## Unreleased - Final FIGR preflight correction (2026-11-02)
+
+- D-155 review: a conflicting vendor quarter is replaced by the filed fiscal-year-less-nine-months (or year-to-date difference) row when each operand is the current period of its own filing and the year-to-date was filed first; quarters derived only from later comparatives stay refused. Restores FIGR's live Q4 2025 revenue (159.913M filed, not the vendor's 223.181M) and its TTM window.
+
+## Unreleased - N4b filed quarterly series and lender display (2026-11-02)
+
+Quarterly income comparatives can establish a whole filed row without a
+comparative balance sheet. Conflicting vendor revenue is refused when a
+reconciled one-filing row is unavailable. Quarterly growth uses matched filed
+operands or discloses its refusal. Refuted quarterly CFO and dependent FCF
+are withheld; TTM CFO can use the disclosed filed FY/YTD identity. Evidenced
+lenders omit quarterly gross margin and mark provider EV not applicable. The
+receivables flag follows Beneish financial-forensics applicability. Identical
+measured CAGR windows collapse into one row; whole-thousand currency amounts
+below a million show as K while other amounts keep their decimals. Shared stamps and stored reports are unchanged.
+
+## Unreleased - N4a issuer capitalization and aggregate P/E (2026-11-02)
+
+- L1: admit a complete retained cover class inventory using same-filing class
+  enumeration and identical economic rights; disclose quote binding and proxy prices.
+- L2: supplement missing same-period filed common earnings, retain four-quarter
+  additive flow and per-share-first P/E, and label aggregate capitalization P/E.
+- L6: exclude profile-only peers as unconfirmed for an SEC-evidenced lender.
+- L7: withhold award-overhang attribution for a fiscal year spanning filed
+  conversion or IPO/participating-security evidence; retain raw counts.
+- L9: classify refused discount-rate inputs as disclosure when no applicable
+  model consumes them on the evidenced non-bank lender route.
+
+## Unreleased - DOC-301 consensus calendarization wording (2026-11-02)
+
+- DOC-301 (B12-OD-8): METHODOLOGY now states that the next fiscal year's part of forecast window one follows the issuer's quarterly shape, with the tested synthetic example (570, where an even spread gives 627.53). No figure or stored report changes.
+
+## Unreleased - P2 DCF inputs and seasonality (2026-11-02)
+
+- FIN-402, FIN-402-V1, FIN-402-V2 and FIN-502: consistent operating one-offs across coverage, separate terminal evidence, margin history/ceiling and bounded tax seed. Recurring families remain historical costs. Reported ROIC and stored figures are unchanged.
+- FIN-102/FIN-111/FIN-405: terminal losses, transition-flow exclusions and current-growth refusals; FIN-501/FIN-104: consistent reverse families inside the DCF domain.
+- FIN-116/FIN-406: current debt admission and one loss tax shield; FIN-127/FIN-114/FIN-113/FIN-115/FIN-118/FIN-512/RPT-502: fiscal labels, source/window precision and truthful scenario disclosures.
+- N1: qualify concentrated trailing SBC and show an other-three-quarter run-rate companion without changing the house figure or score.
+- Shared report, payload, Stage B and pipeline stamps retain their integration values.
+
+## Unreleased - P8 methodology docs and test guards (2026-11-02)
+
+- Align methodology, research, operations and privacy with current source behavior; pin declarations and preserve stored reports.
+
+## Unreleased - N3 SEC-built rows on a filed-total conflict (2026-11-02)
+
+Auto mode replaces a conflicting vendor income row with a whole internally
+reconciled SEC-built row, including its EPS. Quarterly cash-flow conflicts use
+the whole canonical SEC quarter. Manifest notes retain both observations,
+filing identities and mixed-source TTM windows. Original vendor responses and
+stored reports remain immutable. Shared version stamps are unchanged.
+An open annual revenue-definition conflict now also withholds EV/Sales,
+including own-history and peer rankings, until eligible filed rows replace it.
+XBRL labels now distinguish a found revenue conflict (vendor revenue refused
+or replaced) from a comparison that was skipped.
+Annual weighted-share jumps spanning filed conversions or an IPO with a
+same-filing two-class allocation no longer score as economic dilution. Counts
+and the refusal reason remain disclosed; genuine issuance controls still score.
+Replay controls cover alternate CFO aliases and derived-operand rounding.
+Switched SEC rows with missing capex preserve the runway investment-scope
+refusal; older vendor burn cannot replace the missing recent-quarter operand.
+
+## Unreleased - P9 methodology decisions (2026-11-02)
+
+- Cash-capex: confirm standardized FCF retains the statement/vendor cash-capex field and mixed-basis disclosure; arithmetic unchanged.
+- FIN-510-V1: withhold disagreeing deferred-revenue siblings with both values named; preserve JNJ R&D and JPM interest-income controls.
+- FIN-308 (coordinator revision 2026-11-02): distinguish equity from mortgage for established REITs using positive filed real assets (net property plus net PP&E), real assets >= mortgage assets and mortgage assets < 50% of Assets. Restore specialty property-map valuation and grading; keep missing-fact O/NNN unknown and common grading unchanged.
+- FIN-307: confirm the retained ADR WACC/DCF scope warning reaches report bodies, audit export and AI payload; Altman keeps book-equity Z-prime.
+- FIN-306: exclude route-withheld Piotroski tests from applicable evidence while retaining the reduced battery's evidence weight and penalties for missing supported inputs.
+
+## Unreleased - N2 lender and share-class readiness (2026-11-02)
+
+- Review fixes: F1/F2/F12 apply lender valuation and capital-return conventions, remove industrial solvency grading, and disclose the debt perimeter of context EV. F3/F5/F6/F7/F8 qualify quoted-class rows, disclose count differences and treasury shares without netting, and block contrary share-worded economics. F9 distinguishes empty peer collections from discovered candidates. P/TBV names its deductions and excludes a proved same-date fair-value servicing financial asset. Lender ROTE refusals disclose the exact existing evidence gate; numeric census movement is limited to FIGR.
+
+- R-FIGR-2: keep recent-IPO discount-rate refusals and explain the measured monthly-history shortfall, absent peer price histories/unlever-relever evidence and lack of a sourced industry asset-beta fallback. No invented beta, discount rate or sensitivity; existing numerical gates stay unchanged.
+
+- R-FIGR-1: classify owner-FCF metrics, P/FCF, FCF yield, runway and FCF-based DCF as not applicable for non-bank lenders only when lending SIC and primary operating cash-flow originations/sales establish held-for-sale lending. Retain filed cash observations and independent conflicts; exclude inapplicable FCF signals from grade denominators. Keep earnings/book measures and bank routing.
+
+- R-FIGR-3: admit a dated primary balance-sheet common-class inventory only with explicit identical dividend/liquidation rights for every class, unscaled outstanding counts and an issuer-matched provider quote-class title. Disclose the provider binding and same-price approximation in valuation and prompt provenance. Newer unresolved cover observations, including within the same filing, block the older balance-sheet alternative. Raw bundles and stored reports remain unchanged.
+
+## Unreleased - P5 primary-source data, low-severity items (2026-11-02)
+
+- PERF-101: release waiting symbols concurrently after inconclusive endpoint discovery.
+- DATA-115: surviving cache-miss joiners retry with their own loader after the leader is canceled.
+- DATA-102: preserve freshness flags on SEC fallback peer envelopes, including split/share dependencies.
+- DATA-110: read bounded prose Rule 10b5-1 arrangements and disclose unparsed plan mentions.
+- DATA-116: classify parameter subscription refusals as expected, unlearned disclosures; name non-JSON outages and rate limits without vendor body text.
+- DATA-106: refuse EDGAR contact characters outside printable ASCII and Latin-1 before saving or testing.
+
+## Unreleased - P5 primary-source data and freshness (2026-11-02)
+
+- B-F4 consumer fixtures (AI-512-V1): Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions.
+
+- Verification follow-up (Step 1): Remove an unsupported maxRetries option from the FMP test fixture; the real client retry policy remains exercised.
+
+- B-F8 (DATA-102): The SEC-fallback peer profile depends on its own submissions freshness only.
+
+- B-F7 (DATA-110): Disclose partial prose-plan parsing, and retain terminations with unknown expiration as expires null.
+
+- B-F6 (DATA-107): Priority selects the capped filing set only; read and output the chosen set by filing date, newest first.
+
+- B-F4 (AI-512-V1): Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date.
+
+- B-F2/B-F3 (DATA-108): Clause-only event headings require a terminator or standalone heading evidence, and consume consecutive clauses of the same official title.
+
+- B-F1/B-F5 (AI-506): Keep OD-10 results selection; repair the five result-free fixtures without changing assertions, hedge classifier-miss notes, and recognize USD/EUR/GBP/JPY/CNY/RMB and their currency signs.
+
+- A-F8 (AI-508): Presentation-change notes name the actual disagreeing shared stated/implied window and the earlier filing.
+
+- A-F7 (AI-508/DATA-112): Commit Q3/10-K recast, rounding, NVIDIA no-change, weekend, DST and after-settle controls.
+
+- A-F6 (RPT-201): Dividend pay-date notes use the established frequency word, or Next dividend payable when unknown.
+
+- A-F5 (DATA-114): Truncate merged FMP history at the earliest last bar of any accepted window-fallback chunk, preserving stale metadata and disclosure.
+
+- A-F4 (DATA-103): Keep industrial revenue tags separate from the bank-extended revenue comparison list.
+
+- A-F3 (AI-508): Refuse residual fills from a filing outside the missing member current presentation.
+
+- A-F2 (AI-202-V1): Sort only a single signed range; respectively pairs preserve GAAP and non-GAAP order.
+
+- A-F1 (RPT-201): Use schema-valid null guidance in the dividend-yield display fixture.
+
+- Step 1 (DATA-114/115/116): Non-JSON FMP 5xx carries HTTP status so transient history fallback applies; cancellation remains non-transient and active joiners retry for fresh data.
+
+- DATA-101: suppress absent-period temporary-equity noise and fold only legacy absent-or-refused warnings.
+- AI-512-V1: withhold contradicted guidance labels and label-based track records in fresh and stored displays.
+- AI-508: name change filings, stated windows and affected quarter ends; withhold comparisons involving older bases after repeated recasts.
+
+- DATA-109: exclude 8-K contents-page stubs from evidence and legacy summaries.
+- DATA-108: recognize clause-only and subsection Item 5.02 headings.
+- DATA-107: admit and prioritize material cyber, bankruptcy, acceleration, delisting and control events.
+- AI-506: keep earnings-release narratives and figures on the newest results release.
+- DATA-111: read filing prose dates and announcement datelines without time-zone shifts.
+- DATA-113: price keyless profile and quote from one successful chart observation.
+- DATA-112: refresh expired current-date history before serving a post-close answer.
+- DATA-114: retain and disclose compatible cached history after transient window-rollover failures.
+- RPT-201: annualize dividends by established frequency and disclose the legacy quarterly assumption.
+- AI-202-V1: preserve guided expense and EPS loss signs; leave ambiguous signs unread.
+- AI-508: guard segment growth and cross-filing subtraction across proven presentation changes; disclose retained cross-filing estimates.
+
+- DATA-104: retain presentation-currency SEC history and disclose convenience translations and currency-only missing years.
+- DATA-103: preserve SIC-routed bank total net revenue in income classification and SEC peer statements.
+
+## Unreleased - P1/B4b equity bridge and invested capital (2026-11-02)
+
+- F1 coordinator correction: the retained mortgage-REIT claim reading binds
+  at 11.8104675494/share; the holder prefers 125.64M to 118.79M on conversion.
+
+- Review F8: D-147 (P1) retains the VAL-14 admission block by coordinator-delegated decision: structured facts do not establish placement; the filing text does, but text is not admitted as evidence under C2. The retained notes establish non-marketable investments in Other assets, so the blocker is the evidence policy, not a missing data path. The disclosure-only warn gap valuation.dcf.fairValueFinancialAssets names an undivided exact-date AFS total left out of a separate add-back, its amount and why. Existing cash/LTI are retained and no asset is admitted. This keeps the OD-9 gate while telling the report reader about the exclusion; already-counted tagged assets and ineligible issuer/date/currency/form/cutoff facts do not receive the warning.
+
+- Review F6: The coordinator-delegated choice is a flat-top conversion weight: full weight for abs(r-1) <= 3%, linear taper to zero at 5%, r=N/(C/K). Both claim-share removal and converted-claim restoration use that weight. Tests cover both 3% edges, both 5% edges and continuity across each. This replaces the triangular blend because ordinary carrying discounts should still receive full correction; option time value remains excluded.
+
+- Review F5: Converted-note EPS uses the issuer's blended effective debt rate (not the note's coupon; may overstate the add-back). The assumption names that limitation beside the rate and restored claim. The interest cap, unavailable-rate refusal and all EPS amounts are unchanged; a tagged instrument-specific effective rate remains future work.
+
+- Review F4: The fiscal-year alternative reads convertible preferred through the same exact-date at() reader at startAlternative.asOf, not the later headline balance date. Missing or filed-zero preferred at that date is zero. Fold and overlap evidence belong to that date; any selected preferred conversion restores only the alternative-date claim. The alternative and its grid row share that book, so a later issuance changes neither earlier book nor its value.
+
+- Review F3: The bridge audit table labels each convertible reading as a memo inside the preceding arithmetic lines. Its Value cell is a dash, so the claim is not displayed as a second amount to deduct. Instrument reading, removed shares and restored claim remain in the memo text; optional absent arrays remain safe for stored reports.
+
+- Review F2: Market EV folds the exact-date convertible-preferred carrying claim under the same larger-on-ambiguous-overlap or distinct-series sum rule as the DCF. Each own-history quarter folds its own dated claim before EV/Sales and EV/EBITDA observations and ranks; no current claim is backfilled into an earlier date. A 500M tagged-only preferred raises market EV by exactly 500M; permanent-preferred overlap controls prevent a second claim.
+
+- Review F1/F7: Excess-return variants restore converted notes and preferred into opening common book before residual-income valuation. The selected book, book path, continuing value, fiscal-year alternative, grid and reverse solve agree; no face-value claim is added after valuation. Route tests exercise actual bank, insurer and mortgage-REIT bundles with notes and tagged-only preferred. The ROE 15% and 6% examples publish the lower of V(BV0-C)/(D-N) and V(BV0)/D; the retained mortgage-REIT preferred case returns from 11.191334135837607 to the consistent minimum 11.810467549421368 (the converted-only reading is 11.879000243131742). The earlier decline was inconsistent, not conservative.
+
+- FIN-401 and FIN-401-V1: read equity-method income placement from filed arithmetic
+  and derivation provenance. Remove measured inside income from projected EBIT;
+  keep an unmeasured inside stake in operating capital. Preserve aggregate-path
+  ambiguity, filed-zero quarters and one-presentation fourth-quarter derivations.
+- Share the long-term-investments component floor between SEC statements and
+  provider stakes fill. Explain affected stored valuations at display time under
+  the frozen 1.56.0 cutoff, without rewriting figures or bytes.
+- FIN-302 / FIN-302-V1: choose one convertible reading across the DCF and
+  financial routes, with exact-period filing evidence, preferred overlap guards,
+  conservative settlement refusals and continuous conversion-count edges.
+  Every re-run and stored-report disclosure retains the chosen basis.
+- FIN-302-V2: forecast EPS follows the selected convertible divisor and removes
+  converted-note interest only at an evidenced effective rate.
+- FIN-407: admitted multi-class EPS uses the valuation's quoted-share divisor;
+  scope refusals still withhold. Explain older admission-withholding text.
+- VAL-14: record the OD-9 admission gate as blocked. Retained undivided AFS
+  facts do not establish outside-cash placement; no asset or value is added.
+- FIN-309: roll financial excess-return values to the observed quote date within
+  200 days, with matching alternative/grid/reverse arithmetic and citation dates.
+  Retain book dates beyond the limit and qualify earlier stored date labels.
+- Report 1.56.0, payload 1.60.0 and Stage B CLAUDE_REPAIRS_39; fair-value and
+  scenario-target stamps move with the bridge. No prompt rule text changes.
+  Seven findings are fixed; VAL-14 is blocked by the binding admission guard.
+  See the B4b disposition for measurements, receipts and remaining evidence.
+
+## Unreleased - P7 display and history (2026-11-02)
+
+- RPT-503: Normalize judge attempt names and group failed attempts while retaining model observation and completion distinctions.
+- RPT-216: Seed balance-sheet deduplication with shared metric and basis identities.
+- RPT-214: Separate discovery-only exclusions from the candidate denominator without inventing stored candidates.
+- RPT-208: Use band-safe reader score precision on dossier cover and attribution; keep audit precision.
+- RPT-204: Render the Beneish M score without a misleading m unit suffix.
+- RPT-103: Round near-52-week flag price levels to cents; do not change the level.
+- RPT-001: Identify the symbol, company and saved report id in print page metadata.
+- DB-006: Distinguish cost-only revisions from research changes without changing diff status.
+- DB-003: Show observed API models as well as account models and name unrecorded passes.
+- RPT-217: Use metric-aware reverse-value units and withhold unavailable sentinels.
+- RPT-215: Gate legacy placeholder display at frozen 1.56.0; preserve true and current zeros.
+- RPT-213: Label excess-return values by their recorded method on classic and export surfaces.
+- RPT-205: Preserve the geographic scope actually named by the source row.
+- RPT-203: Use band-safe formatting for prose scores.
+- RPT-102: Join historical and forward chart lines only when period adjacency is recorded.
+- DB-005: Withhold score and grade comparisons when both recorded band tables differ.
+- RPT-501: Name the growth solve starting revenue growth and show its base starting rate.
+- DB-002: Use block presence separately from grade availability; withheld endpoints read not assessed.
+- AI-201: merge repeated macro series and preserve transform labels.
+
+## Unreleased - P6 local security (2026-11-02)
+
+- SEC-205: capture unsupported legacy Fast as Standard without rewriting saved selections.
+- PERF-201: reuse exact-byte AI snapshots and skip unchanged protected writes.
+- SEC-207: disclose independent indefinite section recovery, usage journals and separate deletion.
+- SEC-206: synchronize the default dropdown after credential changes while preserving unsaved edits.
+- SEC-204: keep saved research reachable when AI storage is unreadable; block jobs and billed keys.
+- SEC-202: disable credential and connection management in configured LAN mode.
+- SEC-201: refuse company-page mutations before live acquisition.
+- Review fixes: the connection-choice error names the recovery guide; a store state this build could not read back is refused before writing; credential reads reuse one frozen copy while the file is unchanged; owner docs keep each note once in its own section.
+
+## Unreleased - P3 verifier and trust labels (2026-11-02)
+
+- RPT-211: include fundamentals tables, model value, scenario targets and macro values in the audit figure registry.
+
+- RPT-207: count and label FMP failures by symbol and statement period, retaining matching keyless merges.
+
+- RPT-206: align banner/state wording with classified data gaps, keeping process disclosures apart.
+
+- RPT-212: show synthetic/provider-fallback notices once across saved, live and sample report layouts.
+
+- DB-004, RPT-209: preserve recorded completeness conventions and absent metadata through corrected exports and entity safety.
+
+- RPT-504: hide stored citation/provenance shares for legacy data-only reports across reader surfaces; retain qualified raw audit counts.
+
+- AI-111: allow contextual surnames after listed honorifics and initials without weakening rating patterns.
+
+- AI-104: avoid false recovery warnings on accurate fading-to-hurdle commentary.
+
+- AI-103: accept payload-carried issuer disclosures as primary entity sources and explain the rule to the judge; pipeline stage-c-1.6.18.
+
+- AI-116: read combined insider roles and qualify historical title refusals in audit notes.
+
+- AI-504: refuse claims that reverse the operands of a recorded ratio or difference.
+
+- AI-502: classify percentage-point differences as levels, leaving unsupported movement unchecked.
+
+- AI-501: retain defining direction nouns in record metrics; refuse balance-level claims citing increases.
+
+- AI-408: check readable MetricRow column periods and refuse unestablished supplied dates/fiscal labels; disclose unchecked column spellings.
+
+- AI-407: registry figures printed under conflicting metric or segment descriptions
+  lose their verification mark and count as unchecked. Different printed registry
+  sources also fail closed. Stored reports are unchanged.
+
+## Unreleased - P4 paid-work lifecycle (2026-11-02)
+
+Independent review follow-up: keep already-finished resumable jobs reachable on
+Live analysis, disclose Generate's full rerun cost, label resumed sides honestly,
+retain provider attribution, name damaged runtime.lock correctly, avoid rebuilding
+the obsolete symbol index, and stop failed stream reconnects after five delays
+with one read-only status request. Reorganize lifecycle records and operating notes.
+
+DOC-203: The example leaves canonical settings commented so legacy startup
+holds and USD caps survive copying it. Startup warns about conflicting alias
+key names without disclosing values; explicit canonical settings still win.
+
+PERF-202: SSE polls read the canonical revision before building a full snapshot.
+Unchanged revisions skip artifact and report work; nonterminal snapshots omit
+resume-plan folding. Settlement revisions still emit through the same fences.
+
+JOB-215: Completion updates surrounding research once per job. A live-view
+completion navigates to saved research instead of rebuilding live inputs;
+subsequent settlement revisions still update progress without another refresh.
+
+JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+reopen with capped backoff, without posting work. Replacement streams retain
+monotonic revision checks; cancellation and unmount clear pending timers.
+
+JOB-205: Busy or unavailable provider failures share the backoff classification
+and receive their own wording. Exhausted judge transport attempts are disclosed as cut-off requests,
+with the actual attempt count, rather than report-schema validation failures.
+Received-invalid-output controls retain schema wording and unchanged costs.
+
+JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+successful verification artifact, including its original capture time. It does
+not substitute lineage-root inputs when that artifact has no snapshot.
+
+AI-115: A lifetime native SQLite lock in `runtime.lock` proves AI runtime
+ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
+the lock automatically; never delete it while servers run. Stop all servers
+before upgrading: older binaries use only the saved PID protocol.
+
+AI-110: A safety-rejected data-only report first withholds provider metadata
+and rechecks deterministic content. If enrichment still fails, it persists a
+fixed-text shell. Completeness and gap counts describe the retained manifest;
+settled costs remain intact and saved reports are never rewritten.
+
+JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+offered only when terminal and eligible for Retry. Discovery is read-only and
+never resurrects an older lineage or starts work.
+
+AI-510 / JOB-201: Fresh and resumed analyst recovery share one settlement
+path, with one rejected-output repair and three zero-cost plan resends counted
+separately. A dropped repair retains identical feedback; a rejection clears
+continuation. Accepted siblings are reused.
+
+JOB-213: Active job admission and Retry fold share-class spellings. The client
+accepts attached alias snapshots. Existing duplicate active aliases drain
+without discarding work before the stronger database index is installed.
+
+JOB-206: A transient SQLite renewal lock waits for the next beat only when the
+known lease has room for that beat and the connection busy timeout. Authority
+loss, exhausted slack and other errors still abort; no request is replayed.
+
+JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
+reusing accepted analyst or synthesis work. The snapshot hash and capture time
+stay unchanged; current-clock validation and the payload fingerprint still
+guard reuse. No automatic paid replay, ledger rewrite or stored-report rewrite.
+See the [disposition](docs/audit/2026-11-02-paid-work-lifecycle.md).
+
+## Unreleased - P0 review fixes (2026-11-02)
+
+Require established ordinary-share units for no-split reconciliation (one listed symbol, or a matching filed share count when several are listed), accept symmetric cent rounding, and identify superseded filings. Bind earnings-date qualification to clauses and respect registered company sources, preserving citation credit and one counted claim. Keep complete schema rejections separate from partial recovery bytes. Report 1.56.0, payload 1.60.0, Stage B repair stamp 39; prompt stamp unchanged.
+
+## Unreleased - FIG live-test follow-up (2026-11-01)
+
+Preserves rejected provider responses for diagnosis separately from accepted section recovery, tolerates a canonical citation ID when its legacy source alias is blank, and permits explicitly withheld analyst targets with a reason. Citation normalization does not establish factual verification. The cash-flow bridge now identifies the retained provider cash-capex basis and its possible software/period differences; arithmetic is unchanged. Payload 1.58.0 and Stage B version 37 prevent reuse of accepted model work under the changed evidence disclosure. Historical reports are not rewritten. A bounded FIG run on Sonnet 5.5 medium completed using the preceding payload; these follow-up changes are tested offline, not claimed as a new live-model validation.
 
 ## Unreleased - bounded report recovery and integrity (2026-11-01)
 
