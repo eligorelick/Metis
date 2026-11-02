@@ -1754,14 +1754,14 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
     tables.push({
       heading: "Data warnings and critical gaps",
       headers: ["Gap", "Severity", "Reason"],
-      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.field))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(displayProse(gap.reason, gap.key))}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
     });
   }
   if (k.processDisclosures.length > 0) {
     tables.push({
       heading: "Analysis-process disclosures",
       headers: ["Disclosure", "Detail"],
-      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.field))]),
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(displayProse(gap.reason, gap.key))]),
       note: "How the analysis passes ran and what verification found; they are not missing data.",
     });
   }

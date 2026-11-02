@@ -48,6 +48,10 @@ isolated data paths. Logs are UTF-16LE.
 - `r3-refusal-green`: two files, 21 tests passed (exit 0); substantive refused
   discount-rate evidence remains visible without empty model scaffolding.
 - `r3-lint`: exit 0. Typecheck receipts are retained separately.
+- The first `r3-verify` stopped at typecheck: the new gap presentation used
+  `ClassifiedGap.field` instead of its existing `key`. The follow-up uses that
+  key as display context; no classification or stored field changes. The final
+  gate is rerun after that correction is committed.
 
 Existing wording pins were updated because captions now describe retained
 available rows, no FCF definition appears without an FCF cell, extraction
