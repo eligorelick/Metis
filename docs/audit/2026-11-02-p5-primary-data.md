@@ -145,3 +145,8 @@ Residual methodology limits: a recast first seen in a 10-K remains unproven unti
 | Review item | Disposition | Commit | Evidence | Stored impact |
 | --- | --- | --- | --- | --- |
 | B-F4 (AI-512-V1) | Fixed: Use one shared completed-release contradiction rule for excerpt titles and tables; outlook fiscal order must follow the newest labelled statement ending by filing date. | This commit | fixround-b4-red / fixround-b4-green | No persisted rewrite |
+
+
+| Review item | Disposition | Commit | Evidence | Stored impact |
+| --- | --- | --- | --- | --- |
+| B-F6 (DATA-107) | Fixed: Priority selects the capped filing set only; read and output the chosen set by filing date, newest first. | This commit | fixround-b6-red / fixround-b6-green | No persisted rewrite |

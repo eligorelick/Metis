@@ -517,7 +517,7 @@ export async function collectCurrentReports(
   const eventWindow = annual === undefined ? EVENT_WINDOW_DAYS : daysBetween(annual.filingDate, today);
   const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items)).sort((a,b)=>Number(itemsOf(b.items).some(i=>PRIORITY_EVENT_ITEMS.has(i)))-Number(itemsOf(a.items).some(i=>PRIORITY_EVENT_ITEMS.has(i))) || b.filingDate.localeCompare(a.filingDate));
   for(const f of recentEightKs(filings,today,eventWindow,f=>!hasMaterialEventItem(f.items) && itemsOf(f.items).some(i=>!NON_EVENT_ITEMS.has(i)))) notes.push(`8-K ${f.accessionNumber} (${f.filingDate}; Items ${f.items}) is outside the material-event item filter and was not read.`);
-  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS);
+  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS).sort((a,b)=>b.filingDate.localeCompare(a.filingDate) || a.accessionNumber.localeCompare(b.accessionNumber));
   if (eventCandidates.length > eventFilings.length) notes.unshift(`Material-event reads limited to ${MAX_EVENT_FILINGS} of ${eventCandidates.length} filings since ${annual?.filingDate ?? `${EVENT_WINDOW_DAYS} days before ${today}`}; omitted unread evidence: ${eventCandidates.slice(MAX_EVENT_FILINGS).map((f) => `${f.accessionNumber} (${f.filingDate}; Items ${f.items ?? "unknown"})`).join("; ")}.`);
   for (const filing of eventFilings) {
     attempted += 1;
