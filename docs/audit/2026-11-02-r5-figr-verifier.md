@@ -101,10 +101,18 @@ Narrowed bare-score inference to the declared financial Piotroski producer;
 kept that existing rejection unchanged. `r5-score-scope-green` passes **16 files /
 2,469 tests** and `r5-score-scope-replay` retains the same paid counts. The full
 gate is rerun on the commit containing this scope correction.
+The next default-parallel product run had no verifier failures, but timed out
+two unrelated existing tests at 5,000ms: the legacy minimatch rule diagnostic
+and the stored sensitivity-grid intersection test (14,432 passes, three skips,
+two timeouts). `r5-timeout-controls` passes both unchanged files, **12 tests**,
+with `VITEST_MAX_WORKERS=2`. The final full gate uses that supported Vitest
+environment override to bound concurrency; no timeout, test assertion, coverage
+threshold or package script was changed. The wrapper's command remains `verify`.
 These receipts are UTF-16LE logs with JSON exit-code companions in the isolated
 wrapper directory. The final committed revision is checked with:
 
 ```powershell
+$env:VITEST_MAX_WORKERS = '2'
 & tmp/claude-2026-11-01/run.ps1 -Name r5-verify -NpmScript verify
 ```
 
