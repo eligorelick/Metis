@@ -133,6 +133,11 @@ describe("R7 FIGR excerpt bindings", () => {
     for (const text of [row(28).claim.replace("5.12", "5.22"), row(28).claim.replace("billion", "million"), row(28).claim.replace("Q3 2026", "Q2 2026"), row(28).claim.replace("excluding", "including"), row(28).claim.replace("volume", "revenue"), row(28).claim.replace("reported", "did not report")])
       expect(excerptCheck(28, text).status).not.toBe("validated");
   });
+  it.each([98, 178])("keeps the period in equivalent operating-update attribution for row %i", id => {
+    expect(excerptCheck(id).status).toBe("validated");
+    for (const text of [row(id).claim.replace("5,119", "5,219"), row(id).claim.replace("Q3 2026", "Q2 2026"), row(id).claim.replace("excluding", "including"), row(id).claim.replace("Volume", "Revenue")])
+      expect(excerptCheck(id, text).status).not.toBe("validated");
+  });
   it.each([34, 37, 48, 50, 57, 66, 139])("reads filing attribution without changing the metric in row %i", id => {
     expect(excerptCheck(id).status).toBe("validated");
     const text = row(id).claim;

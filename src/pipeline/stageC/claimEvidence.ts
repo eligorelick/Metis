@@ -1437,6 +1437,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if (/^edgar:8-K\b/.test(options.sourceId))
       text = text.replace(/\bThe (?:(Q[1-4] \d{4}) release|company) (?:states|reports|reported) (?:that )?/g,
         (match, period: string | undefined) => period ? period.padEnd(match.length) : blank(match));
+    if (options.excerpts.some(excerpt => excerpt.source === options.sourceId && /operating update/.test(excerpt.title)))
+      text = text.replace(/\bThe (preliminary )?(Q[1-4] \d{4} )?operating update reported /g,
+        (match, preliminary: string | undefined, period: string | undefined) => `${preliminary ?? ""}${period ?? ""}`.padEnd(match.length));
     if (text !== claim.text) return validateClaimNumericSupport({ ...claim, text }, options);
   }
   const typedText = record === undefined ? claim.text : typedClaimContext(claim.text, record);
