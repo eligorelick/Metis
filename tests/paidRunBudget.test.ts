@@ -16,9 +16,12 @@
  *
  * Offline: real config parsing, an in-memory SQLite database, no network.
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetConfigCache } from "@/config/env";
+import { MODEL_REGISTRY } from "@/models/registry";
 import { createDatabase, setDbForTests, type DatabaseHandle } from "@/db";
 import { costLog, jobLlmLeases, jobs } from "@/db/schema";
 import { initialSteps } from "@/pipeline/jobRunner";
@@ -310,5 +313,43 @@ describe("the refusal disclosure", () => {
     expect(reason).toContain("$20.00");
     expect(reason).toContain("$2.00");
     expect(reason).toMatch(/at least \$27\.28/);
+  });
+});
+
+describe("the documented minimum caps (docs/CLAUDE-USAGE.md)", () => {
+  const usage = readFileSync(path.join(process.cwd(), "docs", "CLAUDE-USAGE.md"), "utf8");
+  const section = usage.slice(usage.indexOf("### Worst-case reservations and the smallest workable cap"));
+  const money = (value: number): string => `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  it("states the registry snapshot the figures were computed from", () => {
+    expect(section).toContain(`registry snapshot ${MODEL_REGISTRY.snapshotDate}`);
+  });
+
+  it("matches the request-mode reservations the planner computes for every active model", () => {
+    for (const model of MODEL_REGISTRY.models.filter((entry) => entry.lifecycle === "active")) {
+      const planned = plannedPaidReservations(model.id, ALL_REMAINING, DETERMINISTIC_VERIFY);
+      const of = (kind: string) => planned.find((entry) => entry.kind === kind)!;
+      const judge = of("judge-section");
+      const judgeCell = judge.model === model.id
+        ? money(judge.reservationUsd)
+        : `${money(judge.reservationUsd)} (on ${MODEL_REGISTRY.models.find((entry) => entry.id === judge.model)!.displayName})`;
+      const row = `| ${model.displayName} | ${money(of("research").reservationUsd)} | ${money(of("writing").reservationUsd)} | ${judgeCell} | ${money(largestPlannedReservation(planned)!.reservationUsd)} |`;
+      expect(section, model.id).toContain(row);
+    }
+  });
+
+  it("matches the pass-mode synthesize reservations it quotes", () => {
+    setEnv("METIS_RESERVATION_MODE", "pass");
+    for (const [model, figure] of [
+      ["claude-sonnet-5-5", "$1,140.48"], ["claude-haiku-4-5", "$1,140.48"], ["claude-opus-5-5", "$2,280.96"],
+      ["claude-opus-4-8", "$2,851.20"], ["claude-fable-5-1", "$8,553.60"],
+    ] as const) {
+      const largest = largestPlannedReservation(plannedPaidReservations(model, ALL_REMAINING, DETERMINISTIC_VERIFY))!;
+      expect(largest.pass, model).toBe("synthesize");
+      expect(money(largest.reservationUsd), model).toBe(figure);
+      expect(section).toContain(figure);
+    }
+    expect(money(maximumPassCostUsd("claude-haiku-4-5", "bull"))).toBe("$107.82");
+    expect(money(maximumPassCostUsd("claude-sonnet-5-5", "bull"))).toBe("$971.64");
   });
 });

@@ -379,7 +379,7 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | --- | --- |
 | Environment edit has no effect | Restart the server, check shell precedence and stored model/effort overrides. AI selection is separate. |
 | Live SEC evidence absent | Set a truthful nonplaceholder contact; verify ticker/CIK and supported US-GAAP facts. No contact or extension-only/IFRS facts produce disclosed gaps. |
-| Run is data-only | Read `analysis.llm`, computation and pass disclosures; check selected connection, Claude registry support and reservations. A key alone does not override a saved Data only choice. |
+| Run is data-only | Read `analysis.llm`, computation and pass disclosures; check selected connection, Claude registry support and reservations. A run whose largest worst-case reservation cannot fit the per-job or rolling cap is refused before any paid request, and `analysis.llm` names the cap and the minimum needed ([smallest workable cap](CLAUDE-USAGE.md#worst-case-reservations-and-the-smallest-workable-cap)). A key alone does not override a saved Data only choice. |
 | Queued work waits after launch | Windows launcher holds startup; resume explicitly. Budget/concurrency gates can also defer admission. |
 | Mutation returns `403` | Use the direct allowed authority and matching browser Origin/metadata or current startup token. Restart replaces the token. |
 | Settings save returns `412` | Refresh current authority/ETag and reconcile intended edits before saving. |
