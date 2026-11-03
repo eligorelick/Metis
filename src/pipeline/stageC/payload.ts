@@ -469,7 +469,9 @@ export interface ContextPayload {
 // and the TTM cash-flow window gate changes current-capital operands.
 // 1.64.0 (D-173, D-174): the newest fiscal year's closing balance fills a lagging annual balance feed, and a debt
 // collapse no cash flow explains is withheld without interest, changing the debt, returns, forensic and valuation operands.
-export const PAYLOAD_VERSION = "1.64.0" as const;
+// 1.65.0 (D-175 to D-181, Q round): the fresh-filing caution, news sampled across 90 days, insider trades by person,
+// a dated FX rate for foreign-currency valuation and the completed debt, WACC and NCI operands change admitted context.
+export const PAYLOAD_VERSION = "1.65.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2452,7 +2454,7 @@ function newsSection(bundle: DataBundle): PayloadSection {
   if (bundle.news.ok) {
     const source = bundle.news.value.source;
     const earlier = bundle.newsEarlier
-      ? [bundle.newsEarlier.recentMonth, bundle.newsEarlier.prior].flatMap(fetch => (fetch.ok && fetch.value.source === source ? rowsOf(fetch) : []))
+      ? bundle.newsEarlier.flatMap(fetch => (fetch.ok && fetch.value.source === source ? rowsOf(fetch) : []))
       : [];
     const sample = sampleNewsRows([...rowsOf(bundle.news), ...earlier], PAYLOAD_BUDGETS.listRows);
     if (sample.sampled) {

@@ -397,7 +397,7 @@ export interface DataBundle {
    * heavily covered issuer, so the payload samples these too. Absent on older
    * bundles and in fixture mode.
    */
-  newsEarlier?: { recentMonth: FmpFetch<FmpNewsArticleRow>; prior: FmpFetch<FmpNewsArticleRow> };
+  newsEarlier?: readonly FmpFetch<FmpNewsArticleRow>[];
   pressReleases: FmpFetch<FmpNewsArticleRow>;
   /** Bounded, issuer-bound official news, separate from paid snippets and SEC filings. */
   companyIrMaterialEvents?: FetchResult<CompanyIrMaterialEvents>;

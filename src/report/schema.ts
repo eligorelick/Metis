@@ -160,7 +160,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.59.0 (D-168 to D-172, priority fixes): catalyst/risk reasoning may be a list of sourced claims, optional market-structure
 // and competitor claims, the run-process table in the appendix, and no provider peer list when none is comparable.
 // Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.59.0" as const;
+// 1.60.0 (D-175 to D-181, Q round): optional dated recent developments in the verdict and management actions in the
+// leadership section, and the fresh-filing caution in the key data. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.60.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

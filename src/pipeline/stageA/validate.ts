@@ -31,6 +31,7 @@ import {
   crossCheck,
   getConcept,
   latestFactEnd,
+  latestFiledPeriodEnd,
   looksLikeBankTagging,
   type CompanyFacts,
   type ConceptName,
@@ -732,6 +733,13 @@ function checkFmpXbrlCross(bundle: ValidatableBundle, c: Collector): void {
 
 /** A filing at most this many days old, whose period SEC companyfacts does not yet carry, is fresh. */
 export const FRESH_FILING_DAYS = 10;
+const FRESH_FILING_END_TOLERANCE_DAYS = 3;
+const FRESH_FILING_TAGS = [
+  "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenuesNetOfInterestExpense",
+  "InterestIncomeExpenseNet", "NetIncomeLoss", "Assets",
+  // ifrs-full (20-F filers)
+  "Revenue", "ProfitLoss",
+] as const;
 
 /**
  * D-175. A provider publishes its rows for a new filing within hours, and those
@@ -744,23 +752,36 @@ export const FRESH_FILING_DAYS = 10;
  * analysis and the admitted SEC facts have nothing at or after its period end.
  */
 function checkFreshFiling(bundle: ValidatableBundle, now: Date, c: Collector): void {
+  // Without admitted SEC facts nothing at all is cross-checked; the EDGAR gaps say so.
   const factsRes = admittedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!factsRes?.ok) return;
-  const end = newestStatementEnd(bundle);
-  if (end === null || !Number.isFinite(parseDateMs(end))) return;
-  const newestFact = latestFactEnd(factsRes.value.data, [
-    "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenuesNetOfInterestExpense",
-    "InterestIncomeExpenseNet", "NetIncomeLoss", "Assets",
-  ]);
-  if (newestFact !== null && newestFact >= end.slice(0, 10)) return;
+  const sec = latestFiledPeriodEnd(factsRes.value.data, FRESH_FILING_TAGS);
+  // A 20-F or 40-F filer's quarters come from 6-K releases, which SEC structured
+  // data never carries: only its annual periods can wait to be confirmed.
+  const families = sec.foreignAnnual && !sec.quarterly
+    ? [bundle.statements.incomeAnnual] : [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly];
+  let end: string | null = null;
+  for (const res of families) {
+    if (!res.ok) continue;
+    for (const row of res.value.data.rows) if (typeof row.date === "string" && (end === null || row.date > end)) end = row.date;
+  }
+  if (end === null || !Number.isFinite(parseDateMs(end.slice(0, 10)))) return;
+  end = end.slice(0, 10);
+  // The cross-check matches a period end within this many days (52/53-week calendars).
+  if (sec.end !== null && parseDateMs(sec.end) >= parseDateMs(end) - FRESH_FILING_END_TOLERANCE_DAYS * DAY_MS) return;
   let filed: string | null = null;
-  for (const res of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
+  for (const res of families) {
     if (!res.ok || res.value.source === "edgar") continue;
     for (const row of res.value.data.rows) {
-      if (typeof row.date !== "string" || row.date.slice(0, 10) !== end.slice(0, 10)) continue;
-      const day = typeof row.filingDate === "string" ? row.filingDate.slice(0, 10)
-        : typeof row.acceptedDate === "string" ? row.acceptedDate.slice(0, 10) : null;
-      if (day !== null && /^\d{4}-\d{2}-\d{2}$/.test(day) && (filed === null || day > filed)) filed = day;
+      if (typeof row.date !== "string" || row.date.slice(0, 10) !== end) continue;
+      // SEC dates a filing accepted after 17:30 ET to the next business day, so the
+      // acceptance day is the earlier, truer age.
+      const days = [row.acceptedDate, row.filingDate]
+        .map(value => (typeof value === "string" ? value.slice(0, 10) : null))
+        .filter((day): day is string => day !== null && /^\d{4}-\d{2}-\d{2}$/.test(day))
+        .sort();
+      const day = days[0];
+      if (day !== undefined && (filed === null || day > filed)) filed = day;
     }
   }
   if (filed === null) return;

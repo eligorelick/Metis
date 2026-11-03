@@ -591,6 +591,36 @@ export function checkBankRevenueIdentity(
 }
 
 /** Most recent fact period end across the given tags (freshness probe — Citi F23 lags months). */
+/**
+ * D-175: the newest core-form period end SEC facts carry for any of `tags`, read
+ * in both the us-gaap and ifrs-full taxonomies (an IFRS 20-F filer has no us-gaap
+ * revenue or assets). Also says whether any point came from a 10-Q, and whether
+ * any came from a 20-F or 40-F: a foreign filer's quarters come from 6-K releases,
+ * which SEC structured data does not carry.
+ */
+export function latestFiledPeriodEnd(facts: CompanyFacts, tags: readonly string[]): { end: string | null; quarterly: boolean; foreignAnnual: boolean } {
+  let end: string | null = null;
+  let quarterly = false;
+  let foreignAnnual = false;
+  for (const taxonomy of ["us-gaap", "ifrs-full"]) {
+    const concepts = facts.facts[taxonomy] ?? {};
+    for (const tag of tags) {
+      const parsed = conceptFactsSchema.safeParse(concepts[tag]);
+      if (!parsed.success) continue;
+      for (const arr of Object.values(parsed.data.units)) {
+        if (!Array.isArray(arr)) continue;
+        for (const p of filterToCoreForms(parseFactPoints(arr))) {
+          if (end === null || p.end > end) end = p.end;
+          const form = p.form.trim();
+          if (form.startsWith("10-Q")) quarterly = true;
+          if (form.startsWith("20-F") || form.startsWith("40-F")) foreignAnnual = true;
+        }
+      }
+    }
+  }
+  return { end, quarterly, foreignAnnual };
+}
+
 export function latestFactEnd(facts: CompanyFacts, tags: string[]): string | null {
   let latest: string | null = null;
   for (const tag of tags) {

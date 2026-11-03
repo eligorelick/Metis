@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.59.0 / payload 1.64.0, Stage B `STAGE_B_2026_11_FISCAL_YEAR_END_BALANCE_43` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.60.0 / payload 1.65.0, Stage B `STAGE_B_2026_11_COVERAGE_AND_FX_44` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -316,7 +316,9 @@ series, projections and own-history calculations therefore do not cross a
 presentation-currency change. A dimensionless margin within one statement may
 still be shown on a row that cannot enter a cross-period money calculation.
 Original statement rows remain available in their own currency or labeled
-unknown. No FX series or automatic conversion is supplied.
+unknown. No FX series or automatic conversion is applied to these rows; only a
+foreign issuer's admitted valuation operands are translated, at one dated rate
+(D-178, below).
 
 `src/pipeline/stageB/priceCurrency.ts` permits a model/quote comparison only
 when both currencies are known three-letter codes and equal. Unknown currency
@@ -380,7 +382,8 @@ are refused, so U.S. peer caps will often read "(currency unknown)": an honest
 unknown is preferred to a cap in the wrong currency. All estimate rows must resolve to
 the model currency to enter the consensus growth method and the year-one
 revenue anchor. A row in another currency is excluded, as is a row whose
-currency stays unknown, and no FX conversion is attempted. D-57 replaces
+currency stays unknown, and no FX conversion is attempted (under D-178 the admitted
+model-currency estimates are then translated with the other valuation operands). D-57 replaces
 D-28's own-row-only rule, which discarded USD consensus, peer sizes and
 executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
 rule of D-28 is restored.
@@ -3537,8 +3540,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FISCAL_YEAR_END_BALANCE_43 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FISCAL_YEAR_END_BALANCE_43. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_COVERAGE_AND_FX_44 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_COVERAGE_AND_FX_44. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -5220,7 +5223,9 @@ ADR disclosures describe the path that runs: dividend yield is gross of foreign
 withholding tax and depositary pass-through fees, with no withholding rate
 applied. A currency annotation names the statement and quote currencies only
 when both are known and different; it says price comparisons are withheld and
-no depositary ratio or FX rate is applied. Unknown or minor-unit currencies
+no depositary ratio or FX rate is applied. When the D-178 translation is admitted,
+the valuation runs in USD, this annotation does not appear, and the valuation note
+names the rate and ratio. Unknown or minor-unit currencies
 retain their existing valuation gaps without an invented currency mismatch.
 
 **Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
@@ -7157,3 +7162,61 @@ money. Insider sales are attributed to withholding or a plan only where the
 records classify them. Voting control is stated when there are several share
 classes. These rules shape what the model writes; their effect is observable
 only in a later paid run.
+
+## Fresh filings, news, developments and foreign valuation (D-175 to D-178, 2026-11-02)
+
+**Fresh-filing caution (D-175).** A provider's first rows for a new filing are
+the least reliable, and for a few days SEC companyfacts may not carry the period
+at all. `checkFreshFiling` in `src/pipeline/stageA/validate.ts` adds the warning
+`validation.freshFiling` when SEC facts are admitted (us-gaap or ifrs-full), carry
+nothing within 3 days of the newest statement period end, and that row was
+accepted or filed within `FRESH_FILING_DAYS` (10) of the analysis time. The
+acceptance day is used when present, since SEC dates an after-hours filing to the
+next business day. A 20-F or 40-F filer is checked on its annual periods only:
+its 6-K quarters never reach SEC structured data. A date more than one day after
+the analysis time is ignored, and without admitted SEC facts no caution is added
+(the EDGAR gaps already disclose that nothing is cross-checked). The first Key
+data row then reads "Newest filing: not yet cross-checked", the cover ledger
+shows it above the price, and the judge states once in the executive summary that
+the newest filing's figures are provisional. The caution withholds nothing by
+itself; the debt, currency and period checks keep their own refusals.
+
+**News sampling (D-176).** Beside the newest 50 rows over 30 days, Stage A
+requests six two-week windows from 8 to 90 days back (`NEWS_EARLIER_WINDOWS`),
+4 rows each, from the same provider. The provider returns a window's newest rows
+first, so short windows are what spread the dates for a heavily covered issuer.
+Only windows that return rows are kept; a failed or empty window adds no gap. The
+payload merges them, removes duplicates (by URL, else date and title) and, when
+more than 12 remain, keeps the 6 newest and gives the other 6 to distinct earlier
+calendar days spread evenly across the span. A window from another source than
+the main feed is ignored. A note states the retained count and the date span
+shown.
+
+**Recent developments and management actions (D-177).** The verdict may carry up
+to 8 dated past developments from about the last six months, and the leadership
+section up to 8 dated actions by the CEO, other executives or the board from
+about the last twelve months. Each states the event in cited FACT claims and its
+meaning in JUDGMENT claims; a management action is assessed for shareholder
+alignment and consistency with earlier stated plans, from the evidence only.
+Upcoming events remain catalysts. Both fields are optional, pass the same claim
+verification as every section, and are empty rather than invented when no dated
+evidence exists. The payload lists coded open-market and private purchases and
+sales (Form 4 codes P and S) from the last six months by person, for up to 8
+people (senior officers first, then by value), and counts the rest.
+
+**Foreign-issuer valuation (D-178).** When an issuer reports in one currency and
+quotes in USD, `src/pipeline/foreignCurrency.ts` translates the admitted
+valuation operands at one Federal Reserve H.10 spot rate from FRED
+(`src/pipeline/fx.ts`), dated within `FX_MAX_AGE_DAYS` (7) before the quote,
+with each series' direction mapped explicitly. One rate applies to every
+monetary level, historical levels included, so growth rates and margins are
+unchanged (constant currency). The USD risk-free rate and WACC apply only to the
+translated USD cash flows. Own-history multiples are not translated and are
+dropped for a translated issuer. Source statement rows are never rewritten, and
+the valuation note names the series, observation date, native value and quote
+date. The depositary ratio is admitted only when two independent constructions
+(filed ordinary outstanding against the provider's quoted count, and matched
+annual weighted averages) snap to the same standard ratio within 1%, and market
+cap divided by price agrees with the quoted count within 1%. Unresolved split or
+share-class evidence refuses the ratio, and the valuation stays withheld with
+`valuation.currencyConversion` naming the reason.

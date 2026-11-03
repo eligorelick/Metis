@@ -610,6 +610,13 @@ function gapResult<T>(
   return { ok: false, gap };
 }
 
+/**
+ * D-176: earlier news windows as [newer, older] days back, two weeks each from
+ * 8 to 90 days, and the rows requested from each.
+ */
+export const NEWS_EARLIER_WINDOWS: readonly (readonly [number, number])[] = [[8, 21], [22, 35], [36, 49], [50, 63], [64, 77], [78, 90]];
+export const NEWS_EARLIER_ROWS = 4;
+
 /** Awaits a FetchResult-producing promise; thrown errors become gaps. */
 async function settle<T>(field: string, p: Promise<FetchResult<T>>): Promise<FetchResult<T>> {
   try {
@@ -2035,12 +2042,12 @@ export async function buildDataBundle(
   const pFloat = settle(`fmp.sharesFloat(${sym})`, fmp.sharesFloat(sym));
   const pSecFilings = settle(`fmp.secFilingsSearch(${sym})`, fmp.secFilingsSearch(sym, filingsFrom, today, 0, 100));
   const pNews = settle(`fmp.stockNews(${sym})`, fmp.stockNews([sym], newsFrom, today, 0, 50));
-  // D-176: the newest 50 rows can span hours for a heavily covered issuer; two
-  // bounded earlier windows (8-30 and 31-90 days back) let the payload sample the quarter.
-  const pNewsEarlier = reserved ? undefined : {
-    recentMonth: settle(`fmp.stockNews(${sym}).recentMonth`, fmp.stockNews([sym], newsFrom, isoDaysAgo(nowDate, 8), 0, 25)),
-    prior: settle(`fmp.stockNews(${sym}).prior`, fmp.stockNews([sym], isoDaysAgo(nowDate, 90), isoDaysAgo(nowDate, 31), 0, 25)),
-  };
+  // D-176: the newest 50 rows can span hours for a heavily covered issuer. The
+  // provider returns a window's newest rows first, so one wide earlier window would
+  // repeat that problem at its own end date; short windows spread across the quarter
+  // give the payload dates to sample from.
+  const pNewsEarlier = reserved ? undefined : NEWS_EARLIER_WINDOWS.map(([newer, older]) =>
+    settle(`fmp.stockNews(${sym}).earlier`, fmp.stockNews([sym], isoDaysAgo(nowDate, older), isoDaysAgo(nowDate, newer), 0, NEWS_EARLIER_ROWS)));
   const pPress = settle(`fmp.pressReleases(${sym})`, fmp.pressReleases([sym], newsFrom, today, 0, 50));
   const pEod = settle(`fmp.historicalPriceEodFull(${sym})`, fmp.historicalPriceEodFull(sym, eodFrom, today));
   const pSpy = settle(
@@ -2162,10 +2169,10 @@ export async function buildDataBundle(
   if (!reserved && finnhubCfg.apiKey) {
     news = await resolveFinnhubFallback<FmpPayload<FmpNewsArticleRow>>(news, () => finnhubNewsFetch(sym, newsFrom, today), "news", configuredFallbackGaps);
   }
-  const newsEarlier = pNewsEarlier === undefined ? undefined : {
-    recentMonth: sortRows(await pNewsEarlier.recentMonth, "publishedDate"),
-    prior: sortRows(await pNewsEarlier.prior, "publishedDate"),
-  };
+  // Only windows that returned rows are kept. A failed or empty earlier window
+  // leaves the sample thinner; it is not a gap in the news feed itself.
+  const newsEarlier = pNewsEarlier === undefined ? undefined
+    : (await Promise.all(pNewsEarlier)).map((window) => sortRows(window, "publishedDate")).filter((window) => window.ok);
   const pressReleases = sortRows(await pPress, "publishedDate");
   let eodPrices = sortRows(await pEod);
   let spyPrices = sortRows(await pSpy);

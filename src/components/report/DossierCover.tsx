@@ -2,7 +2,7 @@ import { withNeutral } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
-import { businessQualityGraded, confidenceText, displayProse, keyDataRows } from "@/report/presentation";
+import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, keyDataRows } from "@/report/presentation";
 import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
@@ -26,7 +26,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
     ? [row[0], `${formatScore(report.scores!.assessments!.valuation.score)} / limited evidence`, `${row[2]} Limited evidence: ${limitedEvidenceText(valuation)}.`]
     : row);
   const rows = keyDataRows(report);
-  const selected = rows.filter((row, index) => index === 0 || row.label === "Composite grade" || row.label.startsWith("Model fair value") || row.label.startsWith("Scenario range"));
+  const selected = coverLedgerRows(rows);
   return <section className="dossier-cover" aria-label="Executive research dossier">
     <div id="report-key-data"><KeyDataBox report={report} /></div>
     <div className="dossier-thesis">

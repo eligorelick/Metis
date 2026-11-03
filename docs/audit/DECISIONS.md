@@ -4780,3 +4780,231 @@ on it.
 - **Stamps (D-173 and D-174).** Stage B, fair value and scenario targets
   `FISCAL_YEAR_END_BALANCE_43`; payload 1.64.0. Report spec 1.59.0 and pipeline
   stage-c-1.6.21 are unchanged.
+
+## D-175 - Caution when the newest filing is not yet cross-checked (2026-11-02)
+
+The AAPL run behind D-173 and D-174 read the provider's rows for a 10-K accepted
+the same afternoon. Those rows were partly wrong, and SEC companyfacts did not
+yet carry the period, so no figure from that filing could be checked against the
+filing itself. The cross-check recorded "not checkable" info rows in the
+appendix only. A reader saw nothing on page one.
+
+- **Decision.** Stage A adds a warning (`validation.freshFiling`) when SEC facts
+  are admitted, carry nothing within 3 days of the newest statement period end
+  (the cross-check's tolerance for 52/53-week calendars), and that row was filed
+  within 10 days of the analysis time. The facts are read in both the us-gaap and
+  ifrs-full taxonomies. A 20-F or 40-F filer's quarters come from 6-K releases,
+  which SEC structured data never carries, so only its annual periods are
+  checked. The age is taken from the acceptance date when there is one, because
+  SEC dates a filing accepted after 17:30 ET to the next business day. A date
+  more than one day after the analysis time is ignored, as is a row without one.
+  The reason names the period, the filing date and that the figures are not yet
+  cross-checked.
+- **Where it shows.** The first Key data row reads "Newest filing: not yet
+  cross-checked", with the reason; the cover ledger shows it above the price
+  rather than in its place. The judge says once in the executive summary,
+  citing that row, that figures from the newest filing are provisional, and
+  weighs conclusions that rest on them accordingly.
+- **Not done.** Nothing is withheld on this caution alone. The debt, currency and
+  period checks that already judge a fresh row keep their own refusals (D-173,
+  D-174). The caution clears by itself when SEC data reaches the period or the
+  filing is older than 10 days. Without admitted SEC facts nothing is
+  cross-checked at all; the EDGAR gaps already say so, and no caution is added.
+- **Independent review (2026-11-02).** The first version read only us-gaap facts
+  (so it would have cautioned every fresh IFRS filer), waited for 6-K quarters,
+  matched the period end exactly, preferred the filing date, and let the caution
+  push the price off the cover ledger. All five were fixed before merge.
+
+## D-176 - News sampled across the quarter (2026-11-02)
+
+The bundle kept the provider's newest 50 news rows over 30 days, and the payload
+showed the first 12. For AAPL, MSFT and other heavily covered issuers, 50 rows
+span hours, so the model read only the latest headlines and nothing about the
+quarter's earlier events.
+
+- **Decision.** Stage A also requests six two-week windows from the same
+  provider, from 8 to 90 days back, 4 rows each. The provider returns a window's
+  newest rows first, so one wide window would only repeat the problem at its own
+  end date; short windows give dates across the quarter even for the most heavily
+  covered issuers. The payload
+  merges them with the newest feed, removes duplicates (by URL, else by date and
+  title) and orders the rows newest first. When more than 12 remain, it keeps the
+  6 newest and gives the other 6 to distinct earlier calendar days spread evenly
+  across the span, one row per day, so one heavily covered day cannot fill every
+  slot. Spare slots, if there are fewer days than slots, go round-robin to
+  further rows. A note states how many rows were retained and the date span
+  shown. With 12 rows or fewer, nothing is sampled.
+- **Guards.** An earlier window from a different source than the main feed is
+  ignored, so one list never mixes providers. Only windows that return rows are
+  kept: a failed or empty window leaves the sample thinner and adds no gap, so it
+  cannot read as a failure of the news feed or lower the report's completeness. A
+  bundle without the windows (older bundles, the reserved fixture symbols)
+  behaves as before.
+- **Cost.** Six extra data-provider requests per run. No model cost.
+- **Independent review (2026-11-02).** Two wide windows (25 rows each) first
+  reached only about three days for AAPL, and their failures shared the main
+  feed's gap field. Both were fixed before merge, as described above.
+
+## D-177 - Recent developments and management actions (2026-11-02)
+
+The owner asked that a report weigh company news, the market, risks, catalysts
+and CEO and management actions, not only the numbers. Reports had sourced
+catalyst, risk, market-structure and competitor claims (D-168 to D-172), but no
+place for what had recently happened or what management had done.
+
+- **Decision.** Two optional, cited sections:
+  - `verdict.recentDevelopments`: up to 8 dated past events from about the last
+    six months, newest first. Each has its event date, a title, 1-2 cited FACT
+    claims on what happened, 1-2 JUDGMENT claims on why it matters, a direction
+    and the part of the case it affects. A 2-3 claim summary says what they mean
+    together. Upcoming events stay catalysts.
+  - `leadership.managementActions`: up to 8 dated actions from about the last
+    twelve months by the CEO, other executives or the board (officer and director
+    changes, strategy, deals, buybacks, dividends, debt, guidance, insider trades
+    and Rule 10b5-1 plans, compensation). Each states the action in cited FACT
+    claims and assesses, from the evidence only, whether it is aligned with
+    shareholders and matches management's earlier stated plans. Motive is never
+    guessed. Tax-withholding dispositions and plan capacity are not decisions to
+    sell. The actor is a role; a person is named only inside a cited claim, where
+    the named-person check reads it.
+- **Evidence.** The payload now lists, by person, coded open-market and private
+  purchases and sales (Form 4 codes P and S) from the last six months, for up to
+  8 people (senior officers first, then by value) with the rest counted, beside the existing
+  quarterly statistics. The analysts' research covers the last six months
+  including management and board actions, and their cases carry each dated
+  finding with its event date and source.
+- **Validation.** Both fields go through the existing claim verification. An
+  unreadable event date becomes null instead of rejecting the section; more than
+  8 items are cut to 8 before validation. Empty evidence gives an empty list, not
+  invented items. Historical reports, which lack the fields, render as before.
+- **The judge** weighs the most important recent development and the top
+  catalyst and risk alongside the numbers in the synthesis and executive summary.
+- **Not verified offline.** Writing quality and source coverage need a live run.
+
+## D-178 - Foreign-issuer valuation at one dated FX rate (2026-11-02)
+
+Seven foreign issuers in the frozen panel (TSM, ASML, TM, NVO, SAP, SONY, BABA)
+report in their home currency and quote in USD. Every price comparison, WACC
+market-value weight and DCF was withheld, because no FX rate or ADS ratio was
+applied (D-57).
+
+- **Decision.** When the reporting and quote currencies differ, valuation
+  operands are translated at one Federal Reserve H.10 spot rate (FRED, for
+  example DEXUSEU or DEXTAUS) dated within 7 days before the quote. The direction
+  of each series is mapped explicitly. Future observations are excluded, and two
+  disagreeing values for one date are refused. One rate applies to every
+  monetary valuation level, historical levels included, so growth rates and
+  margins are unchanged. A USD risk-free rate is applied only to USD cash flows.
+  Altman Z converts the USD capitalization back to the liability currency. The
+  source statements are never rewritten. The report names the series, date,
+  native value and quote date.
+- **The ADS ratio is not taken from a ticker map.** It is admitted only when two
+  independent constructions agree and both snap to the same standard ratio within
+  1%. One divides the filed ordinary shares outstanding (dei cover, at most 400
+  days old) by the provider's quoted shares. The other divides the matched annual
+  SEC weighted-average count by the provider's. Market cap divided by price must
+  also match the quoted count within 1%. Any unresolved split or multi-class
+  evidence refuses the ratio.
+- **Effect on the frozen panel.** ASML (ratio 1, DEXUSEU 1.1163) gets a DCF of
+  $969.51 per share against $1,526.14. TSM (ratio 5, DEXTAUS 32.59) gets WACC
+  (11.33%), multiples and Altman. Its per-share value stays withheld because no
+  NCI earnings allocation is admitted. TM, SAP, NVO, SONY and BABA stay withheld,
+  each with its reason: dated counts disputed or absent, a stale cover count, or
+  unresolved split history. The 26 other issuers are byte-identical.
+- **Rejected.** A per-year historical rate (it distorts operating growth),
+  discounting local cash flows at a USD rate, ticker ratio tables, and widening a
+  tolerance to admit a name. A wrong unit is worse than a withheld value.
+
+## D-179 - Valuation coverage from complete filed balances (2026-11-02)
+
+Fifteen of 26 US issuers in the frozen panel had their DCF withheld. Most causes
+were not missing data. A provider debt or lease line covered a narrower scope
+than its label, a single incomplete balance date vetoed WACC, or a filed annual
+EBIT was ignored when trailing EBIT was refused.
+
+- **Decision.** Four repairs, each extending an existing admission rule rather
+  than relaxing a guard:
+  - **Same-filing debt completion** (extending D-133). When the same core filing,
+    period and currency establish the omitted components (current debt,
+    commercial paper, finance or operating leases), the debt composition is
+    completed and each lease is counted once. Generic `LongTermDebt` and principal
+    aggregates never stand in for a carrying value. Ambiguous or mixed-accession
+    values still refuse.
+  - **WACC from complete balances.** The debt weight uses the latest complete
+    balance in the window, and the effective cost of debt averages only complete
+    balances. Excluded dates are named. A wholly incomplete window still
+    withholds.
+  - **Annual EBIT for the synthetic rating.** When trailing EBIT is unavailable,
+    the latest fiscal year's filed operating income may score interest coverage,
+    paired with annual interest. It does not admit a vendor operating margin. The
+    acceptance band and spread table are unchanged.
+  - **NCI synonyms and predecessor facts.** Two more NCI concepts are read after
+    the existing one. Annual NCI income and consolidated profit may be completed
+    together from one filing. A successor may read its predecessor's same-year
+    facts only under the existing B-36 continuity test and cutoff.
+- **Effect on the frozen panel.** US coverage rises from 10 to 19 of 26: GOOGL,
+  META, COST, HD, VZ, JNJ, LLY, CAT and XOM are valued. XOM rests on FY2025
+  inputs and says so. No previously published value changed. DIS's historical
+  debt repair moves its composite from 58.06 to 58.17 and its moat from 58.99 to
+  47.92; its value is unchanged. Still withheld: MCD (a million-fold share-count
+  unit error in SEC's own facts), NKE (unresolved share classes), ORCL (the DCF
+  falls outside its domain once WACC computes), EXPE (no invested-capital basis
+  at the balance date), TSLA (domain), INTC (structurally negative FCF) and AAPL
+  (D-174).
+- **The new values sit mostly below price,** as the existing ones do (D-180). That
+  is the method's conservative house convention, disclosed beside each value,
+  not a coverage error.
+
+## D-180 - DCF bias study: no numerical change (2026-11-02)
+
+Nine of the ten US DCFs published on the frozen panel sat below price (median
+-27.46%; five more than 30% below). A study tested whether the terminal value,
+fade, WACC or reinvestment assumptions were miscalibrated
+([study](2026-11-03-q4-dcf-bias-study.md)).
+
+- **Decision.** No numerical change. Each tested alternative (growth fade shape,
+  3% terminal growth, quote-implied shares, flat margins, removing the
+  excess-return, margin or sales-to-capital caps, discounting convention, no
+  roll-forward) moved the median gap by less than 1 percentage point, or made it
+  worse. WACC is the largest sensitivity, and a lower rate needs independent
+  evidence, not the wish to be closer to price. A margin-trend diagnostic moved
+  AMZN, DIS and BA materially, but only by assuming efficiency beyond the best
+  observed ratio. Tuning values toward price would calibrate the model to the
+  market it is meant to be compared against.
+- **Wording.** The methodology now says plainly that the terminal input is the
+  return on new capital (RONIC), not a reset of returns on existing capital, and
+  cites Koller, Goedhart and Wessels, *Valuation*, on continuing value.
+- **Limits.** Ten valued names out of 26 is a selected sample. It neither replaces
+  the October census nor estimates a market-wide bias.
+
+## D-181 - Integrating the Q round (2026-11-02)
+
+D-175 to D-180 were built separately (D-177 to D-180 by delegated agents in their
+own worktrees) and merged onto one integration branch. Each merge was reviewed
+before it landed. One delegate commit carried a scratch notes file, so that
+branch was rewritten without it before merging; no scratch file is in the
+history.
+
+- **Frozen-panel evidence (offline, read-only, no paid calls).** Stage B and
+  validation were replayed on the 33-company census snapshots and the five-company
+  snapshots (AAPL, JPM, O, TSM, FIGR), before and after the round.
+  - Valued companies rise from 10 to 19 of 33. The nine new values are those of
+    D-179. Every previously published value is unchanged.
+  - Composite changes come only from the newly valued companies, ORCL (48.16
+    to 50.87: ROIC and WACC now compute, and its DCF falls outside the domain)
+    and DIS (58.06 to 58.17, D-179). For example, GOOGL moves 59.09 to 60.06, COST 57.33
+    to 61.97 and CAT 60.63 to 55.73, as a computed valuation score replaces a
+    withheld one.
+  - AAPL keeps its D-174 refusal. The 2026-09-26 debt and that year's ROIC stay
+    withheld. WACC (9.53%) now uses the last complete balance (2026-06-27), and
+    the DCF stays withheld for want of an invested-capital basis. O gains WACC from
+    complete balances; its value stays withheld.
+  - JPM, TSM and FIGR are identical. The frozen snapshots predate the FX fetch,
+    so the foreign issuers are unchanged offline. D-178's panel effect was
+    measured with a dated fixture rate and is confirmed live separately.
+- **Stamps.** Report 1.60.0 (the two optional fields), payload 1.65.0, pipeline
+  stage-c-1.6.22 (prompt rules), and Stage B, fair value and scenario targets
+  `COVERAGE_AND_FX_44`. Stored reports keep their bytes and versions.
+- **Not verified offline.** These need a paid run: the quality of the new
+  sections, whether the judge cites the fresh-filing row, and whether sampled
+  news changes what the analysts find.
