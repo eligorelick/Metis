@@ -782,7 +782,8 @@ headings need a later item number, regardless of title spelling; two- to
 four-cell item rows can end a section. A prose reference to a later item is
 not an end heading: its text opens in lowercase ("Item 1A of this report
 describes"), or continues the item's standard title in lowercase words ("Item
-1A. Risk Factors below discusses"). Only a two-cell, one-row title
+1A. Risk Factors below discusses"). The exact standard title ends a section
+in any capitalization ("Item 1A. risk factors."). Only a two-cell, one-row title
 table can establish its start; TOC links, multirow index tables and prose
 references cannot. For 20-F risk factors, an unlinked standalone “D. Risk Factors” or
 “Risk Factors” must lie inside proved Item 3 and Item 4 boundaries. Repeated

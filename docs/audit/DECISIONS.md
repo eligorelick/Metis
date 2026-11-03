@@ -5226,6 +5226,42 @@ cost $2.09.
 - **Not changed.** The judge's request schema keeps `sourceId`; no judge failure
   points to it.
 
+**Confirmed on the paid build.** A Retry of the ASML job on the build without
+`sourceId` reused the frozen inputs, the bear case and the bull's saved research.
+It completed report #6:
+
+- **Bull.** Written on the first attempt ($0.79).
+- **Judge.** Three sections ($2.03, cache reads after the first).
+- **Verification.** Deterministic, $0.
+- **Job total.** $6.71 across every attempt.
+
+The report has:
+
+- **Verification rate:** 99.6%.
+- **Score and value:** composite 67.38 (grade C); DCF value USD 962.12 against
+  a USD 1,566.26 price.
+- **Sections:** 5 dated recent developments and 7 management actions. The
+  competitors (Applied Materials and KLA) are cited from the risk factors that
+  D-184 recovered. The market size is stated once as unsourced. There are 5
+  catalysts and 7 risks.
+
+**Audit follow-ups (not changed in this round):**
+
+- **Uncheckable headline claims.** Some executive-summary claims cite the right
+  record, but the verifier cannot bind their wording, so they show as unchecked
+  (`text-context-mismatch`). Examples: "ADS price", "DCF base-case value",
+  "reverse DCF implies year-one revenue growth over TTM" and "weighted projected
+  revenue for the 12 months ending". TSM report #3 had the same class. These need
+  producer-bound wording, as D-182 added for "trailing P/E".
+- **Buyback magnitude.** "Buybacks ... were EUR 4.07 billion" against the
+  `buybacks (negative)` record is marked contradicted under D-160, which requires
+  signed cash outflows to match the signed record. The sentence states the amount
+  correctly as a magnitude. Accepting a magnitude with explicit outflow wording,
+  or prompting the judge to write the signed figure, needs its own decision.
+- **ASML sections still withheld.** The business and MD&A sections stay withheld
+  (D-184). The CEO and CFO cards are not assessed for lack of attributable
+  payload rows.
+
 **Secondary: the repair wording.** The repair turn said "Fix EXACTLY these issues and
 re-emit the full ANALYST_CASE JSON — same evidence, same citations, corrected
 fields only". The echoed output said "repair this JSON in place — do not start
@@ -5252,7 +5288,7 @@ is right for a format error, such as a bad date, which is what it was written fo
     format error, and a runner test for the incomplete marker on the echoed
     output. All three fail without the change.
 
-**PR #88 review (Codex, four P2 findings over two rounds), each with a test that
+**PR #88 review (Codex, five P2 findings over three rounds), each with a test that
 fails without the fix:**
 
 - **Linked page ranges (D-184).** A page that another item claims strictly
@@ -5265,7 +5301,10 @@ fails without the fix:**
   "Item 1A. Risk Factors below discusses ..." and "Item 1A of this report
   describes ...". Text that opens in lowercase, or that continues the item's
   standard title in lowercase words, is prose. A variant or nonstandard title,
-  or a standard title with a parenthetical, still ends the section. The existing
+  or a standard title with a parenthetical, still ends the section. The exact
+  standard title ends it in any capitalization ("Item 1A. risk factors.", third
+  review round), so capitalization alone cannot make recovery absorb the next
+  item. The existing
   tests for singular and plural market-risk titles, "Directors and employees" and
   a 320-character title still pass.
 - **Pre-launch budget check (D-183).** It now counts an expired lease the way

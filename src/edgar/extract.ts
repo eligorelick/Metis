@@ -1675,13 +1675,15 @@ function recoverAnnualSection(
   // below discusses ...", "Item 1A of this report describes ...") is prose, not
   // that item's heading (PR #88 review). It is the item's standard title followed
   // by lowercase words, or text opening in lowercase. A variant or nonstandard
-  // title, or a standard title with a parenthetical, still ends the section.
+  // title, or a standard title with a parenthetical, still ends the section. The
+  // exact standard title ends it in any capitalization ("Item 1A. risk factors.").
   const proseReference = (n: AppendixElement): boolean => {
     const heading = headingItem(n);
     if (!heading) return false;
     const title = heading.title.trim();
-    if (/^[a-z]/.test(title)) return true;
     const standard = closed[heading.id];
+    if (standard?.test(key(title.replace(/\s*\([^()]{1,60}\)\s*[.:]?$/, "")))) return false;
+    if (/^[a-z]/.test(title)) return true;
     if (!standard) return false;
     const words = title.split(/\s+/);
     let end = 0;

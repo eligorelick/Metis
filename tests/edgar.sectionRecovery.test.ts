@@ -112,6 +112,14 @@ describe("failed annual section recovery from filing structure", () => {
     expect(result.ok && result.text).not.toContain("Item 1A. Risk Factors.");
   });
 
+  it.each(["Item 1A. risk factors.", "Item 1A. risk factors (continued)"])("ends business at the exact standard title in lowercase: %s (PR #88 review)", heading => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      `<div id="risk">${heading}</div><p>Risk discussion text.</p><div>Item 1B. Unresolved Staff Comments</div>`);
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.method).toBe("structured-item");
+    expect(result.ok && result.text).not.toContain("Risk discussion text.");
+  });
+
   it("ends 20-F Item 5 before a nonstandard Item 6 title", () => {
     const html = retryBody(`<div>Item 5. Operating and Financial Review and Prospects</div><p>${"Operating results. ".repeat(180)}</p>` +
       '<div>Item 6. Directors and employees</div><p>Foreign governance text.</p><div>Item 7. Major Shareholders and Related Party Transactions</div>', "5", "6", "Operating and Financial Review and Prospects");
