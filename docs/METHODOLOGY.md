@@ -1180,10 +1180,16 @@ pulled down and the note says so.
 **This is a house convention, not a standard, and it is labelled as such
 wherever it is printed.**
 
-The default terminal ROIC equals the WACC: growth adds nothing after the
-explicit horizon. That is the Koller/Goedhart/Wessels recommendation for most
-firms. Applied to every issuer, however, it values an evidenced compounder as
-if its returns collapsed to the cost of capital in year 11.
+The input named `terminal.roicTermPct` is the return on **new** invested
+capital (RONIC) in the continuing-value formula. Its default equals WACC:
+new growth earns no excess return after the explicit horizon. Cash flows from
+the existing business still have value; the formula does not reset the return
+on all existing assets to WACC in year 11. Koller, Goedhart and Wessels allow
+RONIC at WACC when competitive advantages erode, and above it when those
+advantages persist. Choosing between them requires evidence about future
+competition; historical average ROIC alone does not establish marginal RONIC.
+See [McKinsey's continuing-value guidance](https://www.linkedin.com/pulse/dont-only-use-multiples-your-continuing-mbmtc)
+and [Damodaran, Investment Valuation, chapter 12](https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch12.pdf).
 
 So: the implementation sorts computable annual ROIC observations newest-first
 and inspects at most five. When ROIC exceeded the applicable WACC in **all of
@@ -1230,7 +1236,10 @@ answering HTTP 200 with an HTML maintenance or outage page (a body opening with
 backoff, then the keyed path tries `fredgraph.csv`, and the gap names an HTML
 page rather than an unknown series.
 
-Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
+Terminal reinvestment is g ÷ RONIC (the input named ROIC_terminal),
+Damodaran's consistency rule. This is the value-driver formula
+`NOPAT_(N+1) × (1 − g / RONIC) / (WACC − g)`, rather than a perpetuity of the
+last explicit year's FCFF with its old reinvestment requirement.
 
 ---
 
@@ -3220,6 +3229,15 @@ because the census figure describes only the FCFF DCF. It is a dated panel, not
 a live statistic, and changes only with a new census. This batch only discloses
 the base rate. The calibration behind it (B-3) and the valuation band's
 dependence on it (B-33) are left for a later batch.
+
+The [2026-11-03 frozen-panel study](audit/2026-11-03-q4-dcf-bias-study.md)
+tested the current assumptions without changing the numerical method. Only ten
+of its 26 US issuers published a DCF: nine below price, median −27.46%, five
+more than 30% below. Fifteen were suppressed and one was outside-domain; seven
+foreign issuers were excluded from the US diagnosis. This selected population
+does not replace the October census or establish a market-wide bias estimate.
+No tested numerical replacement met all four study conditions. The dated
+headline disclosure and its pinned figures therefore remain unchanged.
 
 **Degraded inputs** (audit 2026-10-22 F-13, an owner decision). An available
 fair value built on a substituted input carries a `valuation.fairValue.degradedInputs`
