@@ -1,6 +1,6 @@
 # B6: financial-route currency, routing and grading
 
-Base: `222f92a082aa63e254783291ca21ee299a5dad9b`, current main when this worktree started, including B4a (PR #76). Scope: the 26 B6 findings, including FIN-503/504/505 from round 4 and FIN-506 moved from B5. Decision: D-137 in [DECISIONS](DECISIONS.md). The [implementation plan](../superpowers/plans/2026-10-27-audit-fix-06-financial-routes-currency-and-grading.md) is retained as planning history; the execution rulings here and in spec 4.7 record where its stale controls or later owner instructions change the outcome.
+Base: `222f92a082aa63e254783291ca21ee299a5dad9b`, current main when this worktree started, including B4a (PR #76). Scope: the 26 B6 findings, including FIN-503/504/505 from round 4 and FIN-506 moved from B5. Decision: D-137 in [DECISIONS](DECISIONS.md). The [implementation plan](../internal/superpowers/plans/2026-10-27-audit-fix-06-financial-routes-currency-and-grading.md) is retained as planning history; the execution rulings here and in spec 4.7 record where its stale controls or later owner instructions change the outcome.
 
 This change made no model calls and no paid provider calls. Saved bundles, checked-in SEC fixtures and synthetic inputs were replayed with empty process-only profiles, a dead proxy and a database guard. Original reports and snapshots were only read; their hashes are retained in the private evidence ledger. No live application or database was used. Public academic-source verification and repository infrastructure are separate from financial/provider testing.
 

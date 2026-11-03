@@ -4,7 +4,7 @@ This guide describes the checked-in implementation including the Metis compatibi
 It covers application behavior; provider access, prices and account allowances
 can change independently. See [methodology](METHODOLOGY.md),
 [privacy](PRIVACY.md) and [Claude usage](CLAUDE-USAGE.md) for their respective
-contracts. Dated files under `audit/` and `superpowers/` preserve historical
+contracts. Dated files under `audit/` and `internal/superpowers/` preserve historical
 findings and design proposals; they are not substitutes for current guides.
 
 ## Installation and startup

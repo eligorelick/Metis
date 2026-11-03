@@ -2,7 +2,7 @@
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
-**Metis writes equity research reports on US-listed companies from primary sources (SEC filings, market data, consensus estimates and macro series), with every cited figure traced to its record.** It runs on your own machine, computes the financial analysis in deterministic TypeScript, and can have two AI analysts argue the bull and bear cases before a judge writes the report. The name comes from the Greek Titan of wisdom and planning ([brand guide](docs/BRAND.md)).
+**Metis writes equity research reports on US-listed companies from primary sources (SEC filings, market data, consensus estimates and macro series), with every cited figure traced to its record.** It runs on your own machine, computes the financial analysis in deterministic TypeScript, and can have two AI analysts argue the bull and bear cases before a judge writes the report. It is for individual investors and equity researchers who want to inspect the evidence and assumptions behind a report. The name comes from the Greek Titan of wisdom and planning ([brand guide](docs/BRAND.md)).
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
@@ -19,7 +19,9 @@ Verdict and executive summary · how the company makes money, its segments, and 
 
 ## Quick start
 
-Node.js 24 or newer and npm (`package.json`); CI tests Node 24, the version the test suite is known to pass on.
+Node.js 24 or newer and npm are required (`package.json`); use Node 24 for development. CI tests Node 24. Windows is the primary development platform. macOS/Linux use the npm commands below; CI runs the full gate on Linux and product/integration smoke checks on Windows.
+
+Some existing Windows installations have `Start-Thesis.ps1` and `Stop-Thesis.ps1` local launchers. They are not shipped in this repository and require an already-built installation; see [launcher details](docs/OPERATIONS.md#installation-and-startup). A fresh clone uses npm.
 
 ```powershell
 git clone https://github.com/eligorelick/Metis.git
@@ -38,6 +40,10 @@ fictional report, and `/company/DEMO` and `/company/DBNK` are reserved strings
 served from `fixtures/fmp` whatever keys are set. None of the three reaches a
 market-data provider: the company slices disclose fixtures and the sample is synthetic.
 Other symbols use live/cache data; generating fixture reports can still call selected AI.
+
+No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; keep the optional admin key in the private environment. See the configuration table below for limits and defaults.
+
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
 
 ## AI connections
 
@@ -105,12 +111,7 @@ compatible quarterly observations and waits for them.
 Configure `EDGAR_CONTACT` even with a free FMP key. Metis learns explicit access
 restrictions and skips repeat refusals for 15 minutes; see [fallback limits](docs/PRIVACY.md#limited-fmp-access).
 
-With no FMP key, set `EDGAR_CONTACT` for real US filers' research:
-supported statements, share counts and public float from SEC EDGAR XBRL company
-facts, prices from Yahoo's unofficial chart endpoint, and the profile and
-enterprise values derived from the two. `METIS_STATEMENT_SOURCE` chooses
-between the vendor and EDGAR; no statement row mixes source fields, and the
-manifest names how many each served.
+With no FMP key, set `EDGAR_CONTACT` for real US filers' research: supported statements, share counts and public float from SEC EDGAR XBRL company facts, prices from Yahoo's unofficial chart endpoint, and the profile and enterprise values derived from the two. `METIS_STATEMENT_SOURCE` chooses between the vendor and EDGAR; no statement row mixes source fields, and the manifest names how many each served.
 
 Where a filer uses an extension tag the field is `null` rather than a guess,
 and each stand-in is named in the manifest with the periods it served. Analyst
@@ -146,13 +147,7 @@ It groups descriptive errors by sector and exact horizon with paired baseline co
 
 Scorecards show each attribute's missing-input score range and conditional bands from recorded applicable coverage: arithmetic sensitivity, not probabilities. Valuation robustness requires complete modeled grids, including when displaying saved reports. Evidence timing distinguishes contemporaneous capture, later-acquired inputs and unverified historical timing.
 
-The verification pass makes no model call. It measures citation coverage — can
-each figure be traced to the record it cites — and separately checks the prose
-around figures it can locate: a direction word must match the sign of its
-change, a period naming a year must match the cited year (and a comparison base the
-period the figure is measured against), a unit word must fit the registered unit, and
-a claim naming a person must rest on a filing, a transcript, a registry figure or attributed
-executive/insider rows; any other source, or none, fails it. Checked is printed beside cited, never merged into it.
+The verification pass makes no model call. It measures citation coverage — can each figure be traced to the record it cites — and separately checks the prose around figures it can locate: a direction word must match the sign of its change, a period naming a year must match the cited year (and a comparison base the period the figure is measured against), a unit word must fit the registered unit, and a claim naming a person must rest on a filing, a transcript, a registry figure or attributed executive/insider rows; any other source, or none, fails it. Checked is printed beside cited, never merged into it.
 
 Claude model prices and limits come from `config/models.json`; unknown IDs
 degrade to data-only reports because their spend cannot be bounded. `auto`
@@ -200,12 +195,7 @@ end-to-end costs have not been measured in live Metis runs for this update.
 
 ## Running it safely
 
-Metis has no telemetry, analytics or update check;
-its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js
-CLI has separate anonymous telemetry, off when the shipped
-`NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`).
-[Privacy and safety](docs/PRIVACY.md) names what each receives, where the local
-database lives, and how to delete it.
+Metis has no telemetry, analytics or update check; its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js CLI has separate anonymous telemetry, off when the shipped `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`). [Privacy and safety](docs/PRIVACY.md) names what each receives, where the local database lives, and how to delete it.
 
 The application is single-user and has no authentication; keep it on loopback
 unless you add a security layer of your own. Mutating routes reject a request
@@ -254,6 +244,15 @@ live SEC check is opt-in with `EDGAR_LIVE_SMOKE=1` and a real `EDGAR_CONTACT`.
 Protect `main` by requiring the `full` and `windows-smoke` checks in GitHub.
 Contributions should preserve source tracing, add regressions and pass `npm run verify`.
 
+## Troubleshooting
+
+- **Install or native SQLite errors:** check `node --version` is Node 24, then run `npm ci` in the repository root. Do not reuse `node_modules` across operating systems or Node versions.
+- **App does not open:** use the URL printed by the npm server (normally http://127.0.0.1:3000). Check for another process using port 3000. Production startup needs `npm run build` first; local Windows launchers do not build or install dependencies.
+- **Missing figures or unsupported symbol:** configure a truthful `EDGAR_CONTACT`, test optional provider keys in Settings, and read the report's disclosed gaps. Plan restrictions and unsupported instruments do not become guessed values; see [data-source limits](docs/PRIVACY.md#limited-fmp-access).
+- **AI missing or a run held:** check the selected AI connection, provider allowance and spend caps in Settings. A failed connection does not silently switch to paid Claude. See [jobs and recovery](docs/OPERATIONS.md#report-lifecycle-and-recovery) and [Claude guidance](docs/CLAUDE-USAGE.md).
+
+For reproducible problems, use the repository's bug/data issue forms with sanitized diagnostics. Read [contribution guidance](CONTRIBUTING.md) before sending a patch, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
+
 ## Limitations
 
 - Metis is a research tool for one local user, not a broker or a trading
@@ -265,4 +264,6 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 
 ## License and data rights
 
-Metis is source-available under the [Metis No-Sale Attribution License 1.0](LICENSE), which permits internal business use with attribution but prohibits charging for copies, downloads or access without separate written permission. Distribution/download pages and software interfaces require visible credit: **Metis by [Eli Gorelick](https://eligorelick.com) — https://eligorelick.com**; see the license for CLI/headless equivalents. This is not an OSI-approved open-source license. Earlier MIT-licensed copies retain their prior rights. Preserve third-party notices; separate [data rights](docs/DATA-RIGHTS.md) apply to retrieved data and model output, including shared reports.
+Metis is source-available under the [Metis No-Sale Attribution License 1.0](LICENSE), which lets you use, modify and redistribute the software, including internal business use, with attribution, but prohibits charging for copies, downloads or access without separate written permission. Distribution/download pages and software interfaces require visible credit: **Metis by [Eli Gorelick](https://eligorelick.com) — https://eligorelick.com**; see the license for CLI/headless equivalents. This is not an OSI-approved open-source license. Earlier MIT-licensed copies retain their prior rights. Preserve third-party notices; separate [data rights](docs/DATA-RIGHTS.md) apply to retrieved data and model output, including shared reports.
+
+Charging for reports or other output is not itself prohibited by the code license, provided payment is not required for access to the software or its functionality; provider data and output terms still apply. Preserve notices, identify modifications and include the license when redistributing. The [license text](LICENSE) controls; this summary does not replace it.
