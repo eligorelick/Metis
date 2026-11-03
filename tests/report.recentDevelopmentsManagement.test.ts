@@ -257,6 +257,19 @@ describe("rendering", () => {
     }
   });
 
+  it("says an undated item is undated rather than showing a dash or a guessed date", () => {
+    const report = withAnalysis();
+    report.verdict.recentDevelopments!.items = [development({ occurredOn: null, title: "Undated development" })];
+    report.leadership.managementActions = [action({ occurredOn: null })];
+    for (const [surface, text] of Object.entries(surfaces(ReportSchema.parse(report)))) {
+      const developments = text.indexOf("Undated development");
+      expect(developments, surface).toBeGreaterThan(-1);
+      expect(text.slice(Math.max(0, developments - 40), developments + 120), surface).toContain("date not stated");
+      const actions = text.toLowerCase().indexOf("management actions");
+      expect(text.slice(actions, actions + 400), surface).toContain("date not stated");
+    }
+  });
+
   it("states a clean empty state when the judge found nothing to report", () => {
     const report = withAnalysis();
     report.verdict.recentDevelopments = { summary: [], items: [] };
