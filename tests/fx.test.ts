@@ -41,6 +41,7 @@ describe("dated H.10 valuation FX", () => {
   });
   it("keeps no-op same-currency fetches and missing FX honest", async () => {
     expect(await fetchValuationFx("USD", "USD", "2026-11-02", () => { throw new Error("unneeded fetch"); })).toBeUndefined();
+    expect(await fetchValuationFx(" usd ", "USD", "2026-11-02", () => { throw new Error("unneeded fetch"); })).toBeUndefined();
     expect(selectValuationFx("TWD", "USD", "2026-11-02", undefined).rate).toBeNull();
   });
   it("refuses a CSV body for the wrong series, even when the HTTP request succeeded", async () => {

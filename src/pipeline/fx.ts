@@ -1,5 +1,6 @@
 import type { FetchResult } from "@/types/core";
 import type { FredObservation, FredSeriesOptions } from "@/providers/fred";
+import { normalizeReportedCurrency } from "@/pipeline/stageB/sectorRouting";
 
 /** H.10 native units. EUR/GBP are USD per local unit; every other series is local per USD. */
 export const FX_SERIES: Readonly<Record<string, { series: string; units: "local-per-USD" | "USD-per-local" }>> = {
@@ -23,6 +24,8 @@ export interface ValuationFx {
 }
 export type FxFetch = (id: string, options: FredSeriesOptions) => Promise<FetchResult<FredObservation[]>>;
 export async function fetchValuationFx(from: string | null, to: string | null, quoteDate: string | null, fetch: FxFetch): Promise<FetchResult<FredObservation[]> | undefined> {
+  from = normalizeReportedCurrency(from);
+  to = normalizeReportedCurrency(to);
   if (from === to) return undefined;
   const spec = from === null ? undefined : FX_SERIES[from];
   if (!spec || to !== "USD" || !day(quoteDate)) return { ok: false, gap: {
@@ -33,6 +36,8 @@ export async function fetchValuationFx(from: string | null, to: string | null, q
   catch { return { ok: false, gap: { field: "valuationFx", reason: `FRED ${spec.series} fetch failed; FX unavailable`, severity: "warn", attemptedSources: [`fred:${spec.series}`] } }; }
 }
 export function selectValuationFx(from: string | null, to: string | null, quoteDate: string | null, data?: FetchResult<FredObservation[]>): { rate: ValuationFx | null; reason: string } {
+  from = normalizeReportedCurrency(from);
+  to = normalizeReportedCurrency(to);
   const refuse = (reason: string) => ({ rate: null, reason });
   if (to !== "USD") return refuse("FX valuation supports USD quotes only");
   const spec = from === null ? undefined : FX_SERIES[from];
