@@ -22,6 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - A claim dated with a valid month or year alone (for example "2026-01") is read as no date instead of failing the analyst's case and costing a repair round. Malformed dates still fail.
 - The judge lists each material dated development and management action (guidance, financings, buybacks, dividends and leadership changes count), without padding, and describes the industry from the filing when no market size is sourced.
+- The verifier no longer reads the insider wording "Motive is not established" as a person, accepts an issuer filing on EDGAR's archive cited by URL and a payload gap row for a credibility statement that names nobody, and reads "trailing P/E" as the P/E (TTM) figure.
 - Stamps: pipeline stage-c-1.6.23. See D-182.
 
 ## Unreleased - News, management actions, fresh filings and wider valuation coverage (2026-11-02)

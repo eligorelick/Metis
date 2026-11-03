@@ -1163,6 +1163,9 @@ const NOT_A_NAME_WORDS = new Set([
   "title", "titles", "appointment", "appointments", "succession", "shareholders", "holdings", "sales",
   "purchases", "transactions", "activity", "it", "there", "he", "she", "they", "which", "who", "none",
   "nothing", "salary", "bonus", "awards", "equity", "stock", "options", "incentive", "incentives",
+  // D-182 (TSM paid run): the prompt's own insider wording ("Motive is not established", "venue and
+  // motive are not established") opened sentences that were read as naming a person "Motive".
+  "motive", "motives", "venue", "intent", "purpose", "timing", "judgment",
 ]);
 
 // A verb that follows a person's name. A lone capitalized word opening a
@@ -1589,8 +1592,16 @@ export function isCredibilityPath(path: string): boolean {
 
 /** A citation-registry id that is a filing or an earnings-call transcript. */
 export function isFilingOrTranscriptSource(id: string): boolean {
-  return /^edgar:/i.test(id) || /transcript/i.test(id);
+  return /^edgar:/i.test(id) || /transcript/i.test(id) || SEC_ARCHIVE_DOCUMENT.test(id);
 }
+
+/**
+ * D-182 (TSM paid run): a document under EDGAR's filing archive is a filing,
+ * whether the payload excerpted it (edgar:...) or an analyst fetched it by URL;
+ * the results release TSMC furnished on Form 6-K was rejected as a credibility
+ * source when cited by its sec.gov URL.
+ */
+const SEC_ARCHIVE_DOCUMENT = /^https:\/\/(?:www\.)?sec\.gov\/Archives\/edgar\/data\/\d+\/\d+\/[^/?#\s]+$/i;
 
 /**
  * The payload's own rows ABOUT people: key-executive and insider-trade notes
@@ -1710,10 +1721,14 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       // facing table all said "filings/transcripts only". Registry figures stay
       // admissible: a traced number is the payload itself, not a source about
       // a person.
+      // D-182 (TSM paid run): a credibility statement that names nobody and says
+      // a record is absent ("no prior guidance ranges are retained") may cite the
+      // payload's own gap row, which supports absence and never a number.
       const allowed =
         record !== undefined ||
         (citation !== undefined &&
-          (isFilingOrTranscriptSource(citation.id) || isPayloadPersonRowSource(citation.id)));
+          (isFilingOrTranscriptSource(citation.id) || isPayloadPersonRowSource(citation.id) ||
+            (person === null && credibility && citation.kind === "payload-gap")));
       if (allowed) {
         namedIndividual.pass();
       } else {

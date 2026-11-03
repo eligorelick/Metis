@@ -756,6 +756,9 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
       forms.add("market capitalization to trailing common earnings");
+      // D-182 (TSM paid run): "The trailing P/E was 26.4x" named this record but read as no metric.
+      forms.add("trailing P/E");
+      forms.add("trailing price to earnings");
     }
     if (record.origin === "computed.valuation.multiples.priceToTbv" && record.unit === "ratio" && label === "priceToTbv (current)")
       forms.add("price to tangible book value");

@@ -5073,4 +5073,23 @@ verification was 100%. The one-hour synthesis cache was hit: judge sections 2 an
   5.5 research $26.36, Opus 5.5 research $52.64, judge $5.28 (Sonnet floor) or
   $10.56 (Opus). A feasibility check before the first paid request is being
   added separately.
+- **Tier 2 (Sonnet 5.5 high, TSM, $2.28).** With the rules above, every pass
+  succeeded at the first attempt (no repair). The judge listed 4 recent
+  developments and 5 management actions, including the capex raise and the Q4
+  guidance, and wrote market structure from the 20-F, stating that no market size
+  is sourced. Verification was 98.3%. The misses were verifier false positives,
+  fixed here:
+  - "Motive is not established", the prompt's own insider wording, was read as
+    naming a person "Motive". That rejected the per-person insider lines.
+  - The results release TSMC furnished on Form 6-K, cited by its sec.gov archive
+    URL, was refused as a credibility source because only `edgar:` ids counted as
+    filings. A document under `https://www.sec.gov/Archives/edgar/data/<cik>/<accession>/`
+    is a filing.
+  - A credibility statement that names nobody and says a record is absent ("no
+    prior guidance ranges are retained") may cite the payload's own gap row. That
+    row supports absence and never a number.
+  - "The trailing P/E was 26.4x" did not name the P/E (TTM) record. "Trailing
+    P/E" and "trailing price to earnings" are now readings of it.
+  - Not changed: one claim stating ROIC and its spread over WACC against one cited
+    figure stays unverified, because one figure cannot bind two quantities.
 - **Stamps.** Pipeline stage-c-1.6.23. Report spec and payload are unchanged.
