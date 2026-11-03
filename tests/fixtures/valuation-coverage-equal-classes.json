@@ -1,0 +1,110 @@
+{
+  "source": "Trimmed public NIKE SEC filings retained in the 2026-11-03 panel. No vendor response, private data or filing HTML.",
+  "tenKNotes": {
+    "ok": true,
+    "value": {
+      "asOf": "2026-05-31",
+      "data": {
+        "accession": "0000320187-26-000088",
+        "chars": 875,
+        "documentUrl": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000088/nke-20260531.htm",
+        "filingDate": "2026-07-15",
+        "form": "10-K",
+        "method": "toc-anchor",
+        "reportDate": "2026-05-31",
+        "sectionName": "tenKNotes",
+        "text": "NOTE 9 — COMMON STOCK AND STOCK-BASED COMPENSATION COMMON STOCK The authorized number of shares of Class A Common Stock, no par value, and Class B Common Stock, no par value, are 400 million and 2,400 million, respectively. Each share of Class A Common Stock is convertible into one share of Class B Common Stock. Voting rights of Class B Common Stock are limited in certain circumstances with respect to the election of directors. There are no differences in the dividend and liquidation preferences or participation rights of the holders of Class A and Class B Common Stock. From time to time, the Company's Board of Directors authorizes share repurchase programs for the repurchase of Class B Common Stock. The value of repurchased shares is deducted from Total shareholders' equity through allocation to Capital in excess of stated value and Retained earnings (deficit). "
+      },
+      "endpoint": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000088/nke-20260531.htm (10-K Item 8 notes)",
+      "fetchedAt": "2026-11-03T19:56:03.909Z",
+      "source": "edgar"
+    }
+  },
+  "tenQNotes": {
+    "ok": true,
+    "value": {
+      "asOf": "2026-08-31",
+      "data": {
+        "accession": "0000320187-26-000193",
+        "chars": 30,
+        "documentUrl": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm",
+        "filingDate": "2026-10-02",
+        "form": "10-Q",
+        "method": "toc-anchor",
+        "reportDate": "2026-08-31",
+        "sectionName": "tenQNotes",
+        "text": "NOTE 1 — BASIS OF PRESENTATION",
+        "statementsText": "Common stock at stated value: Class A convertible — 281 and 281 shares outstanding — — Class B — 1,202 and 1,202 shares outstanding 3 3 Capital in excess of stated value"
+      },
+      "endpoint": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm (10-Q Item 1)",
+      "fetchedAt": "2026-11-03T19:56:05.130Z",
+      "source": "edgar"
+    }
+  },
+  "economicShareInventory": [
+    {
+      "classes": [],
+      "evidence": null,
+      "observations": [
+        {
+          "asOf": "2026-07-08",
+          "classId": "us-gaap:CommonClassAMember",
+          "contextId": "c-5",
+          "shares": 281387752,
+          "sourceId": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000088/nke-20260531.htm#f-32"
+        },
+        {
+          "asOf": "2026-07-08",
+          "classId": "us-gaap:CommonClassBMember",
+          "contextId": "c-6",
+          "shares": 1202110951,
+          "sourceId": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000088/nke-20260531.htm#f-33"
+        }
+      ],
+      "passages": {
+        "inventory": "",
+        "rights": null
+      },
+      "reason": "Class-tagged cover counts retained; the filing states no supported economic relation for every outstanding class",
+      "source": {
+        "accession": "0000320187-26-000088",
+        "documentUrl": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000088/nke-20260531.htm",
+        "filingDate": "2026-07-15",
+        "form": "10-K",
+        "hash": "85136b02f5b285aa04024232cca4839fc16dcb1688585815084b242031435dd5"
+      }
+    },
+    {
+      "classes": [],
+      "evidence": null,
+      "observations": [
+        {
+          "asOf": "2026-09-28",
+          "classId": "us-gaap:CommonClassAMember",
+          "contextId": "c-2",
+          "shares": 281387752,
+          "sourceId": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm#f-24"
+        },
+        {
+          "asOf": "2026-09-28",
+          "classId": "us-gaap:CommonClassBMember",
+          "contextId": "c-3",
+          "shares": 1203921077,
+          "sourceId": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm#f-25"
+        }
+      ],
+      "passages": {
+        "inventory": "",
+        "rights": null
+      },
+      "reason": "Class-tagged cover counts retained; the filing states no supported economic relation for every outstanding class",
+      "source": {
+        "accession": "0000320187-26-000193",
+        "documentUrl": "https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm",
+        "filingDate": "2026-10-02",
+        "form": "10-Q",
+        "hash": "83bf31db2e80f07b8f96a993310911c2b83d18e4d06de01858f7935ac438fd86"
+      }
+    }
+  ]
+}

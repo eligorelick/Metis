@@ -31,6 +31,7 @@ export function identicalClassRights(sentence: string): string[] | null {
   const stock = "(?:common )?(?:stock|shares)";
   const rights = "(?:liquidation and dividend|dividend and liquidation) rights";
   const forms = [
+    new RegExp(`^There are no differences in the (?:dividend and liquidation|liquidation and dividend) preferences or participation rights of the holders of (${list}) ${stock}\\.$`, "i"),
     new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
     new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
   ];

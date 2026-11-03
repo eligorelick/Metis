@@ -5346,3 +5346,220 @@ the fix:**
 
 - **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0
   are unchanged.
+
+## D-186 - Evidence-backed valuation coverage and explicit withholding reasons (2026-11-03)
+
+The 2026-11-03 frozen census at main `56886dad` valued 20 of 33 companies.
+The [evidence report](2026-11-03-valuation-coverage.md) traces all 13 remaining
+companies to their exact rule, input, source and disposition, and records every
+before/after fair value, WACC, DCF per share and composite.
+
+- **NIKE: equal class economics, not missing economics.** Its retained 10-K
+  `0000320187-26-000088` states there are no differences in Class A/B dividend,
+  liquidation preferences or participation rights. Read that whole sentence as
+  equality. The 10-Q `0000320187-26-000193` counts both classes at 2026-09-28:
+  281,387,752 + 1,203,921,077 = 1,485,308,829. The same filing's balance sheet
+  enumerates exactly those classes. Extend D-154's retained-cover rule to this
+  equally participating, non-ADR case: apply the disclosed same-price
+  approximation to every class without requiring a named quoted class. Equal
+  units make the class name irrelevant to the arithmetic; voting-price
+  differences remain unmodelled. A recent annual rights statement can remain
+  in force through an interim filing with the identical complete class set,
+  for at most 400 days and without contrary retained terms. No older count is
+  carried forward. Duplicate/missing/extra classes, mixed dates, source/issuer
+  mismatch, newer unresolved filings or intervening/unresolved splits refuse
+  the fallback. Existing accepted evidence remains first choice.
+- **NVO: an outstanding-share synonym.** The SEC FY2025 filing
+  `0000353278-26-000012` tags `ifrs-full:NumberOfSharesOutstanding` (4.444B),
+  with no eligible DEI count. Admit it as a fallback synonym under D-178's
+  existing age/identity, 1% ratio agreement and independent weighted-average
+  corroboration. Filed basic weighted shares are 4.443B versus provider
+  4.447851B; quoted shares 4.420890725B agree with market cap / price. Both
+  constructions establish 1 ordinary per ADS. DEXDNUS 6.6946 DKK/USD dated
+  2026-10-30 translates all valuation monetary levels once. Issued/authorized
+  shares and monetary treasury stock are not outstanding-count substitutes.
+- **EXPE: the missing operating maturity cancels.** Filing
+  `0001324424-26-000053` proves current borrowings zero, noncurrent borrowings
+  USD 5.459B and a noncurrent operating-lease observation USD 226M at
+  2026-06-30. The retained vendor total 5.685B reconciles to those components.
+  Extending the existing FCX partial-lease rule is appropriate: reconstruct
+  that partial calculation view with exact same-filing provenance, then
+  cancel the embedded operating portion under the default lease-excluded
+  convention. No missing maturity is zero-filled or called a complete total.
+  The lease-inclusive switch still refuses it. Extra borrowings, finance
+  leases (including legacy maturity synonyms), contradictory/mixed/future
+  facts, component refusals and independent debt-collapse refusals still
+  withhold; normal debt plausibility/aggregate checks run afterward. This
+  supersedes D-179's EXPE disposition only for that proved cancellation case.
+- **Refusals remain meaningful.** AAPL's unexplained debt collapse (D-174),
+  MCD's million-fold tagged
+  share-unit disagreement, TM/SAP's disputed current count ratios, SONY's
+  stale count, BABA's split/count contradictions, and TSM's missing current NCI
+  profit allocation remain withheld. No tolerance was widened, refused
+  operand was zero-filled, or stale balance/NCI allocation substituted.
+- **Model boundaries remain.** ORCL and TSLA fail D-102's terminal/explicit-PV
+  domain test. INTC and SONY trigger the loss-making overlay. A negative net
+  income is not proof of structurally negative free cash flow: the disclosure
+  now names the actual trigger and selected basis, and calls for a separately
+  supported turnaround forecast. Missing MD&A does not withhold INTC's value.
+  No new valuation model is built.
+- **Explain the actual input refusal.** Headline fair-value reasons now carry
+  the underlying debt refusal behind missing capital, the failed currency/ADS
+  evidence, or the original share-unit disagreement, instead of only the
+  downstream symptom. This changes explanation, not the remaining refusals.
+- **Measured result.** Coverage rises 20 -> 23 of 33. EXPE: WACC 9.607259385%
+  -> 9.757796877%, DCF USD 257.796844275/share, composite 61.77 -> 63.11.
+  NKE: WACC unavailable ->
+  9.028091663%, DCF USD 41.094290265/share, composite 48.97 -> 51.35. NVO:
+  WACC unavailable -> 7.033602931%, DCF USD 93.387500428/ADS, composite
+  60.34 -> 69.11. Every previously valued company's fair value, WACC and
+  DCF/share is identical at full precision. COST's composite intentionally
+  moves 61.97 -> 61.30 as proved partial-lease financing restores historical
+  EV multiples and their grading observation: EV/EBITDA rank 73.8692 over 12
+  quarters, valuation completeness 0.4 -> 0.7. The valuation aspect rises
+  15 -> 25.21, but its added below-neutral weight lowers the composite.
+  No other company moves in the four compared metrics.
+- **Analyst qualifications.** NKE's USD 41.09 versus USD 38.22 depends on the
+  existing five-year-median 11.92% margin fallback, not an admitted current
+  operating margin. NVO's USD 93.39 versus USD 40.105 (+132.86%) is a material
+  assumption-risk flag: the model starts at +11.76% growth with no admitted
+  consensus, while reverse DCF implies -14.97%. It is a conditional historical
+  economics case, not evidence of a mispriced stock. The report records unit,
+  bridge, reverse-solve and sensitivity checks; no value was tuned to price.
+  EXPE's USD 257.80 versus USD 286.63 passes the bridge/reverse checks; the
+  disclosed house sales-to-capital cap and its larger period-average diluted
+  denominator remain material assumptions.
+- **Tests and versions.** Every numerical repair and disclosure repair has an
+  observed failing regression before the change. The retained class fixture is
+  trimmed public SEC evidence. Constants are intentionally not changed here.
+  Release needs new Stage B, fair-value and scenario-target method stamps and
+  a payload version for changed deterministic inputs/disclosures. No schema or
+  pipeline orchestration change requires a report-spec or pipeline bump.
+  Verification results and any environmental limitations are in the evidence
+  report; saved bundles/reports are unchanged.
+
+## D-187 - Producer-bound headline readings and statement outflow magnitudes (2026-11-03)
+
+**Decision.** Correct numeric prose may use an equivalent name only under its
+producing record's contract. Add readings for ADS quote prices, DCF base-case
+per-share values, reverse-DCF year-one revenue growth over starting TTM
+revenue, weighted/scenario projections, EV/EBITDA, settled closes, five-year
+weighted-average diluted-share changes and TTM standardized FCF. Projection
+readings retain the scenario, metric, endpoint and units; the forward EPS
+producer means operating EPS and its FCF producer means unlevered FCF.
+The "ADS price" reading binds the quoted price only: the numeric record does
+not carry the depositary-share flag, so whether the instrument is an ADS is a
+qualitative assertion that stays unchecked (integration review).
+Grade annotations in the forms ", grade B" and ", in band B" are checked
+against the score's house band before being masked. Completeness assertions
+are not inferred from a score.
+
+The additions use producer-bound `forms.add(...)` readings and the existing
+typed-context hook. Window spelling is normalized only for the producing
+projection/FCF records, retaining the stated date for the ordinary period
+check. A reverse-DCF phrase must explicitly name year one and the TTM baseline
+before its baseline words are treated as its denominator. The general metric,
+period, direction, currency, rounding and unit rules are unchanged. No ticker
+or company name participates.
+
+**Revises D-160: outflow amounts.** A buyback amount is conventionally stated
+as a positive magnitude. For negative, currency-valued provider records under
+`payload.statements.cash-flow-(annual|quarterly).<date>.*` labeled exactly
+`buybacks (negative)` or `capex (negative)`, prose naming buybacks, share
+repurchases, capital expenditure or capex may state the absolute value.
+The annotations "(cash outflow)" and "of cash outflow" are permitted.
+Inflow wording, direction words, every other record and nonnegative records
+retain signed matching. Existing signed outflow prose remains supported.
+This supersedes D-160's requirement that every such amount print the record's
+negative sign; it does not introduce general absolute-value matching.
+
+**Evidence and tests.** The paid META #2, TSM #3 and ASML #6 reports were
+examined from the isolated database opened with `readonly: true` and
+`fileMustExist: true`. Frozen bundles and saved judge outputs were replayed
+through `runVerifyPass`, before and after, with the same retained research URL
+identities and no provider/model calls. Newly validated claims: META 4, TSM 4,
+ASML 21 (29 total); no previously validated claim regressed. The classes are:
+projection wording 10, DCF base-case value 2, ADS price 1, reverse DCF 2,
+statement buyback magnitudes 3, EV/EBITDA 1, settled close 1, five-year share
+change 3, TTM FCF 2 and checked grade annotations 4. Full inventories, rejected
+claims, replay logs and every newly validated claim are retained under `tmp/`.
+
+Tests were written first: the final regression set fails 24 tests against the
+unchanged verifier and passes all 106 tests in the two affected files with
+the change. Controls retain wrong values, periods, metrics, currencies,
+per-share bases, projection scenarios/definitions, reverse-DCF horizons and
+baselines, grades, annualized share changes, cash inflows and directions.
+Multi-figure claims, ranges citing only a midpoint and out-of-scope signed
+cash-flow records remain unvalidated. Tests:
+`stageC.claimEvidence.headline.test.ts` and `stageC.claimEvidence.figr.test.ts`.
+
+**Stamps.** A `PIPELINE_VERSION` bump to stage-c-1.6.26, applied at integration, for changed Stage C
+verification outcomes. No payload, report-spec or Stage B stamp change is
+required: their contracts, stored bytes and calculations are unchanged.
+
+## D-188 - Calibrated foreign revenue, proved operating income and corroborated units (2026-11-03)
+
+**Decision.** Repair the valuation inputs generally, without choosing any
+assumption or tolerance to approach a quote. The complete 33-company fresh
+baseline/replay, per-company causes, eight-company sanity checks, fail-first
+evidence and verification are in [the evidence report](2026-11-03-valuation-inputs.md).
+
+- **Revises D-57 for revenue totals only.** With an admitted foreign valuation
+  basis and withheld issuer-currency inheritance, an estimate without its own
+  currency can calibrate to filed annual reporting-currency revenue at the
+  same fiscal end, available at cutoff. Latest overlap must agree within 3%,
+  its listing-currency reading must fail beyond 6%, FX must separate the
+  readings, and every other overlap in the last three filed fiscal years must
+  agree within 10%. Failure names its test. Own-row currency still wins; EPS,
+  per-share rows and targets remain withheld. The existing one-spot FX,
+  D-65 consensus quality, D-60 precedence, calendarization and clamps apply.
+  Stage C labels revenue by the same proof. Notes/manifest name the year,
+  estimate, filed amount and tolerance.
+- **Revises the operating-basis refusal, retaining D-164/FIGR.** A provider
+  operating numerator may agree with SEC-derived operating income on the
+  exact revenue basis, or be paired in its retained original provider row
+  with revenue agreeing with filed revenue, for the same issuer, currency,
+  fiscal interval and filing date. Explicit revenue/numerator conflicts,
+  contrary directly tagged EBIT and missing period/basis proof still refuse.
+  No gross-profit/expense classification follows from an admitted numerator.
+  FIGR's pre-interest provider numerator remains refused. All existing
+  downstream consumers receive newly admitted history; scores are not frozen.
+- **Revises D-58/D-60's margin fallback order.** Guidance and the admitted
+  trailing pair lead, then the latest admitted annual margin whose fiscal
+  year ended within 15 calendar months of cutoff, then the five-year median.
+  Median seeds are historical, never described as current. Fade, one-off
+  normalization and margin ceilings are unchanged.
+- **Revises D-179 and D-186's MCD disposition.** A direct SEC share fact may
+  be treated as a filer scaling error only at exactly 1,000 or 1,000,000,
+  within 0.1% of provider count, independently within 3% of a filed DEI cover
+  within 100 days of period end and within 3% of market cap / price. Identity,
+  latest-fact, exact-period, currency, cutoff and split checks remain. Repairs
+  are calculation-view-only and disclosed; correct facts are not scaled.
+- **Revises D-102 E-5 and D-186's TSM disposition narrowly.** First derive a
+  current allocation from filed consolidated profit less profit attributable
+  to owners of the parent when both share one filing, period and currency.
+  Otherwise a last filed annual allocation can size E-5 only within 24 calendar
+  months of cutoff, absolute NCI share of positive consolidated profit below
+  1%, and book NCI below 1% of computed consolidated equity value. Deduct book
+  NCI with the stale basis disclosed. Missing allocation is never zero;
+  larger/older/invalid and redeemable claims retain refusal.
+- **Revises D-178/D-186's SAP count disposition.** A nonstandard DEI cover
+  ratio may defer to the independent standard weighted-average construction
+  within 1% only when the cover equals same-filing, same-period issued shares
+  within 0.1%. It may include treasury and is not substituted for outstanding
+  shares. Other identity, split, FX and debt gates remain. SAP's historical
+  debt refusals persist, but do not block its complete current/bridge balances.
+- **Tests and stamps.** Every new positive admission, fallback and cutoff
+  repair has observed failing evidence before implementation, with negative
+  controls and the existing FIG/FIGR regressions retained. New fixtures are
+  synthetic. Full verification and honest conditional-model qualifications
+  are in the linked report. Stamps, with D-186 and D-187: Stage B, fair value
+  and scenario targets `VALUATION_INPUTS_45`, payload 1.67.0, pipeline
+  stage-c-1.6.26. Stored reports are unchanged.
+
+  Integration review: the listing-currency and FX separation test is 6%, not
+  the 10% first written. The 3% agreement already rejects the other reading,
+  and at 10% a euro drifting below about 1.11 would have switched analyst
+  revenue off for euro reporters. Known limit: at this rate the DCF is still far
+  above the quote for NVO (USD 76.85 against 40.105), because the model holds
+  its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.

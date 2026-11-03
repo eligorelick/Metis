@@ -97,7 +97,31 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       const revProof = out.fieldProvenance?.revenue, opProof = out.fieldProvenance?.operatingIncome;
       const revSource = revProof?.source ?? out.source ?? input.value.source;
       const opSource = opProof?.source ?? out.source ?? input.value.source;
-      const mixed = revSource !== opSource || (revProof !== undefined || opProof !== undefined) && !sameBasis(revProof, opProof);
+      let mixed = revSource !== opSource || (revProof !== undefined || opProof !== undefined) && !sameBasis(revProof, opProof);
+      const rawRows: unknown[] = Array.isArray(input.value.data.raw) ? input.value.data.raw : [];
+      const retainedPair = rawRows.filter((raw): raw is FmpIncomeStatementRow => raw !== null && typeof raw === "object").filter(raw =>
+        raw.date === row.date && raw.reportedCurrency === row.reportedCurrency && Number(raw.cik) === facts?.cik &&
+        raw.period === row.period && raw.fiscalYear === row.fiscalYear && raw.filingDate === row.filingDate &&
+        (raw.periodStart == null || raw.periodStart === revenue?.periodStart));
+      const retainedAgrees = matches && retainedPair.length > 0 && retainedPair.every(raw => finite(raw.revenue) && finite(raw.operatingIncome) &&
+        finite(out.operatingIncome) && vendorAgreesWithFiled(raw.revenue, sec.revenue!) && raw.operatingIncome === out.operatingIncome) &&
+        !(operating?.tags.includes("us-gaap/OperatingIncomeLoss") && finite(sec.operatingIncome) && finite(out.operatingIncome) &&
+          !vendorAgreesWithFiled(out.operatingIncome, sec.operatingIncome));
+      // D-188: source labels alone do not contradict. A provider numerator
+      // must agree with the existing SEC derivation on the exact revenue basis.
+      // Never turn this into an expense-placement proof (FIGR / D-164).
+      const derivedAgrees = matches && finite(out.operatingIncome) && finite(sec.operatingIncome) && sameBasis(revenue, operating) &&
+        sec.fieldConflicts?.operatingIncome?.usable !== false && vendorAgreesWithDerived(out.operatingIncome, sec.operatingIncome, [sec.operatingIncome]);
+      if (mixed && matches && finite(out.operatingIncome) && (derivedAgrees || retainedAgrees) &&
+          row.fieldConflicts?.operatingIncome?.usable !== false &&
+          (revProof === undefined || sameBasis(revProof, revenue))) {
+        if (derivedAgrees) out = { ...out, fieldProvenance: { ...out.fieldProvenance, revenue: revenue!, operatingIncome: operating! } };
+        mixed = false;
+        gaps.push({ field: `statements.income.${row.date}.operatingIncome`, severity: "info", expected: true,
+          reason: `Provider operating income admitted for ${row.date}: ${out.operatingIncome} ${revenue!.unit}; ${derivedAgrees
+            ? `agrees with same-period SEC-derived operating income ${sec.operatingIncome}, on the filed revenue basis; ${operating!.tags.join(", ")}`
+            : `the retained provider row pairs this exact numerator with revenue ${retainedPair[0]!.revenue}, agreeing with filed revenue ${sec.revenue}, with the same issuer, currency, fiscal period and filing date; provider operating presentation retained`}; ${revenue!.filings.map(f => f.accn).join(", ")}. Expense classification is not inferred.` });
+      }
       if (finite(out.operatingIncome) && mixed) {
         const reason = `Operating income and operating margin for ${row.date} withheld: a common revenue/operating-income source, period and filed basis is not established.`;
         out = { ...out, operatingIncome: undefined, operatingIncomeRatio: undefined,

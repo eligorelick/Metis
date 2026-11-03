@@ -4,6 +4,50 @@ import { resolveSecurityBasis } from "@/pipeline/stageB/securityBasis";
 import { foreignBundle } from "./helpers/foreignBundle";
 
 describe("foreign valuation security evidence", () => {
+  function issuedCover() {
+    const b = foreignBundle("EUR", 1);
+    if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    const f = b.edgar.companyFacts.value.data.facts;
+    const cover = (f.dei!.EntityCommonStockSharesOutstanding as { units: { shares: { val: number }[] } }).units.shares[0]!;
+    cover.val = 105e6;
+    f["ifrs-full"]!.NumberOfSharesIssued = { units: { shares: [{ ...cover }] } };
+    return b;
+  }
+  it("D-188: resolves an issued-share cover only with same-filing issued proof and an independent standard weighted ratio", () => {
+    const result = resolveForeignValuation(issuedCover(), "EUR");
+    expect(result.basis?.ratio).toBe(1);
+    expect(result.basis?.note).toMatch(/cover.*issued.*0.1%.*weighted/i);
+  });
+  it.each(["issued-disagrees", "mixed-filing", "weighted-disagrees", "weighted-absent"])("D-188: refuses issued-cover fallback with %s", mode => {
+    const b = issuedCover();
+    if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    const f = b.edgar.companyFacts.value.data.facts["ifrs-full"]!;
+    const issued = (f.NumberOfSharesIssued as { units: { shares: { val: number; accn: string }[] } }).units.shares[0]!;
+    if (mode === "issued-disagrees") issued.val *= 1.01;
+    if (mode === "mixed-filing") issued.accn = "0000000042-26-000002";
+    if (mode === "weighted-disagrees") (f.WeightedAverageShares as { units: { shares: { val: number }[] } }).units.shares[0]!.val *= 1.04;
+    if (mode === "weighted-absent") delete f.WeightedAverageShares;
+    expect(resolveForeignValuation(b, "EUR").basis).toBeNull();
+  });
+  it("admits IFRS NumberOfSharesOutstanding when the DEI cover concept is absent", () => {
+    // Frozen NVO FY2025 SEC amounts: 4.444bn outstanding and 4.443bn
+    // weighted shares. Both corroborate one ordinary per quoted ADS.
+    const b = foreignBundle("DKK", 1);
+    if (!b.edgar.companyFacts.ok || !b.quote.ok || !b.sharesFloat.ok || !b.statements.incomeAnnual.ok || !b.valuationFx?.ok) throw Error("fixture");
+    const f = b.edgar.companyFacts.value.data.facts;
+    const cover = (f.dei!.EntityCommonStockSharesOutstanding as { units: { shares: object[] } }).units.shares[0]!;
+    delete f.dei;
+    f["ifrs-full"] = {
+      NumberOfSharesOutstanding: { units: { shares: [{ ...cover, val: 4_444_000_000 }] } },
+      WeightedAverageShares: { units: { shares: [{ ...cover, start: "2025-01-01", val: 4_443_000_000 }] } },
+    };
+    b.sharesFloat.value.data.rows[0]!.outstandingShares = 4_420_890_725;
+    b.quote.value.data.rows[0]!.marketCap = 4_420_890_725 * b.quote.value.data.rows[0]!.price!;
+    b.statements.incomeAnnual.value.data.rows[0]!.weightedAverageShsOut = 4_447_851_000;
+    b.valuationFx.value.endpoint = "fredgraph.csv?id=DEXDNUS";
+    b.valuationFx.value.data[0]!.value = 6.6946;
+    expect(resolveForeignValuation(b, "DKK").basis?.ratio).toBe(1);
+  });
   it("establishes 5 ordinary shares per ADS from two agreeing count constructions and the cap identity", () => {
     const b = foreignBundle();
     const result = resolveForeignValuation(b, "TWD");
