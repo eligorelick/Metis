@@ -361,9 +361,11 @@ reviewed. Regenerating deltas is not evidence that a financial change is correct
 
 ## Verification and troubleshooting
 
-`npm run test` and `test:product` run the same product suite; `test:integration`
+`npm run test` and `test:product` run the same product suite; `test:changed` runs
+only the tests related to files changed against `origin/main`. `test:integration`
 isolates the database CLI test. `test:coverage` runs both core and risk coverage
-contracts. Shared setup rejects external `fetch` by default, while loopback
+contracts, each of which runs the whole product suite, so `npm run verify` and the
+CI `full` job do not also run `test:product`. Shared setup rejects external `fetch` by default, while loopback
 test servers are allowed. `EDGAR_LIVE_SMOKE=1` allows SEC hosts only, with a
 truthful `EDGAR_CONTACT`; it does not permit other providers. The fetch guard
 is process-local, not a sandbox for arbitrary subprocess traffic.

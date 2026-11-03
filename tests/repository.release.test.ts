@@ -214,7 +214,7 @@ const VERIFY_GATES = [
   "npm run check:dependencies",
   "npm run typecheck",
   "npm run lint",
-  "npm run test:product",
+  // Not test:product: the core coverage run below is the same suite.
   "npm run test:integration",
   "npm run test:coverage",
   "npm run build",
@@ -384,6 +384,7 @@ describe("public release contract", () => {
     expect(pkg.scripts).toMatchObject({
       "check:dependencies": "node scripts/check-dependency-shape.mjs",
       "test:product": "vitest run --config vitest.config.ts",
+      "test:changed": "vitest run --config vitest.config.ts --changed origin/main --passWithNoTests",
       "test:integration": "vitest run --config vitest.integration.config.ts",
       "test:coverage:core":
         "vitest run --config vitest.config.ts --coverage",
@@ -443,7 +444,7 @@ describe("public release contract", () => {
     expect(risk.test?.exclude).toBe(shared.PRODUCT_TEST_EXCLUDE);
     expect(integration.test?.include).toBe(shared.INTEGRATION_TEST_INCLUDE);
     expect(product.test?.maxWorkers).toBe("50%");
-    expect(risk.test?.maxWorkers).toBe(1);
+    expect(risk.test?.maxWorkers).toBe("50%");
     expect(product.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
     expect(risk.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
     expect(integration.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
@@ -507,7 +508,7 @@ describe("public release contract", () => {
     ];
 
     expect(workflow.name).toBe("CI");
-    expect(workflow.on).toEqual(["push", "pull_request"]);
+    expect(workflow.on).toEqual({ push: { branches: ["main"] }, pull_request: null });
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.concurrency).toEqual({
       group: "${{ github.workflow }}-${{ github.ref }}",
@@ -535,7 +536,7 @@ describe("public release contract", () => {
     expect(windows?.steps).toEqual(
       expectedSteps(24, [
         "npm ci",
-        "npm run test:product -- --maxWorkers=1",
+        "npm run test:product",
         "npm run test:integration",
       ]),
     );

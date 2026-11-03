@@ -28,7 +28,7 @@ Before submitting, run:
 npm run verify
 ```
 
-This runs, in order: dependency-shape checks (`check:dependencies`), TypeScript (`typecheck`), ESLint (`lint`), offline product tests (`test:product`), isolated database CLI integration tests (`test:integration`), both core and risk coverage contracts (`test:coverage`), the production build (`build`), and the production/development dependency security audit (`audit:security`). Installation and the dependency audit contact package services; product tests remain offline. Allow roughly 27 minutes on a Windows development machine. CI's [workflow](.github/workflows/ci.yml) defines the Linux full gate and Windows smoke checks. Record any failure and rerun result rather than claiming a partial gate passed.
+This runs, in order: dependency-shape checks (`check:dependencies`), TypeScript (`typecheck`), ESLint (`lint`), isolated database CLI integration tests (`test:integration`), both core and risk coverage contracts (`test:coverage`, which run the whole offline product suite), the production build (`build`), and the production/development dependency security audit (`audit:security`). Installation and the dependency audit contact package services; product tests remain offline. Allow roughly 15 minutes on a Windows development machine. While you work, `npm run typecheck`, `npm run lint` and `npm run test:changed` are usually enough, because CI runs the full gate on every pull request; run `verify` yourself after wide changes such as build or test configuration. CI's [workflow](.github/workflows/ci.yml) defines the Linux full gate and Windows smoke checks. Record any failure and rerun result rather than claiming a partial gate passed.
 
 ## Decisions, documentation and version stamps
 
