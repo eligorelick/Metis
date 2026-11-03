@@ -283,6 +283,15 @@ admit its first $5.28 synthesize section, and that analyst spend is kept in
 the ledger. Because a Retry keeps the cap the job was created with, raise the
 cap and start a new report in that case.
 
+In practice, leave room above the largest single reservation for the run's
+earlier requests. Complete runs on 2026-11-03 cost $1.62 (Haiku 4.5 analysts
+at medium effort with the Sonnet 5.5 judge) and $2.28 (Sonnet 5.5 at high).
+The earlier Opus 5.5 FIGR runs cost $4.71 at high effort and $12.27 at extra
+high. A per-job cap of about the largest reservation plus $10 therefore
+leaves a wide margin: about $15 for Haiku 4.5, $40 for Sonnet 5.5 and $65 for
+Opus 5.5. The rolling cap needs the same room on top of the window's spend.
+The cap bounds the worst case; it is not what a run costs.
+
 Default request reservation mode, registry snapshot 2026-10-03:
 
 | Analysis model | Analyst research request | Analyst writing request | Synthesize section request | Largest single reservation |

@@ -5093,3 +5093,89 @@ verification was 100%. The one-hour synthesis cache was hit: judge sections 2 an
   - Not changed: one claim stating ROIC and its spread over WACC against one cited
     figure stays unverified, because one figure cannot bind two quantities.
 - **Stamps.** Pipeline stage-c-1.6.23. Report spec and payload are unchanged.
+
+## D-183 - Refuse a paid run before its first request when a cap can never admit it (2026-11-03)
+
+The first paid test (D-182) ran under a $3 job cap. The bull analyst spent $0.44.
+Then the bear's research request was refused admission, because its worst-case
+reservation ($2.90) plus the spend exceeded the cap. The judge's worst-case
+section reservation on the Sonnet 5.5 floor ($5.28) could never have fitted
+either. The run became data-only, and a retry keeps the job's recorded cap
+(D-120), so the $0.44 bought nothing. Nothing checked, before money was spent,
+whether the run could finish.
+
+- **Decision.** Before a run's first paid request, and before a resumed run's
+  first new one, Metis prices every reservation the rest of the run will ask for.
+  It uses the same functions and models admission uses: each pass lease, each
+  analyst's research and writing requests, each synthesize section and any
+  billable verify. If the largest one cannot fit the per-job cap (counting what
+  the job has spent and has in flight) or the room left under the rolling cap,
+  nothing is sent. The run ends as a data-only report at $0. The report and the
+  step details name the pass, the model, the worst-case reservation, the cap that
+  blocks it and the smallest cap that would admit it. Subscription connections
+  reserve nothing and are never refused. Reservation formulas, admission
+  accounting and cap defaults are unchanged.
+- **Kept: a retry does not raise the recorded cap (D-120).** The check also runs
+  on retry, so a retry that cannot finish spends nothing, and the disclosure says
+  to raise the setting and start a new report.
+- **Limit.** The check is necessary, not sufficient. Earlier requests spend real
+  money before the largest one is admitted, so a cap just above the largest
+  reservation can still stop a run part-way. `docs/CLAUDE-USAGE.md` gives the
+  per-model reservations and a practical cap: about the largest reservation plus
+  $10.
+- **Worst-case reservations per request** (registry snapshot 2026-10-03, request
+  mode): Haiku 4.5 research $2.90 and judge $5.28 on Sonnet 5.5; Sonnet 5.5
+  research $26.36; Opus 5.5 research $52.64 and judge $10.56. Observed complete
+  runs cost $1.62 (Haiku) and $2.28 (Sonnet 5.5 high).
+- **Built** by a delegated Claude Opus 5.5 agent (extra-high effort). Tests cover
+  a judge reservation above the cap, the observed $3 Haiku case, a fitting cap,
+  rolling headroom, retry under a raised setting, and subscription connections.
+  The refusal tests fail without the change; the controls pass either way.
+- **Stamps.** Pipeline stage-c-1.6.24.
+
+## D-184 - Annual filing sections recovered from bounded filing evidence (2026-11-03)
+
+The 33-company panel lacked a filing section for 9 issuers, so their analysts saw
+no filed risk factors, business description or MD&A. Examples: ASML's integrated
+annual report maps 20-F items to chapters through a cross-reference table; NVO
+uses a subordinate "D." risk heading; JNJ's Item 1A lost to a cybersecurity
+cross-reference; INTC links page ranges from its contents; CAT's Part I link is
+misbound.
+
+- **Decision.** New recovery paths run only after the existing layers fail. They
+  extract a section only when its start and end are proved by the filing's own
+  structure:
+  - a cross-reference table's destination, up to the nearest following
+    destination at the same structural level;
+  - a subordinate heading;
+  - linked page ranges, with the closing item row in the same table;
+  - a corrected contents link.
+
+  A section ends at the next later item heading, whatever its wording. Recovery
+  is withheld when an endpoint page is claimed by another item, when a linked
+  table-of-contents line would start it, or when the closing boundary is not
+  proved. An EX-13 redirect keeps priority over recovery. Parses are cached per
+  document, and recovery honours the filing time budget. There is no
+  ticker-specific code.
+- **Effect on the frozen replay** (266 section slots across 38 snapshots, cached
+  filings, against main at 62af738b):
+  - All 212 sections that extracted before are byte-identical.
+  - 8 sections are recovered: ASML risk factors, SAP business and MD&A, NVO risk
+    factors, BABA risk factors, SONY MD&A, JNJ risk factors and CAT business.
+  - INTC's business and MD&A stay withheld because a shared endpoint page is
+    claimed by another item.
+  - ASML's business and MD&A stay withheld because their dispersed mappings
+    cannot be proved complete.
+  - XOM stays withheld: the successor has no annual filing in the cache.
+- **Independent review (2026-11-03).** Three medium and three low findings were
+  fixed before merge, each with a test that fails without it:
+  - a boundary skipped over an unrecognised next-item title;
+  - a two-table index returned a partial MD&A;
+  - endpoint pages shared with another item;
+  - a linked risk table-of-contents line;
+  - EX-13 precedence;
+  - the reference-table end boundary.
+- **Built** by delegated Codex agents (GPT-6.1 Sol, extra-high effort). 64
+  recovery tests and eight trimmed public fixtures.
+- **Stamps.** Payload 1.66.0: recovered text reaches the analysts for the
+  affected filers.

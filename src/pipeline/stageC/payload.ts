@@ -471,7 +471,9 @@ export interface ContextPayload {
 // collapse no cash flow explains is withheld without interest, changing the debt, returns, forensic and valuation operands.
 // 1.65.0 (D-175 to D-181, Q round): the fresh-filing caution, news sampled across 90 days, insider trades by person,
 // a dated FX rate for foreign-currency valuation and the completed debt, WACC and NCI operands change admitted context.
-export const PAYLOAD_VERSION = "1.65.0" as const;
+// 1.66.0 (D-184): risk-factor, business and MD&A sections recovered from cross-reference tables, subordinate
+// headings, linked page ranges and misbound table-of-contents links reach the analysts for the affected filers.
+export const PAYLOAD_VERSION = "1.66.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
