@@ -34,6 +34,21 @@ describe("foreign valuation security evidence", () => {
     if (mode === "stale" && b.valuationFx?.ok) b.valuationFx.value.data[0]!.date = "2026-06-01";
     expect(resolveForeignValuation(b, "TWD").basis).toBeNull();
   });
+  it("admits a share count re-stamped after the quote day but before the analysis cutoff", () => {
+    // TSM live on 2026-11-02: the provider's row read 2026-11-03 04:22 with the same count as market cap / price.
+    const b = foreignBundle();
+    if (!b.sharesFloat?.ok) throw new Error("fixture");
+    b.sharesFloat.value.data.rows[0]!.date = "2026-07-03 04:22:50";
+    expect(resolveForeignValuation(b, "TWD").basis?.ratio).toBe(5);
+  });
+  it.each([["after the analysis cutoff", "2026-07-07", "2026-07-06T12:00:00Z"], ["more than 7 days from the quote", "2026-07-10", "2026-07-12T00:00:00Z"]])(
+    "withholds a share count dated %s", (_label, floatDate, builtAt) => {
+      const b = foreignBundle();
+      if (!b.sharesFloat?.ok) throw new Error("fixture");
+      b.sharesFloat.value.data.rows[0]!.date = floatDate;
+      b.builtAt = builtAt;
+      expect(resolveForeignValuation(b, "TWD").reason).toMatch(/dated quoted shares/);
+    });
   it("has no effect on same-currency bundles even with stray FX data", () => {
     expect(resolveForeignValuation(foreignBundle(), "USD")).toEqual({ basis: null, reason: null });
   });

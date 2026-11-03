@@ -7217,6 +7217,8 @@ the valuation note names the series, observation date, native value and quote
 date. The depositary ratio is admitted only when two independent constructions
 (filed ordinary outstanding against the provider's quoted count, and matched
 annual weighted averages) snap to the same standard ratio within 1%, and market
-cap divided by price agrees with the quoted count within 1%. Unresolved split or
+cap divided by price agrees with the quoted count within 1%. That count must be
+observed within 7 days of the quote and no later than the analysis cutoff (the
+provider re-stamps the row on each refresh). Unresolved split or
 share-class evidence refuses the ratio, and the valuation stays withheld with
 `valuation.currencyConversion` naming the reason.

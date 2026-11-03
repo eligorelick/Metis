@@ -4903,8 +4903,10 @@ applied (D-57).
   1%. One divides the filed ordinary shares outstanding (dei cover, at most 400
   days old) by the provider's quoted shares. The other divides the matched annual
   SEC weighted-average count by the provider's. Market cap divided by price must
-  also match the quoted count within 1%. Any unresolved split or multi-class
-  evidence refuses the ratio.
+  also match the quoted count within 1%. The quoted count must be observed within
+  7 days of the quote and no later than the analysis cutoff. The provider
+  re-stamps that row on each refresh, so a same-count row dated after the quote
+  day is accepted. Any unresolved split or multi-class evidence refuses the ratio.
 - **Effect on the frozen panel.** ASML (ratio 1, DEXUSEU 1.1163) gets a DCF of
   $969.51 per share against $1,526.14. TSM (ratio 5, DEXTAUS 32.59) gets WACC
   (11.33%), multiples and Altman. Its per-share value stays withheld because no
@@ -5001,7 +5003,21 @@ history.
     complete balances; its value stays withheld.
   - JPM, TSM and FIGR are identical. The frozen snapshots predate the FX fetch,
     so the foreign issuers are unchanged offline. D-178's panel effect was
-    measured with a dated fixture rate and is confirmed live separately.
+    measured with a dated fixture rate.
+- **Live data-only check (free, isolated data directory).** The merged build was
+  run on ASML, TSM, AAPL, GOOGL, MSFT and META.
+  - ASML is valued at $969.51 against $1,526.14 using DEXUSEU dated 2026-10-30,
+    as measured offline.
+  - Every report sampled news from six earlier windows, 2026-08-17 to
+    2026-10-26. AAPL's 50 newest rows had all come from one day. No news gap
+    appeared.
+  - Only AAPL carries the fresh-filing caution.
+  - TSM was first withheld. The provider's share-count row was re-stamped
+    2026-11-03 04:22, after the quote day, with the same count as market cap /
+    price. The rule then required the count to be dated no later than the quote
+    day, so the result depended on when the report ran. The bound is now the
+    analysis cutoff, within 7 days of the quote, and TSM reaches 73.02 (B) as
+    measured offline. Its per-share value stays withheld on NCI.
 - **Stamps.** Report 1.60.0 (the two optional fields), payload 1.65.0, pipeline
   stage-c-1.6.22 (prompt rules), and Stage B, fair value and scenario targets
   `COVERAGE_AND_FX_44`. Stored reports keep their bytes and versions.

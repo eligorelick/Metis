@@ -38,8 +38,11 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
   const quotedShares = outstanding?.outstandingShares;
   const cap = quote?.marketCap, price = quote?.price;
   const floatDay = typeof outstanding?.date === "string" ? outstanding.date.slice(0, 10) : "";
+  // The provider re-stamps its share-count row on each refresh, so the row can be
+  // dated after the quote day while carrying the same count. A count observed
+  // within 7 days of the quote and before the analysis cutoff is not hindsight.
   if (!positive(quotedShares) || !positive(cap) || !positive(price) || !validDay(floatDay) ||
-    Math.abs(days(floatDay, quoteDate!)) > 7 || floatDay > quoteDate! || !agrees(cap / price, quotedShares, 0.01)) {
+    Math.abs(days(floatDay, quoteDate!)) > 7 || floatDay > bundle.builtAt.slice(0, 10) || !agrees(cap / price, quotedShares, 0.01)) {
     return refuse("dated quoted shares and market cap / price identity are absent or disputed (1% tolerance)");
   }
   const points = (namespace: string, tag: string, unit = "shares"): FactPoint[] => {
