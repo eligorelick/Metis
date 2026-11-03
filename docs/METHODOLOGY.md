@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.60.0 / payload 1.66.0, Stage B `STAGE_B_2026_11_COVERAGE_AND_FX_44` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.60.0 / payload 1.67.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_45` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -447,6 +447,14 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+
+For the weights above, "complete" means complete on the selected operating-
+lease basis. D-186 permits a proved partial operating-lease observation to
+cancel from a same-filing borrowing composition under the lease-excluded
+convention; it does not establish complete lease-inclusive debt. The currency
+suppression applies unless D-178's dated FX and security evidence admits one
+constant-currency USD valuation view. Reporting-currency debt is never combined
+directly with quote-currency market equity.
 
 When trailing EBIT is unavailable, the latest fiscal year's filed operating
 income (including the existing SEC-derived EBIT chain) may score synthetic
@@ -3608,8 +3616,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_COVERAGE_AND_FX_44 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_COVERAGE_AND_FX_44. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_45 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_VALUATION_INPUTS_45. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -7272,6 +7280,57 @@ evidence exists. The payload lists coded open-market and private purchases and
 sales (Form 4 codes P and S) from the last six months by person, for up to 8
 people (senior officers first, then by value), and counts the rest.
 
+**Valuation-input follow-up (D-188, 2026-11-03).** Foreign analyst revenue
+totals without their own currency may be calibrated only after the foreign
+FX/security basis is admitted and D-57 inheritance is withheld. Match fiscal
+year ends to filed reporting-currency annual revenue available at cutoff:
+latest overlap within 3%, listing-currency reading rejected beyond 6%, FX
+sufficiently far from one to separate the readings, and no other overlap in
+the last three filed fiscal years contradicting the reading beyond 10%.
+Failure names the failed test. Own-row currency wins. EPS, other per-share
+rows and price targets do not inherit from revenue calibration. Revenue then
+uses the existing one-spot translation, D-65 breadth/dispersion gates, D-60
+precedence, calendarization and clamps. Stage C labels only the calibrated
+revenue in the established reporting currency and discloses the same proof.
+
+A source-label difference alone does not refuse operating income. A provider
+numerator may agree with SEC-derived EBIT on the exact filed revenue basis,
+or its retained original row may prove the pair: same issuer, currency,
+fiscal interval and filing date, exact retained numerator, and provider
+revenue agreeing with filed revenue. An explicit field conflict or contrary
+directly tagged operating numerator still refuses; FIGR's pre-interest
+numerator is not restored. This establishes the provider operating
+presentation, not gross-profit/expense placement. All downstream metrics and
+scores consume admitted operating income. Guidance and the admitted trailing
+margin lead; when unavailable, the latest admitted annual margin ending
+within 15 calendar months of cutoff precedes the five-year median. A median
+seed is described as historical, not current. This revises the D-58/D-60
+fallback order without changing the margin fade or one-off normalization.
+
+An SEC weighted-share fact may be repaired by exactly 1,000 or 1,000,000 only
+when the scaled fact agrees with the retained provider count within 0.1%, an
+independent filed DEI cover count within 100 days of period end within 3%,
+and market cap / price within 3%. Identity, exact period, unit, direct fact,
+latest filing, cutoff and split checks apply. Repairs change only the
+calculation view and are disclosed in the manifest and valuation notes;
+already correct counts and unexplained factors are not multiplied.
+
+For E-5, a current filed annual NCI allocation may be derived as consolidated
+profit less profit attributable to owners of the parent, from one filing,
+period and currency. Otherwise the last filed annual allocation may size the
+test only within 24 calendar months of cutoff, with positive consolidated
+profit, absolute NCI earnings share below 1% and book NCI below 1% of the
+computed consolidated equity value. It authorizes the book deduction and is
+disclosed as stale; missing allocation is never zero. Larger, older or
+invalid claims still withhold. Redeemable NCI is not admitted by this fallback.
+
+If a DEI cover produces a nonstandard ratio but equals same-filing,
+same-period IFRS issued shares within 0.1%, it may include treasury. An
+independently matched filed/provider annual weighted-average ratio may then
+establish a standard ratio within 1%, with the remaining security/split/FX
+gates unchanged. Issued shares are not substituted for outstanding shares.
+See [the complete frozen replay and limits](audit/2026-11-03-valuation-inputs.md).
+
 **Foreign-issuer valuation (D-178).** When an issuer reports in one currency and
 quotes in USD, `src/pipeline/foreignCurrency.ts` translates the admitted
 valuation operands at one Federal Reserve H.10 spot rate from FRED
@@ -7290,3 +7349,57 @@ observed within 7 days of the quote and no later than the analysis cutoff (the
 provider re-stamps the row on each refresh). Unresolved split or
 share-class evidence refuses the ratio, and the valuation stays withheld with
 `valuation.currencyConversion` naming the reason.
+
+**Valuation coverage follow-up (D-186, 2026-11-03).** Outstanding ordinary
+shares may also be established by IFRS `NumberOfSharesOutstanding` when no
+eligible DEI cover count exists. Issued shares, authorized shares and monetary
+treasury stock are not substitutes. The same issuer, filing/cutoff, 400-day
+age, 1% agreement, second independent weighted-average construction and split
+guards still apply; an established DEI path is unchanged.
+
+For a non-ADR common quote, a complete set of unscaled, same-date primary cover
+class observations can establish economic capitalization when the latest
+balance sheet enumerates exactly those classes and filed wording establishes
+equal dividend, liquidation and participation rights. The whole sentence
+"There are no differences in the dividend and liquidation preferences or
+participation rights of the holders of Class A and Class B Common Stock."
+establishes equality; qualifications or contrary entitlements do not. Every
+class is priced at the same common quote, explicitly labelled a same-price
+approximation with voting-price differences unmodelled. The quoted class need
+not be named when all admitted units have identical economics. This extends
+the quote-class binding rule only for this equal-unit case; it never supplies
+an ADS ratio or unequal-class conversion.
+
+Annual rights can remain in force through an interim filing for at most 400
+days when its primary cover has the same complete class set and no newer
+retained terms contradict equality. Counts come from the latest filing's
+cover at their own date, with the same-filing balance-sheet class inventory;
+older counts and scaled balance-sheet counts never replace them. Missing or
+extra classes, mixed dates, duplicate observations, a newer unresolved filing,
+unresolved splits or a subsequent split refuse this fallback. All source URLs
+remain bound to the issuer and accession. Existing admitted paths are preferred.
+
+When a value stays withheld, its headline reason carries the refused debt
+behind missing invested capital, the failed currency/ADS evidence, or the
+source share-unit refusal. The loss overlay discloses its actual net-income
+or operating-cash-flow trigger and TTM/annual basis. It remains a house model
+boundary, not a finding that FCF must be structurally negative or that the
+company cannot be valued with a separately supported turnaround forecast.
+MD&A availability does not gate deterministic valuation. See the
+[33-company replay and analyst sanity checks](audit/2026-11-03-valuation-coverage.md).
+
+D-186 also extends the existing partial-operating-lease cancellation rule to
+a retained total refused solely because its vendor lease line is noncurrent
+operating leases and no total operating liability is filed. One issuer filing,
+instant and currency must independently establish `LongTermDebtCurrent`,
+`LongTermDebtNoncurrent` and `OperatingLeaseLiabilityNoncurrent`, with the
+vendor components and retained total reconciling exactly. Extra borrowings,
+any recognized finance-lease concept, an inclusive debt/lease scope,
+contradictory components, future/mixed filings, or a separate debt-collapse
+refusal disallow recovery. The calculation view restores only that partial
+observation and its provenance; the original source bundle stays unchanged.
+The operating portion cancels against the identical embedded portion under
+the default lease-excluded convention. Its other maturity remains unknown;
+the lease-inclusive switch continues to withhold. Ordinary debt plausibility
+and aggregate/component checks still run afterward. This is the existing
+lease convention applied to proved borrowings, not zero-filling a missing lease.

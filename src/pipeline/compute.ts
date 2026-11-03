@@ -15,7 +15,7 @@ import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { validateBundle, type ValidationReport, type ValidatableBundle } from "@/pipeline/stageA/validate";
-import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
+import { calibratedRevenueCurrency, inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
 import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
@@ -23,6 +23,8 @@ import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclo
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
+import { filedAnnualNciEarnings } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import type {
   FmpBalanceSheetRow,
@@ -2031,7 +2033,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
   // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
   // D-67: source bundles and stored reports stay byte-for-byte unchanged.
   bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
@@ -3774,7 +3776,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     isAdr: route.overlays.includes("adr") || profile?.isAdr === true,
   });
   const estimateRows = rowsOf(bundle.analystEstimates);
-  const estimateResolved = estimateRows.map((r) => providerRowCurrency(r, issuerCurrency));
+  const revenueCalibration = calibratedRevenueCurrency(bundle, issuerCurrency, ctx.foreignBasis);
+  const estimateResolved = estimateRows.map((r) => {
+    const resolved = providerRowCurrency(r, issuerCurrency);
+    return resolved.code === null && revenueCalibration.code !== null ? { code: revenueCalibration.code, inherited: false } : resolved;
+  });
   const estimateCodes = [...new Set(estimateResolved.map((r) => r.code))];
   const estimatesInModelCurrency =
     ctx.modelCurrency !== null && estimateCodes.length === 1 && estimateCodes[0] === ctx.modelCurrency;
@@ -3786,12 +3792,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (estimateCodes.includes(null)
           ? `analyst estimates carry no currency of their own and the issuer currency is ${issuerCurrency.basis}`
           : `analyst estimates are in ${estimateCodes.join("/")}`) +
-        (ctx.foreignBasis
+        `; ${revenueCalibration.basis}` + (ctx.foreignBasis
           ? `; their currency/share basis is not established against the reporting-currency inputs (${ctx.modelCurrency}), so the analyst-consensus growth case is not used. The admitted statement FX rate does not establish these analyst rows' units.`
           : ` while the model runs in ${ctx.modelCurrency ?? "an unestablished currency"}, so the analyst-consensus growth case is not used (no FX conversion is attempted)`),
       severity: "info",
       attemptedSources: ["fmp:/stable/analyst-estimates"],
     });
+  } else if (revenueCalibration.code !== null && estimateRows.some(r => providerRowCurrency(r, issuerCurrency).code === null)) {
+    estimateGaps.push({ field: "valuation.analystEstimates.currency", severity: "info", reason: revenueCalibration.basis,
+      attemptedSources: ["fmp:/stable/analyst-estimates", "edgar:companyfacts"] });
   } else if (estimateResolved.some((r) => r.inherited)) {
     estimateGaps.push({
       field: "valuation.analystEstimates.currency",
@@ -4134,6 +4143,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
           fiscalYearToDate,
           revenueSeasonality,
+          analysisCutoff: bundle.builtAt.slice(0, 10),
           valuationDate: quotePriceObservationDay(quote),
         }
       : null;
@@ -4565,7 +4575,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         netIncomeAttributableToNoncontrollingInterest: num(inc0.netIncomeAttributableToNoncontrollingInterest),
         noncontrollingIncomeEvidenced: inc0.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null,
       },
-    ),
+    ) ?? null,
+    staleNoncontrollingEarnings: filedAnnualNciEarnings(bundle, ctx.modelCurrency),
+    latestAnnualIncomeDate: isoDay(inc0?.date),
+    analysisCutoff: bundle.builtAt.slice(0, 10),
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
     leaseLiability: bridgePoint ? num(bridgePoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: bridgePoint ? num(bridgePoint.operatingLeaseLiability) : null,
@@ -4656,6 +4669,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     }
   }
   result.gaps.push(...estimateGaps);
+  result.notes.push(...bundle.gaps.filter(g => g.field.endsWith(".shareUnitRepair")).map(g => g.reason));
+  if (estimatesInModelCurrency && revenueCalibration.code !== null) result.notes.push(revenueCalibration.basis);
   // M-9: one info gap per date the bridge or the market EV reads a mezzanine preferred filed twice (the bridge and the anchor often share a row).
   const overlapDates = new Set<string>();
   for (const row of [bridgePoint, balPoint]) {
@@ -4744,6 +4759,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     result.notes.push(
       `diluted share count from the latest ANNUAL statement (${isoDay(inc0?.date) ?? "?"}) — latest-quarter weightedAverageShsOutDil unavailable, zero, or older than the annual row; per-share values may lag recent buybacks/dilution`,
     );
+  }
+  if (result.kind === "dcf-suppressed" && route.overlays.includes("unprofitable") && result.suppressionReason?.startsWith("DCF suppressed for unprofitable overlay")) {
+    const trigger = route.notes.find(n => n.startsWith("unprofitable overlay applied:"));
+    if (trigger) result.suppressionReason += ` Observed trigger: ${trigger}`;
+  }
+  if (dilutedShares === null) {
+    const refusals = bundle.gaps.filter(g => /^keyless\.income(?:Quarterly|Annual)\.shareBasis$/.test(g.field));
+    const upstream = refusals.map(g => g.reason).join("; ");
+    if (upstream) for (const gap of result.gaps) if (gap.field === "valuation.dcf.dilutedShares") gap.reason += ` Source share admission: ${upstream}`;
   }
   return result;
 }

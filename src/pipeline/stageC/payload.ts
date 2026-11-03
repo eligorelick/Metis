@@ -44,7 +44,8 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
-import { establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { calibratedRevenueCurrency, establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -473,7 +474,9 @@ export interface ContextPayload {
 // a dated FX rate for foreign-currency valuation and the completed debt, WACC and NCI operands change admitted context.
 // 1.66.0 (D-184): risk-factor, business and MD&A sections recovered from cross-reference tables, subordinate
 // headings, linked page ranges and misbound table-of-contents links reach the analysts for the affected filers.
-export const PAYLOAD_VERSION = "1.66.0" as const;
+// 1.67.0 (D-186, D-188): new deterministic values, withholding reasons and calibrated revenue-estimate currency
+// reach the analysts.
+export const PAYLOAD_VERSION = "1.67.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1816,6 +1819,8 @@ function targetReconciliationNote(bundle: DataBundle, computed: ComputedMetrics,
 function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, computed: ComputedMetrics): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
+  const calibration = calibratedRevenueCurrency(bundle, issuer, computed.valuationTranslation ?? null);
+  if (issuer.code === null) notes.push(calibration.basis);
   const estimateTiming = { ...estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined)),
     envelopeReferenceOn: estimateDay(bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null) };
   const estAsOf = estimateTiming.acquiredOn ?? estimateTiming.fixtureLoadedOn ?? estimateTiming.recordedOn;
@@ -1823,11 +1828,12 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
     const currency = rowCurrency(e, issuer);
+    const revenueCurrency = currency.currency === null && calibration.code !== null ? { currency: calibration.code } : currency;
     const candidatePeriod = isoDay(e.date);
     const period = isFullIsoDate(candidatePeriod) ? candidatePeriod : null;
     const periodLabel = period ?? "unknown";
     figures.push(
-      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
+      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...revenueCurrency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
       { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf, estimateTiming },
     );
   }
@@ -3721,7 +3727,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(bundle));
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.

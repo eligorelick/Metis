@@ -75,6 +75,20 @@ const consolidated = (() => {
 })();
 
 describe("E-5: NCI on the earnings key", () => {
+  it("D-188: sizes an immaterial book claim with a filed annual key within 24 months", () => {
+    const v = dcfOf({ minorityInterest: consolidated * 0.005, noncontrollingEarnings: null,
+      staleNoncontrollingEarnings: { noncontrollingIncome: -0.5, consolidatedProfit: 100, asOf: "2024-12-31", basis: "annual" }, analysisCutoff: "2026-11-03" });
+    expect(v.dcf!.perShare).not.toBeNull();
+    expect(v.notes.join(" ")).toMatch(/stale.*2024-12-31.*24 months.*1%/i);
+    expect(v.dcf!.bridge.noncontrollingDeductionBasis).toBe("book");
+  });
+  it.each(["old", "large-share", "large-book", "missing", "future", "loss"])("D-188: refuses stale key with %s", mode => {
+    const stale = { noncontrollingIncome: mode === "missing" ? null : mode === "large-share" ? 2 : -0.5, consolidatedProfit: mode === "loss" ? -100 : 100,
+      asOf: mode === "old" ? "2024-10-31" : mode === "future" ? "2027-01-01" : "2024-12-31", basis: "annual" as const };
+    const v = dcfOf({ minorityInterest: consolidated * (mode === "large-book" ? 0.02 : 0.005), noncontrollingEarnings: null,
+      staleNoncontrollingEarnings: stale, analysisCutoff: "2026-11-03" });
+    expect(v.dcf!.perShare).toBeNull();
+  });
   it("FCX shape: a 35.8% profit share above the 27% book ratio is deducted at 35.8% of consolidated equity value", () => {
     const book = 0.273 * consolidated;
     const v = dcfOf({ minorityInterest: book, noncontrollingEarnings: { noncontrollingIncome: 1645, consolidatedProfit: 4590, asOf: "2026-06-30" } });

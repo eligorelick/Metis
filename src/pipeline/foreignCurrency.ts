@@ -51,13 +51,25 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
       validDay(p.end) && validDay(p.filed) && p.end <= quoteDate! && p.filed <= bundle.builtAt.slice(0, 10) &&
       p.filed >= p.end && positive(p.val) && /^\d{10}-\d{2}-\d{6}$/.test(p.accn)) : [];
   };
-  const current = points("dei", "EntityCommonStockSharesOutstanding").filter(p => !p.start && days(p.end, quoteDate!) <= 400)
+  const recentOutstanding = (ps: FactPoint[]) => ps.filter(p => !p.start && days(p.end, quoteDate!) <= 400)
     .sort((a, b) => b.end.localeCompare(a.end) || b.filed.localeCompare(a.filed));
+  const deiOutstanding = recentOutstanding(points("dei", "EntityCommonStockSharesOutstanding"));
+  // D-186: IFRS issuers may tag their outstanding count only in the IFRS
+  // namespace. Issued/authorized shares and monetary treasury stock are not
+  // synonyms. Keep an established DEI path unchanged; all age/identity,
+  // disagreement and independent weighted-average checks still apply.
+  const current = deiOutstanding.length ? deiOutstanding : recentOutstanding(points("ifrs-full", "NumberOfSharesOutstanding"));
   const cover = current[0];
   if (!cover) return refuse("filed ordinary outstanding count is absent or older than 400 days");
   if (current.some(p => p.end === cover.end && p.filed === cover.filed && p.val !== cover.val)) return refuse("filed outstanding count is disputed");
-  const ratio = standardRatio(cover.val / quotedShares);
-  if (ratio === null) return refuse("filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
+  let ratio = standardRatio(cover.val / quotedShares);
+  // D-188: a cover exactly equal to issued shares can include treasury.
+  // It cannot itself be used as outstanding; only the independent weighted
+  // construction may then identify a standard receipt ratio.
+  const issued = points("ifrs-full", "NumberOfSharesIssued").filter(p => !p.start && p.end === cover.end &&
+    p.accn === cover.accn && p.filed === cover.filed && p.form === cover.form);
+  const issuedCover = ratio === null && issued.length > 0 && issued.every(p => agrees(cover.val, p.val, 0.001));
+  if (ratio === null && !issuedCover) return refuse("filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
   const annual = bundle.statements.incomeAnnual;
   if (!annual.ok || annual.value.source !== "fmp") return refuse("independent provider weighted-average count evidence is absent");
   const weighted = [
@@ -71,21 +83,23 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
     if (!row) continue;
     // A contradictory newest common period cannot be rescued by an older match.
     const samePeriod = weighted.filter(v => v.end === p.end && v.filed === p.filed);
-    if (samePeriod.some(v => v.val !== p.val) || standardRatio(p.val / row.weightedAverageShsOut!) !== ratio) return refuse("filed/provider weighted-average ratio disputes the outstanding-share ADS ratio");
+    const weightedRatio = standardRatio(p.val / row.weightedAverageShsOut!);
+    if (samePeriod.some(v => v.val !== p.val) || weightedRatio === null || (ratio !== null && weightedRatio !== ratio)) return refuse("filed/provider weighted-average ratio disputes the outstanding-share ADS ratio");
+    if (issuedCover) ratio = weightedRatio;
     weightedMatch = { fact: p, provider: row.weightedAverageShsOut! };
     break;
   }
-  if (!weightedMatch) return refuse("a second independent filed/provider weighted-average ratio is absent");
+  if (!weightedMatch || ratio === null) return refuse("a second independent filed/provider weighted-average ratio is absent");
   const declared = points("dei", "EntityListingDepositoryReceiptRatio", "pure").sort((a, b) => b.end.localeCompare(a.end) || b.filed.localeCompare(a.filed))[0];
   if (declared && declared.val !== ratio) return refuse("filed depositary receipt ratio disputes inferred count ratios");
   // Counts can have different split bases. Do not bridge a split between the
   // historical corroboration and today's quote by guessing a restatement.
   if (bundle.edgar.shareBasis?.splits.events.some(e => e.date > weightedMatch.fact.end && e.date <= quoteDate!)) return refuse("a split intervenes between ratio corroboration and the quote");
   const evidence = [
-    { fact: cover, provider: quotedShares, endpoint: bundle.sharesFloat.ok ? bundle.sharesFloat.value.endpoint : "", label: "outstanding" },
+    { fact: cover, provider: quotedShares, endpoint: bundle.sharesFloat.ok ? bundle.sharesFloat.value.endpoint : "", label: issuedCover ? "issued-cover identity; ratio from independent weighted count" : "outstanding" },
     { fact: weightedMatch.fact, provider: weightedMatch.provider, endpoint: annual.value.endpoint, label: "weighted-average" },
   ].map(({ fact, provider, endpoint, label }): SecurityBasisEvidence => ({ issuerId: String(facts.cik).padStart(10, "0"), securityId: bundle.symbol,
-    ordinaryClassId: "ordinary", quoteUnit: "ADS", ordinarySharesPerQuotedUnit: ratio, effectiveFrom: fact.end, effectiveTo: null,
+    ordinaryClassId: "ordinary", quoteUnit: "ADS", ordinarySharesPerQuotedUnit: ratio!, effectiveFrom: fact.end, effectiveTo: null,
     sourceHash: createHash("sha256").update(JSON.stringify({ fact, provider, endpoint, label })).digest("hex"),
     sourceIds: [`https://www.sec.gov/Archives/edgar/data/${facts.cik}/${fact.accn.replaceAll("-", "")}/`, `${endpoint} (${label} count ${provider})`],
   }));
@@ -93,7 +107,9 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
   const fx = selected.rate;
   const note = `Valuation translated at one spot rate (constant currency): all reporting-currency monetary valuation inputs and historical levels use ${fx.usdPerReportingUnit} USD per ${fx.reportingCurrency}; ` +
     `FRED ${fx.series}, ${fx.observation.date}, native value ${fx.observation.value}, quote date ${quoteDate}. Source statements and source amounts in basis notes remain in ${fx.reportingCurrency}. Historical growth rates are unchanged by translation. ` +
-    `1 ADS = ${ratio} ordinary shares, corroborated by filed ordinary/provider quoted outstanding and independently matched weighted-average counts (1% tolerance); ` +
+    (issuedCover
+      ? `1 ADS = ${ratio} ordinary shares: the cover count equals same-filing issued shares within 0.1%, so it may include treasury; the independent filed/provider weighted-average ratio establishes the standard ratio within 1%. The issued cover is not treated as outstanding; `
+      : `1 ADS = ${ratio} ordinary shares, corroborated by filed ordinary/provider quoted outstanding and independently matched weighted-average counts (1% tolerance); `) +
     `market cap / price = ${cap / price} ADS versus provider ${quotedShares}. USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ADS. ` +
     `Sources: ${evidence.flatMap(e => e.sourceIds).join("; ")}. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
   return { basis: { fx, ratio, securityEvidence: evidence, quotedShares, marketCapUsd: cap, note }, reason: null };
@@ -178,6 +194,7 @@ export function translateValuationInputs(input: ValuationBundleInputs, basis: Fo
     bridgeBalance: input.bridgeBalance && { ...money(input.bridgeBalance, BALANCE_MONEY, basis), reportedCurrency: "USD" },
     nonOperatingAssets: input.nonOperatingAssets && { ...input.nonOperatingAssets, value: input.nonOperatingAssets.value * k, basis: `${input.nonOperatingAssets.basis} ${basis.note}` },
     noncontrollingEarnings: input.noncontrollingEarnings && money(input.noncontrollingEarnings, ["noncontrollingIncome", "consolidatedProfit"], basis),
+    staleNoncontrollingEarnings: input.staleNoncontrollingEarnings && money(input.staleNoncontrollingEarnings, ["noncontrollingIncome", "consolidatedProfit"], basis),
     temporaryEquity: input.temporaryEquity && money(input.temporaryEquity, ["total", "capitalTotal", "redeemablePreferred", "redeemableNoncontrolling", "unsplit"], basis),
     debtLikeObligations: input.debtLikeObligations && Object.fromEntries(Object.entries(input.debtLikeObligations).map(([key, row]) => [key, row && { ...row, value: row.value * k, basis: `${row.basis} ${basis.note}` }])) as ValuationBundleInputs["debtLikeObligations"],
     convertibles: input.convertibles?.map(r => ({ ...r, claim: r.claim === null ? null : r.claim * k, conversionShares: r.conversionShares / basis.ratio,

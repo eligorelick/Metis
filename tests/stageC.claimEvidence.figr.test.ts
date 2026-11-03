@@ -80,7 +80,8 @@ describe("R5 FIGR typed record false negatives", () => {
   });
   it("retains cash-flow sign and inflow/outflow meaning", () => {
     const rec = cited("payload.statements.cash-flow-quarterly.2026-03-31.buybacks-negative");
-    expect(check("Buybacks for the quarter ended 2026-03-31 were USD 9.70 million (cash outflow).", rec).status).not.toBe("validated");
+    // D-187 revises D-160: an outflow amount may use its positive magnitude.
+    expect(check("Buybacks for the quarter ended 2026-03-31 were USD 9.70 million (cash outflow).", rec).status).toBe("validated");
     expect(check("Buybacks for the quarter ended 2026-03-31 were USD -9.70 million (cash inflow).", rec).status).not.toBe("validated");
   });
 

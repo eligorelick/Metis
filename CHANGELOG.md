@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.60.0** and
-payload **1.66.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, and the annual filing-section recovery, D-184). The
+payload **1.67.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,55 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
+
+- Admit foreign-issuer analyst revenue totals only when past-year estimates
+  calibrate to filed reporting-currency revenue; retain separate currency
+  refusals for EPS and targets and consistent Stage C labels.
+- Admit provider operating income with an independently proved period/revenue
+  basis. Prefer a recent admitted annual margin before the historical median
+  when trailing margin is unavailable; retain FIG/FIGR and expense conflicts.
+- Repair exact filer share scaling only with independent cover and
+  capitalization corroboration. Permit a disclosed stale annual NCI key only
+  for immaterial earnings/book claims; resolve issued-share covers only with
+  same-filing issued proof and independent standard weighted ratios.
+- Record the complete 33-company before/after replay, downstream effects and
+  conditional-model qualifications in [D-188's evidence report](docs/audit/2026-11-03-valuation-inputs.md).
+  Stamps with D-186 and D-187: Stage B, fair value and scenario targets
+  `VALUATION_INPUTS_45`, payload 1.67.0, pipeline stage-c-1.6.26. Stored reports
+  stay immutable.
+
+## Unreleased - Valuation coverage (2026-11-03)
+
+- Restore EXPE's default lease-excluded valuation when one filing proves all
+  borrowing components and the embedded noncurrent operating-lease observation;
+  the unavailable operating maturity cancels. Full lease-inclusive debt remains
+  unavailable. Restore NIKE's valuation from complete filed class counts and explicitly equal
+  dividend/liquidation/participation rights, using the disclosed same-price
+  approximation. Admit IFRS `NumberOfSharesOutstanding` as a foreign-issuer
+  outstanding-count synonym; NVO's independently corroborated 1:1 ADS ratio now
+  reaches the existing constant-currency USD valuation path.
+- Explain withheld values with the underlying debt, share-unit, currency/ADS or
+  loss-overlay reason. A net-income loss is no longer described as proof of
+  structurally negative free cash flow. Existing domain and input refusals remain.
+- Offline frozen replay: 23/33 values versus 20/33; every previously valued
+  company's fair value, WACC and DCF/share is unchanged. COST's composite moves
+  61.97 to 61.30 as the same lease repair restores historical EV multiples and
+  their below-neutral valuation signal. NVO's large
+  model/quote gap and NIKE's margin-normalization dependence are flagged in the
+  [D-186 evidence report](docs/audit/2026-11-03-valuation-coverage.md).
+- Version constants are intentionally unchanged in this branch. Release requires
+  Stage B, fair-value and scenario-target method stamps, and a payload version
+  advance for the changed deterministic inputs/disclosures; pipeline and report
+  schema versions need no change.
+
+## Unreleased - Verifier wording for headline claims and buyback amounts (2026-11-03)
+
+- Numeric prose now recognizes producer-bound wording for ADS quotes, DCF base-case values, reverse-DCF year-one growth over TTM, weighted and scenario projections, EV/EBITDA, settled closes, five-year diluted-share changes, TTM standardized FCF and checked house-grade annotations (D-187). Value, period, metric, currency and per-share checks remain in force.
+- Negative statement buyback and capex records accept a positive outflow magnitude, including "(cash outflow)" and "of cash outflow". Inflow wording, direction words and other records retain signed matching. This deliberately revises D-160: buyback amounts conventionally use a positive magnitude.
+- Offline replay of saved judge outputs validates 29 additional claims across META #2 (4), TSM #3 (4) and ASML #6 (21), with no previously validated claim losing validation. Multi-figure claims and unsupported definitions remain unvalidated.
+- The "ADS price" reading binds the quoted price; whether the instrument is an ADS is not itself checked.
 
 ## Unreleased - Public repository polish (2026-11-03)
 
