@@ -48,16 +48,15 @@ describe("a vendor total without its current debt is withheld (VAL-2)", () => {
     expect(zeroCurrentDebtReason(3_655 * M, [{ tag: "LongTermDebtCurrent", value: 3_330 * M }])).toBeNull();
   });
 
-  it("withholds a vendor row whose zero short-term debt the filing contradicts", () => {
+  it("completes a vendor zero current-debt row from a reconciled same-period filing", () => {
     // Lease line already the total, so no completion applies; LongTermDebt left out so only the current-debt check speaks.
     const row = vendorRow(Q2, { capitalLeaseObligations: 109_771 });
     const { row: out, gaps } = admitDebtFields(row, companyFacts(without(FILED_FACTS, "LongTermDebt")), "USD", OBSERVED);
-    expect(out.totalDebt).toBeNull();
-    expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0/);
-    expect(gaps).toContainEqual(expect.objectContaining({ field: `statements.balance.${Q2}.totalDebt`, severity: "warn" }));
+    expect(out.totalDebt).toBe(242_320 * M);
+    expect(out.shortTermDebt).toBe(3_655 * M);
+    expect(gaps).toEqual([]);
     const tagged = admitDebtFields(row, companyFacts(FILED_FACTS), "USD", OBSERVED).row;
-    expect(tagged.totalDebt).toBeNull(); // with LongTermDebt filed too, the current-debt check still withholds it
-    expect(tagged.fieldConflicts?.totalDebt?.reason).toMatch(/short-term debt is 0/);
+    expect(tagged.totalDebt).toBe(242_320 * M);
   });
 
   it("control: a vendor zero beside no filed current debt is kept", () => {

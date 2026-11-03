@@ -710,9 +710,9 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     shortTermDebt: num(r.shortTermDebt),
     // Leverage tests read long-term debt alone; a composed figure holding
     // current notes would count those notes twice beside current liabilities.
-    longTermDebt: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) ? null : num(r.longTermDebt),
+    longTermDebt: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) ? null : num(r.longTermDebt),
     // Audit 2026-10-22 E-8: kept with its tags for the Piotroski leverage direction.
-    longTermDebtComposed: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) && num(r.longTermDebt) !== null
+    longTermDebtComposed: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) && num(r.longTermDebt) !== null
       ? { value: num(r.longTermDebt)!, tags: [...r.fieldProvenance!.longTermDebt!.tags] }
       : null,
     taxPayables: num(r.taxPayables),
@@ -1868,107 +1868,58 @@ function totalDebtSnapshot(
   refusedBalanceDate?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
-  const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
-  const yearEarlier = Number.isFinite(quarterEndMs)
-    ? balancesQuarterly.find((row) => {
-        const t = Date.parse(String(row.date ?? ""));
-        return Number.isFinite(t) && Math.abs(quarterEndMs - t - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS;
-      })
-    : undefined;
-  type Pair = [FmpBalanceSheetRow | undefined, FmpBalanceSheetRow | undefined];
-  // Audit 2026-10-22 C-1: a lease-scope refusal blocks a pair; it no longer
-  // vetoes an average it is not part of.
-  const leaseRefusal = (rows: readonly (FmpBalanceSheetRow | undefined)[]): string | null =>
-    rows.map(row => row === undefined ? null : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row)).find(reason => reason !== null) ?? null;
-  const quarterPair: Pair | null =
-    interestBasis === "ttm" &&
-    quarterEnd !== undefined &&
-    yearEarlier !== undefined &&
-    num(quarterEnd.totalDebt) !== null &&
-    num(yearEarlier.totalDebt) !== null
-      ? [quarterEnd, yearEarlier]
-      : null;
-  const annualPair: Pair = [balancesAnnual[0], balancesAnnual[1]];
-  const quarterRefusal = quarterPair === null ? null : leaseRefusal(quarterPair);
-  // The fallback replaces a refused quarter pair only with a complete one:
-  // two fiscal-year balances, each with total debt, neither refused.
-  const annualComplete = annualPair.every(row => row !== undefined && num(row.totalDebt) !== null) && leaseRefusal(annualPair) === null;
-  let pair: Pair;
-  let which: string;
-  if (quarterPair !== null && (quarterRefusal === null || !annualComplete)) {
-    pair = quarterPair;
-    which = `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`;
-  } else {
-    pair = annualPair;
-    which =
-      "the latest two fiscal-year-end balances" +
-      (quarterPair !== null
-        ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterRefusal})`
-        : interestBasis === "ttm"
-          ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)"
-          : "");
-  }
-  const a = bookDebtOnLeaseBasis(pair[0], includeOperatingLeases);
-  const b = bookDebtOnLeaseBasis(pair[1], includeOperatingLeases);
-  const leaseText = "book totalDebt on the retained calculation basis";
-  const scopeNotes = pair.flatMap((row, index) => row === undefined ? [] : [
-    leaseEvidenceNote({ ...row, leaseEvidenceContext }, { removed: (index === 0 ? a : b).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
-    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : []),
-  ]);
-  const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
-    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
-  // The newest balance is the debt weight's (D-60). Outside the pair, a lease
-  // refusal on it withholds only that weight, which then uses the average.
-  const newestInPair = newestBalance === undefined || pair.some(row => isoDay(row?.date) === isoDay(newestBalance.date));
-  const newestRefusal = newestInPair ? null : leaseRefusal([newestBalance]);
-  const newestNote = newestRefusal === null ? ""
-    : `; the newest balance (${isoDay(newestBalance!.date)}) is not used for the debt weight, which uses this average: ${newestRefusal}`;
-  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? ` (retained lease coverage: ${scopeNotes.join(" ").replace(/\.$/, "")})` : ""}${newestNote}`;
-  const used = [a.value !== null ? pair[0] : undefined, b.value !== null ? pair[1] : undefined].filter(
-    (row): row is FmpBalanceSheetRow => row !== undefined,
-  );
+  const quarterEndMs = Date.parse(String(quarterEnd?.date ?? ""));
+  const yearEarlier = balancesQuarterly.find(row => Math.abs(quarterEndMs - Date.parse(String(row.date)) - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS);
+  const quarterPair = interestBasis === "ttm" && quarterEnd && yearEarlier && num(quarterEnd.totalDebt) !== null && num(yearEarlier.totalDebt) !== null ? [quarterEnd, yearEarlier] : null;
+  const annualPair = [balancesAnnual[0], balancesAnnual[1]].filter((row): row is FmpBalanceSheetRow => row !== undefined);
+  const refusal = (row: FmpBalanceSheetRow): string | null => row.fieldConflicts?.totalDebt?.usable === false
+    ? row.fieldConflicts.totalDebt.reason : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row);
+  const complete = (row: FmpBalanceSheetRow): boolean => refusal(row) === null && bookDebtOnLeaseBasis(row, includeOperatingLeases).value !== null;
+  // Preserve the existing complete annual-pair fallback for lease scope. Other
+  // refused dates are excluded individually; they cannot veto clean balances.
+  const pair = quarterPair && !(quarterPair.some(row => refusal(row) !== null) && annualPair.length === 2 && annualPair.every(complete))
+    ? quarterPair : annualPair;
+  const all = [...balancesQuarterly, ...balancesAnnual].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const newest = all[0];
+  const negative = [...pair, ...(newest ? [newest] : [])].find(row => (num(row.totalDebt) ?? 0) < 0);
+  if (negative) return { average: null, negativeObservation: num(negative.totalDebt), basis: "invalid negative debt observation", currency: null, refusedBalanceDate: isoDay(negative.date) ?? undefined };
+  const used = pair.filter(complete);
+  const oldest = pair.map(row => String(row.date)).sort()[0];
+  const latestComplete = all.find(row => complete(row) && (oldest === undefined || String(row.date) >= oldest));
+  if (used.length === 0 && latestComplete) used.push(latestComplete);
+  const excluded = [...new Map([...pair, ...(newest ? [newest] : [])].filter(row => refusal(row) !== null)
+    .map(row => [String(row.date), row])).values()];
+  const exclusion = excluded.length ? "; excluded withheld balances: " + excluded.map(row => isoDay(row.date) + ": " + refusal(row)).join("; ") : "";
+  const scope = (used.length ? used : pair).flatMap(row => [leaseEvidenceNote({ ...row, leaseEvidenceContext },
+    { removed: bookDebtOnLeaseBasis(row, includeOperatingLeases).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
+    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : [])]);
+  const which = quarterPair && pair === quarterPair
+    ? `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`
+    : "the latest two fiscal-year-end balances" + (quarterPair
+      ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterPair.map(refusal).find(Boolean)})`
+      : interestBasis === "ttm" ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)" : "");
+  const basis = `book totalDebt on the retained calculation basis, average of ${which}${scope.length ? ` (retained lease coverage: ${scope.join(" ").replace(/\.$/, "")})` : ""}` +
+    (excluded.length ? `; only complete balances used (${used.map(row => isoDay(row.date)).join(" and ") || "none"})${exclusion}` : "") +
+    (newest && latestComplete && latestComplete !== newest ? `; the newest balance (${isoDay(newest.date)}) is not used for the debt weight, which uses the latest complete balance` : "");
   const currency = establishedRowsCurrency(used, currencyEvidence);
-  const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
-  if (refused !== undefined) {
-    const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true, refusedBalanceDate: isoDay(refused.date) ?? undefined };
+  if (used.length === 0) {
+    const rejected = excluded[0];
+    const unavailable = rejected ? isoDay(rejected.date) + ": " + refusal(rejected)
+      : pair.length ? `no book total debt on ${pair.map(row => isoDay(row.date)).join(" or ")}${pair.length < 2 ? ", and no second balance to average it with" : ""}` : "no balance sheet to average";
+    return { average: null, negativeObservation: null, basis, currency, unavailable,
+      ...(rejected ? { refused: true as const, refusedBalanceDate: isoDay(rejected.date) ?? undefined } : {}) };
   }
-  const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
-  if (scopeRefused) {
-    const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
-    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true, refusedBalanceDate: isoDay(scopeRefused.date) ?? undefined };
-  }
-  // Invalid supplied balances are not missing observations that the other
-  // year may replace. Preserve the raw negative sentinel before lease guards
-  // null the adjusted values, and reject contradictory lease compositions.
-  const negativeRow = pair.find(row => { const value = num(row?.totalDebt); return value !== null && value < 0; });
-  const negativeObservation = negativeRow === undefined ? null : num(negativeRow.totalDebt);
-  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency, refusedBalanceDate: isoDay(negativeRow!.date) ?? undefined };
-  const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
-  if (conflicted !== undefined) {
-    const leaseConflict = leaseDebtConflict(conflicted)!;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true, refusedBalanceDate: isoDay(conflicted.date) ?? undefined };
-  }
-  if (a.value === null && b.value === null) {
-    const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
-    const unavailable = dated.length === 0 ? "no balance sheet to average"
-      : `no book total debt on ${dated.join(" or ")}${dated.length < pair.length ? ", and no second balance to average it with" : ""}`;
-    return { average: null, negativeObservation: null, basis, currency, unavailable };
-  }
-  // D-60: the newest balance sheet (quarterly or annual, whichever is newer),
-  // in the same established currency as the averaged pair.
-  const newestRow = [balancesQuarterly[0], balancesAnnual[0]]
-    .filter((row): row is FmpBalanceSheetRow => row !== undefined)
-    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
-  const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
-  const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
-  const latest = newestRefusal === null && newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
-    ? { latest: newestDebt, latestBasis: `book totalDebt on the retained calculation basis, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets (lease evidence: ${leaseEvidenceNote({ ...newestRow, leaseEvidenceContext }, { removed: newestRow && bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).leaseRemoved ? num(newestRow.operatingLeaseLiability) : null }).replace(/\.$/, "")}${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note.replace(/\.$/, "")}` : ""})` }
-    : {};
-  if (a.value !== null && b.value !== null) {
-    return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency, ...latest };
-  }
-  return { average: a.value ?? b.value, negativeObservation: null, basis, currency, ...latest };
+  const average = used.reduce((sum, row) => sum + bookDebtOnLeaseBasis(row, includeOperatingLeases).value!, 0) / used.length;
+  const latestCurrency = latestComplete ? establishedRowsCurrency([latestComplete], currencyEvidence) : null;
+  const latest = latestComplete && latestCurrency !== null && latestCurrency === currency ? {
+    latest: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).value,
+    latestBasis: "book totalDebt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
+      (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
+      " (lease evidence: " + leaseEvidenceNote({ ...latestComplete, leaseEvidenceContext },
+        { removed: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).leaseRemoved ? num(latestComplete.operatingLeaseLiability) : null }).replace(/\.$/, "") +
+      (incompleteLeaseCoverage(latestComplete) ? "; " + incompleteLeaseCoverage(latestComplete)!.note.replace(/\.$/, "") : "") + ")" + exclusion,
+  } : {};
+  return { average, negativeObservation: null, basis, currency, ...latest };
 }
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
@@ -2026,7 +1977,7 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
   cashFlow: (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
     // Long-term debt tagged with its finance leases already holds them.
-    const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
+    const financeLeases = row.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
     const parts = [num(row.shortTermDebt), num(row.longTermDebt), financeLeases];
     // A row without components (vendor rows) is judged on its published total.
     return parts.every((part) => part === null) ? num(row.totalDebt) : parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
@@ -2614,7 +2565,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       sicCode: str(bundle.edgar?.sic),
     },
   });
-  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
+  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && row.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
     forensics.gaps.push({ field: "forensics.longTermDebt", severity: "info", reason:
       "long-term debt is composed from instrument-class tags that include current debt, so Beneish LVGI, which adds it to current liabilities, is not evaluated; Piotroski leverage compares the composed figure year on year only when both years compose it from the same classes; total debt is unaffected" });
   }
@@ -3265,7 +3216,8 @@ function computeReturns(
   // The basis also decides which balance-sheet pair averages the debt.
   const annualDate = isoDay(incomeAnnual[0]?.date) ?? "?";
   const interestExpenseAnnual = num(incomeAnnual[0]?.interestExpense);
-  const ebitAnnual = num(incomeAnnual[0]?.operatingIncome);
+  const ebitAnnual = num(incomeAnnual[0]?.operatingIncome) ?? num(incomeAnnual[0]?.waccOperatingIncome);
+  const standaloneAnnualCoverage = num(incomeAnnual[0]?.operatingIncome) === null && num(incomeAnnual[0]?.waccOperatingIncome) !== null;
   // The TTM interest is divided by the debt balances at the window's ends; a
   // ratio of two sums is a figure only when both are in one currency. When the
   // balances are not established in the window's currency, the TTM pair is not
@@ -3303,7 +3255,7 @@ function computeReturns(
   } else if (interestExpenseAnnual !== null && ebitAnnual !== null) {
     interestExpenseForWacc = interestExpenseAnnual;
     ebitForWacc = ebitAnnual;
-    coverageBasis = `FY ${annualDate} annual statement`;
+    coverageBasis = `FY ${annualDate} annual statement${standaloneAnnualCoverage ? " (filed operating income for standalone interest coverage)" : ""}`;
     interestBasis = "annual";
     if (ttmInc && ttmDebtComparable) {
       notes.push(
@@ -3317,7 +3269,7 @@ function computeReturns(
     ebitForWacc = ebitTtm ?? ebitAnnual;
     const interestLabel =
       interestExpenseTtm !== null ? "TTM" : interestExpenseAnnual !== null ? `FY ${annualDate}` : "unavailable";
-    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}` : "unavailable";
+    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}${standaloneAnnualCoverage ? " filed operating income for standalone interest coverage" : ""}` : "unavailable";
     interestBasis = interestExpenseTtm !== null ? "ttm" : "annual";
     coverageBasis =
       interestLabel === ebitLabel

@@ -258,11 +258,12 @@ describe("the combined current tag and the legacy finance-lease tag (fix round 5
     expect(out.fieldConflicts?.totalDebt?.reason).toMatch(/the vendor short-term debt 7M is checked against LongTermDebtAndCapitalLeaseObligationsCurrent 7M, which holds current finance leases, but the filing tags no FinanceLeaseLiabilityCurrent to take them out/);
   });
 
-  it("A: with FinanceLeaseLiabilityCurrent 2M tagged, a vendor 7M is refused and a vendor 5M completes at 229M", () => {
+  it("A: with FinanceLeaseLiabilityCurrent 2M tagged, vendor 7M is normalized and vendor 5M completes at 229M", () => {
     const tagged = facts({ ...FINANCE, FinanceLeaseLiabilityCurrent: 2, LongTermDebtAndCapitalLeaseObligationsCurrent: 7 });
     const refused = admitDebtFields(providerRow(7, 92), tagged, "USD", OBSERVED).row;
-    expect(refused.totalDebt).toBeNull();
-    expect(refused.fieldConflicts?.totalDebt?.reason).toMatch(/the vendor short-term debt 7M does not reconcile with the filed current debt 5M \(LongTermDebtAndCapitalLeaseObligationsCurrent 7M less FinanceLeaseLiabilityCurrent 2M\)/);
+    expect(refused.totalDebt).toBe(229 * M);
+    expect(refused.shortTermDebt).toBe(5 * M);
+    expect(refused.fieldProvenance?.totalDebt?.calculation).toBe("same-filing-debt-completed");
     const { row: out, admissions } = admitDebtFields(providerRow(5, 92), tagged, "USD", OBSERVED);
     expect(out.totalDebt).toBe(229 * M);
     expect(admissions[0]!.detail).toContain("it equals the filed current debt (LongTermDebtAndCapitalLeaseObligationsCurrent 7M less FinanceLeaseLiabilityCurrent 2M)");

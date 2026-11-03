@@ -163,7 +163,10 @@ describe("a ROIC withheld by a refused input is in the manifest (KNW-03)", () =>
     Object.assign(fy2024, { shortTermInvestments: (fy2024.cashAndShortTermInvestments as number) / 10 });
     const computed = runStageB(bundle);
     const wacc = computed.gaps.find((g) => g.field === "returns.wacc.weights")!;
-    expect(wacc).toMatchObject({ severity: "critical", reason: expect.stringMatching(/^average total debt withheld: 2026-03-31: /) });
+    expect(wacc).toBeUndefined();
+    expect(computed.returns.wacc.waccPct).not.toBeNull();
+    expect(computed.returns.wacc.debtBasis).toContain("2026-03-31");
+    expect(computed.valuation.multiples?.enterpriseValue.value).toBeNull();
     expect(computed.returns.roic.latestRoicPct).not.toBeNull();
     expect(computed.gaps.find((g) => g.field === "returns.roic")).toMatchObject({ severity: "warn",
       reason: "ROIC withheld for 1 fiscal year whose debt or capital input was refused: 2024-12-31: combined cash-and-short-term-investments conflicts with reported components" });

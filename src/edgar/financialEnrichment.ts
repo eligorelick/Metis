@@ -471,6 +471,16 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
       admissions.push(completion.admission);
     } else if (completion.status === "refused") leaseLineReason = completion.reason;
   }
+  // Broader exact scopes (operating-only leases, current leases in vendor
+  // debt, or omitted current debt) still require one reconciled filing.
+  if (componentReason === null && admissions.length === 0) {
+    const completion = completeFiledDebtScope(out, facts, currency, observedAt);
+    if (completion.status === "completed") {
+      out = completion.row;
+      admissions.push(completion.admission);
+      leaseLineReason = null;
+    } else if (completion.status === "refused") leaseLineReason ??= completion.reason;
+  }
   let presentationReason: string | null = null;
   const longTerm = out.fieldProvenance?.longTermDebt;
   const tagged = longTerm?.tags.includes("us-gaap/LongTermDebt") && longTerm.unit === currency && longTerm.periodEnd === row.date
@@ -566,7 +576,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
  * the per-row entries were 51 entries and about 25K characters in every LLM pass.
  */
 export interface BalanceAdmission {
-  kind: "completion" | "stakes";
+  kind: "completion" | "filing-completion" | "stakes";
   date: string;
   /** The row's full explanation; the merged entry quotes the latest date's. */
   detail: string;
@@ -578,7 +588,7 @@ export interface BalanceAdmission {
 /** One info entry per kind (completion, stakes), newest date first, a date counted once across the annual and quarterly families. */
 export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[]): ManifestEntry[] {
   const entries: ManifestEntry[] = [];
-  for (const kind of ["completion", "stakes"] as const) {
+  for (const kind of ["completion", "filing-completion", "stakes"] as const) {
     const byDate = new Map<string, BalanceAdmission>();
     for (const admission of admissions) if (admission.kind === kind && !byDate.has(admission.date)) byDate.set(admission.date, admission);
     const dated = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
@@ -589,6 +599,8 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
     entries.push(kind === "completion"
       ? { field: "statements.balance.totalDebt", severity: "info", expected: true,
         reason: `vendor lease line held only the noncurrent lease liabilities at ${dates}; total debt completed from each date's filing, the vendor total retained in the raw row: ${list}. Latest: ${dated[0]!.detail}` }
+      : kind === "filing-completion" ? { field: "statements.balance.totalDebt", severity: "info", expected: true,
+        reason: `vendor debt scopes completed from one same-period filing at each of ${dates}; raw vendor values retained: ${list}. Latest: ${dated[0]!.detail}` }
       : { field: "statements.balance.longTermInvestments", severity: "info", expected: true,
         reason: `vendor longTermInvestments read as undisclosed at ${dates}; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: ${list}. Latest: ${dated[0]!.detail}`,
         ...(sources.length > 0 ? { attemptedSources: sources } : {}) });
@@ -597,6 +609,101 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
 }
 
 type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; admission: BalanceAdmission } | { status: "refused"; reason: string };
+
+/** Exact component completion, never a principal-total or historical substitute.
+ * The older D-133 path remains first. This path also recognizes operating-only
+ * vendor lease lines and explicitly tagged debt-and-finance-lease scopes. */
+function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, observedAt: string): LeaseLineCompletion<T> {
+  const none = { status: "none" } as const;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  if (row.fieldProvenance?.capitalLeaseObligations || row.fieldProvenance?.longTermDebt ||
+      !finite(row.longTermDebt) || !finite(row.capitalLeaseObligations) || !finite(row.shortTermDebt) ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return none;
+  // Only our incomplete-scope refusals may be revisited. Collapse,
+  // plausibility, vendor/SEC conflicts and refused components stay refused.
+  const recoverable = /^incomplete debt carrying value: (?:the vendor (?:lease line|short-term debt)|same-period )/;
+  for (const field of ["totalDebt", "netDebt"]) {
+    const conflict = row.fieldConflicts?.[field];
+    if (conflict?.usable === false && !recoverable.test(conflict.reason)) return none;
+  }
+  const vendorTotal = row.totalDebt ?? row.fieldConflicts?.totalDebt?.vendorValue;
+  const at = (tag: string) => points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.val >= 0);
+  const anchors = ["LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebtAndCapitalLeaseObligations"];
+  const filings = [...new Map(anchors.flatMap(at).sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn))
+    .map(p => [p.accn, { accn: p.accn, filed: p.filed, form: p.form }] as const)).values()];
+  let refusal: LeaseLineCompletion<T> = none;
+  for (const filing of filings) {
+    const used: string[] = [];
+    const notesScope = at("LongTermNotesAndLoans").some(p => p.accn === filing.accn) && !at("LongTermDebtNoncurrent").some(p => p.accn === filing.accn);
+    const own = (tag: string): number | null => {
+      const ps = at(tag).filter(p => p.accn === filing.accn);
+      const values = [...new Set(ps.map(p => p.val))];
+      if (values.length > 1) throw new Error(`ambiguous ${tag}`);
+      if (values.length === 0 && CURRENT_DEBT_TAGS.includes(tag) && at(tag).length > 0 && !(notesScope && tag === "DebtCurrent")) throw new Error(`current debt ${tag} only in another filing`);
+      if (values.length === 1) used.push(tag);
+      return values[0] ?? null;
+    };
+    const eq = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
+    try {
+      const lease = (prefix: "Operating" | "Finance") => {
+        const tag = `${prefix}LeaseLiability`;
+        const total = own(tag), current = own(`${tag}Current`), noncurrent = own(`${tag}Noncurrent`);
+        if (total !== null && current !== null && noncurrent !== null && !eq(total, current + noncurrent)) throw new Error(`contradictory ${tag}`);
+        if (total !== null && current !== null) return { total, current, noncurrent: total - current };
+        if (current !== null && noncurrent !== null) return { total: current + noncurrent, current, noncurrent };
+        if (total === 0 && (current === null || current === 0) && (noncurrent === null || noncurrent === 0)) return { total: 0, current: 0, noncurrent: 0 };
+        const synonyms = tagsFor(prefix === "Finance" ? "financeLeaseLiability" : "operatingLeaseLiability");
+        if ([...new Set([tag, ...synonyms].flatMap(t => [t, `${t}Current`, `${t}Noncurrent`]))].every(t => at(t).length === 0)) return { total: 0, current: 0, noncurrent: 0 };
+        throw new Error(`incomplete ${tag}`);
+      };
+      const op = lease("Operating"), fin = lease("Finance");
+      const pure = own("LongTermDebtNoncurrent") ?? own("LongTermNotesAndLoans"), combined = own("LongTermDebtAndCapitalLeaseObligations");
+      if (pure !== null && combined !== null && fin.noncurrent > 0 && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
+      const noncurrent = pure ?? (combined === null ? null : combined - fin.noncurrent);
+      if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
+          combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined))) continue;
+      const line = row.capitalLeaseObligations as number;
+      if (![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
+      const refuse = (why: string): LeaseLineCompletion<T> => ({ status: "refused", reason: `incomplete debt carrying value: same-filing completion refused: ${why}` });
+      refusal = line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
+      const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
+      const borrowing = stb ?? cp ?? 0;
+      if (stb !== null && cp !== null && cp > stb && !eq(cp, stb)) throw new Error("commercial paper exceeds inclusive short-term borrowings");
+      const current = ltd !== null ? ltd + borrowing : both !== null ? both - fin.current + borrowing : dc ?? (stb !== null || cp !== null ? borrowing : null);
+      if (current === null) {
+        if (eq(line, op.total + fin.total)) refusal = none;
+        continue;
+      }
+      if (current < 0) continue;
+      if (dc !== null && !eq(dc, current) && !(both !== null && eq(dc, current + fin.current))) continue;
+      if (ltd !== null && both !== null && !eq(both, ltd + fin.current)) continue;
+      const short = row.shortTermDebt as number;
+      const currentScopes = current > 0 && (ltd !== null || both !== null || dc !== null)
+        ? [current, current + op.current, current + fin.current, current + op.current + fin.current] : [current];
+      if (short !== 0 && !currentScopes.some(v => eq(short, v))) continue;
+      if (!finite(vendorTotal) || !eq(vendorTotal, short + (row.longTermDebt as number) + line)) continue;
+      for (const [field, value] of [["operatingLeaseLiability", op.total], ["financeLeaseLiability", fin.total]] as const) {
+        if (row[field] != null && !eq(row[field] as number, value)) throw new Error(`contradictory ${field}`);
+      }
+      const leases = op.total + fin.total, totalDebt = current + noncurrent + leases;
+      if (eq(totalDebt, vendorTotal) && eq(line, leases) && eq(short, current) && eq(row.longTermDebt as number, noncurrent)) return none;
+      const evidence: StatementFieldProvenance = { source: "edgar", unit, observedAt, periodStart: null, periodEnd: row.date!,
+        tags: [...new Set(used)].map(t => `us-gaap/${t}`), filings: [filing], calculation: "same-filing-debt-completed" };
+      const fieldConflicts = { ...row.fieldConflicts };
+      delete fieldConflicts.totalDebt; delete fieldConflicts.netDebt;
+      const fields = ["shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability", "totalDebt"];
+      return { status: "completed", row: { ...row, shortTermDebt: current, longTermDebt: noncurrent, capitalLeaseObligations: leases,
+        operatingLeaseLiability: op.total, financeLeaseLiability: fin.total, totalDebt,
+        netDebt: finite(row.cashAndCashEquivalents) && row.fieldConflicts?.cashAndCashEquivalents?.usable !== false ? totalDebt - row.cashAndCashEquivalents : null,
+        vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
+        fieldConflicts, fieldProvenance: { ...row.fieldProvenance, ...Object.fromEntries(fields.map(f => [f, evidence])) } } as T,
+        admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
+          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
+    } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
+  }
+  return refusal;
+}
 
 /**
  * Audit 2026-10-29, AMZN report #51 (VAL-1, FIG-1, GRD-01; D-133). A vendor

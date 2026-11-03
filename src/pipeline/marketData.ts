@@ -77,9 +77,10 @@ function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseVa
     if (refusal) return `the same-date balance's debt was refused (${refusal}), so the provider's debt operand ${operand} cannot be checked`;
     const total = n(row.totalDebt);
     const provenance = (row.fieldProvenance as Record<string, { calculation?: string; tags?: string[] }> | undefined)?.totalDebt;
-    const composed = provenance?.calculation === "noncurrent-lease-line-completed";
+    const composed = provenance?.calculation === "noncurrent-lease-line-completed" || provenance?.calculation === "same-filing-debt-completed";
     if (composed && total !== null && (ev.totalDebt === null || Math.abs(total - ev.totalDebt) > Math.max(1, Math.abs(total) * 1e-6))) {
-      return `its debt operand ${operand} differs from the same-date debt on the recomposed reported basis ${millions(total)} composed from the filing, because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`;
+      return `its debt operand ${operand} differs from the same-date debt on the recomposed reported basis ${millions(total)} composed from the filing, ` +
+        (provenance?.calculation === "same-filing-debt-completed" ? "after reconciling financing debt and lease scopes exactly once" : `because the vendor's own total left out ${completedTotalOmission(provenance?.tags ?? [])}`);
     }
   }
   return null;

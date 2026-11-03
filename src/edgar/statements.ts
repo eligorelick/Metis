@@ -606,14 +606,14 @@ const NET_INCOME_SPEC: ChainSpec = {
   unit: "money",
   steps: [
     { kind: "first", tags: tagsFor("netIncome").slice(0, 1), unit: "money" },
-    {
+    ...tagsFor("netIncomeAttributableToNoncontrollingInterest").map((tag): ChainSpec => ({
       kind: "diff",
       plus: "ProfitLoss",
-      minus: tagsFor("netIncomeAttributableToNoncontrollingInterest")[0] as string,
+      minus: tag,
       unit: "money",
       disclose:
         "no NetIncomeLoss element is filed for the period; net income attributable to the parent is derived as consolidated profit (ProfitLoss) less net income attributable to noncontrolling interests",
-    },
+    })),
     { kind: "first", tags: tagsFor("netIncome").slice(1), unit: "money" },
   ],
 };
