@@ -2035,6 +2035,12 @@ export async function buildDataBundle(
   const pFloat = settle(`fmp.sharesFloat(${sym})`, fmp.sharesFloat(sym));
   const pSecFilings = settle(`fmp.secFilingsSearch(${sym})`, fmp.secFilingsSearch(sym, filingsFrom, today, 0, 100));
   const pNews = settle(`fmp.stockNews(${sym})`, fmp.stockNews([sym], newsFrom, today, 0, 50));
+  // D-176: the newest 50 rows can span hours for a heavily covered issuer; two
+  // bounded earlier windows (8-30 and 31-90 days back) let the payload sample the quarter.
+  const pNewsEarlier = reserved ? undefined : {
+    recentMonth: settle(`fmp.stockNews(${sym}).recentMonth`, fmp.stockNews([sym], newsFrom, isoDaysAgo(nowDate, 8), 0, 25)),
+    prior: settle(`fmp.stockNews(${sym}).prior`, fmp.stockNews([sym], isoDaysAgo(nowDate, 90), isoDaysAgo(nowDate, 31), 0, 25)),
+  };
   const pPress = settle(`fmp.pressReleases(${sym})`, fmp.pressReleases([sym], newsFrom, today, 0, 50));
   const pEod = settle(`fmp.historicalPriceEodFull(${sym})`, fmp.historicalPriceEodFull(sym, eodFrom, today));
   const pSpy = settle(
@@ -2156,6 +2162,10 @@ export async function buildDataBundle(
   if (!reserved && finnhubCfg.apiKey) {
     news = await resolveFinnhubFallback<FmpPayload<FmpNewsArticleRow>>(news, () => finnhubNewsFetch(sym, newsFrom, today), "news", configuredFallbackGaps);
   }
+  const newsEarlier = pNewsEarlier === undefined ? undefined : {
+    recentMonth: sortRows(await pNewsEarlier.recentMonth, "publishedDate"),
+    prior: sortRows(await pNewsEarlier.prior, "publishedDate"),
+  };
   const pressReleases = sortRows(await pPress, "publishedDate");
   let eodPrices = sortRows(await pEod);
   let spyPrices = sortRows(await pSpy);
@@ -2483,6 +2493,7 @@ export async function buildDataBundle(
     peers,
     peerFundamentals,
     segmentation: { product: segProduct, geographic: segGeo },
+    ...(newsEarlier === undefined ? {} : { newsEarlier }),
     executives,
     compensation,
     marketCapHistory,

@@ -2377,6 +2377,55 @@ function macroSection(bundle: DataBundle): PayloadSection {
   });
 }
 
+/** D-176: of the news rows shown, at most this many are the newest; the rest are spread across earlier dates. */
+export const NEWS_NEWEST_ROWS = 6;
+
+/**
+ * D-176. The newest-rows feed alone can cover hours for a heavily covered issuer,
+ * so a report saw only the latest headlines. Rows from every retained window are
+ * merged (deduplicated by URL, else by date and title) newest first. When more
+ * than `limit` remain, the `NEWS_NEWEST_ROWS` newest are kept and the remaining
+ * slots are spread evenly across the older rows, so the model sees the quarter, not
+ * one day. Up to `limit` rows keep today's order unchanged.
+ */
+export function sampleNewsRows(rows: readonly FmpRawRow[], limit: number): { rows: FmpRawRow[]; sampled: boolean; retained: number } {
+  const seen = new Set<string>();
+  const merged: FmpRawRow[] = [];
+  for (const row of rows) {
+    const key = strOrNull(row.url) ?? `${isoDay(row.publishedDate) ?? "unknown"}|${(strOrNull(row.title) ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(row);
+  }
+  const day = (row: FmpRawRow) => isoDay(row.publishedDate) ?? "";
+  merged.sort((a, b) => day(b).localeCompare(day(a)));
+  if (merged.length <= limit) return { rows: merged, sampled: false, retained: merged.length };
+  const newest = merged.slice(0, Math.min(NEWS_NEWEST_ROWS, limit));
+  const slots = limit - newest.length;
+  // Spread by calendar day, not by position: one heavily covered day must not fill every slot.
+  const newestDay = newest.length > 0 ? day(newest[newest.length - 1]!) : "";
+  const byDay = new Map<string, FmpRawRow[]>();
+  for (const row of merged.slice(newest.length)) {
+    const key = day(row) === newestDay ? "" : day(row);
+    byDay.set(key, [...(byDay.get(key) ?? []), row]);
+  }
+  const earlierDays = [...byDay.keys()].filter(key => key !== "").sort((x, y) => y.localeCompare(x));
+  const chosenDays: string[] = [];
+  if (earlierDays.length <= slots) chosenDays.push(...earlierDays);
+  else for (let i = 0; i < slots; i += 1) {
+    const pick = earlierDays[slots === 1 ? 0 : Math.round((i * (earlierDays.length - 1)) / (slots - 1))]!;
+    if (!chosenDays.includes(pick)) chosenDays.push(pick);
+  }
+  const picked: FmpRawRow[] = chosenDays.map(key => byDay.get(key)![0]!);
+  // Spare slots go to further rows, round-robin from the newest chosen day, then the newest day's remainder.
+  const queues = [...chosenDays.map(key => byDay.get(key)!.slice(1)), byDay.get("") ?? []];
+  while (picked.length < slots && queues.some(queue => queue.length > 0)) {
+    for (const queue of queues) if (picked.length < slots && queue.length > 0) picked.push(queue.shift()!);
+  }
+  picked.sort((a, b) => day(b).localeCompare(day(a)));
+  return { rows: [...newest, ...picked], sampled: true, retained: merged.length };
+}
+
 function newsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
@@ -2400,7 +2449,19 @@ function newsSection(bundle: DataBundle): PayloadSection {
       used += clipped.length;
     }
   };
-  if (bundle.news.ok) addRows(rowsOf(bundle.news).slice(0, PAYLOAD_BUDGETS.listRows), "news", bundle.news.value.source);
+  if (bundle.news.ok) {
+    const source = bundle.news.value.source;
+    const earlier = bundle.newsEarlier
+      ? [bundle.newsEarlier.recentMonth, bundle.newsEarlier.prior].flatMap(fetch => (fetch.ok && fetch.value.source === source ? rowsOf(fetch) : []))
+      : [];
+    const sample = sampleNewsRows([...rowsOf(bundle.news), ...earlier], PAYLOAD_BUDGETS.listRows);
+    if (sample.sampled) {
+      const dates = sample.rows.map(row => isoDay(row.publishedDate)).filter((d): d is string => d !== null).sort();
+      notes.push(`News sampled from ${sample.retained} retained rows: the ${NEWS_NEWEST_ROWS} newest and ${sample.rows.length - NEWS_NEWEST_ROWS} spread across earlier dates` +
+        (dates.length > 0 ? `, ${dates[0]} to ${dates[dates.length - 1]}.` : "."));
+    }
+    addRows(sample.rows, "news", source);
+  }
   if (bundle.pressReleases.ok) addRows(rowsOf(bundle.pressReleases).slice(0, PAYLOAD_BUDGETS.listRows), "press-release", bundle.pressReleases.value.source);
   // Every truncation is disclosed (module rule): a snippet cut mid-line or a
   // row left out for the budget used to vanish silently (audit 2026-09-06,

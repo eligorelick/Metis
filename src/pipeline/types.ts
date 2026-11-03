@@ -392,6 +392,12 @@ export interface DataBundle {
   sharesFloat: FmpFetch<FmpSharesFloatRow>;
   secFilings: FmpFetch<FmpSecFilingRow>;
   news: FmpFetch<FmpNewsArticleRow>;
+  /**
+   * D-176: earlier news windows. The newest-rows feed above covers hours for a
+   * heavily covered issuer, so the payload samples these too. Absent on older
+   * bundles and in fixture mode.
+   */
+  newsEarlier?: { recentMonth: FmpFetch<FmpNewsArticleRow>; prior: FmpFetch<FmpNewsArticleRow> };
   pressReleases: FmpFetch<FmpNewsArticleRow>;
   /** Bounded, issuer-bound official news, separate from paid snippets and SEC filings. */
   companyIrMaterialEvents?: FetchResult<CompanyIrMaterialEvents>;
