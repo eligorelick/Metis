@@ -56,6 +56,20 @@ describe("filed annual operating-income coverage fallback", () => {
 });
 
 describe("NCI income synonyms in the existing ordered resolution", () => {
+  it("recovers the annual key without rebuilding an already-valued issuer's quarterly ownership history", () => {
+    const { bundle, facts } = fixture();
+    if (!bundle.statements.incomeAnnual.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+    Object.assign(bundle.statements.incomeAnnual.value.data.rows[0]!, { netIncomeAttributableToNoncontrollingInterest: -2 * M, netIncomeConsolidated: 148 * M });
+    const q = bundle.statements.incomeQuarterly.value.data.rows[0]!;
+    const point = { start: "2026-01-01", end: q.date!, filed: "2026-05-01", accn: "0000000042-26-000002", form: "10-Q", fy: 2026, fp: "Q1" };
+    for (const [tag, val] of [["Revenues", 300], ["ProfitLoss", 44], ["NetIncomeLossAttributableToNoncontrollingInterest", -1]] as const) {
+      const concept = facts.facts["us-gaap"]![tag] as { units: { USD: unknown[] } };
+      concept.units.USD.push({ ...point, val: val * M });
+    }
+    const out = withIncomeOperatingBasis(bundle).statements.incomeQuarterly;
+    if (!out.ok) throw new Error("fixture");
+    expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
+  });
   for (const tag of ["MinorityInterestInNetIncomeLossOfConsolidatedEntities", "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest"]) {
     it(`reads and admits ${tag} on the same fiscal-year row`, () => {
       const { bundle, facts } = fixture(tag);

@@ -1587,10 +1587,12 @@ reads `MinorityInterestInNetIncomeLossOfConsolidatedEntities` and
 `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` after
 `NetIncomeLossAttributableToNoncontrollingInterest` in its existing ordered
 resolution. Period, core-form, currency and presentation checks are unchanged.
-Missing vendor NCI income may be completed from that admitted statement;
+On replay, missing vendor annual NCI income may be completed from that admitted statement;
 missing consolidated profit may be supplied with it only from the same filed
 period and accession. A refused allocation is never filled, and a vendor
-nonzero observation is not overwritten. No new book-NCI materiality exemption
+nonzero observation is not overwritten. Quarterly ownership histories are not
+rebuilt by this replay fallback; fresh extraction reads the ordered synonyms
+on both annual and quarterly bases. No new book-NCI materiality exemption
 is applied: small book NCI cannot by itself bound the earnings claim.
 The DCF
 values consolidated free cash flow, so its enterprise value includes the outside

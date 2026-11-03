@@ -39,10 +39,11 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
         out = { ...out, waccOperatingIncome: sec.operatingIncome,
           fieldProvenance: { ...out.fieldProvenance, waccOperatingIncome: operating! } };
       }
-      // NCI is an additive ownership allocation. Its same-period core-filing
-      // evidence does not require vendor operating-expense classifications.
+      // Recover the annual E-5 fallback without rebuilding quarterly ownership
+      // history for consumers whose valuation already had an annual key.
+      // Fresh SEC extraction still reads every synonym on both period bases.
       const nci = sec?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest;
-      if (sec && nci && finite(sec.netIncomeAttributableToNoncontrollingInterest) &&
+      if (name === "incomeAnnual" && sec && nci && finite(sec.netIncomeAttributableToNoncontrollingInterest) &&
           (row.netIncomeAttributableToNoncontrollingInterest == null ||
             row.netIncomeAttributableToNoncontrollingInterest === 0 && row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === undefined) &&
           row.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
@@ -55,7 +56,7 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
           reason: `Missing noncontrolling-interest income completed from the same-period core SEC filing: ${sec.netIncomeAttributableToNoncontrollingInterest} ${nci.unit}; ${nci.tags.join(", ")}; ${nci.filings.map(f => f.accn).join(", ")}.` });
       }
       const consolidated = sec?.fieldProvenance?.netIncomeConsolidated;
-      if (sec && finite(sec.netIncomeConsolidated) && sameBasis(nci, consolidated) && out.netIncomeConsolidated == null &&
+      if (name === "incomeAnnual" && sec && finite(sec.netIncomeConsolidated) && sameBasis(nci, consolidated) && out.netIncomeConsolidated == null &&
           out.fieldConflicts?.netIncomeConsolidated?.usable !== false &&
           out.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === nci) {
         out = { ...out, netIncomeConsolidated: sec.netIncomeConsolidated,
