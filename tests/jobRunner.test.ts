@@ -112,6 +112,7 @@ vi.mock("@/pipeline/compute", async (importOriginal) => {
 
 import {
   maximumPassCostUsd,
+  maximumRequestCostUsd,
   resolveModel,
   type RequestAdmission,
 } from "@/providers/anthropic";
@@ -11376,5 +11377,272 @@ describe("DB-001: a Retry of a data-only fallback is dispatched", () => {
     expect(getJobSnapshot(jobId)).toMatchObject({ resumable: true });
     expect(routeAdmitsRetry(jobId)).toBe(true);                          // offered again, and it will run again
     expect(claimNextQueuedJob("db001", new Date(), configuredSchedulerLimits())).not.toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * Paid-run budget feasibility before the first paid request
+ * ------------------------------------------------------------------------ */
+
+/**
+ * 2026-11-03 live test: Haiku 4.5 at effort medium under METIS_MAX_JOB_COST_USD=3
+ * and a $25 rolling cap, request reservation mode. Bull settled $0.44; bear's
+ * $2.90 research reservation on top of it was refused (`job-budget`), and the
+ * judge's $5.28 section reservation on the Sonnet 5.5 floor could never have
+ * fit. The run fell back to a data-only report and the $0.44 bought nothing.
+ *
+ * The runner now prices every reservation the remaining run will ask admission
+ * for, with the functions admission uses, and refuses before the first paid
+ * request when the largest one cannot fit. These tests use the REAL reservation
+ * functions (the file-level mock prices every request at $100).
+ */
+describe("runJob — paid-run budget feasibility before the first paid request", () => {
+  const mockedReservation = (_model: string, pass: string, capability?: { billable?: boolean }): number =>
+    pass === "verify" && capability?.billable === false ? 0 : 100;
+  let previousConfig: ReturnType<typeof configMocks.getConfig.getMockImplementation>;
+
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import("@/providers/anthropic")>("@/providers/anthropic");
+    vi.mocked(maximumRequestCostUsd).mockImplementation(actual.maximumRequestCostUsd);
+    vi.mocked(maximumPassCostUsd).mockImplementation(actual.maximumPassCostUsd);
+    // An earlier test in this file leaves pass reservation mode configured;
+    // these cases are about the default request mode of the observed run.
+    previousConfig = configMocks.getConfig.getMockImplementation();
+    const config = { ...configMocks.getConfig(), reservationMode: "request" as const, judgeOrder: "random" as const,
+      maxJobCostUsd: null, maxRollingCostUsd: null };
+    configMocks.getConfig.mockImplementation(() => config);
+    setSetting("analysisModel", "claude-haiku-4-5");
+    setSetting("analysisEffort", "medium");
+  });
+
+  afterEach(() => {
+    vi.mocked(maximumRequestCostUsd).mockImplementation(mockedReservation as typeof maximumRequestCostUsd);
+    vi.mocked(maximumPassCostUsd).mockImplementation(mockedReservation as typeof maximumPassCostUsd);
+    if (previousConfig !== undefined) configMocks.getConfig.mockImplementation(previousConfig);
+  });
+
+  function createCappedJob(recordedCapUsd: number | null): string {
+    const current = configMocks.getConfig();
+    configMocks.getConfig.mockReturnValueOnce({ ...current, maxJobCostUsd: recordedCapUsd });
+    const { jobId } = createJob("AAPL");
+    expect(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.maxCostUsd).toBe(recordedCapUsd);
+    return jobId;
+  }
+
+  function limits(over: { maxJobCostUsd?: number | null; maxRollingCostUsd?: number | null }) {
+    return { ...configuredSchedulerLimits(), maxJobCostUsd: null, maxRollingCostUsd: null, ...over };
+  }
+
+  /**
+   * Passes that record every paid entry point; none may run when the plan is
+   * refused. Verification is deterministic and unbilled, as in production.
+   */
+  function recordingPasses(): { passes: PipelinePasses; launched: string[] } {
+    const { passes } = mockPasses();
+    const launched: string[] = [];
+    return {
+      launched,
+      passes: {
+        ...passes,
+        verifyCapability: { billable: false },
+        runBullThenBear: async (...args) => { launched.push("runBullThenBear"); return passes.runBullThenBear(...args); },
+        runAnalystPass: async () => { launched.push("runAnalystPass"); throw new Error("single-side analyst must not run"); },
+        runJudgePass: async (...args) => { launched.push("runJudgePass"); return passes.runJudgePass(...args); },
+        runVerifyPass: async (...args) => {
+          launched.push("runVerifyPass");
+          return { ...(await passes.runVerifyPass(...args)), costUsd: undefined, model: undefined, usage: undefined };
+        },
+      },
+    };
+  }
+
+  function storedReport(reportId: number | null): Report {
+    expect(reportId).not.toBeNull();
+    return ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, reportId!)).get()!.reportJson!));
+  }
+
+  function analysisReason(report: Report): string {
+    const entry = report.appendix.missingData.find((gap) => gap.field === "analysis.llm");
+    expect(entry).toBeDefined();
+    return entry!.reason;
+  }
+
+  function steps(jobId: string): StepProgress[] {
+    return JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!.stepsJson) as StepProgress[];
+  }
+
+  it("refuses a run whose judge reservation exceeds the job cap: $0, no lease, no cost row, a disclosed data-only report", async () => {
+    // Analyst requests fit the $5 cap ($1 each); every judge section reserves $10.
+    vi.mocked(maximumRequestCostUsd).mockImplementation(((_model: string, pass: string, capability?: { billable?: boolean }) =>
+      pass === "synthesize" ? 10 : pass === "verify" && capability?.billable === false ? 0 : 1) as typeof maximumRequestCostUsd);
+    const jobId = createCappedJob(5);
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, passes, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, schedulerLimits: limits({ maxJobCostUsd: 5 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: true, totalCostUsd: 0 });
+    expect(launched).toEqual([]);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+    expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
+    const reason = analysisReason(storedReport(result.reportId));
+    expect(reason).toContain("synthesize (judge)");
+    expect(reason).toContain("$10.00");
+    expect(reason).toContain("per-job cost cap");
+    expect(reason).toContain("$5.00");
+    expect(reason).toMatch(/at least \$10\.00/);
+    for (const step of LLM_STEPS) {
+      expect(steps(jobId).find((s) => s.step === step)).toMatchObject({ status: "skipped", detail: reason });
+    }
+  });
+
+  it("refuses the observed Haiku run under a $3 cap before any paid request, although one analyst request alone fits", async () => {
+    // The bull/bear research reservation ($2.90) fits $3 on its own...
+    expect(maximumRequestCostUsd("claude-haiku-4-5", "bull")).toBe(2.9);
+    const jobId = createCappedJob(3);
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, passes, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW,
+      schedulerLimits: limits({ maxJobCostUsd: 3, maxRollingCostUsd: 25 }),
+    });
+
+    // ...but the judge's $5.28 section reservation on the Sonnet 5.5 floor never can.
+    expect(result).toMatchObject({ status: "done", dataOnly: true, totalCostUsd: 0 });
+    expect(launched).toEqual([]);
+    expect(handle.db.select().from(costLog).all()).toEqual([]);
+    expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
+    const reason = analysisReason(storedReport(result.reportId));
+    expect(reason).toContain("synthesize (judge)");
+    expect(reason).toContain("claude-sonnet-5-5");
+    expect(reason).toContain("$5.28");
+    expect(reason).toContain("$3.00");
+    expect(reason).toMatch(/at least \$5\.28/);
+    expect(reason).toContain("plus whatever");
+  });
+
+  it("runs normally when the largest reservation fits the caps", async () => {
+    const jobId = createCappedJob(10);
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, passes, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW,
+      schedulerLimits: limits({ maxJobCostUsd: 10, maxRollingCostUsd: 25 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    expect(launched).toEqual(["runBullThenBear", "runJudgePass", "runVerifyPass"]);
+    expect(handle.db.select().from(costLog).all().map((row) => row.step).sort()).toEqual(["bear", "bull", "synthesize"]);
+  });
+
+  it("refuses the same way when rolling-cap headroom cannot admit the largest reservation", async () => {
+    const other = createJob("MSFT").jobId;
+    handle.db.insert(costLog).values({
+      jobId: other, runGeneration: 0, attemptId: "other-spend", step: "bull", model: "claude-haiku-4-5",
+      costUsd: 22, createdAt: new Date().toISOString(),
+    }).run();
+    const jobId = createCappedJob(null);
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, passes, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, schedulerLimits: limits({ maxRollingCostUsd: 25 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: true, totalCostUsd: 0 });
+    expect(launched).toEqual([]);
+    expect(handle.db.select().from(costLog).all().map((row) => row.jobId)).toEqual([other]);
+    expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
+    const reason = analysisReason(storedReport(result.reportId));
+    expect(reason).toContain("rolling cost cap");
+    expect(reason).toContain("$5.28");
+    expect(reason).toContain("$3.00 of the $25.00");
+    expect(reason).toMatch(/at least \$27\.28/);
+  });
+
+  /** A first generation that settles both analysts ($0.90 + $0.47) and then loses its judge. */
+  async function settledAnalystsThenJudgeFailure(jobId: string): Promise<void> {
+    const { passes } = mockPasses();
+    await runJob(jobId, {
+      ...passes,
+      fingerprintPayload: () => "fp-budget",
+      runJudgePass: async () => { throw new Error("judge pass failed (transport): stream rejected (simulated)"); },
+    }, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, maxJudgeRetries: 0 });
+    handle.db.update(jobs).set({ reportId: null }).where(eq(jobs.id, jobId)).run();
+    expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all().map((row) => row.costUsd).sort())
+      .toEqual([0.47, 0.9]);
+  }
+
+  it("keeps the cap a job was created with on Retry (D-120) and refuses a retry that cannot finish before any new paid request", async () => {
+    const jobId = createCappedJob(null);
+    await settledAnalystsThenJudgeFailure(jobId);
+    // The job was created under a $3 cap; the owner has since raised the setting to $30.
+    handle.db.update(jobs).set({ maxCostUsd: 3 }).where(eq(jobs.id, jobId)).run();
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, { ...passes, fingerprintPayload: () => "fp-budget" }, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, resume: true,
+      schedulerLimits: limits({ maxJobCostUsd: 30 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: true });
+    expect(result.totalCostUsd).toBeCloseTo(1.37, 6);
+    expect(launched).toEqual([]);
+    // No new cost row and no lease: only the first generation's two settlements remain.
+    expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toHaveLength(2);
+    expect(handle.db.select().from(jobLlmLeases).all()).toEqual([]);
+    const reason = analysisReason(storedReport(result.reportId));
+    expect(reason).toContain("synthesize (judge)");
+    expect(reason).toContain("$5.28");
+    expect(reason).toContain("$1.37 this job has already spent");
+    expect(reason).toMatch(/at least \$6\.65/);
+    expect(reason).toContain("start a new report");
+    // The reused analysts stay reported as reused; only the unrun tail is skipped.
+    expect(steps(jobId).find((s) => s.step === "bull")?.status).toBe("done");
+    expect(steps(jobId).find((s) => s.step === "synthesize")).toMatchObject({ status: "skipped", detail: reason });
+  });
+
+  it("control: a retry whose remaining reservations fit the cap resumes the judge", async () => {
+    const jobId = createCappedJob(null);
+    await settledAnalystsThenJudgeFailure(jobId);
+    const { passes, launched } = recordingPasses();
+
+    const result = await runJob(jobId, { ...passes, fingerprintPayload: () => "fp-budget" }, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, resume: true,
+      schedulerLimits: limits({ maxJobCostUsd: 10 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    expect(launched).toEqual(["runJudgePass", "runVerifyPass"]);
+  });
+
+  it("leaves a subscription connection, which reserves nothing, unaffected by even a tiny cap", async () => {
+    vi.mocked(resolveModel).mockResolvedValue({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const jobId = createCappedJob(0.01);
+    const { passes, launched } = recordingPasses();
+    const subscription = "chatgpt/gpt-6.1-sol";
+    const free = <T,>(pass: PassResultLike<T>): PassResultLike<T> => ({ ...pass, costUsd: 0, model: subscription });
+    const bull = free(testAnalystPass("bull"));
+    const bear = free(testAnalystPass("bear"));
+    passes.runBullThenBear = async (_deps, hooks, settlements) => {
+      launched.push("runBullThenBear");
+      await launchTestAnalystSide(hooks, "bull");
+      await settlements?.bull?.(testSuccessSettlement(bull, false) as never);
+      await launchTestAnalystSide(hooks, "bear");
+      await settlements?.bear?.(testSuccessSettlement(bear, false) as never);
+      return { bull, bear };
+    };
+    const judge = passes.runJudgePass;
+    passes.runJudgePass = async (...args) => ({ ...(await judge(...args)), costUsd: 0, model: subscription });
+    const verify = passes.runVerifyPass;
+    passes.runVerifyPass = async (...args) => ({ ...(await verify(...args)), costUsd: 0, model: subscription });
+
+    const result = await runJob(jobId, passes, {
+      bundle: fakeBundle(), hasAnthropicKey: true, now: NOW,
+      schedulerLimits: limits({ maxJobCostUsd: 0.01, maxRollingCostUsd: 0.01 }),
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    expect(launched).toEqual(["runBullThenBear", "runJudgePass", "runVerifyPass"]);
   });
 });

@@ -43,8 +43,6 @@ import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/sche
 import { getConfig } from "@/config/env";
 import { JOB_LEASE_RENEWAL_DIVISOR, MODEL_STAGE_DEADLINE_MS } from "@/pipeline/leaseTiming";
 import {
-  maximumPassCostUsd,
-  maximumRequestCostUsd,
   RequestSettlementNotRecordedError,
   resolveModel,
   type VerifyReservationCapability,
@@ -87,7 +85,6 @@ import {
 // PURE module (no clock, no network, no provider) — the passes module itself
 // stays injected, as the decoupling note above requires.
 import {
-  JUDGE_PASSES_PER_SETTING,
   judgeProtocolManifestEntries,
   restampSharedModelFamily,
 } from "@/pipeline/stageC/judgeProtocol";
@@ -137,6 +134,7 @@ import {
 import {
   acquirePaidPassLease,
   authorizePaidPassLaunch,
+  paidReservationCapRefusal,
   claimQueuedJobById,
   configuredSchedulerLimits,
   listPresumedCosts,
@@ -159,6 +157,14 @@ import {
   type SchedulerLimits,
   type SettlePaidPassResult,
 } from "@/pipeline/jobScheduler";
+import {
+  largestPlannedReservation,
+  paidBudgetRefusalReason,
+  passReservationUsd,
+  plannedPaidReservations,
+  usesRequestAdmission,
+  type RemainingPaidWork,
+} from "@/pipeline/paidRunBudget";
 
 /* ------------------------------------------------------------------------ *
  * PipelinePasses — injected Stage C contract (loose/structural types)
@@ -1205,48 +1211,6 @@ function throwFirstSettlementRejection(outcomes: PromiseSettledResult<unknown>[]
     (outcome): outcome is PromiseRejectedResult => outcome.status === "rejected",
   );
   if (rejected) throw rejected.reason;
-}
-
-/**
- * What the PASS-level lease reserves (DECISIONS D-10).
- *
- * In "request" mode it reserves ONE request maximum. That covers a pass that
- * settles without ever reaching the provider, and it is released the moment
- * the first request takes its own reservation, so live exposure stays at one
- * request maximum per in-flight call. In "pass" mode it reserves the
- * pre-remediation bound covering every request the pass could make, kept for
- * one release as a fallback.
- *
- * WS7 (D-20), 2026-09 review: "every request the pass could make" includes the
- * MIRRORED judge request under `THESIS_JUDGE_ORDER=both`. In "request" mode both
- * requests are admitted and settled individually, so the pass lease is still one
- * request maximum; in "pass" mode there is no per-request admission at all, and
- * two judge requests were sharing one reservation sized for one order.
- */
-function passReservationUsd(
-  model: string,
-  pass: DurablePass,
-  verifyCapability?: VerifyReservationCapability,
-): number {
-  // Subscription allowance is managed by the provider. This route cannot send
-  // API-key requests and reserves no USD; it retains durable launch gates.
-  if (parseSubscriptionModel(model)) return 0;
-  if (pass === "verify" && verifyCapability?.billable !== true) {
-    return maximumPassCostUsd(model, pass, verifyCapability);
-  }
-  return getConfig().reservationMode === "pass"
-    ? maximumPassCostUsd(model, pass, verifyCapability, judgeRequestsPerPass())
-    : maximumRequestCostUsd(model, pass, verifyCapability);
-}
-
-/** How many provider requests one judge pass issues under the setting in force. */
-function judgeRequestsPerPass(): 1 | 2 {
-  return JUDGE_PASSES_PER_SETTING[getConfig().judgeOrder];
-}
-
-/** Whether provider requests are admitted individually. */
-function usesRequestAdmission(): boolean {
-  return getConfig().reservationMode === "request";
 }
 
 function createSettlementCheckpoint<T>(
@@ -3281,6 +3245,29 @@ export async function runJob<TPayload = unknown>(
       );
     }
 
+    // -- paid budget feasibility (before the first paid request) -------------
+    // Admission refuses a request whose worst case does not fit what the job
+    // has spent and reserved under the caps, but only when the run reaches it,
+    // after every earlier pass has been paid for. Spend only grows during a
+    // run, so if the largest reservation the remaining work asks for does not
+    // fit now, it never will: launch nothing and finish the way any other
+    // prelaunch degradation does (a data-only report that adds no cost). Each
+    // entry path calls this before its first new paid request: a fresh run, a
+    // resumed run before its missing analyst side or judge, and a reused
+    // synthesize before verify. Retries keep the job's recorded cap (D-120), so
+    // a retry that cannot finish is refused here too instead of spending first.
+    const refuseUnaffordableRun = (work: RemainingPaidWork): RunJobResult | null => {
+      const blocked = largestPlannedReservation(
+        plannedPaidReservations(analysisModel, work, passes.verifyCapability),
+      );
+      if (blocked === null) return null;
+      const refusal = paidReservationCapRefusal(state.jobId, blocked.reservationUsd, state.schedulerLimits);
+      if (refusal === null) return null;
+      const reason = paidBudgetRefusalReason(blocked, refusal);
+      for (const step of LLM_STEPS) markSkipped(state, step, reason);
+      return persistDataOnly(state, bundle, validation, computed, now, hasKey, { reason });
+    };
+
     // -- synthesize (judge) + verify + assemble, with retry-on-Zod --
     // The rule: "on validation failure, retry with the error fed back (max 2
     // retries), then fail loudly." The judge/verify/assemble unit is retried as
@@ -3849,6 +3836,8 @@ export async function runJob<TPayload = unknown>(
     if (reusableSynthesize !== null) {
       markSkipped(state, "bull", "covered by reused durable synthesize artifact");
       markSkipped(state, "bear", "covered by reused durable synthesize artifact");
+      const refused = refuseUnaffordableRun({ analysts: [], synthesize: false, verify: true });
+      if (refused !== null) return refused;
       return await runSynthesisAndFinish(null, null, reusableSynthesize);
     }
 
@@ -4067,6 +4056,8 @@ export async function runJob<TPayload = unknown>(
           snapshot.costUsd,
         );
       }
+      const refused = refuseUnaffordableRun({ analysts: resumeMissingSides, synthesize: true, verify: true });
+      if (refused !== null) return refused;
       // Re-run ONLY the missing side(s) — the sibling's paid output is reused
       // (2026-07-10: one-sided analyst failures no longer discard the pair).
       let resumedBull = resumeSnapshots.bull;
@@ -4082,6 +4073,8 @@ export async function runJob<TPayload = unknown>(
     }
 
     // -- bull + bear ----------------------------------------------------------
+    const refused = refuseUnaffordableRun({ analysts: ["bull", "bear"], synthesize: true, verify: true });
+    if (refused !== null) return refused;
     // Per-pass timing comes from the hooks (the passes overlap in the
     // streaming path); ensureStepStarted backfills for hook-less mocks so a
     // step never jumps pending -> terminal.
