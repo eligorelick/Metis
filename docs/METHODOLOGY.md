@@ -773,6 +773,54 @@ first available of three sources:
 3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
    the year-one midpoint at the near-term growth rate.
 
+### Annual business, risk and operating-review section recovery
+
+Existing successful extractions keep priority. After an annual section is missing
+or remains a stub, complete standalone item headings may start a retry through
+the first following item heading, including intervening subsections. End
+headings need a later item number, regardless of title spelling; two- to
+four-cell item rows can end a section. Only a two-cell, one-row title
+table can establish its start; TOC links, multirow index tables and prose
+references cannot. For 20-F risk factors, an unlinked standalone “D. Risk Factors” or
+“Risk Factors” must lie inside proved Item 3 and Item 4 boundaries. Repeated
+Item 3 page headings do not move the risk start. An issuer-named Item 4 title
+also requires a matching contents entry pointing to that heading.
+
+An integrated 20-F reference table can redirect Item 3.D to one named risk
+chapter only when its item, caption, page link, contents entry and unique
+chapter destination agree. The four reference-table columns must mean item,
+Form 20-F caption/description, location in this document/report, and page(s).
+The nearest following destination in the same contents table must resolve to
+a matching standalone ending heading of the same element level, regardless of
+row order, including a following destination on the same printed page. Its title row
+must have the same cell position, nesting and explicit horizontal indentation
+as the risk row; ambiguous subsection structure is withheld. Continued risk
+headings stay inside the chapter.
+Repeated contents tables must prove the same source boundaries.
+Dispersed Item 4/5 mappings are withheld rather than reduced to one convenient
+location. A linked 10-K cross-reference index can supply Item 1 or Item 7 as
+disjoint page ranges only when every mapped range, numeric link and unique
+printed page is present and ordered. The complete item and its closing next-item
+row must be in one table, with page text only in the final column. A range is
+withheld when another item's index row also claims either endpoint page;
+whole-page slicing cannot prove which item's text occupies a shared page.
+An empty destination immediately before
+the named page's break is allowed. Overlapping intervals are merged; validated
+page footers and return-to-contents links are omitted from the body.
+
+These retries require balanced source markup and text nodes outside explicit
+hidden markup; stylesheets are not evaluated. They admit
+EDGAR's empty self-closing table-cell spacers only immediately before another
+cell or the row end. Missing or ambiguous proof preserves the extraction gap.
+EX-13 exhibit redirects retain priority over these retries. Structural parses
+are cached lazily on the shared parsed-document object's lifetime, including
+malformed parses. Interrupted parses are not cached. Recovery checks the
+annual filing's existing absolute extraction deadline during parsing and
+before accepting text; the existing elapsed gates still govern later sections.
+The existing 2,500-character minimum, incorporation-stub check and payload character
+limits remain in force. Successor issuers still use
+their own annual filings for section text.
+
 **Annual-note appendix redirects (D-138, report-53 Task 7, unreleased).** Ordinary annual Item 8/15 extraction keeps priority and its existing stub and next-item bounds. When it fails, a notes-only route can follow one Item 15 table bounded by the real Item 16 heading. Exactly one notes row with an F-page label and one Schedule II row with an S-page label must resolve to unique forward same-document targets and matching standalone headings, with a first note and at least the existing 2,500-character substantive-body threshold. F-8 and S-1 remain distinct namespaces. Raw HTML character bounds are validated before flattening their actual text nodes; signatures before the appendix, the linked schedule and exhibits do not enter the result. Repeated notes headers and prose references, including paragraphs beginning with full schedule/exhibit/Item 16 titles, do not terminate the validated interval. A first-12,000-character statement prefix is optional and requires a separately proved Consolidated Balance Sheets target from that same index, after Item 16 and before notes, without intervening signature/appendix headings.
 
 The distinct `annual-notes-index-redirect` method and optional `annualNotesRedirect` record retain validated identifiers, namespaced page labels and source bounds as **original HTML UTF-16 character offsets**, not bytes or preprocessed-text positions. Legacy sections need no new field. Original quote-aware tokens are read before comments/script/style removal; hidden attributes/ancestors, simple inline display/visibility hiding, attribute-only titles and missing/broken/duplicate/ambiguous relationships cannot confer redirect proof. This deliberately narrow route requires balanced explicit markup, headings in h1–h6/p/div outside tables, separate title/page cells, simple fragment IDs and no nonvoid self-closing or unsupported raw/fallback modes. It does not repair HTML, evaluate stylesheets or claim universal browser visibility; unsupported cases retain the existing warn-level gap. It uses already acquired primary HTML, with no extra fetch or new 2M source cap, under the unchanged annual elapsed-budget gates. Shared preprocessing, numeric TOCs and existing successful producer routes are unchanged. The older ordinary text-only annual trimmer retains its case-sensitive schedule regex and possible embedded-reference truncation; this fix makes no universal ordinary-path boundary claim. Regression markup is synthetic source-derived structure, not an exact retained QCOM filing or original report-53 replay. No financial arithmetic or report-state policy changes are made.

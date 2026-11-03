@@ -678,6 +678,7 @@ describe("public release contract", () => {
     const edgarTests = [
       read("tests/edgar.client.test.ts"),
       read("tests/edgar.extract.test.ts"),
+      read("tests/edgar.sectionRecovery.test.ts"),
       read("tests/edgar.xbrl.test.ts"),
       // WS4: the hand-built three-class companyfacts payload the multi-class
       // share-count tests read.
@@ -712,8 +713,9 @@ describe("public release contract", () => {
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
     // R8 adds one referenced public 8-K item; D-171 one trimmed public TSMC 20-F
-    // excerpt (unlettered Risk Factors); no private run artifact is shipped.
-    expect(edgarFixtures).toHaveLength(53);
+    // excerpt (unlettered Risk Factors); Q6 adds eight trimmed public annual
+    // section layouts. No private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(61);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
